@@ -3,49 +3,68 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/lib/auth';
+import { usePermissions } from '@/lib/permissions';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface BadgeView { id: string; name: string; description: string; type: number; courseid: string; status: number }
-interface IssuedView { id: string; badgeid: string; uniquehash: string; dateissued: string; dateexpire: string | null; revoked: boolean }
+/** Huy hiệu (BadgeRow ở tầng API) như trang này cần để hiển thị. */
+interface BadgeView { id: string; name: string; description: string; type: number; courseid: string | null; status: number }
 
-/** Nhãn trạng thái huy hiệu dịch qua catalog ở thời điểm render (xem hook trong component). */
+/** Bản ghi đã cấp (IssuedRow ở tầng API): bằng chứng bất biến của một lần cấp. */
+interface IssuedView { id: string; badgeid: string; userid: string; uniquehash: string; dateissued: string; dateexpire: string | null; revoked: boolean }
 
 /**
- * Badges: "my badges" (immutable assertions, revoked ones stay
- * visible) plus a staff panel to create site badges, attach a
- * course-completion criterion and activate them. Criteria of an active
- * badge are frozen server-side; the panel surfaces that refusal.
+ * Một dòng của GET /badges/mine: bản ghi đã cấp kèm chính huy hiệu lồng
+ * bên trong (badges.service listMyBadges trả `IssuedRow & { badge }`) —
+ * tên huy hiệu lấy thẳng từ đây, danh sách /badges chỉ còn là nguồn dự
+ * phòng khi bản ghi thiếu badge lồng.
+ */
+interface MyBadgeView extends IssuedView { badge?: BadgeView }
+
+/**
+ * Trang huy hiệu: "huy hiệu của tôi" (từ GET /badges/mine — server tự suy
+ * người dùng từ phiên đăng nhập, không còn endpoint theo userId) hiện cho
+ * mọi người dùng; panel quản trị (tạo badge, đặt tiêu chí, kích hoạt qua
+ * POST /badges/:id/status, xem danh sách đã cấp của một badge qua
+ * GET /badges/:id/issued) chỉ render khi usePermissions().canAdminister.
+ * Tiêu chí của huy hiệu đang hoạt động bị đóng băng phía server; panel
+ * chỉ hiển thị kết quả từ chối đó.
  */
 export function BadgesPage() {
   const { t } = useTranslation('app');
   const STATUS_LABEL: Record<number, string> = {
     0: t('badgeStatusInactive'), 1: t('badgeStatusActive'), 2: t('badgeStatusRetired'), 3: t('badgeStatusArchived'), 4: t('badgeStatusDisabled'),
   };
-  const { user } = useAuth();
-  const [mine, setMine] = useState<IssuedView[]>([]);
+  const { canAdminister } = usePermissions();
+  const [mine, setMine] = useState<MyBadgeView[]>([]);
   const [all, setAll] = useState<BadgeView[]>([]);
   const [name, setName] = useState('');
   const [criteriaBadgeId, setCriteriaBadgeId] = useState('');
   const [criteriaCourseId, setCriteriaCourseId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [issuedBadgeId, setIssuedBadgeId] = useState<string | null>(null);
+  const [issuedList, setIssuedList] = useState<IssuedView[]>([]);
+  const [issuedError, setIssuedError] = useState<string | null>(null);
 
+  /**
+   * Nạp lại huy hiệu của tôi và (chỉ để tra tên dự phòng + panel quản trị)
+   * danh sách mọi huy hiệu. Huy hiệu của tôi luôn qua /badges/mine.
+   */
   const reload = useCallback(async () => {
     const badges = await apiJson<BadgeView[]>('/api/v1/badges');
     setAll(badges);
-    if (user) {
-      const issued = await apiJson<IssuedView[]>(`/api/v1/badges/users/${user.id}/issued`);
-      setMine(issued);
-    }
-  }, [user]);
+    const issued = await apiJson<MyBadgeView[]>('/api/v1/badges/mine');
+    setMine(issued);
+  }, []);
 
-  useEffect(() => { void reload().catch(() => setError(t('badgesLoadFailed'))); }, [reload]);
+  useEffect(() => { void reload().catch(() => setError(t('badgesLoadFailed'))); }, [reload, t]);
 
-  const badgeName = (id: string) => all.find((b) => b.id === id)?.name ?? t('badgeFallback', { id });
+  /** Tên huy hiệu của một bản ghi đã cấp: ưu tiên badge lồng trong /mine. */
+  const badgeName = (entry: MyBadgeView) => entry.badge?.name ?? all.find((b) => b.id === entry.badgeid)?.name ?? t('badgeFallback', { id: entry.badgeid });
 
+  /** Tạo một site badge mới (panel quản trị). */
   async function createBadge(event: FormEvent) {
     event.preventDefault();
     try {
@@ -56,6 +75,7 @@ export function BadgesPage() {
     } catch { setMessage(t('badgeCreateFailed')); }
   }
 
+  /** Đặt tiêu chí hoàn thành khoá học cho một badge (panel quản trị). */
   async function setCriteria(event: FormEvent) {
     event.preventDefault();
     try {
@@ -68,13 +88,33 @@ export function BadgesPage() {
     } catch { setMessage(t('criteriaRefused')); }
   }
 
+  /** Kích hoạt badge: đổi trạng thái qua POST /badges/:id/status với { status: 1 }. */
   async function activate(id: string) {
     try {
-      await apiJson(`/api/v1/badges/${id}/activate`, { method: 'POST', body: '{}' });
+      await apiJson(`/api/v1/badges/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 1 }) });
       setMessage(t('badgeActivated'));
       await reload();
     } catch { setMessage(t('badgeActivationRefused')); }
   }
+
+  /** Xem (hoặc ẩn) danh sách đã cấp của một badge qua GET /badges/:id/issued. */
+  async function toggleIssued(badge: BadgeView) {
+    if (issuedBadgeId === badge.id) {
+      setIssuedBadgeId(null);
+      setIssuedList([]);
+      return;
+    }
+    setIssuedError(null);
+    try {
+      const rows = await apiJson<IssuedView[]>(`/api/v1/badges/${badge.id}/issued`);
+      setIssuedList(rows);
+      setIssuedBadgeId(badge.id);
+    } catch {
+      setIssuedError(t('issuedLoadFailed'));
+    }
+  }
+
+  const issuedBadgeName = all.find((b) => b.id === issuedBadgeId)?.name ?? '';
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
@@ -85,7 +125,7 @@ export function BadgesPage() {
           <ul className="space-y-2" aria-label={t('myBadgesLabel')}>
             {mine.map((i) => (
               <li key={i.id} className="rounded border p-2">
-                <p className="font-medium">{badgeName(i.badgeid)}{i.revoked ? ` ${t('revokedSuffix')}` : ''}</p>
+                <p className="font-medium">{badgeName(i)}{i.revoked ? ` ${t('revokedSuffix')}` : ''}</p>
                 <p className="text-xs text-muted-foreground">
                   {t('issuedLine', { date: new Date(i.dateissued).toLocaleDateString(), hash: i.uniquehash.slice(0, 12) })}
                   {i.dateexpire ? ` ${t('expiresSuffix', { date: new Date(i.dateexpire).toLocaleDateString() })}` : ''}
@@ -96,33 +136,53 @@ export function BadgesPage() {
           </ul>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader><CardTitle>{t('badgeAdministration')}</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {message ? <p>{message}</p> : null}
-          <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
-            {all.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 text-sm">
-                <span className="font-medium">{b.name}</span>
-                <span>{STATUS_LABEL[b.status] ?? b.status}</span>
-                {b.status === 0 ? <Button type="button" variant="outline" onClick={() => void activate(b.id)}>{t('activate')}</Button> : null}
-              </li>
-            ))}
-          </ul>
-          <form onSubmit={(e) => void createBadge(e)} className="flex gap-2">
-            <Label htmlFor="badge-name">{t('badgeName')}</Label>
-            <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
-            <Button type="submit">{t('createBadge')}</Button>
-          </form>
-          <form onSubmit={(e) => void setCriteria(e)} className="flex flex-wrap gap-2">
-            <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
-            <Input id="criteria-badge" value={criteriaBadgeId} onChange={(e) => setCriteriaBadgeId(e.target.value)} />
-            <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
-            <Input id="criteria-course" value={criteriaCourseId} onChange={(e) => setCriteriaCourseId(e.target.value)} />
-            <Button type="submit">{t('setCriteriaAll')}</Button>
-          </form>
-        </CardContent>
-      </Card>
+      {canAdminister ? (
+        <Card>
+          <CardHeader><CardTitle>{t('badgeAdministration')}</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {message ? <p>{message}</p> : null}
+            <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
+              {all.map((b) => (
+                <li key={b.id} className="flex items-center gap-3 text-sm">
+                  <span className="font-medium">{b.name}</span>
+                  <span>{STATUS_LABEL[b.status] ?? b.status}</span>
+                  {b.status === 0 ? <Button type="button" variant="outline" onClick={() => void activate(b.id)}>{t('activate')}</Button> : null}
+                  <Button type="button" variant="outline" onClick={() => void toggleIssued(b)}>
+                    {issuedBadgeId === b.id ? t('hideIssued') : t('viewIssued')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {issuedError ? <p role="alert">{issuedError}</p> : null}
+            {issuedBadgeId ? (
+              <div className="space-y-2">
+                <p className="font-medium">{t('issuedListTitle', { name: issuedBadgeName })}</p>
+                <ul className="space-y-1" aria-label={t('issuedListTitle', { name: issuedBadgeName })}>
+                  {issuedList.map((i) => (
+                    <li key={i.id} className="rounded border p-2 text-sm">
+                      <p>{t('issuedToLine', { userId: i.userid, date: new Date(i.dateissued).toLocaleDateString() })}{i.revoked ? ` ${t('revokedSuffix')}` : ''}</p>
+                      <p className="text-xs text-muted-foreground">{t('issuedLine', { date: new Date(i.dateissued).toLocaleDateString(), hash: i.uniquehash.slice(0, 12) })}</p>
+                    </li>
+                  ))}
+                  {issuedList.length === 0 ? <li>{t('noIssuedYet')}</li> : null}
+                </ul>
+              </div>
+            ) : null}
+            <form onSubmit={(e) => void createBadge(e)} className="flex gap-2">
+              <Label htmlFor="badge-name">{t('badgeName')}</Label>
+              <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Button type="submit">{t('createBadge')}</Button>
+            </form>
+            <form onSubmit={(e) => void setCriteria(e)} className="flex flex-wrap gap-2">
+              <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
+              <Input id="criteria-badge" value={criteriaBadgeId} onChange={(e) => setCriteriaBadgeId(e.target.value)} />
+              <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
+              <Input id="criteria-course" value={criteriaCourseId} onChange={(e) => setCriteriaCourseId(e.target.value)} />
+              <Button type="submit">{t('setCriteriaAll')}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
     </main>
   );
 }

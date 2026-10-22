@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/lib/auth';
+import { PermissionsProvider } from '@/lib/permissions';
 import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
 
@@ -64,20 +65,25 @@ describe('Badges page', () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     stubFetch((url) => {
       if (url === '/api/v1/users/me') return PROFILE;
+      // Điểm dò quyền của PermissionsProvider: học viên thường bị từ chối
+      // (404 → probe null) nên panel quản trị phải ẩn, phần của tôi vẫn hiện.
+      if (url === '/api/v1/courses') return [];
       if (url === '/api/v1/badges') return [
         { id: '01900000-0000-7000-8000-000000000002', name: 'Finisher', description: '', type: 1, courseid: null, status: 1 },
         { id: '01900000-0000-7000-8000-000000000003', name: 'Old honour', description: '', type: 1, courseid: null, status: 3 },
       ];
-      if (url === '/api/v1/badges/users/01900000-0000-7000-8000-000000000007/issued') return [
-        { id: '01900000-0000-7000-8000-000000000011', badgeid: '01900000-0000-7000-8000-000000000002', uniquehash: 'abcdef0123456789', dateissued: '2026-10-20T00:00:00.000Z', dateexpire: null, revoked: false },
-        { id: '01900000-0000-7000-8000-000000000012', badgeid: '01900000-0000-7000-8000-000000000003', uniquehash: '0011223344556677', dateissued: '2026-09-01T00:00:00.000Z', dateexpire: null, revoked: true },
+      // Shape thật của GET /badges/mine: IssuedRow kèm badge lồng bên trong.
+      if (url === '/api/v1/badges/mine') return [
+        { id: '01900000-0000-7000-8000-000000000011', badgeid: '01900000-0000-7000-8000-000000000002', userid: PROFILE.id, uniquehash: 'abcdef0123456789', dateissued: '2026-10-20T00:00:00.000Z', dateexpire: null, revoked: false, badge: { id: '01900000-0000-7000-8000-000000000002', name: 'Finisher', description: '', type: 1, courseid: null, status: 1 } },
+        { id: '01900000-0000-7000-8000-000000000012', badgeid: '01900000-0000-7000-8000-000000000003', userid: PROFILE.id, uniquehash: '0011223344556677', dateissued: '2026-09-01T00:00:00.000Z', dateexpire: null, revoked: true, badge: { id: '01900000-0000-7000-8000-000000000003', name: 'Old honour', description: '', type: 1, courseid: null, status: 3 } },
       ];
       return undefined;
     });
     const router = createMemoryRouter([{ path: '/badges', element: <BadgesPage /> }], { initialEntries: ['/badges'] });
-    render(<AuthProvider><RouterProvider router={router} /></AuthProvider>);
+    render(<AuthProvider><PermissionsProvider><RouterProvider router={router} /></PermissionsProvider></AuthProvider>);
     // Wait for the issued list itself (it loads after the auth profile resolves).
     expect(await screen.findByText(/Old honour \(đã thu hồi\)/)).toBeInTheDocument();
     expect(screen.getByText(/bản ghi abcdef012345/)).toBeInTheDocument();
+    expect(screen.queryByText('Quản trị huy hiệu')).not.toBeInTheDocument();
   });
 });
