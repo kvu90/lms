@@ -5,6 +5,9 @@ import { Button } from './components/ui/button';
 import { AuthProvider, useAuth } from './lib/auth';
 import { AdminRolesPage } from './pages/admin-roles';
 import { AdminUsersPage } from './pages/admin-users';
+import { CoursePage } from './pages/course';
+import { CourseAdminPage } from './pages/course-admin';
+import { CoursesPage } from './pages/courses';
 import { HealthPage } from './pages/health';
 import { HomePage } from './pages/home';
 import { LoginPage } from './pages/login';
@@ -19,6 +22,7 @@ function Shell() {
         <Link to="/" className="font-semibold">LMS</Link>
         <nav className="flex gap-3 text-sm">
           <Link to="/profile">Profile</Link>
+          <Link to="/courses">Courses</Link>
           <Link to="/admin/users">Users</Link>
           <Link to="/admin/roles">Roles</Link>
           <Link to="/health">Health</Link>
@@ -49,6 +53,9 @@ const router = createBrowserRouter([
       { path: '/profile', element: <ProfilePage /> },
       { path: '/admin/users', element: <AdminUsersPage /> },
       { path: '/admin/roles', element: <AdminRolesPage /> },
+      { path: '/courses', element: <CoursesPage /> },
+      { path: '/courses/:id', element: <CoursePage /> },
+      { path: '/courses/:id/admin', element: <CourseAdminPage /> },
     ],
   },
 ]);
