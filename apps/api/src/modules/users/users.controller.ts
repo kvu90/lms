@@ -42,6 +42,17 @@ export class UsersController {
    */
   async me(@CurrentUser() viewer: AuthenticatedUser) { return this.users.getProfileView(viewer.id, viewer.id); }
 
+  @Get('me/capabilities')
+  /**
+   * GET /users/me/capabilities — quyền của chính người đang đăng nhập:
+   * cờ site admin, các gán vai trò theo context và capability đã phân
+   * giải tại các context liên quan. Chỉ trả dữ liệu của người gọi (không
+   * nhận tham số user), không cần capability quản trị.
+   */
+  async myCapabilities(@CurrentUser() viewer: AuthenticatedUser) {
+    return this.users.getMyAccess(viewer.id, { isGuest: viewer.username === 'guest' });
+  }
+
   @Get(':id')
   @RequireCapability('moodle/user:viewdetails', 'param:userId:userctx')
   /**

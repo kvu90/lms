@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
+import { adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName } from './identity-access-helpers';
 
 /**
  * Users & profile flow tests.
@@ -93,5 +93,70 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(guest).toBeTruthy();
     const del = await http(app).delete(`/api/v1/users/${guest!.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(400);
+  });
+});
+
+/**
+ * Self-service access view (GET /users/me/capabilities).
+ * Oracle: Access subsystem (blueprint §2#1 + report §3.3) — capability
+ * resolution is the PermissionEvaluator's job; this endpoint only exposes
+ * the CALLER's own resolved view (site-admin flag, role assignments with
+ * context info, resolved capabilities per related context) so clients
+ * render exactly what the user can operate instead of probing endpoints.
+ * It takes no user parameter: another user's data is unreachable here.
+ */
+describe('Users: self-service capabilities view', () => {
+  let app: INestApplication;
+  let admin: string;
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
+  afterAll(async () => { await app.close(); });
+
+  it('a plain user sees their own assignments and resolved capabilities, and nothing of anyone else', async () => {
+    const systemId = await systemContextId(app, admin);
+    const alice = await createUserViaApi(app, admin);
+    const bob = await createUserViaApi(app, admin);
+    const studentRole = await roleIdByShortname(app, admin, 'student');
+    await assignRole(app, admin, alice.id, studentRole, systemId);
+    // Bob gets a distinctive custom role; it must never leak into Alice's view.
+    const bobRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, bob.id, bobRole, systemId);
+
+    const { accessToken } = await login(app, alice.username, STRONG_PASSWORD);
+    const res = await http(app).get('/api/v1/users/me/capabilities').set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.userId).toBe(alice.id);
+    expect(res.body.isSiteAdmin).toBe(false);
+
+    const mine = (res.body.assignments as { roleId: string; contextId: string }[]);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ roleId: studentRole, contextId: systemId });
+    expect((res.body.assignments as { roleId: string }[]).some((a) => a.roleId === bobRole)).toBe(false);
+    const assignment = (res.body.assignments as { roleShortname: string; contextLevel: number; contextPath: string }[])[0]!;
+    expect(assignment.roleShortname).toBe('student');
+    expect(assignment.contextLevel).toBe(10);
+    expect(assignment.contextPath).toContain(systemId);
+
+    const systemView = (res.body.contexts as { contextId: string; capabilities: string }[])
+      .find((c) => c.contextId === systemId);
+    expect(systemView).toBeDefined();
+    // Student archetype resolves at the system context; admin-only caps do not.
+    expect(systemView!.capabilities).toContain('lms/files:view');
+    expect(systemView!.capabilities).not.toContain('moodle/site:config');
+  });
+
+  it('the site admin sees isSiteAdmin=true and the full capability set at the system context', async () => {
+    const res = await http(app).get('/api/v1/users/me/capabilities').set('Authorization', `Bearer ${admin}`);
+    expect(res.status).toBe(200);
+    expect(res.body.isSiteAdmin).toBe(true);
+    const systemView = (res.body.contexts as { contextLevel: number; capabilities: string }[])
+      .find((c) => c.contextLevel === 10);
+    expect(systemView).toBeDefined();
+    expect(systemView!.capabilities).toContain('moodle/site:config');
+    expect(systemView!.capabilities).toContain('moodle/course:view');
+  });
+
+  it('requires authentication', async () => {
+    const res = await http(app).get('/api/v1/users/me/capabilities');
+    expect(res.status).toBe(401);
   });
 });
