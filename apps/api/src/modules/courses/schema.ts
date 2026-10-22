@@ -1,32 +1,39 @@
 /** Các bảng của bounded context Courses — định nghĩa Drizzle do module courses sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
   text,
   timestamp,
   unique,
+  uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. */
 export const courseCategories = pgTable('course_categories', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   idnumber: text('idnumber'),
   description: text('description').notNull().default(''),
-  parent: integer('parent').notNull().default(0),
+  parent: uuid('parent'),
   sortorder: integer('sortorder').notNull().default(0),
   path: text('path').notNull().default(''),
   depth: integer('depth').notNull().default(1),
   visible: boolean('visible').notNull().default(true),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('course_categories_parent_idx').on(table.parent),
+  ]);
+
 
 /** Courses (Moodle `course`). groupmode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS. */
 export const course = pgTable('course', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  category: integer('category').notNull().references(() => courseCategories.id, { onDelete: 'cascade' }),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  category: uuid('category').notNull().references(() => courseCategories.id, { onDelete: 'cascade' }),
   fullname: text('fullname').notNull(),
   shortname: text('shortname').notNull().unique(),
   idnumber: text('idnumber').notNull().default(''),
@@ -40,14 +47,18 @@ export const course = pgTable('course', {
   sortorder: integer('sortorder').notNull().default(0),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('course_category_idx').on(table.category),
+  ]);
+
 
 /** Course sections (Moodle `course_sections`). `availability` is the AvailabilityTree JSON (report §2#10). */
 export const courseSections = pgTable(
   'course_sections',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    course: uuid('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
     section: integer('section').notNull().default(0),
     name: text('name'),
     summary: text('summary').notNull().default(''),
@@ -65,11 +76,11 @@ export const courseSections = pgTable(
  * completion: 0=none, 1=manual, 2=automatic. groupmode 0 inherits course mode.
  */
 export const courseModules = pgTable('course_modules', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
-  section: integer('section').notNull().references(() => courseSections.id, { onDelete: 'cascade' }),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  course: uuid('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  section: uuid('section').notNull().references(() => courseSections.id, { onDelete: 'cascade' }),
   component: text('component').notNull(),
-  instanceid: integer('instanceid').notNull().default(0),
+  instanceid: uuid('instanceid'),
   name: text('name').notNull().default(''),
   visible: boolean('visible').notNull().default(true),
   groupmode: integer('groupmode').notNull().default(0),
@@ -81,18 +92,24 @@ export const courseModules = pgTable('course_modules', {
   completionexpected: timestamp('completionexpected', { withTimezone: true }),
   deletioninprogress: boolean('deletioninprogress').notNull().default(false),
   added: timestamp('added', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('course_modules_course_idx').on(table.course),
+      index('course_modules_instanceid_idx').on(table.instanceid),
+  ]);
+
 
 /** Per-course format options (Moodle `course_format_options`). */
 export const courseFormatOptions = pgTable(
   'course_format_options',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
     format: text('format').notNull(),
-    sectionid: integer('sectionid').notNull().default(0),
+    sectionid: uuid('sectionid'),
     name: text('name').notNull(),
     value: text('value'),
   },
-  (table) => [unique('course_format_options_unique').on(table.courseid, table.format, table.sectionid, table.name)],
+  (table) => [
+      index('course_format_options_sectionid_idx').on(table.sectionid),unique('course_format_options_unique').on(table.courseid, table.format, table.sectionid, table.name)],
 );

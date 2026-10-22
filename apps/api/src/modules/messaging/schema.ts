@@ -1,37 +1,46 @@
 /** Các bảng của bounded context Messaging & Notifications — định nghĩa Drizzle do module messaging sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
+  index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
+  uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /** Conversations (Moodle `message_conversations`). type: 1=individual, 2=group, 3=self. */
 export const messageConversations = pgTable('message_conversations', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: integer('type').notNull().default(1),
   name: text('name'),
   component: text('component'),
   itemtype: text('itemtype'),
-  itemid: integer('itemid').notNull().default(0),
-  contextid: integer('contextid'),
+  itemid: uuid('itemid'),
+  contextid: uuid('contextid'),
   enabled: boolean('enabled').notNull().default(true),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('message_conversations_itemid_idx').on(table.itemid),
+      index('message_conversations_contextid_idx').on(table.contextid),
+  ]);
+
 
 /** Conversation membership (Moodle `message_conversation_members`). */
 export const messageConversationMembers = pgTable(
   'message_conversation_members',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    conversationid: integer('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
-    userid: integer('userid').notNull(),
+    conversationid: uuid('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+    userid: uuid('userid').notNull(),
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('message_conversation_members_unique').on(table.conversationid, table.userid)],
+  (table) => [
+      index('message_conversation_members_userid_idx').on(table.userid),primaryKey({ columns: [table.conversationid, table.userid] })],
 );
 
 /**
@@ -41,26 +50,31 @@ export const messageConversationMembers = pgTable(
  * `timeread` is the recipient-side read marker used for unread counts.
  */
 export const message = pgTable('message', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  conversationid: integer('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
-  useridfrom: integer('useridfrom').notNull(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  conversationid: uuid('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+  useridfrom: uuid('useridfrom').notNull(),
   subject: text('subject').notNull().default(''),
   fullmessage: text('fullmessage').notNull().default(''),
   smallmessage: text('smallmessage').notNull().default(''),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timeread: timestamp('timeread', { withTimezone: true }),
-});
+},
+  (table) => [
+      index('message_conversationid_idx').on(table.conversationid),
+      index('message_useridfrom_idx').on(table.useridfrom),
+  ]);
+
 
 /** Blocked contacts (Moodle `message_users_blocked`): userid blocks blockeduserid from contacting them. */
 export const messageUsersBlocked = pgTable(
   'message_users_blocked',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    userid: integer('userid').notNull(),
-    blockeduserid: integer('blockeduserid').notNull(),
+    userid: uuid('userid').notNull(),
+    blockeduserid: uuid('blockeduserid').notNull(),
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('message_users_blocked_unique').on(table.userid, table.blockeduserid)],
+  (table) => [
+      index('message_users_blocked_blockeduserid_idx').on(table.blockeduserid),primaryKey({ columns: [table.userid, table.blockeduserid] })],
 );
 
 /**
@@ -69,9 +83,9 @@ export const messageUsersBlocked = pgTable(
  * provider (component + eventtype) and delivered per user preference.
  */
 export const notifications = pgTable('notifications', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  useridfrom: integer('useridfrom'),
-  useridto: integer('useridto').notNull(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  useridfrom: uuid('useridfrom'),
+  useridto: uuid('useridto').notNull(),
   subject: text('subject').notNull().default(''),
   fullmessage: text('fullmessage').notNull().default(''),
   smallmessage: text('smallmessage').notNull().default(''),
@@ -81,7 +95,12 @@ export const notifications = pgTable('notifications', {
   contexturlname: text('contexturlname'),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timeread: timestamp('timeread', { withTimezone: true }),
-});
+},
+  (table) => [
+      index('notifications_useridfrom_idx').on(table.useridfrom),
+      index('notifications_useridto_idx').on(table.useridto),
+  ]);
+
 
 /**
  * Per-channel dispatch log for notifications. The in-app (popup) channel is
@@ -92,9 +111,9 @@ export const notifications = pgTable('notifications', {
 export const notificationDispatchLog = pgTable(
   'notification_dispatch_log',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    notificationid: integer('notificationid'),
-    userid: integer('userid').notNull(),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    notificationid: uuid('notificationid'),
+    userid: uuid('userid').notNull(),
     provider: text('provider').notNull(),
     channel: text('channel').notNull(),
     status: text('status').notNull(),
@@ -102,5 +121,7 @@ export const notificationDispatchLog = pgTable(
     dedupekey: text('dedupekey'),
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('notification_dispatch_log_dedupe_unique').on(table.dedupekey)],
+  (table) => [
+      index('notification_dispatch_log_notificationid_idx').on(table.notificationid),
+      index('notification_dispatch_log_userid_idx').on(table.userid),unique('notification_dispatch_log_dedupe_unique').on(table.dedupekey)],
 );

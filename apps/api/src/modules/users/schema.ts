@@ -1,16 +1,17 @@
 /** Các bảng của bounded context Users — định nghĩa Drizzle do module users sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
-  integer,
   pgTable,
   text,
   timestamp,
   unique,
+  uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /** Users (Moodle `user` → `users`, reserved-word rename per report §3.2). Soft delete keeps the row (deleted=1). */
 export const users = pgTable('users', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
   username: text('username').notNull().unique(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
@@ -29,8 +30,8 @@ export const users = pgTable('users', {
 export const userPreferences = pgTable(
   'user_preferences',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    userid: integer('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    userid: uuid('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     value: text('value'),
   },

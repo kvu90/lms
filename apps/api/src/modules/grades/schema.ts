@@ -2,23 +2,30 @@
 import {
   boolean,
   doublePrecision,
+  index,
   integer,
   pgTable,
   text,
   timestamp,
   unique,
+  uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 
 /** Scales (Moodle `scale`): courseid 0 = site scale. `scale` is a comma-separated list of values, lowest first. */
 export const scales = pgTable('scales', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  courseid: integer('courseid').notNull().default(0),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseid: uuid('courseid'),
   name: text('name').notNull(),
   scale: text('scale').notNull().default(''),
   description: text('description').notNull().default(''),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('scales_courseid_idx').on(table.courseid),
+  ]);
+
 
 /**
  * Grade categories form a tree per course (Moodle `grade_categories`).
@@ -27,9 +34,9 @@ export const scales = pgTable('scales', {
  * (course total: itemtype='course'), exactly like Moodle.
  */
 export const gradeCategories = pgTable('grade_categories', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
-  parent: integer('parent'),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  parent: uuid('parent'),
   fullname: text('fullname').notNull().default(''),
   aggregation: text('aggregation').notNull().default('natural'),
   droplow: integer('droplow').notNull().default(0),
@@ -39,7 +46,12 @@ export const gradeCategories = pgTable('grade_categories', {
   path: text('path').notNull().default(''),
   hidden: boolean('hidden').notNull().default(false),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-});
+},
+  (table) => [
+      index('grade_categories_courseid_idx').on(table.courseid),
+      index('grade_categories_parent_idx').on(table.parent),
+  ]);
+
 
 /**
  * Grade items (Moodle `grade_items`). itemtype: course|category|manual|mod.
@@ -51,18 +63,18 @@ export const gradeCategories = pgTable('grade_categories', {
 export const gradeItems = pgTable(
   'grade_items',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
-    categoryid: integer('categoryid').references(() => gradeCategories.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    categoryid: uuid('categoryid').references(() => gradeCategories.id, { onDelete: 'cascade' }),
     itemname: text('itemname').notNull().default(''),
     itemtype: text('itemtype').notNull().default('manual'),
     itemmodule: text('itemmodule'),
-    iteminstance: integer('iteminstance').notNull().default(0),
+    iteminstance: uuid('iteminstance'),
     gradetype: text('gradetype').notNull().default('value'),
     grademax: doublePrecision('grademax').notNull().default(100),
     grademin: doublePrecision('grademin').notNull().default(0),
     gradepass: doublePrecision('gradepass').notNull().default(0),
-    scaleid: integer('scaleid').references(() => scales.id, { onDelete: 'set null' }),
+    scaleid: uuid('scaleid').references(() => scales.id, { onDelete: 'set null' }),
     weightoverride: boolean('weightoverride').notNull().default(false),
     aggregationcoef: doublePrecision('aggregationcoef').notNull().default(0),
     extracredit: boolean('extracredit').notNull().default(false),
@@ -74,7 +86,10 @@ export const gradeItems = pgTable(
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
     timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('grade_items_course_type_instance_unique').on(table.courseid, table.itemtype, table.iteminstance, table.itemmodule)],
+  (table) => [
+      index('grade_items_categoryid_idx').on(table.categoryid),
+      index('grade_items_iteminstance_idx').on(table.iteminstance),
+      index('grade_items_scaleid_idx').on(table.scaleid),unique('grade_items_course_type_instance_unique').on(table.courseid, table.itemtype, table.iteminstance, table.itemmodule)],
 );
 
 /**
@@ -87,9 +102,9 @@ export const gradeItems = pgTable(
 export const gradeGrades = pgTable(
   'grade_grades',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    itemid: integer('itemid').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
-    userid: integer('userid').notNull(),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    itemid: uuid('itemid').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
+    userid: uuid('userid').notNull(),
     rawgrade: doublePrecision('rawgrade'),
     rawgrademax: doublePrecision('rawgrademax').notNull().default(100),
     rawgrademin: doublePrecision('rawgrademin').notNull().default(0),
@@ -107,16 +122,17 @@ export const gradeGrades = pgTable(
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
     timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('grade_grades_item_user_unique').on(table.itemid, table.userid)],
+  (table) => [
+      index('grade_grades_userid_idx').on(table.userid),unique('grade_grades_item_user_unique').on(table.itemid, table.userid)],
 );
 
 /** Grade change history (Moodle `grade_grades_history`). action: 1=insert, 2=update, 3=delete. */
 export const gradeGradesHistory = pgTable('grade_grades_history', {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
   action: integer('action').notNull().default(2),
-  oldid: integer('oldid'),
-  itemid: integer('itemid').notNull(),
-  userid: integer('userid').notNull(),
+  oldid: uuid('oldid'),
+  itemid: uuid('itemid').notNull(),
+  userid: uuid('userid').notNull(),
   rawgrade: doublePrecision('rawgrade'),
   finalgrade: doublePrecision('finalgrade'),
   overridden: boolean('overridden').notNull().default(false),
@@ -124,15 +140,22 @@ export const gradeGradesHistory = pgTable('grade_grades_history', {
   frozen: boolean('frozen').notNull().default(false),
   source: text('source'),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-  loggeduser: integer('loggeduser'),
-});
+  loggeduser: uuid('loggeduser'),
+},
+  (table) => [
+      index('grade_grades_history_oldid_idx').on(table.oldid),
+      index('grade_grades_history_itemid_idx').on(table.itemid),
+      index('grade_grades_history_userid_idx').on(table.userid),
+      index('grade_grades_history_loggeduser_idx').on(table.loggeduser),
+  ]);
+
 
 /** Grade letters per context (Moodle `grade_letters`): letter applies when percentage >= lowerboundary. */
 export const gradeLetters = pgTable(
   'grade_letters',
   {
-    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-    contextid: integer('contextid').notNull(),
+    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    contextid: uuid('contextid').notNull(),
     lowerboundary: doublePrecision('lowerboundary').notNull(),
     letter: text('letter').notNull(),
   },
