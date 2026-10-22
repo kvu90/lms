@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
+import { SiteConfigModule } from '../site-config/site-config.module';
 import { UsersModule } from '../users/users.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
 import { MessagingRepository } from './messaging.repository';
@@ -14,7 +15,7 @@ import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.servi
  */
 @Module({
   imports: [
-    AccessModule, UsersModule, EventsModule,
+    AccessModule, UsersModule, EventsModule, SiteConfigModule,
     BullModule.registerQueue({ name: NOTIFICATION_DISPATCH_QUEUE }),
   ],
   controllers: [MessagingController, NotificationsController],

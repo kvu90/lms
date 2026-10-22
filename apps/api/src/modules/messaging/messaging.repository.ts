@@ -1,16 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  message, messageConversationMembers, messageConversations, messageUsersBlocked,
-  notificationDispatchLog, notifications,
+  courseGroups, enrol, groupsMembers,
+  message, messageContacts, messageConversationMembers, messageConversations, messageUsersBlocked,
+  notificationDispatchLog, notifications, userEnrolments,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
 export type MessageRow = typeof message.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
+export type ContactRow = typeof messageContacts.$inferSelect;
+export type CourseGroupRow = typeof courseGroups.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -38,6 +41,14 @@ export class MessagingRepository {
    */
   async addMember(conversationid: string, userid: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).insert(messageConversationMembers).values({ conversationid, userid }).onConflictDoNothing();
+  }
+  /**
+   * Gỡ một thành viên khỏi conversation (dùng cho đồng bộ group conversation:
+   * người rời group thì rời conversation, tin nhắn cũ giữ nguyên).
+   */
+  async removeMember(conversationid: string, userid: string): Promise<void> {
+    await this.db.delete(messageConversationMembers)
+      .where(and(eq(messageConversationMembers.conversationid, conversationid), eq(messageConversationMembers.userid, userid)));
   }
   /**
    * Thành viên của conversation.
@@ -156,6 +167,115 @@ export class MessagingRepository {
   async listBlocked(userid: string): Promise<string[]> {
     const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userid, userid));
     return rows.map((r) => r.blockeduserid);
+  }
+
+  // --- contacts -------------------------------------------------------------
+
+  /**
+   * Thêm một liên hệ vào danh bạ của user (trùng cặp thì bỏ qua).
+   */
+  async addContact(userid: string, contactid: string): Promise<void> {
+    await this.db.insert(messageContacts).values({ userid, contactid }).onConflictDoNothing();
+  }
+  /**
+   * Gỡ một liên hệ khỏi danh bạ của user.
+   */
+  async removeContact(userid: string, contactid: string): Promise<void> {
+    await this.db.delete(messageContacts)
+      .where(and(eq(messageContacts.userid, userid), eq(messageContacts.contactid, contactid)));
+  }
+  /**
+   * Danh bạ của user (các contactid user đã thêm).
+   */
+  async listContacts(userid: string): Promise<string[]> {
+    const rows = await this.db.select().from(messageContacts).where(eq(messageContacts.userid, userid));
+    return rows.map((r) => r.contactid);
+  }
+  /**
+   * Owner có contactid trong danh bạ hay không. Cổng liên lạc dùng hướng
+   * (người nhận, người gửi): người nhận đã thêm người gửi làm liên hệ.
+   */
+  async isContact(ownerId: string, contactId: string): Promise<boolean> {
+    const rows = await this.db.select().from(messageContacts)
+      .where(and(eq(messageContacts.userid, ownerId), eq(messageContacts.contactid, contactId)));
+    return rows.length > 0;
+  }
+
+  // --- cổng liên lạc: khoá học chung -----------------------------------------
+  // Đọc trực tiếp bảng enrol/user_enrolments qua định nghĩa bảng dùng chung
+  // (barrel schema) — Messaging KHÔNG import EnrolModule để tránh vòng lặp
+  // module; ngữ nghĩa "đang active" chép đúng EnrolService.isEnrolled
+  // (instance enabled, ghi danh ACTIVE, now trong [timestart, timeend]).
+
+  /**
+   * Các khoá mà user có ghi danh đang hiệu lực (instance enabled + ghi danh
+   * ACTIVE + trong cửa sổ thời gian).
+   */
+  async activeCourseIds(userid: string): Promise<string[]> {
+    const now = new Date();
+    const rows = await this.db.select({ courseid: enrol.courseid }).from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolid, enrol.id))
+      .where(and(
+        eq(userEnrolments.userid, userid),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timestart, now),
+        or(isNull(userEnrolments.timeend), gte(userEnrolments.timeend, now)),
+      ));
+    return rows.map((r) => r.courseid);
+  }
+  /**
+   * Hai user có ít nhất một khoá học cùng ghi danh đang hiệu lực hay không.
+   */
+  async sharesActiveCourse(a: string, b: string): Promise<boolean> {
+    const coursesA = await this.activeCourseIds(a);
+    if (!coursesA.length) return false;
+    const coursesB = new Set(await this.activeCourseIds(b));
+    return coursesA.some((id) => coursesB.has(id));
+  }
+
+  // --- group conversation sync ------------------------------------------------
+  // Đọc trực tiếp bảng groups/groups_members qua barrel schema (không import
+  // GroupsModule): đồng bộ lười phía messaging, không cần hook bên groups.
+
+  /**
+   * Lấy một course group theo id (kèm courseid để resolve context/staff).
+   */
+  async getCourseGroup(groupId: string): Promise<CourseGroupRow | undefined> {
+    const [row] = await this.db.select().from(courseGroups).where(eq(courseGroups.id, groupId));
+    return row;
+  }
+  /**
+   * Thành viên hiện tại của một course group.
+   */
+  async listGroupMemberIds(groupId: string): Promise<string[]> {
+    const rows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.groupid, groupId));
+    return rows.map((r) => r.userid);
+  }
+  /**
+   * Conversation gắn với một course group qua (component, itemtype, itemid).
+   */
+  async findGroupConversation(groupId: string): Promise<ConversationRow | undefined> {
+    const [row] = await this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_group'),
+      eq(messageConversations.itemtype, 'groups'),
+      eq(messageConversations.itemid, groupId),
+    ));
+    return row;
+  }
+  /**
+   * Mọi conversation gắn group mà user là thành viên của group tương ứng —
+   * để thao tác liệt kê cũng kích hoạt đồng bộ (người mới vào group thấy
+   * conversation ngay cả khi chưa từng là thành viên conversation).
+   */
+  async listGroupConversationsForGroupMember(userid: string): Promise<ConversationRow[]> {
+    const memberships = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userid, userid));
+    if (!memberships.length) return [];
+    return this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_group'),
+      eq(messageConversations.itemtype, 'groups'),
+      inArray(messageConversations.itemid, memberships.map((m) => m.groupid)),
+    ));
   }
 
   /**
