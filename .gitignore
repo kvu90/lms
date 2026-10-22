@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+apps/api/drizzle/meta/*_snapshot.json.tmp

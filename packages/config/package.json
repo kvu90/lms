@@ -1,0 +1,23 @@
+{
+  "name": "@lms/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/nest.json": "./tsconfig/nest.json",
+    "./tsconfig/react.json": "./tsconfig/react.json",
+    "./eslint": "./eslint/base.mjs"
+  },
+  "scripts": {
+    "lint": "node -e \"console.log('config: no sources to lint')\"",
+    "typecheck": "node -e \"console.log('config: no sources to typecheck')\"",
+    "test": "node -e \"console.log('config: no tests')\"",
+    "build": "node -e \"console.log('config: nothing to build')\""
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

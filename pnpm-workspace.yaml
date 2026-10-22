@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@scarf/scarf': false
+  '@swc/core': true
+  msgpackr-extract: true
+catalog:
+  typescript: 7.0.2
+  zod: ^4.6.7
+  vitest: ^5.0.5
+  eslint: ^10.13.0
+  typescript-eslint: ^8.72.0
+catalogs:
+  nest:
+    typescript: 6.0.3
+minimumReleaseAgeExclude:
+  - bullmq@6.4.0
+  - drizzle-kit@1.0.0-rc.5
+  - drizzle-orm@1.0.0-rc.5
