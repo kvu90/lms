@@ -1,17 +1,27 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { Public } from '../../common/public.decorator';
 import { CalendarService } from './calendar.service';
 import { calendarRemindSchema, createCalendarEventSchema, createCalendarExceptionSchema, createCalendarSubscriptionSchema, type CreateEventDto, type CreateExceptionDto, type CreateSubscriptionDto, type RemindDto } from './dto/calendar.dto';
 
 @ApiTags('calendar')
 @Controller({ path: 'calendar', version: '1' })
 /**
- * API lịch: sự kiện, exception, nhắc và subscription.
+ * API lịch: sự kiện, exception, nhắc, subscription và xuất lịch (tải .ics
+ * khi đã đăng nhập, URL xuất bằng token bí mật khi chưa đăng nhập).
  */
 export class CalendarController {
   constructor(private readonly calendar: CalendarService) {}
+
+  /** Gửi nội dung .ics dưới dạng file tải về (text/calendar + attachment). */
+  private sendIcs(res: Response, ics: string): void {
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="calendar.ics"');
+    res.send(ics);
+  }
 
   @Post('events')
   /**
@@ -27,6 +37,52 @@ export class CalendarController {
   async list(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
     @Query('eventtype') eventtype: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.listEventsForUser(actor.id, { from, to, eventtype });
+  }
+  @Get('export.ics')
+  /**
+   * GET /calendar/export.ics — tải file .ics chứa đúng các sự kiện tôi được
+   * thấy trong khoảng from/to (tuỳ chọn eventtype), cùng luật hiển thị với
+   * GET /calendar/events.
+   */
+  async exportMine(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
+    @Query('eventtype') eventtype: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    this.sendIcs(res, await this.calendar.exportIcsForUser(actor.id, { from, to, eventtype }));
+  }
+  @Post('export-token')
+  /**
+   * POST /calendar/export-token — tạo hoặc đổi token xuất lịch của tôi;
+   * token thô chỉ trả về trong lần gọi này, các URL xuất cũ chết ngay.
+   */
+  async createExportToken(@CurrentUser() actor: AuthenticatedUser) {
+    return this.calendar.createOrRotateExportToken(actor.id);
+  }
+  @Get('export-token')
+  /**
+   * GET /calendar/export-token — trạng thái token xuất lịch của tôi (không
+   * bao giờ chứa token thô hay hash).
+   */
+  async exportTokenStatus(@CurrentUser() actor: AuthenticatedUser) {
+    return this.calendar.getExportTokenStatus(actor.id);
+  }
+  @Delete('export-token')
+  /**
+   * DELETE /calendar/export-token — thu hồi token xuất lịch của tôi; URL
+   * xuất hiện tại chết ngay.
+   */
+  async revokeExportToken(@CurrentUser() actor: AuthenticatedUser) {
+    return this.calendar.revokeExportToken(actor.id);
+  }
+  /** URL xuất công khai: việc sở hữu token bí mật chính là credential — không cần JWT. */
+  @Public()
+  @Get('export/:filename')
+  /**
+   * GET /calendar/export/:token.ics — tải .ics của chủ token mà không cần
+   * đăng nhập; token sai/đã đổi/đã thu hồi trả 401.
+   */
+  async exportByToken(@Param('filename') filename: string, @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined, @Query('eventtype') eventtype: string | undefined, @Res() res: Response) {
+    const token = filename.endsWith('.ics') ? filename.slice(0, -'.ics'.length) : filename;
+    this.sendIcs(res, await this.calendar.exportIcsByToken(token, { from, to, eventtype }));
   }
   @Get('events/:id')
   /**

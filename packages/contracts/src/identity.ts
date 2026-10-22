@@ -188,6 +188,68 @@ export const loginAsSchema = z.strictObject({
 });
 export type LoginAs = z.infer<typeof loginAsSchema>;
 
+/** Mã TOTP 6 chữ số do ứng dụng authenticator sinh (RFC 6238, bước 30 giây). */
+export const totpCodeSchema = z.string().regex(/^\d{6}$/);
+
+/** Payload xác nhận/tắt MFA TOTP: chỉ gồm mã authenticator hiện tại. */
+export const mfaTotpCodeSchema = z.strictObject({
+  code: totpCodeSchema,
+});
+export type MfaTotpCode = z.infer<typeof mfaTotpCodeSchema>;
+
+/** Payload hoàn tất đăng nhập hai lớp: challenge token ngắn hạn + mã TOTP. */
+export const mfaVerifySchema = z.strictObject({
+  challengeToken: z.string().min(1),
+  code: totpCodeSchema,
+});
+export type MfaVerify = z.infer<typeof mfaVerifySchema>;
+
+/** Đáp ứng khởi tạo MFA TOTP: secret + otpauth URL chỉ lộ DUY NHẤT ở bước này. */
+export const mfaTotpSetupResponseSchema = z.object({
+  secret: z.string().min(1),
+  otpauthUrl: z.string().startsWith('otpauth://totp/'),
+});
+export type MfaTotpSetupResponse = z.infer<typeof mfaTotpSetupResponseSchema>;
+
+/** Đáp ứng đăng nhập khi user đã bật MFA: chưa có token phiên, phải verify tiếp. */
+export const mfaChallengeResponseSchema = z.object({
+  mfaRequired: z.literal(true),
+  challengeToken: z.string().min(1),
+  user: z.object({ id: uuidIdSchema, username: z.string().min(1) }),
+});
+export type MfaChallengeResponse = z.infer<typeof mfaChallengeResponseSchema>;
+
+/** Một gán vai trò của chính người gọi, kèm thông tin context để giao diện dựng điều hướng theo quyền. */
+export const myRoleAssignmentSchema = z.object({
+  id: uuidIdSchema,
+  roleId: uuidIdSchema,
+  roleShortname: z.string(),
+  roleName: z.string(),
+  contextId: uuidIdSchema,
+  contextLevel: z.number().int(),
+  contextPath: z.string(),
+  instanceId: uuidIdSchema.nullable(),
+});
+export type MyRoleAssignment = z.infer<typeof myRoleAssignmentSchema>;
+
+/** Capability đã phân giải tại một context liên quan (context có gán vai trò hoặc tổ tiên của nó, luôn gồm context hệ thống). */
+export const myContextCapabilitiesSchema = z.object({
+  contextId: uuidIdSchema,
+  contextLevel: z.number().int(),
+  contextPath: z.string(),
+  capabilities: z.array(z.string()),
+});
+export type MyContextCapabilities = z.infer<typeof myContextCapabilitiesSchema>;
+
+/** Toàn cảnh quyền của chính người đang đăng nhập — dữ liệu tự phục vụ, không cần capability quản trị. */
+export const myAccessViewSchema = z.object({
+  userId: uuidIdSchema,
+  isSiteAdmin: z.boolean(),
+  assignments: z.array(myRoleAssignmentSchema),
+  contexts: z.array(myContextCapabilitiesSchema),
+});
+export type MyAccessView = z.infer<typeof myAccessViewSchema>;
+
 /** Payload tạo danh mục trường tuỳ chỉnh (custom field category). */
 export const createCustomFieldCategorySchema = z.strictObject({
   name: z.string(),

@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { generate } from 'otplib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 
@@ -7,7 +8,37 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  * Oracle: lib/tests/authlib_test.php (MOODLE_503_STABLE) — test_lockout,
  * test_authenticate_user_login; refresh rotation + reuse detection per
  * report §3.7 (self-built, OAuth security best practice).
+ * MFA TOTP oracle: blueprint §2#3 (MFA hook) + Moodle tool_mfa factor_totp
+ * semantics — password alone is not enough once a TOTP factor is confirmed.
  */
+
+/** Mã TOTP hiện tại cho secret, sinh bằng chính thư viện otplib đã cài. */
+async function currentTotpCode(secret: string): Promise<string> {
+  return generate({ secret });
+}
+
+/** Một mã 6 số chắc chắn KHÔNG khớp cửa sổ kiểm chứng (±1 bước) của secret. */
+async function wrongTotpCode(secret: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const valid = new Set<string>();
+  for (const delta of [-30, 0, 30]) valid.add(await generate({ secret, epoch: now + delta }));
+  for (const candidate of ['000000', '111111', '222222', '333333']) {
+    if (!valid.has(candidate)) return candidate;
+  }
+  throw new Error('no wrong-code candidate available');
+}
+
+/** Setup + confirm MFA cho một user qua API, trả secret để sinh mã trong test. */
+async function enableMfaViaApi(app: INestApplication, accessToken: string): Promise<string> {
+  const setup = await http(app).post('/api/v1/auth/mfa/totp/setup').set('Authorization', `Bearer ${accessToken}`);
+  expect(setup.status).toBe(201);
+  const secret = setup.body.secret as string;
+  const confirm = await http(app).post('/api/v1/auth/mfa/totp/confirm')
+    .set('Authorization', `Bearer ${accessToken}`).send({ code: await currentTotpCode(secret) });
+  expect(confirm.status).toBe(201);
+  expect(confirm.body.mfaEnabled).toBe(true);
+  return secret;
+}
 describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
   let app: INestApplication;
   let admin: string;
@@ -130,5 +161,89 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const res = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${accessToken}`)
       .send({ username: 'nope', email: 'nope@example.com', password: STRONG_PASSWORD });
     expect(res.status).toBe(403);
+  });
+
+  it('MFA TOTP: setup → confirm → login stops at MFA → verify admits; disable returns to direct login (tool_mfa factor_totp)', async () => {
+    const user = await createUserViaApi(app, admin);
+    // Chưa bật MFA: đăng nhập thẳng như cũ.
+    const plain = await login(app, user.username, STRONG_PASSWORD);
+
+    // Setup: secret + otpauth URL chỉ lộ ở bước này.
+    const setup = await http(app).post('/api/v1/auth/mfa/totp/setup').set('Authorization', `Bearer ${plain.accessToken}`);
+    expect(setup.status).toBe(201);
+    const secret = setup.body.secret as string;
+    expect(secret).toBeTruthy();
+    expect(setup.body.otpauthUrl).toContain('otpauth://totp/');
+    expect(setup.body.otpauthUrl).toContain(secret);
+
+    // Confirm sai mã bị từ chối; đúng mã mới kích hoạt.
+    const badConfirm = await http(app).post('/api/v1/auth/mfa/totp/confirm')
+      .set('Authorization', `Bearer ${plain.accessToken}`).send({ code: await wrongTotpCode(secret) });
+    expect(badConfirm.status).toBe(401);
+    expect(badConfirm.body.code).toBe('auth.mfa_invalid_code');
+    const confirm = await http(app).post('/api/v1/auth/mfa/totp/confirm')
+      .set('Authorization', `Bearer ${plain.accessToken}`).send({ code: await currentTotpCode(secret) });
+    expect(confirm.status).toBe(201);
+    expect(confirm.body.mfaEnabled).toBe(true);
+
+    // Đăng nhập đúng mật khẩu nhưng bị chặn ở bước MFA: không có cặp token.
+    const blocked = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(blocked.status).toBe(201);
+    expect(blocked.body.mfaRequired).toBe(true);
+    expect(blocked.body.accessToken).toBeUndefined();
+    expect(blocked.body.refreshToken).toBeUndefined();
+    const challengeToken = blocked.body.challengeToken as string;
+    expect(challengeToken).toBeTruthy();
+
+    // Challenge token KHÔNG dùng gọi API thường được.
+    const meWithChallenge = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${challengeToken}`);
+    expect([401, 403]).toContain(meWithChallenge.status);
+
+    // Verify sai mã → 401; verify đúng mã → cặp token như đăng nhập thường.
+    const badVerify = await http(app).post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken, code: await wrongTotpCode(secret) });
+    expect(badVerify.status).toBe(401);
+    expect(badVerify.body.code).toBe('auth.mfa_invalid_code');
+    const verified = await http(app).post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken, code: await currentTotpCode(secret) });
+    expect(verified.status).toBe(201);
+    expect(verified.body.accessToken).toBeTruthy();
+    expect(verified.body.refreshToken).toBeTruthy();
+    const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${verified.body.accessToken}`);
+    expect(me.status).toBe(200);
+    expect(me.body.id).toBe(user.id);
+
+    // Disable bằng mã đúng ⇒ đăng nhập thẳng trở lại.
+    const disable = await http(app).post('/api/v1/auth/mfa/totp/disable')
+      .set('Authorization', `Bearer ${verified.body.accessToken}`).send({ code: await currentTotpCode(secret) });
+    expect(disable.status).toBe(201);
+    expect(disable.body.mfaEnabled).toBe(false);
+    const direct = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(direct.status).toBe(201);
+    expect(direct.body.mfaRequired).toBeUndefined();
+    expect(direct.body.accessToken).toBeTruthy();
+  });
+
+  it('MFA TOTP: admin reset (user:update capability) gỡ MFA cho user mất authenticator; user thường bị từ chối', async () => {
+    const user = await createUserViaApi(app, admin);
+    const plain = await login(app, user.username, STRONG_PASSWORD);
+    await enableMfaViaApi(app, plain.accessToken);
+
+    // User thường không có capability quản trị ⇒ không reset được MFA của người khác.
+    const other = await createUserViaApi(app, admin);
+    const otherLogin = await login(app, other.username, STRONG_PASSWORD);
+    const denied = await http(app).post(`/api/v1/auth/mfa/users/${user.id}/reset`)
+      .set('Authorization', `Bearer ${otherLogin.accessToken}`);
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('access.capability_denied');
+
+    // Admin reset ⇒ user đăng nhập thẳng, không bị hỏi MFA nữa.
+    const reset = await http(app).post(`/api/v1/auth/mfa/users/${user.id}/reset`).set('Authorization', `Bearer ${admin}`);
+    expect(reset.status).toBe(201);
+    expect(reset.body.reset).toBe(true);
+    const direct = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(direct.status).toBe(201);
+    expect(direct.body.mfaRequired).toBeUndefined();
+    expect(direct.body.accessToken).toBeTruthy();
   });
 });

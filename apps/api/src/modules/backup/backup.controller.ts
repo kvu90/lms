@@ -14,7 +14,7 @@ export class BackupController {
   async contributors() { return this.backup.listContributors(); }
   @Post('jobs')
   async createBackup(@Body({ schema: createBackupSchema }) dto: CreateBackupDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.backup.createBackup(actor.id, dto.courseId, dto.anonymize ?? false);
+    return this.backup.createBackup(actor.id, dto.courseId ?? null, dto.anonymize ?? false, dto.scope ?? (dto.courseId ? 'course' : 'site'));
   }
   @Post('restore')
   async restore(@Body({ schema: restoreCourseSchema }) dto: RestoreDto, @CurrentUser() actor: AuthenticatedUser) {

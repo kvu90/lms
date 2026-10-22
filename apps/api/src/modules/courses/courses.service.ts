@@ -256,7 +256,7 @@ export class CoursesService {
    */
   async createCourse(actorId: string, input: {
     fullname: string; shortname: string; category: string; idnumber?: string; summary?: string;
-    format?: string; visible?: boolean; startdate?: string; enddate?: string; groupmode?: number;
+    format?: string; visible?: boolean; startdate?: string; enddate?: string; groupmode?: number; groupmodeforce?: boolean;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const category = await this.getCategory(input.category);
@@ -279,7 +279,7 @@ export class CoursesService {
         format: input.format ?? 'topics', visible: input.visible ?? true,
         startdate: input.startdate ? new Date(input.startdate) : null,
         enddate: input.enddate ? new Date(input.enddate) : null,
-        groupmode: input.groupmode ?? GROUPMODE_NOGROUPS, sortorder: siblings.length,
+        groupmode: input.groupmode ?? GROUPMODE_NOGROUPS, groupmodeforce: input.groupmodeforce ?? false, sortorder: siblings.length,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id } });
       return row;
@@ -327,7 +327,7 @@ export class CoursesService {
    */
   async updateCourse(actorId: string, id: string, input: {
     fullname?: string; shortname?: string; category?: string; idnumber?: string; summary?: string;
-    format?: string; visible?: boolean; startdate?: string | null; enddate?: string | null; groupmode?: number;
+    format?: string; visible?: boolean; startdate?: string | null; enddate?: string | null; groupmode?: number; groupmodeforce?: boolean;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
@@ -348,6 +348,7 @@ export class CoursesService {
     if (input.startdate !== undefined) patch.startdate = input.startdate ? new Date(input.startdate) : null;
     if (input.enddate !== undefined) patch.enddate = input.enddate ? new Date(input.enddate) : null;
     if (input.groupmode !== undefined) patch.groupmode = input.groupmode;
+    if (input.groupmodeforce !== undefined) patch.groupmodeforce = input.groupmodeforce;
     if (input.category !== undefined && input.category !== existing.category) {
       const newCategory = await this.getCategory(input.category);
       patch.category = newCategory.id;

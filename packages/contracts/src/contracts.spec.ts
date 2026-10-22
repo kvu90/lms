@@ -5,6 +5,7 @@ import {
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
   paymentWebhookSchema, restoreCourseSchema,
+  createGradeItemSchema, createGradeOutcomeSchema, gradeOutcomeSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -135,6 +136,24 @@ describe('assessment contracts', () => {
     expect(book.categories[0]?.total?.grade?.letter).toBe('B');
     expect(book.categories[0]?.items[0]?.grade?.finalgrade).toBe(70);
     expect(() => gradebookSchema.parse({ courseId: 'x' })).toThrow();
+  });
+
+
+  it('parses grade outcomes and calculated/outcome grade item payloads, and rejects bad shapes', () => {
+    const outcome = gradeOutcomeSchema.parse({
+      id: '01900000-0000-7000-8000-000000000020', courseid: null,
+      scaleid: '01900000-0000-7000-8000-000000000021', name: 'Teamwork', description: '',
+    });
+    expect(outcome.courseid).toBeNull(); // site outcome
+    expect(createGradeOutcomeSchema.parse({ name: 'Teamwork', scaleId: outcome.scaleid }).name).toBe('Teamwork');
+    expect(() => createGradeOutcomeSchema.parse({ name: 'Teamwork' })).toThrow();
+    const calc = createGradeItemSchema.parse({
+      itemname: 'Average', itemtype: 'calculated', idnumber: 'avg', calculation: '=average([[quiz1]],[[quiz2]])',
+    });
+    expect(calc.calculation).toContain('[[quiz1]]');
+    const withOutcome = createGradeItemSchema.parse({ itemname: 'Outcome item', outcomeId: outcome.id });
+    expect(withOutcome.outcomeId).toBe(outcome.id);
+    expect(() => createGradeItemSchema.parse({ itemname: 'X', outcomeId: 'not-a-uuid' })).toThrow();
   });
 
   it('parses a question usage with attempts, pinned versions and steps', () => {

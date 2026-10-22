@@ -156,6 +156,15 @@ CREATE TABLE "refresh_token_family" (
 	"rotated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "user_totp" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"userid" uuid NOT NULL UNIQUE,
+	"secret_encrypted" text NOT NULL,
+	"confirmed" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"confirmed_at" timestamp with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "customfield_category" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"name" text NOT NULL,
@@ -220,6 +229,7 @@ CREATE TABLE "course" (
 	"startdate" timestamp with time zone,
 	"enddate" timestamp with time zone,
 	"groupmode" integer DEFAULT 0 NOT NULL,
+	"groupmodeforce" boolean DEFAULT false NOT NULL,
 	"enablecompletion" boolean DEFAULT true NOT NULL,
 	"sortorder" integer DEFAULT 0 NOT NULL,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
@@ -305,6 +315,7 @@ CREATE TABLE "course_groups" (
 	"name" text NOT NULL,
 	"idnumber" text DEFAULT '' NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
+	"enrolmentkey" text,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "course_groups_course_name_unique" UNIQUE("courseid","name")
@@ -354,6 +365,9 @@ CREATE TABLE "enrol" (
 	"cost" integer DEFAULT 0 NOT NULL,
 	"currency" text DEFAULT '' NOT NULL,
 	"paymentaccountid" uuid,
+	"enrolmentkey" text,
+	"sendwelcomemessage" boolean DEFAULT false NOT NULL,
+	"welcomemessage" text,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -476,6 +490,9 @@ CREATE TABLE "grade_items" (
 	"grademin" double precision DEFAULT 0 NOT NULL,
 	"gradepass" double precision DEFAULT 0 NOT NULL,
 	"scaleid" uuid,
+	"outcomeid" uuid,
+	"idnumber" text,
+	"calculation" text,
 	"weightoverride" boolean DEFAULT false NOT NULL,
 	"aggregationcoef" double precision DEFAULT 0 NOT NULL,
 	"extracredit" boolean DEFAULT false NOT NULL,
@@ -486,6 +503,7 @@ CREATE TABLE "grade_items" (
 	"sortorder" integer DEFAULT 0 NOT NULL,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "grade_items_course_idnumber_unique" UNIQUE("courseid","idnumber"),
 	CONSTRAINT "grade_items_course_type_instance_unique" UNIQUE("courseid","itemtype","iteminstance","itemmodule")
 );
 --> statement-breakpoint
@@ -495,6 +513,15 @@ CREATE TABLE "grade_letters" (
 	"lowerboundary" double precision NOT NULL,
 	"letter" text NOT NULL,
 	CONSTRAINT "grade_letters_context_boundary_unique" UNIQUE("contextid","lowerboundary")
+);
+--> statement-breakpoint
+CREATE TABLE "grade_outcomes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"courseid" uuid,
+	"scaleid" uuid NOT NULL,
+	"name" text DEFAULT '' NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
+	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "scales" (
@@ -616,6 +643,13 @@ CREATE TABLE "message" (
 	"timeread" timestamp with time zone
 );
 --> statement-breakpoint
+CREATE TABLE "message_contacts" (
+	"userid" uuid,
+	"contactid" uuid,
+	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "message_contacts_pkey" PRIMARY KEY("userid","contactid")
+);
+--> statement-breakpoint
 CREATE TABLE "message_conversation_members" (
 	"conversationid" uuid,
 	"userid" uuid,
@@ -690,6 +724,15 @@ CREATE TABLE "calendar_events" (
 	"timeduration" integer DEFAULT 0 NOT NULL,
 	"visible" boolean DEFAULT true NOT NULL,
 	"location" text DEFAULT '' NOT NULL,
+	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
+	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "calendar_export_tokens" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"userid" uuid NOT NULL UNIQUE,
+	"tokenhash" text NOT NULL UNIQUE,
+	"lastaccess" timestamp with time zone,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -773,6 +816,9 @@ CREATE TABLE "competency" (
 	"path" text DEFAULT '' NOT NULL,
 	"depth" integer DEFAULT 1 NOT NULL,
 	"sortorder" integer DEFAULT 0 NOT NULL,
+	"ruletype" text,
+	"ruleconfig" jsonb,
+	"ruleoutcome" text DEFAULT 'nothing' NOT NULL,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1056,7 +1102,8 @@ CREATE TABLE "backup_job_steps" (
 CREATE TABLE "backup_jobs" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"type" text NOT NULL,
-	"courseid" uuid NOT NULL,
+	"scope" text DEFAULT 'course' NOT NULL,
+	"courseid" uuid,
 	"targetcourseid" uuid,
 	"mode" text DEFAULT 'new' NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
@@ -1211,6 +1258,7 @@ CREATE INDEX "role_capabilities_roleid_idx" ON "role_capabilities" ("roleid");--
 CREATE INDEX "role_capabilities_modifierid_idx" ON "role_capabilities" ("modifierid");--> statement-breakpoint
 CREATE INDEX "login_attempts_userid_idx" ON "login_attempts" ("userid");--> statement-breakpoint
 CREATE INDEX "refresh_token_family_userid_idx" ON "refresh_token_family" ("userid");--> statement-breakpoint
+CREATE INDEX "user_totp_userid_idx" ON "user_totp" ("userid");--> statement-breakpoint
 CREATE INDEX "customfield_category_itemid_idx" ON "customfield_category" ("itemid");--> statement-breakpoint
 CREATE INDEX "customfield_data_instanceid_idx" ON "customfield_data" ("instanceid");--> statement-breakpoint
 CREATE INDEX "customfield_field_categoryid_idx" ON "customfield_field" ("categoryid");--> statement-breakpoint
@@ -1249,6 +1297,9 @@ CREATE INDEX "grade_grades_history_loggeduser_idx" ON "grade_grades_history" ("l
 CREATE INDEX "grade_items_categoryid_idx" ON "grade_items" ("categoryid");--> statement-breakpoint
 CREATE INDEX "grade_items_iteminstance_idx" ON "grade_items" ("iteminstance");--> statement-breakpoint
 CREATE INDEX "grade_items_scaleid_idx" ON "grade_items" ("scaleid");--> statement-breakpoint
+CREATE INDEX "grade_items_outcomeid_idx" ON "grade_items" ("outcomeid");--> statement-breakpoint
+CREATE INDEX "grade_outcomes_courseid_idx" ON "grade_outcomes" ("courseid");--> statement-breakpoint
+CREATE INDEX "grade_outcomes_scaleid_idx" ON "grade_outcomes" ("scaleid");--> statement-breakpoint
 CREATE INDEX "scales_courseid_idx" ON "scales" ("courseid");--> statement-breakpoint
 CREATE INDEX "question_category_idx" ON "question" ("category");--> statement-breakpoint
 CREATE INDEX "question_createdby_idx" ON "question" ("createdby");--> statement-breakpoint
@@ -1266,6 +1317,7 @@ CREATE INDEX "question_usages_userid_idx" ON "question_usages" ("userid");--> st
 CREATE INDEX "question_versions_questionid_idx" ON "question_versions" ("questionid");--> statement-breakpoint
 CREATE INDEX "message_conversationid_idx" ON "message" ("conversationid");--> statement-breakpoint
 CREATE INDEX "message_useridfrom_idx" ON "message" ("useridfrom");--> statement-breakpoint
+CREATE INDEX "message_contacts_contactid_idx" ON "message_contacts" ("contactid");--> statement-breakpoint
 CREATE INDEX "message_conversation_members_userid_idx" ON "message_conversation_members" ("userid");--> statement-breakpoint
 CREATE INDEX "message_conversations_itemid_idx" ON "message_conversations" ("itemid");--> statement-breakpoint
 CREATE INDEX "message_conversations_contextid_idx" ON "message_conversations" ("contextid");--> statement-breakpoint
@@ -1282,6 +1334,7 @@ CREATE INDEX "calendar_events_contextid_idx" ON "calendar_events" ("contextid");
 CREATE INDEX "calendar_events_subscriptionid_idx" ON "calendar_events" ("subscriptionid");--> statement-breakpoint
 CREATE INDEX "calendar_events_repeatid_idx" ON "calendar_events" ("repeatid");--> statement-breakpoint
 CREATE INDEX "calendar_events_exceptionof_idx" ON "calendar_events" ("exceptionof");--> statement-breakpoint
+CREATE INDEX "calendar_export_tokens_userid_idx" ON "calendar_export_tokens" ("userid");--> statement-breakpoint
 CREATE INDEX "calendar_subscriptions_courseid_idx" ON "calendar_subscriptions" ("courseid");--> statement-breakpoint
 CREATE INDEX "calendar_subscriptions_categoryid_idx" ON "calendar_subscriptions" ("categoryid");--> statement-breakpoint
 CREATE INDEX "calendar_subscriptions_userid_idx" ON "calendar_subscriptions" ("userid");--> statement-breakpoint
@@ -1376,6 +1429,7 @@ ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_roleid_role_id
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "login_attempts" ADD CONSTRAINT "login_attempts_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "refresh_token_family" ADD CONSTRAINT "refresh_token_family_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "user_totp" ADD CONSTRAINT "user_totp_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "customfield_data" ADD CONSTRAINT "customfield_data_fieldid_customfield_field_id_fkey" FOREIGN KEY ("fieldid") REFERENCES "customfield_field"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "customfield_field" ADD CONSTRAINT "customfield_field_categoryid_customfield_category_id_fkey" FOREIGN KEY ("categoryid") REFERENCES "customfield_category"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course" ADD CONSTRAINT "course_category_course_categories_id_fkey" FOREIGN KEY ("category") REFERENCES "course_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1400,6 +1454,9 @@ ALTER TABLE "grade_grades" ADD CONSTRAINT "grade_grades_itemid_grade_items_id_fk
 ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_courseid_course_id_fkey" FOREIGN KEY ("courseid") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_categoryid_grade_categories_id_fkey" FOREIGN KEY ("categoryid") REFERENCES "grade_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_scaleid_scales_id_fkey" FOREIGN KEY ("scaleid") REFERENCES "scales"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_outcomeid_grade_outcomes_id_fkey" FOREIGN KEY ("outcomeid") REFERENCES "grade_outcomes"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_courseid_course_id_fkey" FOREIGN KEY ("courseid") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_scaleid_scales_id_fkey" FOREIGN KEY ("scaleid") REFERENCES "scales"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "question" ADD CONSTRAINT "question_category_question_categories_id_fkey" FOREIGN KEY ("category") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempt_step_data" ADD CONSTRAINT "question_attempt_step_data_PuExrKs0UiDY_fkey" FOREIGN KEY ("attemptstepid") REFERENCES "question_attempt_steps"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempt_steps" ADD CONSTRAINT "question_attempt_steps_B0Bkky8ODQIB_fkey" FOREIGN KEY ("questionattemptid") REFERENCES "question_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint

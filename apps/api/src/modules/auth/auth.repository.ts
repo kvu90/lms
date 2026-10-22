@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, desc, eq, gte, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { loginAttempts, refreshTokenFamily } from '../../db/schema';
+import { loginAttempts, refreshTokenFamily, userTotp } from '../../db/schema';
 
 export type RefreshFamilyRow = typeof refreshTokenFamily.$inferSelect;
+export type UserTotpRow = typeof userTotp.$inferSelect;
 
 @Injectable()
 /**
@@ -45,6 +46,41 @@ export class AuthRepository {
   async revokeAllForUser(userid: string): Promise<void> {
     await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.userid, userid));
   }
+  // --- MFA TOTP ---------------------------------------------------------------
+  /**
+   * Bản ghi TOTP của user (secret đã mã hoá), hoặc undefined nếu chưa setup.
+   */
+  async getTotpByUserId(userid: string): Promise<UserTotpRow | undefined> {
+    const [row] = await this.db.select().from(userTotp).where(eq(userTotp.userid, userid));
+    return row;
+  }
+  /**
+   * Ghi secret TOTP đang chờ xác nhận; setup lại thì thay secret cũ và đưa
+   * trạng thái về chưa xác nhận (authenticator cũ ngừng hiệu lực ngay).
+   */
+  async upsertPendingTotp(userid: string, secretEncrypted: string): Promise<UserTotpRow> {
+    const [row] = await this.db.insert(userTotp)
+      .values({ userid, secretEncrypted, confirmed: false, confirmedAt: null })
+      .onConflictDoUpdate({
+        target: userTotp.userid,
+        set: { secretEncrypted, confirmed: false, confirmedAt: null, createdAt: new Date() },
+      })
+      .returning();
+    return row!;
+  }
+  /**
+   * Đánh dấu TOTP đã xác nhận (MFA bắt đầu chặn đăng nhập từ đây).
+   */
+  async confirmTotp(userid: string): Promise<void> {
+    await this.db.update(userTotp).set({ confirmed: true, confirmedAt: new Date() }).where(eq(userTotp.userid, userid));
+  }
+  /**
+   * Xoá hẳn bản ghi TOTP của user (user tự tắt bằng mã đúng, hoặc quản trị reset).
+   */
+  async deleteTotp(userid: string): Promise<void> {
+    await this.db.delete(userTotp).where(eq(userTotp.userid, userid));
+  }
+
   /**
    * Ghi một lần thử đăng nhập (thành công/thất bại, IP) phục vụ khoá tạm thời.
    */

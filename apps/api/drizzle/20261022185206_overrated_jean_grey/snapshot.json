@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "83f76967-bb3f-4177-b21a-d73f988bbd2b",
+  "id": "21368644-2a24-4f03-9b7f-2d106a4958ac",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -320,6 +320,26 @@
         "n|type|public.refresh_token_family",
         "n|rel|public.refresh_token_family_pkey",
         "n|rel|public.refresh_token_family_family_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_totp"
+      ],
+      "writes": [
+        "s|tbl|public.user_totp",
+        "n|tbl|public.user_totp",
+        "e|tbl|public.user_totp",
+        "n|rel|public.user_totp",
+        "n|type|public.user_totp",
+        "n|rel|public.user_totp_pkey",
+        "n|rel|public.user_totp_userid_key"
       ],
       "reads": [
         "n|sch|public"
@@ -806,6 +826,7 @@
         "n|rel|public.grade_items",
         "n|type|public.grade_items",
         "n|rel|public.grade_items_pkey",
+        "n|rel|public.grade_items_course_idnumber_unique",
         "n|rel|public.grade_items_course_type_instance_unique"
       ],
       "reads": [
@@ -827,6 +848,25 @@
         "n|type|public.grade_letters",
         "n|rel|public.grade_letters_pkey",
         "n|rel|public.grade_letters_context_boundary_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.grade_outcomes",
+        "n|tbl|public.grade_outcomes",
+        "e|tbl|public.grade_outcomes",
+        "n|rel|public.grade_outcomes",
+        "n|type|public.grade_outcomes",
+        "n|rel|public.grade_outcomes_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -1032,6 +1072,25 @@
       "statementTarget": [
         "table",
         "public",
+        "message_contacts"
+      ],
+      "writes": [
+        "s|tbl|public.message_contacts",
+        "n|tbl|public.message_contacts",
+        "e|tbl|public.message_contacts",
+        "n|rel|public.message_contacts",
+        "n|type|public.message_contacts",
+        "n|rel|public.message_contacts_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "message_conversation_members"
       ],
       "writes": [
@@ -1137,6 +1196,27 @@
         "n|rel|public.calendar_events",
         "n|type|public.calendar_events",
         "n|rel|public.calendar_events_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "calendar_export_tokens"
+      ],
+      "writes": [
+        "s|tbl|public.calendar_export_tokens",
+        "n|tbl|public.calendar_export_tokens",
+        "e|tbl|public.calendar_export_tokens",
+        "n|rel|public.calendar_export_tokens",
+        "n|type|public.calendar_export_tokens",
+        "n|rel|public.calendar_export_tokens_pkey",
+        "n|rel|public.calendar_export_tokens_userid_key",
+        "n|rel|public.calendar_export_tokens_tokenhash_key"
       ],
       "reads": [
         "n|sch|public"
@@ -2223,6 +2303,26 @@
       "statementTarget": [
         "index",
         "public",
+        "user_totp",
+        "user_totp_userid_idx"
+      ],
+      "writes": [
+        "s|idx|public.user_totp_userid_idx",
+        "n|idx|public.user_totp_userid_idx",
+        "e|idx|public.user_totp_userid_idx",
+        "n|rel|public.user_totp_userid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.user_totp",
+        "n|sch|public",
+        "n|col|public.user_totp.userid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "customfield_category",
         "customfield_category_itemid_idx"
       ],
@@ -2983,6 +3083,66 @@
       "statementTarget": [
         "index",
         "public",
+        "grade_items",
+        "grade_items_outcomeid_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_items_outcomeid_idx",
+        "n|idx|public.grade_items_outcomeid_idx",
+        "e|idx|public.grade_items_outcomeid_idx",
+        "n|rel|public.grade_items_outcomeid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.grade_items.outcomeid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_outcomes",
+        "grade_outcomes_courseid_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_outcomes_courseid_idx",
+        "n|idx|public.grade_outcomes_courseid_idx",
+        "e|idx|public.grade_outcomes_courseid_idx",
+        "n|rel|public.grade_outcomes_courseid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_outcomes",
+        "n|sch|public",
+        "n|col|public.grade_outcomes.courseid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_outcomes",
+        "grade_outcomes_scaleid_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_outcomes_scaleid_idx",
+        "n|idx|public.grade_outcomes_scaleid_idx",
+        "e|idx|public.grade_outcomes_scaleid_idx",
+        "n|rel|public.grade_outcomes_scaleid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_outcomes",
+        "n|sch|public",
+        "n|col|public.grade_outcomes.scaleid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "scales",
         "scales_courseid_idx"
       ],
@@ -3323,6 +3483,26 @@
       "statementTarget": [
         "index",
         "public",
+        "message_contacts",
+        "message_contacts_contactid_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_contacts_contactid_idx",
+        "n|idx|public.message_contacts_contactid_idx",
+        "e|idx|public.message_contacts_contactid_idx",
+        "n|rel|public.message_contacts_contactid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_contacts",
+        "n|sch|public",
+        "n|col|public.message_contacts.contactid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "message_conversation_members",
         "message_conversation_members_userid_idx"
       ],
@@ -3636,6 +3816,26 @@
         "n|tbl|public.calendar_events",
         "n|sch|public",
         "n|col|public.calendar_events.exceptionof"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "calendar_export_tokens",
+        "calendar_export_tokens_userid_idx"
+      ],
+      "writes": [
+        "s|idx|public.calendar_export_tokens_userid_idx",
+        "n|idx|public.calendar_export_tokens_userid_idx",
+        "e|idx|public.calendar_export_tokens_userid_idx",
+        "n|rel|public.calendar_export_tokens_userid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.calendar_export_tokens",
+        "n|sch|public",
+        "n|col|public.calendar_export_tokens.userid"
       ]
     },
     {
@@ -5544,6 +5744,29 @@
       "statementTarget": [
         "table",
         "public",
+        "user_totp"
+      ],
+      "writes": [
+        "s|fk|public.user_totp.user_totp_userid_users_id_fkey",
+        "n|fk|public.user_totp.user_totp_userid_users_id_fkey",
+        "e|fk|public.user_totp.user_totp_userid_users_id_fkey",
+        "n|con|public.user_totp.user_totp_userid_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_totp",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.user_totp.userid",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "customfield_data"
       ],
       "writes": [
@@ -6087,6 +6310,75 @@
         "n|tbl|public.scales",
         "n|sch|public",
         "n|col|public.grade_items.scaleid",
+        "n|col|public.scales.id",
+        "e|uniqueness|public.scales.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_items"
+      ],
+      "writes": [
+        "s|fk|public.grade_items.grade_items_outcomeid_grade_outcomes_id_fkey",
+        "n|fk|public.grade_items.grade_items_outcomeid_grade_outcomes_id_fkey",
+        "e|fk|public.grade_items.grade_items_outcomeid_grade_outcomes_id_fkey",
+        "n|con|public.grade_items.grade_items_outcomeid_grade_outcomes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|tbl|public.grade_outcomes",
+        "n|sch|public",
+        "n|col|public.grade_items.outcomeid",
+        "n|col|public.grade_outcomes.id",
+        "e|uniqueness|public.grade_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.grade_outcomes.grade_outcomes_courseid_course_id_fkey",
+        "n|fk|public.grade_outcomes.grade_outcomes_courseid_course_id_fkey",
+        "e|fk|public.grade_outcomes.grade_outcomes_courseid_course_id_fkey",
+        "n|con|public.grade_outcomes.grade_outcomes_courseid_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_outcomes",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.grade_outcomes.courseid",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.grade_outcomes.grade_outcomes_scaleid_scales_id_fkey",
+        "n|fk|public.grade_outcomes.grade_outcomes_scaleid_scales_id_fkey",
+        "e|fk|public.grade_outcomes.grade_outcomes_scaleid_scales_id_fkey",
+        "n|con|public.grade_outcomes.grade_outcomes_scaleid_scales_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_outcomes",
+        "n|sch|public",
+        "n|tbl|public.scales",
+        "n|sch|public",
+        "n|col|public.grade_outcomes.scaleid",
         "n|col|public.scales.id",
         "e|uniqueness|public.scales.id"
       ]
@@ -7088,6 +7380,12 @@
     },
     {
       "schema": "public",
+      "name": "user_totp",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "customfield_category",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -7244,6 +7542,12 @@
     },
     {
       "schema": "public",
+      "name": "grade_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "scales",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -7304,6 +7608,12 @@
     },
     {
       "schema": "public",
+      "name": "message_contacts",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "message_conversation_members",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -7335,6 +7645,12 @@
     {
       "schema": "public",
       "name": "calendar_events",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "calendar_export_tokens",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -8987,6 +9303,84 @@
     },
     {
       "schema": "public",
+      "table": "user_totp",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "userid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "secret_encrypted",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "confirmed",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "confirmed_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "customfield_category",
       "name": "id",
       "type": "uuid",
@@ -9631,6 +10025,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
+      "name": "groupmodeforce",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -10431,6 +10838,19 @@
     {
       "schema": "public",
       "table": "course_groups",
+      "name": "enrolmentkey",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_groups",
       "name": "timecreated",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -10849,6 +11269,45 @@
       "table": "enrol",
       "name": "paymentaccountid",
       "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "enrol",
+      "name": "enrolmentkey",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "enrol",
+      "name": "sendwelcomemessage",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "enrol",
+      "name": "welcomemessage",
+      "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
@@ -12043,6 +12502,45 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "outcomeid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "idnumber",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "calculation",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "weightoverride",
       "type": "boolean",
       "typeSchema": null,
@@ -12218,6 +12716,84 @@
       "notNull": true,
       "dimensions": 0,
       "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "courseid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "scaleid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "description",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "timemodified",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -13329,6 +13905,45 @@
     },
     {
       "schema": "public",
+      "table": "message_contacts",
+      "name": "userid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_contacts",
+      "name": "contactid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_contacts",
+      "name": "timecreated",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "message_conversation_members",
       "name": "conversationid",
       "type": "uuid",
@@ -14071,6 +14686,84 @@
     {
       "schema": "public",
       "table": "calendar_events",
+      "name": "timemodified",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "userid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "tokenhash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "lastaccess",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "timecreated",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
       "name": "timemodified",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -14870,6 +15563,45 @@
       "notNull": true,
       "dimensions": 0,
       "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "competency",
+      "name": "ruletype",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "competency",
+      "name": "ruleconfig",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "competency",
+      "name": "ruleoutcome",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'nothing'",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -17386,10 +18118,23 @@
     {
       "schema": "public",
       "table": "backup_jobs",
+      "name": "scope",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'course'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "backup_jobs",
       "name": "courseid",
       "type": "uuid",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -18981,6 +19726,27 @@
     },
     {
       "schema": "public",
+      "table": "user_totp",
+      "name": "user_totp_userid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "userid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "customfield_category",
       "name": "customfield_category_itemid_idx",
       "nameExplicit": true,
@@ -19779,6 +20545,69 @@
     },
     {
       "schema": "public",
+      "table": "grade_items",
+      "name": "grade_items_outcomeid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "outcomeid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "grade_outcomes_courseid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "courseid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "grade_outcomes_scaleid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "scaleid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "scales",
       "name": "scales_courseid_idx",
       "nameExplicit": true,
@@ -20136,6 +20965,27 @@
     },
     {
       "schema": "public",
+      "table": "message_contacts",
+      "name": "message_contacts_contactid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "contactid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message_conversation_members",
       "name": "message_conversation_members_userid_idx",
       "nameExplicit": true,
@@ -20457,6 +21307,27 @@
       "columns": [
         {
           "value": "exceptionof",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "calendar_export_tokens_userid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "userid",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -22418,6 +23289,23 @@
     },
     {
       "schema": "public",
+      "table": "user_totp",
+      "name": "user_totp_userid_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "userid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "customfield_data",
       "name": "customfield_data_fieldid_customfield_field_id_fkey",
       "nameExplicit": false,
@@ -22822,6 +23710,57 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "grade_items_outcomeid_grade_outcomes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "outcomeid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "grade_outcomes_courseid_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "courseid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "grade_outcomes",
+      "name": "grade_outcomes_scaleid_scales_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "scaleid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "scales",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -23511,6 +24450,17 @@
     },
     {
       "schema": "public",
+      "table": "message_contacts",
+      "name": "message_contacts_pkey",
+      "columns": [
+        "userid",
+        "contactid"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "message_conversation_members",
       "name": "message_conversation_members_pkey",
       "columns": [
@@ -23685,6 +24635,16 @@
       "schema": "public",
       "table": "refresh_token_family",
       "name": "refresh_token_family_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "user_totp",
+      "name": "user_totp_pkey",
       "columns": [
         "id"
       ],
@@ -23933,6 +24893,16 @@
     },
     {
       "schema": "public",
+      "table": "grade_outcomes",
+      "name": "grade_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "scales",
       "name": "scales_pkey",
       "columns": [
@@ -24065,6 +25035,16 @@
       "schema": "public",
       "table": "calendar_events",
       "name": "calendar_events_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "calendar_export_tokens_pkey",
       "columns": [
         "id"
       ],
@@ -24702,6 +25682,18 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "grade_items_course_idnumber_unique",
+      "nameExplicit": true,
+      "columns": [
+        "courseid",
+        "idnumber"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "grade_items_course_type_instance_unique",
       "nameExplicit": true,
       "columns": [
@@ -25088,11 +26080,44 @@
     },
     {
       "schema": "public",
+      "table": "user_totp",
+      "name": "user_totp_userid_key",
+      "nameExplicit": false,
+      "columns": [
+        "userid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "course",
       "name": "course_shortname_key",
       "nameExplicit": false,
       "columns": [
         "shortname"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "calendar_export_tokens_userid_key",
+      "nameExplicit": false,
+      "columns": [
+        "userid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "calendar_export_tokens",
+      "name": "calendar_export_tokens_tokenhash_key",
+      "nameExplicit": false,
+      "columns": [
+        "tokenhash"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

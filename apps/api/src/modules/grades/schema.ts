@@ -13,6 +13,25 @@ import {
 import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 
+/**
+ * Grade outcomes (Moodle `grade_outcomes`): thang định tính ở mức site (courseid = null)
+ * hoặc mức khoá học, luôn gắn với một scale; grade item gắn outcome thì điểm của nó là
+ * chỉ số (1-based) trong scale của outcome và không tham gia tổng hợp số của category.
+ */
+export const gradeOutcomes = pgTable('grade_outcomes', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseid: uuid('courseid').references(() => course.id, { onDelete: 'cascade' }),
+  scaleid: uuid('scaleid').notNull().references(() => scales.id, { onDelete: 'restrict' }),
+  name: text('name').notNull().default(''),
+  description: text('description').notNull().default(''),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('grade_outcomes_courseid_idx').on(table.courseid),
+      index('grade_outcomes_scaleid_idx').on(table.scaleid),
+  ]);
+
+
 /** Scales (Moodle `scale`): courseid 0 = site scale. `scale` is a comma-separated list of values, lowest first. */
 export const scales = pgTable('scales', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -75,6 +94,12 @@ export const gradeItems = pgTable(
     grademin: doublePrecision('grademin').notNull().default(0),
     gradepass: doublePrecision('gradepass').notNull().default(0),
     scaleid: uuid('scaleid').references(() => scales.id, { onDelete: 'set null' }),
+    /** Outcome gắn với item (Moodle grade_items.outcomeid); item có outcome thì gradetype='scale' và scaleid là scale của outcome. */
+    outcomeid: uuid('outcomeid').references(() => gradeOutcomes.id, { onDelete: 'set null' }),
+    /** Định danh dùng trong công thức tính (Moodle grade_items.idnumber); duy nhất trong một khoá học khi không null. */
+    idnumber: text('idnumber'),
+    /** Công thức của item loại 'calculated' (Moodle grade_items.calculation), dạng `=sum([[a]],[[b]])`. */
+    calculation: text('calculation'),
     weightoverride: boolean('weightoverride').notNull().default(false),
     aggregationcoef: doublePrecision('aggregationcoef').notNull().default(0),
     extracredit: boolean('extracredit').notNull().default(false),
@@ -89,7 +114,7 @@ export const gradeItems = pgTable(
   (table) => [
       index('grade_items_categoryid_idx').on(table.categoryid),
       index('grade_items_iteminstance_idx').on(table.iteminstance),
-      index('grade_items_scaleid_idx').on(table.scaleid),unique('grade_items_course_type_instance_unique').on(table.courseid, table.itemtype, table.iteminstance, table.itemmodule)],
+      index('grade_items_scaleid_idx').on(table.scaleid),index('grade_items_outcomeid_idx').on(table.outcomeid),unique('grade_items_course_idnumber_unique').on(table.courseid, table.idnumber),unique('grade_items_course_type_instance_unique').on(table.courseid, table.itemtype, table.iteminstance, table.itemmodule)],
 );
 
 /**

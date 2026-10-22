@@ -13,6 +13,8 @@
     "draft": "Bản nháp",
     "public": "Công khai"
   },
+  "enrolWelcomeBody": "Chào mừng bạn đã ghi danh vào khoá học \"{course}\". Chúc bạn học tập hiệu quả!",
+  "enrolWelcomeSubject": "Chào mừng bạn đến với khoá học \"{course}\"",
   "paymentStatus": {
     "pending": "Đang chờ",
     "succeeded": "Thành công",

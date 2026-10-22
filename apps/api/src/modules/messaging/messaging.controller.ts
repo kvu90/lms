@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type CreateGroupConversationDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -19,6 +19,13 @@ export class MessagingController {
    */
   async createConversation(@Body({ schema: createConversationSchema }) dto: CreateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.createConversation(actor.id, dto);
+  }
+  @Post('conversations/group')
+  /**
+   * POST /messages/conversations/group — tạo (hoặc lấy lại) conversation gắn với một course group.
+   */
+  async createGroupConversation(@Body({ schema: createGroupConversationSchema }) dto: CreateGroupConversationDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.createGroupConversation(actor.id, dto);
   }
   @Get('conversations')
   /**
@@ -80,6 +87,27 @@ export class MessagingController {
    */
   async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
+  }
+  @Get('contacts')
+  /**
+   * GET /messages/contacts — danh bạ của tôi.
+   */
+  async contacts(@CurrentUser() actor: AuthenticatedUser) {
+    return { contacts: await this.messaging.listContacts(actor.id) };
+  }
+  @Post('contacts/:userId')
+  /**
+   * POST /messages/contacts/:userId — thêm một user vào danh bạ của tôi.
+   */
+  async addContact(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.addContact(actor.id, userId);
+  }
+  @Delete('contacts/:userId')
+  /**
+   * DELETE /messages/contacts/:userId — gỡ một user khỏi danh bạ của tôi.
+   */
+  async removeContact(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.removeContact(actor.id, userId);
   }
   @Get('contacts/blocked')
   /**

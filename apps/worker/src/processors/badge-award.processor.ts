@@ -7,9 +7,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import {
-  badge, badgeCriteria, badgeIssued, badgeManualAward, competencyUsercomp,
-  courseCompletions, courseModulesCompletion, notifications, outboxEvents,
+  badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUsercomp,
+  courseCompletions, courseModulesCompletion, customfieldCategory, customfieldData, customfieldField,
+  notifications, outboxEvents, users,
 } from '../db/schema';
+
+/** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortname). */
+const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstname', 'lastname'] as const;
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -20,8 +24,10 @@ export interface BadgeAwardResult { evaluated: number; issued: string[] }
  * Badge auto-award evaluation: the worker twin of the API evaluator,
  * fed by completion/competency events through the 'badge-award' queue.
  * It re-derives each ACTIVE badge's criteria tree (overall ALL/ANY over
- * course-completion / activity-completion / competency-proficiency /
- * other-badge / manual leaves) from the SAME stored facts the API uses,
+ * course-completion — honouring the leaf's optional by-date deadline /
+ * activity-completion / competency-proficiency / other-badge / manual /
+ * cohort-membership / profile-field leaves) from the SAME stored facts
+ * the API uses,
  * and issues missing assertions. Fully idempotent: the
  * (badgeid, userid) unique key plus an existence check mean a second run
  * issues nothing twice. Each new issue also produces the badge_awarded
@@ -42,7 +48,55 @@ export class BadgeAwardProcessor extends WorkerHost {
         if (!courseId) return false;
         const [row] = await this.db.select().from(courseCompletions)
           .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userid, userId)));
-        return row?.status === 'complete';
+        if (row?.status !== 'complete') return false;
+        // By-date (khớp phía API): có `byDate` thì timecompleted phải ≤ ngày cắt.
+        const byDate = typeof params.byDate === 'string' ? params.byDate : undefined;
+        if (byDate !== undefined) {
+          const cutoff = Date.parse(byDate);
+          if (Number.isNaN(cutoff) || !row.timecompleted) return false;
+          return row.timecompleted.getTime() <= cutoff;
+        }
+        return true;
+      }
+      case 'cohort': {
+        // Lá cohort (khớp phía API): thuộc cohort chỉ định; `cohortIds` yêu cầu thuộc TẤT CẢ.
+        const ids = typeof params.cohortId === 'string'
+          ? [params.cohortId]
+          : Array.isArray(params.cohortIds) ? params.cohortIds.filter((i): i is string => typeof i === 'string') : [];
+        if (!ids.length) return false;
+        for (const cohortId of ids) {
+          const [row] = await this.db.select().from(cohortMembers)
+            .where(and(eq(cohortMembers.cohortid, cohortId), eq(cohortMembers.userid, userId)));
+          if (!row) return false;
+        }
+        return true;
+      }
+      case 'profile': {
+        // Lá profile (khớp phía API): trường chuẩn trên users hoặc custom
+        // field (shortname, scope core_user/user); có `value` thì phải bằng
+        // đúng, không có thì trường phải được điền (khác rỗng).
+        const field = typeof params.field === 'string' ? params.field : '';
+        if (!field) return false;
+        let actual: string | null | undefined;
+        if ((PROFILE_STANDARD_FIELDS as readonly string[]).includes(field)) {
+          const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+          actual = user ? String(user[field as keyof typeof user] ?? '') : undefined;
+        } else {
+          const fields = await this.db.select({ id: customfieldField.id })
+            .from(customfieldField)
+            .innerJoin(customfieldCategory, eq(customfieldField.categoryid, customfieldCategory.id))
+            .where(and(
+              eq(customfieldCategory.component, 'core_user'), eq(customfieldCategory.area, 'user'),
+              eq(customfieldField.shortname, field),
+            ));
+          const fieldId = fields[0]?.id;
+          if (!fieldId) return false;
+          const [data] = await this.db.select().from(customfieldData)
+            .where(and(eq(customfieldData.fieldid, fieldId), eq(customfieldData.instanceid, userId)));
+          actual = data?.value;
+        }
+        if (actual === null || actual === undefined) return false;
+        return typeof params.value === 'string' ? actual === params.value : actual.trim() !== '';
       }
       case 'activitycompletion': {
         const cmId = typeof params.cmId === 'string' ? params.cmId : '';

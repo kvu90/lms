@@ -11,11 +11,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Việc sao lưu/khôi phục: archive là manifest JSON có version riêng (không phải .mbz). */
+/**
+ * Việc sao lưu/khôi phục: archive là manifest JSON có version riêng (không phải .mbz).
+ * `scope`: 'course' (mặc định, gắn một khoá học) | 'site' (sao lưu mức hệ
+ * thống — khi đó `courseid` là NULL và archive chỉ chứa các contributor mức
+ * site: question bank mức site, badge mức site, calendar mức site).
+ */
 export const backupJobs = pgTable('backup_jobs', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: text('type').notNull(), // backup | restore
-  courseid: uuid('courseid').notNull(),
+  scope: text('scope').notNull().default('course'),
+  courseid: uuid('courseid'),
   targetcourseid: uuid('targetcourseid'),
   mode: text('mode').notNull().default('new'), // new | merge | replace (restore)
   status: text('status').notNull().default('pending'), // pending | running | completed | failed

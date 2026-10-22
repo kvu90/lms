@@ -29,8 +29,8 @@ export class CompetenciesRepository {
   /**
    * Chèn framework năng lực.
    */
-  async insertFramework(v: typeof competencyFramework.$inferInsert): Promise<FrameworkRow> {
-    const [row] = await this.db.insert(competencyFramework).values(v).returning(); return row!;
+  async insertFramework(v: typeof competencyFramework.$inferInsert, tx?: DbTx): Promise<FrameworkRow> {
+    const [row] = await (tx ?? this.db).insert(competencyFramework).values(v).returning(); return row!;
   }
   /**
    * Lấy framework theo id.
@@ -48,8 +48,14 @@ export class CompetenciesRepository {
   /**
    * Chèn competency.
    */
-  async insertCompetency(v: typeof competency.$inferInsert): Promise<CompetencyRow> {
-    const [row] = await this.db.insert(competency).values(v).returning(); return row!;
+  async insertCompetency(v: typeof competency.$inferInsert, tx?: DbTx): Promise<CompetencyRow> {
+    const [row] = await (tx ?? this.db).insert(competency).values(v).returning(); return row!;
+  }
+  /**
+   * Các competency con TRỰC TIẾP của một competency (dùng để kiểm tra rule points).
+   */
+  async listChildren(parentid: string): Promise<CompetencyRow[]> {
+    return this.db.select().from(competency).where(eq(competency.parentid, parentid)).orderBy(asc(competency.sortorder), asc(competency.id));
   }
   /**
    * Lấy competency theo id.
@@ -66,8 +72,8 @@ export class CompetenciesRepository {
   /**
    * Cập nhật competency.
    */
-  async updateCompetency(id: string, patch: Partial<CompetencyRow>): Promise<void> {
-    await this.db.update(competency).set({ ...patch, timemodified: new Date() }).where(eq(competency.id, id));
+  async updateCompetency(id: string, patch: Partial<CompetencyRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(competency).set({ ...patch, timemodified: new Date() }).where(eq(competency.id, id));
   }
 
   /**

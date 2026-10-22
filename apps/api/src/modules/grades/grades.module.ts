@@ -5,7 +5,7 @@ import { AccessModule } from '../access/access.module';
 import { CompletionModule } from '../completion/completion.module';
 import { CoursesModule } from '../courses/courses.module';
 import { EnrolModule } from '../enrol/enrol.module';
-import { GradesController } from './grades.controller';
+import { GradesController, SiteGradesController } from './grades.controller';
 import { GradesRepository } from './grades.repository';
 import { GRADE_REGRADE_QUEUE, GradesService } from './grades.service';
 
@@ -20,7 +20,7 @@ import { GRADE_REGRADE_QUEUE, GradesService } from './grades.service';
     AccessModule, CoursesModule, EnrolModule, CompletionModule, EventsModule,
     BullModule.registerQueue({ name: GRADE_REGRADE_QUEUE }),
   ],
-  controllers: [GradesController],
+  controllers: [GradesController, SiteGradesController],
   providers: [GradesRepository, GradesService],
   exports: [GradesService],
 })

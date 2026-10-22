@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
-import { createGradeCategorySchema, createGradeItemSchema, createGradeScaleSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateScaleDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto } from './dto/grades.dto';
+import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -151,5 +151,66 @@ export class GradesController {
    */
   async scales(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
     return this.grades.listScales(courseId);
+  }
+
+  @Post(':courseId/grades/outcomes')
+  /**
+   * POST /courses/:courseId/grades/outcomes — tạo grade outcome mức khoá học.
+   */
+  async createOutcome(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createGradeOutcomeSchema }) dto: CreateGradeOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.createOutcome(actor.id, courseId, dto);
+  }
+  @Get(':courseId/grades/outcomes')
+  /**
+   * GET /courses/:courseId/grades/outcomes — liệt kê outcome của khoá học và outcome mức site.
+   */
+  async listOutcomes(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
+    return this.grades.listOutcomes(courseId);
+  }
+  @Patch('grades/outcomes/:outcomeId')
+  /**
+   * PATCH /courses/grades/outcomes/:outcomeId — cập nhật grade outcome.
+   */
+  async updateOutcome(@Param('outcomeId', { schema: uuidIdSchema }) outcomeId: string, @Body({ schema: updateGradeOutcomeSchema }) dto: UpdateGradeOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.updateOutcome(actor.id, outcomeId, dto);
+  }
+  @Delete('grades/outcomes/:outcomeId')
+  /**
+   * DELETE /courses/grades/outcomes/:outcomeId — xoá grade outcome.
+   */
+  async deleteOutcome(@Param('outcomeId', { schema: uuidIdSchema }) outcomeId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.grades.deleteOutcome(actor.id, outcomeId);
+    return { deleted: true };
+  }
+}
+
+@ApiTags('grades')
+@Controller({ path: 'grades', version: '1' })
+/**
+ * API grade outcome/scale mức site (không thuộc một khoá học cụ thể).
+ */
+export class SiteGradesController {
+  constructor(private readonly grades: GradesService) {}
+
+  @Post('outcomes')
+  /**
+   * POST /grades/outcomes — tạo grade outcome mức site.
+   */
+  async createSiteOutcome(@Body({ schema: createGradeOutcomeSchema }) dto: CreateGradeOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.createOutcome(actor.id, null, dto);
+  }
+  @Get('outcomes')
+  /**
+   * GET /grades/outcomes — liệt kê grade outcome mức site.
+   */
+  async listSiteOutcomes() {
+    return this.grades.listOutcomes();
+  }
+  @Post('scales')
+  /**
+   * POST /grades/scales — tạo scale mức site.
+   */
+  async createSiteScale(@Body({ schema: createGradeScaleSchema }) dto: CreateScaleDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.createSiteScale(actor.id, dto);
   }
 }

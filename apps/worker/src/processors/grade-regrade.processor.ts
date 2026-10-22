@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '../db/schema';
 import { calculateCategory, type AggregationStrategy, type CalcItemInput } from '../domain/grade-calculator';
+import { evaluateGradeFormula, parseGradeFormula } from '../domain/grade-formula';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -46,6 +47,62 @@ export class GradeRegradeProcessor extends WorkerHost {
       const grades = allGrades.filter((g) => g.userid === userId);
       const gradeByItem = new Map(grades.map((g) => [g.itemid, g]));
       const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
+
+      // Calculated items (bản worker — cùng logic với API): đánh giá công thức theo idnumber
+      // trước khi tổng hợp category, kẹp vào [grademin, grademax] của item và lưu lại điểm.
+      const byIdnumber = new Map(items.filter((i) => i.idnumber).map((i) => [i.idnumber!, i]));
+      const computedCalc = new Map<string, number | null>();
+      const resolving = new Set<string>();
+      type ItemRowW = (typeof items)[number];
+      const resolveFinal = (it: ItemRowW): number | null => {
+        if (it.itemtype !== 'calculated') return finalByItem.get(it.id) ?? null;
+        if (computedCalc.has(it.id)) return computedCalc.get(it.id)!;
+        if (resolving.has(it.id)) return null;
+        resolving.add(it.id);
+        let value: number | null = null;
+        const existingCalc = gradeByItem.get(it.id);
+        if (existingCalc?.overridden) value = existingCalc.finalgrade;
+        else if (it.calculation) {
+          try {
+            value = evaluateGradeFormula(parseGradeFormula(it.calculation), (idnumber) => {
+              const ref = byIdnumber.get(idnumber);
+              if (!ref || ref.id === it.id) return null;
+              if (gradeByItem.get(ref.id)?.excluded) return null;
+              return resolveFinal(ref);
+            });
+          } catch { value = null; }
+          if (value !== null) value = Math.min(it.grademax, Math.max(it.grademin, value));
+        }
+        resolving.delete(it.id);
+        computedCalc.set(it.id, value);
+        return value;
+      };
+      for (const calcItem of items.filter((i) => i.itemtype === 'calculated')) {
+        const existingCalc = gradeByItem.get(calcItem.id);
+        if (existingCalc?.overridden) { finalByItem.set(calcItem.id, existingCalc.finalgrade); continue; }
+        const value = resolveFinal(calcItem);
+        finalByItem.set(calcItem.id, value);
+        const changed = !existingCalc || existingCalc.finalgrade !== value;
+        await this.db.insert(gradeGrades).values({
+          itemid: calcItem.id, userid: userId, rawgrade: existingCalc?.rawgrade ?? null, finalgrade: value,
+          aggregationstatus: value === null ? 'novalue' : 'used',
+        }).onConflictDoUpdate({
+          target: [gradeGrades.itemid, gradeGrades.userid],
+          set: { finalgrade: value, aggregationstatus: value === null ? 'novalue' : 'used', timemodified: new Date() },
+        });
+        if (changed && value !== null) {
+          updatedTotals += 1;
+          await this.db.insert(gradeGradesHistory).values({
+            action: existingCalc ? 2 : 1, oldid: existingCalc?.id ?? null, itemid: calcItem.id, userid: userId,
+            rawgrade: null, finalgrade: value, source: 'calculation-worker',
+          });
+          await this.db.insert(outboxEvents).values({
+            aggregate: 'grades', type: 'grade_updated',
+            payload: { courseId, itemId: calcItem.id, userId, finalgrade: value, calculated: true, via: 'worker-regrade' },
+          });
+        }
+      }
+
       const byDepthDesc = [...categories].sort((a, b) => b.depth - a.depth);
       for (const cat of byDepthDesc) {
         const totalItem = items.find((i) => (i.itemtype === 'category' && i.iteminstance === cat.id)
@@ -54,16 +111,19 @@ export class GradeRegradeProcessor extends WorkerHost {
         const existing = gradeByItem.get(totalItem.id);
         if (existing?.overridden) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
         if (existing?.frozen && existing.finalgrade !== null) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
-        const childItems = items.filter((i) => i.categoryid === cat.id && i.id !== totalItem.id);
+        // Item thang định tính (gradetype='scale', gồm item gắn outcome) không tham gia tổng hợp số — cùng luật với API.
+        const childItems = items.filter((i) => i.categoryid === cat.id && i.id !== totalItem.id
+          && !i.outcomeid && i.gradetype !== 'scale');
         const calcItems: CalcItemInput[] = childItems.map((ci) => {
           const g = gradeByItem.get(ci.id);
           const isSubTotal = ci.itemtype === 'category' || ci.itemtype === 'course';
+          const isCalculated = ci.itemtype === 'calculated';
           return {
             itemId: ci.id, grademin: ci.grademin, grademax: ci.grademax,
             grade: finalByItem.get(ci.id) ?? null,
             excluded: g?.excluded ?? false, extracredit: ci.extracredit,
             weightOverride: ci.weightoverride, weight: ci.aggregationcoef, aggregationcoef: ci.aggregationcoef,
-            multiplicator: isSubTotal ? 1 : ci.multiplicator, offset: isSubTotal ? 0 : ci.plusfactor,
+            multiplicator: (isSubTotal || isCalculated) ? 1 : ci.multiplicator, offset: (isSubTotal || isCalculated) ? 0 : ci.plusfactor,
             frozen: g?.frozen ?? false,
           };
         });

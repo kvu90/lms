@@ -65,6 +65,22 @@ export const message = pgTable('message', {
   ]);
 
 
+/**
+ * Contacts (Moodle `message_contacts`): userid đã thêm contactid vào danh
+ * bạ của mình. Quan hệ có hướng — dòng (người nhận, người gửi) là một trong
+ * hai điều kiện mở cổng liên lạc khi `core/messagingallusers` tắt.
+ */
+export const messageContacts = pgTable(
+  'message_contacts',
+  {
+    userid: uuid('userid').notNull(),
+    contactid: uuid('contactid').notNull(),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+      index('message_contacts_contactid_idx').on(table.contactid),primaryKey({ columns: [table.userid, table.contactid] })],
+);
+
 /** Blocked contacts (Moodle `message_users_blocked`): userid blocks blockeduserid from contacting them. */
 export const messageUsersBlocked = pgTable(
   'message_users_blocked',

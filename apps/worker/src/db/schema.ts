@@ -153,6 +153,11 @@ export const gradeItems = pgTable('grade_items', {
   itemname: text('itemname').notNull().default(''),
   itemtype: text('itemtype').notNull().default('manual'),
   iteminstance: uuid('iteminstance'),
+  gradetype: text('gradetype').notNull().default('value'),
+  scaleid: uuid('scaleid'),
+  outcomeid: uuid('outcomeid'),
+  idnumber: text('idnumber'),
+  calculation: text('calculation'),
   grademax: doublePrecision('grademax').notNull().default(100),
   grademin: doublePrecision('grademin').notNull().default(0),
   gradepass: doublePrecision('gradepass').notNull().default(0),
@@ -380,6 +385,37 @@ export const badgeManualAward = pgTable('badge_manual_award', {
   ]);
 
 
+/** Worker view of `cohort_members` (canonical schema in apps/api groups module) — needed by the badge `cohort` criteria leaf. */
+export const cohortMembers = pgTable('cohort_members', {
+  cohortid: uuid('cohortid').notNull(),
+  userid: uuid('userid').notNull(),
+  timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('cohort_members_unique_worker').on(t.cohortid, t.userid)]);
+
+/** Worker view of the custom field tables (canonical schema in apps/api custom-fields module) — needed by the badge `profile` criteria leaf. */
+export const customfieldCategory = pgTable('customfield_category', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull().default(''),
+  component: text('component').notNull(),
+  area: text('area').notNull(),
+});
+
+export const customfieldField = pgTable('customfield_field', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  categoryid: uuid('categoryid').notNull(),
+  shortname: text('shortname').notNull(),
+  name: text('name').notNull().default(''),
+  type: text('type').notNull().default('text'),
+});
+
+export const customfieldData = pgTable('customfield_data', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  fieldid: uuid('fieldid').notNull(),
+  instanceid: uuid('instanceid').notNull(),
+  value: text('value'),
+});
+
+
 export const competencyUsercomp = pgTable('competency_usercomp', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   userid: uuid('userid').notNull(),
@@ -448,7 +484,8 @@ export const contextTable = pgTable('context', {
 export const backupJobs = pgTable('backup_jobs', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: text('type').notNull(),
-  courseid: uuid('courseid').notNull(),
+  scope: text('scope').notNull().default('course'),
+  courseid: uuid('courseid'),
   targetcourseid: uuid('targetcourseid'),
   mode: text('mode').notNull().default('new'),
   status: text('status').notNull().default('pending'),
@@ -612,6 +649,35 @@ export const privacyExportFiles = pgTable('privacy_export_files', {
       index('privacy_export_files_fileid_idx').on(table.fileid),
   ]);
 
+
+/** Worker view of the question bank tables (canonical schema in apps/api questions module) — needed by the backup processor to count/export the bank sections of an archive. */
+export const questionCategories = pgTable('question_categories', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  contextid: uuid('contextid').notNull(),
+  parent: uuid('parent'),
+}, (t) => [index('question_categories_contextid_idx').on(t.contextid)]);
+
+export const question = pgTable('question', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  category: uuid('category').notNull(),
+  qtype: text('qtype').notNull(),
+  name: text('name').notNull(),
+}, (t) => [index('question_category_idx').on(t.category)]);
+
+export const questionBankEntries = pgTable('question_bank_entries', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questioncategoryid: uuid('questioncategoryid').notNull(),
+  questionid: uuid('questionid').notNull(),
+  latestversion: integer('latestversion').notNull().default(1),
+}, (t) => [index('question_bank_entries_questioncategoryid_idx').on(t.questioncategoryid)]);
+
+export const questionVersions = pgTable('question_versions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionbankentryid: uuid('questionbankentryid').notNull(),
+  questionid: uuid('questionid').notNull(),
+  version: integer('version').notNull(),
+}, (t) => [index('question_versions_questionid_idx').on(t.questionid)]);
 
 /** Các bảng phụ trợ platform services cho worker: sections, id mappings, roles/assignments. */
 export const courseSections = pgTable('course_sections', {

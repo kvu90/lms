@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { createEnrolInstanceSchema, enrolUserSchema, updateEnrolInstanceSchema, type CreateEnrolInstanceDto, type EnrolUserDto, type UpdateEnrolInstanceDto } from './dto/enrol.dto';
+import { createEnrolInstanceSchema, enrolUserSchema, selfEnrolSchema, updateEnrolInstanceSchema, type CreateEnrolInstanceDto, type EnrolUserDto, type SelfEnrolDto, type UpdateEnrolInstanceDto } from './dto/enrol.dto';
 import { EnrolService } from './enrol.service';
 
 @ApiTags('enrol')
@@ -22,10 +22,10 @@ export class EnrolController {
   }
   @Get(':courseId/enrol/instances')
   /**
-   * GET /courses/:courseId/enrol/instances — liệt kê phương thức.
+   * GET /courses/:courseId/enrol/instances — liệt kê phương thức (khoá ghi danh chỉ hiện với staff quản lý enrol).
    */
-  async listInstances(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.enrol.listInstances(courseId);
+  async listInstances(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.enrol.listInstances(courseId, actor.id);
   }
   @Patch(':courseId/enrol/instances/:instanceId')
   /**
@@ -52,10 +52,17 @@ export class EnrolController {
   }
   @Post(':courseId/enrol/instances/:instanceId/self-enrol')
   /**
-   * POST /courses/:courseId/enrol/instances/:instanceId/self-enrol — tự ghi danh (có thể cần khoá ghi danh).
+   * POST /courses/:courseId/enrol/instances/:instanceId/self-enrol — tự ghi danh (có thể cần khoá ghi danh của instance hoặc của một nhóm).
    */
-  async selfEnrol(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.enrol.selfEnrol(actor.id, instanceId);
+  async selfEnrol(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Body({ schema: selfEnrolSchema }) dto: SelfEnrolDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.enrol.selfEnrol(actor.id, instanceId, dto.enrolmentKey);
+  }
+  @Post(':courseId/enrol/instances/:instanceId/self-unenrol')
+  /**
+   * POST /courses/:courseId/enrol/instances/:instanceId/self-unenrol — học viên tự huỷ ghi danh của chính mình khỏi instance self.
+   */
+  async selfUnenrol(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.enrol.selfUnenrol(actor.id, instanceId);
   }
   @Post(':courseId/enrol/instances/:instanceId/users/:userId/suspend')
   /**

@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow } from './messaging.repository';
 
@@ -30,6 +31,7 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   { name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'] },
   { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'] },
   { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'] },
+  { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'] },
   { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'] },
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'] },
   { name: 'course_completed', component: 'core_completion', channels: ['popup'] },
@@ -83,6 +85,10 @@ export interface NotificationChannelPort {
  * Quy tắc: người bị chặn không gửi được tin; notification được tạo theo provider và phân phối theo
  * tuỳ chọn kênh của người nhận (logged-in/logged-off), mọi lần phân phối đều ghi dispatch log;
  * chuỗi hiển thị của notification do tầng tạo nội dung lấy từ catalog i18n.
+ * Cổng liên lạc: khi setting `core/messagingallusers` tắt, chỉ contact (theo hướng người nhận
+ * đã thêm người gửi) hoặc bạn cùng khoá đang ghi danh mới mở được liên lạc 1-1 — notification
+ * hệ thống không qua cổng này. Conversation gắn course group (component core_group) đồng bộ
+ * thành viên theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
  */
 export class MessagingService {
   constructor(
@@ -91,6 +97,7 @@ export class MessagingService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
+    private readonly siteConfig: SiteConfigService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
   ) {}
 
@@ -263,6 +270,57 @@ export class MessagingService {
     return this.repo.listDispatchLog(userId);
   }
 
+  // --- contacts -------------------------------------------------------------
+
+  /**
+   * Thêm một user vào danh bạ của tôi. Không tự thêm chính mình; user đích
+   * không tồn tại thì 404 như các flow liên hệ hiện hữu.
+   */
+  async addContact(userId: string, contactId: string): Promise<{ contacts: string[] }> {
+    if (contactId === userId) throw new BadRequestException({ message: 'You cannot add yourself as a contact', code: 'messaging.contact_self' });
+    await this.users.getUser(contactId);
+    await this.repo.addContact(userId, contactId);
+    return { contacts: await this.repo.listContacts(userId) };
+  }
+  /**
+   * Gỡ một user khỏi danh bạ của tôi.
+   */
+  async removeContact(userId: string, contactId: string): Promise<{ contacts: string[] }> {
+    await this.users.getUser(contactId);
+    await this.repo.removeContact(userId, contactId);
+    return { contacts: await this.repo.listContacts(userId) };
+  }
+  /**
+   * Danh bạ của tôi.
+   */
+  async listContacts(userId: string): Promise<string[]> {
+    return this.repo.listContacts(userId);
+  }
+
+  // --- cổng liên lạc (contact / shared-course gate) ----------------------------
+
+  /**
+   * Cổng liên lạc 1-1 (oracle: Moodle `core_message\api::can_contact_user` và
+   * Behat "Disallow sending a message if you are neither a contact nor do you
+   * share a course with the user"). Khi setting `core/messagingallusers` =
+   * false, người gửi chỉ liên lạc được với người nhận khi ÍT NHẤT một điều
+   * kiện đúng: (a) người nhận đã thêm người gửi vào danh bạ của người nhận,
+   * hoặc (b) hai người có ít nhất một khoá học cùng ghi danh đang active.
+   * Setting được đọc tươi qua SiteConfigService ở mỗi lần kiểm (không cache)
+   * nên admin đổi là có hiệu lực ngay. Notification hệ thống (`notify`)
+   * KHÔNG đi qua cổng này.
+   */
+  private async assertCanContact(senderId: string, recipientId: string): Promise<void> {
+    const allUsers = await this.siteConfig.getValue<boolean>('core', 'messagingallusers');
+    if (allUsers) return;
+    if (await this.repo.isContact(recipientId, senderId)) return;
+    if (await this.repo.sharesActiveCourse(senderId, recipientId)) return;
+    throw new ForbiddenException({
+      message: 'You can only message a user who has you as a contact or who shares a course with you (messagingallusers is off)',
+      code: 'messaging.not_a_contact_or_course_member',
+    });
+  }
+
   // --- blocked contacts ---------------------------------------------------------
 
   /**
@@ -297,7 +355,12 @@ export class MessagingService {
   // --- conversations & messages ---------------------------------------------------
 
   /**
-   * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại).
+   * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại). Tạo MỚI
+   * conversation 1-1 phải qua cổng liên lạc (xem {@link assertCanContact});
+   * việc trả lại conversation đã tồn tại là truy hồi idempotent, còn việc
+   * gửi tiếp trong đó vẫn bị cổng kiểm ở {@link sendMessage} — đúng luật
+   * Moodle (can_send_message_to_conversation kiểm mỗi lần gửi, kể cả
+   * conversation có từ trước khi bật cổng).
    */
   async createConversation(actorId: string, input: { type?: number; memberIds: string[]; name?: string }): Promise<ConversationRow & { members: string[] }> {
     const type = input.type ?? 1;
@@ -312,6 +375,10 @@ export class MessagingService {
       throw new BadRequestException({ message: 'A group conversation needs at least 2 members', code: 'messaging.group_members' });
     }
     for (const id of memberIds) await this.users.getUser(id);
+    if (type === 1) {
+      const other = memberIds.find((id) => id !== actorId)!;
+      await this.assertCanContact(actorId, other);
+    }
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertConversation({ type, name: input.name ?? null }, tx as never);
       for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
@@ -320,17 +387,103 @@ export class MessagingService {
     return { ...conversation, members: memberIds };
   }
 
+  // --- group conversations (gắn course group) ---------------------------------
+
+  /** Conversation có gắn với một course group qua (component, itemtype, itemid) hay không. */
+  private isGroupLinked(conversation: ConversationRow): boolean {
+    return conversation.type === 2
+      && conversation.component === 'core_group'
+      && conversation.itemtype === 'groups'
+      && conversation.itemid !== null;
+  }
+
   /**
-   * Conversation của user kèm số chưa đọc.
+   * Đồng bộ lười thành viên của một conversation gắn group theo thành viên
+   * group HIỆN TẠI: người mới vào group được thêm, người rời group bị gỡ
+   * khỏi conversation (tin nhắn cũ giữ nguyên). Trả về danh sách thành viên
+   * sau đồng bộ. Chỉ chạy phía messaging khi conversation được liệt kê/mở/
+   * gửi — không cần hook trong module groups.
+   */
+  private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    const groupMemberIds = [...new Set(await this.repo.listGroupMemberIds(conversation.itemid!))];
+    const current = await this.repo.listMembers(conversation.id);
+    for (const id of groupMemberIds) {
+      if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
+    }
+    for (const id of current) {
+      if (!groupMemberIds.includes(id)) await this.repo.removeMember(conversation.id, id);
+    }
+    return groupMemberIds;
+  }
+
+  /** Đồng bộ nếu conversation gắn group; conversation thường thì bỏ qua. */
+  private async syncGroupConversationIfLinked(conversation: ConversationRow): Promise<void> {
+    if (this.isGroupLinked(conversation)) await this.syncGroupConversationMembers(conversation);
+  }
+
+  /**
+   * Staff của khoá theo đúng nghĩa GroupsModule dùng: site admin, hoặc có
+   * capability `moodle/course:managegroups` tại context của khoá.
+   */
+  private async isCourseStaff(userId: string, courseId: string): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(userId)) return true;
+    const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
+    if (!courseCtx) return false;
+    return this.evaluator.hasCapability(userId, 'moodle/course:managegroups', courseCtx.id);
+  }
+
+  /**
+   * Tạo (hoặc lấy lại) conversation của một course group: component
+   * 'core_group', itemtype 'groups', itemid = group id. Chỉ thành viên
+   * group hoặc staff của khoá mới tạo được; thành viên conversation khởi
+   * tạo đúng bằng thành viên group hiện tại và về sau được đồng bộ lười.
+   */
+  async createGroupConversation(actorId: string, input: { groupId: string; name?: string }): Promise<ConversationRow & { members: string[] }> {
+    const group = await this.repo.getCourseGroup(input.groupId);
+    if (!group) throw new NotFoundException({ message: `Course group ${input.groupId} not found`, code: 'messaging.group_not_found' });
+    const groupMemberIds = await this.repo.listGroupMemberIds(group.id);
+    if (!groupMemberIds.includes(actorId) && !(await this.isCourseStaff(actorId, group.courseid))) {
+      throw new ForbiddenException({ message: 'Only group members or course staff can create the group conversation', code: 'messaging.group_conversation_forbidden' });
+    }
+    const existing = await this.repo.findGroupConversation(group.id);
+    if (existing) return { ...existing, members: await this.syncGroupConversationMembers(existing) };
+    const courseCtx = await this.contexts.getByLevelInstance(50, group.courseid);
+    const conversation = await this.repo.dbHandle.transaction(async (tx) => {
+      const created = await this.repo.insertConversation({
+        type: 2, name: input.name ?? group.name,
+        component: 'core_group', itemtype: 'groups', itemid: group.id,
+        contextid: courseCtx?.id ?? null,
+      }, tx as never);
+      for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx as never);
+      return created;
+    });
+    return { ...conversation, members: groupMemberIds };
+  }
+
+  /**
+   * Conversation của user kèm số chưa đọc. Conversation gắn group được
+   * đồng bộ lười trước khi liệt kê — kể cả các group mà user mới gia nhập
+   * (chưa từng là thành viên conversation) để chúng xuất hiện ngay.
    */
   async listConversations(userId: string): Promise<(ConversationRow & { members: string[]; unread: number })[]> {
+    for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
+      await this.syncGroupConversationMembers(c);
+    }
     const conversations = await this.repo.listConversationsForUser(userId);
     const out: (ConversationRow & { members: string[]; unread: number })[] = [];
     for (const c of conversations) {
+      let members: string[];
+      if (this.isGroupLinked(c)) {
+        members = await this.syncGroupConversationMembers(c);
+        // Bị gỡ khỏi group ⇒ bị gỡ khỏi conversation ⇒ không còn trong danh sách.
+        if (!members.includes(userId)) continue;
+      } else {
+        members = await this.repo.listMembers(c.id);
+      }
       const messages = await this.repo.listMessages(c.id);
       out.push({
         ...c,
-        members: await this.repo.listMembers(c.id),
+        members,
         unread: messages.filter((m) => m.useridfrom !== userId && !m.timeread).length,
       });
     }
@@ -338,11 +491,13 @@ export class MessagingService {
   }
 
   /**
-   * Chi tiết conversation + tin nhắn (chỉ thành viên mới xem được).
+   * Chi tiết conversation + tin nhắn (chỉ thành viên mới xem được;
+   * conversation gắn group được đồng bộ thành viên trước khi kiểm tra).
    */
   async getConversation(userId: string, conversationId: string): Promise<ConversationRow & { members: string[]; messages: MessageRow[] }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
@@ -363,6 +518,10 @@ export class MessagingService {
     await this.evaluator.requireCapability(actorId, 'moodle/site:sendmessage', senderCtx?.id ?? systemCtx.id);
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    // Conversation gắn group: đồng bộ thành viên theo group trước khi kiểm
+    // tra tư cách thành viên (người mới vào group gửi được ngay, người rời
+    // group bị chặn ở kiểm tra ngay dưới đây).
+    await this.syncGroupConversationIfLinked(conversation);
     if (!(await this.repo.isMember(conversationId, actorId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
@@ -376,6 +535,15 @@ export class MessagingService {
       if (await this.repo.isBlocked(memberId, actorId)) {
         throw new ForbiddenException({ message: `User ${memberId} has blocked you`, code: 'messaging.contact_blocked' });
       }
+    }
+    // Cổng liên lạc chỉ áp cho conversation cá nhân (type 1) — đúng Moodle:
+    // can_send_message_to_conversation kiểm can_contact_user ở MỖI lần gửi
+    // vào conversation cá nhân (conversation có từ trước khi bật cổng vẫn bị
+    // chặn), còn conversation nhóm thì thành viên gửi tự do. Kiểm sau luật
+    // suspended/blocked để giữ nguyên mã lỗi đã có của hai luật đó.
+    if (conversation.type === 1) {
+      const other = members.find((id) => id !== actorId);
+      if (other) await this.assertCanContact(actorId, other);
     }
     const saved = await this.repo.dbHandle.transaction(async (tx) => {
       const msg = await this.repo.insertMessage({

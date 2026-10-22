@@ -14,6 +14,12 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
  * (test_member_added_event, test_groups_delete_groupings_groups,
  * groups membership), cohort sync behaviour from enrol_cohort plugin
  * semantics as described in report §2#6.
+ * Behat oracles (business-gaps round): enrol/self/tests/behat/
+ * self_enrolment.feature ("Self-enrolment enabled requiring an enrolment
+ * key", "...requiring a group enrolment key", "Self unenrol as a
+ * self-enrolled student"), enrol/self + enrol/manual welcome-message
+ * scenarios, enrol/cohort/tests/behat/enrolcohorts.feature ("Editing a
+ * cohort enrolment method's role should change participants' role").
  */
 describe('Enrol & groups/cohorts', () => {
   let app: INestApplication;
@@ -215,10 +221,264 @@ describe('Enrol & groups/cohorts', () => {
     const manualInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const user = await createUserViaApi(app, admin);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
-    const bad = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${manualInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`);
+    const bad = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${manualInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
     expect(bad.status).toBe(400);
-    const ok = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`);
+    const ok = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
     expect(ok.status).toBeLessThan(300);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
+  });
+
+  it('enrolment key: a keyed self instance refuses missing/wrong keys with 400 and enrols nobody, enrols with the correct key, and never leaks the key to non-managers (Behat self_enrolment.feature "Self-enrolment enabled requiring an enrolment key")', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const instance = await createEnrolInstance(app, admin, course.id, { method: 'self', enrolmentKey: 's3cret-key' }) as unknown as { id: string; enrolmentkey: string | null };
+    // The manager who created the instance sees the key.
+    expect(instance.enrolmentkey).toBe('s3cret-key');
+    const user = await createUserViaApi(app, admin);
+    const userLogin = await login(app, user.username, STRONG_PASSWORD);
+    // A non-manager listing instances never sees the key value.
+    const listed = await http(app).get(`/api/v1/courses/${course.id}/enrol/instances`).set('Authorization', `Bearer ${userLogin.accessToken}`);
+    expect((listed.body as { id: string; enrolmentkey: string | null }[]).find((i) => i.id === instance.id)?.enrolmentkey).toBeNull();
+    const listedAdmin = await http(app).get(`/api/v1/courses/${course.id}/enrol/instances`).set('Authorization', `Bearer ${admin}`);
+    expect((listedAdmin.body as { id: string; enrolmentkey: string | null }[]).find((i) => i.id === instance.id)?.enrolmentkey).toBe('s3cret-key');
+    // Missing key ⇒ 400 enrol.enrolment_key_required, no enrolment created.
+    const missing = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
+    expect(missing.status).toBe(400);
+    expect(missing.body.code).toBe('enrol.enrolment_key_required');
+    // Wrong key ⇒ 400 enrol.invalid_enrolment_key, still no enrolment.
+    const wrong = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({ enrolmentKey: 'not-the-key' });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.code).toBe('enrol.invalid_enrolment_key');
+    const enrolments = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
+    expect((enrolments.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(false);
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
+    // Correct key ⇒ enrolled and can access the course.
+    const ok = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({ enrolmentKey: 's3cret-key' });
+    expect(ok.status).toBeLessThan(300);
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
+  });
+
+  it('group enrolment key: a key matching a course group enrols AND places the learner in that group, while the instance key enrols without group placement (Behat self_enrolment.feature "...requiring a group enrolment key")', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const group = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Keyed team', enrolmentKey: 'group-key-1' });
+    expect(group.status).toBe(201);
+    expect(group.body.enrolmentkey).toBe('group-key-1');
+    const instance = await createEnrolInstance(app, admin, course.id, { method: 'self', enrolmentKey: 'course-key' });
+
+    // Alice uses the GROUP key: enrolled + member of the group.
+    const alice = await createUserViaApi(app, admin);
+    const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
+    const aliceRes = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ enrolmentKey: 'group-key-1' });
+    expect(aliceRes.status).toBeLessThan(300);
+    const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${group.body.id}/members`).set('Authorization', `Bearer ${admin}`);
+    expect((members.body as { userid: string }[]).map((m) => m.userid)).toContain(alice.id);
+    // The group key is hidden from the enrolled student.
+    const aliceGroups = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((aliceGroups.body as { id: string; enrolmentkey: string | null }[]).find((g) => g.id === group.body.id)?.enrolmentkey).toBeNull();
+
+    // Bob uses the INSTANCE key: enrolled, but NOT placed in the group.
+    const bob = await createUserViaApi(app, admin);
+    const bobLogin = await login(app, bob.username, STRONG_PASSWORD);
+    const bobRes = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${bobLogin.accessToken}`).send({ enrolmentKey: 'course-key' });
+    expect(bobRes.status).toBeLessThan(300);
+    const membersAfter = await http(app).get(`/api/v1/courses/${course.id}/groups/${group.body.id}/members`).set('Authorization', `Bearer ${admin}`);
+    expect((membersAfter.body as { userid: string }[]).map((m) => m.userid)).not.toContain(bob.id);
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${bobLogin.accessToken}`)).status).toBe(200);
+  });
+
+  it('self-unenrol: a self-enrolled student can unenrol themselves (role removed, access lost), while an enrolment from another method refuses self-unenrol (Behat self_enrolment.feature "Self unenrol as a self-enrolled student")', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self' });
+    const manualInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
+
+    // A manually-enrolled student cannot self-unenrol: the enrolment is not theirs to end through this endpoint.
+    const other = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, manualInstance.id, other.id);
+    const otherLogin = await login(app, other.username, STRONG_PASSWORD);
+    const refused = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${manualInstance.id}/self-unenrol`).set('Authorization', `Bearer ${otherLogin.accessToken}`).send({});
+    expect(refused.status).toBe(400);
+    expect(refused.body.code).toBe('enrol.self_unenrol_not_allowed');
+    const otherMine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${otherLogin.accessToken}`);
+    expect(otherMine.body).toMatchObject({ enrolled: true, active: true });
+
+    // The self-enrolled student unenrols themselves through the same unenrol path as admin unenrol.
+    const user = await createUserViaApi(app, admin);
+    const userLogin = await login(app, user.username, STRONG_PASSWORD);
+    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
+    const un = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-unenrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
+    expect(un.status).toBeLessThan(300);
+    expect(un.body.withdrawn).toBe(false);
+    const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
+    expect((list.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(false);
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
+    // A second self-unenrol finds no enrolment to end.
+    const again = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-unenrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
+    expect(again.status).toBe(404);
+    expect(again.body.code).toBe('enrol.user_not_enrolled');
+  });
+
+  it('welcome message: self enrol sends the configured welcome notification through Messaging, manual enrol only when the instance enables it (default off) (Behat enrol/self + enrol/manual welcome-message scenarios)', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self', welcomeMessage: 'Xin chào! Chào mừng bạn tới {coursename}.' }) as unknown as { id: string; sendwelcomemessage: boolean };
+    // Moodle defaults: self enrol sends a welcome message, manual does not.
+    expect(selfInstance.sendwelcomemessage).toBe(true);
+    const manualInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual' }) as unknown as { id: string; sendwelcomemessage: boolean };
+    expect(manualInstance.sendwelcomemessage).toBe(false);
+    const manualWelcomeInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual', sendWelcomeMessage: true, welcomeMessage: 'Manual welcome for {coursename}' });
+
+    // Self enrol ⇒ welcome notification carrying the instance's custom text.
+    const alice = await createUserViaApi(app, admin);
+    const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
+    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({});
+    const aliceNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    const aliceWelcome = (aliceNotifs.body as { eventtype: string; fullmessage: string }[]).find((n) => n.eventtype === 'enrol_welcome');
+    expect(aliceWelcome).toBeDefined();
+    expect(aliceWelcome!.fullmessage).toContain('Xin chào! Chào mừng bạn tới');
+
+    // Manual enrol with the default configuration ⇒ no welcome notification.
+    const bob = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, manualInstance.id, bob.id);
+    const bobLogin = await login(app, bob.username, STRONG_PASSWORD);
+    const bobNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${bobLogin.accessToken}`);
+    expect((bobNotifs.body as { eventtype: string }[]).some((n) => n.eventtype === 'enrol_welcome')).toBe(false);
+
+    // Manual enrol with welcome explicitly enabled ⇒ welcome with the custom text.
+    const carol = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, manualWelcomeInstance.id, carol.id);
+    const carolLogin = await login(app, carol.username, STRONG_PASSWORD);
+    const carolNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${carolLogin.accessToken}`);
+    const carolWelcome = (carolNotifs.body as { eventtype: string; fullmessage: string }[]).find((n) => n.eventtype === 'enrol_welcome');
+    expect(carolWelcome).toBeDefined();
+    expect(carolWelcome!.fullmessage).toContain('Manual welcome for');
+  });
+
+  it('cohort role reassignment: editing a cohort enrolment method role re-assigns already-enrolled participants to the new role and keeps their enrolment (Behat enrolcohorts.feature "Editing a cohort enrolment method\'s role should change participants\' role")', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Role change cohort' });
+    const cohortId = cohortRes.body.id as string;
+    const instance = await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId, roleShortname: 'student' });
+    const user = await createUserViaApi(app, admin);
+    await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: user.id });
+
+    const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
+    const studentRole = await roleIdByShortname(app, admin, 'student');
+    const teacherRole = await roleIdByShortname(app, admin, 'teacher');
+    const assignmentsOf = async () => {
+      const res = await http(app).get('/api/v1/access/assignments').query({ userid: user.id, contextid: content.body.contextId }).set('Authorization', `Bearer ${admin}`);
+      return (res.body as { roleid: string }[]).map((a) => a.roleid);
+    };
+    expect(await assignmentsOf()).toContain(studentRole);
+    expect(await assignmentsOf()).not.toContain(teacherRole);
+
+    // Edit the instance's role ⇒ the participant's role follows, enrolment untouched.
+    const patched = await http(app).patch(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}`).set('Authorization', `Bearer ${admin}`).send({ roleShortname: 'teacher' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.roleid).toBe(teacherRole);
+    expect(await assignmentsOf()).toContain(teacherRole);
+    expect(await assignmentsOf()).not.toContain(studentRole);
+    const enrolments = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
+    expect((enrolments.body as { userid: string; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(0);
+    const userLogin = await login(app, user.username, STRONG_PASSWORD);
+    expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
+  });
+
+  // Group visibility modes (separate/visible) — business-gaps round.
+  // Oracles: MoodleDocs "Groups" (separate groups: each group can only see
+  // their own group, others are invisible; visible groups: each group works
+  // in their own group but can also see other groups — read-only) and Behat
+  // mod/assign/tests/behat/assign_group_override.feature ("A teacher without
+  // accessallgroups permission should only be able to add group override for
+  // groups that he/she is a member of, when the activity's group mode is
+  // 'separate groups'" — i.e. the separate-groups restriction is lifted by
+  // the staff capabilities accessallgroups/managegroups).
+  async function setupTwoGroups(groupmode: number) {
+    const { course, instance } = await setupCourse(groupmode);
+    const alice = await createUserViaApi(app, admin);
+    const bob = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, alice.id);
+    await enrolUser(app, admin, course.id, instance.id, bob.id);
+    const gA = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Alpha' });
+    const gB = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Beta' });
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${gA.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: alice.id });
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: bob.id });
+    const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
+    return { course, alice, bob, gA: gA.body, gB: gB.body, aliceLogin };
+  }
+
+  it('VISIBLE GROUPS: a student in group A sees BOTH groups and the members of group B, but write operations stay capability-gated (MoodleDocs Groups — visible groups are read-only for other groups)', async () => {
+    const { course, bob, gA, gB, aliceLogin } = await setupTwoGroups(2); // VISIBLEGROUPS
+    // Group list contains both groups.
+    const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+    // Members of the OTHER group are readable in visible mode.
+    const otherMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect(otherMembers.status).toBe(200);
+    expect((otherMembers.body as { userid: string }[]).map((m) => m.userid)).toContain(bob.id);
+    // The visible-members aggregate spans both groups.
+    const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((visibleMembers.body as { groupId: string }[]).map((r) => r.groupId).sort()).toEqual([gA.id, gB.id].sort());
+    // Read-only means read-only: adding a member to group B is still gated by moodle/course:managegroups.
+    const write = await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ userid: bob.id });
+    expect(write.status).toBe(403);
+    const create = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ name: 'Gamma' });
+    expect(create.status).toBe(403);
+  });
+
+  it('SEPARATE GROUPS applies to groupings too: a student only sees groupings containing her group, and only her group inside a shared grouping', async () => {
+    const { course, gA, gB, aliceLogin } = await setupTwoGroups(1); // SEPARATEGROUPS
+    const shared = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Both teams' });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gA.id });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gB.id });
+    const betaOnly = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Beta only' });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gB.id });
+
+    // Grouping list: the Beta-only grouping is invisible to Alice.
+    const groupingList = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((groupingList.body as { id: string }[]).map((g) => g.id)).toEqual([shared.body.id]);
+    // Inside the shared grouping she only sees her own group.
+    const inShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((inShared.body as { id: string }[]).map((g) => g.id)).toEqual([gA.id]);
+    // The Beta-only grouping yields no groups at all for her.
+    const inBetaOnly = await http(app).get(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect(inBetaOnly.body).toEqual([]);
+    // Admin sees both groupings and both groups inside the shared one.
+    const adminGroupings = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`);
+    expect((adminGroupings.body as unknown[]).length).toBe(2);
+    const adminInShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
+    expect((adminInShared.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+  });
+
+  it('a teacher with moodle/course:managegroups sees ALL groups and members in BOTH separate and visible mode, without being a group member', async () => {
+    for (const mode of [1, 2]) {
+      const { course, gA, gB } = await setupTwoGroups(mode);
+      const teacher = await createUserViaApi(app, admin);
+      const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
+      const editingTeacherRole = await roleIdByShortname(app, admin, 'editingteacher');
+      await assignRole(app, admin, teacher.id, editingTeacherRole, content.body.contextId);
+      const teacherLogin = await login(app, teacher.username, STRONG_PASSWORD);
+      const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
+      expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+      const membersB = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
+      expect(membersB.status).toBe(200);
+      expect((membersB.body as unknown[]).length).toBe(1);
+    }
+  });
+
+  it('groupmodeforce round-trips through course create/update and the course payload (Moodle course settings: "Force group mode" applies the course mode to every activity)', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id, { groupmode: 1, groupmodeforce: true }) as unknown as { id: string; groupmode: number; groupmodeforce: boolean };
+    expect(course.groupmode).toBe(1);
+    expect(course.groupmodeforce).toBe(true);
+    const patched = await http(app).patch(`/api/v1/courses/${course.id}`).set('Authorization', `Bearer ${admin}`).send({ groupmodeforce: false });
+    expect(patched.status).toBe(200);
+    expect(patched.body.groupmodeforce).toBe(false);
+    // Default stays off when not requested.
+    const plain = await createCourse(app, admin, cat.id) as unknown as { groupmodeforce: boolean };
+    expect(plain.groupmodeforce).toBe(false);
   });
 });

@@ -21,6 +21,12 @@ export const courseGroups = pgTable(
     name: text('name').notNull(),
     idnumber: text('idnumber').notNull().default(''),
     description: text('description').notNull().default(''),
+    /**
+     * Khoá ghi danh riêng của nhóm (group enrolment key của enrol_self, Moodle
+     * `groups.enrolmentkey`): học viên tự ghi danh bằng khoá này sẽ được xếp
+     * vào nhóm. Bí mật — chỉ người có capability quản lý nhóm mới thấy giá trị thật.
+     */
+    enrolmentkey: text('enrolmentkey'),
     timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
     timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
   },

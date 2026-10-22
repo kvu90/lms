@@ -16,6 +16,12 @@ import {
  *    test_delete_badge (delete = archive). Report §2#14: criteria tree
  *    ALL/ANY; criteria FROZEN once issued/active; assertions immutable;
  *    revoke ≠ delete.
+ *  - Behat (badges/tests/behat): criteria_cohort.feature (cohort leaf),
+ *    criteria_profile.feature (profile leaf), award_badge.feature /
+ *    "Badge awarded depending on the course completion by-date"
+ *    (coursecompletion leaf honours its by-date parameter). The UI steps
+ *    of those scenarios are skipped per convention; the business steps
+ *    and expected award outcomes are asserted through the API below.
  *  - public/competency/tests/api_test.php: test_list_frameworks,
  *    test_create_plan_from_template, test_create_template_cohort,
  *    test_complete_plan, test_plan_request_review / test_plan_start_review /
@@ -158,6 +164,121 @@ describe('Badges & competencies', () => {
     expect(awarded.body.award.recipientid).toBe(recipient.id);
   });
 
+  async function activeBadgeWithCriteria(name: string, criteria: unknown[]) {
+    const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
+      .send({ name, type: 1 });
+    expect(badgeRes.status).toBe(201);
+    const badgeId = badgeRes.body.id as string;
+    const setRes = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria });
+    expect(setRes.status).toBe(200);
+    const statusRes = await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
+    expect(statusRes.status).toBe(201);
+    return badgeId;
+  }
+
+  async function evaluateLeaves(badgeId: string, userId: string) {
+    const res = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId });
+    expect(res.status).toBe(201);
+    return res.body as { satisfied: boolean; leaves: { criteriatype: string; satisfied: boolean }[] };
+  }
+
+  async function issuedBadgeIdsFor(userId: string, token: string) {
+    void userId;
+    const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${token}`);
+    expect(mine.status).toBe(200);
+    return (mine.body as { badgeid: string }[]).map((r) => r.badgeid);
+  }
+
+  it('cohort leaf: members of the named cohort are awarded, non-members are not (Behat criteria_cohort.feature)', async () => {
+    const cohort = await createCohortViaApi(app, admin, `badge-cohort-${Date.now()}-${Math.random()}`);
+    const member = await createUserViaApi(app, admin);
+    const outsider = await createUserViaApi(app, admin);
+    await addCohortMember(app, admin, cohort.id, member.id);
+    // A cohort leaf without its cohort reference is refused at criteria time.
+    const probe = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Cohort probe', type: 1 });
+    const badParams = await http(app).put(`/api/v1/badges/${probe.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria: [{ criteriatype: 'cohort', params: {} }] });
+    expect(badParams.status).toBe(400);
+    expect(badParams.body.code).toBe('badges.bad_criteria_params');
+
+    const badgeId = await activeBadgeWithCriteria('Cohort member badge', [{ criteriatype: 'cohort', params: { cohortId: cohort.id } }]);
+    expect((await evaluateLeaves(badgeId, member.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(badgeId, outsider.id)).satisfied).toBe(false);
+    // Auto-award path: evaluating the member's badges issues it; the outsider gets nothing.
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: member.id });
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: outsider.id });
+    const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
+    const outsiderToken = (await login(app, outsider.username, STRONG_PASSWORD)).accessToken;
+    expect(await issuedBadgeIdsFor(member.id, memberToken)).toContain(badgeId);
+    expect(await issuedBadgeIdsFor(outsider.id, outsiderToken)).not.toContain(badgeId);
+  });
+
+  it('profile leaf: a custom profile field meeting the condition awards; a different or missing value does not (Behat criteria_profile.feature)', async () => {
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const shortname = `badgedept${suffix.replaceAll('-', '')}`.slice(0, 32);
+    const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Badge profile ${suffix}`, component: 'core_user', area: 'user' });
+    expect(cat.status).toBe(201);
+    const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
+      .send({ categoryid: cat.body.id, shortname, name: 'Badge department', type: 'text', configdata: {} });
+    expect(field.status).toBe(201);
+    // lms_test is shared across suites: other suites may have declared
+    // REQUIRED core_user fields (e.g. a select `department`), and user
+    // creation validates every required field — satisfy them generically.
+    const fieldsRes = await http(app).get('/api/v1/custom-fields/fields?component=core_user&area=user').set('Authorization', `Bearer ${admin}`);
+    expect(fieldsRes.status).toBe(200);
+    const requiredValues: Record<string, string> = {};
+    for (const f of fieldsRes.body as { shortname: string; type: string; configdata?: { required?: boolean; options?: string[] } }[]) {
+      if (!f.configdata?.required || f.shortname === shortname) continue;
+      requiredValues[f.shortname] = f.configdata.options?.[0] ?? (f.type === 'date' ? '2000-01-01' : f.type === 'checkbox' ? '1' : 'Required');
+    }
+    const matching = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Engineering' } });
+    const different = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Sales' } });
+    const missing = await createUserViaApi(app, admin);
+
+    const badgeId = await activeBadgeWithCriteria('Engineering badge', [{ criteriatype: 'profile', params: { field: shortname, value: 'Engineering' } }]);
+    expect((await evaluateLeaves(badgeId, matching.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(badgeId, different.id)).satisfied).toBe(false);
+    expect((await evaluateLeaves(badgeId, missing.id)).satisfied).toBe(false);
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: matching.id });
+    const matchingToken = (await login(app, matching.username, STRONG_PASSWORD)).accessToken;
+    expect(await issuedBadgeIdsFor(matching.id, matchingToken)).toContain(badgeId);
+
+    // Standard profile fields work through the same leaf (no `value` ⇒ the field must be filled).
+    const stdBadgeId = await activeBadgeWithCriteria('Has a last name', [{ criteriatype: 'profile', params: { field: 'lastname' } }]);
+    expect((await evaluateLeaves(stdBadgeId, matching.id)).satisfied).toBe(true);
+    const stdValueBadgeId = await activeBadgeWithCriteria('Last name is User', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'User' } }]);
+    expect((await evaluateLeaves(stdValueBadgeId, matching.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // helper default lastname is also 'User'
+    const stdMissBadgeId = await activeBadgeWithCriteria('Last name is Nobody', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'Nobody' } }]);
+    expect((await evaluateLeaves(stdMissBadgeId, matching.id)).satisfied).toBe(false);
+  });
+
+  it('coursecompletion by-date: completion on/before the by-date awards, completion after it does not (Behat award_badge.feature by-date)', async () => {
+    const { course, instance, cm } = await completableCourse();
+    const student = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, student.id);
+    // Complete the course NOW, before either badge exists.
+    await markCmComplete(app, admin, course.id, cm.id, student.id);
+    const now = Date.now();
+    const futureCutoff = new Date(now + 30 * 86400_000).toISOString();
+    const pastCutoff = new Date(now - 30 * 86400_000).toISOString();
+    const inTimeBadgeId = await activeBadgeWithCriteria('Completed in time', [
+      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: futureCutoff } },
+    ]);
+    const tooLateBadgeId = await activeBadgeWithCriteria('Completed too late', [
+      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: pastCutoff } },
+    ]);
+    expect((await evaluateLeaves(inTimeBadgeId, student.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(tooLateBadgeId, student.id)).satisfied).toBe(false);
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
+    const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
+    const issuedIds = await issuedBadgeIdsFor(student.id, studentToken);
+    expect(issuedIds).toContain(inTimeBadgeId);
+    expect(issuedIds).not.toContain(tooLateBadgeId);
+  });
+
   it('competency course links: ruleoutcome complete sets proficiency from the scale; attach-evidence only logs evidence (§2#15)', async () => {
     const { competency } = await frameworkWithCompetency();
     const { competency: competency2 } = await frameworkWithCompetency();
@@ -276,5 +397,151 @@ describe('Badges & competencies', () => {
     expect(actions).toContain('review_rejected');
     expect(actions).toContain('review_approved');
     void assignRole; void roleIdByShortname; void courseContextId;
+  });
+
+  /** Helper: đưa một user competency của learner qua đường duyệt (evidence → start → approve) tới proficiency. */
+  async function approveChild(learnerId: string, competencyId: string) {
+    const evidence = await http(app).post('/api/v1/competencies/evidence').set('Authorization', `Bearer ${admin}`)
+      .send({ userId: learnerId, competencyId, description: 'Portfolio', sendForReview: true });
+    expect(evidence.status).toBe(201);
+    const usercompId = evidence.body.usercomp.id as string;
+    await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
+    const approved = await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/approve`).set('Authorization', `Bearer ${admin}`).send({ grade: 1 });
+    expect(approved.body.proficiency).toBe(true);
+    return usercompId;
+  }
+
+  async function parentChildFramework(suffix: string) {
+    const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
+      .send({ shortname: `Rule FW ${suffix}`, idnumber: `rule-fw-${suffix}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
+    expect(fw.status).toBe(201);
+    const mk = async (shortname: string, parentId?: string) => {
+      const res = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
+        .send({ shortname, ...(parentId ? { parentId } : {}) });
+      expect(res.status).toBe(201);
+      return res.body as { id: string; shortname: string; parentid: string | null };
+    };
+    const parent = await mk('Parent skill');
+    const childA = await mk('Child A', parent.id);
+    const childB = await mk('Child B', parent.id);
+    return { framework: fw.body, parent, childA, childB };
+  }
+
+  it('competency rule points: parent auto-attains proficiency when the children reach the required points, not before (Moodle competency_rule_points; config shape from api_test test_duplicate_framework)', async () => {
+    const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-pts`);
+    const ruleUrl = `/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`;
+    // Unreachable rule (required points above the children's total) is refused at set time (validate_config).
+    const unreachable = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 99, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+    expect(unreachable.status).toBe(400);
+    expect(unreachable.body.code).toBe('competency.rule_invalid');
+    // A non-child cannot contribute points.
+    const { competency: stranger } = await frameworkWithCompetency();
+    const nonChild = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 1, entries: [{ competencyId: stranger.id, points: 1, required: false }] });
+    expect(nonChild.status).toBe(400);
+    expect(nonChild.body.code).toBe('competency.rule_invalid');
+    // Moodle's own test config shape: base 4 points; child A = 3 (optional), child B = 2 (required).
+    const set = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+    expect(set.status).toBe(201);
+    expect(set.body.type).toBe('points');
+    expect(set.body.config.pointsRequired).toBe(4);
+    const view = await http(app).get(ruleUrl).set('Authorization', `Bearer ${admin}`);
+    expect(view.body.config.entries).toHaveLength(2);
+
+    const learner = await createUserViaApi(app, admin);
+    const parentRow = async () => {
+      const rows = await http(app).get(`/api/v1/competencies/usercomp/user/${learner.id}`).set('Authorization', `Bearer ${admin}`);
+      return (rows.body as { competencyid: string; proficiency: boolean | null; grade: number | null; id: string }[])
+        .find((r) => r.competencyid === parent.id);
+    };
+    // Required child B approved (2 points < 4 required): parent NOT proficient yet.
+    await approveChild(learner.id, childB.id);
+    expect((await parentRow())?.proficiency).not.toBe(true);
+    // Child A approved too (2 + 3 = 5 >= 4, required met): parent auto-attains proficiency from the scale.
+    await approveChild(learner.id, childA.id);
+    const parentUc = await parentRow();
+    expect(parentUc?.proficiency).toBe(true);
+    expect(parentUc?.grade).toBe(1);
+    // Idempotent: re-grading a child re-evaluates the rule but writes no second rule evidence.
+    await http(app).post('/api/v1/competencies/usercomp/grade').set('Authorization', `Bearer ${admin}`)
+      .send({ userId: learner.id, competencyId: childA.id, grade: 1 });
+    const evidence = await http(app).get(`/api/v1/competencies/usercomp/${parentUc!.id}/evidence`).set('Authorization', `Bearer ${admin}`);
+    expect((evidence.body as { action: string }[]).filter((e) => e.action === 'rule_points_met')).toHaveLength(1);
+  });
+
+  it('framework export → import: tree/scale/rule preserved with brand-new ids; duplicate mirrors Moodle test_duplicate_framework', async () => {
+    const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-exp`);
+    await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+
+    const exported = await http(app).get(`/api/v1/competencies/frameworks/${framework.id}/export`).set('Authorization', `Bearer ${admin}`);
+    expect(exported.status).toBe(200);
+    expect(exported.body.format).toBe('lms-competency-framework');
+    expect(exported.body.version).toBe(1);
+    expect(exported.body.competencies).toHaveLength(3);
+
+    const imported = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`).send(exported.body);
+    expect(imported.status).toBe(201);
+    expect(imported.body.id).not.toBe(framework.id);
+    expect(imported.body.scaleconfiguration).toEqual({ values: ['Not competent', 'Competent'], proficient: [1] });
+    expect(imported.body.taxonomies).toBe(exported.body.framework.taxonomies);
+    const importedComps = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
+    const rows = importedComps.body as { id: string; shortname: string; parentid: string | null; path: string }[];
+    expect(rows).toHaveLength(3);
+    const sourceIds = new Set([parent.id, childA.id, childB.id]);
+    for (const row of rows) expect(sourceIds.has(row.id)).toBe(false); // toàn bộ id đều mới
+    const newParent = rows.find((r) => r.shortname === 'Parent skill')!;
+    const newChildA = rows.find((r) => r.shortname === 'Child A')!;
+    const newChildB = rows.find((r) => r.shortname === 'Child B')!;
+    expect(newChildA.parentid).toBe(newParent.id);
+    expect(newChildB.parentid).toBe(newParent.id);
+    expect(newChildA.path).toBe(`/${newParent.id}/${newChildA.id}`);
+    // Rule được mang sang với id con ĐÃ remap sang framework mới.
+    const rule = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies/${newParent.id}/rule`).set('Authorization', `Bearer ${admin}`);
+    expect(rule.body.type).toBe('points');
+    expect(rule.body.outcome).toBe('complete');
+    expect(rule.body.config.pointsRequired).toBe(4);
+    expect(new Set(rule.body.config.entries.map((e: { competencyId: string }) => e.competencyId))).toEqual(new Set([newChildA.id, newChildB.id]));
+
+    // Duplicate: idnumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
+    const duplicate = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(duplicate.status).toBe(201);
+    expect(duplicate.body.id).not.toBe(framework.id);
+    expect(duplicate.body.idnumber).toBe(`${framework.idnumber}_1`);
+    const dupComps = await http(app).get(`/api/v1/competencies/frameworks/${duplicate.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
+    expect(dupComps.body).toHaveLength(3);
+    const duplicate2 = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(duplicate2.body.idnumber).toBe(`${framework.idnumber}_2`);
+  });
+
+  it('framework import: malformed documents are refused with 400 and create no framework at all', async () => {
+    const before = await http(app).get('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`);
+    const countBefore = (before.body as unknown[]).length;
+    const scale = { values: ['Not competent', 'Competent'], proficient: [1] };
+    // Sai version → Zod từ chối.
+    const wrongVersion = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
+      .send({ format: 'lms-competency-framework', version: 2, framework: { shortname: 'Bad', idnumber: '', description: '', visible: true, taxonomies: 'competency', scale }, competencies: [] });
+    expect(wrongVersion.status).toBe(400);
+    // Đúng hình dạng nhưng rule tham chiếu competency không phải con trực tiếp → import_invalid, rollback toàn bộ.
+    const badRef = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
+      .send({
+        format: 'lms-competency-framework', version: 1,
+        framework: { shortname: `Bad import ${Date.now()}`, idnumber: '', description: '', visible: true, taxonomies: 'competency', scale },
+        competencies: [
+          { key: 'p', shortname: 'P', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: { outcome: 'complete', pointsRequired: 1, entries: [{ competencyKey: 'x', points: 1, required: true }] } },
+          { key: 'c', shortname: 'C', idnumber: '', description: '', parentKey: 'p', sortorder: 0, rule: null },
+          { key: 'x', shortname: 'X', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: null },
+        ],
+      });
+    expect(badRef.status).toBe(400);
+    expect(badRef.body.code).toBe('competency.import_invalid');
+    // Thiếu hẳn trường bắt buộc → 400.
+    const missing = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`).send({ format: 'lms-competency-framework' });
+    expect(missing.status).toBe(400);
+    // Không framework rác nào được tạo.
+    const after = await http(app).get('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`);
+    expect((after.body as unknown[]).length).toBe(countBefore);
   });
 });

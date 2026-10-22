@@ -8,9 +8,11 @@ import {
   createCompetencySchema,
   createLearningPlanSchema,
   createLearningPlanTemplateSchema,
+  frameworkExportSchema,
   gradeUserCompetencySchema,
   linkCompetencySchema,
   numericValueSchema,
+  setCompetencyRuleSchema,
   type AddCompetencyEvidence,
   type AddTemplateCohort,
   type AddTemplateCompetency,
@@ -20,9 +22,11 @@ import {
   type CreateCompetencyFramework,
   type CreateLearningPlan,
   type CreateLearningPlanTemplate,
+  type FrameworkExport,
   type GradeUserCompetency,
   type LinkCompetency,
   type NumericValue,
+  type SetCompetencyRule,
 } from '@lms/contracts';
 
 /**
@@ -39,9 +43,11 @@ export {
   createCompetencySchema,
   createLearningPlanSchema,
   createLearningPlanTemplateSchema,
+  frameworkExportSchema,
   gradeUserCompetencySchema,
   linkCompetencySchema,
   numericValueSchema,
+  setCompetencyRuleSchema,
 };
 export type CreateFrameworkDto = CreateCompetencyFramework;
 export type CreateCompetencyDto = CreateCompetency;
@@ -55,3 +61,5 @@ export type GradeUsercompDto = GradeUserCompetency;
 export type ReviewDecisionDto = CompetencyReviewDecision;
 export type NoteDto = CompetencyNote;
 export type NumericDto = NumericValue;
+export type SetCompetencyRuleDto = SetCompetencyRule;
+export type FrameworkExportDto = FrameworkExport;

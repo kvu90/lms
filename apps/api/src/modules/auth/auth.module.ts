@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
+import { TotpService } from './totp.service';
 import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
 
 /** AuthModule facade: AuthService + SessionService. Depends on Users + Access per the report dependency graph. */
@@ -21,7 +22,7 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthRepository, AuthService, SessionService, LocalAuthStrategy, JwtAuthStrategy],
+  providers: [AuthRepository, AuthService, SessionService, TotpService, LocalAuthStrategy, JwtAuthStrategy],
   exports: [AuthService, SessionService],
 })
 /** Module xác thực và phiên. */

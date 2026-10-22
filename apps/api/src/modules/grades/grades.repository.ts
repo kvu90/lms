@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, scales,
+  gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, gradeOutcomes, scales,
 } from '../../db/schema';
 
 export type CategoryRow = typeof gradeCategories.$inferSelect;
@@ -11,6 +11,7 @@ export type ItemRow = typeof gradeItems.$inferSelect;
 export type GradeRow = typeof gradeGrades.$inferSelect;
 export type LetterRow = typeof gradeLetters.$inferSelect;
 export type ScaleRow = typeof scales.$inferSelect;
+export type OutcomeRow = typeof gradeOutcomes.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -207,5 +208,62 @@ export class GradesRepository {
    */
   async listScales(courseId: string): Promise<ScaleRow[]> {
     return this.db.select().from(scales).where(or(isNull(scales.courseid), eq(scales.courseid, courseId)));
+  }
+  /**
+   * Lấy scale theo id.
+   */
+  async getScale(id: string): Promise<ScaleRow | undefined> {
+    const [row] = await this.db.select().from(scales).where(eq(scales.id, id)); return row;
+  }
+
+  // outcomes
+  /**
+   * Chèn grade outcome.
+   */
+  async insertOutcome(v: typeof gradeOutcomes.$inferInsert): Promise<OutcomeRow> {
+    const [row] = await this.db.insert(gradeOutcomes).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy grade outcome theo id.
+   */
+  async getOutcome(id: string): Promise<OutcomeRow | undefined> {
+    const [row] = await this.db.select().from(gradeOutcomes).where(eq(gradeOutcomes.id, id)); return row;
+  }
+  /**
+   * Liệt kê outcome khả dụng cho một khoá học: outcome mức site (courseid null) cộng outcome của chính khoá học đó.
+   */
+  async listOutcomes(courseId?: string): Promise<OutcomeRow[]> {
+    if (courseId === undefined) {
+      return this.db.select().from(gradeOutcomes).where(isNull(gradeOutcomes.courseid)).orderBy(asc(gradeOutcomes.id));
+    }
+    return this.db.select().from(gradeOutcomes)
+      .where(or(isNull(gradeOutcomes.courseid), eq(gradeOutcomes.courseid, courseId)))
+      .orderBy(asc(gradeOutcomes.id));
+  }
+  /**
+   * Cập nhật grade outcome.
+   */
+  async updateOutcome(id: string, patch: Partial<OutcomeRow>): Promise<void> {
+    await this.db.update(gradeOutcomes).set({ ...patch, timemodified: new Date() }).where(eq(gradeOutcomes.id, id));
+  }
+  /**
+   * Xoá grade outcome (item đang gắn sẽ được gỡ outcomeid nhờ khoá ngoại set null).
+   */
+  async deleteOutcome(id: string): Promise<void> {
+    await this.db.delete(gradeOutcomes).where(eq(gradeOutcomes.id, id));
+  }
+  /**
+   * Mọi grade item đang gắn một outcome (ở bất kỳ khoá học nào — outcome site dùng chung).
+   */
+  async listItemsForOutcome(outcomeId: string): Promise<ItemRow[]> {
+    return this.db.select().from(gradeItems).where(eq(gradeItems.outcomeid, outcomeId));
+  }
+  /**
+   * Tìm grade item theo idnumber trong một khoá học (khoá tham chiếu của công thức tính).
+   */
+  async findItemByIdnumber(courseId: string, idnumber: string): Promise<ItemRow | undefined> {
+    const [row] = await this.db.select().from(gradeItems)
+      .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.idnumber, idnumber)));
+    return row;
   }
 }

@@ -1,8 +1,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { MyAccessView } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
-import { CONTEXT_LEVELS } from '../access/domain/capabilities';
+import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { RolesService } from '../access/roles.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { PasswordService } from './password.service';
 import { UsersRepository, type UserRow } from './users.repository';
@@ -34,9 +36,67 @@ export class UsersService {
     private readonly passwords: PasswordService,
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
+    private readonly roles: RolesService,
     private readonly customFields: CustomFieldsService,
     private readonly outbox: OutboxService,
   ) {}
+
+  /**
+   * Toàn cảnh quyền của chính người gọi (tự phục vụ, không cần capability
+   * quản trị): có phải site admin không, các gán vai trò của họ kèm thông
+   * tin context, và capability ĐÃ PHÂN GIẢI tại từng context liên quan
+   * (context được gán vai trò, mọi tổ tiên của chúng và context hệ thống).
+   * Kết quả phân giải đi qua PermissionEvaluator nên PROHIBIT/PREVENT và
+   * vai trò mặc định `user`/`guest` được tính đúng như khi chặn route —
+   * giao diện dùng dữ liệu này để chỉ hiển thị chức năng người dùng thật
+   * sự thao tác được thay vì dò quyền bằng request thử.
+   */
+  async getMyAccess(userId: string, opts?: { isGuest?: boolean }): Promise<MyAccessView> {
+    const isSiteAdmin = await this.evaluator.isSiteAdmin(userId);
+    const assignmentRows = (await this.roles.listAssignments({ userid: userId })) as {
+      id: string; roleid: string; contextid: string;
+    }[];
+    const roleById = new Map((await this.roles.listRoles()).map((r) => [r.id, r]));
+
+    const assignments: MyAccessView['assignments'] = [];
+    const relatedContexts = new Map<string, { id: string; contextlevel: number; path: string }>();
+    const system = await this.contexts.ensureSystemContext();
+    relatedContexts.set(system.id, system);
+    for (const row of assignmentRows) {
+      const ctx = await this.contexts.getContext(row.contextid);
+      const role = roleById.get(row.roleid);
+      assignments.push({
+        id: row.id,
+        roleId: row.roleid,
+        roleShortname: role?.shortname ?? '',
+        roleName: role?.name ?? '',
+        contextId: ctx.id,
+        contextLevel: ctx.contextlevel,
+        contextPath: ctx.path,
+        instanceId: ctx.instanceid,
+      });
+      for (const pathCtx of await this.contexts.getPathContexts(ctx)) {
+        relatedContexts.set(pathCtx.id, pathCtx);
+      }
+    }
+
+    const contexts: MyAccessView['contexts'] = [];
+    for (const ctx of relatedContexts.values()) {
+      const capabilities: string[] = [];
+      for (const def of CAPABILITY_DEFINITIONS) {
+        if (await this.evaluator.hasCapability(userId, def.name, ctx.id, opts)) {
+          capabilities.push(def.name);
+        }
+      }
+      contexts.push({
+        contextId: ctx.id,
+        contextLevel: ctx.contextlevel,
+        contextPath: ctx.path,
+        capabilities,
+      });
+    }
+    return { userId, isSiteAdmin, assignments, contexts };
+  }
 
   /**
    * Tạo user: kiểm chính sách mật khẩu, hash, chống trùng username/email (user.username_taken, user.email_taken).

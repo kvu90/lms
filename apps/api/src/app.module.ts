@@ -37,6 +37,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
+import { SiteConfigModule } from './modules/site-config/site-config.module';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
@@ -130,6 +131,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     ReportsModule,
     ContentBankModule,
     PrivacyModule,
+    SiteConfigModule,
     SeedModule,
   ],
   providers: [
