@@ -17,6 +17,7 @@ export class RolesService {
     for (const def of DEFAULT_ROLES) {
       let roleRow = await this.repo.getRoleByShortname(def.shortname);
       if (!roleRow) roleRow = await this.repo.insertRole({ ...def, description: '' });
+      await this.repo.deleteRoleCapabilitiesAtContext(roleRow.id, system.id, CAPABILITY_DEFINITIONS.map((c) => c.name));
       for (const capDef of CAPABILITY_DEFINITIONS) {
         const perm = capDef.archetypes[def.archetype];
         if (perm !== undefined) {

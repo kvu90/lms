@@ -37,6 +37,7 @@ export class UsersService {
     const email = normalizeIdentity(input.email);
     if (await this.repo.getByUsername(username)) throw new ConflictException({ message: `Username ${username} is taken`, code: 'user.username_taken' });
     if (await this.repo.getByEmail(email)) throw new ConflictException({ message: `Email ${email} is taken`, code: 'user.email_taken' });
+    if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     const policyErrors = this.passwords.validatePolicy(input.password);
     if (policyErrors.length) throw new BadRequestException({ message: policyErrors.join('; '), code: 'user.password_policy' });
     const passwordHash = await this.passwords.hash(input.password);
@@ -78,6 +79,7 @@ export class UsersService {
 
   async updateUser(id: number, input: { email?: string; firstname?: string; lastname?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
     const user = await this.getUser(id);
+    if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     if (user.deleted) throw new BadRequestException({ message: 'Cannot update a deleted user', code: 'user.deleted' });
     const patch: Partial<typeof import('../../db/schema').users.$inferInsert> = {};
     if (input.email !== undefined) {

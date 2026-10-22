@@ -121,6 +121,12 @@ export class AccessRepository {
       eq(roleCapabilities.capability, capability),
       inArray(roleCapabilities.contextid, contextIds)));
   }
+  /** Remove a role's seeded default overrides at one context (used by seed to keep archetype defaults in sync with code). */
+  async deleteRoleCapabilitiesAtContext(roleid: number, contextid: number, capabilityNames: string[]): Promise<void> {
+    await this.db.delete(roleCapabilities).where(and(
+      eq(roleCapabilities.roleid, roleid), eq(roleCapabilities.contextid, contextid),
+      inArray(roleCapabilities.capability, capabilityNames)));
+  }
   async listRoleCapabilities(roleid: number): Promise<(typeof roleCapabilities.$inferSelect)[]> {
     return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleid, roleid));
   }

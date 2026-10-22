@@ -23,7 +23,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'moodle/role:assign', captype: 'write', contextlevel: 10, component: 'core_role', archetypes: { manager: CAP_ALLOW } },
   { name: 'moodle/role:override', captype: 'write', contextlevel: 10, component: 'core_role', archetypes: { manager: CAP_ALLOW } },
   { name: 'moodle/course:view', captype: 'read', contextlevel: 50, component: 'core_course', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW, guest: CAP_ALLOW } },
-  { name: 'lms/files:view', captype: 'read', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'lms/files:view', captype: 'read', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/files:upload', captype: 'write', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/customfield:manage', captype: 'write', contextlevel: 10, component: 'core_customfield', archetypes: { manager: CAP_ALLOW } },
 ];

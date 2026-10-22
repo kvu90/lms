@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, MinLength } from 'class-validator';
 export class CreateContextDto {
   @IsInt() contextlevel!: number;
@@ -26,7 +27,7 @@ export class OverrideCapabilityDto {
   @IsInt() permission!: number;
 }
 export class HasCapabilityQueryDto {
-  @IsInt() userid!: number;
+  @Type(() => Number) @IsInt() userid!: number;
   @IsString() capability!: string;
-  @IsInt() contextid!: number;
+  @Type(() => Number) @IsInt() contextid!: number;
 }

@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsBoolean, IsEmail, IsInt, IsObject, IsOptional, IsString, Min, MinLength } from 'class-validator';
 export class CreateUserDto {
   @IsString() @MinLength(1) username!: string;
@@ -17,7 +18,7 @@ export class UpdateUserDto {
 }
 export class ListUsersQueryDto {
   @IsOptional() @IsString() search?: string;
-  @IsOptional() @IsInt() @Min(1) page?: number;
-  @IsOptional() @IsInt() @Min(1) pageSize?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) pageSize?: number;
 }
 export class SetPreferenceDto { @IsString() name!: string; @IsOptional() @IsString() value?: string }

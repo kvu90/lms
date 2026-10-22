@@ -1,16 +1,16 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { RequireCapability } from '../../common/require-capability.decorator';
 import { FilesService } from './files.service';
 
 class UploadMetaDto {
-  @IsInt() contextid!: number; @IsString() component!: string; @IsString() filearea!: string;
-  @IsOptional() @IsInt() itemid?: number; @IsOptional() @IsString() filepath?: string;
+  @Type(() => Number) @IsInt() contextid!: number; @IsString() component!: string; @IsString() filearea!: string;
+  @IsOptional() @Type(() => Number) @IsInt() itemid?: number; @IsOptional() @IsString() filepath?: string;
 }
 
 @ApiTags('files')
@@ -18,10 +18,12 @@ class UploadMetaDto {
 export class FilesController {
   constructor(private readonly files: FilesService) {}
 
+  // No @RequireCapability here: guards run before the multipart interceptor
+  // parses the body, so the target context is checked in the handler instead.
   @Post()
-  @RequireCapability('lms/files:upload', 'body:contextId')
   @UseInterceptors(FileInterceptor('file'))
-  async upload(@UploadedFile() file: Express.Multer.File, @Body() meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async upload(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body() meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.files.assertCanUpload(Number(meta.contextid), actor);
     const row = await this.files.upload({
       contextid: Number(meta.contextid), component: meta.component, filearea: meta.filearea,
       itemid: meta.itemid ? Number(meta.itemid) : 0, filepath: meta.filepath,

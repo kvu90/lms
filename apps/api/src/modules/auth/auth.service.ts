@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -130,7 +130,7 @@ export class AuthService {
       throw new UnauthorizedException({ message: 'Current password is incorrect', code: 'auth.invalid_credentials' });
     }
     const errors = this.passwords.validatePolicy(newPassword);
-    if (errors.length) throw new ForbiddenException({ message: errors.join('; '), code: 'user.password_policy' });
+    if (errors.length) throw new BadRequestException({ message: errors.join('; '), code: 'user.password_policy' });
     await this.users.updateUser(userId, { password: newPassword });
     await this.repo.revokeAllForUser(userId);
   }

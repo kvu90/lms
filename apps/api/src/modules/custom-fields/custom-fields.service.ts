@@ -67,6 +67,17 @@ export class CustomFieldsService {
     }
   }
 
+  /** Validate-only pass (no writes) — callers run this BEFORE persisting the owning entity so a bad profile never leaves a half-created record. */
+  async validateValuesForInstance(component: string, area: string, values: Record<string, string>): Promise<void> {
+    const fields = await this.listFields(component, area);
+    const errors: string[] = [];
+    for (const field of fields) {
+      const err = this.validateValue(field, values[field.shortname]);
+      if (err) errors.push(err);
+    }
+    if (errors.length) throw new BadRequestException({ message: errors.join('; '), code: 'customfield.validation_failed' });
+  }
+
   /** Validate + persist all values for an instance (e.g. a user id). Throws 400 listing every violation. */
   async setValuesForInstance(component: string, area: string, instanceid: number, values: Record<string, string>): Promise<void> {
     const fields = await this.listFields(component, area);
