@@ -3,6 +3,8 @@ import {
   badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, enrolInstanceSchema,
   gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, messagePreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
+  createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
+  paymentWebhookSchema, restoreCourseSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -193,5 +195,28 @@ describe('platform contracts (platform services)', () => {
     expect(insightSchema.parse({ id: 1, modelid: 1, userid: 2, recipientid: 3, contextid: 4, courseid: 5, heading: 'Student at risk' }).heading).toContain('risk');
     expect(privacyRequestSchema.parse({ id: 1, userid: 2, type: 'delete', status: 'pending' }).type).toBe('delete');
     expect(() => privacyRequestSchema.parse({ id: 1, userid: 2, type: 'merge', status: 'pending' })).toThrow();
+  });
+});
+
+describe('platform request schemas (Zod — single source of truth for API and React forms)', () => {
+  it('rejects a non-integer or non-positive payment amount and unknown fields', () => {
+    expect(createPaymentSchema.safeParse({ accountid: 1, amount: 10.5, currency: 'VND' }).success).toBe(false);
+    expect(createPaymentSchema.safeParse({ accountid: 1, amount: 0, currency: 'VND' }).success).toBe(false);
+    expect(createPaymentSchema.safeParse({ accountid: 1, amount: 1000, currency: 'VND' }).success).toBe(true);
+    expect(createPaymentSchema.safeParse({ accountid: 1, amount: 1000, currency: 'VND', evil: 1 }).success).toBe(false);
+  });
+
+  it('accepts only the three explicit restore modes and the registered report datasources', () => {
+    expect(restoreCourseSchema.safeParse({ backupJobId: 1, mode: 'merge', targetCourseId: 2 }).success).toBe(true);
+    expect(restoreCourseSchema.safeParse({ backupJobId: 1, mode: 'overwrite' }).success).toBe(false);
+    expect(createReportSchema.safeParse({ name: 'R', datasource: 'grades' }).success).toBe(true);
+    expect(createReportSchema.safeParse({ name: 'R', datasource: 'users' }).success).toBe(false);
+  });
+
+  it('keeps the privacy self-service schema free of the admin-only userid field', () => {
+    expect(createPrivacyRequestSchema.safeParse({ type: 'export' }).success).toBe(true);
+    expect(createPrivacyRequestSchema.safeParse({ type: 'export', userid: 5 }).success).toBe(false);
+    expect(createExternalTokenSchema.safeParse({ userid: 1, serviceid: 2 }).success).toBe(true);
+    expect(paymentWebhookSchema.safeParse({ gateway: 'manual', externalTransactionId: 'x', paymentId: 1, status: 'succeeded' }).success).toBe(true);
   });
 });

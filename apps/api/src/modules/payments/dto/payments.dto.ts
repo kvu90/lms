@@ -1,28 +1,21 @@
-import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  createPaymentAccountSchema,
+  createPaymentSchema,
+  createRefundSchema,
+  paymentWebhookSchema,
+  type CreatePayment,
+  type CreatePaymentAccount,
+  type CreateRefund,
+  type PaymentWebhook,
+} from '@lms/contracts';
 
-/** DTO tạo tài khoản thanh toán. */
-export class CreateAccountDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsOptional() @IsString() gateway?: string;
-}
-/** DTO tạo thanh toán (checkout): amount là số nguyên đơn vị nhỏ nhất. */
-export class CreatePaymentDto {
-  @IsInt() accountid!: number;
-  @IsInt() @Min(1) amount!: number;
-  @IsString() @MinLength(3) currency!: string;
-  @IsOptional() @IsString() component?: string;
-  @IsOptional() @IsInt() itemid?: number;
-}
-/** DTO webhook từ gateway: idempotent theo externalTransactionId. */
-export class WebhookDto {
-  @IsString() @MinLength(1) gateway!: string;
-  @IsString() @MinLength(1) externalTransactionId!: string;
-  @IsInt() paymentId!: number;
-  @IsString() status!: string; // succeeded | failed
-}
-/** DTO hoàn tiền: tạo giao dịch bù trừ riêng. */
-export class RefundDto {
-  @IsInt() @Min(1) amount!: number;
-  @IsOptional() @IsString() reason?: string;
-  @IsOptional() @IsString() externalTransactionId?: string;
-}
+/**
+ * Validation Payments dùng Zod qua Standard Schema — schema nền ở
+ * `@lms/contracts`; số tiền là số nguyên đơn vị nhỏ nhất được ép ngay ở schema
+ * (`z.number().int()`), không chờ xuống service.
+ */
+export { createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema };
+export type CreateAccountDto = CreatePaymentAccount;
+export type CreatePaymentDto = CreatePayment;
+export type WebhookDto = PaymentWebhook;
+export type RefundDto = CreateRefund;

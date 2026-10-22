@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query 
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { ContentBankService } from './content-bank.service';
-import { CreateContentDto, UpdateContentDto, UploadContentFileDto } from './dto/content-bank.dto';
+import { createContentBankContentSchema, updateContentBankContentSchema, uploadContentBankFileSchema, type CreateContentDto, type UpdateContentDto, type UploadContentFileDto } from './dto/content-bank.dto';
 
 /** Controller Content Bank. */
 @ApiTags('contentbank')
@@ -10,7 +10,7 @@ import { CreateContentDto, UpdateContentDto, UploadContentFileDto } from './dto/
 export class ContentBankController {
   constructor(private readonly contentBank: ContentBankService) {}
   @Post()
-  async create(@Body() dto: CreateContentDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createContentBankContentSchema }) dto: CreateContentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.create(actor.id, dto);
   }
   @Get()
@@ -22,7 +22,7 @@ export class ContentBankController {
     return this.contentBank.getFor(actor.id, id);
   }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateContentDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateContentBankContentSchema }) dto: UpdateContentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.update(actor.id, id, dto);
   }
   @Delete(':id')
@@ -30,7 +30,7 @@ export class ContentBankController {
     await this.contentBank.remove(actor.id, id); return { deleted: true };
   }
   @Post(':id/file')
-  async upload(@Param('id', ParseIntPipe) id: number, @Body() dto: UploadContentFileDto, @CurrentUser() actor: AuthenticatedUser) {
+  async upload(@Param('id', ParseIntPipe) id: number, @Body({ schema: uploadContentBankFileSchema }) dto: UploadContentFileDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.uploadFile(actor.id, id, dto);
   }
   @Get(':id/file-url')

@@ -1,13 +1,11 @@
-import { IsBoolean, IsIn, IsInt, IsOptional } from 'class-validator';
+import {
+  createBackupSchema,
+  restoreCourseSchema,
+  type CreateBackup,
+  type RestoreCourse,
+} from '@lms/contracts';
 
-/** DTO tạo backup job cho một khoá. */
-export class CreateBackupDto {
-  @IsInt() courseId!: number;
-  @IsOptional() @IsBoolean() anonymize?: boolean;
-}
-/** DTO restore từ một backup job đã hoàn thành. */
-export class RestoreDto {
-  @IsInt() backupJobId!: number;
-  @IsIn(['new', 'merge', 'replace']) mode!: 'new' | 'merge' | 'replace';
-  @IsOptional() @IsInt() targetCourseId?: number;
-}
+/** Validation Backup/Restore dùng Zod qua Standard Schema — schema nền ở `@lms/contracts`. */
+export { createBackupSchema, restoreCourseSchema };
+export type CreateBackupDto = CreateBackup;
+export type RestoreDto = RestoreCourse;

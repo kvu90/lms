@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { CallFunctionDto, CreateServiceDto, CreateTokenDto } from './dto/integrations.dto';
+import { callExternalFunctionSchema, createExternalServiceSchema, createExternalTokenSchema, setExternalServiceEnabledSchema, type CallFunctionDto, type CreateServiceDto, type CreateTokenDto, type SetEnabledDto } from './dto/integrations.dto';
 import { IntegrationsService } from './integrations.service';
 
 /** Controller quản trị external services/tokens và endpoint gọi function. */
@@ -14,17 +14,17 @@ export class IntegrationsController {
   @Get('functions')
   async functions() { return this.integrations.listFunctions(); }
   @Post('services')
-  async createService(@Body() dto: CreateServiceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createService(@Body({ schema: createExternalServiceSchema }) dto: CreateServiceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.integrations.createService(actor.id, dto);
   }
   @Get('services')
   async listServices() { return this.integrations.listServices(); }
   @Patch('services/:id')
-  async setEnabled(@Param('id', ParseIntPipe) id: number, @Body() body: { enabled: boolean }, @CurrentUser() actor: AuthenticatedUser) {
+  async setEnabled(@Param('id', ParseIntPipe) id: number, @Body({ schema: setExternalServiceEnabledSchema }) body: SetEnabledDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.integrations.setServiceEnabled(actor.id, id, body.enabled);
   }
   @Post('tokens')
-  async createToken(@Body() dto: CreateTokenDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createToken(@Body({ schema: createExternalTokenSchema }) dto: CreateTokenDto, @CurrentUser() actor: AuthenticatedUser) {
     const { token, row } = await this.integrations.createToken(actor.id, dto);
     return { token, id: row.id, userid: row.userid, serviceid: row.serviceid, validuntil: row.validuntil };
   }
@@ -37,7 +37,7 @@ export class IntegrationsController {
   /** Endpoint gọi function: xác thực bằng external token (không phải JWT). */
   @Public()
   @Post('call')
-  async call(@Body() dto: CallFunctionDto, @Req() req: Request) {
+  async call(@Body({ schema: callExternalFunctionSchema }) dto: CallFunctionDto, @Req() req: Request) {
     const ip = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? '';
     const result = await this.integrations.callFunction({ token: dto.token, functionName: dto.functionName, args: dto.args, ip: String(ip).split(',')[0]!.trim() });
     return { result };

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { CreateReportDto, CreateScheduleDto } from './dto/reports.dto';
+import { createReportSchema, createReportScheduleSchema, type CreateReportDto, type CreateScheduleDto } from './dto/reports.dto';
 import { ReportsService } from './reports.service';
 
 /** Controller Report Builder. */
@@ -12,7 +12,7 @@ export class ReportsController {
   @Get('datasources')
   async datasources() { return this.reports.listDatasources(); }
   @Post()
-  async create(@Body() dto: CreateReportDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createReportSchema }) dto: CreateReportDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.reports.createReport(actor.id, dto);
   }
   @Get()
@@ -28,7 +28,7 @@ export class ReportsController {
     return this.reports.runReport(actor.id, id);
   }
   @Post(':id/schedules')
-  async schedule(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateScheduleDto, @CurrentUser() actor: AuthenticatedUser) {
+  async schedule(@Param('id', ParseIntPipe) id: number, @Body({ schema: createReportScheduleSchema }) dto: CreateScheduleDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.reports.createSchedule(actor.id, id, dto.cron ?? 'daily');
   }
 }

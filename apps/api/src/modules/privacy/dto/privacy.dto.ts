@@ -1,11 +1,20 @@
-import { IsIn, IsInt, IsOptional } from 'class-validator';
+import { z } from 'zod';
+import {
+  createPrivacyRequestSchema,
+  decidePrivacyRequestSchema,
+  type DecidePrivacyRequest,
+} from '@lms/contracts';
 
-/** DTO người dùng tự gửi yêu cầu privacy cho chính mình (hoặc admin gửi hộ). */
-export class CreatePrivacyRequestDto {
-  @IsIn(['export', 'delete']) type!: 'export' | 'delete';
-  @IsOptional() @IsInt() userid?: number;
-}
-/** DTO phê duyệt/từ chối yêu cầu. */
-export class DecidePrivacyRequestDto {
-  @IsIn(['approved', 'rejected']) decision!: 'approved' | 'rejected';
-}
+/** Validation Privacy dùng Zod qua Standard Schema — schema nền ở `@lms/contracts`. */
+export { decidePrivacyRequestSchema };
+export type DecidePrivacyRequestDto = DecidePrivacyRequest;
+
+/**
+ * Schema phía server — EXTEND từ schema nền ở contracts: `userid` là field chỉ
+ * admin mới được gửi (gửi hộ người khác); form tự phục vụ của người dùng dùng
+ * schema nền không có field này.
+ */
+export const createPrivacyRequestServerSchema = createPrivacyRequestSchema.extend({
+  userid: z.number().int().optional(),
+});
+export type CreatePrivacyRequestDto = z.infer<typeof createPrivacyRequestServerSchema>;

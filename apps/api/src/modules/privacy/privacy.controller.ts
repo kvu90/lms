@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { CreatePrivacyRequestDto, DecidePrivacyRequestDto } from './dto/privacy.dto';
+import { createPrivacyRequestServerSchema, decidePrivacyRequestSchema, type CreatePrivacyRequestDto, type DecidePrivacyRequestDto } from './dto/privacy.dto';
 import { PrivacyService } from './privacy.service';
 
 /** Controller Privacy: providers registry, requests, phê duyệt, export files. */
@@ -14,7 +14,7 @@ export class PrivacyController {
   @Get('completeness')
   async completeness() { return { missing: this.privacy.missingProviders(), complete: this.privacy.missingProviders().length === 0 }; }
   @Post('requests')
-  async create(@Body() dto: CreatePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createPrivacyRequestServerSchema }) dto: CreatePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.privacy.createRequest(actor.id, dto);
   }
   @Get('requests')
@@ -24,7 +24,7 @@ export class PrivacyController {
   @Get('requests/:id/files')
   async files(@Param('id', ParseIntPipe) id: number) { return this.privacy.listExportFiles(id); }
   @Post('requests/:id/decide')
-  async decide(@Param('id', ParseIntPipe) id: number, @Body() dto: DecidePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
+  async decide(@Param('id', ParseIntPipe) id: number, @Body({ schema: decidePrivacyRequestSchema }) dto: DecidePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.privacy.decide(actor.id, id, dto.decision);
   }
   @Post('requests/:id/process')

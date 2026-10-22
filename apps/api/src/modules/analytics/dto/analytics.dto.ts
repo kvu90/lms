@@ -1,6 +1,5 @@
-import { IsInt } from 'class-validator';
+import { runAnalyticsModelSchema, type RunAnalyticsModel } from '@lms/contracts';
 
-/** DTO chạy model phân tích cho một khoá. */
-export class RunModelDto {
-  @IsInt() courseId!: number;
-}
+/** Validation Analytics dùng Zod qua Standard Schema — schema nền ở `@lms/contracts`. */
+export { runAnalyticsModelSchema };
+export type RunModelDto = RunAnalyticsModel;

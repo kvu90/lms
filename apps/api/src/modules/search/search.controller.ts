@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { IndexItemDto, IndexRawDto } from './dto/search.dto';
+import { indexRawDocumentSchema, searchIndexItemSchema, type IndexItemDto, type IndexRawDto } from './dto/search.dto';
 import { SearchService } from './search.service';
 
 /** Controller tìm kiếm toàn cục — kết quả luôn qua lọc quyền ở service. */
@@ -16,9 +16,9 @@ export class SearchController {
   @Get('areas')
   async areas() { return this.search.listAreas(); }
   @Post('index')
-  async index(@Body() dto: IndexItemDto) { return { indexed: await this.search.indexItem(dto.area, dto.itemid) }; }
+  async index(@Body({ schema: searchIndexItemSchema }) dto: IndexItemDto) { return { indexed: await this.search.indexItem(dto.area, dto.itemid) }; }
   @Post('index-raw')
-  async indexRaw(@Body() dto: IndexRawDto) { return this.search.indexRaw(dto); }
+  async indexRaw(@Body({ schema: indexRawDocumentSchema }) dto: IndexRawDto) { return this.search.indexRaw(dto); }
   @Post('reindex')
   async reindex() { return this.search.reindexAll(); }
   @Delete(':area/:itemid')

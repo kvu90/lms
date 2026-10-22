@@ -1,22 +1,21 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  callExternalFunctionSchema,
+  createExternalServiceSchema,
+  createExternalTokenSchema,
+  setExternalServiceEnabledSchema,
+  type CallExternalFunction,
+  type CreateExternalService,
+  type CreateExternalToken,
+  type SetExternalServiceEnabled,
+} from '@lms/contracts';
 
-/** DTO tạo external service. */
-export class CreateServiceDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsString() @MinLength(1) shortname!: string;
-  @IsOptional() @IsBoolean() enabled?: boolean;
-  @IsOptional() @IsArray() @IsString({ each: true }) functions?: string[];
-}
-/** DTO tạo token cho một user trong một service. */
-export class CreateTokenDto {
-  @IsInt() userid!: number;
-  @IsInt() serviceid!: number;
-  @IsOptional() @IsString() validuntil?: string;
-  @IsOptional() @IsString() iprestriction?: string;
-}
-/** DTO gọi một external function qua envelope thống nhất. */
-export class CallFunctionDto {
-  @IsString() @MinLength(1) token!: string;
-  @IsString() @MinLength(1) functionName!: string;
-  @IsOptional() args?: Record<string, unknown>;
-}
+/**
+ * Validation của Web Services dùng Zod qua Standard Schema (xem ADR Zod-only):
+ * schema nền ở `@lms/contracts` là nguồn sự thật duy nhất, dùng chung với form
+ * phía React; server không định nghĩa hệ validation thứ hai.
+ */
+export { callExternalFunctionSchema, createExternalServiceSchema, createExternalTokenSchema, setExternalServiceEnabledSchema };
+export type CreateServiceDto = CreateExternalService;
+export type CreateTokenDto = CreateExternalToken;
+export type CallFunctionDto = CallExternalFunction;
+export type SetEnabledDto = SetExternalServiceEnabled;

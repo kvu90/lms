@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { BackupService } from './backup.service';
-import { CreateBackupDto, RestoreDto } from './dto/backup.dto';
+import { createBackupSchema, restoreCourseSchema, type CreateBackupDto, type RestoreDto } from './dto/backup.dto';
 
 /** Controller Backup/Restore: jobs, steps, mappings, checklist. */
 @ApiTags('backup')
@@ -12,11 +12,11 @@ export class BackupController {
   @Get('contributors')
   async contributors() { return this.backup.listContributors(); }
   @Post('jobs')
-  async createBackup(@Body() dto: CreateBackupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createBackup(@Body({ schema: createBackupSchema }) dto: CreateBackupDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.backup.createBackup(actor.id, dto.courseId, dto.anonymize ?? false);
   }
   @Post('restore')
-  async restore(@Body() dto: RestoreDto, @CurrentUser() actor: AuthenticatedUser) {
+  async restore(@Body({ schema: restoreCourseSchema }) dto: RestoreDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.backup.restore(actor.id, dto.backupJobId, dto.mode, dto.targetCourseId);
   }
   @Get('jobs')
