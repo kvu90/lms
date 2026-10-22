@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "d89d01fb-5388-40de-b9d4-7a78cd24f1a9",
+  "id": "83f76967-bb3f-4177-b21a-d73f988bbd2b",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -2436,6 +2436,26 @@
         "n|tbl|public.course_modules",
         "n|sch|public",
         "n|col|public.course_modules.instanceid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_modules",
+        "course_modules_section_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_modules_section_idx",
+        "n|idx|public.course_modules_section_idx",
+        "e|idx|public.course_modules_section_idx",
+        "n|rel|public.course_modules_section_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_modules",
+        "n|sch|public",
+        "n|col|public.course_modules.section"
       ]
     },
     {
@@ -19177,6 +19197,27 @@
       "columns": [
         {
           "value": "instanceid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_modules",
+      "name": "course_modules_section_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "section",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,

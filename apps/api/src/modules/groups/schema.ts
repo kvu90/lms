@@ -2,7 +2,6 @@
 import {
   boolean,
   index,
-  integer,
   pgTable,
   primaryKey,
   text,

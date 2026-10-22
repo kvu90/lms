@@ -1222,6 +1222,7 @@ CREATE INDEX "course_categories_parent_idx" ON "course_categories" ("parent");--
 CREATE INDEX "course_format_options_sectionid_idx" ON "course_format_options" ("sectionid");--> statement-breakpoint
 CREATE INDEX "course_modules_course_idx" ON "course_modules" ("course");--> statement-breakpoint
 CREATE INDEX "course_modules_instanceid_idx" ON "course_modules" ("instanceid");--> statement-breakpoint
+CREATE INDEX "course_modules_section_idx" ON "course_modules" ("section");--> statement-breakpoint
 CREATE INDEX "cohort_contextid_idx" ON "cohort" ("contextid");--> statement-breakpoint
 CREATE INDEX "cohort_members_userid_idx" ON "cohort_members" ("userid");--> statement-breakpoint
 CREATE INDEX "groupings_groups_groupid_idx" ON "groupings_groups" ("groupid");--> statement-breakpoint

@@ -96,6 +96,7 @@ export const courseModules = pgTable('course_modules', {
   (table) => [
       index('course_modules_course_idx').on(table.course),
       index('course_modules_instanceid_idx').on(table.instanceid),
+      index('course_modules_section_idx').on(table.section),
   ]);
 
 
