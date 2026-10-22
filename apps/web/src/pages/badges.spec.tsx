@@ -49,6 +49,9 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
       state.badgeStatus = 1;
       return respond({ id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseid: null, status: 1 });
     }
+    if (url === `/api/v1/badges/${BADGE_ID}/criteria` && method === 'PUT') {
+      return respond({ method: 1, criteria: [] });
+    }
     if (url === `/api/v1/badges/${BADGE_ID}/issued`) {
       return respond([{
         id: '01900000-0000-7000-8000-000000000021', badgeid: BADGE_ID, userid: ISSUED_USER_ID, uniquehash: 'feedface99887766',
@@ -114,5 +117,24 @@ describe('Badges page — real endpoints', () => {
 
     await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/badges/${BADGE_ID}/issued` && c.method === 'GET')).toBe(true));
     expect(await screen.findByText(new RegExp(ISSUED_USER_ID))).toBeInTheDocument();
+  });
+
+  it('saves criteria via PUT with the contracts payload shape (criteria array, not leaves)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { badgeStatus: 1 });
+    renderBadges();
+
+    const courseId = '01900000-0000-7000-8000-0000000000c1';
+    await userEvent.type(await screen.findByLabelText('ID huy hiệu'), BADGE_ID);
+    await userEvent.type(screen.getByLabelText('ID khoá học cho tiêu chí hoàn thành khoá học'), courseId);
+    await userEvent.click(screen.getByRole('button', { name: 'Đặt tiêu chí (TẤT CẢ)' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/badges/${BADGE_ID}/criteria` && c.method === 'PUT')).toBe(true));
+    const putCall = calls.find((c) => c.url === `/api/v1/badges/${BADGE_ID}/criteria`);
+    expect(putCall?.body).toEqual({
+      method: 1,
+      criteria: [{ criteriatype: 'coursecompletion', params: { courseId } }],
+    });
   });
 });

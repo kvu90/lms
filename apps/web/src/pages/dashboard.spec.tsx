@@ -137,7 +137,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
     if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) {
       return role === 'admin' ? forbidden() : ok(GRADEBOOK);
     }
-    if (url === `/api/v1/badges/users/${STUDENT_ID}/issued`) return ok([{ id: 'x' }, { id: 'y' }]);
+    if (url === '/api/v1/badges/mine') return ok([{ id: 'x' }, { id: 'y' }]);
     if (url === '/api/v1/notifications') {
       return ok([
         { id: 'n1', timeread: null },

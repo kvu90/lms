@@ -81,7 +81,7 @@ export function BadgesPage() {
     try {
       await apiJson(`/api/v1/badges/${criteriaBadgeId}/criteria`, {
         method: 'PUT',
-        body: JSON.stringify({ method: 1, leaves: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }] }),
+        body: JSON.stringify({ method: 1, criteria: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }] }),
       });
       setMessage(t('criteriaSaved'));
       await reload();
