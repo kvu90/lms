@@ -28,6 +28,14 @@ import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { UsersModule } from './modules/users/users.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BackupModule } from './modules/backup/backup.module';
+import { ContentBankModule } from './modules/content-bank/content-bank.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { SearchModule } from './modules/search/search.module';
 import { APP_GUARD } from '@nestjs/core';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
@@ -73,6 +81,14 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     CompetenciesModule,
     BadgesModule,
     SocialModule,
+    SearchModule,
+    IntegrationsModule,
+    PaymentsModule,
+    BackupModule,
+    AnalyticsModule,
+    ReportsModule,
+    ContentBankModule,
+    PrivacyModule,
     SeedModule,
   ],
   providers: [

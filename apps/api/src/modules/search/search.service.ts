@@ -1,0 +1,176 @@
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { eq, sql } from 'drizzle-orm';
+import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { ContextsService } from '../access/contexts.service';
+import { SearchRepository, type SearchDocRow } from './search.repository';
+import { blogPosts, contentbankContent, course, users } from '../../db/schema';
+
+/** Một Search Area đăng ký vào registry: biết cách lấy tài liệu gốc để indexer lập chỉ mục và để re-check. */
+export interface SearchArea {
+  name: string;
+  /** Trả về tài liệu của một item, hoặc null nếu item không còn/không nên index. */
+  fetch(itemid: number): Promise<{ title: string; content: string; contextid: number; ownerid?: number } | null>;
+  /** Liệt kê mọi itemid hiện có của area (dùng cho reindex toàn bộ). */
+  listIds(): Promise<number[]>;
+}
+
+/** PORT của search engine — bản thật là PostgresSearchEngine bên dưới. */
+export const SEARCH_ENGINE = Symbol('SEARCH_ENGINE');
+export interface SearchEngine {
+  query(q: string): Promise<SearchDocRow[]>;
+}
+
+/** Adapter Postgres thật: tsvector trên search_documents. */
+@Injectable()
+export class PostgresSearchEngine implements SearchEngine {
+  constructor(private readonly repo: SearchRepository) {}
+  async query(q: string): Promise<SearchDocRow[]> { return this.repo.queryEngine(q); }
+}
+
+/**
+ * SearchModule facade (Moodle core_search, §2#17).
+ * Bất biến: kết quả PHẢI lọc theo quyền của người tìm TẠI THỜI ĐIỂM TRUY VẤN
+ * qua PermissionEvaluator, và re-check lần cuối khi trả kết quả — kể cả khi
+ * index còn sót tài liệu (index stale không bao giờ được rò ra ngoài).
+ * Tài liệu của user/course bị suspended/deleted phải rời index.
+ */
+@Injectable()
+export class SearchService {
+  private readonly areas = new Map<string, SearchArea>();
+
+  constructor(
+    private readonly repo: SearchRepository,
+    private readonly evaluator: PermissionEvaluator,
+    private readonly contexts: ContextsService,
+  ) {
+    this.registerBuiltinAreas();
+  }
+
+  /** Đăng ký area — các module khác đăng ký qua đây, không sửa service. */
+  registerArea(area: SearchArea): void { this.areas.set(area.name, area); }
+  listAreas(): string[] { return [...this.areas.keys()]; }
+
+  private registerBuiltinAreas(): void {
+    const db = this.repo.dbHandle;
+    // Area: courses — tiêu đề + summary của khoá, context là course context.
+    this.registerArea({
+      name: 'courses',
+      fetch: async (itemid) => {
+        const [c] = await db.select().from(course).where(eq(course.id, itemid));
+        if (!c || !c.visible) return null;
+        const ctx = await this.contexts.getByLevelInstance(50, itemid);
+        if (!ctx) return null;
+        return { title: c.fullname, content: `${c.shortname} ${c.summary}`, contextid: ctx.id };
+      },
+      listIds: async () => (await db.select().from(course)).map((r) => r.id),
+    });
+    // Area: users — hồ sơ công khai; user suspended/deleted không được index.
+    this.registerArea({
+      name: 'users',
+      fetch: async (itemid) => {
+        const [u] = await db.select().from(users).where(eq(users.id, itemid));
+        if (!u || u.suspended || u.deleted || u.isGuest) return null;
+        const ctx = await this.contexts.getByLevelInstance(30, itemid);
+        const sys = ctx ?? (await this.contexts.ensureSystemContext());
+        return { title: `${u.firstname} ${u.lastname}`.trim() || u.username, content: `${u.username} ${u.email}`, contextid: sys.id, ownerid: u.id };
+      },
+      listIds: async () => (await db.select().from(users)).filter((u) => !u.suspended && !u.deleted).map((r) => r.id),
+    });
+    // Area: contentbank — chỉ nội dung public mới vào index.
+    this.registerArea({
+      name: 'contentbank',
+      fetch: async (itemid) => {
+        const [c] = await db.select().from(contentbankContent).where(eq(contentbankContent.id, itemid));
+        if (!c || c.visibility !== 'public') return null;
+        return { title: c.name, content: `${c.name} ${c.contenttype}`, contextid: c.contextid, ownerid: c.creatorid };
+      },
+      listIds: async () => (await db.select().from(contentbankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
+    });
+    // Area: blog — bài public (site) thuộc user context của tác giả.
+    this.registerArea({
+      name: 'blog',
+      fetch: async (itemid) => {
+        const [p] = await db.select().from(blogPosts).where(eq(blogPosts.id, itemid));
+        if (!p || p.publishstate !== 'site') return null;
+        const ctx = await this.contexts.getByLevelInstance(30, p.userid);
+        const sys = ctx ?? (await this.contexts.ensureSystemContext());
+        return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextid: sys.id, ownerid: p.userid };
+      },
+      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.publishstate === 'site').map((r) => r.id),
+    });
+  }
+
+  /** Lập chỉ mục một item: fetch từ area; null ⇒ gỡ khỏi index. */
+  async indexItem(area: string, itemid: number): Promise<boolean> {
+    const provider = this.areas.get(area);
+    if (!provider) return false;
+    const doc = await provider.fetch(itemid);
+    if (!doc) { await this.repo.remove(area, itemid); return false; }
+    await this.repo.upsert({ area, itemid, title: doc.title, content: doc.content, contextid: doc.contextid, ownerid: doc.ownerid ?? null });
+    return true;
+  }
+
+  /** Reindex toàn bộ các area đã đăng ký (job nền gọi lại logic này). */
+  async reindexAll(): Promise<{ indexed: number }> {
+    let indexed = 0;
+    for (const [name, provider] of this.areas) {
+      for (const id of await provider.listIds()) if (await this.indexItem(name, id)) indexed++;
+    }
+    return { indexed };
+  }
+
+  /** Gỡ mọi tài liệu thuộc về một user (suspended/deleted) khỏi index. */
+  async purgeOwner(ownerid: number): Promise<void> { await this.repo.removeByOwner(ownerid); }
+
+  /** Indexer nghe sự kiện miền qua EventEmitter/outbox relay trong process. */
+  @OnEvent('course_created')
+  async onCourseCreated(p: { courseId?: number }): Promise<void> { if (p.courseId) await this.indexItem('courses', p.courseId); }
+  @OnEvent('user_suspended')
+  async onUserSuspended(p: { userId?: number }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
+  @OnEvent('user_deleted')
+  async onUserDeleted(p: { userId?: number }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
+
+  /**
+   * Tìm kiếm toàn cục cho một user: engine trả ứng viên, sau đó lọc bằng
+   * PermissionEvaluator tại thời điểm truy vấn (moodle/course:view ở context
+   * của tài liệu) và RE-CHECK bằng cách fetch lại bản ghi gốc qua area —
+   * tài liệu gốc đã suspended/deleted/ẩn thì bị loại dù index còn sót.
+   */
+  async search(userId: number, q: string): Promise<SearchDocRow[]> {
+    const candidates = await this.repo.queryEngine(q);
+    const out: SearchDocRow[] = [];
+    /** Capability bắt buộc theo từng area — mỗi area khai báo đúng một capability để re-check, không OR nhiều capability. */
+    const areaCapability: Record<string, string> = {
+      courses: 'moodle/course:view',
+      users: 'moodle/user:viewdetails',
+      contentbank: 'moodle/contentbank:viewcontent',
+      blog: 'moodle/blog:view',
+    };
+    for (const doc of candidates) {
+      // Lớp 1: quyền tại thời điểm truy vấn ở context của tài liệu.
+      const capability = areaCapability[doc.area] ?? 'moodle/course:view';
+      const allowed = await this.evaluator.hasCapability(userId, capability, doc.contextid);
+      if (!allowed) continue;
+      // Lớp 2 (re-check): bản ghi gốc còn hợp lệ không?
+      const provider = this.areas.get(doc.area);
+      if (provider) {
+        const fresh = await provider.fetch(doc.itemid);
+        if (!fresh) continue;
+        if (fresh.contextid !== doc.contextid) continue;
+      }
+      out.push(doc);
+    }
+    return out;
+  }
+
+  /** Chèn thẳng một tài liệu vào index (dùng cho indexer/test khi cần mô phỏng index sót). */
+  async indexRaw(v: { area: string; itemid: number; title: string; content: string; contextid: number; ownerid?: number }): Promise<SearchDocRow> {
+    return this.repo.upsert(v);
+  }
+  async removeDoc(area: string, itemid: number): Promise<void> { return this.repo.remove(area, itemid); }
+  async listDocs(): Promise<SearchDocRow[]> { return this.repo.listAll(); }
+  async countDocs(): Promise<number> { return (await this.repo.listAll()).length; }
+  /** Truy vấn SQL thô phục vụ chẩn đoán — không dùng trong luồng nghiệp vụ. */
+  async ping(): Promise<boolean> { await this.repo.dbHandle.execute(sql`select 1`); return true; }
+}
