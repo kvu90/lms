@@ -1,0 +1,557 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import type {
+  CourseCategoryTreeNode,
+  Role,
+  UserListResponse,
+} from '@lms/contracts';
+import '../i18n';
+import { ApiError, apiJson } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { usePermissions, type CourseAccess } from '@/lib/permissions';
+import { SectionCards, type StatCard } from '@/components/section-cards';
+import {
+  ChartAreaInteractive,
+  type ChartPoint,
+} from '@/components/chart-area-interactive';
+import { DataTable, type DataColumn } from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+/** Hình dạng sự kiện lịch mà trang này cần (khớp EventView của trang lịch). */
+interface CalendarEventView {
+  id: string;
+  name: string;
+  timestart: string;
+}
+
+/** Hình dạng thông báo mà trang này cần (khớp NotificationView của trang thông báo). */
+interface NotificationLite {
+  id: string;
+  timeread: string | null;
+}
+
+/** Lỗi có phải 403 hay không — để hiện thông báo thân thiện thay vì lỗi thô. */
+function isForbidden(error: unknown): boolean {
+  return error instanceof ApiError && error.problem.status === 403;
+}
+
+/** Nhãn ngày dd/MM theo ngôn ngữ giao diện hiện tại. */
+function dayLabel(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(date);
+}
+
+/** Tiêu đề một khối vai trò trên trang tổng quan. */
+function SectionHeading({ title }: { title: string }) {
+  return (
+    <h2 className="px-4 text-lg font-semibold lg:px-6" data-testid="dashboard-section-title">
+      {title}
+    </h2>
+  );
+}
+
+/** Thông báo khi một khối không tải được (kể cả 403 do quyền vừa thay đổi). */
+function BlockNotice() {
+  const { t } = useTranslation('dashboard');
+  return <p className="text-muted-foreground px-4 text-sm lg:px-6">{t('blockForbidden')}</p>;
+}
+
+/**
+ * Khối quản trị hệ thống: chỉ render khi PermissionsProvider đã xác nhận
+ * người dùng có capability quản trị, và chỉ gọi các endpoint quản trị
+ * (danh sách người dùng, cây danh mục, danh sách vai trò). Số liệu lấy từ
+ * chính các response đó — tổng người dùng từ trường `total` của API, biểu
+ * đồ gom tài khoản theo tuần tạo từ `timecreated`.
+ */
+function AdminSection() {
+  const { t, i18n } = useTranslation(['dashboard', 'app']);
+  const perms = usePermissions();
+  const [users, setUsers] = useState<UserListResponse | null>(null);
+  const [categoryCount, setCategoryCount] = useState<{ total: number; topLevel: number } | null>(null);
+  const [roles, setRoles] = useState<Role[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const list = await apiJson<UserListResponse>('/api/v1/users?page=1&pageSize=100');
+        setUsers(list);
+      } catch (error) {
+        if (isForbidden(error)) setFailed(true);
+      }
+      try {
+        const tree = await apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree');
+        let total = 0;
+        const walk = (nodes: CourseCategoryTreeNode[]) => {
+          for (const node of nodes) {
+            total += 1;
+            walk(node.children);
+          }
+        };
+        walk(tree);
+        setCategoryCount({ total, topLevel: tree.length });
+      } catch {
+        setCategoryCount(null);
+      }
+      try {
+        setRoles(await apiJson<Role[]>('/api/v1/access/roles'));
+      } catch {
+        setRoles(null);
+      }
+    })();
+  }, []);
+
+  const cards: StatCard[] = [];
+  if (users) {
+    const active = users.users.filter((u) => !u.suspended && !u.deleted).length;
+    cards.push({
+      id: 'admin-users',
+      label: t('dashboard:statTotalUsers'),
+      value: String(users.total),
+      footer: users.users.length >= users.total ? t('dashboard:statUsersFooter', { count: active }) : undefined,
+    });
+  }
+  cards.push({
+    id: 'admin-courses',
+    label: t('dashboard:statTotalCourses'),
+    value: String(perms.courses.length),
+    footer: t('dashboard:statCoursesFooter', {
+      count: perms.courses.filter((c) => c.course.visible).length,
+    }),
+  });
+  if (categoryCount) {
+    cards.push({
+      id: 'admin-categories',
+      label: t('dashboard:statTotalCategories'),
+      value: String(categoryCount.total),
+      footer: t('dashboard:statCategoriesFooter', { count: categoryCount.topLevel }),
+    });
+  }
+  if (roles) {
+    cards.push({
+      id: 'admin-roles',
+      label: t('dashboard:statTotalRoles'),
+      value: String(roles.length),
+      footer: t('dashboard:statRolesFooter', {
+        count: roles.filter((r) => r.archetype !== null).length,
+      }),
+    });
+  }
+
+  const chartData: ChartPoint[] = useMemo(() => {
+    if (!users) return [];
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Array.from({ length: 8 }, (_, i) => {
+      const start = new Date(now.getTime() - (7 - i) * 7 * 86_400_000);
+      const end = new Date(start.getTime() + 7 * 86_400_000);
+      const value = users.users.filter((u) => {
+        const created = new Date(u.timecreated);
+        return created >= start && created < end;
+      }).length;
+      return { label: dayLabel(start, i18n.language), value };
+    });
+  }, [users, i18n.language]);
+
+  const columns: DataColumn<UserListResponse['users'][number]>[] = [
+    { id: 'username', header: t('app:username'), cell: (u) => u.username, sortValue: (u) => u.username },
+    {
+      id: 'fullname',
+      header: t('dashboard:colFullName'),
+      cell: (u) => `${u.firstname} ${u.lastname}`.trim(),
+      sortValue: (u) => `${u.firstname} ${u.lastname}`,
+    },
+    { id: 'email', header: t('app:email'), cell: (u) => u.email ?? '—', sortValue: (u) => u.email ?? '' },
+    {
+      id: 'status',
+      header: t('app:status'),
+      cell: (u) =>
+        u.deleted ? (
+          <Badge variant="destructive">{t('app:deletedSuffix')}</Badge>
+        ) : u.suspended ? (
+          <Badge variant="secondary">{t('dashboard:statusSuspended')}</Badge>
+        ) : (
+          <Badge variant="outline">{t('dashboard:statusActive')}</Badge>
+        ),
+    },
+  ];
+
+  if (failed) return <BlockNotice />;
+  return (
+    <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-admin">
+      <SectionHeading title={t('dashboard:adminSection')} />
+      <SectionCards cards={cards} />
+      <ChartAreaInteractive
+        title={t('dashboard:chartAdminTitle')}
+        description={t('dashboard:chartAdminDescription')}
+        seriesLabel={t('dashboard:chartAdminSeries')}
+        emptyText={t('dashboard:chartNoData')}
+        data={chartData}
+      />
+      {users ? (
+        <DataTable
+          title={t('dashboard:tableUsersTitle')}
+          data={users.users}
+          columns={columns}
+          getRowId={(u) => u.id}
+          labels={{
+            columns: t('dashboard:tableColumns'),
+            previous: t('dashboard:tablePrevious'),
+            next: t('dashboard:tableNext'),
+            empty: t('dashboard:emptyTable'),
+            pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Khối giảng dạy: dựng hoàn toàn từ dữ liệu PermissionsProvider đã dò theo
+ * từng khoá (báo cáo điểm toàn lớp). Thẻ "chưa có điểm" là hàng đợi chấm
+ * thật — học viên trong báo cáo chưa có điểm tổng. Biểu đồ phân bố điểm
+ * chuẩn hoá theo điểm tối đa của từng khoá (đọc từ sổ điểm của khoá đó).
+ */
+function TeacherSection() {
+  const { t } = useTranslation('dashboard');
+  const perms = usePermissions();
+  const teaching = perms.teaching;
+
+  const rows = teaching.flatMap((c) => c.report?.rows ?? []);
+  const graded = rows.filter((r) => r.finalgrade !== null).length;
+  const cards: StatCard[] = [
+    {
+      id: 'teacher-courses',
+      label: t('statTeachingCourses'),
+      value: String(teaching.length),
+      footer: t('statTeachingFooter'),
+    },
+    {
+      id: 'teacher-students',
+      label: t('statMyStudents'),
+      value: String(rows.length),
+      footer: t('statMyStudentsFooter', { count: graded }),
+    },
+    {
+      id: 'teacher-ungraded',
+      label: t('statUngraded'),
+      value: String(rows.length - graded),
+      footer: t('statUngradedFooter'),
+    },
+  ];
+
+  const chartData: ChartPoint[] = useMemo(() => {
+    const buckets = [
+      { label: '0–49%', min: 0, max: 50 },
+      { label: '50–64%', min: 50, max: 65 },
+      { label: '65–79%', min: 65, max: 80 },
+      { label: '80–89%', min: 80, max: 90 },
+      { label: '90–100%', min: 90, max: 101 },
+    ];
+    const counts = buckets.map(() => 0);
+    for (const access of teaching) {
+      const max = access.gradebook?.courseTotal?.item.grademax;
+      if (!max || max <= 0) continue;
+      for (const row of access.report?.rows ?? []) {
+        if (row.finalgrade === null) continue;
+        const pct = (row.finalgrade / max) * 100;
+        const idx = buckets.findIndex((b) => pct >= b.min && pct < b.max);
+        if (idx >= 0) counts[idx] = (counts[idx] ?? 0) + 1;
+      }
+    }
+    return buckets.map((b, i) => ({ label: b.label, value: counts[i]! }));
+  }, [teaching]);
+
+  const columns: DataColumn<CourseAccess>[] = [
+    {
+      id: 'course',
+      header: t('colCourse'),
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullname}</Link>,
+      sortValue: (c) => c.course.fullname,
+    },
+    {
+      id: 'students',
+      header: t('colStudents'),
+      cell: (c) => String(c.report?.rows.length ?? 0),
+      sortValue: (c) => c.report?.rows.length ?? 0,
+    },
+    {
+      id: 'ungraded',
+      header: t('colUngraded'),
+      cell: (c) => String((c.report?.rows ?? []).filter((r) => r.finalgrade === null).length),
+      sortValue: (c) => (c.report?.rows ?? []).filter((r) => r.finalgrade === null).length,
+    },
+    {
+      id: 'actions',
+      header: t('colActions'),
+      cell: (c) => (
+        <span className="flex gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/courses/${c.course.id}/grades`}>{t('viewGradebook')}</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/courses/${c.course.id}/admin`}>{t('manageCourse')}</Link>
+          </Button>
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-teacher">
+      <SectionHeading title={t('teacherSection')} />
+      <SectionCards cards={cards} />
+      <ChartAreaInteractive
+        title={t('chartTeacherTitle')}
+        description={t('chartTeacherDescription')}
+        seriesLabel={t('chartTeacherSeries')}
+        emptyText={t('chartNoData')}
+        data={chartData}
+      />
+      <DataTable
+        title={t('tableTeachingTitle')}
+        data={teaching}
+        columns={columns}
+        getRowId={(c) => c.course.id}
+        labels={{
+          columns: t('tableColumns'),
+          previous: t('tablePrevious'),
+          next: t('tableNext'),
+          empty: t('emptyTable'),
+          pageInfo: (page, pages) => t('tablePageInfo', { page, pages }),
+        }}
+      />
+    </section>
+  );
+}
+
+/**
+ * Khối học tập của học viên: khoá đang học và điểm của chính mình lấy từ
+ * tầng quyền (ghi danh + sổ điểm cá nhân theo từng khoá); huy hiệu đã cấp
+ * và thông báo chưa đọc gọi các endpoint tự phục vụ tương ứng; biểu đồ là
+ * sự kiện lịch 30 ngày tới theo ngày. Học viên không bao giờ chạm endpoint
+ * quản trị hay báo cáo lớp từ khối này.
+ */
+function StudentSection() {
+  const { t, i18n } = useTranslation(['dashboard', 'app']);
+  const { user } = useAuth();
+  const perms = usePermissions();
+  const learning = perms.learning;
+  const [badgeCount, setBadgeCount] = useState<number | null>(null);
+  const [unread, setUnread] = useState<number | null>(null);
+  const [events, setEvents] = useState<CalendarEventView[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const issued = await apiJson<unknown[]>(`/api/v1/badges/users/${user.id}/issued`);
+        setBadgeCount(issued.length);
+      } catch {
+        setBadgeCount(null);
+      }
+      try {
+        const list = await apiJson<NotificationLite[]>('/api/v1/notifications');
+        setUnread(list.filter((n) => n.timeread === null).length);
+      } catch {
+        setUnread(null);
+      }
+      try {
+        const from = new Date();
+        const to = new Date(from.getTime() + 30 * 86_400_000);
+        setEvents(
+          await apiJson<CalendarEventView[]>(
+            `/api/v1/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`,
+          ),
+        );
+      } catch {
+        setEvents([]);
+      }
+    })();
+  }, [user]);
+
+  const gradedTotals: { grade: number; max: number }[] = [];
+  for (const access of learning) {
+    const total = access.gradebook?.courseTotal;
+    if (total?.grade?.finalgrade !== null && total?.grade?.finalgrade !== undefined && total.item.grademax > 0) {
+      gradedTotals.push({ grade: total.grade.finalgrade, max: total.item.grademax });
+    }
+  }
+  const average =
+    gradedTotals.length > 0
+      ? gradedTotals.reduce((sum, entry) => sum + (entry.grade / entry.max) * 100, 0) / gradedTotals.length
+      : null;
+
+  const cards: StatCard[] = [
+    {
+      id: 'student-courses',
+      label: t('statLearningCourses'),
+      value: String(learning.length),
+      footer: t('statLearningFooter'),
+    },
+    {
+      id: 'student-average',
+      label: t('statAverageGrade'),
+      value: average === null ? '—' : `${average.toFixed(1)}%`,
+      footer: t('statAverageFooter', { count: gradedTotals.length }),
+    },
+    ...(badgeCount !== null
+      ? [
+          {
+            id: 'student-badges',
+            label: t('statMyBadges'),
+            value: String(badgeCount),
+            footer: t('statBadgesFooter'),
+          },
+        ]
+      : []),
+    ...(unread !== null
+      ? [
+          {
+            id: 'student-unread',
+            label: t('statUnread'),
+            value: String(unread),
+            footer: t('statUnreadFooter'),
+          },
+        ]
+      : []),
+  ];
+
+  const chartData: ChartPoint[] = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return Array.from({ length: 30 }, (_, i) => {
+      const day = new Date(start.getTime() + i * 86_400_000);
+      const next = new Date(day.getTime() + 86_400_000);
+      const value = events.filter((e) => {
+        const at = new Date(e.timestart);
+        return at >= day && at < next;
+      }).length;
+      return { label: dayLabel(day, i18n.language), value };
+    });
+  }, [events, i18n.language]);
+
+  const columns: DataColumn<CourseAccess>[] = [
+    {
+      id: 'course',
+      header: t('colCourse'),
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullname}</Link>,
+      sortValue: (c) => c.course.fullname,
+    },
+    {
+      id: 'mygrade',
+      header: t('colMyGrade'),
+      cell: (c) => {
+        const total = c.gradebook?.courseTotal;
+        if (!total?.grade) return '—';
+        return `${total.grade.finalgrade ?? '—'} / ${total.item.grademax}`;
+      },
+      sortValue: (c) => c.gradebook?.courseTotal?.grade?.finalgrade ?? -1,
+    },
+    {
+      id: 'letter',
+      header: t('app:letter'),
+      cell: (c) => c.gradebook?.courseTotal?.grade?.letter ?? '',
+    },
+    {
+      id: 'actions',
+      header: t('colActions'),
+      cell: (c) => (
+        <span className="flex gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/courses/${c.course.id}`}>{t('openCourse')}</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/courses/${c.course.id}/grades`}>{t('viewGradebook')}</Link>
+          </Button>
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-student">
+      <SectionHeading title={t('studentSection')} />
+      <SectionCards cards={cards} />
+      <ChartAreaInteractive
+        title={t('chartStudentTitle')}
+        description={t('chartStudentDescription')}
+        seriesLabel={t('chartStudentSeries')}
+        emptyText={t('chartNoData')}
+        data={chartData}
+        ranges={[
+          { value: '7', label: t('rangeDays', { count: 7 }), count: 7 },
+          { value: '30', label: t('rangeDays', { count: 30 }), count: 30 },
+        ]}
+      />
+      <DataTable
+        title={t('tableLearningTitle')}
+        data={learning}
+        columns={columns}
+        getRowId={(c) => c.course.id}
+        labels={{
+          columns: t('tableColumns'),
+          previous: t('tablePrevious'),
+          next: t('tableNext'),
+          empty: t('emptyTable'),
+          pageInfo: (page, pages) => t('tablePageInfo', { page, pages }),
+        }}
+      />
+    </section>
+  );
+}
+
+/**
+ * Trang tổng quan sau đăng nhập (route `/` khi đã đăng nhập), khung trình
+ * bày theo block dashboard-01. Nội dung CHIA THEO VAI TRÒ từ ảnh chụp
+ * quyền: khối quản trị chỉ hiện với người có capability quản trị, khối
+ * giảng dạy chỉ với người đang dạy ít nhất một khoá, khối học tập chỉ với
+ * người đang học ít nhất một khoá. Người có nhiều vai trò thấy các khối
+ * tương ứng xếp chồng — mỗi khối chỉ chứa chức năng vai trò đó thao tác
+ * được, không có phần tử thừa dẫn tới 403.
+ */
+export function DashboardPage() {
+  const { t } = useTranslation(['dashboard', 'app']);
+  const { user } = useAuth();
+  const perms = usePermissions();
+
+  if (!perms.ready) {
+    return (
+      <main className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <p className="text-muted-foreground px-4 text-sm lg:px-6">{t('app:loading')}</p>
+      </main>
+    );
+  }
+
+  const hasBlocks = perms.canAdminister || perms.teaching.length > 0 || perms.learning.length > 0;
+  const name = user ? `${user.firstname} ${user.lastname}`.trim() || user.username : '';
+
+  return (
+    <main className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+      <h1 className="px-4 text-2xl font-semibold lg:px-6">
+        {t('dashboard:welcome', { name })}
+      </h1>
+      {perms.canAdminister ? <AdminSection /> : null}
+      {perms.teaching.length > 0 ? <TeacherSection /> : null}
+      {perms.learning.length > 0 ? <StudentSection /> : null}
+      {!hasBlocks ? (
+        <div className="px-4 lg:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('dashboard:noBlocksTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-start gap-4">
+              <p className="text-muted-foreground text-sm">{t('dashboard:noBlocksBody')}</p>
+              <Button asChild>
+                <Link to="/courses">{t('dashboard:browseCourses')}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+    </main>
+  );
+}

@@ -1,10 +1,14 @@
-import { StrictMode } from 'react';
+import { StrictMode, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Link, Outlet, RouterProvider } from 'react-router';
 import { Button } from './components/ui/button';
 import { useTranslation } from 'react-i18next';
 import './i18n';
 import { AuthProvider, useAuth } from './lib/auth';
+import { PermissionsProvider } from './lib/permissions';
+import { AppSidebar } from './components/app-sidebar';
+import { SiteHeader } from './components/site-header';
+import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { AdminRolesPage } from './pages/admin-roles';
 import { AdminUsersPage } from './pages/admin-users';
 import { BadgesPage } from './pages/badges';
@@ -16,6 +20,7 @@ import { NotificationsPage } from './pages/notifications';
 import { CoursePage } from './pages/course';
 import { CourseAdminPage } from './pages/course-admin';
 import { CoursesPage } from './pages/courses';
+import { DashboardPage } from './pages/dashboard';
 import { GradebookPage } from './pages/grades';
 import { HealthPage } from './pages/health';
 import { QuestionsPage, QuestionUsagePage } from './pages/questions';
@@ -25,34 +30,45 @@ import { ProfilePage } from './pages/profile';
 import { BackupPage, ContentBankPage, InsightsPage, PrivacyPage, ReportsPage, SearchPage, TokensPage } from './pages/platform';
 import './index.css';
 
-function Shell() {
+/**
+ * Khung của khu vực ĐÃ đăng nhập, theo block dashboard-01: sidebar điều
+ * hướng (đã lọc theo quyền trong AppSidebar) + header trên cùng + vùng nội
+ * dung. PermissionsProvider bọc ngoài để sidebar và trang tổng quan dùng
+ * chung một ảnh chụp quyền.
+ */
+function AuthenticatedShell() {
+  return (
+    <PermissionsProvider>
+      <SidebarProvider
+        style={
+          {
+            '--sidebar-width': 'calc(var(--spacing) * 72)',
+            '--header-height': 'calc(var(--spacing) * 12)',
+          } as CSSProperties
+        }
+      >
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader />
+          <Outlet />
+        </SidebarInset>
+      </SidebarProvider>
+    </PermissionsProvider>
+  );
+}
+
+/**
+ * Khung công khai (chưa đăng nhập): header ngang đơn giản như trước, dùng
+ * cho trang chủ giới thiệu, đăng nhập và kiểm tra trạng thái — các luồng
+ * này không đổi hành vi khi khu vực đăng nhập chuyển sang khung sidebar.
+ */
+function PublicShell() {
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation('app');
   return (
     <div>
       <header className="flex items-center gap-4 border-b px-8 py-3">
         <Link to="/" className="font-semibold">LMS</Link>
-        <nav className="flex gap-3 text-sm">
-          <Link to="/profile">{t('navProfile')}</Link>
-          <Link to="/courses">{t('navCourses')}</Link>
-          <Link to="/questions">{t('navQuestions')}</Link>
-          <Link to="/messages">{t('navMessages')}</Link>
-          <Link to="/notifications">{t('navNotifications')}</Link>
-          <Link to="/calendar">{t('navCalendar')}</Link>
-          <Link to="/badges">{t('navBadges')}</Link>
-          <Link to="/learning-plan">{t('navLearningPlan')}</Link>
-          <Link to="/blog">{t('navBlog')}</Link>
-          <Link to="/search">{t('navSearch')}</Link>
-          <Link to="/tokens">{t('navTokens')}</Link>
-          <Link to="/backup">{t('navBackup')}</Link>
-          <Link to="/insights">{t('navInsights')}</Link>
-          <Link to="/reports">{t('navReports')}</Link>
-          <Link to="/contentbank">{t('navContentBank')}</Link>
-          <Link to="/privacy">{t('navPrivacy')}</Link>
-          <Link to="/admin/users">{t('navUsers')}</Link>
-          <Link to="/admin/roles">{t('navRoles')}</Link>
-          <Link to="/health">{t('navHealth')}</Link>
-        </nav>
         <label className="ml-auto flex items-center gap-2 text-sm">
           {t('language')}
           <select aria-label={t('language')} value={i18n.language} onChange={(e) => void i18n.changeLanguage(e.target.value)} className="border px-1 py-0.5">
@@ -76,11 +92,23 @@ function Shell() {
   );
 }
 
+/** Chọn khung theo trạng thái đăng nhập: có phiên thì vào khung sidebar. */
+function Shell() {
+  const { user } = useAuth();
+  return user ? <AuthenticatedShell /> : <PublicShell />;
+}
+
+/** Trang gốc `/`: đã đăng nhập thì là trang tổng quan theo vai trò, chưa thì là trang giới thiệu. */
+function RootPage() {
+  const { user } = useAuth();
+  return user ? <DashboardPage /> : <HomePage />;
+}
+
 const router = createBrowserRouter([
   {
     element: <Shell />,
     children: [
-      { path: '/', element: <HomePage /> },
+      { path: '/', element: <RootPage /> },
       { path: '/health', element: <HealthPage /> },
       { path: '/login', element: <LoginPage /> },
       { path: '/profile', element: <ProfilePage /> },
