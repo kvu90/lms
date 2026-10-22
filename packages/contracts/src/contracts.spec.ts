@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, enrolInstanceSchema,
+  badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, courseGroupingSchema, enrolInstanceSchema,
   gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, messagePreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
@@ -89,15 +89,21 @@ describe('course contracts', () => {
         id: '01900000-0000-7000-8000-000000000100', course: '01900000-0000-7000-8000-000000000010', section: 0, name: 'General', summary: '', visible: true, availability: null,
         modules: [{
           id: '01900000-0000-7000-8000-000000001001', course: '01900000-0000-7000-8000-000000000010', section: '01900000-0000-7000-8000-000000000100', component: 'mod_quiz', instanceid: '01900000-0000-7000-8000-000000000002', name: 'Locked quiz',
-          visible: true, groupmode: 0, availability: null, completion: 2, completionview: true,
+          visible: true, groupmode: 0, availability: null, completion: 2, completionview: true, completionmanual: false,
           availabilityResult: { available: false, visible: true, failedDescriptions: ['Available from 2100'] },
         }],
       }],
     });
     expect(content.sections[0]?.modules[0]?.availabilityResult?.available).toBe(false);
     expect(enrolInstanceSchema.parse({
-      id: '01900000-0000-7000-8000-000000000001', courseid: '01900000-0000-7000-8000-000000000010', enrol: 'cohort', status: 0, name: null, roleid: '01900000-0000-7000-8000-000000000005', customint1: '01900000-0000-7000-8000-000000000003', customint2: null, customtext1: 'suspend',
+      id: '01900000-0000-7000-8000-000000000001', courseid: '01900000-0000-7000-8000-000000000010', enrol: 'cohort', status: 0, name: null, roleid: '01900000-0000-7000-8000-000000000005', customint1: '01900000-0000-7000-8000-000000000003', customint2: null, customtext1: 'suspend', cost: 0, currency: '',
     }).enrol).toBe('cohort');
+    expect(enrolInstanceSchema.parse({
+      id: '01900000-0000-7000-8000-000000000001', courseid: '01900000-0000-7000-8000-000000000010', enrol: 'fee', status: 0, name: null, roleid: null, customint1: null, customint2: null, customtext1: 'suspend', cost: 150000, currency: 'VND',
+    }).cost).toBe(150000);
+    expect(courseGroupingSchema.parse({
+      id: '01900000-0000-7000-8000-000000000020', courseid: '01900000-0000-7000-8000-000000000010', name: 'Nhóm A', idnumber: 'GA', description: '',
+    }).name).toBe('Nhóm A');
   });
 });
 

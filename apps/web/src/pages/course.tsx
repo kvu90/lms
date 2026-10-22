@@ -7,17 +7,6 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-/**
- * Instance ghi danh kèm phần phí thật do API trả về (`EnrolRow` ở
- * enrol.repository: cost là số nguyên đơn vị tiền nhỏ nhất, currency là mã
- * tiền tệ). Kiểu `EnrolInstance` trong @lms/contracts chưa mang hai trường
- * này nên trang mở rộng tại chỗ thay vì đoán shape ở nơi khác.
- */
-interface EnrolInstanceView extends EnrolInstance {
-  cost?: number;
-  currency?: string;
-}
-
 /** Ghi danh của chính người dùng trong khoá (GET /courses/:id/enrolments/me). */
 interface MyEnrolmentView {
   courseId: string;
@@ -59,14 +48,8 @@ interface MyCompletionView {
   course: { id: string; userid: string; course: string; status: string; timecompleted: string | null };
 }
 
-/**
- * Course module kèm cờ hoàn thành thủ công do API trả về (CmRow có
- * completionmanual/completionusegrade; kiểu contracts hiện chỉ khai
- * completion/completionview nên trang mở rộng tại chỗ).
- */
-type CourseModuleView = CourseContent['sections'][number]['modules'][number] & {
-  completionmanual?: boolean;
-};
+/** Một course module trong nội dung khoá học (kiểu `CourseModule` của contracts, đã gồm `completionmanual`). */
+type CourseModuleView = CourseContent['sections'][number]['modules'][number];
 
 /** Tải một endpoint phụ một cách độc lập: lỗi thì trả null thay vì sập cả trang. */
 async function probe<T>(path: string): Promise<T | null> {
@@ -105,7 +88,7 @@ export function CoursePage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);
   const [enrolment, setEnrolment] = useState<MyEnrolmentView | null>(null);
-  const [instances, setInstances] = useState<EnrolInstanceView[]>([]);
+  const [instances, setInstances] = useState<EnrolInstance[]>([]);
   const [payments, setPayments] = useState<MyPaymentView[]>([]);
   const [completion, setCompletion] = useState<MyCompletionView | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -125,7 +108,7 @@ export function CoursePage() {
   const reload = useCallback(async () => {
     const [courseRes, instancesRes, enrolmentRes, paymentsRes, contentRes] = await Promise.all([
       probe<Course>(`/api/v1/courses/${id}`),
-      probe<EnrolInstanceView[]>(`/api/v1/courses/${id}/enrol/instances`),
+      probe<EnrolInstance[]>(`/api/v1/courses/${id}/enrol/instances`),
       probe<MyEnrolmentView>(`/api/v1/courses/${id}/enrolments/me`),
       probe<MyPaymentView[]>('/api/v1/payments/me'),
       probe<CourseContent>(`/api/v1/courses/${id}/content`),
@@ -316,9 +299,7 @@ export function CoursePage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">{t('enrolFeeDescription')}</p>
-                      {typeof instance.cost === 'number' ? (
-                        <p>{t('enrolFeeLine', { amount: instance.cost.toLocaleString(), currency: instance.currency ?? '' })}</p>
-                      ) : null}
+                      <p>{t('enrolFeeLine', { amount: instance.cost.toLocaleString(), currency: instance.currency })}</p>
                       <Button
                         type="button"
                         disabled={busyInstanceId === instance.id}

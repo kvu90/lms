@@ -66,6 +66,8 @@ export const courseModuleSchema = z.object({
   availability: z.unknown().nullable(),
   completion: z.number().int(),
   completionview: z.boolean(),
+  /** Cờ hoàn thành thủ công của module (hàng ở tầng API luôn mang trường này — cột NOT NULL ở bảng course_modules); đi kèm `completionusegrade` quyết định cách tính trạng thái tự động. */
+  completionmanual: z.boolean(),
   contextId: uuidIdSchema.optional(),
   availabilityResult: availabilityResultSchema.optional(),
 });
@@ -113,6 +115,23 @@ export const cohortSchema = z.object({
 });
 export type Cohort = z.infer<typeof cohortSchema>;
 
+/**
+ * Grouping (nhóm các nhóm) trong một khoá học như API trả về — hàng của
+ * bảng `groupings` phía groups module. Mốc thời gian để tuỳ chọn vì tầng
+ * API trả thẳng hàng cơ sở dữ liệu và các bản ghi cũ có thể thiếu chúng
+ * khi serialize.
+ */
+export const courseGroupingSchema = z.object({
+  id: uuidIdSchema,
+  courseid: uuidIdSchema,
+  name: z.string(),
+  idnumber: z.string(),
+  description: z.string(),
+  timecreated: z.string().optional(),
+  timemodified: z.string().optional(),
+});
+export type CourseGrouping = z.infer<typeof courseGroupingSchema>;
+
 export const enrolInstanceSchema = z.object({
   id: uuidIdSchema,
   courseid: uuidIdSchema,
@@ -123,6 +142,10 @@ export const enrolInstanceSchema = z.object({
   customint1: uuidIdSchema.nullable(),
   customint2: uuidIdSchema.nullable(),
   customtext1: z.string(),
+  /** Phí ghi danh của instance fee: số nguyên theo đơn vị tiền nhỏ nhất (0 = miễn phí); hàng ở tầng API luôn mang trường này (cột NOT NULL ở bảng enrol). */
+  cost: z.number().int(),
+  /** Mã tiền tệ ISO của phí ghi danh (`''` khi instance không thu phí); hàng ở tầng API luôn mang trường này. */
+  currency: z.string(),
   /** Khoá ghi danh (enrolment key) của instance self — chỉ staff có capability quản lý enrol mới thấy giá trị thật; người khác nhận `null`. */
   enrolmentkey: z.string().nullable().optional(),
   sendwelcomemessage: z.boolean().optional(),

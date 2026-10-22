@@ -18,6 +18,7 @@ function stubFetch(calls: RecordedCall[]) {
   const state = {
     events: [] as Record<string, unknown>[],
     subs: [] as Record<string, unknown>[],
+    exportToken: null as { token: string; url: string } | null,
   };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
@@ -40,6 +41,14 @@ function stubFetch(calls: RecordedCall[]) {
       return respond(sub);
     }
     if (url === `/api/v1/calendar/subscriptions/${SUB_ID}/import` && method === 'POST') return respond({ queued: true, subscriptionId: SUB_ID });
+    // Xuất lịch: token bắt đầu chưa có; POST tạo, GET đọc lại, DELETE thu hồi.
+    if (url === '/api/v1/calendar/export-token' && method === 'GET') return respond(state.exportToken);
+    if (url === '/api/v1/calendar/export-token' && method === 'POST') {
+      state.exportToken = { token: 'tok123', url: 'https://lms.example/api/v1/calendar/export/01900000-0000-7000-8000-000000000033-tok123.ics' };
+      return respond(state.exportToken);
+    }
+    if (url === '/api/v1/calendar/export-token' && method === 'DELETE') { state.exportToken = null; return respond({ revoked: true }); }
+    if (url === '/api/v1/calendar/export.ics') return new Response('BEGIN:VCALENDAR\r\nEND:VCALENDAR', { status: 200, headers: { 'Content-Type': 'text/calendar' } });
     return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
   }));
 }
@@ -50,6 +59,40 @@ function localNowInput(): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+describe('Calendar page — export', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it('creates a subscription URL via POST /calendar/export-token and revokes it via DELETE', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    render(<CalendarPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Tạo đường dẫn đăng ký' }));
+    const urlInput = await screen.findByLabelText('Đường dẫn đăng ký') as HTMLInputElement;
+    expect(urlInput.value).toContain('tok123.ics');
+    expect(calls.some((c) => c.url === '/api/v1/calendar/export-token' && c.method === 'POST')).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Thu hồi đường dẫn' }));
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/calendar/export-token' && c.method === 'DELETE')).toBe(true));
+    expect(await screen.findByText('Chưa có đường dẫn đăng ký nào.')).toBeInTheDocument();
+  });
+
+  it('downloads the ICS file through the authenticated GET /calendar/export.ics endpoint', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    const createObjectURL = vi.fn(() => 'blob:mock');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    render(<CalendarPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Tải tệp .ics' }));
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/calendar/export.ics' && c.method === 'GET')).toBe(true));
+    expect(createObjectURL).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+});
 
 describe('Calendar page — create events and subscriptions', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

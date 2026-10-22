@@ -56,6 +56,43 @@ function stubFetch(calls: RecordedCall[]) {
   }));
 }
 
+const FW_ID = '01900000-0000-7000-8000-00000000f001';
+const FW_ROW = { id: FW_ID, shortname: 'FW1', idnumber: 'fw1', description: '', scaleconfiguration: { values: ['Chưa đạt', 'Đạt'], proficient: [1] }, visible: true };
+const EXPORT_DOC = { framework: { shortname: 'FW1', idnumber: 'fw1', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } }, competencies: [] };
+
+/**
+ * Stub cho khu import/export framework: danh sách có sẵn một framework,
+ * export trả tài liệu mẫu, import tạo framework mới — riêng tài liệu có
+ * shortname BROKEN bị API từ chối bằng Problem Details 400 mang `detail`
+ * toàn vẹn để khẳng định trang hiện nguyên văn lỗi của API.
+ */
+function stubFetchExport(calls: RecordedCall[]) {
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    if (url === '/api/v1/users/me') return respond(PROFILE);
+    if (url === '/api/v1/users/me/capabilities') return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+    if (url === '/api/v1/users?pageSize=1') return respond({ users: [PROFILE], total: 1, page: 1, pageSize: 1 });
+    if (url === '/api/v1/users?page=1&pageSize=50') return respond({ users: [LEARNER], total: 1, page: 1, pageSize: 50 });
+    if (url === '/api/v1/access/roles') return respond([]);
+    if (url === '/api/v1/questions/categories') return respond([]);
+    if (url === '/api/v1/courses') return respond([]);
+    if (url === '/api/v1/competencies/frameworks' && method === 'GET') return respond([FW_ROW]);
+    if (url === `/api/v1/competencies/frameworks/${FW_ID}/export`) return respond(EXPORT_DOC);
+    if (url === '/api/v1/competencies/frameworks/import' && method === 'POST') {
+      const body = JSON.parse(String(init?.body)) as { framework?: { shortname?: string } };
+      if (body.framework?.shortname === 'BROKEN') {
+        return respond({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'competency.import_invalid', detail: 'Tài liệu thiếu thang đánh giá của framework' }, 400);
+      }
+      return respond({ ...FW_ROW, id: '01900000-0000-7000-8000-00000000f002', shortname: body.framework?.shortname ?? 'FW-NEW' });
+    }
+    if (url === '/api/v1/competencies/templates') return respond([]);
+    if (url === `/api/v1/competencies/plans/user/${ADMIN_ID}`) return respond([]);
+    return respond({}, 404);
+  }));
+}
+
 /** Render trang kế hoạch trong đúng khung provider của ứng dụng thật. */
 function renderPage() {
   const router = createMemoryRouter([{ path: '/learning-plan', element: <LearningPlanPage /> }], { initialEntries: ['/learning-plan'] });
@@ -89,6 +126,55 @@ describe('Learning plan page — competency administration', () => {
       scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
       visible: true,
     });
+  });
+
+  it('exports a framework as JSON via GET /frameworks/:id/export and downloads it', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchExport(calls);
+    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Xuất JSON' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/competencies/frameworks/${FW_ID}/export` && c.method === 'GET')).toBe(true));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã xuất framework "FW1"');
+  });
+
+  it('imports a framework by posting the parsed file JSON to /frameworks/import', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchExport(calls);
+    renderPage();
+
+    const doc = { framework: { shortname: 'FW-NEW', idnumber: 'fwn', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } }, competencies: [] };
+    const file = new File([JSON.stringify(doc)], 'fw.json', { type: 'application/json' });
+    await userEvent.upload(await screen.findByLabelText(/File JSON framework/), file);
+    await userEvent.click(screen.getByRole('button', { name: 'Nhập framework' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/competencies/frameworks/import' && c.method === 'POST')).toBe(true));
+    const post = calls.find((c) => c.url === '/api/v1/competencies/frameworks/import' && c.method === 'POST');
+    expect(post?.body).toEqual(doc);
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã nhập thành framework mới "FW-NEW"');
+  });
+
+  it('shows the API integrity error verbatim when the import document is rejected', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchExport(calls);
+    renderPage();
+
+    const file = new File([JSON.stringify({ framework: { shortname: 'BROKEN' } })], 'broken.json', { type: 'application/json' });
+    await userEvent.upload(await screen.findByLabelText(/File JSON framework/), file);
+    await userEvent.click(screen.getByRole('button', { name: 'Nhập framework' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Tài liệu thiếu thang đánh giá của framework');
   });
 
   it('approves an in-review plan from the review queue via POST /plans/:id/approve', async () => {

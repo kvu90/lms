@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { usePermissions } from '@/lib/permissions';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
+import { apiJson, ApiError } from '@/lib/api';
 
 interface PlanView { id: string; name: string; status: number; templateid: string | null }
 interface PlanDetail { plan: PlanView; competencies: { competency: { id: string; shortname: string }; usercomp: { id: string; grade: number | null; proficiency: boolean | null; status: number } | null }[]; reviews: { action: string; timecreated: string }[] }
@@ -79,6 +79,9 @@ function CompetencyAdmin() {
   const [reviewUserId, setReviewUserId] = useState('');
   const [reviewPlans, setReviewPlans] = useState<PlanView[] | null>(null);
   const [reviewUsercomps, setReviewUsercomps] = useState<UsercompView[] | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importInputKey, setImportInputKey] = useState(0);
 
   /** Nạp danh sách framework + template cho khu quản lý. */
   const reloadAdmin = useCallback(async () => {
@@ -135,6 +138,60 @@ function CompetencyAdmin() {
       setAdminMessage(t('compFrameworkCreated'));
       await reloadAdmin();
     } catch { setAdminMessage(t('compFrameworkCreateFailed')); }
+  }
+
+  /**
+   * Xuất framework ra file JSON: GET /frameworks/:id/export trả tài liệu
+   * JSON của hệ thống (framework + cây competency + rule); trang đóng gói
+   * thành Blob tải xuống ngay trên trình duyệt, không qua máy chủ tệp.
+   */
+  async function exportFramework(fw: FrameworkView) {
+    setAdminMessage(null);
+    try {
+      const doc = await apiJson<unknown>(`/api/v1/competencies/frameworks/${fw.id}/export`);
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `framework-${fw.shortname || fw.id}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setAdminMessage(t('compExported', { name: fw.shortname }));
+    } catch { setAdminMessage(t('compExportFailed')); }
+  }
+
+  /**
+   * Nhập framework từ file JSON đã xuất: đọc file ngay trên trình duyệt,
+   * phân tích JSON rồi POST /frameworks/import — backend kiểm chứng toàn
+   * vẹn tài liệu bằng `frameworkExportSchema` và tạo framework MỚI (mọi id
+   * đều mới). Lỗi toàn vẹn của API (Problem Details) được hiện nguyên văn
+   * `detail` để quản trị sửa file, không nuốt thành thông báo chung chung.
+   */
+  async function importFramework(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    setImportError(null);
+    if (!importFile) return;
+    let doc: unknown;
+    try {
+      doc = JSON.parse(await importFile.text());
+    } catch {
+      setImportError(t('compImportInvalidJson'));
+      return;
+    }
+    try {
+      const created = await apiJson<FrameworkView>('/api/v1/competencies/frameworks/import', {
+        method: 'POST', body: JSON.stringify(doc),
+      });
+      setImportFile(null);
+      setImportInputKey((k) => k + 1);
+      setAdminMessage(t('compImportSuccess', { name: created.shortname }));
+      await reloadAdmin();
+    } catch (err) {
+      setImportError(err instanceof ApiError
+        ? t('compImportApiError', { detail: err.problem.detail ?? err.problem.title })
+        : t('compImportFailed'));
+    }
   }
 
   /** Thêm competency vào framework đang chọn qua POST /frameworks/:id/competencies (`createCompetencySchema`). */
@@ -266,6 +323,7 @@ function CompetencyAdmin() {
                   <span className="font-medium">{fw.shortname}</span>
                   {fw.scaleconfiguration?.values?.length ? <span>{fw.scaleconfiguration.values.join(', ')}</span> : null}
                   <Button type="button" variant="outline" onClick={() => { setSelectedFrameworkId(fw.id); void loadCompetencies(fw.id).catch(() => setAdminError(t('compAdminLoadFailed'))); }}>{t('compViewCompetencies')}</Button>
+                  <Button type="button" variant="outline" onClick={() => void exportFramework(fw)}>{t('compExportFramework')}</Button>
                 </li>
               ))}
               {frameworks.length === 0 ? <li className="text-sm">{t('compNoFrameworks')}</li> : null}
@@ -286,6 +344,19 @@ function CompetencyAdmin() {
                 {t('compFrameworkVisible')}
               </label>
               <Button type="submit">{t('compCreateFramework')}</Button>
+            </form>
+            <form onSubmit={(e) => void importFramework(e)} className="space-y-3">
+              <h4 className="font-medium">{t('compImportTitle')}</h4>
+              <div className="space-y-1"><Label htmlFor="fw-import-file">{t('compImportFile')}</Label>
+                <Input
+                  key={importInputKey}
+                  id="fw-import-file"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                /></div>
+              {importError ? <p role="alert">{importError}</p> : null}
+              <Button type="submit" variant="outline" disabled={!importFile}>{t('compImportAction')}</Button>
             </form>
           </div>
 

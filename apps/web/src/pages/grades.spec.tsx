@@ -226,6 +226,10 @@ describe('Gradebook administration (teacher of the course)', () => {
         return respond(LETTERS);
       }
       if (url === `/api/v1/courses/${COURSE_ID}/grades/scales`) return respond([{ id: '01900000-0000-7000-8000-000000000041', courseid: COURSE_ID, name: 'Pass scale', scale: 'Fail,Pass', description: '' }]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/outcomes`) {
+        if (method === 'POST') return respond({ id: '01900000-0000-7000-8000-000000000043', courseid: COURSE_ID, scaleid: '01900000-0000-7000-8000-000000000041', name: 'Teamwork', description: '' });
+        return respond([]);
+      }
       if (url === HISTORY_URL) {
         return respond([{
           id: '01900000-0000-7000-8000-000000000051', action: 2, oldid: null, itemid: ITEM.id, userid: STUDENT_ID,
@@ -264,6 +268,19 @@ describe('Gradebook administration (teacher of the course)', () => {
     const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST');
     // Đúng createGradeItemSchema: itemname + grademax dạng số; không chọn hạng mục thì không gửi categoryId.
     expect(createCall?.body).toEqual({ itemname: 'Midterm', grademax: 100 });
+  });
+
+  it('creates a course outcome via POST /courses/:courseId/grades/outcomes with name and scaleId', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    renderAsTeacher();
+
+    await userEvent.type(await screen.findByLabelText('Tên outcome'), 'Teamwork');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo outcome' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/outcomes` && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/outcomes` && c.method === 'POST');
+    expect(createCall?.body).toEqual({ name: 'Teamwork', scaleId: '01900000-0000-7000-8000-000000000041' });
   });
 
   it('saves the whole letter set via PUT /courses/:courseId/grades/letters', async () => {
