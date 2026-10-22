@@ -54,6 +54,7 @@ Oracle sources were read from Moodle `MOODLE_503_STABLE` on 2026-10-22
 | 14 | Force password change on first login | report §2#3 (auth policy) | auth-flow › "enforces the force-password-change flow" | P1 | ✅ |
 | 15 | Session id rotates at login (fixation) | report §2#29 | auth-flow › "web session: login rotates the session id" | P1 | ✅ |
 | 16 | Login-as requires its capability and never works for plain users | report §2#29 / `moodle/user:loginas` | auth-flow › "login-as…" | P1 | ✅ |
+| 16a | MFA TOTP: setup (secret shown once) → confirm activates → password login stops at an MFA challenge (short-lived scoped token, useless for regular APIs) → verify with the current ±1-step code issues the normal token pair; wrong codes are 401 and feed the login lockout; disable with a valid code and an admin reset (`moodle/user:update`) both return the user to direct login | blueprint §2#3 (Auth framework "MFA hook") + Moodle `tool_mfa` factor_totp semantics (TOTP factor must be satisfied before login completes) + authlib_test login family | auth-flow › "MFA TOTP: setup → confirm → login stops at MFA → verify admits; disable returns to direct login", "MFA TOTP: admin reset…" | P1 (addendum) | ✅ |
 | 17 | Identity fields hidden without `moodle/site:viewuseridentity` | `public/lib/tests/user_test.php` / `test_search_no_identity_fields` | `apps/api/test/users-flow.e2e-spec.ts` › "hides identity fields (email)…" | P1 | ✅ |
 | 18 | Deleted users: soft-delete keeps the row, identity mangled, excluded from normal use | user_test / `test_search_deleted_users` + report §2#2 | users-flow › "soft-deletes…" | P1 | ✅ |
 | 19 | Username/email normalized + unique | user_test / `test_validate`, `test_clean_data` | users-flow › "normalizes username/email to lowercase…" | P1 | ✅ |
@@ -453,12 +454,29 @@ feature work, outside this cleanup round):
 | `enrol/self` + `enrol/manual` welcome-message scenarios | No welcome message is sent on enrolment |
 | `enrol/self/tests/behat/self_enrolment.feature` / "Self unenrol as a self-enrolled student" | Unenrol requires the manage capability; a student cannot unenrol themselves |
 | `enrol/cohort/tests/behat/enrolcohorts.feature` / "Editing a cohort enrolment method's role should change participants' role" | Updating an instance does not re-assign the role of already-enrolled members |
-| `badges/tests/behat/criteria_cohort.feature`, `criteria_profile.feature` | Badge criteria leaf types `cohort` and `profile` are not supported (supported: coursecompletion, activitycompletion, competency, badge, manual) |
-| `badges/tests/behat/award_badge.feature` / "Badge awarded depending on the course completion by-date" | The `coursecompletion` leaf ignores Moodle's by-date parameter |
+| ~~`badges/tests/behat/criteria_cohort.feature`, `criteria_profile.feature`~~ — **CLOSED in the backend-business-gaps round**: the `cohort` leaf (`{cohortId}` or `{cohortIds}` = membership in ALL listed cohorts) and the `profile` leaf (`{field, value?}` — a standard profile field or a `core_user`/`user` custom field by shortname; with `value` it must equal it, without it must be filled) are now supported by the API evaluator and its worker twin | `apps/api/test/badges-competency-flow.e2e-spec.ts` › "cohort leaf…", "profile leaf…" + `apps/worker/test/engagement-jobs.spec.ts` › "badge auto-award honours the cohort + profile leaves…" |
+| ~~`badges/tests/behat/award_badge.feature` / "Badge awarded depending on the course completion by-date"~~ — **CLOSED in the backend-business-gaps round**: the `coursecompletion` leaf now honours its optional `byDate` parameter (completion counts only when `timecompleted ≤ byDate`) in both the API evaluator and the worker twin | `apps/api/test/badges-competency-flow.e2e-spec.ts` › "coursecompletion by-date…" + `apps/worker/test/engagement-jobs.spec.ts` › same twin test |
 | `message/tests/behat` / "Disallow sending a message if you are neither a contact nor do you share a course with the user" | Messaging enforces blocks and suspension only; there is no contact/shared-course gate (Moodle ties this to the `messagingallusers` setting, which has no equivalent here) |
 | `message/tests/behat` / group conversation member sync scenarios | Conversations have explicit member lists; course-group conversations that auto-sync members do not exist |
 | `calendar/tests/behat/export.feature` (ICS export + export URLs) | Calendar export (ICS download / tokenised export URL) is not implemented; only subscription import is |
 | `group/tests/behat/private_groups.feature` | Groups have no visibility mode; only the course groupmode (separate groups) law is enforced |
+
+### Frontend contract check — badges page endpoints (backend-business-gaps round)
+
+Conclusion (option b — equivalent routes already exist; NO duplicate
+endpoints were added): the web badges page (`apps/web/src/pages/badges.tsx`)
+calls two routes that do not exist in `BadgesController`. Both behaviours
+are already served by canonical routes, so the WEB side must change:
+
+| Web call (does not exist) | Canonical route to use instead | Semantics |
+|---|---|---|
+| `POST /badges/:id/activate` | `POST /api/v1/badges/:id/status` with body `{ "status": 1 }` | Same activation path (`BadgesService.setStatus`): requires `moodle/badges:configurecriteria` at the badge context and refuses activation without criteria (`400 badges.no_criteria`) |
+| `GET /badges/users/:userId/issued` | `GET /api/v1/badges/mine` | The page only ever asks for the signed-in user's own assertions; `mine` returns exactly those (issued rows + badge). Per-badge recipient lists already exist at `GET /api/v1/badges/:id/issued` for staff with `moodle/badges:awardbadge` |
+
+Also spotted in the same page while checking: its set-criteria call sends
+`{ method, leaves: [...] }` but the contract
+(`setBadgeCriteriaSchema`) expects `{ method, criteria: [...] }` — the web
+side should rename `leaves` → `criteria`.
 
 ### Recorded divergence (implemented differently on purpose)
 

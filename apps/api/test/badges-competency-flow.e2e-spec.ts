@@ -16,6 +16,12 @@ import {
  *    test_delete_badge (delete = archive). Report §2#14: criteria tree
  *    ALL/ANY; criteria FROZEN once issued/active; assertions immutable;
  *    revoke ≠ delete.
+ *  - Behat (badges/tests/behat): criteria_cohort.feature (cohort leaf),
+ *    criteria_profile.feature (profile leaf), award_badge.feature /
+ *    "Badge awarded depending on the course completion by-date"
+ *    (coursecompletion leaf honours its by-date parameter). The UI steps
+ *    of those scenarios are skipped per convention; the business steps
+ *    and expected award outcomes are asserted through the API below.
  *  - public/competency/tests/api_test.php: test_list_frameworks,
  *    test_create_plan_from_template, test_create_template_cohort,
  *    test_complete_plan, test_plan_request_review / test_plan_start_review /
@@ -156,6 +162,121 @@ describe('Badges & competencies', () => {
     expect(awarded.status).toBe(201);
     expect(awarded.body.issued).toBeTruthy();
     expect(awarded.body.award.recipientid).toBe(recipient.id);
+  });
+
+  async function activeBadgeWithCriteria(name: string, criteria: unknown[]) {
+    const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
+      .send({ name, type: 1 });
+    expect(badgeRes.status).toBe(201);
+    const badgeId = badgeRes.body.id as string;
+    const setRes = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria });
+    expect(setRes.status).toBe(200);
+    const statusRes = await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
+    expect(statusRes.status).toBe(201);
+    return badgeId;
+  }
+
+  async function evaluateLeaves(badgeId: string, userId: string) {
+    const res = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId });
+    expect(res.status).toBe(201);
+    return res.body as { satisfied: boolean; leaves: { criteriatype: string; satisfied: boolean }[] };
+  }
+
+  async function issuedBadgeIdsFor(userId: string, token: string) {
+    void userId;
+    const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${token}`);
+    expect(mine.status).toBe(200);
+    return (mine.body as { badgeid: string }[]).map((r) => r.badgeid);
+  }
+
+  it('cohort leaf: members of the named cohort are awarded, non-members are not (Behat criteria_cohort.feature)', async () => {
+    const cohort = await createCohortViaApi(app, admin, `badge-cohort-${Date.now()}-${Math.random()}`);
+    const member = await createUserViaApi(app, admin);
+    const outsider = await createUserViaApi(app, admin);
+    await addCohortMember(app, admin, cohort.id, member.id);
+    // A cohort leaf without its cohort reference is refused at criteria time.
+    const probe = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Cohort probe', type: 1 });
+    const badParams = await http(app).put(`/api/v1/badges/${probe.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria: [{ criteriatype: 'cohort', params: {} }] });
+    expect(badParams.status).toBe(400);
+    expect(badParams.body.code).toBe('badges.bad_criteria_params');
+
+    const badgeId = await activeBadgeWithCriteria('Cohort member badge', [{ criteriatype: 'cohort', params: { cohortId: cohort.id } }]);
+    expect((await evaluateLeaves(badgeId, member.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(badgeId, outsider.id)).satisfied).toBe(false);
+    // Auto-award path: evaluating the member's badges issues it; the outsider gets nothing.
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: member.id });
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: outsider.id });
+    const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
+    const outsiderToken = (await login(app, outsider.username, STRONG_PASSWORD)).accessToken;
+    expect(await issuedBadgeIdsFor(member.id, memberToken)).toContain(badgeId);
+    expect(await issuedBadgeIdsFor(outsider.id, outsiderToken)).not.toContain(badgeId);
+  });
+
+  it('profile leaf: a custom profile field meeting the condition awards; a different or missing value does not (Behat criteria_profile.feature)', async () => {
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const shortname = `badgedept${suffix.replaceAll('-', '')}`.slice(0, 32);
+    const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Badge profile ${suffix}`, component: 'core_user', area: 'user' });
+    expect(cat.status).toBe(201);
+    const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
+      .send({ categoryid: cat.body.id, shortname, name: 'Badge department', type: 'text', configdata: {} });
+    expect(field.status).toBe(201);
+    // lms_test is shared across suites: other suites may have declared
+    // REQUIRED core_user fields (e.g. a select `department`), and user
+    // creation validates every required field — satisfy them generically.
+    const fieldsRes = await http(app).get('/api/v1/custom-fields/fields?component=core_user&area=user').set('Authorization', `Bearer ${admin}`);
+    expect(fieldsRes.status).toBe(200);
+    const requiredValues: Record<string, string> = {};
+    for (const f of fieldsRes.body as { shortname: string; type: string; configdata?: { required?: boolean; options?: string[] } }[]) {
+      if (!f.configdata?.required || f.shortname === shortname) continue;
+      requiredValues[f.shortname] = f.configdata.options?.[0] ?? (f.type === 'date' ? '2000-01-01' : f.type === 'checkbox' ? '1' : 'Required');
+    }
+    const matching = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Engineering' } });
+    const different = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Sales' } });
+    const missing = await createUserViaApi(app, admin);
+
+    const badgeId = await activeBadgeWithCriteria('Engineering badge', [{ criteriatype: 'profile', params: { field: shortname, value: 'Engineering' } }]);
+    expect((await evaluateLeaves(badgeId, matching.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(badgeId, different.id)).satisfied).toBe(false);
+    expect((await evaluateLeaves(badgeId, missing.id)).satisfied).toBe(false);
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: matching.id });
+    const matchingToken = (await login(app, matching.username, STRONG_PASSWORD)).accessToken;
+    expect(await issuedBadgeIdsFor(matching.id, matchingToken)).toContain(badgeId);
+
+    // Standard profile fields work through the same leaf (no `value` ⇒ the field must be filled).
+    const stdBadgeId = await activeBadgeWithCriteria('Has a last name', [{ criteriatype: 'profile', params: { field: 'lastname' } }]);
+    expect((await evaluateLeaves(stdBadgeId, matching.id)).satisfied).toBe(true);
+    const stdValueBadgeId = await activeBadgeWithCriteria('Last name is User', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'User' } }]);
+    expect((await evaluateLeaves(stdValueBadgeId, matching.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // helper default lastname is also 'User'
+    const stdMissBadgeId = await activeBadgeWithCriteria('Last name is Nobody', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'Nobody' } }]);
+    expect((await evaluateLeaves(stdMissBadgeId, matching.id)).satisfied).toBe(false);
+  });
+
+  it('coursecompletion by-date: completion on/before the by-date awards, completion after it does not (Behat award_badge.feature by-date)', async () => {
+    const { course, instance, cm } = await completableCourse();
+    const student = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, student.id);
+    // Complete the course NOW, before either badge exists.
+    await markCmComplete(app, admin, course.id, cm.id, student.id);
+    const now = Date.now();
+    const futureCutoff = new Date(now + 30 * 86400_000).toISOString();
+    const pastCutoff = new Date(now - 30 * 86400_000).toISOString();
+    const inTimeBadgeId = await activeBadgeWithCriteria('Completed in time', [
+      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: futureCutoff } },
+    ]);
+    const tooLateBadgeId = await activeBadgeWithCriteria('Completed too late', [
+      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: pastCutoff } },
+    ]);
+    expect((await evaluateLeaves(inTimeBadgeId, student.id)).satisfied).toBe(true);
+    expect((await evaluateLeaves(tooLateBadgeId, student.id)).satisfied).toBe(false);
+    await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
+    const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
+    const issuedIds = await issuedBadgeIdsFor(student.id, studentToken);
+    expect(issuedIds).toContain(inTimeBadgeId);
+    expect(issuedIds).not.toContain(tooLateBadgeId);
   });
 
   it('competency course links: ruleoutcome complete sets proficiency from the scale; attach-evidence only logs evidence (§2#15)', async () => {

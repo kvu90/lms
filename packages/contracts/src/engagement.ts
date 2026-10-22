@@ -259,10 +259,44 @@ export const setBadgeStatusSchema = z.strictObject({
 });
 export type SetBadgeStatus = z.infer<typeof setBadgeStatusSchema>;
 
+/**
+ * Tham số của từng loại lá tiêu chí cấp huy hiệu (discriminated theo
+ * `criteriatype` ở schema lá bên dưới):
+ * - `coursecompletion`: `{ courseId, byDate? }` — hoàn thành khoá học; khi có
+ *   `byDate` (ISO datetime) thì thời điểm hoàn thành phải ≤ ngày đó mới tính
+ *   (Moodle: tham số by-date của tiêu chí hoàn thành khoá học).
+ * - `activitycompletion`: `{ cmId }` — hoàn thành hoạt động.
+ * - `competency`: `{ competencyId }` — đạt proficiency của năng lực.
+ * - `badge`: `{ badgeId }` — đã được cấp huy hiệu khác.
+ * - `manual`: `{ roleId? }` — cấp tay bởi người giữ vai trò (tuỳ chọn).
+ * - `cohort`: `{ cohortId }` hoặc `{ cohortIds }` — thuộc cohort chỉ định
+ *   (dạng mảng: phải thuộc TẤT CẢ cohort liệt kê).
+ * - `profile`: `{ field, value? }` — trường hồ sơ chuẩn (firstname, lastname,
+ *   email, username…) hoặc custom field theo shortname đạt điều kiện: có
+ *   `value` thì giá trị phải bằng đúng; không có `value` thì trường phải
+ *   được điền (khác rỗng).
+ */
+export const badgeCriteriaParamsSchema = z.union([
+  z.strictObject({ courseId: uuidIdSchema, byDate: z.iso.datetime({ offset: true }).optional() }),
+  z.strictObject({ cmId: uuidIdSchema }),
+  z.strictObject({ competencyId: uuidIdSchema }),
+  z.strictObject({ badgeId: uuidIdSchema }),
+  z.strictObject({ roleId: uuidIdSchema.optional() }),
+  z.strictObject({ cohortId: uuidIdSchema }),
+  z.strictObject({ cohortIds: z.array(uuidIdSchema).min(1) }),
+  z.strictObject({ field: z.string().min(1), value: z.string().optional() }),
+]);
+export type BadgeCriteriaParams = z.infer<typeof badgeCriteriaParamsSchema>;
+
+/** Các loại lá tiêu chí huy hiệu được hỗ trợ (khớp LEAF_TYPES phía API). */
+export const badgeCriteriaLeafTypes = [
+  'coursecompletion', 'activitycompletion', 'competency', 'badge', 'manual', 'cohort', 'profile',
+] as const;
+
 /** Một lá tiêu chí cấp huy hiệu: loại tiêu chí + bộ tham số riêng của loại đó. */
 export const badgeCriteriaLeafSchema = z.strictObject({
-  criteriatype: z.string(),
-  params: z.record(z.string(), z.unknown()).optional(),
+  criteriatype: z.enum(badgeCriteriaLeafTypes),
+  params: badgeCriteriaParamsSchema.optional(),
   description: z.string().optional(),
 });
 export type BadgeCriteriaLeaf = z.infer<typeof badgeCriteriaLeafSchema>;

@@ -11,14 +11,19 @@ import { RolesService } from '../access/roles.service';
 import { CompetenciesService } from '../competencies/competencies.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
+import { CustomFieldsService } from '../custom-fields/custom-fields.service';
+import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
-import { UsersService } from '../users/users.service';
+import { USER_AREA, USER_COMPONENT, UsersService } from '../users/users.service';
 import { BadgesRepository, type BadgeRow, type CriteriaRow, type IssuedRow } from './badges.repository';
 
 export const BADGE_AWARD_QUEUE = 'badge-award';
 export const BADGE_STATUS = { INACTIVE: 0, ACTIVE: 1, RETIRED: 2, ARCHIVED: 3, DISABLED: 4 } as const;
 export const CRITERIA_AGGREGATION = { ALL: 1, ANY: 2 } as const;
-export const LEAF_TYPES = ['coursecompletion', 'activitycompletion', 'competency', 'badge', 'manual'] as const;
+export const LEAF_TYPES = ['coursecompletion', 'activitycompletion', 'competency', 'badge', 'manual', 'cohort', 'profile'] as const;
+
+/** Các trường hồ sơ chuẩn mà lá `profile` đọc trực tiếp từ bản ghi user (ngoài ra lá nhận custom field theo shortname). */
+const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstname', 'lastname'] as const;
 
 export interface CriteriaInput {
   method: number; // 1=ALL, 2=ANY over the leaves
@@ -28,8 +33,9 @@ export interface CriteriaInput {
 /**
  * BadgesModule facade (Moodle core_badges):
  *  - Criteria form a two-level tree: ONE 'overall' row carrying the ALL/ANY
- *    aggregation, plus leaf rows (course completion, activity completion,
- *    competency proficiency, another badge, manual-by-role).
+ *    aggregation, plus leaf rows (course completion — optionally by a
+ *    deadline date, activity completion, competency proficiency, another
+ *    badge, manual-by-role, cohort membership, profile field).
  *  - FREEZE LAW: criteria of an ACTIVE badge — or of any badge with issued
  *    awards — cannot be changed. Duplicate the badge to edit its criteria.
  *  - Issuing creates an IMMUTABLE assertion (snapshot of badge + criteria,
@@ -60,6 +66,8 @@ export class BadgesService implements OnModuleInit {
     private readonly competencies: CompetenciesService,
     private readonly messaging: MessagingService,
     private readonly users: UsersService,
+    private readonly groups: GroupsService,
+    private readonly customFields: CustomFieldsService,
     private readonly outbox: OutboxService,
     private readonly i18n: I18nService,
     @InjectQueue(BADGE_AWARD_QUEUE) private readonly awardQueue: Queue,
@@ -239,6 +247,10 @@ export class BadgesService implements OnModuleInit {
       if (!LEAF_TYPES.includes(leaf.criteriatype as never)) {
         throw new BadRequestException({ message: `Unknown criteria type ${leaf.criteriatype}`, code: 'badges.bad_criteria_type' });
       }
+      const paramError = this.leafParamError(leaf.criteriatype, (leaf.params ?? {}) as Record<string, unknown>);
+      if (paramError) {
+        throw new BadRequestException({ message: paramError, code: 'badges.bad_criteria_params' });
+      }
     }
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.deleteCriteria(badgeId, tx as never);
@@ -277,6 +289,40 @@ export class BadgesService implements OnModuleInit {
     return copy;
   }
 
+  /**
+   * Kiểm tra tham số bắt buộc của từng loại lá khi đặt tiêu chí: mỗi lá phải
+   * mang đủ tham chiếu mà evaluator cần (khoá học/cm/năng lực/huy hiệu/cohort/
+   * trường hồ sơ); `byDate` của lá hoàn thành khoá học phải là ngày hợp lệ.
+   * Trả về thông điệp lỗi hoặc null khi hợp lệ.
+   */
+  private leafParamError(criteriatype: string, params: Record<string, unknown>): string | null {
+    const hasId = (key: string) => typeof params[key] === 'string' && (params[key] as string).length > 0;
+    switch (criteriatype) {
+      case 'coursecompletion': {
+        if (!hasId('courseId')) return 'Course completion criteria require a courseId param';
+        if (params.byDate !== undefined && (typeof params.byDate !== 'string' || Number.isNaN(Date.parse(params.byDate)))) {
+          return 'Course completion byDate param must be a valid date';
+        }
+        return null;
+      }
+      case 'activitycompletion':
+        return hasId('cmId') ? null : 'Activity completion criteria require a cmId param';
+      case 'competency':
+        return hasId('competencyId') ? null : 'Competency criteria require a competencyId param';
+      case 'badge':
+        return hasId('badgeId') ? null : 'Badge criteria require a badgeId param';
+      case 'cohort': {
+        const ids = Array.isArray(params.cohortIds) ? params.cohortIds : [];
+        return hasId('cohortId') || (ids.length > 0 && ids.every((i) => typeof i === 'string'))
+          ? null : 'Cohort criteria require a cohortId (or cohortIds) param';
+      }
+      case 'profile':
+        return hasId('field') ? null : 'Profile criteria require a field param';
+      default:
+        return null;
+    }
+  }
+
   // --- evaluation & issuing --------------------------------------------------------------
 
   private async leafSatisfied(leaf: CriteriaRow, userId: string): Promise<boolean> {
@@ -286,7 +332,46 @@ export class BadgesService implements OnModuleInit {
         const courseId = typeof params.courseId === 'string' ? params.courseId : '';
         if (!courseId) return false;
         const completion = await this.completion.getCourseCompletion(userId, courseId).catch(() => undefined);
-        return completion?.status === 'complete';
+        if (completion?.status !== 'complete') return false;
+        // By-date (Moodle award_badge "course completion by-date"): khi lá
+        // khai `byDate`, chỉ tính khi thời điểm hoàn thành ≤ ngày cắt đó —
+        // hoàn thành sau ngày cắt thì KHÔNG đạt dù trạng thái là complete.
+        const byDate = typeof params.byDate === 'string' ? params.byDate : undefined;
+        if (byDate !== undefined) {
+          const cutoff = Date.parse(byDate);
+          if (Number.isNaN(cutoff) || !completion.timecompleted) return false;
+          return completion.timecompleted.getTime() <= cutoff;
+        }
+        return true;
+      }
+      case 'cohort': {
+        // Lá cohort (Moodle criteria_cohort): user phải thuộc cohort chỉ
+        // định; dạng `cohortIds` yêu cầu thuộc TẤT CẢ cohort liệt kê.
+        const ids = typeof params.cohortId === 'string'
+          ? [params.cohortId]
+          : Array.isArray(params.cohortIds) ? params.cohortIds.filter((i): i is string => typeof i === 'string') : [];
+        if (!ids.length) return false;
+        for (const cohortId of ids) {
+          if (!(await this.groups.isCohortMember(cohortId, userId))) return false;
+        }
+        return true;
+      }
+      case 'profile': {
+        // Lá profile (Moodle criteria_profile): trường hồ sơ chuẩn hoặc
+        // custom field (theo shortname, scope core_user/user) đạt điều kiện —
+        // có `value` thì phải bằng đúng, không có thì trường phải được điền.
+        const field = typeof params.field === 'string' ? params.field : '';
+        if (!field) return false;
+        let actual: string | null | undefined;
+        if ((PROFILE_STANDARD_FIELDS as readonly string[]).includes(field)) {
+          const user = await this.users.getByIdOrUndefined(userId);
+          actual = user ? String(user[field as keyof typeof user] ?? '') : undefined;
+        } else {
+          const values = await this.customFields.getValuesForInstance(USER_COMPONENT, USER_AREA, userId).catch(() => []);
+          actual = values.find((v) => v.field.shortname === field)?.value;
+        }
+        if (actual === null || actual === undefined) return false;
+        return typeof params.value === 'string' ? actual === params.value : actual.trim() !== '';
       }
       case 'activitycompletion': {
         const cmId = typeof params.cmId === 'string' ? params.cmId : '';

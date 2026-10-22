@@ -9,14 +9,18 @@ import { CalendarReminderProcessor } from '../src/processors/calendar-reminder.p
 import { NotificationDispatchProcessor } from '../src/processors/notification-dispatch.processor';
 import {
   badge, badgeCriteria, badgeIssued, calendarEvents, calendarSubscriptions,
-  courseCompletions, notificationDispatchLog, notifications, userPreferences,
+  cohortMembers, courseCompletions, customfieldCategory, customfieldData, customfieldField,
+  notificationDispatchLog, notifications, userPreferences,
 } from '../src/db/schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**
  * Engagement worker jobs. Oracles: report §2#12 (preference + suspended delivery
  * law, re-checked at dispatch time), §2#13/#14 (reminders become
- * notifications; badge auto-award is idempotent), calendar/tests/lib_test
+ * notifications; badge auto-award is idempotent — including the cohort /
+ * profile leaves and the coursecompletion by-date parameter, Behat
+ * badges/tests/behat criteria_cohort.feature, criteria_profile.feature,
+ * award_badge.feature), calendar/tests/lib_test
  * test_add_subscription (ICS import result counts shape).
  * Users are raw-inserted with unique high ids to stay independent of the
  * API test suites sharing lms_test.
@@ -136,5 +140,52 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
       eq(notifications.useridto, userA), eq(notifications.eventtype, 'badge_awarded'),
     ));
     expect((notifs as { subject: string }[]).some((n) => n.subject.includes(`Worker badge ${suffix}`))).toBe(true);
+  });
+
+  it('badge auto-award honours the cohort + profile leaves and the coursecompletion by-date (worker twin of the API evaluator)', async () => {
+    // Cohort + membership for userA only.
+    const cohortRows = await db.execute(sql`insert into cohort (name, contextid) values (${`wk-cohort-${suffix}`}, (select id from context limit 1)) returning id`);
+    const cohortId = (cohortRows.rows[0] as { id: string }).id;
+    await db.insert(cohortMembers).values({ cohortid: cohortId, userid: userA });
+    // Profile custom field (core_user/user) with a value for userA only.
+    const shortname = `wkdept${suffix}`;
+    const [category] = await db.insert(customfieldCategory).values({ component: 'core_user', area: 'user', name: `WK ${suffix}` }).returning();
+    const [field] = await db.insert(customfieldField).values({ categoryid: category.id, shortname, name: 'WK department', type: 'text' }).returning();
+    await db.insert(customfieldData).values({ fieldid: field.id, instanceid: userA, value: 'Engineering' });
+    // A completed course for userA (completed now).
+    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values ((select id from course_categories limit 1), 'Worker leaf course', ${`wklc${suffix}`}) returning id`);
+    const courseId = (courseRows.rows[0] as { id: string }).id;
+    await db.insert(courseCompletions).values({ userid: userA, course: courseId, status: 'complete', timestarted: new Date(), timecompleted: new Date() });
+
+    const mkBadge = async (name: string, leaves: { criteriatype: string; params: Record<string, unknown> }[]) => {
+      const [row] = await db.insert(badge).values({ name, type: 1, status: 1, issuername: 'LMS' }).returning();
+      await db.insert(badgeCriteria).values({ badgeid: row.id, criteriatype: 'overall', method: 1, params: {} });
+      for (const leaf of leaves) await db.insert(badgeCriteria).values({ badgeid: row.id, criteriatype: leaf.criteriatype, method: 1, params: leaf.params });
+      return row.id as string;
+    };
+    const cohortBadgeId = await mkBadge(`WK cohort badge ${suffix}`, [{ criteriatype: 'cohort', params: { cohortId } }]);
+    const profileBadgeId = await mkBadge(`WK profile badge ${suffix}`, [{ criteriatype: 'profile', params: { field: shortname, value: 'Engineering' } }]);
+    const inTimeBadgeId = await mkBadge(`WK in-time badge ${suffix}`, [
+      { criteriatype: 'coursecompletion', params: { courseId, byDate: new Date(Date.now() + 30 * 86400_000).toISOString() } },
+    ]);
+    const tooLateBadgeId = await mkBadge(`WK too-late badge ${suffix}`, [
+      { criteriatype: 'coursecompletion', params: { courseId, byDate: new Date(Date.now() - 30 * 86400_000).toISOString() } },
+    ]);
+
+    const processor = context.get(BadgeAwardProcessor);
+    await processor.process({ data: { userId: userA, trigger: 'test-leaves' } } as never);
+    const issuedA = (await db.select().from(badgeIssued).where(eq(badgeIssued.userid, userA)) as { badgeid: string }[])
+      .map((r) => r.badgeid);
+    expect(issuedA).toContain(cohortBadgeId);
+    expect(issuedA).toContain(profileBadgeId);
+    expect(issuedA).toContain(inTimeBadgeId);
+    expect(issuedA).not.toContain(tooLateBadgeId);
+    // userPrefOff is in no cohort, has no profile value and no completion: none of the new badges.
+    await processor.process({ data: { userId: userPrefOff, trigger: 'test-leaves' } } as never);
+    const issuedOther = (await db.select().from(badgeIssued).where(eq(badgeIssued.userid, userPrefOff)) as { badgeid: string }[])
+      .map((r) => r.badgeid);
+    for (const id of [cohortBadgeId, profileBadgeId, inTimeBadgeId, tooLateBadgeId]) {
+      expect(issuedOther).not.toContain(id);
+    }
   });
 });

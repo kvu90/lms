@@ -42,8 +42,9 @@ export const badge = pgTable('badge', {
  * Badge criteria (Moodle `badge_criteria`). One row with criteriatype
  * 'overall' carries the aggregation method (1=ALL, 2=ANY) over the leaf
  * rows. Leaf types: coursecompletion | activitycompletion | competency |
- * badge | manual. Leaf parameters live in `params` jsonb
- * (e.g. {courseId} / {cmId} / {competencyId} / {badgeId} / {roleId}).
+ * badge | manual | cohort | profile. Leaf parameters live in `params` jsonb
+ * (e.g. {courseId, byDate?} / {cmId} / {competencyId} / {badgeId} /
+ * {roleId} / {cohortId} hoặc {cohortIds} / {field, value?}).
  * Criteria of an ACTIVE badge (or one with issued awards) are FROZEN.
  */
 export const badgeCriteria = pgTable('badge_criteria', {
