@@ -9,8 +9,12 @@ import { redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
+import { BadgeAwardProcessor } from './processors/badge-award.processor';
+import { CalendarImportProcessor } from './processors/calendar-import.processor';
+import { CalendarReminderProcessor } from './processors/calendar-reminder.processor';
 import { CompletionRecalculateProcessor } from './processors/completion-recalculate.processor';
 import { GradeRegradeProcessor } from './processors/grade-regrade.processor';
+import { NotificationDispatchProcessor } from './processors/notification-dispatch.processor';
 import { EnrolExpiryProcessor } from './processors/enrol-expiry.processor';
 import { FileCleanupProcessor } from './processors/file-cleanup.processor';
 import { SampleProcessor } from './processors/sample.processor';
@@ -39,9 +43,13 @@ import { SampleProcessor } from './processors/sample.processor';
     BullModule.registerQueue({ name: 'enrol-expiry' }),
     BullModule.registerQueue({ name: 'completion-recalculate' }),
     BullModule.registerQueue({ name: 'grade-regrade' }),
+    BullModule.registerQueue({ name: 'notification-dispatch' }),
+    BullModule.registerQueue({ name: 'calendar-reminders' }),
+    BullModule.registerQueue({ name: 'calendar-import' }),
+    BullModule.registerQueue({ name: 'badge-award' }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor],
 })
 export class WorkerModule {}

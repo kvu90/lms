@@ -1,0 +1,140 @@
+import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { CompetenciesService } from './competencies.service';
+import {
+  AddEvidenceDto, AddTemplateCohortDto, AddTemplateCompetencyDto, CreateCompetencyDto,
+  CreateFrameworkDto, CreatePlanDto, CreateTemplateDto, GradeUsercompDto, LinkCompetencyDto,
+  NoteDto, ReviewDecisionDto,
+} from './dto/competencies.dto';
+
+@ApiTags('competencies')
+@Controller({ path: 'competencies', version: '1' })
+export class CompetenciesController {
+  constructor(private readonly competencies: CompetenciesService) {}
+
+  @Post('frameworks')
+  async createFramework(@Body() dto: CreateFrameworkDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.createFramework(actor.id, dto);
+  }
+  @Get('frameworks')
+  async listFrameworks() { return this.competencies.listFrameworks(); }
+  @Get('frameworks/:id')
+  async getFramework(@Param('id', ParseIntPipe) id: number) { return this.competencies.getFramework(id); }
+  @Post('frameworks/:id/competencies')
+  async createCompetency(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateCompetencyDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.createCompetency(actor.id, id, dto);
+  }
+  @Get('frameworks/:id/competencies')
+  async listCompetencies(@Param('id', ParseIntPipe) id: number) { return this.competencies.listCompetencies(id); }
+
+  @Post('courses/:courseId/links')
+  async linkCourse(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: LinkCompetencyDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.linkCourseCompetency(actor.id, courseId, dto);
+  }
+  @Get('courses/:courseId/links')
+  async courseLinks(@Param('courseId', ParseIntPipe) courseId: number) { return this.competencies.listCourseCompetencies(courseId); }
+  @Post('modules/:cmId/links')
+  async linkModule(@Param('cmId', ParseIntPipe) cmId: number, @Body() dto: LinkCompetencyDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.linkModuleCompetency(actor.id, cmId, dto);
+  }
+  @Get('modules/:cmId/links')
+  async moduleLinks(@Param('cmId', ParseIntPipe) cmId: number) { return this.competencies.listModuleCompetencies(cmId); }
+
+  @Post('templates')
+  async createTemplate(@Body() dto: CreateTemplateDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.createTemplate(actor.id, dto);
+  }
+  @Get('templates')
+  async listTemplates() { return this.competencies.listTemplates(); }
+  @Post('templates/:id/competencies')
+  async addTemplateCompetency(@Param('id', ParseIntPipe) id: number, @Body() dto: AddTemplateCompetencyDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.addTemplateCompetency(actor.id, id, dto.competencyId);
+  }
+  @Post('templates/:id/cohorts')
+  async addTemplateCohort(@Param('id', ParseIntPipe) id: number, @Body() dto: AddTemplateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.addTemplateCohort(actor.id, id, dto.cohortId);
+  }
+  @Post('templates/:id/create-plans')
+  async createPlans(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.createPlansFromTemplate(actor.id, id);
+  }
+
+  @Post('plans')
+  async createPlan(@Body() dto: CreatePlanDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.createPlan(actor.id, dto);
+  }
+  @Get('plans/user/:userId')
+  async plansForUser(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.listPlansForUser(actor.id, userId);
+  }
+  @Get('plans/:id')
+  async planView(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.getPlanView(actor.id, id);
+  }
+  @Post('plans/:id/activate')
+  async activate(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.activatePlan(actor.id, id);
+  }
+  @Post('plans/:id/request-review')
+  async requestReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.requestPlanReview(actor.id, id);
+  }
+  @Post('plans/:id/cancel-review')
+  async cancelReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.cancelPlanReview(actor.id, id);
+  }
+  @Post('plans/:id/start-review')
+  async startReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.startPlanReview(actor.id, id);
+  }
+  @Post('plans/:id/stop-review')
+  async stopReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.stopPlanReview(actor.id, id);
+  }
+  @Post('plans/:id/approve')
+  async approve(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.approvePlan(actor.id, id);
+  }
+  @Post('plans/:id/unapprove')
+  async unapprove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.unapprovePlan(actor.id, id);
+  }
+  @Post('plans/:id/complete')
+  async complete(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.completePlan(actor.id, id);
+  }
+
+  @Post('evidence')
+  async addEvidence(@Body() dto: AddEvidenceDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.addEvidence(actor.id, dto);
+  }
+  @Get('usercomp/user/:userId')
+  async usercomps(@Param('userId', ParseIntPipe) userId: number) {
+    return this.competencies.listUsercompsForUser(userId);
+  }
+  @Get('usercomp/:id/evidence')
+  async evidence(@Param('id', ParseIntPipe) id: number) {
+    return this.competencies.listEvidence(id);
+  }
+  @Post('usercomp/grade')
+  async grade(@Body() dto: GradeUsercompDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.gradeUsercomp(actor.id, dto);
+  }
+  @Post('usercomp/:id/request-review')
+  async requestUcReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.requestUsercompReview(actor.id, id);
+  }
+  @Post('usercomp/:id/start-review')
+  async startUcReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.startUsercompReview(actor.id, id);
+  }
+  @Post('usercomp/:id/approve')
+  async approveUcReview(@Param('id', ParseIntPipe) id: number, @Body() dto: ReviewDecisionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.approveUsercompReview(actor.id, id, dto.grade, dto.note);
+  }
+  @Post('usercomp/:id/reject')
+  async rejectUcReview(@Param('id', ParseIntPipe) id: number, @Body() dto: NoteDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.rejectUsercompReview(actor.id, id, dto.note);
+  }
+}

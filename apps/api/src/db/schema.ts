@@ -791,6 +791,553 @@ export const questionAttemptSteps = pgTable(
   (table) => [unique('question_attempt_steps_attempt_seq_unique').on(table.questionattemptid, table.sequencenumber)],
 );
 
+// ---------------------------------------------------------------------------
+// P4 — Communication & Engagement (Messaging / Calendar / Badges /
+// Competencies / Social: Tag, Comment, Rating, Blog, Notes).
+// Social tables are POLYMORPHIC (component + itemtype/area + itemid +
+// contextid) with NO hard FK to any business table (report §2#16).
+// ---------------------------------------------------------------------------
+
+/** Conversations (Moodle `message_conversations`). type: 1=individual, 2=group, 3=self. */
+export const messageConversations = pgTable('message_conversations', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  type: integer('type').notNull().default(1),
+  name: text('name'),
+  component: text('component'),
+  itemtype: text('itemtype'),
+  itemid: integer('itemid').notNull().default(0),
+  contextid: integer('contextid'),
+  enabled: boolean('enabled').notNull().default(true),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Conversation membership (Moodle `message_conversation_members`). */
+export const messageConversationMembers = pgTable(
+  'message_conversation_members',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    conversationid: integer('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('message_conversation_members_unique').on(table.conversationid, table.userid)],
+);
+
+/**
+ * User-to-user messages inside a conversation (Moodle `message` +
+ * `messages`). Once sent, a message belongs to core_message: the sending
+ * component/user can NEVER edit or delete it through the API (report §2#12).
+ * `timeread` is the recipient-side read marker used for unread counts.
+ */
+export const message = pgTable('message', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  conversationid: integer('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+  useridfrom: integer('useridfrom').notNull(),
+  subject: text('subject').notNull().default(''),
+  fullmessage: text('fullmessage').notNull().default(''),
+  smallmessage: text('smallmessage').notNull().default(''),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timeread: timestamp('timeread', { withTimezone: true }),
+});
+
+/** Blocked contacts (Moodle `message_users_blocked`): userid blocks blockeduserid from contacting them. */
+export const messageUsersBlocked = pgTable(
+  'message_users_blocked',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer('userid').notNull(),
+    blockeduserid: integer('blockeduserid').notNull(),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('message_users_blocked_unique').on(table.userid, table.blockeduserid)],
+);
+
+/**
+ * System notifications (Moodle `notifications`) — DISTINCT from user
+ * messages: useridfrom is null/system, the record is produced by a message
+ * provider (component + eventtype) and delivered per user preference.
+ */
+export const notifications = pgTable('notifications', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  useridfrom: integer('useridfrom'),
+  useridto: integer('useridto').notNull(),
+  subject: text('subject').notNull().default(''),
+  fullmessage: text('fullmessage').notNull().default(''),
+  smallmessage: text('smallmessage').notNull().default(''),
+  component: text('component').notNull().default(''),
+  eventtype: text('eventtype').notNull().default(''),
+  contexturl: text('contexturl'),
+  contexturlname: text('contexturlname'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timeread: timestamp('timeread', { withTimezone: true }),
+});
+
+/**
+ * Per-channel dispatch log for notifications. The in-app (popup) channel is
+ * the only REAL channel; email/push are ports whose dispatch is only LOGGED
+ * (never actually sent) — status: delivered | queued | logged | skipped-preference | skipped-suspended.
+ * `dedupekey` makes worker dispatch idempotent.
+ */
+export const notificationDispatchLog = pgTable(
+  'notification_dispatch_log',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    notificationid: integer('notificationid'),
+    userid: integer('userid').notNull(),
+    provider: text('provider').notNull(),
+    channel: text('channel').notNull(),
+    status: text('status').notNull(),
+    subject: text('subject').notNull().default(''),
+    dedupekey: text('dedupekey'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('notification_dispatch_log_dedupe_unique').on(table.dedupekey)],
+);
+
+/**
+ * Calendar events (Moodle `event` → `calendar_events`). eventtype:
+ * site|category|course|group|user decides visibility by the context tree +
+ * group membership (report §2#13). A series is a set of rows sharing
+ * `repeatid` (= id of the first event); the root carries the `rrule`
+ * (FREQ=DAILY|WEEKLY|MONTHLY;COUNT=n|UNTIL=...). An exception is a row with
+ * isexception=true and exceptionof = id of the occurrence it replaces.
+ */
+export const calendarEvents = pgTable('calendar_events', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  eventtype: text('eventtype').notNull().default('user'),
+  courseid: integer('courseid').notNull().default(0),
+  groupid: integer('groupid').notNull().default(0),
+  categoryid: integer('categoryid').notNull().default(0),
+  userid: integer('userid').notNull().default(0),
+  contextid: integer('contextid'),
+  subscriptionid: integer('subscriptionid'),
+  uuid: text('uuid'),
+  repeatid: integer('repeatid').notNull().default(0),
+  rrule: text('rrule'),
+  isexception: boolean('isexception').notNull().default(false),
+  exceptionof: integer('exceptionof'),
+  timestart: timestamp('timestart', { withTimezone: true }).notNull(),
+  timeduration: integer('timeduration').notNull().default(0),
+  visible: boolean('visible').notNull().default(true),
+  location: text('location').notNull().default(''),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Calendar subscriptions (Moodle `calendar_subscriptions`): external ICS feeds imported by a worker job. */
+export const calendarSubscriptions = pgTable('calendar_subscriptions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  url: text('url'),
+  icsdata: text('icsdata'),
+  eventtype: text('eventtype').notNull().default('site'),
+  courseid: integer('courseid').notNull().default(0),
+  categoryid: integer('categoryid').notNull().default(0),
+  userid: integer('userid').notNull().default(0),
+  pollinterval: integer('pollinterval').notNull().default(604800),
+  lastupdated: timestamp('lastupdated', { withTimezone: true }),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Badges (Moodle `badge`). type: 1=site, 2=course. status: 0=inactive, 1=active, 2=retired, 3=archived, 4=disabled(hidden active). */
+export const badge = pgTable('badge', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  type: integer('type').notNull().default(1),
+  courseid: integer('courseid'),
+  issuername: text('issuername').notNull().default(''),
+  issuerurl: text('issuerurl').notNull().default(''),
+  issuercontact: text('issuercontact').notNull().default(''),
+  expiredate: timestamp('expiredate', { withTimezone: true }),
+  expireperiod: integer('expireperiod'),
+  status: integer('status').notNull().default(0),
+  version: text('version').notNull().default(''),
+  language: text('language').notNull().default('en'),
+  usercreated: integer('usercreated'),
+  usermodified: integer('usermodified'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Badge criteria (Moodle `badge_criteria`). One row with criteriatype
+ * 'overall' carries the aggregation method (1=ALL, 2=ANY) over the leaf
+ * rows. Leaf types: coursecompletion | activitycompletion | competency |
+ * badge | manual. Leaf parameters live in `params` jsonb
+ * (e.g. {courseId} / {cmId} / {competencyId} / {badgeId} / {roleId}).
+ * Criteria of an ACTIVE badge (or one with issued awards) are FROZEN.
+ */
+export const badgeCriteria = pgTable('badge_criteria', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  badgeid: integer('badgeid').notNull().references(() => badge.id, { onDelete: 'cascade' }),
+  criteriatype: text('criteriatype').notNull(),
+  method: integer('method').notNull().default(1),
+  params: jsonb('params').notNull().default({}),
+  description: text('description').notNull().default(''),
+});
+
+/**
+ * Issued badge assertions (Moodle `badge_issued`): IMMUTABLE evidence that a
+ * user earned a badge — a snapshot of the badge + criteria at issue time.
+ * Revoking never deletes the row; it flips `revoked`.
+ */
+export const badgeIssued = pgTable(
+  'badge_issued',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    badgeid: integer('badgeid').notNull().references(() => badge.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    uniquehash: text('uniquehash').notNull().unique(),
+    snapshot: jsonb('snapshot').notNull().default({}),
+    evidence: jsonb('evidence').notNull().default({}),
+    dateissued: timestamp('dateissued', { withTimezone: true }).notNull().defaultNow(),
+    dateexpire: timestamp('dateexpire', { withTimezone: true }),
+    visible: boolean('visible').notNull().default(true),
+    revoked: boolean('revoked').notNull().default(false),
+    revokedat: timestamp('revokedat', { withTimezone: true }),
+    issuernotified: boolean('issuernotified').notNull().default(false),
+  },
+  (table) => [unique('badge_issued_badge_user_unique').on(table.badgeid, table.userid)],
+);
+
+/** Manual awards (Moodle `badge_manual_award`): proof that a manual criterion was met by a role holder's decision. */
+export const badgeManualAward = pgTable(
+  'badge_manual_award',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    badgeid: integer('badgeid').notNull().references(() => badge.id, { onDelete: 'cascade' }),
+    recipientid: integer('recipientid').notNull(),
+    issuerid: integer('issuerid').notNull(),
+    issuerrole: integer('issuerrole'),
+    datemet: timestamp('datemet', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('badge_manual_award_unique').on(table.badgeid, table.recipientid, table.issuerid)],
+);
+
+/**
+ * Competency frameworks (Moodle `competency_framework`). The scale is
+ * CONFIGURATION, not a table join: `scaleconfiguration` jsonb =
+ * { values: string[] (lowest first), proficient: number[] (indexes into
+ * values that count as proficient) }. Proficiency is read off THIS scale —
+ * never inferred from grades (report §2#15).
+ */
+export const competencyFramework = pgTable('competency_framework', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  shortname: text('shortname').notNull(),
+  idnumber: text('idnumber').notNull().default(''),
+  description: text('description').notNull().default(''),
+  contextid: integer('contextid').notNull(),
+  scaleconfiguration: jsonb('scaleconfiguration').notNull().default({}),
+  taxonomies: text('taxonomies').notNull().default('competency'),
+  visible: boolean('visible').notNull().default(true),
+  sortorder: integer('sortorder').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Competencies form a tree inside a framework (Moodle `competency`): path/depth like contexts. */
+export const competency = pgTable('competency', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  frameworkid: integer('frameworkid').notNull().references(() => competencyFramework.id, { onDelete: 'cascade' }),
+  shortname: text('shortname').notNull(),
+  idnumber: text('idnumber').notNull().default(''),
+  description: text('description').notNull().default(''),
+  parentid: integer('parentid').notNull().default(0),
+  path: text('path').notNull().default(''),
+  depth: integer('depth').notNull().default(1),
+  sortorder: integer('sortorder').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Course ↔ competency link (Moodle `competency_coursecomp`). ruleoutcome is
+ * EXPLICIT configuration applied when the course is completed:
+ * 'complete' | 'attach-evidence' | 'nothing'.
+ */
+export const competencyCoursecomp = pgTable(
+  'competency_coursecomp',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    courseid: integer('courseid').notNull(),
+    competencyid: integer('competencyid').notNull().references(() => competency.id, { onDelete: 'cascade' }),
+    ruleoutcome: text('ruleoutcome').notNull().default('nothing'),
+    sortorder: integer('sortorder').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_coursecomp_unique').on(table.courseid, table.competencyid)],
+);
+
+/** Activity (cm) ↔ competency link (Moodle `competency_modulecomp`); ruleoutcome applies when the activity completes. */
+export const competencyModulecomp = pgTable(
+  'competency_modulecomp',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    coursemoduleid: integer('coursemoduleid').notNull(),
+    competencyid: integer('competencyid').notNull().references(() => competency.id, { onDelete: 'cascade' }),
+    ruleoutcome: text('ruleoutcome').notNull().default('nothing'),
+    sortorder: integer('sortorder').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_modulecomp_unique').on(table.coursemoduleid, table.competencyid)],
+);
+
+/** Learning plan templates (Moodle `competency_template`). status: 0=draft(hidden), 1=active. */
+export const competencyTemplate = pgTable('competency_template', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  shortname: text('shortname').notNull(),
+  description: text('description').notNull().default(''),
+  contextid: integer('contextid').notNull(),
+  duedate: timestamp('duedate', { withTimezone: true }),
+  visible: boolean('visible').notNull().default(true),
+  status: integer('status').notNull().default(1),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Template ↔ competency links (Moodle `competency_templatecomp`). */
+export const competencyTemplatecomp = pgTable(
+  'competency_templatecomp',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    templateid: integer('templateid').notNull().references(() => competencyTemplate.id, { onDelete: 'cascade' }),
+    competencyid: integer('competencyid').notNull().references(() => competency.id, { onDelete: 'cascade' }),
+    sortorder: integer('sortorder').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_templatecomp_unique').on(table.templateid, table.competencyid)],
+);
+
+/** Template ↔ cohort links (Moodle `competency_templatecohort`): plans are generated for cohort members. */
+export const competencyTemplatecohort = pgTable(
+  'competency_templatecohort',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    templateid: integer('templateid').notNull().references(() => competencyTemplate.id, { onDelete: 'cascade' }),
+    cohortid: integer('cohortid').notNull(),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_templatecohort_unique').on(table.templateid, table.cohortid)],
+);
+
+/**
+ * Learning plans per user (Moodle `competency_plan` → `learning_plans`).
+ * status: 0=draft, 1=active, 2=waitingforreview, 3=inreview, 4=complete.
+ */
+export const learningPlans = pgTable('learning_plans', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  userid: integer('userid').notNull(),
+  templateid: integer('templateid'),
+  status: integer('status').notNull().default(0),
+  duedate: timestamp('duedate', { withTimezone: true }),
+  reviewerid: integer('reviewerid'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Plan ↔ competency links for plans not (or no longer) bound to a template (Moodle `competency_plancomp`). */
+export const competencyPlancomp = pgTable(
+  'competency_plancomp',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    planid: integer('planid').notNull().references(() => learningPlans.id, { onDelete: 'cascade' }),
+    competencyid: integer('competencyid').notNull().references(() => competency.id, { onDelete: 'cascade' }),
+    sortorder: integer('sortorder').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_plancomp_unique').on(table.planid, table.competencyid)],
+);
+
+/** Review history of a learning plan: every lifecycle transition is a row (request/start/stop/approve/unapprove/complete). */
+export const competencyPlanReview = pgTable('competency_plan_review', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  planid: integer('planid').notNull().references(() => learningPlans.id, { onDelete: 'cascade' }),
+  actorid: integer('actorid').notNull(),
+  action: text('action').notNull(),
+  statusfrom: integer('statusfrom').notNull(),
+  statusto: integer('statusto').notNull(),
+  note: text('note').notNull().default(''),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * A user's standing on one competency (Moodle `competency_usercomp`).
+ * `grade` is an INDEX into the framework scale; `proficiency` is derived
+ * from the scale configuration, never from course grades. Review status:
+ * 0=none, 1=waitingforreview, 2=inreview. Exactly one of planid/courseid
+ * scopes the row (plan-based and course-based user competencies are
+ * separate records in Moodle too).
+ */
+export const competencyUsercomp = pgTable(
+  'competency_usercomp',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer('userid').notNull(),
+    competencyid: integer('competencyid').notNull().references(() => competency.id, { onDelete: 'cascade' }),
+    planid: integer('planid').notNull().default(0),
+    courseid: integer('courseid').notNull().default(0),
+    status: integer('status').notNull().default(0),
+    proficiency: boolean('proficiency'),
+    grade: integer('grade'),
+    reviewerid: integer('reviewerid'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('competency_usercomp_unique').on(table.userid, table.competencyid, table.planid, table.courseid)],
+);
+
+/**
+ * Evidence log for a user competency (Moodle `competency_evidence`). Every
+ * material event is a row: manual evidence, course-completion evidence,
+ * review requests and review outcomes — together they ARE the review
+ * history. `grade` here is a scale index snapshot (nullable).
+ */
+export const competencyEvidence = pgTable('competency_evidence', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  usercompetencyid: integer('usercompetencyid').notNull().references(() => competencyUsercomp.id, { onDelete: 'cascade' }),
+  contextid: integer('contextid'),
+  actionuserid: integer('actionuserid').notNull(),
+  action: text('action').notNull().default('evidence'),
+  description: text('description').notNull().default(''),
+  url: text('url'),
+  grade: integer('grade'),
+  note: text('note').notNull().default(''),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Tag collections (Moodle `tag_coll`): areas belong to a collection; the default collection is seeded. */
+export const tagCollection = pgTable('tag_collection', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  isstandard: boolean('isstandard').notNull().default(false),
+  component: text('component'),
+  searchable: boolean('searchable').notNull().default(true),
+  customurl: text('customurl'),
+});
+
+/** Tags (Moodle `tag`). name is the normalised (lowercase) form; rawname keeps the display form. */
+export const tag = pgTable(
+  'tag',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer('userid').notNull().default(0),
+    tagcollid: integer('tagcollid').notNull().default(1),
+    name: text('name').notNull(),
+    rawname: text('rawname').notNull(),
+    isstandard: boolean('isstandard').notNull().default(false),
+    flag: integer('flag').notNull().default(0),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('tag_coll_name_unique').on(table.tagcollid, table.name)],
+);
+
+/** Tag instances (Moodle `tag_instance`): the polymorphic link — no FK to the tagged item, by design. */
+export const tagInstance = pgTable(
+  'tag_instance',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    tagid: integer('tagid').notNull().references(() => tag.id, { onDelete: 'cascade' }),
+    component: text('component').notNull(),
+    itemtype: text('itemtype').notNull(),
+    itemid: integer('itemid').notNull(),
+    contextid: integer('contextid').notNull(),
+    tiuserid: integer('tiuserid').notNull().default(0),
+    ordering: integer('ordering').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('tag_instance_unique').on(table.tagid, table.component, table.itemtype, table.itemid, table.contextid, table.tiuserid)],
+);
+
+/** Correlated tags (Moodle `tag_correlation`): tags that co-occur on the same items, as a comma list of tag ids. */
+export const tagCorrelation = pgTable('tag_correlation', {
+  tagid: integer('tagid').primaryKey().references(() => tag.id, { onDelete: 'cascade' }),
+  correlatedtags: text('correlatedtags').notNull().default(''),
+});
+
+/** Comments (Moodle `comments`): polymorphic by (component, commentarea, itemid, contextid). */
+export const comments = pgTable('comments', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  contextid: integer('contextid').notNull(),
+  component: text('component').notNull(),
+  commentarea: text('commentarea').notNull(),
+  itemid: integer('itemid').notNull(),
+  content: text('content').notNull(),
+  format: integer('format').notNull().default(1),
+  userid: integer('userid').notNull(),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timedeleted: timestamp('timedeleted', { withTimezone: true }),
+});
+
+/** Ratings (Moodle `rating`): polymorphic; aggregation (average/count/sum) is computed over THIS item only. */
+export const rating = pgTable(
+  'rating',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    contextid: integer('contextid').notNull(),
+    component: text('component').notNull(),
+    ratingarea: text('ratingarea').notNull(),
+    itemid: integer('itemid').notNull(),
+    scaleid: integer('scaleid').notNull(),
+    rating: integer('rating').notNull(),
+    userid: integer('userid').notNull(),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('rating_unique').on(table.contextid, table.component, table.ratingarea, table.itemid, table.userid)],
+);
+
+/** Blog posts (Moodle `post` → `blog_posts`). publishstate: 'draft' (author only) | 'site' (public). The owning context is the author's user context. */
+export const blogPosts = pgTable('blog_posts', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  subject: text('subject').notNull().default(''),
+  summary: text('summary').notNull().default(''),
+  content: text('content').notNull().default(''),
+  publishstate: text('publishstate').notNull().default('draft'),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  lastmodified: timestamp('lastmodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Blog associations (Moodle `blog_association`): a post linked to a course or a course module. */
+export const blogAssociation = pgTable(
+  'blog_association',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    blogid: integer('blogid').notNull().references(() => blogPosts.id, { onDelete: 'cascade' }),
+    contextid: integer('contextid').notNull(),
+    assoctype: text('assoctype').notNull(), // course | coursemodule
+    associd: integer('associd').notNull(),
+  },
+  (table) => [unique('blog_association_unique').on(table.blogid, table.assoctype, table.associd)],
+);
+
+/**
+ * Notes about a user (Moodle `note` → `notes`). publishstate decides who can
+ * read: 'draft' = personal (creator only), 'public' = course note (readers
+ * need moodle/notes:view at the COURSE context — in practice the course's
+ * teachers), 'site' = site note (moodle/notes:view at system).
+ */
+export const notes = pgTable('notes', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull().default(0),
+  userid: integer('userid').notNull(),
+  createdby: integer('createdby').notNull(),
+  content: text('content').notNull().default(''),
+  format: integer('format').notNull().default(1),
+  publishstate: text('publishstate').notNull().default('draft'),
+  groupid: integer('groupid').notNull().default(0),
+  usermodified: integer('usermodified'),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+  lastmodified: timestamp('lastmodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Step payload data (Moodle `question_attempt_step_data`): e.g. name='answer', value='true'. */
 export const questionAttemptStepData = pgTable(
   'question_attempt_step_data',

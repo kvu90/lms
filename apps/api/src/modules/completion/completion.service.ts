@@ -41,6 +41,27 @@ export class CompletionService implements OnModuleInit {
   registerGradeEvaluator(fn: (cmId: number, userId: number) => Promise<number | null>): void {
     this.gradeEvaluator = fn;
   }
+
+  /**
+   * P4 hooks: downstream modules (Badges, Competencies) register interest in
+   * completion CHANGES instead of polling or reading this module's tables
+   * (report §2#9: completion is an INPUT to badges/competency — consumers
+   * subscribe, they never re-derive completion themselves).
+   */
+  private readonly cmCompletionHooks: ((e: { cmId: number; courseId: number; userId: number; state: number }) => Promise<void>)[] = [];
+  private readonly courseCompletionHooks: ((e: { courseId: number; userId: number }) => Promise<void>)[] = [];
+  registerCmCompletionHook(fn: (e: { cmId: number; courseId: number; userId: number; state: number }) => Promise<void>): void {
+    this.cmCompletionHooks.push(fn);
+  }
+  registerCourseCompletionHook(fn: (e: { courseId: number; userId: number }) => Promise<void>): void {
+    this.courseCompletionHooks.push(fn);
+  }
+  private async fireCmCompletion(cmId: number, courseId: number, userId: number, state: number): Promise<void> {
+    if (state === COMPLETION_INCOMPLETE) return;
+    for (const hook of this.cmCompletionHooks) {
+      await hook({ cmId, courseId, userId, state }).catch((err) => this.logger.warn(`cm completion hook failed: ${String(err)}`));
+    }
+  }
   registerCourseGradeChecker(fn: (courseId: number, userId: number) => Promise<boolean>): void {
     this.courseGradeChecker = fn;
   }
@@ -119,6 +140,7 @@ export class CompletionService implements OnModuleInit {
         payload: { cmId, courseId: cm.course, userId, state, via: 'grade' },
       });
     });
+    await this.fireCmCompletion(cmId, cm.course, userId, state);
     await this.reaggregateCourseCompletion(userId, cm.course);
   }
 
@@ -145,7 +167,8 @@ export class CompletionService implements OnModuleInit {
       completionstate: existing?.completionstate ?? COMPLETION_INCOMPLETE,
       viewed: true, overrideby: existing?.overrideby ?? null,
     });
-    await this.refreshCmState(payload.cmId, payload.userId);
+    const state = await this.refreshCmState(payload.cmId, payload.userId);
+    await this.fireCmCompletion(payload.cmId, payload.courseId, payload.userId, state);
     await this.reaggregateCourseCompletion(payload.userId, payload.courseId);
   }
 
@@ -198,6 +221,7 @@ export class CompletionService implements OnModuleInit {
         payload: { cmId, courseId: cm.course, userId: targetUserId, state, manual: true },
       });
     });
+    await this.fireCmCompletion(cmId, cm.course, targetUserId, state);
     await this.reaggregateCourseCompletion(targetUserId, cm.course);
     return { cmId, userId: targetUserId, state };
   }
@@ -292,6 +316,11 @@ export class CompletionService implements OnModuleInit {
       timestarted: status === 'not_started' ? null : (existing?.timestarted ?? new Date()),
       timecompleted: complete ? (existing?.timecompleted ?? new Date()) : null,
     });
+    if (complete && existing?.status !== 'complete') {
+      for (const hook of this.courseCompletionHooks) {
+        await hook({ courseId, userId }).catch((err) => this.logger.warn(`course completion hook failed: ${String(err)}`));
+      }
+    }
     return row;
   }
   private async hasStarted(userId: number, courseId: number): Promise<boolean> {

@@ -12,13 +12,18 @@ import { TasksModule } from './infra/tasks/tasks.module';
 import { AccessModule } from './modules/access/access.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
+import { BadgesModule } from './modules/badges/badges.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
+import { CompetenciesModule } from './modules/competencies/competencies.module';
 import { CompletionModule } from './modules/completion/completion.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { EnrolModule } from './modules/enrol/enrol.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { GroupsModule } from './modules/groups/groups.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 import { QuestionsModule } from './modules/questions/questions.module';
+import { SocialModule } from './modules/social/social.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { SeedModule } from './modules/seed/seed.module';
@@ -63,6 +68,11 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     CompletionModule,
     GradesModule,
     QuestionsModule,
+    MessagingModule,
+    CalendarModule,
+    CompetenciesModule,
+    BadgesModule,
+    SocialModule,
     SeedModule,
   ],
   providers: [

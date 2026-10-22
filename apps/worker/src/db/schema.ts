@@ -157,3 +157,139 @@ export const gradeGradesHistory = pgTable('grade_grades_history', {
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
   loggeduser: integer('loggeduser'),
 });
+
+// ---------------------------------------------------------------------------
+// P4 — worker views of the communication & engagement tables (canonical
+// schema in apps/api). Only the columns the processors touch.
+// ---------------------------------------------------------------------------
+
+export const users = pgTable('users', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  username: text('username').notNull(),
+  suspended: boolean('suspended').notNull().default(false),
+  deleted: boolean('deleted').notNull().default(false),
+});
+
+export const userPreferences = pgTable('user_preferences', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  name: text('name').notNull(),
+  value: text('value'),
+}, (t) => [unique('user_preferences_unique_worker').on(t.userid, t.name)]);
+
+export const notifications = pgTable('notifications', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  useridfrom: integer('useridfrom'),
+  useridto: integer('useridto').notNull(),
+  subject: text('subject').notNull().default(''),
+  fullmessage: text('fullmessage').notNull().default(''),
+  smallmessage: text('smallmessage').notNull().default(''),
+  component: text('component').notNull().default(''),
+  eventtype: text('eventtype').notNull().default(''),
+  contexturl: text('contexturl'),
+  contexturlname: text('contexturlname'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timeread: timestamp('timeread', { withTimezone: true }),
+});
+
+export const notificationDispatchLog = pgTable('notification_dispatch_log', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  notificationid: integer('notificationid'),
+  userid: integer('userid').notNull(),
+  provider: text('provider').notNull(),
+  channel: text('channel').notNull(),
+  status: text('status').notNull(),
+  subject: text('subject').notNull().default(''),
+  dedupekey: text('dedupekey'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('notification_dispatch_log_dedupe_worker').on(t.dedupekey)]);
+
+export const calendarEvents = pgTable('calendar_events', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  eventtype: text('eventtype').notNull().default('user'),
+  courseid: integer('courseid').notNull().default(0),
+  groupid: integer('groupid').notNull().default(0),
+  categoryid: integer('categoryid').notNull().default(0),
+  userid: integer('userid').notNull().default(0),
+  contextid: integer('contextid'),
+  subscriptionid: integer('subscriptionid'),
+  uuid: text('uuid'),
+  repeatid: integer('repeatid').notNull().default(0),
+  timestart: timestamp('timestart', { withTimezone: true }).notNull(),
+  timeduration: integer('timeduration').notNull().default(0),
+  visible: boolean('visible').notNull().default(true),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const calendarSubscriptions = pgTable('calendar_subscriptions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  url: text('url'),
+  icsdata: text('icsdata'),
+  eventtype: text('eventtype').notNull().default('site'),
+  courseid: integer('courseid').notNull().default(0),
+  categoryid: integer('categoryid').notNull().default(0),
+  userid: integer('userid').notNull().default(0),
+  pollinterval: integer('pollinterval').notNull().default(604800),
+  lastupdated: timestamp('lastupdated', { withTimezone: true }),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const badge = pgTable('badge', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  type: integer('type').notNull().default(1),
+  courseid: integer('courseid'),
+  issuername: text('issuername').notNull().default(''),
+  status: integer('status').notNull().default(0),
+  expiredate: timestamp('expiredate', { withTimezone: true }),
+  expireperiod: integer('expireperiod'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const badgeCriteria = pgTable('badge_criteria', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  badgeid: integer('badgeid').notNull(),
+  criteriatype: text('criteriatype').notNull(),
+  method: integer('method').notNull().default(1),
+  params: jsonb('params').notNull().default({}),
+  description: text('description').notNull().default(''),
+});
+
+export const badgeIssued = pgTable('badge_issued', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  badgeid: integer('badgeid').notNull(),
+  userid: integer('userid').notNull(),
+  uniquehash: text('uniquehash').notNull(),
+  snapshot: jsonb('snapshot').notNull().default({}),
+  evidence: jsonb('evidence').notNull().default({}),
+  dateissued: timestamp('dateissued', { withTimezone: true }).notNull().defaultNow(),
+  dateexpire: timestamp('dateexpire', { withTimezone: true }),
+  visible: boolean('visible').notNull().default(true),
+  revoked: boolean('revoked').notNull().default(false),
+  issuernotified: boolean('issuernotified').notNull().default(false),
+}, (t) => [unique('badge_issued_badge_user_worker').on(t.badgeid, t.userid)]);
+
+export const badgeManualAward = pgTable('badge_manual_award', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  badgeid: integer('badgeid').notNull(),
+  recipientid: integer('recipientid').notNull(),
+  issuerid: integer('issuerid').notNull(),
+  datemet: timestamp('datemet', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const competencyUsercomp = pgTable('competency_usercomp', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  competencyid: integer('competencyid').notNull(),
+  planid: integer('planid').notNull().default(0),
+  courseid: integer('courseid').notNull().default(0),
+  status: integer('status').notNull().default(0),
+  proficiency: boolean('proficiency'),
+  grade: integer('grade'),
+});
