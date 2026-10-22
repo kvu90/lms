@@ -1,0 +1,42 @@
+export interface CapabilityDefinition {
+  name: string;
+  captype: 'read' | 'write';
+  contextlevel: number;
+  component: string;
+  /** Default permission per role archetype, seeded as overrides at the system context. */
+  archetypes: Partial<Record<string, number>>;
+}
+import { CAP_ALLOW } from './permission';
+
+const ALL_STAFF = { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW };
+
+/** Capability registry — definitions live in code (like Moodle db/access.php), rows are synced into `capabilities`. */
+export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
+  { name: 'moodle/site:config', captype: 'write', contextlevel: 10, component: 'core', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/site:viewuseridentity', captype: 'read', contextlevel: 10, component: 'core', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/user:create', captype: 'write', contextlevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/user:update', captype: 'write', contextlevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/user:delete', captype: 'write', contextlevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/user:viewdetails', captype: 'read', contextlevel: 30, component: 'core_user', archetypes: { ...ALL_STAFF, user: CAP_ALLOW } },
+  { name: 'moodle/user:loginas', captype: 'write', contextlevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/role:manage', captype: 'write', contextlevel: 10, component: 'core_role', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/role:assign', captype: 'write', contextlevel: 10, component: 'core_role', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/role:override', captype: 'write', contextlevel: 10, component: 'core_role', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/course:view', captype: 'read', contextlevel: 50, component: 'core_course', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW, guest: CAP_ALLOW } },
+  { name: 'lms/files:view', captype: 'read', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'lms/files:upload', captype: 'write', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
+  { name: 'lms/customfield:manage', captype: 'write', contextlevel: 10, component: 'core_customfield', archetypes: { manager: CAP_ALLOW } },
+];
+
+export const CONTEXT_LEVELS = { SYSTEM: 10, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
+
+export interface RoleDefinition { shortname: string; name: string; archetype: string; sortorder: number }
+export const DEFAULT_ROLES: RoleDefinition[] = [
+  { shortname: 'manager', name: 'Manager', archetype: 'manager', sortorder: 1 },
+  { shortname: 'coursecreator', name: 'Course creator', archetype: 'coursecreator', sortorder: 2 },
+  { shortname: 'editingteacher', name: 'Teacher', archetype: 'editingteacher', sortorder: 3 },
+  { shortname: 'teacher', name: 'Non-editing teacher', archetype: 'teacher', sortorder: 4 },
+  { shortname: 'student', name: 'Student', archetype: 'student', sortorder: 5 },
+  { shortname: 'guest', name: 'Guest', archetype: 'guest', sortorder: 6 },
+  { shortname: 'user', name: 'Authenticated user', archetype: 'user', sortorder: 7 },
+];

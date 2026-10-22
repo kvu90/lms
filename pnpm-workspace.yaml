@@ -5,6 +5,7 @@ allowBuilds:
   '@scarf/scarf': false
   '@swc/core': true
   msgpackr-extract: true
+  argon2: true
 catalog:
   typescript: 7.0.2
   zod: ^4.6.7

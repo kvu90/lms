@@ -4,7 +4,9 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { ProblemDetailsFilter } from '../src/common/problem-details.filter';
+import { Public } from '../src/common/public.decorator';
 
+@Public()
 @Controller({ path: 'throw-probe', version: '1' })
 class ThrowProbeController {
   @Get()

@@ -1,0 +1,44 @@
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
+
+/**
+ * ObjectStorage port (report §3.8): the physical layer is content-addressed —
+ * key = `<2 chars>/<next 2 chars>/<sha256>` exactly like Moodle's filedir,
+ * except the hash is SHA-256 (project decision: no legacy compatibility).
+ * The local adapter ships now; an S3 adapter can implement the same port.
+ */
+export interface ObjectStorage {
+  put(contentHash: string, data: Buffer): Promise<void>;
+  get(contentHash: string): Promise<Buffer>;
+  delete(contentHash: string): Promise<void>;
+  exists(contentHash: string): Promise<boolean>;
+  /** Absolute path/key for a hash — exposed for tests and orphan cleanup. */
+  keyFor(contentHash: string): string;
+}
+
+export function sha256Hex(data: Buffer): string { return createHash('sha256').update(data).digest('hex'); }
+export function contentKey(contentHash: string): string { return `${contentHash.slice(0, 2)}/${contentHash.slice(2, 4)}/${contentHash}`; }
+
+@Injectable()
+export class LocalObjectStorage implements ObjectStorage {
+  private readonly root: string;
+  constructor(config: ConfigService) { this.root = config.get<string>('FILE_STORAGE_DIR') ?? './data/files'; }
+  keyFor(contentHash: string): string { return join(this.root, contentKey(contentHash)); }
+  async put(contentHash: string, data: Buffer): Promise<void> {
+    const path = this.keyFor(contentHash);
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(path, data, { flag: 'wx' }).catch((err: NodeJS.ErrnoException) => {
+      if (err.code !== 'EEXIST') throw err; // dedup: same content already stored physically once
+    });
+  }
+  async get(contentHash: string): Promise<Buffer> { return readFile(this.keyFor(contentHash)); }
+  async delete(contentHash: string): Promise<void> { await rm(this.keyFor(contentHash), { force: true }); }
+  async exists(contentHash: string): Promise<boolean> {
+    try { await readFile(this.keyFor(contentHash)); return true; } catch { return false; }
+  }
+}
