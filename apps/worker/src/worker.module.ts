@@ -10,6 +10,7 @@ import { relations } from './db/relations';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import { CompletionRecalculateProcessor } from './processors/completion-recalculate.processor';
+import { GradeRegradeProcessor } from './processors/grade-regrade.processor';
 import { EnrolExpiryProcessor } from './processors/enrol-expiry.processor';
 import { FileCleanupProcessor } from './processors/file-cleanup.processor';
 import { SampleProcessor } from './processors/sample.processor';
@@ -37,9 +38,10 @@ import { SampleProcessor } from './processors/sample.processor';
     BullModule.registerQueue({ name: 'file-cleanup' }),
     BullModule.registerQueue({ name: 'enrol-expiry' }),
     BullModule.registerQueue({ name: 'completion-recalculate' }),
+    BullModule.registerQueue({ name: 'grade-regrade' }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, EnrolExpiryScheduler],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler],
 })
 export class WorkerModule {}

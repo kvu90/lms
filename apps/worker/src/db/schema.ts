@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
 /**
  * Worker's view of the shared schema. P0 only needs `outbox_events` (the full
@@ -94,3 +94,66 @@ export const courseCompletions = pgTable('course_completions', {
   timecompleted: timestamp('timecompleted', { withTimezone: true }),
   reaggregate: timestamp('reaggregate', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [unique('cc_unique_worker').on(t.userid, t.course)]);
+
+/** Worker's view of P3 grade tables (canonical schema in apps/api) — needed by the grade-regrade processor. */
+export const gradeCategories = pgTable('grade_categories', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull(),
+  parent: integer('parent'),
+  fullname: text('fullname').notNull().default(''),
+  aggregation: text('aggregation').notNull().default('natural'),
+  droplow: integer('droplow').notNull().default(0),
+  keephigh: integer('keephigh').notNull().default(0),
+  aggregateonlygraded: boolean('aggregateonlygraded').notNull().default(false),
+  depth: integer('depth').notNull().default(1),
+});
+
+export const gradeItems = pgTable('grade_items', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull(),
+  categoryid: integer('categoryid'),
+  itemname: text('itemname').notNull().default(''),
+  itemtype: text('itemtype').notNull().default('manual'),
+  iteminstance: integer('iteminstance').notNull().default(0),
+  grademax: doublePrecision('grademax').notNull().default(100),
+  grademin: doublePrecision('grademin').notNull().default(0),
+  gradepass: doublePrecision('gradepass').notNull().default(0),
+  weightoverride: boolean('weightoverride').notNull().default(false),
+  aggregationcoef: doublePrecision('aggregationcoef').notNull().default(0),
+  extracredit: boolean('extracredit').notNull().default(false),
+  multiplicator: doublePrecision('multiplicator').notNull().default(1),
+  plusfactor: doublePrecision('plusfactor').notNull().default(0),
+});
+
+export const gradeGrades = pgTable('grade_grades', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  itemid: integer('itemid').notNull(),
+  userid: integer('userid').notNull(),
+  rawgrade: doublePrecision('rawgrade'),
+  finalgrade: doublePrecision('finalgrade'),
+  hidden: boolean('hidden').notNull().default(false),
+  locked: boolean('locked').notNull().default(false),
+  overridden: boolean('overridden').notNull().default(false),
+  excluded: boolean('excluded').notNull().default(false),
+  frozen: boolean('frozen').notNull().default(false),
+  feedback: text('feedback'),
+  aggregationstatus: text('aggregationstatus').notNull().default('unknown'),
+  aggregationweight: doublePrecision('aggregationweight'),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('gg_unique_worker').on(t.itemid, t.userid)]);
+
+export const gradeGradesHistory = pgTable('grade_grades_history', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  action: integer('action').notNull().default(2),
+  oldid: integer('oldid'),
+  itemid: integer('itemid').notNull(),
+  userid: integer('userid').notNull(),
+  rawgrade: doublePrecision('rawgrade'),
+  finalgrade: doublePrecision('finalgrade'),
+  overridden: boolean('overridden').notNull().default(false),
+  excluded: boolean('excluded').notNull().default(false),
+  frozen: boolean('frozen').notNull().default(false),
+  source: text('source'),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  loggeduser: integer('loggeduser'),
+});

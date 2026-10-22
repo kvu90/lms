@@ -7,6 +7,7 @@ import type { relations } from '../db/relations';
 import {
   courseCompletionCriteria, courseCompletions, courseCompletionSettings,
   courseModules, courseModulesCompletion, userEnrolments, enrol,
+  gradeGrades, gradeItems,
 } from '../db/schema';
 
 type Database = NodePgDatabase<typeof relations>;
@@ -58,8 +59,16 @@ export class CompletionRecalculateProcessor extends WorkerHost {
           results.push(!!row && row.completionstate !== 0);
         } else if (c.criteriatype === 'date' && c.date) {
           results.push(now >= c.date);
+        } else if (c.criteriatype === 'grade') {
+          // P3: course grade criterion — the course total meets the course item's gradepass.
+          const [courseItem] = await this.db.select().from(gradeItems)
+            .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.itemtype, 'course')));
+          if (!courseItem) { results.push(false); continue; }
+          const [g] = await this.db.select().from(gradeGrades)
+            .where(and(eq(gradeGrades.itemid, courseItem.id), eq(gradeGrades.userid, userId)));
+          results.push(!!g && g.finalgrade !== null && (courseItem.gradepass <= 0 || g.finalgrade >= courseItem.gradepass));
         } else {
-          results.push(false); // grade criteria: P3 hook
+          results.push(false);
         }
       }
       const complete = criteria.length > 0 && (method === 2 ? results.some(Boolean) : results.every(Boolean));
