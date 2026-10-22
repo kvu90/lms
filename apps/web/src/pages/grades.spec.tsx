@@ -1,7 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from '@/lib/auth';
+import { PermissionsProvider } from '@/lib/permissions';
 import { GradebookPage } from './grades';
 import { QuestionsPage, QuestionUsagePage } from './questions';
 
@@ -49,8 +51,29 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   }));
 }
 
+/**
+ * Render trang sổ điểm trong đúng khung provider của ứng dụng thật.
+ * Cập nhật có chủ đích: trang nay đọc `usePermissions()` để chỉ hiện (và
+ * chỉ tải) khu quản trị cho staff của khoá, nên test phải bọc
+ * AuthProvider + PermissionsProvider như main.tsx. Test học viên dưới đây
+ * không đặt token đăng nhập: PermissionsProvider kết luận không phải
+ * staff mà không gọi thêm endpoint nào, nên các stub cũ giữ nguyên ý đồ —
+ * khu quản trị không xuất hiện và không có lời gọi categories/items nào
+ * lúc nạp.
+ */
+function renderGradebook() {
+  const router = createMemoryRouter([{ path: '/courses/:id/grades', element: <GradebookPage /> }], { initialEntries: ['/courses/01900000-0000-7000-8000-000000000010/grades'] });
+  render(
+    <AuthProvider>
+      <PermissionsProvider>
+        <RouterProvider router={router} />
+      </PermissionsProvider>
+    </AuthProvider>,
+  );
+}
+
 describe('Gradebook page', () => {
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
   it('renders the category/item tree with grades, letters and the course total', async () => {
     stubFetch((url) => {
@@ -58,8 +81,7 @@ describe('Gradebook page', () => {
       if (url === '/api/v1/courses/01900000-0000-7000-8000-000000000010/grades/report') return REPORT;
       return undefined;
     });
-    const router = createMemoryRouter([{ path: '/courses/:id/grades', element: <GradebookPage /> }], { initialEntries: ['/courses/01900000-0000-7000-8000-000000000010/grades'] });
-    render(<RouterProvider router={router} />);
+    renderGradebook();
     await waitFor(() => expect(screen.getByText('Quiz 1')).toBeInTheDocument());
     expect(screen.getByTestId('grade-item-01900000-0000-7000-8000-000000000005')).toHaveTextContent('85');
     expect(screen.getByTestId('grade-item-01900000-0000-7000-8000-000000000005')).toHaveTextContent('B');
@@ -67,6 +89,8 @@ describe('Gradebook page', () => {
     expect(screen.getByText(/Tổng điểm khoá học: 85 \(B\)/)).toBeInTheDocument();
     // Teacher report renders alongside.
     expect(screen.getByText('Báo cáo lớp')).toBeInTheDocument();
+    // Không phải staff: khu quản trị sổ điểm không được render.
+    expect(screen.queryByText('Quản trị sổ điểm')).not.toBeInTheDocument();
   });
 });
 
@@ -124,5 +148,143 @@ describe('Question bank page', () => {
     expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent('gradedright');
     expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent('todo → complete → gradedright');
     expect(screen.getByText(/Trạng thái lượt làm: finished/)).toBeInTheDocument();
+  });
+});
+
+describe('Gradebook administration (teacher of the course)', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  const COURSE_ID = '01900000-0000-7000-8000-000000000010';
+  const TEACHER_ID = '01900000-0000-7000-8000-0000000000a2';
+  const STUDENT_ID = '01900000-0000-7000-8000-000000000007';
+  const ADMIN_CAT = {
+    id: '01900000-0000-7000-8000-000000000021', courseid: COURSE_ID, parent: null, fullname: 'Quizzes', aggregation: 'mean',
+    droplow: 0, keephigh: 0, aggregateonlygraded: false, depth: 1, path: '/1', hidden: false,
+  };
+  const LETTERS = [
+    { id: '01900000-0000-7000-8000-000000000031', contextid: '01900000-0000-7000-8000-000000000055', lowerboundary: 90, letter: 'A' },
+    { id: '01900000-0000-7000-8000-000000000032', contextid: '01900000-0000-7000-8000-000000000055', lowerboundary: 80, letter: 'B' },
+  ];
+  const COURSE = {
+    id: COURSE_ID, category: '01900000-0000-7000-8000-000000000001', fullname: 'Physics 101', shortname: 'PHY101', idnumber: '', summary: '',
+    format: 'topics', visible: true, startdate: null, enddate: null, groupmode: 0, enablecompletion: true,
+  };
+  const PROFILE = {
+    id: TEACHER_ID, username: 'teacher1', firstname: 'Lan Anh', lastname: 'Nguyễn', email: 'teacher1@example.com',
+    suspended: false, deleted: false, isGuest: false, forcePasswordChange: false, lastlogin: null,
+    timecreated: '2026-01-01T00:00:00.000Z', customFields: [],
+  };
+  const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
+  const HISTORY_URL = `/api/v1/courses/grades/items/${ITEM.id}/users/${STUDENT_ID}/history`;
+
+  interface RecordedCall { url: string; method: string; body: unknown }
+
+  /**
+   * Stub fetch cho giáo viên của khoá: các điểm dò quyền của
+   * PermissionsProvider trả về ghi danh đang hoạt động + báo cáo lớp gọi
+   * được (grade:viewall) nên trang kết luận là staff và mới tải thêm
+   * categories/items/letters/scales. Mọi lời gọi đều được ghi lại để
+   * khẳng định URL/method/body đúng controller phía API.
+   */
+  function stubTeacherFetch(calls: RecordedCall[]) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users?pageSize=1') return respond(FORBIDDEN, 403);
+      if (url === '/api/v1/access/roles') return respond(FORBIDDEN, 403);
+      if (url === '/api/v1/questions/categories') return respond([]);
+      if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
+      if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`) return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
+      if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return respond(BOOK);
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/categories`) {
+        if (method === 'POST') return respond({ ...ADMIN_CAT, id: '01900000-0000-7000-8000-000000000022' });
+        return respond([ADMIN_CAT]);
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) {
+        if (method === 'POST') return respond({ ...ITEM, id: '01900000-0000-7000-8000-000000000033', itemname: 'Midterm' });
+        return respond([ITEM]);
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/letters`) {
+        if (method === 'PUT') return respond(LETTERS);
+        return respond(LETTERS);
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/scales`) return respond([{ id: '01900000-0000-7000-8000-000000000041', courseid: COURSE_ID, name: 'Pass scale', scale: 'Fail,Pass', description: '' }]);
+      if (url === HISTORY_URL) {
+        return respond([{
+          id: '01900000-0000-7000-8000-000000000051', action: 2, oldid: null, itemid: ITEM.id, userid: STUDENT_ID,
+          rawgrade: 85, finalgrade: 85, overridden: false, excluded: false, frozen: false, source: 'manual',
+          timemodified: '2026-10-20T00:00:00.000Z', loggeduser: TEACHER_ID,
+        }]);
+      }
+      return respond({}, 404);
+    }));
+  }
+
+  /** Render trang sổ điểm với phiên đăng nhập của giáo viên. */
+  function renderAsTeacher() {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    renderGradebook();
+  }
+
+  /** Tìm một ô nhập theo nhãn hiển thị và `id` duy nhất của nó (nhiều form dùng chung một nhãn). */
+  function fieldById(label: string, id: string): HTMLElement {
+    const el = screen.getAllByLabelText(label).find((e) => e.id === id);
+    if (!el) throw new Error(`field #${id} with label ${label} not found`);
+    return el;
+  }
+
+  it('creates a grade item via POST /courses/:courseId/grades/items with the contracts body', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    renderAsTeacher();
+
+    // Chờ khu quản trị xuất hiện (PermissionsProvider dò xong quyền staff) rồi mới nhập liệu.
+    const nameInput = await waitFor(() => fieldById('Tên mục điểm', 'grade-item-name'));
+    await userEvent.type(nameInput, 'Midterm');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo mục điểm' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST');
+    // Đúng createGradeItemSchema: itemname + grademax dạng số; không chọn hạng mục thì không gửi categoryId.
+    expect(createCall?.body).toEqual({ itemname: 'Midterm', grademax: 100 });
+  });
+
+  it('saves the whole letter set via PUT /courses/:courseId/grades/letters', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    renderAsTeacher();
+
+    const boundary = await waitFor(() => {
+      const el = screen.getAllByLabelText('Mốc dưới')[0];
+      if (!el) throw new Error('letters chưa được nạp');
+      return el;
+    });
+    await userEvent.clear(boundary);
+    await userEvent.type(boundary, '95');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thang điểm chữ' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/letters` && c.method === 'PUT')).toBe(true));
+    const putCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/letters` && c.method === 'PUT');
+    // Đúng setGradeLettersSchema: PUT nguyên bộ { letters: [{ letter, lowerboundary }] } với mốc dưới dạng số.
+    expect(putCall?.body).toEqual({ letters: [{ letter: 'A', lowerboundary: 95 }, { letter: 'B', lowerboundary: 80 }] });
+  });
+
+  it('loads a student grade history from GET /courses/grades/items/:itemId/users/:userId/history', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    renderAsTeacher();
+
+    // Chờ cả option của mục điểm xuất hiện trong ô chọn (dữ liệu quản trị nạp sau khi xác nhận staff).
+    await screen.findByRole('option', { name: 'Quiz 1' });
+    const itemSelect = screen.getByLabelText('Mục điểm');
+    await userEvent.selectOptions(itemSelect, ITEM.id);
+    await userEvent.type(fieldById('Học viên (ID người dùng)', 'history-user'), STUDENT_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Xem lịch sử' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === HISTORY_URL && c.method === 'GET')).toBe(true));
+    expect(await screen.findByText(/điểm cuối: 85/)).toBeInTheDocument();
   });
 });
