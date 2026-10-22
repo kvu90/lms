@@ -20,6 +20,7 @@ import { QuestionsPage, QuestionUsagePage } from './pages/questions';
 import { HomePage } from './pages/home';
 import { LoginPage } from './pages/login';
 import { ProfilePage } from './pages/profile';
+import { BackupPage, ContentBankPage, InsightsPage, PrivacyPage, ReportsPage, SearchPage, TokensPage } from './pages/platform';
 import './index.css';
 
 function Shell() {
@@ -38,6 +39,13 @@ function Shell() {
           <Link to="/badges">Badges</Link>
           <Link to="/learning-plan">Learning plan</Link>
           <Link to="/blog">Blog</Link>
+          <Link to="/search">Search</Link>
+          <Link to="/tokens">Tokens</Link>
+          <Link to="/backup">Backup</Link>
+          <Link to="/insights">Insights</Link>
+          <Link to="/reports">Reports</Link>
+          <Link to="/contentbank">Content bank</Link>
+          <Link to="/privacy">Privacy</Link>
           <Link to="/admin/users">Users</Link>
           <Link to="/admin/roles">Roles</Link>
           <Link to="/health">Health</Link>
@@ -80,6 +88,13 @@ const router = createBrowserRouter([
       { path: '/badges', element: <BadgesPage /> },
       { path: '/learning-plan', element: <LearningPlanPage /> },
       { path: '/blog', element: <BlogPage /> },
+      { path: '/search', element: <SearchPage /> },
+      { path: '/tokens', element: <TokensPage /> },
+      { path: '/backup', element: <BackupPage /> },
+      { path: '/insights', element: <InsightsPage /> },
+      { path: '/reports', element: <ReportsPage /> },
+      { path: '/contentbank', element: <ContentBankPage /> },
+      { path: '/privacy', element: <PrivacyPage /> },
     ],
   },
 ]);

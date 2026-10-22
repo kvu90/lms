@@ -169,3 +169,29 @@ describe('identity contracts (P1)', () => {
     expect(profile.customFields[0]?.value).toBe('Sales');
   });
 });
+
+describe('platform contracts (platform services)', () => {
+  it('parses a search document and an external token creation (raw token only at creation)', async () => {
+    const { searchDocumentSchema, externalTokenCreatedSchema } = await import('./platform.js');
+    expect(searchDocumentSchema.parse({ id: 1, area: 'courses', itemid: 2, contextid: 3, title: 'T', content: 'C' }).area).toBe('courses');
+    expect(externalTokenCreatedSchema.parse({ token: 'a'.repeat(64), id: 1, userid: 2, serviceid: 3 }).token).toHaveLength(64);
+    expect(() => externalTokenCreatedSchema.parse({ token: 'short', id: 1, userid: 2, serviceid: 3 })).toThrow();
+  });
+
+  it('rejects a backup id mapping that keeps the original id, and a payment with a float amount', async () => {
+    const { backupIdMappingSchema, paymentSchema } = await import('./platform.js');
+    expect(backupIdMappingSchema.parse({ id: 1, jobid: 2, itemtype: 'cm', oldid: 10, newid: 99 }).newid).toBe(99);
+    expect(() => backupIdMappingSchema.parse({ id: 1, jobid: 2, itemtype: 'cm', oldid: 10, newid: 10 })).toThrow();
+    expect(() => paymentSchema.parse({ id: 1, accountid: 1, userid: 1, amount: 10.5, currency: 'VND', status: 'pending', gateway: 'manual' })).toThrow();
+    expect(paymentSchema.parse({ id: 1, accountid: 1, userid: 1, amount: 50000, currency: 'VND', status: 'succeeded', gateway: 'manual' }).amount).toBe(50000);
+  });
+
+  it('parses report, content bank, insight and privacy request shapes', async () => {
+    const { reportSchema, contentBankContentSchema, insightSchema, privacyRequestSchema } = await import('./platform.js');
+    expect(reportSchema.parse({ id: 1, name: 'R', datasource: 'grades', columns: ['userId'], createdby: 1 }).datasource).toBe('grades');
+    expect(contentBankContentSchema.parse({ id: 1, name: 'C', contenttype: 'file-based', contextid: 2, creatorid: 3, visibility: 'draft', fileid: null }).visibility).toBe('draft');
+    expect(insightSchema.parse({ id: 1, modelid: 1, userid: 2, recipientid: 3, contextid: 4, courseid: 5, heading: 'Student at risk' }).heading).toContain('risk');
+    expect(privacyRequestSchema.parse({ id: 1, userid: 2, type: 'delete', status: 'pending' }).type).toBe('delete');
+    expect(() => privacyRequestSchema.parse({ id: 1, userid: 2, type: 'merge', status: 'pending' })).toThrow();
+  });
+});
