@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { Module, type ExecutionContext, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DrizzleModule } from '@nestjs/drizzle';
 import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -41,6 +42,13 @@ import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
+import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
+
+/**
+ * Các route xác thực có kiểm chứng mật khẩu — nhận hạn mức chặt riêng
+ * (`auth`) trong ThrottlerModule bên dưới.
+ */
+const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|change-password)$/;
 
 @Module({
   imports: [
@@ -63,6 +71,33 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
       }),
     }),
     ScheduleModule.forRoot(),
+    /**
+     * Giới hạn tốc độ hai lớp theo IP (gói chính thức @nestjs/throttler):
+     * hạn mức chung cho mọi route và hạn mức chặt chỉ áp cho các route
+     * xác thực có kiểm chứng mật khẩu. Lưu trữ mặc định trong bộ nhớ của
+     * tiến trình — đủ cho mô hình modular monolith một instance; khi
+     * scale nhiều instance API phải chuyển sang storage dùng chung
+     * (xem runbook vận hành).
+     */
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: config.get<number>('RATE_LIMIT_PER_MINUTE') ?? 3000 },
+          {
+            name: 'auth',
+            ttl: 60_000,
+            limit: config.get<number>('RATE_LIMIT_AUTH_PER_MINUTE') ?? 300,
+            skipIf: (context: ExecutionContext) => {
+              const req = context.switchToHttp().getRequest<{ method?: string; path?: string; url?: string }>();
+              const path = req.path ?? req.url ?? '';
+              return !(req.method === 'POST' && CREDENTIAL_ROUTES.test(path));
+            },
+          },
+        ],
+      }),
+    }),
     CacheInfraModule,
     EventsModule,
     TasksModule,
@@ -95,6 +130,9 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     SeedModule,
   ],
   providers: [
+    // ThrottlerGuard chạy đầu tiên: từ chối sớm request vượt hạn mức
+    // trước mọi guard tốn kém hơn (xác thực JWT, đánh giá capability).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
     /**
@@ -106,4 +144,9 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     { provide: APP_PIPE, useValue: new I18nStandardSchemaValidationPipe() },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /** Header bảo mật cho mọi phản hồi HTTP (xem SecurityHeadersMiddleware). */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(SecurityHeadersMiddleware).forRoutes('*');
+  }
+}

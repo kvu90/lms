@@ -14,7 +14,15 @@ async function bootstrap(): Promise<void> {
   // Validation toàn cục đi qua APP_PIPE (I18nStandardSchemaValidationPipe) đã
   // đăng ký trong AppModule — mọi payload đều là schema Zod (ADR-009).
   app.useGlobalFilters(new ProblemDetailsFilter());
-  app.enableCors();
+  // CORS chỉ mở cho các origin khai trong CORS_ORIGINS (mặc định là web
+  // dev); không phản chiếu mọi origin như mặc định của enableCors().
+  app.enableCors({
+    origin: (config.get<string>('CORS_ORIGINS') ?? 'http://localhost:5173')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+    credentials: true,
+  });
   app.enableShutdownHooks();
 
   const document = SwaggerModule.createDocument(

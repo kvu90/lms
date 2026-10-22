@@ -17,6 +17,18 @@ export const envSchema = z.object({
   LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(30),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Giới hạn tốc độ theo IP (chống dò mật khẩu/phá hoại ở biên HTTP):
+  // hạn mức chung cho mọi route và hạn mức chặt riêng cho các route
+  // cấp token. Khoá tài khoản sau LOCKOUT_THRESHOLD lần sai vẫn là lớp
+  // bảo vệ theo tài khoản; hai lớp này bổ sung cho nhau. Mặc định phải
+  // đủ rộng cho cả lớp học cùng ra Internet qua một IP NAT của trường
+  // — xem runbook vận hành trước khi siết chặt hơn.
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(3000),
+  RATE_LIMIT_AUTH_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  // Danh sách origin được phép gọi API trực tiếp (phân tách bằng dấu
+  // phẩy). Frontend dev đi qua proxy của Vite nên mặc định chỉ cần
+  // origin của web; production khai đúng domain thật.
+  CORS_ORIGINS: z.string().min(1).default('http://localhost:5173'),
   // Files
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
   FILE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),

@@ -14,6 +14,11 @@ export default defineConfig({
       JWT_SECRET: 'test-secret-at-least-16-chars',
       NODE_ENV: 'test',
       PORT: '3100',
+      // Bộ test e2e bắn hàng nghìn request từ một IP: nới hạn mức để
+      // rate limit không chặn test; hành vi 429 có spec riêng với hạn
+      // mức thấp (test/platform-hardening.e2e-spec.ts).
+      RATE_LIMIT_PER_MINUTE: '1000000',
+      RATE_LIMIT_AUTH_PER_MINUTE: '1000000',
     },
   },
 });
