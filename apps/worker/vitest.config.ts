@@ -12,6 +12,7 @@ export default defineConfig({
       REDIS_URL: 'redis://localhost:6379',
       JWT_SECRET: 'test-secret-at-least-16-chars',
       NODE_ENV: 'test',
+      FILE_STORAGE_DIR: '/tmp/lms-worker-test-files',
     },
   },
 });

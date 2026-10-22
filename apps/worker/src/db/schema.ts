@@ -13,3 +13,22 @@ export const outboxEvents = pgTable('outbox_events', {
   occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
   publishedAt: timestamp('published_at', { withTimezone: true }),
 });
+
+/** Worker's view of `files` (canonical schema in apps/api) — needed for refcount checks during orphan cleanup. */
+export const files = pgTable('files', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  contenthash: text('contenthash').notNull(),
+  contextid: integer('contextid').notNull(),
+  component: text('component').notNull(),
+  filearea: text('filearea').notNull(),
+  itemid: integer('itemid').notNull().default(0),
+  filepath: text('filepath').notNull().default('/'),
+  filename: text('filename').notNull(),
+  userid: integer('userid'),
+  filesize: integer('filesize').notNull(),
+  mimetype: text('mimetype'),
+  status: integer('status').notNull().default(0),
+  source: text('source'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});

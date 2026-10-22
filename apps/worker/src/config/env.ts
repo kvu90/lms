@@ -5,6 +5,7 @@ export const envSchema = z.object({
   REDIS_URL: z.string().min(1),
   JWT_SECRET: z.string().min(16),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
 });
 
 export type Env = z.infer<typeof envSchema>;

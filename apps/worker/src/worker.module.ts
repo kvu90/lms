@@ -8,6 +8,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
+import { FileCleanupProcessor } from './processors/file-cleanup.processor';
 import { SampleProcessor } from './processors/sample.processor';
 
 @Module({
@@ -30,9 +31,10 @@ import { SampleProcessor } from './processors/sample.processor';
       }),
     }),
     BullModule.registerQueue({ name: 'sample' }),
+    BullModule.registerQueue({ name: 'file-cleanup' }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, OutboxRelayScheduler],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler],
 })
 export class WorkerModule {}
