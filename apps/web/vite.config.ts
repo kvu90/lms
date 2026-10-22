@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     port: 5173,
     // Cho phép mở bản dev qua đường hầm công khai khi review từ xa.
-    allowedHosts: ['.lhr.life', '.trycloudflare.com'],
+    allowedHosts: ['.lhr.life', '.trycloudflare.com', '.pinggy.net', '.pinggy-free.link'],
     proxy: { '/api': 'http://localhost:3000' },
   },
   test: {
