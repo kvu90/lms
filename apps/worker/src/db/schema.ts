@@ -166,8 +166,12 @@ export const gradeGradesHistory = pgTable('grade_grades_history', {
 export const users = pgTable('users', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   username: text('username').notNull(),
+  email: text('email').notNull().default(''),
+  firstname: text('firstname').notNull().default(''),
+  lastname: text('lastname').notNull().default(''),
   suspended: boolean('suspended').notNull().default(false),
   deleted: boolean('deleted').notNull().default(false),
+  lastlogin: timestamp('lastlogin', { withTimezone: true }),
 });
 
 export const userPreferences = pgTable('user_preferences', {
@@ -292,4 +296,201 @@ export const competencyUsercomp = pgTable('competency_usercomp', {
   status: integer('status').notNull().default(0),
   proficiency: boolean('proficiency'),
   grade: integer('grade'),
+});
+
+// ---------------------------------------------------------------------------
+// Platform Services (worker view)
+// ---------------------------------------------------------------------------
+
+/** Tài liệu tìm kiếm (worker reindex). */
+export const searchDocuments = pgTable('search_documents', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  area: text('area').notNull(),
+  itemid: integer('itemid').notNull(),
+  contextid: integer('contextid').notNull(),
+  title: text('title').notNull().default(''),
+  content: text('content').notNull().default(''),
+  ownerid: integer('ownerid'),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('search_documents_area_item_unique').on(t.area, t.itemid)]);
+
+/** Các khoá học (worker backup/analytics cần đọc tiêu đề). */
+export const course = pgTable('course', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  category: integer('category').notNull(),
+  fullname: text('fullname').notNull(),
+  shortname: text('shortname').notNull().unique(),
+  summary: text('summary').notNull().default(''),
+  visible: boolean('visible').notNull().default(true),
+});
+
+/** Context (worker cần course context cho search/analytics). */
+export const contextTable = pgTable('context', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  contextlevel: integer('contextlevel').notNull(),
+  instanceid: integer('instanceid').notNull().default(0),
+  path: text('path').notNull(),
+  depth: integer('depth').notNull(),
+});
+
+/** Việc sao lưu/khôi phục (worker backup/restore processors). */
+export const backupJobs = pgTable('backup_jobs', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  type: text('type').notNull(),
+  courseid: integer('courseid').notNull(),
+  targetcourseid: integer('targetcourseid'),
+  mode: text('mode').notNull().default('new'),
+  status: text('status').notNull().default('pending'),
+  anonymize: boolean('anonymize').notNull().default(false),
+  userid: integer('userid').notNull(),
+  archive: jsonb('archive'),
+  error: text('error'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timefinished: timestamp('timefinished', { withTimezone: true }),
+});
+export const backupJobSteps = pgTable('backup_job_steps', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  jobid: integer('jobid').notNull(),
+  name: text('name').notNull(),
+  status: text('status').notNull().default('pending'),
+  detail: jsonb('detail'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Mô hình/dự đoán/insight analytics (worker run). */
+export const analyticsModels = pgTable('analytics_models', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull().unique(),
+  target: text('target').notNull(),
+  indicators: jsonb('indicators').notNull().default([]),
+  enabled: boolean('enabled').notNull().default(true),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+export const analyticsPredictions = pgTable('analytics_predictions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  modelid: integer('modelid').notNull(),
+  userid: integer('userid').notNull(),
+  contextid: integer('contextid').notNull(),
+  courseid: integer('courseid').notNull().default(0),
+  score: doublePrecision('score').notNull().default(0),
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+export const insights = pgTable('insights', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  modelid: integer('modelid').notNull(),
+  predictionid: integer('predictionid'),
+  userid: integer('userid').notNull(),
+  recipientid: integer('recipientid').notNull(),
+  contextid: integer('contextid').notNull(),
+  courseid: integer('courseid').notNull().default(0),
+  heading: text('heading').notNull().default(''),
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Báo cáo + lịch (worker report schedule). */
+export const reportbuilderReport = pgTable('reportbuilder_report', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  datasource: text('datasource').notNull(),
+  columns: jsonb('columns').notNull().default([]),
+  filters: jsonb('filters').notNull().default({}),
+  createdby: integer('createdby').notNull(),
+  contextid: integer('contextid').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+export const reportbuilderSchedule = pgTable('reportbuilder_schedule', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  reportid: integer('reportid').notNull(),
+  createdby: integer('createdby').notNull(),
+  cron: text('cron').notNull().default('daily'),
+  enabled: boolean('enabled').notNull().default(true),
+  lastrun: timestamp('lastrun', { withTimezone: true }),
+  lastresult: jsonb('lastresult'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Thanh toán (worker reconciliation + webhook twin). */
+export const payments = pgTable('payments', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  accountid: integer('accountid').notNull(),
+  userid: integer('userid').notNull(),
+  amount: integer('amount').notNull(),
+  currency: text('currency').notNull(),
+  status: text('status').notNull().default('pending'),
+  gateway: text('gateway').notNull().default('manual'),
+  externaltransactionid: text('externaltransactionid'),
+  component: text('component').notNull().default(''),
+  itemid: integer('itemid').notNull().default(0),
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Yêu cầu privacy (worker export/delete processors). */
+export const privacyRequests = pgTable('privacy_requests', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  type: text('type').notNull(),
+  status: text('status').notNull().default('pending'),
+  requestedby: integer('requestedby').notNull(),
+  approvedby: integer('approvedby'),
+  result: jsonb('result'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+export const privacyExportFiles = pgTable('privacy_export_files', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  requestid: integer('requestid').notNull(),
+  fileid: integer('fileid'),
+  subsystem: text('subsystem').notNull().default(''),
+  manifest: jsonb('manifest'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Các bảng phụ trợ platform services cho worker: sections, id mappings, roles/assignments. */
+export const courseSections = pgTable('course_sections', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  course: integer('course').notNull(),
+  section: integer('section').notNull().default(0),
+  name: text('name'),
+  summary: text('summary').notNull().default(''),
+  visible: boolean('visible').notNull().default(true),
+});
+export const backupIdMappings = pgTable('backup_id_mappings', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  jobid: integer('jobid').notNull(),
+  itemtype: text('itemtype').notNull(),
+  oldid: integer('oldid').notNull(),
+  newid: integer('newid').notNull(),
+});
+export const role = pgTable('role', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull().default(''),
+  shortname: text('shortname').notNull().unique(),
+  archetype: text('archetype'),
+});
+export const roleAssignments = pgTable('role_assignments', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  roleid: integer('roleid').notNull(),
+  userid: integer('userid').notNull(),
+  contextid: integer('contextid').notNull(),
+});
+export const blogPosts = pgTable('blog_posts', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  subject: text('subject').notNull().default(''),
+  summary: text('summary').notNull().default(''),
+  content: text('content').notNull().default(''),
+  publishstate: text('publishstate').notNull().default('draft'),
+});
+export const contentbankContent = pgTable('contentbank_content', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  contenttype: text('contenttype').notNull().default('file-based'),
+  contextid: integer('contextid').notNull(),
+  creatorid: integer('creatorid').notNull(),
+  visibility: text('visibility').notNull().default('draft'),
+  fileid: integer('fileid'),
 });

@@ -18,6 +18,10 @@ import { NotificationDispatchProcessor } from './processors/notification-dispatc
 import { EnrolExpiryProcessor } from './processors/enrol-expiry.processor';
 import { FileCleanupProcessor } from './processors/file-cleanup.processor';
 import { SampleProcessor } from './processors/sample.processor';
+import {
+  AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
+  ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
+} from './processors/platform-services.processors';
 
 @Module({
   imports: [
@@ -47,9 +51,16 @@ import { SampleProcessor } from './processors/sample.processor';
     BullModule.registerQueue({ name: 'calendar-reminders' }),
     BullModule.registerQueue({ name: 'calendar-import' }),
     BullModule.registerQueue({ name: 'badge-award' }),
+    BullModule.registerQueue({ name: 'backup' }),
+    BullModule.registerQueue({ name: 'restore' }),
+    BullModule.registerQueue({ name: 'search-reindex' }),
+    BullModule.registerQueue({ name: 'analytics-run' }),
+    BullModule.registerQueue({ name: 'report-schedule' }),
+    BullModule.registerQueue({ name: 'privacy' }),
+    BullModule.registerQueue({ name: 'payment-reconciliation' }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
 })
 export class WorkerModule {}
