@@ -266,5 +266,10 @@
     "token_expired": "The token has expired",
     "token_not_found": "Token not found",
     "unknown_function": "The function does not exist"
+  },
+  "site_config": {
+    "invalid_value": "Invalid value for this setting",
+    "override_not_found": "This setting has no stored override",
+    "unknown_setting": "This setting key is not registered"
   }
 }

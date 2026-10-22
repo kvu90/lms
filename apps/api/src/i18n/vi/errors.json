@@ -266,5 +266,10 @@
     "token_expired": "Token đã hết hạn",
     "token_not_found": "Không tìm thấy token",
     "unknown_function": "Chức năng không tồn tại"
+  },
+  "site_config": {
+    "invalid_value": "Giá trị không hợp lệ cho cấu hình này",
+    "override_not_found": "Cấu hình này chưa có giá trị ghi đè",
+    "unknown_setting": "Khoá cấu hình chưa được đăng ký"
   }
 }
