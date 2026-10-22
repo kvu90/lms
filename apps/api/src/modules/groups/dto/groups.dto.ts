@@ -1,32 +1,37 @@
-import { IsBoolean, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  createCohortSchema,
+  createGroupingSchema,
+  createGroupSchema,
+  groupingGroupSchema,
+  groupMemberSchema,
+  updateCohortSchema,
+  updateGroupSchema,
+  type CreateCohort,
+  type CreateGrouping,
+  type CreateGroup,
+  type GroupingGroup,
+  type GroupMember,
+  type UpdateCohort,
+  type UpdateGroup,
+} from '@lms/contracts';
 
-export class CreateGroupDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-}
-export class UpdateGroupDto {
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-}
-export class MemberDto { @IsInt() userid!: number }
-export class CreateGroupingDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-}
-export class GroupingGroupDto { @IsInt() groupid!: number }
-export class CreateCohortDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsInt() categoryId?: number;
-  @IsOptional() @IsBoolean() visible?: boolean;
-}
-export class UpdateCohortDto {
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsBoolean() visible?: boolean;
-}
+/**
+ * Validation của Groups & Cohorts dùng Zod qua Standard Schema — schema nền ở
+ * `@lms/contracts` là nguồn sự thật duy nhất.
+ */
+export {
+  createCohortSchema,
+  createGroupingSchema,
+  createGroupSchema,
+  groupingGroupSchema,
+  groupMemberSchema,
+  updateCohortSchema,
+  updateGroupSchema,
+};
+export type CreateGroupDto = CreateGroup;
+export type UpdateGroupDto = UpdateGroup;
+export type MemberDto = GroupMember;
+export type CreateGroupingDto = CreateGrouping;
+export type GroupingGroupDto = GroupingGroup;
+export type CreateCohortDto = CreateCohort;
+export type UpdateCohortDto = UpdateCohort;

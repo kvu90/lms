@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { CreateEnrolInstanceDto, EnrolUserDto, UpdateEnrolInstanceDto } from './dto/enrol.dto';
+import { createEnrolInstanceSchema, enrolUserSchema, updateEnrolInstanceSchema, type CreateEnrolInstanceDto, type EnrolUserDto, type UpdateEnrolInstanceDto } from './dto/enrol.dto';
 import { EnrolService } from './enrol.service';
 
 @ApiTags('enrol')
@@ -10,7 +10,7 @@ export class EnrolController {
   constructor(private readonly enrol: EnrolService) {}
 
   @Post(':courseId/enrol/instances')
-  async createInstance(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createInstance(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createEnrolInstanceSchema }) dto: CreateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.createInstance(actor.id, courseId, dto);
   }
   @Get(':courseId/enrol/instances')
@@ -18,7 +18,7 @@ export class EnrolController {
     return this.enrol.listInstances(courseId);
   }
   @Patch(':courseId/enrol/instances/:instanceId')
-  async updateInstance(@Param('instanceId', ParseIntPipe) instanceId: number, @Body() dto: UpdateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateInstance(@Param('instanceId', ParseIntPipe) instanceId: number, @Body({ schema: updateEnrolInstanceSchema }) dto: UpdateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.updateInstance(actor.id, instanceId, dto);
   }
   @Delete(':courseId/enrol/instances/:instanceId')
@@ -28,7 +28,7 @@ export class EnrolController {
   }
 
   @Post(':courseId/enrol/instances/:instanceId/enrol')
-  async enrolUser(@Param('instanceId', ParseIntPipe) instanceId: number, @Body() dto: EnrolUserDto, @CurrentUser() actor: AuthenticatedUser) {
+  async enrolUser(@Param('instanceId', ParseIntPipe) instanceId: number, @Body({ schema: enrolUserSchema }) dto: EnrolUserDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.enrolUser(actor.id, instanceId, dto.userid, { timestart: dto.timestart, timeend: dto.timeend });
   }
   @Post(':courseId/enrol/instances/:instanceId/self-enrol')

@@ -2,10 +2,7 @@ import { Body, Controller, Delete, ForbiddenException, Get, Param, ParseIntPipe,
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService, type CategoryDeleteMode } from './courses.service';
-import {
-  CreateCategoryDto, CreateCmDto, CreateCourseDto, CreateSectionDto,
-  UpdateCategoryDto, UpdateCmDto, UpdateCourseDto, UpdateSectionDto,
-} from './dto/courses.dto';
+import { createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto } from './dto/courses.dto';
 
 @ApiTags('courses')
 @Controller({ path: 'courses', version: '1' })
@@ -14,7 +11,7 @@ export class CoursesController {
 
   // --- categories -----------------------------------------------------------
   @Post('categories')
-  async createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createCategory(@Body({ schema: createCourseCategorySchema }) dto: CreateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.createCategory(actor.id, dto);
   }
   @Get('categories')
@@ -24,7 +21,7 @@ export class CoursesController {
   @Get('categories/:id')
   async getCategory(@Param('id', ParseIntPipe) id: number) { return this.courses.getCategory(id); }
   @Patch('categories/:id')
-  async updateCategory(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateCategory(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateCourseCategorySchema }) dto: UpdateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateCategory(actor.id, id, dto);
   }
   @Delete('categories/:id')
@@ -38,7 +35,7 @@ export class CoursesController {
 
   // --- courses ----------------------------------------------------------------
   @Post()
-  async create(@Body() dto: CreateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createCourseSchema }) dto: CreateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.createCourse(actor.id, dto);
   }
   @Get()
@@ -57,7 +54,7 @@ export class CoursesController {
     return this.courses.getCourseContent(viewer.id, id);
   }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateCourseSchema }) dto: UpdateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateCourse(actor.id, id, dto);
   }
   @Delete(':id')
@@ -68,11 +65,11 @@ export class CoursesController {
 
   // --- sections -----------------------------------------------------------------
   @Post(':id/sections')
-  async createSection(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateSectionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createSection(@Param('id', ParseIntPipe) id: number, @Body({ schema: createCourseSectionSchema }) dto: CreateSectionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.createSection(actor.id, id, dto);
   }
   @Patch(':id/sections/:sectionId')
-  async updateSection(@Param('sectionId', ParseIntPipe) sectionId: number, @Body() dto: UpdateSectionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateSection(@Param('sectionId', ParseIntPipe) sectionId: number, @Body({ schema: updateCourseSectionSchema }) dto: UpdateSectionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateSection(actor.id, sectionId, dto);
   }
   @Delete(':id/sections/:sectionId')
@@ -91,7 +88,7 @@ export class CoursesController {
 
   // --- course modules --------------------------------------------------------------
   @Post(':id/modules')
-  async createCm(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateCmDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createCm(@Param('id', ParseIntPipe) id: number, @Body({ schema: createCourseModuleSchema }) dto: CreateCmDto, @CurrentUser() actor: AuthenticatedUser) {
     const cm = await this.courses.createCm(actor.id, id, dto);
     return { ...cm, contextId: await this.courses.cmContextId(cm.id) };
   }
@@ -116,7 +113,7 @@ export class CoursesController {
     return { cmId: cm.id, viewed: true };
   }
   @Patch(':id/modules/:cmId')
-  async updateCm(@Param('cmId', ParseIntPipe) cmId: number, @Body() dto: UpdateCmDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateCm(@Param('cmId', ParseIntPipe) cmId: number, @Body({ schema: updateCourseModuleSchema }) dto: UpdateCmDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateCm(actor.id, cmId, dto);
   }
   @Delete(':id/modules/:cmId')

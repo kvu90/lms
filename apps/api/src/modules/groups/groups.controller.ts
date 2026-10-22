@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { CreateCohortDto, CreateGroupDto, CreateGroupingDto, GroupingGroupDto, MemberDto, UpdateCohortDto, UpdateGroupDto } from './dto/groups.dto';
+import { createCohortSchema, createGroupSchema, createGroupingSchema, groupMemberSchema, groupingGroupSchema, updateCohortSchema, updateGroupSchema, type CreateCohortDto, type CreateGroupDto, type CreateGroupingDto, type GroupingGroupDto, type MemberDto, type UpdateCohortDto, type UpdateGroupDto } from './dto/groups.dto';
 import { GroupsService } from './groups.service';
 
 @ApiTags('groups')
@@ -10,7 +10,7 @@ export class CourseGroupsController {
   constructor(private readonly groups: GroupsService) {}
 
   @Post(':courseId/groups')
-  async createGroup(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createGroup(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGroupSchema }) dto: CreateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.createGroup(actor.id, courseId, dto);
   }
   @Get(':courseId/groups')
@@ -22,7 +22,7 @@ export class CourseGroupsController {
     return this.groups.listVisibleMembers(actor.id, courseId);
   }
   @Patch(':courseId/groups/:groupId')
-  async updateGroup(@Param('groupId', ParseIntPipe) groupId: number, @Body() dto: UpdateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateGroup(@Param('groupId', ParseIntPipe) groupId: number, @Body({ schema: updateGroupSchema }) dto: UpdateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.updateGroup(actor.id, groupId, dto);
   }
   @Delete(':courseId/groups/:groupId')
@@ -31,7 +31,7 @@ export class CourseGroupsController {
     return { deleted: true };
   }
   @Post(':courseId/groups/:groupId/members')
-  async addMember(@Param('groupId', ParseIntPipe) groupId: number, @Body() dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addMember(@Param('groupId', ParseIntPipe) groupId: number, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addMember(actor.id, groupId, dto.userid);
     return { added: true };
   }
@@ -46,7 +46,7 @@ export class CourseGroupsController {
   }
 
   @Post(':courseId/groupings')
-  async createGrouping(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateGroupingDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createGrouping(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGroupingSchema }) dto: CreateGroupingDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.createGrouping(actor.id, courseId, dto);
   }
   @Get(':courseId/groupings')
@@ -54,7 +54,7 @@ export class CourseGroupsController {
     return this.groups.listGroupings(courseId);
   }
   @Post(':courseId/groupings/:groupingId/groups')
-  async addToGrouping(@Param('groupingId', ParseIntPipe) groupingId: number, @Body() dto: GroupingGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addToGrouping(@Param('groupingId', ParseIntPipe) groupingId: number, @Body({ schema: groupingGroupSchema }) dto: GroupingGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addGroupToGrouping(actor.id, groupingId, dto.groupid);
     return { added: true };
   }
@@ -75,7 +75,7 @@ export class CohortsController {
   constructor(private readonly groups: GroupsService) {}
 
   @Post()
-  async create(@Body() dto: CreateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createCohortSchema }) dto: CreateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.createCohort(actor.id, dto);
   }
   @Get()
@@ -83,7 +83,7 @@ export class CohortsController {
   @Get(':id')
   async get(@Param('id', ParseIntPipe) id: number) { return this.groups.getCohort(id); }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateCohortSchema }) dto: UpdateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.updateCohort(actor.id, id, dto);
   }
   @Delete(':id')
@@ -94,7 +94,7 @@ export class CohortsController {
   @Get(':id/members')
   async members(@Param('id', ParseIntPipe) id: number) { return this.groups.listCohortMembers(id); }
   @Post(':id/members')
-  async addMember(@Param('id', ParseIntPipe) id: number, @Body() dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addMember(@Param('id', ParseIntPipe) id: number, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addCohortMember(actor.id, id, dto.userid);
     return { added: true };
   }

@@ -1,28 +1,18 @@
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import {
+  createEnrolInstanceSchema,
+  enrolUserSchema,
+  updateEnrolInstanceSchema,
+  type CreateEnrolInstance,
+  type EnrolUser,
+  type UpdateEnrolInstance,
+} from '@lms/contracts';
 
-export class CreateEnrolInstanceDto {
-  @IsString() method!: string;
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsString() roleShortname?: string;
-  @IsOptional() @IsInt() status?: number;
-  @IsOptional() @IsInt() enrolperiod?: number;
-  @IsOptional() @IsInt() cohortId?: number;
-  @IsOptional() @IsInt() groupId?: number;
-  @IsOptional() @IsString() onCohortLeave?: 'suspend' | 'unenrol';
-  /** Fee enrol: số tiền nguyên nhỏ nhất + mã tiền tệ + tài khoản thanh toán. */
-  @IsOptional() @IsInt() cost?: number;
-  @IsOptional() @IsString() currency?: string;
-  @IsOptional() @IsInt() paymentAccountId?: number;
-}
-export class UpdateEnrolInstanceDto {
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsInt() status?: number;
-  @IsOptional() @IsInt() enrolperiod?: number;
-  @IsOptional() @IsString() onCohortLeave?: 'suspend' | 'unenrol';
-  @IsOptional() @IsInt() groupId?: number;
-}
-export class EnrolUserDto {
-  @IsInt() userid!: number;
-  @IsOptional() @IsString() timestart?: string;
-  @IsOptional() @IsString() timeend?: string;
-}
+/**
+ * Validation của Enrol dùng Zod qua Standard Schema — schema nền ở
+ * `@lms/contracts` là nguồn sự thật duy nhất (kể cả các trường phí của fee
+ * enrol: cost/currency/paymentAccountId).
+ */
+export { createEnrolInstanceSchema, enrolUserSchema, updateEnrolInstanceSchema };
+export type CreateEnrolInstanceDto = CreateEnrolInstance;
+export type UpdateEnrolInstanceDto = UpdateEnrolInstance;
+export type EnrolUserDto = EnrolUser;
