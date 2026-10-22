@@ -241,6 +241,277 @@ export const customfieldData = pgTable(
   (table) => [unique('customfield_data_unique').on(table.fieldid, table.instanceid)],
 );
 
+// ---------------------------------------------------------------------------
+// P2 — Course & Enrolment (Courses / Groups+Cohort / Enrol / Availability /
+// Completion). Availability is a JSONB column, not a table (report §4).
+// ---------------------------------------------------------------------------
+
+/** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. */
+export const courseCategories = pgTable('course_categories', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  idnumber: text('idnumber'),
+  description: text('description').notNull().default(''),
+  parent: integer('parent').notNull().default(0),
+  sortorder: integer('sortorder').notNull().default(0),
+  path: text('path').notNull().default(''),
+  depth: integer('depth').notNull().default(1),
+  visible: boolean('visible').notNull().default(true),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Courses (Moodle `course`). groupmode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS. */
+export const course = pgTable('course', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  category: integer('category').notNull().references(() => courseCategories.id, { onDelete: 'cascade' }),
+  fullname: text('fullname').notNull(),
+  shortname: text('shortname').notNull().unique(),
+  idnumber: text('idnumber').notNull().default(''),
+  summary: text('summary').notNull().default(''),
+  format: text('format').notNull().default('topics'),
+  visible: boolean('visible').notNull().default(true),
+  startdate: timestamp('startdate', { withTimezone: true }),
+  enddate: timestamp('enddate', { withTimezone: true }),
+  groupmode: integer('groupmode').notNull().default(0),
+  enablecompletion: boolean('enablecompletion').notNull().default(true),
+  sortorder: integer('sortorder').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Course sections (Moodle `course_sections`). `availability` is the AvailabilityTree JSON (report §2#10). */
+export const courseSections = pgTable(
+  'course_sections',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    section: integer('section').notNull().default(0),
+    name: text('name'),
+    summary: text('summary').notNull().default(''),
+    visible: boolean('visible').notNull().default(true),
+    availability: jsonb('availability'),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('course_sections_course_section_unique').on(table.course, table.section)],
+);
+
+/**
+ * Course modules (Moodle `course_modules`) — the generic container joining a
+ * section to an activity instance via (component, instanceid). P2 ships the
+ * container only; activity content arrives in later phases.
+ * completion: 0=none, 1=manual, 2=automatic. groupmode 0 inherits course mode.
+ */
+export const courseModules = pgTable('course_modules', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  section: integer('section').notNull().references(() => courseSections.id, { onDelete: 'cascade' }),
+  component: text('component').notNull(),
+  instanceid: integer('instanceid').notNull().default(0),
+  name: text('name').notNull().default(''),
+  visible: boolean('visible').notNull().default(true),
+  groupmode: integer('groupmode').notNull().default(0),
+  availability: jsonb('availability'),
+  completion: integer('completion').notNull().default(0),
+  completionview: boolean('completionview').notNull().default(false),
+  completionusegrade: boolean('completionusegrade').notNull().default(false),
+  completionmanual: boolean('completionmanual').notNull().default(false),
+  completionexpected: timestamp('completionexpected', { withTimezone: true }),
+  deletioninprogress: boolean('deletioninprogress').notNull().default(false),
+  added: timestamp('added', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per-course format options (Moodle `course_format_options`). */
+export const courseFormatOptions = pgTable(
+  'course_format_options',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    format: text('format').notNull(),
+    sectionid: integer('sectionid').notNull().default(0),
+    name: text('name').notNull(),
+    value: text('value'),
+  },
+  (table) => [unique('course_format_options_unique').on(table.courseid, table.format, table.sectionid, table.name)],
+);
+
+/** Groups inside one course (Moodle `groups` → `course_groups`, reserved-word rename). */
+export const courseGroups = pgTable(
+  'course_groups',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    idnumber: text('idnumber').notNull().default(''),
+    description: text('description').notNull().default(''),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('course_groups_course_name_unique').on(table.courseid, table.name)],
+);
+
+/** Group membership (Moodle `groups_members`). */
+export const groupsMembers = pgTable(
+  'groups_members',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    groupid: integer('groupid').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+    component: text('component').notNull().default(''),
+    itemid: integer('itemid').notNull().default(0),
+  },
+  (table) => [unique('groups_members_unique').on(table.groupid, table.userid, table.component, table.itemid)],
+);
+
+/** Groupings: groups-of-groups inside one course (Moodle `groupings`). */
+export const groupings = pgTable(
+  'groupings',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    idnumber: text('idnumber').notNull().default(''),
+    description: text('description').notNull().default(''),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('groupings_course_name_unique').on(table.courseid, table.name)],
+);
+
+/** Grouping ↔ group links (Moodle `groupings_groups`). */
+export const groupingsGroups = pgTable(
+  'groupings_groups',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    groupingid: integer('groupingid').notNull().references(() => groupings.id, { onDelete: 'cascade' }),
+    groupid: integer('groupid').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
+    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('groupings_groups_unique').on(table.groupingid, table.groupid)],
+);
+
+/** Cohorts live at system or course-category context (Moodle `cohort`). contextid references `context`. */
+export const cohort = pgTable('cohort', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  idnumber: text('idnumber').notNull().default(''),
+  description: text('description').notNull().default(''),
+  contextid: integer('contextid').notNull(),
+  component: text('component').notNull().default(''),
+  visible: boolean('visible').notNull().default(true),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Cohort membership (Moodle `cohort_members`). */
+export const cohortMembers = pgTable(
+  'cohort_members',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    cohortid: integer('cohortid').notNull().references(() => cohort.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('cohort_members_unique').on(table.cohortid, table.userid)],
+);
+
+/**
+ * Enrol instances per course (Moodle `enrol`). method: manual|cohort|self|guest.
+ * status: 0=enabled, 1=disabled. For cohort instances customint1 = cohort id,
+ * customint2 = group id to add members to (0=none), customtext1 = sync mode
+ * ('suspend'|'unenrol') applied when a user leaves the cohort.
+ */
+export const enrol = pgTable('enrol', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  enrol: text('enrol').notNull(),
+  status: integer('status').notNull().default(0),
+  name: text('name'),
+  roleid: integer('roleid'),
+  enrolperiod: integer('enrolperiod').notNull().default(0),
+  timestart: timestamp('timestart', { withTimezone: true }),
+  timeend: timestamp('timeend', { withTimezone: true }),
+  customint1: integer('customint1').notNull().default(0),
+  customint2: integer('customint2').notNull().default(0),
+  customtext1: text('customtext1').notNull().default('suspend'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * User enrolments (Moodle `user_enrolments`).
+ * status: 0=ACTIVE, 1=SUSPENDED, 2=WITHDRAWN (soft state used on unenrol when
+ * the user still has related data — grades/completion/files — that must be
+ * kept; the row is never hard-deleted in that case, report §2#5).
+ */
+export const userEnrolments = pgTable(
+  'user_enrolments',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    enrolid: integer('enrolid').notNull().references(() => enrol.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    status: integer('status').notNull().default(0),
+    timestart: timestamp('timestart', { withTimezone: true }).notNull().defaultNow(),
+    timeend: timestamp('timeend', { withTimezone: true }),
+    modifierid: integer('modifierid'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('user_enrolments_unique').on(table.enrolid, table.userid)],
+);
+
+/**
+ * Per-activity completion state (Moodle `course_modules_completion`).
+ * completionstate: 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
+ * (pass/fail arrive with grades in P3; P2 writes 0/1 and `viewed`).
+ */
+export const courseModulesCompletion = pgTable(
+  'course_modules_completion',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    coursemoduleid: integer('coursemoduleid').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    completionstate: integer('completionstate').notNull().default(0),
+    viewed: boolean('viewed').notNull().default(false),
+    overrideby: integer('overrideby'),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('course_modules_completion_unique').on(table.coursemoduleid, table.userid)],
+);
+
+/** Course-level completion criteria (Moodle `course_completion_criteria`). criteriatype: 'module' | 'date' | 'grade' (grade wired in P3). */
+export const courseCompletionCriteria = pgTable('course_completion_criteria', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  criteriatype: text('criteriatype').notNull(),
+  moduleinstance: integer('moduleinstance'),
+  date: timestamp('date', { withTimezone: true }),
+  sortorder: integer('sortorder').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per-course completion aggregation setting: method 1 = ALL (AND), 2 = ANY (OR). */
+export const courseCompletionSettings = pgTable('course_completion_settings', {
+  course: integer('course').primaryKey().references(() => course.id, { onDelete: 'cascade' }),
+  method: integer('method').notNull().default(1),
+});
+
+/** Course completion state per user (Moodle `course_completions`). status: 'not_started' | 'in_progress' | 'complete'. */
+export const courseCompletions = pgTable(
+  'course_completions',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    userid: integer('userid').notNull(),
+    course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('not_started'),
+    timeenrolled: timestamp('timeenrolled', { withTimezone: true }).notNull().defaultNow(),
+    timestarted: timestamp('timestarted', { withTimezone: true }),
+    timecompleted: timestamp('timecompleted', { withTimezone: true }),
+    reaggregate: timestamp('reaggregate', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('course_completions_unique').on(table.userid, table.course)],
+);
+
 /** Logical file records (Moodle `files`). Physical bytes live once per contenthash (SHA-256) in content-addressed storage. */
 export const files = pgTable('files', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),

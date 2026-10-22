@@ -36,6 +36,9 @@ export class AccessRepository {
   async listContexts(): Promise<ContextRow[]> {
     return this.db.select().from(context).orderBy(context.path);
   }
+  async deleteContext(id: number): Promise<void> {
+    await this.db.delete(context).where(eq(context.id, id));
+  }
   /** Bump `version` for a context and every descendant (path prefix) — the dirty-marking behind evaluator cache invalidation. */
   async bumpContextVersions(pathPrefix: string): Promise<void> {
     await this.db.update(context).set({ version: sql`${context.version} + 1` })

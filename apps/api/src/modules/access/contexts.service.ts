@@ -39,6 +39,12 @@ export class ContextsService {
     return this.repo.getContextByLevelInstance(contextlevel, instanceid);
   }
   async listContexts(): Promise<ContextRow[]> { return this.repo.listContexts(); }
+  /** Remove a context (used when its owning instance — category/course/cm — is deleted). Assignments/overrides cascade. */
+  async deleteContext(id: number): Promise<void> { await this.repo.deleteContext(id); }
+  async deleteByLevelInstance(contextlevel: number, instanceid: number): Promise<void> {
+    const row = await this.repo.getContextByLevelInstance(contextlevel, instanceid);
+    if (row) await this.repo.deleteContext(row.id);
+  }
 
   /** Ancestor chain including the context itself, ordered leaf → root, following `path`. */
   async getPathContexts(ctx: ContextRow): Promise<ContextRow[]> {
@@ -46,6 +52,21 @@ export class ContextsService {
     const rows = await this.repo.getContextsByIds(ids);
     const byId = new Map(rows.map((r) => [r.id, r]));
     return ids.slice().reverse().map((id) => byId.get(id)!).filter(Boolean);
+  }
+
+  /** Move a context (and its whole subtree) under a new parent, rewriting path/depth. Used when a category is moved. */
+  async reparentContext(id: number, newParentId: number): Promise<void> {
+    const ctx = await this.getContext(id);
+    const parent = await this.getContext(newParentId);
+    const oldPath = ctx.path;
+    const newPath = `${parent.path}/${ctx.id}`;
+    const depthDelta = parent.depth + 1 - ctx.depth;
+    const all = await this.repo.listContexts();
+    for (const c of all) {
+      if (c.path === oldPath || c.path.startsWith(`${oldPath}/`)) {
+        await this.repo.updateContextPath(c.id, newPath + c.path.slice(oldPath.length), c.depth + depthDelta);
+      }
+    }
   }
 
   /** Dirty-marking: any permission change in a context invalidates cached results for it and all descendants. */

@@ -71,6 +71,47 @@ export class PermissionEvaluator {
     return aggregateRoleResults(roleResults);
   }
 
+  /**
+   * Capability check over REAL role assignments only (no virtual
+   * user/guest default roles), optionally ignoring assignments of given
+   * archetypes. P2 uses this for the enrol gate's exception (report §2#5):
+   * a suspended enrolment still blocks a user whose only path to
+   * `moodle/course:view` is the student role the enrolment itself granted,
+   * while a genuine staff assignment (teacher/manager/…) still lets them in.
+   */
+  async hasCapabilityFromRealAssignment(
+    userId: number,
+    capability: string,
+    contextId: number,
+    opts?: { excludeArchetypes?: string[] },
+  ): Promise<boolean> {
+    if (await this.isSiteAdmin(userId)) return true;
+    const target = await this.contexts.getContext(contextId);
+    const pathContexts = await this.contexts.getPathContexts(target);
+    const pathIds = pathContexts.map((c) => c.id);
+    const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
+    const roleIds = new Set<number>();
+    for (const a of assignments) {
+      if (opts?.excludeArchetypes?.length) {
+        const roleRow = await this.repo.getRoleById(a.roleid);
+        if (roleRow?.archetype && opts.excludeArchetypes.includes(roleRow.archetype)) continue;
+      }
+      roleIds.add(a.roleid);
+    }
+    if (roleIds.size === 0) return false;
+    const overrides = await this.repo.getOverridesForRoles([...roleIds], capability, pathIds);
+    const roleResults: number[] = [];
+    for (const roleId of roleIds) {
+      const points: RoleOverridePoint[] = [];
+      for (const cid of pathIds) {
+        const o = overrides.find((x) => x.roleid === roleId && x.contextid === cid);
+        if (o) points.push({ contextId: cid, permission: o.permission });
+      }
+      roleResults.push(evaluateSingleRole(points));
+    }
+    return aggregateRoleResults(roleResults);
+  }
+
   async requireCapability(userId: number, capability: string, contextId: number, opts?: { isGuest?: boolean }): Promise<void> {
     if (!(await this.hasCapability(userId, capability, contextId, opts))) {
       throw new ForbiddenException({ message: `Missing capability ${capability} in context ${contextId}`, code: 'access.capability_denied' });

@@ -26,6 +26,21 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'lms/files:view', captype: 'read', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/files:upload', captype: 'write', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/customfield:manage', captype: 'write', contextlevel: 10, component: 'core_customfield', archetypes: { manager: CAP_ALLOW } },
+  // P2 — Course & Enrolment
+  { name: 'moodle/category:manage', captype: 'write', contextlevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/course:create', captype: 'write', contextlevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW } },
+  { name: 'moodle/course:update', captype: 'write', contextlevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/course:delete', captype: 'write', contextlevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/course:viewhiddencourses', captype: 'read', contextlevel: 50, component: 'core_course', archetypes: { ...ALL_STAFF } },
+  { name: 'moodle/course:viewhiddenactivities', captype: 'read', contextlevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/course:manageactivities', captype: 'write', contextlevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/course:managegroups', captype: 'write', contextlevel: 50, component: 'core_group', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/group:accessallgroups', captype: 'read', contextlevel: 50, component: 'core_group', archetypes: { ...ALL_STAFF } },
+  { name: 'moodle/cohort:manage', captype: 'write', contextlevel: 10, component: 'core_cohort', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/cohort:view', captype: 'read', contextlevel: 10, component: 'core_cohort', archetypes: { ...ALL_STAFF } },
+  { name: 'lms/enrol:manage', captype: 'write', contextlevel: 50, component: 'core_enrol', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'lms/completion:manage', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'lms/completion:markothers', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
 ];
 
 export const CONTEXT_LEVELS = { SYSTEM: 10, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
