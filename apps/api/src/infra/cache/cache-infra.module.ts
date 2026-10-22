@@ -3,6 +3,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import KeyvRedis from '@keyv/redis';
 import Keyv from 'keyv';
+import { cacheRedisConfigFromUrl } from '../../config/env';
 import { RequestCacheService } from './request-cache.service';
 import { SessionCacheService } from './session-cache.service';
 
@@ -20,7 +21,7 @@ import { SessionCacheService } from './session-cache.service';
       useFactory: (config: ConfigService) => ({
         stores: [
           new Keyv({
-            store: new KeyvRedis(config.getOrThrow<string>('REDIS_URL')),
+            store: new KeyvRedis(cacheRedisConfigFromUrl(config.getOrThrow<string>('REDIS_URL'))),
             namespace: 'lms:app',
           }),
         ],

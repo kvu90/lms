@@ -74,6 +74,31 @@ export function databaseConnectionFromEnv(url: string, ssl: boolean): string | P
   return { connectionString: url, ssl: { rejectUnauthorized: false } };
 }
 
+/**
+ * Tuỳ chọn TLS cho ioredis khi URL là rediss:// (Heroku Key-Value
+ * Store): chứng chỉ phía addon là tự ký nên phải tắt kiểm chứng, nếu
+ * không bắt tay TLS bị ngắt giữa chừng. URL redis:// thường trả rỗng.
+ */
+export function redisTlsFromUrl(url: string): { tls?: { rejectUnauthorized: boolean } } {
+  return new URL(url).protocol === 'rediss:' ? { tls: { rejectUnauthorized: false } } : {};
+}
+
+/**
+ * Cấu hình client cho @keyv/redis (dựng trên @redis/client) từ
+ * REDIS_URL: với rediss:// phải khai socket TLS tắt kiểm chứng chứng
+ * chỉ như redisTlsFromUrl, nếu không kết nối tới Heroku Key-Value
+ * Store gãy ngay ở bước bắt tay.
+ */
+export function cacheRedisConfigFromUrl(url: string): {
+  url: string;
+  socket?: { tls: true; rejectUnauthorized: false };
+} {
+  if (new URL(url).protocol === 'rediss:') {
+    return { url, socket: { tls: true, rejectUnauthorized: false } };
+  }
+  return { url };
+}
+
 export function redisConnectionFromUrl(url: string): {
   host: string;
   port: number;

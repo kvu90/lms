@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './env';
+import {
+  cacheRedisConfigFromUrl,
+  databaseConnectionFromEnv,
+  redisConnectionFromUrl,
+  redisTlsFromUrl,
+  validateEnv,
+} from './env';
 
 describe('validateEnv (fail-fast)', () => {
   it('accepts a valid env', () => {
@@ -75,5 +81,32 @@ describe('redisConnectionFromUrl', () => {
     expect(conn.host).toBe('redis.example.com');
     expect(conn.port).toBe(6380);
     expect(conn.tls).toEqual({ rejectUnauthorized: false });
+  });
+});
+
+describe('redisTlsFromUrl', () => {
+  it('returns no TLS options for a plain redis:// URL', () => {
+    expect(redisTlsFromUrl('redis://localhost:6379')).toEqual({});
+  });
+
+  it('disables certificate verification for a rediss:// URL', () => {
+    expect(redisTlsFromUrl('rediss://redis.example.com:6380')).toEqual({
+      tls: { rejectUnauthorized: false },
+    });
+  });
+});
+
+describe('cacheRedisConfigFromUrl', () => {
+  it('passes a plain redis:// URL through untouched', () => {
+    expect(cacheRedisConfigFromUrl('redis://localhost:6379')).toEqual({
+      url: 'redis://localhost:6379',
+    });
+  });
+
+  it('adds an unverified TLS socket for a rediss:// URL', () => {
+    expect(cacheRedisConfigFromUrl('rediss://redis.example.com:6380')).toEqual({
+      url: 'rediss://redis.example.com:6380',
+      socket: { tls: true, rejectUnauthorized: false },
+    });
   });
 });

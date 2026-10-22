@@ -2,6 +2,7 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
+import { redisTlsFromUrl } from '../../config/env';
 
 /**
  * Redis distributed lock (self-built on the Redis client BullMQ already
@@ -12,8 +13,10 @@ export class DistributedLockService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor(@Inject(ConfigService) config: ConfigService) {
-    this.client = new Redis(config.getOrThrow<string>('REDIS_URL'), {
+    const redisUrl = config.getOrThrow<string>('REDIS_URL');
+    this.client = new Redis(redisUrl, {
       maxRetriesPerRequest: null,
+      ...redisTlsFromUrl(redisUrl),
     });
   }
 

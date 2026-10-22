@@ -2,6 +2,7 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import KeyvRedis from '@keyv/redis';
 import Keyv from 'keyv';
+import { cacheRedisConfigFromUrl } from '../../config/env';
 
 /**
  * MUC "session" mode: Redis-backed but in its own namespace (`lms:session`),
@@ -13,7 +14,7 @@ export class SessionCacheService implements OnModuleDestroy {
 
   constructor(@Inject(ConfigService) config: ConfigService) {
     this.keyv = new Keyv({
-      store: new KeyvRedis(config.getOrThrow<string>('REDIS_URL')),
+      store: new KeyvRedis(cacheRedisConfigFromUrl(config.getOrThrow<string>('REDIS_URL'))),
       namespace: 'lms:session',
       ttl: 60 * 60 * 1000,
     });

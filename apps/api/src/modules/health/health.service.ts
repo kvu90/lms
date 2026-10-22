@@ -4,6 +4,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { healthStatusSchema, type HealthStatus } from '@lms/contracts';
 import { sql } from 'drizzle-orm';
 import Redis from 'ioredis';
+import { redisTlsFromUrl } from '../../config/env';
 import type { Database } from '../../db/database';
 
 /**
@@ -22,9 +23,11 @@ export class HealthService implements OnModuleDestroy {
     @InjectDrizzle() private readonly db: Database,
     @Inject(ConfigService) config: ConfigService,
   ) {
-    this.redis = new Redis(config.getOrThrow<string>('REDIS_URL'), {
+    const redisUrl = config.getOrThrow<string>('REDIS_URL');
+    this.redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 1,
       lazyConnect: true,
+      ...redisTlsFromUrl(redisUrl),
     });
   }
 
