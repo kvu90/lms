@@ -165,6 +165,92 @@ Skipped / deferred Moodle cases for P3 (with reasons):
   (404s recorded above); aggregation arithmetic is oracle-checked against
   MoodleDocs' own worked examples instead, quoted verbatim in the spec.
 
+## P4 — Communication & Engagement (Messaging / Calendar / Badges / Competencies / Social)
+
+Oracle sources checked against Moodle `MOODLE_503_STABLE` on 2026-10-22 (tree
+under `public/`), read live from raw.githubusercontent.com:
+- `public/message/tests/api_test.php` ✅ VERIFIED (blocked users, mark-all-read,
+  individual/group conversation types).
+- `public/calendar/tests/lib_test.php` ✅ VERIFIED (`test_add_subscription`,
+  `test_get_legacy_events_with_overrides`, `test_update_subscription`);
+  `public/calendar/tests/event_test.php` ✅ (getters only);
+  `public/calendar/tests/api_test.php` **404** in the 5.3 tree — recorded.
+- `public/badges/tests/badgeslib_test.php` ✅ VERIFIED (`test_create_badge_criteria`,
+  `test_badge_awards`, `test_clone_badge`, `test_delete_badge` = archive).
+- `public/competency/tests/api_test.php` ✅ VERIFIED (plan review family,
+  evidence family, `test_create_plan_from_template`, `test_create_template_cohort`,
+  `test_set_ruleoutcome_course_competency`, `test_observe_course_completed`,
+  `test_validate_grade_in_user_competency`, `test_list_frameworks`).
+- `public/tag/tests/taglib_test.php` ✅ VERIFIED (`test_add_remove_item_tag`,
+  `test_add_tag_ordering_calculation`).
+- `public/comment/tests/externallib_test.php` ✅ VERIFIED (`test_get_comments`,
+  `test_add_comments_single`); `comment/tests/comment_test.php` and
+  `lib/tests/comment_test.php` **404** — recorded.
+- `public/rating/tests/rating_test.php` ✅ VERIFIED (`test_get_ratings_sql` —
+  aggregation numbers (1,3)→2, (1,4)→2.5, (3,5)→4).
+- `public/blog/tests/lib_test.php` ✅ VERIFIED (`test_overrides` listing
+  filters); `blog/tests/bloglib_test.php`, `blog_test.php`, `external_test.php`
+  **404** — recorded.
+- `public/notes/tests/lib_test.php` ✅ VERIFIED but navigation-only;
+  `notes/tests/notes_test.php` **404** — note visibility law follows report
+  §2#16 + the P4 spec instead (recorded, not invented).
+
+| # | Behaviour | Moodle oracle (file / case) | Our test | Phase | Status |
+|---|-----------|-----------------------------|----------|-------|--------|
+| 69 | Messaging: individual conversation exchange, unread counts per member, mark-read clears only the reader's count | `message/tests/api_test.php` (conversation + mark-all-read family) | `apps/api/test/messaging-calendar-flow.e2e-spec.ts` › conversation exchange | P4 | ✅ |
+| 70 | INVARIANT: after sending, the sender cannot edit or delete a message — API refuses (403 `messaging.message_immutable`) | report §2#12 | messaging-calendar-flow › message immutability | P4 | ✅ |
+| 71 | A blocked contact cannot send you messages (403 `messaging.contact_blocked`) | `message/tests/api_test.php` / blocked-users family | messaging-calendar-flow › blocked contact | P4 | ✅ |
+| 72 | Suspended users receive nothing: direct message refused, system notification stores nothing | report §2#12 | messaging-calendar-flow › suspended recipient | P4 | ✅ |
+| 73 | Notification preferences gate dispatch per (provider × channel × loggedin/loggedoff): popup off ⇒ nothing stored; dispatch log records `skipped-preference`; email stays a queued port | `message/tests/api_test.php` (preferences) + report §2#12 | messaging-calendar-flow › preference gating (P4 DoD) | P4 | ✅ |
+| 74 | Worker dispatch re-checks suspension + preferences at dispatch time and is idempotent by dedupekey (`duplicate` on replay) | report §2#12/§3.5 | `apps/worker/test/p4-jobs.spec.ts` › dispatch tests | P4 | ✅ |
+| 75 | Calendar visibility matrix: site = everyone, user = owner only, course = actively enrolled, category = learners of its courses | `calendar/tests/lib_test.php` + report §2#13 | messaging-calendar-flow › visibility matrix | P4 | ✅ |
+| 76 | DoD: group events are visible only to group members (and course staff) | `calendar/tests/lib_test.php` / `test_get_legacy_events_with_overrides` | messaging-calendar-flow › group event DoD | P4 | ✅ |
+| 77 | Series: FREQ=WEEKLY + COUNT materialises occurrences sharing `repeatid`; an exception row replaces its occurrence in listings; deleting the root deletes the series | `calendar/tests/lib_test.php` (repeat semantics) + report §2#13 | messaging-calendar-flow › series + exception | P4 | ✅ |
+| 78 | Subscriptions import ICS in the worker with Moodle-shaped counts `{eventsimported, eventsskipped, eventsupdated, eventsdeleted}` and dedupe on (subscription, UID); reminders become notifications exactly once | `calendar/tests/lib_test.php` / `test_add_subscription` | messaging-calendar-flow › subscription + reminder scheduling; p4-jobs › import + reminder tests | P4 | ✅ |
+| 79 | Badges: criteria tree (overall ALL/ANY + leaves); activation without criteria refused; criteria of an ACTIVE badge are frozen (403 `badges.criteria_frozen`) | `badges/tests/badgeslib_test.php` / `test_create_badge_criteria` | `apps/api/test/badges-competency-flow.e2e-spec.ts` › criteria ALL + freeze | P4 | ✅ |
+| 80 | Auto-award: completing the criteria (course + activity completion via completion hooks; competency proficiency via review event) issues an immutable assertion once + `badge_awarded` notification; criteria freeze after issuance; duplicate is the sanctioned edit path; revoke keeps the assertion row | `badgeslib_test.php` / `test_badge_awards`, `test_clone_badge`, `test_delete_badge` (delete = archive) | badges-competency-flow › auto-award + competency-leaf + revoke tests | P4 | ✅ |
+| 81 | Manual award requires `moodle/badges:awardbadge` at the badge context AND a manual criterion leaf; denial and success both asserted | `badgeslib_test.php` (manual award rules) | badges-competency-flow › manual award | P4 | ✅ |
+| 82 | Worker badge evaluation is the idempotent twin of the API evaluator: course-completion badge issued exactly once, ALL with an unmet leaf issues nothing | `badgeslib_test.php` / awards | p4-jobs › badge auto-award | P4 | ✅ |
+| 83 | Competency course links carry an explicit ruleoutcome: `complete` sets scale proficiency on course completion; `attach-evidence` writes evidence ONLY (proficiency stays null — grades/evidence never imply proficiency) | `competency/tests/api_test.php` / `test_set_ruleoutcome_course_competency`, `test_observe_course_completed` | badges-competency-flow › ruleoutcomes | P4 | ✅ |
+| 84 | Templates + template cohorts generate one active plan per cohort member, idempotently, with plan competencies materialised | `competency/tests/api_test.php` / `test_create_plan_from_template`, `test_create_template_cohort` | badges-competency-flow › template+cohort | P4 | ✅ |
+| 85 | DoD: plan review lifecycle draft → active → waitingforreview → inreview → (approve ⇒ active) → complete, every transition in the review history; request from draft refused | `competency/tests/api_test.php` / plan review family (`test_plan_request_review`, `test_plan_start_review`, `test_approve_plan`, `test_complete_plan`, …) | badges-competency-flow › plan lifecycle | P4 | ✅ |
+| 86 | User-competency review: evidence + send-for-review → start → reject keeps proficiency unset; re-request → approve with a scale grade sets proficiency; grade outside the framework scale refused (400) | `competency/tests/api_test.php` / evidence family + `test_validate_grade_in_user_competency` | badges-competency-flow › usercomp review | P4 | ✅ |
+| 87 | Tags are polymorphic: the same API tags a course and a blog post; ordering is per item and restarts at 1; correlations link co-occurring tags across items; unregistered areas refused | `tag/tests/taglib_test.php` / `test_add_remove_item_tag`, `test_add_tag_ordering_calculation` | `apps/api/test/social-flow.e2e-spec.ts` › tags | P4 | ✅ |
+| 88 | Comments are polymorphic with per-context capabilities: same API on a course item and a blog post; non-members cannot post at a course context; only author/manager deletes | `comment/tests/externallib_test.php` / `test_get_comments`, `test_add_comments_single` | social-flow › comments | P4 | ✅ |
+| 89 | Ratings aggregate over the item ONLY with the oracle's exact numbers (1,3)→2, (1,4)→2.5, (3,5)→4, count 2; re-rating replaces; out-of-scale refused; individual list needs the separate `viewall` capability | `rating/tests/rating_test.php` / `test_get_ratings_sql` | social-flow › ratings | P4 | ✅ |
+| 90 | Blog: drafts are author-only; public posts are site-visible; a course association narrows the audience to actively enrolled members | `blog/tests/lib_test.php` / `test_overrides` (listing filters) | social-flow › blog | P4 | ✅ |
+| 91 | Notes: draft = creator only; course (`public`) notes are visible to the course's teachers — NOT to fellow students and NOT to the subject; enforced on list and direct fetch | report §2#16 + P4 spec (notes PHPUnit oracle is navigation-only in 5.3, recorded above) | social-flow › notes | P4 | ✅ |
+| 92 | Web: messages inbox, notification centre + preference toggles (toggle ⇒ PUT with flipped value), calendar month + type filter, my badges render incl. revoked assertions, learning plan + review requests, blog with integrated tag/comment/rating | report §4 P4 web scope | `apps/web/src/pages/engagement.spec.tsx` (2 tests) + pages messages/notifications/calendar/badges/learning-plan/blog | P4 | ✅ |
+| 93 | Contracts: engagement schemas (conversation, notification, preference, calendar event, badge, issued badge, plan, user competency, rating aggregate, note) parse and reject impossible shapes | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "engagement contracts (P4)" (3 tests) | P4 | ✅ |
+
+Skipped / deferred Moodle cases for P4 (with reasons):
+- `badge_backpack` (Open Badges backpack connect / external assertion
+  hosting) — an external service integration; the report §4 table lists it
+  as a port, out of P4 scope. Assertions are stored locally with a stable
+  sha256 `uniquehash` so a backpack port can be added without data change.
+- Real email/push delivery — by spec (§2#12) these channels are PORTS in
+  P4: the worker writes the dispatch log (`logged` / `skipped-*`) and no
+  mail leaves the system. Popup (in-app) is the only real channel.
+- Full RRULE grammar (BYDAY/BYSETPOS/BYMONTHDAY sets, timezones) — only
+  FREQ=DAILY|WEEKLY|MONTHLY + COUNT/UNTIL are ported, matching Moodle's own
+  simple repeat model (repeatid + exception events); arbitrary RFC 5545
+  rules in subscriptions are imported as their concrete VEVENTs instead.
+- Competency points-based rules (`competency_rule_*`) and framework
+  duplication/import-export — outside the §4 P4 scope; plan completion here
+  is the explicit lifecycle + review flow that the DoD names.
+- Tag administration extras (flagging, official-tag management UI, tag
+  cloud blocks) — the data law (areas, instances, ordering, correlations)
+  is ported; admin curation screens are presentation-layer extras.
+- Message search, conversation starring/muting, group-conversation creation
+  from course groups — conversation types (individual/group) and the
+  blocked/suspended laws are ported; these are UX extras over the same
+  tables.
+- The 404 oracle files listed above (`calendar/tests/api_test.php`,
+  `comment/tests/comment_test.php`, `blog/tests/{bloglib,blog,external}_test.php`,
+  `notes/tests/notes_test.php`) — behaviour for those areas was taken from
+  the verified sibling files + report §2 rows, and that substitution is
+  recorded per row above rather than silently assumed.
+
 ## P2 skipped / deferred (recorded at P2 time)
 
 Skipped / deferred Moodle cases for P2 (with reasons):
