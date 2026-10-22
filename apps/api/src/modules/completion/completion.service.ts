@@ -11,6 +11,8 @@ import { CompletionRepository, type CourseCompletionRow } from './completion.rep
 
 export const COMPLETION_INCOMPLETE = 0;
 export const COMPLETION_COMPLETE = 1;
+export const COMPLETION_COMPLETE_PASS = 2;
+export const COMPLETION_COMPLETE_FAIL = 3;
 export const COMPLETION_QUEUE = 'completion-recalculate';
 export const AGGREGATION_ALL = 1;
 export const AGGREGATION_ANY = 2;
@@ -31,6 +33,17 @@ export const AGGREGATION_ANY = 2;
 @Injectable()
 export class CompletionService implements OnModuleInit {
   private readonly logger = new Logger(CompletionService.name);
+  /** Registered by GradesModule (P3): cm grade state (0 incomplete / 1 complete / 2 pass / 3 fail), null = no grade yet. */
+  private gradeEvaluator?: (cmId: number, userId: number) => Promise<number | null>;
+  /** Registered by GradesModule (P3): course 'grade' criterion check. */
+  private courseGradeChecker?: (courseId: number, userId: number) => Promise<boolean>;
+
+  registerGradeEvaluator(fn: (cmId: number, userId: number) => Promise<number | null>): void {
+    this.gradeEvaluator = fn;
+  }
+  registerCourseGradeChecker(fn: (courseId: number, userId: number) => Promise<boolean>): void {
+    this.courseGradeChecker = fn;
+  }
 
   constructor(
     private readonly repo: CompletionRepository,
@@ -71,14 +84,42 @@ export class CompletionService implements OnModuleInit {
       return row?.completionstate ?? COMPLETION_INCOMPLETE;
     }
     // Automatic (completion=2): every declared criterion must hold.
+    let gradeState: number | null = null;
     if (cm.completionusegrade) {
-      // Grade hook for P3: without grade data this criterion cannot be met.
-      return COMPLETION_INCOMPLETE;
+      // P3: real grade evaluation through the GradesModule-registered evaluator.
+      gradeState = this.gradeEvaluator ? await this.gradeEvaluator(cmId, userId) : null;
+      if (gradeState === null) return COMPLETION_INCOMPLETE; // no grade yet
+      if (gradeState === COMPLETION_COMPLETE_FAIL) return COMPLETION_COMPLETE_FAIL;
     }
     if (cm.completionview && !row?.viewed) return COMPLETION_INCOMPLETE;
     if (cm.completionexpected && new Date() < cm.completionexpected) return COMPLETION_INCOMPLETE;
+    if (gradeState !== null) return gradeState; // 2 (pass) or 1 (graded, no pass mark)
     const anyCriterion = cm.completionview || !!cm.completionexpected;
     return anyCriterion ? COMPLETION_COMPLETE : (row?.completionstate ?? COMPLETION_INCOMPLETE);
+  }
+
+  /**
+   * Called by GradesModule after a regrade (facade call): recompute the
+   * stored completion state of a grade-driven cm and reaggregate the course.
+   * Emits cm_completion_changed through the outbox when the state moves.
+   */
+  async refreshGradeCompletion(cmId: number, userId: number): Promise<void> {
+    const cm = await this.courses.getCm(cmId).catch(() => undefined);
+    if (!cm || cm.completion === 0 || !cm.completionusegrade) return;
+    const state = await this.computeCmState(cmId, userId);
+    const existing = await this.repo.getCmCompletion(cmId, userId);
+    if (existing && existing.completionstate === state) return;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.upsertCmCompletion({
+        coursemoduleid: cmId, userid: userId, completionstate: state,
+        viewed: existing?.viewed ?? false, overrideby: existing?.overrideby ?? null,
+      }, tx as never);
+      await this.outbox.enqueue(tx as never, {
+        aggregate: 'completion', type: 'cm_completion_changed',
+        payload: { cmId, courseId: cm.course, userId, state, via: 'grade' },
+      });
+    });
+    await this.reaggregateCourseCompletion(userId, cm.course);
   }
 
   private async refreshCmState(cmId: number, userId: number): Promise<number> {
@@ -226,7 +267,8 @@ export class CompletionService implements OnModuleInit {
       } else if (c.criteriatype === 'date' && c.date) {
         results.push(now >= c.date);
       } else if (c.criteriatype === 'grade') {
-        results.push(false); // P3 hook — no grade data yet.
+        // P3: course grade criterion via the GradesModule-registered checker.
+        results.push(this.courseGradeChecker ? await this.courseGradeChecker(courseId, userId) : false);
       } else {
         results.push(false);
       }

@@ -33,7 +33,8 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
 @Injectable()
 export class EnrolService implements OnModuleInit {
   /** Probe registered by CompletionModule: does this user have completion data in this course? */
-  private relatedDataProbe?: (courseId: number, userId: number) => Promise<boolean>;
+  /** Related-data probes (Completion P2, Grades P3, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
+  private relatedDataProbes: ((courseId: number, userId: number) => Promise<boolean>)[] = [];
 
   constructor(
     private readonly repo: EnrolRepository,
@@ -50,7 +51,13 @@ export class EnrolService implements OnModuleInit {
     });
   }
   registerRelatedDataProbe(probe: (courseId: number, userId: number) => Promise<boolean>): void {
-    this.relatedDataProbe = probe;
+    this.relatedDataProbes.push(probe);
+  }
+  async hasRelatedData(courseId: number, userId: number): Promise<boolean> {
+    for (const probe of this.relatedDataProbes) {
+      if (await probe(courseId, userId)) return true;
+    }
+    return false;
   }
 
   private async requireManage(actorId: number, courseId: number): Promise<void> {
@@ -198,7 +205,7 @@ export class EnrolService implements OnModuleInit {
   async unenrolInternal(instance: EnrolRow, userId: number, modifierId?: number): Promise<{ withdrawn: boolean }> {
     const ue = await this.repo.getUserEnrolment(instance.id, userId);
     if (!ue) return { withdrawn: false };
-    const hasRelated = this.relatedDataProbe ? await this.relatedDataProbe(instance.courseid, userId) : false;
+    const hasRelated = await this.hasRelatedData(instance.courseid, userId);
     await this.repo.dbHandle.transaction(async (tx) => {
       if (hasRelated) {
         await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierid: modifierId }, tx as never);

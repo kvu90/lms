@@ -16,7 +16,9 @@ import { CompletionModule } from './modules/completion/completion.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { EnrolModule } from './modules/enrol/enrol.module';
+import { GradesModule } from './modules/grades/grades.module';
 import { GroupsModule } from './modules/groups/groups.module';
+import { QuestionsModule } from './modules/questions/questions.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { SeedModule } from './modules/seed/seed.module';
@@ -59,6 +61,8 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     GroupsModule,
     EnrolModule,
     CompletionModule,
+    GradesModule,
+    QuestionsModule,
     SeedModule,
   ],
   providers: [

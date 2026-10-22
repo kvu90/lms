@@ -9,7 +9,7 @@ export interface AvailabilityContext {
   userId: number;
   courseId?: number;
   now?: Date;
-  /** Grade values keyed by grade-item/cm identifier — supplied by callers that have grade data (P3). Absent ⇒ grade conditions are unmet. */
+  /** Grade PERCENTAGES (0-100, Moodle availability_grade semantics) keyed by grade-item id / cm id — supplied by the GradesModule-registered provider via CoursesService (P3). Absent ⇒ grade conditions are unmet. */
   grades?: Record<string, number>;
 }
 
@@ -83,9 +83,10 @@ export class AvailabilityService {
   }
 
   /**
-   * grade leaf: {type:'grade', id, min, max}. P2 hook (report §4 P2): the
-   * condition is DECLARED here; actual grades arrive in P3 — when the caller
-   * supplies no grade for the id, the condition is unmet (never auto-pass).
+   * grade leaf: {type:'grade', id, min, max} — min/max are PERCENTAGES of the
+   * referenced grade item (Moodle availability_grade). P3: ctx.grades carries
+   * real percentages from GradesModule; when no grade exists for the id, the
+   * condition is unmet (never auto-pass).
    */
   private async evalGrade(leaf: AvailabilityLeaf, ctx: AvailabilityContext): Promise<LeafResult> {
     const id = String(leaf.id ?? '');

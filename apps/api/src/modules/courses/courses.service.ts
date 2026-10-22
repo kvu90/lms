@@ -40,6 +40,15 @@ export interface CourseContentView {
 @Injectable()
 export class CoursesService {
   private enrolChecker?: EnrolChecker;
+  /** Registered by GradesModule (P3): grade percentages (0-100) per user+course for availability 'grade' leaves. */
+  private gradeProvider?: (userId: number, courseId: number) => Promise<Record<string, number>>;
+
+  registerGradeProvider(fn: (userId: number, courseId: number) => Promise<Record<string, number>>): void {
+    this.gradeProvider = fn;
+  }
+  async gradesForAvailability(userId: number, courseId: number): Promise<Record<string, number> | undefined> {
+    return this.gradeProvider ? this.gradeProvider(userId, courseId) : undefined;
+  }
 
   constructor(
     private readonly repo: CoursesRepository,
@@ -470,7 +479,8 @@ export class CoursesService {
 
   /** Server-side availability check for one cm (section availability AND cm availability must both pass). */
   async checkCmAccess(userId: number, cm: CmRow, grades?: Record<string, number>): Promise<{ available: boolean; visible: boolean; failedDescriptions: string[] }> {
-    const ctx: AvailabilityContext = { userId, courseId: cm.course, grades };
+    const resolvedGrades = grades ?? (this.gradeProvider ? await this.gradesForAvailability(userId, cm.course) : undefined);
+    const ctx: AvailabilityContext = { userId, courseId: cm.course, grades: resolvedGrades };
     const section = await this.repo.getSection(cm.section);
     if (section?.availability) {
       const s = await this.availability.evaluate(section.availability, ctx);
@@ -492,7 +502,8 @@ export class CoursesService {
     if (!section.visible && !(await this.canViewHiddenActivities(userId, section.course))) {
       return { available: false, visible: false, failedDescriptions: [] };
     }
-    const r = await this.availability.evaluate(section.availability, { userId, courseId: section.course, grades });
+    const resolvedGrades = grades ?? (this.gradeProvider ? await this.gradesForAvailability(userId, section.course) : undefined);
+    const r = await this.availability.evaluate(section.availability, { userId, courseId: section.course, grades: resolvedGrades });
     return { available: r.available, visible: r.visible, failedDescriptions: r.failedDescriptions };
   }
 
@@ -502,13 +513,14 @@ export class CoursesService {
     const sections = await this.repo.listSections(courseId);
     const cms = await this.repo.listCms(courseId);
     const canSeeHidden = await this.canViewHiddenActivities(userId, courseId);
+    const grades = this.gradeProvider ? await this.gradesForAvailability(userId, courseId) : undefined;
     const outSections: CourseContentView['sections'] = [];
     for (const section of sections) {
-      const sAccess = await this.checkSectionAccess(userId, section);
+      const sAccess = await this.checkSectionAccess(userId, section, grades);
       if (!sAccess.visible && !canSeeHidden) continue;
       const modules: CourseContentView['sections'][number]['modules'] = [];
       for (const cm of cms.filter((c) => c.section === section.id)) {
-        const access = await this.checkCmAccess(userId, cm);
+        const access = await this.checkCmAccess(userId, cm, grades);
         if (!access.visible && !canSeeHidden) continue;
         modules.push({ ...cm, contextId: await this.cmContextId(cm.id), availabilityResult: access });
       }
