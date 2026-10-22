@@ -1,0 +1,51 @@
+import type { INestApplication } from '@nestjs/common';
+import { http, uniqueName } from './p1-helpers';
+
+export async function createCategory(app: INestApplication, token: string, overrides: Record<string, unknown> = {}): Promise<{ id: number; name: string; parent: number; path: string; depth: number }> {
+  const name = uniqueName('cat');
+  const res = await http(app).post('/api/v1/courses/categories').set('Authorization', `Bearer ${token}`)
+    .send({ name, ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create category failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+export async function createCourse(app: INestApplication, token: string, category: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; fullname: string; shortname: string; category: number }> {
+  const shortname = uniqueName('crs');
+  const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${token}`)
+    .send({ fullname: `Course ${shortname}`, shortname, category, ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create course failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+export async function createSection(app: INestApplication, token: string, courseId: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; section: number }> {
+  const res = await http(app).post(`/api/v1/courses/${courseId}/sections`).set('Authorization', `Bearer ${token}`).send(overrides);
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create section failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+export async function getFirstSectionId(app: INestApplication, token: string, courseId: number): Promise<number> {
+  const res = await http(app).get(`/api/v1/courses/${courseId}/content`).set('Authorization', `Bearer ${token}`);
+  if (res.status !== 200) throw new Error(`content failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body.sections[0].id as number;
+}
+
+export async function createCm(app: INestApplication, token: string, courseId: number, sectionId: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; contextId?: number }> {
+  const res = await http(app).post(`/api/v1/courses/${courseId}/modules`).set('Authorization', `Bearer ${token}`)
+    .send({ sectionId, component: 'mod_page', name: 'A page', ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create cm failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+export async function createEnrolInstance(app: INestApplication, token: string, courseId: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; enrol: string }> {
+  const res = await http(app).post(`/api/v1/courses/${courseId}/enrol/instances`).set('Authorization', `Bearer ${token}`)
+    .send({ method: 'manual', ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create enrol instance failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+export async function enrolUser(app: INestApplication, token: string, courseId: number, instanceId: number, userid: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; status: number }> {
+  const res = await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${instanceId}/enrol`).set('Authorization', `Bearer ${token}`)
+    .send({ userid, ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`enrol failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}

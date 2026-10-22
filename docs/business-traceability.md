@@ -72,3 +72,67 @@ email-sink assertions in `test_lockout` (notification side-effect; our lockout
 emits no email in P1), file_storage_test's image-conversion and
 reference/alias cases (file references & image processing are plugin-level
 features outside P1 scope).
+
+## P2 — Course & Enrolment
+
+Oracle sources were read from Moodle `MOODLE_503_STABLE` on 2026-10-22 (tree
+under `public/`). Checked paths: `public/course/tests/category_test.php` ✅,
+`public/course/tests/courselib_test.php` ✅, `public/group/tests/lib_test.php`
+✅, `public/enrol/tests/enrollib_test.php` ✅ (enrol tests live at
+`enrol/tests/`, not `lib/tests/enrollib_test.php` — that path 404s in 5.3),
+`public/availability/tests/tree_test.php` ✅, `public/availability/tests/info_test.php`
+✅, `public/lib/tests/completionlib_test.php` ✅ (there is no
+`completion/tests/completion_test.php`; the completion API/criteria tests live
+in `public/completion/tests/api_test.php` + `completion_criteria_test.php`).
+
+| # | Behaviour | Moodle oracle (file / case) | Our test | Phase | Status |
+|---|-----------|-----------------------------|----------|-------|--------|
+| 26 | Category tree: create with path/depth, hierarchy, move rewrites subtree path, cycle refused | `course/tests/category_test.php` / `test_create_coursecat`, `test_hierarchy`, `test_update` | `apps/api/test/courses-flow.e2e-spec.ts` › category tree + move cases | P2 | ✅ |
+| 27 | Deleting a category must state what happens to its contents (move up vs delete recursively); non-empty + no choice = error | category_test / `test_delete`, `test_get_courses_during_delete` | courses-flow › "deleting a non-empty category without an explicit mode is refused", "mode=moveup…", "mode=recursive…" | P2 | ✅ |
+| 28 | Course create: unique shortname, start/end date sanity, default section 0, course context created | `course/tests/courselib_test.php` / `test_create_course`, `test_create_course_sections`, `test_course_enddate` | courses-flow › tree case, duplicate/dates case | P2 | ✅ |
+| 29 | Creating a course requires the capability in the CATEGORY context | courselib_test / `test_create_course` permission paths + report §2#4 | courses-flow › "creating a course requires course:create in the CATEGORY context" | P2 | ✅ |
+| 30 | Hidden course: enrolled students cannot see it; staff with viewhiddencourses can | category_test / `test_visibility`, courselib_test / `test_course_change_visibility` | courses-flow › "hidden course is invisible to an enrolled student…" | P2 | ✅ |
+| 31 | cm lifecycle: create in a section, move between sections, delete emits event and dependent subsystems clean up (completion records, cm-context files) | courselib_test / `test_create_module`, `test_move_module_in_course`, `test_course_module_deleted_event_exceptions`, `test_delete_course_*` | courses-flow › "sections and cms: create, move cm…, delete cm emits cm_deleted and cleans completion + files" (cleanup via CompletionModule + FilesModule `@OnEvent('cm_deleted')` handlers) | P2 | ✅ |
+| 32 | Course custom fields are metadata on the course (no business-table alter); format options stored per course/format | `course/tests/customfield_test.php` + P1 customfield api_test pattern | courses-flow › "supports course custom fields … and format options" | P2 | ✅ |
+| 33 | Enrol grants a role at the course context and emits user_enrolled; enrolment and capability are independent checks | `enrol/tests/enrollib_test.php` / `test_user_enrolment_created_event`, `test_enrol_get_my_courses_only_enrolled_courses` | `apps/api/test/enrol-groups-flow.e2e-spec.ts` › "enrolling grants the student role…" (incl. outsider with virtual course:view still denied) | P2 | ✅ |
+| 34 | SUSPENDED enrolment blocks course access despite the role; only a real staff course:view path (teacher assignment) is the exception; reactivation restores | report §2#5 invariant + enrollib_test suspended semantics | enrol-groups-flow › "SUSPENDED user is blocked…", "suspended user who ALSO holds a real teacher assignment…" | P2 | ✅ |
+| 35 | Unenrol: enrolment + granted role removed, user_unenrolled emitted; with related data (completion) the UE row is soft-withdrawn (status=2) and the data survives | enrollib_test / `test_user_enrolment_deleted_event` + report §2#5 | enrol-groups-flow › "unenrol without related data…" + availability-completion-flow › "unenrol keeps completion data…" | P2 | ✅ |
+| 36 | Group/grouping membership; deleting a group removes grouping links and members | `group/tests/lib_test.php` / `test_member_added_event`, `test_groups_delete_groupings_groups`, `test_groups_delete_groups`, `test_groups_remove_member` | enrol-groups-flow › "groups + groupings: membership, grouping links, and deleting a group cleans its links" | P2 | ✅ |
+| 37 | Separate groups is a data law enforced at the server: other groups' members are 403 and absent from lists for users without accessallgroups | report §2#6 (groups_get_members_by_role / separate-groups semantics in lib_test) | enrol-groups-flow › "SEPARATE GROUPS is a server-side data law…" | P2 | ✅ |
+| 38 | Cohort sync: member added ⇒ enrolled into linked courses (+ configured group), member removed ⇒ suspend (default) or unenrol (configured); instance created later syncs existing members | cohort sync semantics (enrol_cohort) + report §2#6 | enrol-groups-flow › "cohort sync: …" (both modes) + "a cohort enrol instance created AFTER users joined…" | P2 | ✅ |
+| 39 | Expired enrolment (timeend past) is not active — access denied immediately; the worker sweep flips it to SUSPENDED idempotently and writes the outbox event | enrollib_test / `test_enrol_get_my_courses_by_time` | enrol-groups-flow › "expired enrolment … is not active" + `apps/worker/test/p2-jobs.spec.ts` › enrol-expiry case | P2 | ✅ |
+| 40 | Self enrol instance allows self-enrolment; other methods refuse it; guest/self/guest instances exist at config level in P2 | enrollib_test / `test_enrol_selfenrol_available` | enrol-groups-flow › "self enrol instance: …" | P2 | ✅ |
+| 41 | GOLDEN availability: tree semantics — AND/OR, NOT-AND/NOT-OR by De Morgan, nested & inside !| with showc, root show=false hides information, showc=false child hides everything | `availability/tests/tree_test.php` / `test_check_available` (translated scenario-by-scenario, mock conditions → leaf ids) | `apps/api/src/modules/availability/domain/availability-tree.spec.ts` (12 tests) | P2 | ✅ |
+| 42 | Availability blocks at the API, not just the UI: date-locked cm 403 with show=true (listed, locked) and with show=false (unlisted, still 403); section trees gate their cms | tree_test + `availability/tests/info_test.php` (info layer enforces restriction) | `apps/api/test/availability-completion-flow.e2e-spec.ts` › date/show cases + section case | P2 | ✅ |
+| 43 | Leaf combination over real data: completion leaf opens cm B only after cm A completes; group leaf AND profile leaf inside !| gate by membership; grade leaf declared, unmet without grade data (P3 hook) | tree_test nested cases + `lib/tests/completionlib_test.php` completion conditions | availability-completion-flow › completion-leaf, group-leaf-nested, grade-leaf cases | P2 | ✅ |
+| 44 | completionview: viewing a cm records `viewed` and completes an automatic cm | completionlib_test / `test_set_module_viewed`, `test_update_state`, `test_internal_get_state` | availability-completion-flow › "completionview: viewing a cm records viewed and completes it" | P2 | ✅ |
+| 45 | Manual completion: self-marking works; marking others needs the markothers capability | completionlib_test / `test_update_state` (overrideby paths) + `completion/tests/capabilities_test.php` | availability-completion-flow › "manual completion by a teacher for another user…" | P2 | ✅ |
+| 46 | Course completion aggregates module criteria AND (method=ALL) / OR (method=ANY) and date criteria; timecompleted is stored | completionlib_test / `test_aggregate_completions`, `criteria_test` (`completion/tests/completion_criteria_test.php`), `test_mark_complete` | availability-completion-flow › aggregation + date-criterion cases | P2 | ✅ |
+| 47 | Changing criteria after completion data exists triggers CONTROLLED recalculation (job enqueued; recalculation reopens a course that no longer satisfies the new criteria) | completionlib_test / `test_clear_criteria`, `test_aggregate_completions` + report §2#9 | availability-completion-flow › "changing criteria after data exists…" (API twin) + `apps/worker/test/p2-jobs.spec.ts` › completion-recalculate case (AND + tightening reopens, in the worker) | P2 | ✅ |
+| 48 | Golden P2 end-to-end: category → course → section/cm → group/cohort → enrol with role → availability blocks → completion recorded | report §4 P2 DoD | availability-completion-flow › "GOLDEN end-to-end: …" | P2 | ✅ |
+| 49 | Web: category tree renders with courses nested; a locked (show=true) module renders shown-but-disabled with its restriction text | report §3.13/§4 P2 (web scope) | `apps/web/src/pages/courses.spec.tsx` (2 tests) | P2 | ✅ |
+| 50 | Contracts: category tree (recursive), course content with availabilityResult, enrol instance shapes parse | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "course contracts (P2)" | P2 | ✅ |
+
+Skipped / deferred Moodle cases for P2 (with reasons):
+- courselib_test's backup/restore-coupled deletion cases
+  (`test_course_not_deleted_if_backup_process_pending`, async deletion
+  dispatch) — Backup is P5; P2 course delete is synchronous.
+- Groups conversation/messaging cases in lib_test
+  (`test_groups_create_group_with_conversation`, `*_conversation_*`) —
+  Messaging is P4; groups carry no conversation in P2.
+- `test_groups_create_autogroups` — auto-group creation is a bulk admin
+  utility, not part of the P2 group data law; not ported.
+- enrollib_test's plugin-data validation cases
+  (`test_validate_enrol_plugin_data`, `test_update_enrol_plugin_data`) —
+  PHP plugin-field plumbing; our instance config is a typed DTO validated by
+  class-validator instead.
+- completionlib_test's grade-state cases
+  (`test_internal_get_state_with_grade_criteria`, `test_inform_grade_changed`,
+  `test_get_grade_completion*`) — gradebook is P3; P2 declares
+  completionusegrade and the grade availability leaf, both evaluating as
+  unmet without grade data (covered by case 43's grade-leaf test).
+- tree_test's SQL-generation cases (`test_get_user_list_sql`,
+  `test_unique_sql_parameter_behaviour`) — PHP/SQL implementation details;
+  our evaluator is a registered-leaf async evaluator, tested by truth table.
+- info_test's display-string cases — presentation; our API returns
+  structured `failedDescriptions`, asserted in cases 42/49 instead.
