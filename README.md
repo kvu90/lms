@@ -45,6 +45,27 @@ pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3
 
 ## Review
 
+### Deployed review instance (primary)
+
+The full stack runs on Heroku as app `kvu-lms` (buildpack deployment,
+see `docs/adr/015-heroku-buildpack-deployment.md`):
+
+- App: https://kvu-lms-573c864b6f10.herokuapp.com/ (login at `/login`)
+- Health: `GET https://kvu-lms-573c864b6f10.herokuapp.com/api/v1/health`
+- The Heroku-assigned hostname above is the real one — the plain
+  `kvu-lms.herokuapp.com` name was not issued and returns "No such app".
+- Eco dynos sleep after 30 minutes idle, so the first request may take
+  a few seconds to wake the app.
+- Known issue: the Key-Value Store (Redis) mini data plane currently
+  refuses TLS handshakes from the app dynos, so health reports
+  `redis: down` while `database: up`. Login, course data and the UI
+  work; cache/queue-backed features are degraded. Evidence and options
+  are recorded in ADR-015.
+
+Use the demo accounts in the table below to sign in.
+
+### Local review environment (fallback)
+
 Everything below is for the local **development/review environment only** —
 the passwords are sample credentials for the seeded demo accounts, never
 for production.
