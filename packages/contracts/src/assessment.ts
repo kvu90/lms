@@ -179,3 +179,181 @@ export const questionUsageSchema = z.object({
   attempts: z.array(questionAttemptSchema),
 });
 export type QuestionUsage = z.infer<typeof questionUsageSchema>;
+
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+
+/** Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại. */
+export const completionCriterionSchema = z.strictObject({
+  criteriatype: z.string(),
+  moduleinstance: z.number().int().optional(),
+  date: z.string().optional(),
+});
+export type CompletionCriterion = z.infer<typeof completionCriterionSchema>;
+
+/** Payload đặt bộ tiêu chí hoàn thành cho một khoá học. */
+export const setCompletionCriteriaSchema = z.strictObject({
+  method: z.number().int().optional(),
+  criteria: z.array(completionCriterionSchema),
+});
+export type SetCompletionCriteria = z.infer<typeof setCompletionCriteriaSchema>;
+
+/** Payload đánh dấu hoàn thành thủ công cho một course module. */
+export const markManualCompletionSchema = z.strictObject({
+  userid: z.number().int(),
+  complete: z.boolean(),
+});
+export type MarkManualCompletion = z.infer<typeof markManualCompletionSchema>;
+
+/** Payload tạo hạng mục điểm (grade category). */
+export const createGradeCategorySchema = z.strictObject({
+  fullname: z.string().min(1),
+  parentId: z.number().int().optional(),
+  aggregation: z.string().optional(),
+  droplow: z.number().int().optional(),
+  keephigh: z.number().int().optional(),
+  aggregateonlygraded: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+});
+export type CreateGradeCategory = z.infer<typeof createGradeCategorySchema>;
+
+/** Payload sửa hạng mục điểm; `parentId` nhận `null` để đưa hạng mục về gốc. */
+export const updateGradeCategorySchema = z.strictObject({
+  fullname: z.string().optional(),
+  aggregation: z.string().optional(),
+  droplow: z.number().int().optional(),
+  keephigh: z.number().int().optional(),
+  aggregateonlygraded: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+  parentId: z.number().int().nullable().optional(),
+});
+export type UpdateGradeCategory = z.infer<typeof updateGradeCategorySchema>;
+
+/** Payload tạo mục điểm (grade item): `itemtype` manual | mod; `cmId` bắt buộc ở tầng nghiệp vụ khi là mod. */
+export const createGradeItemSchema = z.strictObject({
+  itemname: z.string().min(1),
+  itemtype: z.string().optional(),
+  categoryId: z.number().int().optional(),
+  cmId: z.number().int().optional(),
+  grademax: z.number().optional(),
+  grademin: z.number().optional(),
+  gradepass: z.number().optional(),
+  scaleId: z.number().int().optional(),
+  weightoverride: z.boolean().optional(),
+  weight: z.number().optional(),
+  extracredit: z.boolean().optional(),
+  multiplicator: z.number().optional(),
+  plusfactor: z.number().optional(),
+  hidden: z.boolean().optional(),
+});
+export type CreateGradeItem = z.infer<typeof createGradeItemSchema>;
+
+/** Payload sửa mục điểm (mọi trường đều tuỳ chọn). */
+export const updateGradeItemSchema = z.strictObject({
+  itemname: z.string().optional(),
+  categoryId: z.number().int().optional(),
+  grademax: z.number().optional(),
+  grademin: z.number().optional(),
+  gradepass: z.number().optional(),
+  weightoverride: z.boolean().optional(),
+  weight: z.number().optional(),
+  extracredit: z.boolean().optional(),
+  multiplicator: z.number().optional(),
+  plusfactor: z.number().optional(),
+  hidden: z.boolean().optional(),
+  locked: z.boolean().optional(),
+});
+export type UpdateGradeItem = z.infer<typeof updateGradeItemSchema>;
+
+/** Payload chấm điểm thô cho một người dùng; `rawgrade` nhận `null` để xoá điểm. */
+export const setGradeSchema = z.strictObject({
+  userid: z.number().int(),
+  rawgrade: z.number().nullable().optional(),
+  feedback: z.string().optional(),
+});
+export type SetGrade = z.infer<typeof setGradeSchema>;
+
+/** Payload cập nhật trạng thái một grade đã có (ghi đè/khoá/loại trừ/ẩn/đóng băng). */
+export const updateGradeSchema = z.strictObject({
+  overridden: z.boolean().optional(),
+  finalgrade: z.number().nullable().optional(),
+  locked: z.boolean().optional(),
+  excluded: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+  frozen: z.boolean().optional(),
+  feedback: z.string().optional(),
+});
+export type UpdateGrade = z.infer<typeof updateGradeSchema>;
+
+/** Một mốc chữ cái trong thang điểm chữ (grade letter). */
+export const gradeLetterBoundarySchema = z.strictObject({
+  letter: z.string().min(1),
+  lowerboundary: z.number(),
+});
+export type GradeLetterBoundary = z.infer<typeof gradeLetterBoundarySchema>;
+
+/** Payload đặt toàn bộ thang điểm chữ cho một context. */
+export const setGradeLettersSchema = z.strictObject({
+  letters: z.array(gradeLetterBoundarySchema),
+});
+export type SetGradeLetters = z.infer<typeof setGradeLettersSchema>;
+
+/** Payload tạo thang điểm (grade scale): `scale` là danh sách mức phân tách bằng dấu phẩy. */
+export const createGradeScaleSchema = z.strictObject({
+  name: z.string().min(1),
+  scale: z.string().min(1),
+  description: z.string().optional(),
+});
+export type CreateGradeScale = z.infer<typeof createGradeScaleSchema>;
+
+/** Payload tạo danh mục câu hỏi trong ngân hàng câu hỏi. */
+export const createQuestionCategorySchema = z.strictObject({
+  name: z.string().min(1),
+  contextid: z.number().int(),
+  info: z.string().optional(),
+  parent: z.number().int().optional(),
+});
+export type CreateQuestionCategory = z.infer<typeof createQuestionCategorySchema>;
+
+/** Payload tạo câu hỏi; `answer` là dữ liệu đáp án dùng chung theo loại câu hỏi (truefalse: {correct}; shortanswer: {answers, casesensitive?}). */
+export const createQuestionSchema = z.strictObject({
+  categoryId: z.number().int(),
+  qtype: z.string().min(1),
+  name: z.string().min(1),
+  questiontext: z.string(),
+  defaultmark: z.number().optional(),
+  answer: z.record(z.string(), z.unknown()),
+});
+export type CreateQuestion = z.infer<typeof createQuestionSchema>;
+
+/** Payload sửa câu hỏi (tạo phiên bản mới ở tầng nghiệp vụ; mọi trường đều tuỳ chọn). */
+export const updateQuestionSchema = z.strictObject({
+  name: z.string().optional(),
+  questiontext: z.string().optional(),
+  defaultmark: z.number().optional(),
+  answer: z.record(z.string(), z.unknown()).optional(),
+});
+export type UpdateQuestion = z.infer<typeof updateQuestionSchema>;
+
+/** Một slot trong một lượt sử dụng câu hỏi (question usage). */
+export const questionUsageSlotSchema = z.strictObject({
+  questionId: z.number().int(),
+  maxmark: z.number().optional(),
+});
+export type QuestionUsageSlot = z.infer<typeof questionUsageSlotSchema>;
+
+/** Payload tạo một lượt sử dụng câu hỏi (đề/bài làm) với danh sách slot. */
+export const createQuestionUsageSchema = z.strictObject({
+  component: z.string().min(1),
+  instanceid: z.number().int().optional(),
+  contextid: z.number().int().optional(),
+  preferredbehaviour: z.string().optional(),
+  slots: z.array(questionUsageSlotSchema),
+});
+export type CreateQuestionUsage = z.infer<typeof createQuestionUsageSchema>;
+
+/** Payload nộp câu trả lời cho một attempt; `response` nhận `null`, `finish` kết thúc attempt. */
+export const submitQuestionResponseSchema = z.strictObject({
+  response: z.string().nullable().optional(),
+  finish: z.boolean().optional(),
+});
+export type SubmitQuestionResponse = z.infer<typeof submitQuestionResponseSchema>;

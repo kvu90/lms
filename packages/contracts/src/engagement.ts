@@ -142,3 +142,321 @@ export const noteSchema = z.object({
   publishstate: z.enum(['draft', 'public', 'site']),
 });
 export type Note = z.infer<typeof noteSchema>;
+
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+
+/** Payload tạo cuộc hội thoại: type 1 = cá nhân, 2 = nhóm. */
+export const createConversationSchema = z.strictObject({
+  type: z.number().int().optional(),
+  memberIds: z.array(z.number().int()),
+  name: z.string().optional(),
+});
+export type CreateConversation = z.infer<typeof createConversationSchema>;
+
+/** Payload gửi tin nhắn vào một cuộc hội thoại. */
+export const sendMessageSchema = z.strictObject({
+  text: z.string().min(1),
+  subject: z.string().optional(),
+});
+export type SendMessage = z.infer<typeof sendMessageSchema>;
+
+/** Payload đặt tuỳ chọn kênh nhận cho một message provider. */
+export const setMessagePreferenceSchema = z.strictObject({
+  provider: z.string().min(1),
+  channel: z.enum(['popup', 'email', 'push']),
+  state: z.enum(['loggedin', 'loggedoff']),
+  enabled: z.boolean(),
+});
+export type SetMessagePreference = z.infer<typeof setMessagePreferenceSchema>;
+
+/** Payload phát thông báo hệ thống tới một người dùng. */
+export const notifyUserSchema = z.strictObject({
+  userId: z.number().int(),
+  provider: z.string().min(1),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+  contextUrl: z.string().optional(),
+});
+export type NotifyUser = z.infer<typeof notifyUserSchema>;
+
+/** Quy tắc lặp của sự kiện lịch (chỉ nhận các tần suất hệ thống hỗ trợ). */
+export const calendarRepeatSchema = z.strictObject({
+  freq: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'daily', 'weekly', 'monthly']),
+  count: z.number().int().optional(),
+  until: z.string().optional(),
+});
+export type CalendarRepeat = z.infer<typeof calendarRepeatSchema>;
+
+/** Payload tạo sự kiện lịch theo loại phạm vi (site/category/course/group/user). */
+export const createCalendarEventSchema = z.strictObject({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  eventtype: z.enum(['site', 'category', 'course', 'group', 'user']),
+  courseid: z.number().int().optional(),
+  groupid: z.number().int().optional(),
+  categoryid: z.number().int().optional(),
+  timestart: z.string(),
+  timeduration: z.number().int().optional(),
+  location: z.string().optional(),
+  repeat: calendarRepeatSchema.optional(),
+});
+export type CreateCalendarEvent = z.infer<typeof createCalendarEventSchema>;
+
+/** Payload tạo ngoại lệ (exception) cho một sự kiện lặp. */
+export const createCalendarExceptionSchema = z.strictObject({
+  name: z.string().optional(),
+  timestart: z.string(),
+  description: z.string().optional(),
+});
+export type CreateCalendarException = z.infer<typeof createCalendarExceptionSchema>;
+
+/** Payload tạo đăng ký lịch ngoài (subscription) từ URL hoặc dữ liệu ICS. */
+export const createCalendarSubscriptionSchema = z.strictObject({
+  name: z.string().min(1),
+  url: z.string().optional(),
+  icsdata: z.string().optional(),
+  eventtype: z.enum(['site', 'category', 'course', 'group', 'user']).optional(),
+  courseid: z.number().int().optional(),
+  categoryid: z.number().int().optional(),
+  pollinterval: z.number().int().optional(),
+});
+export type CreateCalendarSubscription = z.infer<typeof createCalendarSubscriptionSchema>;
+
+/** Payload đặt nhắc nhở trước sự kiện (số phút). */
+export const calendarRemindSchema = z.strictObject({
+  minutesBefore: z.number().int(),
+});
+export type CalendarRemind = z.infer<typeof calendarRemindSchema>;
+
+/** Payload tạo huy hiệu (badge): type 1 = site, 2 = course. */
+export const createBadgeSchema = z.strictObject({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  type: z.number().int().optional(),
+  courseid: z.number().int().optional(),
+  issuername: z.string().optional(),
+  issuerurl: z.string().optional(),
+  issuercontact: z.string().optional(),
+  expiredate: z.string().optional(),
+  expireperiod: z.number().int().optional(),
+  version: z.string().optional(),
+});
+export type CreateBadge = z.infer<typeof createBadgeSchema>;
+
+/** Payload sửa huy hiệu (mọi trường đều tuỳ chọn). */
+export const updateBadgeSchema = z.strictObject({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  issuername: z.string().optional(),
+  expireperiod: z.number().int().optional(),
+});
+export type UpdateBadge = z.infer<typeof updateBadgeSchema>;
+
+/** Payload đổi trạng thái vòng đời của huy hiệu. */
+export const setBadgeStatusSchema = z.strictObject({
+  status: z.number().int(),
+});
+export type SetBadgeStatus = z.infer<typeof setBadgeStatusSchema>;
+
+/** Một lá tiêu chí cấp huy hiệu: loại tiêu chí + bộ tham số riêng của loại đó. */
+export const badgeCriteriaLeafSchema = z.strictObject({
+  criteriatype: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  description: z.string().optional(),
+});
+export type BadgeCriteriaLeaf = z.infer<typeof badgeCriteriaLeafSchema>;
+
+/** Payload đặt bộ tiêu chí cấp huy hiệu: method 1 = TẤT CẢ (ALL), 2 = BẤT KỲ (ANY). */
+export const setBadgeCriteriaSchema = z.strictObject({
+  method: z.number().int(),
+  criteria: z.array(badgeCriteriaLeafSchema),
+});
+export type SetBadgeCriteria = z.infer<typeof setBadgeCriteriaSchema>;
+
+/** Payload mang một userId (cấp tay / đánh giá huy hiệu cho một người dùng). */
+export const badgeUserSchema = z.strictObject({
+  userId: z.number().int(),
+});
+export type BadgeUser = z.infer<typeof badgeUserSchema>;
+
+/** Thang đánh giá của một competency framework: danh sách mức + các mức được coi là đạt (proficient). */
+export const competencyScaleSchema = z.strictObject({
+  values: z.array(z.string()),
+  proficient: z.array(z.number().int()),
+});
+export type CompetencyScale = z.infer<typeof competencyScaleSchema>;
+
+/** Payload tạo competency framework kèm thang đánh giá. */
+export const createCompetencyFrameworkSchema = z.strictObject({
+  shortname: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  scale: competencyScaleSchema,
+  visible: z.boolean().optional(),
+});
+export type CreateCompetencyFramework = z.infer<typeof createCompetencyFrameworkSchema>;
+
+/** Payload tạo competency trong một framework. */
+export const createCompetencySchema = z.strictObject({
+  shortname: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  parentId: z.number().int().optional(),
+});
+export type CreateCompetency = z.infer<typeof createCompetencySchema>;
+
+/** Payload liên kết competency với một course module kèm kết quả áp dụng (rule outcome). */
+export const linkCompetencySchema = z.strictObject({
+  competencyId: z.number().int(),
+  ruleoutcome: z.string(),
+});
+export type LinkCompetency = z.infer<typeof linkCompetencySchema>;
+
+/** Payload tạo mẫu kế hoạch học tập (learning plan template). */
+export const createLearningPlanTemplateSchema = z.strictObject({
+  shortname: z.string().min(1),
+  description: z.string().optional(),
+  duedate: z.string().optional(),
+});
+export type CreateLearningPlanTemplate = z.infer<typeof createLearningPlanTemplateSchema>;
+
+/** Payload gắn một competency vào template. */
+export const addTemplateCompetencySchema = z.strictObject({
+  competencyId: z.number().int(),
+});
+export type AddTemplateCompetency = z.infer<typeof addTemplateCompetencySchema>;
+
+/** Payload gắn một cohort vào template (sinh plan cho cả cohort ở tầng nghiệp vụ). */
+export const addTemplateCohortSchema = z.strictObject({
+  cohortId: z.number().int(),
+});
+export type AddTemplateCohort = z.infer<typeof addTemplateCohortSchema>;
+
+/** Payload tạo kế hoạch học tập (từ template hoặc tự do). */
+export const createLearningPlanSchema = z.strictObject({
+  userId: z.number().int().optional(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  templateId: z.number().int().optional(),
+});
+export type CreateLearningPlan = z.infer<typeof createLearningPlanSchema>;
+
+/** Payload nộp bằng chứng (evidence) cho một competency. */
+export const addCompetencyEvidenceSchema = z.strictObject({
+  userId: z.number().int(),
+  competencyId: z.number().int(),
+  planId: z.number().int().optional(),
+  courseId: z.number().int().optional(),
+  description: z.string().min(1),
+  url: z.string().optional(),
+  grade: z.number().int().optional(),
+  note: z.string().optional(),
+  sendForReview: z.boolean().optional(),
+});
+export type AddCompetencyEvidence = z.infer<typeof addCompetencyEvidenceSchema>;
+
+/** Payload chấm mức đạt cho competency của một người dùng. */
+export const gradeUserCompetencySchema = z.strictObject({
+  userId: z.number().int(),
+  competencyId: z.number().int(),
+  planId: z.number().int().optional(),
+  courseId: z.number().int().optional(),
+  grade: z.number().int(),
+  note: z.string().optional(),
+});
+export type GradeUserCompetency = z.infer<typeof gradeUserCompetencySchema>;
+
+/** Payload quyết định khi duyệt (review) competency: mức đạt + ghi chú. */
+export const competencyReviewDecisionSchema = z.strictObject({
+  grade: z.number().int().optional(),
+  note: z.string().optional(),
+});
+export type CompetencyReviewDecision = z.infer<typeof competencyReviewDecisionSchema>;
+
+/** Payload chỉ mang ghi chú (dùng cho các thao tác duyệt/chuyển trạng thái kèm nhận xét). */
+export const competencyNoteSchema = z.strictObject({
+  note: z.string().optional(),
+});
+export type CompetencyNote = z.infer<typeof competencyNoteSchema>;
+
+/** Payload chỉ mang một giá trị số (dùng cho thao tác đặt giá trị đơn lẻ). */
+export const numericValueSchema = z.strictObject({
+  value: z.number().optional(),
+});
+export type NumericValue = z.infer<typeof numericValueSchema>;
+
+/** Payload đặt toàn bộ thẻ (tags) cho một item. */
+export const setItemTagsSchema = z.strictObject({
+  component: z.string(),
+  itemtype: z.string(),
+  itemid: z.number().int(),
+  contextid: z.number().int(),
+  tags: z.array(z.string()),
+});
+export type SetItemTags = z.infer<typeof setItemTagsSchema>;
+
+/** Payload thêm một thẻ cho một item. */
+export const addItemTagSchema = z.strictObject({
+  component: z.string(),
+  itemtype: z.string(),
+  itemid: z.number().int(),
+  contextid: z.number().int(),
+  tag: z.string().min(1),
+});
+export type AddItemTag = z.infer<typeof addItemTagSchema>;
+
+/** Payload thêm bình luận vào một item trong một context. */
+export const addCommentSchema = z.strictObject({
+  contextid: z.number().int(),
+  component: z.string(),
+  commentarea: z.string(),
+  itemid: z.number().int(),
+  content: z.string().min(1),
+});
+export type AddComment = z.infer<typeof addCommentSchema>;
+
+/** Payload chấm điểm (rating) cho một item theo một thang (scale). */
+export const rateItemSchema = z.strictObject({
+  contextid: z.number().int(),
+  component: z.string(),
+  ratingarea: z.string(),
+  itemid: z.number().int(),
+  scaleid: z.number().int(),
+  rating: z.number().int(),
+});
+export type RateItem = z.infer<typeof rateItemSchema>;
+
+/** Payload tạo bài blog: publishstate draft | site. */
+export const createBlogPostSchema = z.strictObject({
+  subject: z.string().min(1),
+  summary: z.string().optional(),
+  content: z.string(),
+  publishstate: z.enum(['draft', 'site']).optional(),
+});
+export type CreateBlogPost = z.infer<typeof createBlogPostSchema>;
+
+/** Payload sửa bài blog (mọi trường đều tuỳ chọn). */
+export const updateBlogPostSchema = z.strictObject({
+  subject: z.string().optional(),
+  summary: z.string().optional(),
+  content: z.string().optional(),
+  publishstate: z.enum(['draft', 'site']).optional(),
+});
+export type UpdateBlogPost = z.infer<typeof updateBlogPostSchema>;
+
+/** Payload liên kết bài blog với một khoá học hoặc course module. */
+export const associateBlogPostSchema = z.strictObject({
+  assoctype: z.enum(['course', 'coursemodule']),
+  associd: z.number().int(),
+});
+export type AssociateBlogPost = z.infer<typeof associateBlogPostSchema>;
+
+/** Payload tạo ghi chú (note) về một người dùng: publishstate draft | public | site. */
+export const createNoteSchema = z.strictObject({
+  userid: z.number().int(),
+  courseid: z.number().int().optional(),
+  content: z.string().min(1),
+  publishstate: z.enum(['draft', 'public', 'site']).optional(),
+  groupid: z.number().int().optional(),
+});
+export type CreateNote = z.infer<typeof createNoteSchema>;

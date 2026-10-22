@@ -255,3 +255,13 @@ export const decidePrivacyRequestSchema = z.strictObject({
   decision: z.enum(['approved', 'rejected']),
 });
 export type DecidePrivacyRequest = z.infer<typeof decidePrivacyRequestSchema>;
+
+/** Payload metadata đi kèm upload file (dạng nền — phía server ép kiểu số vì multipart/form-data luôn là chuỗi). */
+export const uploadFileMetaSchema = z.strictObject({
+  contextid: z.number().int(),
+  component: z.string(),
+  filearea: z.string(),
+  itemid: z.number().int().optional(),
+  filepath: z.string().optional(),
+});
+export type UploadFileMeta = z.infer<typeof uploadFileMetaSchema>;

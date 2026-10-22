@@ -143,3 +143,183 @@ export type CourseCompletion = z.infer<typeof courseCompletionSchema>;
 
 /** Availability tree JSON (Moodle core_availability shape): ops & | !& !| with showc/show at the root. */
 export const availabilityOps = ['&', '|', '!&', '!|'] as const;
+
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+
+/** Payload tạo danh mục khoá học. */
+export const createCourseCategorySchema = z.strictObject({
+  name: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  parent: z.number().int().optional(),
+  visible: z.boolean().optional(),
+});
+export type CreateCourseCategory = z.infer<typeof createCourseCategorySchema>;
+
+/** Payload sửa danh mục khoá học (mọi trường đều tuỳ chọn). */
+export const updateCourseCategorySchema = createCourseCategorySchema.partial();
+export type UpdateCourseCategory = z.infer<typeof updateCourseCategorySchema>;
+
+/** Payload tạo khoá học. */
+export const createCourseSchema = z.strictObject({
+  fullname: z.string().min(1),
+  shortname: z.string().min(1),
+  category: z.number().int(),
+  idnumber: z.string().optional(),
+  summary: z.string().optional(),
+  format: z.string().optional(),
+  visible: z.boolean().optional(),
+  startdate: z.string().optional(),
+  enddate: z.string().optional(),
+  groupmode: z.number().int().optional(),
+  formatOptions: z.record(z.string(), z.string()).optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
+});
+export type CreateCourse = z.infer<typeof createCourseSchema>;
+
+/** Payload sửa khoá học; ngày bắt đầu/kết thúc nhận `null` để xoá mốc thời gian. */
+export const updateCourseSchema = z.strictObject({
+  fullname: z.string().optional(),
+  shortname: z.string().optional(),
+  category: z.number().int().optional(),
+  idnumber: z.string().optional(),
+  summary: z.string().optional(),
+  format: z.string().optional(),
+  visible: z.boolean().optional(),
+  startdate: z.string().nullable().optional(),
+  enddate: z.string().nullable().optional(),
+  groupmode: z.number().int().optional(),
+  formatOptions: z.record(z.string(), z.string()).optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
+});
+export type UpdateCourse = z.infer<typeof updateCourseSchema>;
+
+/** Payload tạo section trong khoá học; `availability` là cây điều kiện thô (validate sâu ở tầng availability). */
+export const createCourseSectionSchema = z.strictObject({
+  name: z.string().optional(),
+  summary: z.string().optional(),
+  visible: z.boolean().optional(),
+  availability: z.unknown().optional(),
+});
+export type CreateCourseSection = z.infer<typeof createCourseSectionSchema>;
+
+/** Payload sửa section (mọi trường đều tuỳ chọn). */
+export const updateCourseSectionSchema = createCourseSectionSchema.partial();
+export type UpdateCourseSection = z.infer<typeof updateCourseSectionSchema>;
+
+/** Payload tạo course module trong một section. */
+export const createCourseModuleSchema = z.strictObject({
+  sectionId: z.number().int(),
+  component: z.string().min(1),
+  instanceid: z.number().int().optional(),
+  name: z.string().optional(),
+  visible: z.boolean().optional(),
+  groupmode: z.number().int().optional(),
+  availability: z.unknown().optional(),
+  completion: z.number().int().optional(),
+  completionview: z.boolean().optional(),
+  completionusegrade: z.boolean().optional(),
+  completionmanual: z.boolean().optional(),
+  completionexpected: z.string().optional(),
+});
+export type CreateCourseModule = z.infer<typeof createCourseModuleSchema>;
+
+/** Payload sửa course module; `completionexpected` nhận `null` để xoá mốc dự kiến hoàn thành. */
+export const updateCourseModuleSchema = z.strictObject({
+  name: z.string().optional(),
+  visible: z.boolean().optional(),
+  groupmode: z.number().int().optional(),
+  availability: z.unknown().optional(),
+  completion: z.number().int().optional(),
+  completionview: z.boolean().optional(),
+  completionusegrade: z.boolean().optional(),
+  completionmanual: z.boolean().optional(),
+  completionexpected: z.string().nullable().optional(),
+  sectionId: z.number().int().optional(),
+});
+export type UpdateCourseModule = z.infer<typeof updateCourseModuleSchema>;
+
+/** Payload tạo nhóm (group) trong khoá học. */
+export const createGroupSchema = z.strictObject({
+  name: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+});
+export type CreateGroup = z.infer<typeof createGroupSchema>;
+
+/** Payload sửa nhóm (mọi trường đều tuỳ chọn). */
+export const updateGroupSchema = createGroupSchema.partial();
+export type UpdateGroup = z.infer<typeof updateGroupSchema>;
+
+/** Payload thêm thành viên vào nhóm/cohort. */
+export const groupMemberSchema = z.strictObject({
+  userid: z.number().int(),
+});
+export type GroupMember = z.infer<typeof groupMemberSchema>;
+
+/** Payload tạo grouping (nhóm các nhóm). */
+export const createGroupingSchema = z.strictObject({
+  name: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+});
+export type CreateGrouping = z.infer<typeof createGroupingSchema>;
+
+/** Payload gắn một nhóm vào grouping. */
+export const groupingGroupSchema = z.strictObject({
+  groupid: z.number().int(),
+});
+export type GroupingGroup = z.infer<typeof groupingGroupSchema>;
+
+/** Payload tạo cohort. */
+export const createCohortSchema = z.strictObject({
+  name: z.string().min(1),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  categoryId: z.number().int().optional(),
+  visible: z.boolean().optional(),
+});
+export type CreateCohort = z.infer<typeof createCohortSchema>;
+
+/** Payload sửa cohort (mọi trường đều tuỳ chọn). */
+export const updateCohortSchema = z.strictObject({
+  name: z.string().optional(),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  visible: z.boolean().optional(),
+});
+export type UpdateCohort = z.infer<typeof updateCohortSchema>;
+
+/** Payload tạo enrol instance; với ghi danh có phí, `cost` là số nguyên đơn vị tiền nhỏ nhất kèm `currency` và `paymentAccountId`. */
+export const createEnrolInstanceSchema = z.strictObject({
+  method: z.string(),
+  name: z.string().optional(),
+  roleShortname: z.string().optional(),
+  status: z.number().int().optional(),
+  enrolperiod: z.number().int().optional(),
+  cohortId: z.number().int().optional(),
+  groupId: z.number().int().optional(),
+  onCohortLeave: z.enum(['suspend', 'unenrol']).optional(),
+  cost: z.number().int().optional(),
+  currency: z.string().optional(),
+  paymentAccountId: z.number().int().optional(),
+});
+export type CreateEnrolInstance = z.infer<typeof createEnrolInstanceSchema>;
+
+/** Payload sửa enrol instance (mọi trường đều tuỳ chọn). */
+export const updateEnrolInstanceSchema = z.strictObject({
+  name: z.string().optional(),
+  status: z.number().int().optional(),
+  enrolperiod: z.number().int().optional(),
+  onCohortLeave: z.enum(['suspend', 'unenrol']).optional(),
+  groupId: z.number().int().optional(),
+});
+export type UpdateEnrolInstance = z.infer<typeof updateEnrolInstanceSchema>;
+
+/** Payload ghi danh một người dùng qua enrol instance. */
+export const enrolUserSchema = z.strictObject({
+  userid: z.number().int(),
+  timestart: z.string().optional(),
+  timeend: z.string().optional(),
+});
+export type EnrolUser = z.infer<typeof enrolUserSchema>;

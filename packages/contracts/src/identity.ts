@@ -71,3 +71,136 @@ export type Capability = z.infer<typeof capabilitySchema>;
 
 /** Moodle permission constants shared by the roles admin UI. */
 export const CAP = { PROHIBIT: -1000, PREVENT: -1, INHERIT: 0, ALLOW: 1 } as const;
+
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở
+ * API qua Standard Schema và cho form phía React; xem ADR về Zod-only) ---- */
+
+/** Payload tạo context truy cập (cây context của hệ thống phân quyền). */
+export const createContextSchema = z.strictObject({
+  contextlevel: z.number().int(),
+  instanceid: z.number().int(),
+  parentId: z.number().int().optional(),
+});
+export type CreateContext = z.infer<typeof createContextSchema>;
+
+/** Payload tạo role. */
+export const createRoleSchema = z.strictObject({
+  name: z.string().min(1),
+  shortname: z.string().min(1),
+  description: z.string().optional(),
+  archetype: z.string().optional(),
+});
+export type CreateRole = z.infer<typeof createRoleSchema>;
+
+/** Payload sửa role (mọi trường đều tuỳ chọn). */
+export const updateRoleSchema = z.strictObject({
+  name: z.string().optional(),
+  description: z.string().optional(),
+});
+export type UpdateRole = z.infer<typeof updateRoleSchema>;
+
+/** Payload gán role cho người dùng trong một context. */
+export const assignRoleSchema = z.strictObject({
+  userid: z.number().int(),
+  roleid: z.number().int(),
+  contextid: z.number().int(),
+});
+export type AssignRole = z.infer<typeof assignRoleSchema>;
+
+/** Payload ghi đè quyền (capability override) của một role trong một context. */
+export const overrideCapabilitySchema = z.strictObject({
+  roleid: z.number().int(),
+  capability: z.string(),
+  contextid: z.number().int(),
+  permission: z.number().int(),
+});
+export type OverrideCapability = z.infer<typeof overrideCapabilitySchema>;
+
+/** Query kiểm tra quyền: người dùng có capability trong context hay không (dạng nền — phía server ép kiểu từ query string). */
+export const hasCapabilityQuerySchema = z.strictObject({
+  userid: z.number().int(),
+  capability: z.string(),
+  contextid: z.number().int(),
+});
+export type HasCapabilityQuery = z.infer<typeof hasCapabilityQuerySchema>;
+
+/** Payload tạo người dùng. */
+export const createUserSchema = z.strictObject({
+  username: z.string().min(1),
+  email: z.email(),
+  password: z.string().min(1),
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
+  forcePasswordChange: z.boolean().optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
+});
+export type CreateUser = z.infer<typeof createUserSchema>;
+
+/** Payload sửa người dùng (mọi trường đều tuỳ chọn). */
+export const updateUserSchema = z.strictObject({
+  email: z.email().optional(),
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
+  password: z.string().optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
+});
+export type UpdateUser = z.infer<typeof updateUserSchema>;
+
+/** Query danh sách người dùng (dạng nền — phía server ép kiểu phân trang từ query string). */
+export const listUsersQuerySchema = z.strictObject({
+  search: z.string().optional(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).optional(),
+});
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+
+/** Payload đặt một tuỳ chọn (preference) của người dùng. */
+export const setUserPreferenceSchema = z.strictObject({
+  name: z.string(),
+  value: z.string().optional(),
+});
+export type SetUserPreference = z.infer<typeof setUserPreferenceSchema>;
+
+/** Payload đăng nhập bằng username/password. */
+export const loginSchema = z.strictObject({
+  username: z.string(),
+  password: z.string(),
+});
+export type Login = z.infer<typeof loginSchema>;
+
+/** Payload làm mới / thu hồi phiên bằng refresh token. */
+export const refreshTokenSchema = z.strictObject({
+  refreshToken: z.string(),
+});
+export type RefreshToken = z.infer<typeof refreshTokenSchema>;
+
+/** Payload đổi mật khẩu của chính người dùng. */
+export const changePasswordSchema = z.strictObject({
+  currentPassword: z.string(),
+  newPassword: z.string().min(1),
+});
+export type ChangePassword = z.infer<typeof changePasswordSchema>;
+
+/** Payload đăng nhập thay (login-as) — chỉ quản trị viên có quyền mới dùng được. */
+export const loginAsSchema = z.strictObject({
+  userid: z.number().int(),
+});
+export type LoginAs = z.infer<typeof loginAsSchema>;
+
+/** Payload tạo danh mục trường tuỳ chỉnh (custom field category). */
+export const createCustomFieldCategorySchema = z.strictObject({
+  name: z.string(),
+  component: z.string(),
+  area: z.string(),
+});
+export type CreateCustomFieldCategory = z.infer<typeof createCustomFieldCategorySchema>;
+
+/** Payload tạo trường tuỳ chỉnh; `configdata` là cấu hình riêng theo loại trường. */
+export const createCustomFieldSchema = z.strictObject({
+  categoryid: z.number().int(),
+  shortname: z.string(),
+  name: z.string(),
+  type: z.string(),
+  configdata: z.record(z.string(), z.unknown()).optional(),
+});
+export type CreateCustomField = z.infer<typeof createCustomFieldSchema>;
