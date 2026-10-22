@@ -402,3 +402,66 @@ outcomes were translated into HTTP (Supertest) tests.
 | same file — user-picker scoping by course | Behat (SKIPPED as UI detail) | `search/tests/behat/search_by_user.feature` — scenario "As student, cannot see users on other courses": the expectation binds to the PHP search form's course-scoped autocomplete; the API-level business rule (user documents filtered by `moodle/user:viewdetails` at the user context) is covered by the PHPUnit-derived search flow test above |
 | same file — restore into an existing course keeps the target identity and gains the source content; restore as new copies exactly the source structure | Behat | `backup/util/ui/tests/behat/restore_moodle2_courses.feature` — scenarios "Restore a course in another existing course" and "Restore a course in a new course" (the `.mbz` filename, blocks and format settings in the scenarios are Moodle-format/UI details and were skipped; content and section-count expectations were kept) |
 | same file — two users submit export requests; officer sees both awaiting approval; approving completes them, denying rejects | Behat | `admin/tool/dataprivacy/tests/behat/manage_data_requests.feature` — scenarios "Bulk accepting requests" and "Bulk denying requests" (bulk selection on the UI translated into per-request decisions through the API; the "general enquiry" message requests of the first scenario are a separate request type not implemented here and were skipped) |
+
+## Behat retro-audit of the older modules (cleanup round, 2026-10-22)
+
+Oracle types, stated once for the older sections above: every row in the
+P1–P4 sections cites a Moodle **PHPUnit** file/case (oracle type: PHPUnit)
+unless the row itself says otherwise; the platform section further down
+already types its rows individually. This round re-audited the older modules
+against the **Behat** features of `MOODLE_503_STABLE` (tree under `public/`,
+same note as the P1 section) to catch end-to-end journeys the PHPUnit-derived
+tests had not covered. Behat steps bound to the PHP UI (clicks, forms, page
+text) were skipped per the standing convention; only business steps and
+expected outcomes were translated into Supertest e2e.
+
+Feature files examined per module: course (59), grade (46), badges (17),
+message (16), admin/tool/lp learning plans (12), calendar (9), completion
+(15), enrol/self (4), enrol/manual (3), enrol/cohort (2), group (6),
+user (~40, sampled), question bank (sampled).
+
+### Coverage by flow file after this audit
+
+| Our flow test | Oracle type of pre-existing rows | Behat retro status |
+|---|---|---|
+| `access-capability.e2e-spec.ts`, `auth-flow.e2e-spec.ts`, `users-flow.e2e-spec.ts`, `custom-fields-flow.e2e-spec.ts` | PHPUnit (accesslib/authlib/user tests) | Audited against user/auth Behat features (addnewuser, delete_users, custom_profile_fields, edituserpassword): journeys already covered; remaining scenarios are profile-page UI |
+| `courses-flow.e2e-spec.ts`, `enrol-groups-flow.e2e-spec.ts` | PHPUnit (course/category/group/enrol tests) | Audited; one journey added below (cohort → group); gaps recorded below |
+| `availability-completion-flow.e2e-spec.ts` | PHPUnit (completionlib, availability tests) | Audited against completion features (activity_completion_criteria, enable_completion_on_view_and_grade, teacher_manual_completion): covered |
+| `grades-questions-flow.e2e-spec.ts` | PHPUnit (gradebook, question engine tests) | Audited; one journey added below (grade scales) |
+| `messaging-calendar-flow.e2e-spec.ts` | PHPUnit (message api_test, calendar tests) | Audited; one journey added below (event deletion); divergences recorded below |
+| `badges-competency-flow.e2e-spec.ts` | PHPUnit (badgeslib, competency api_test) | Audited; one journey added below (badge-requires-badge); gaps recorded below |
+| `social-flow.e2e-spec.ts`, `files-flow.e2e-spec.ts` | PHPUnit (taglib, comment, rating, blog, file tests) | Not Behat-audited this round — no dedicated core Behat suites drive these APIs beyond UI pages; marked explicitly as unaudited rather than implied covered |
+
+### Journeys added from Behat scenarios (`apps/api/test/behat-retro-flow.e2e-spec.ts`)
+
+| Behat oracle (feature / scenario) | Our added test |
+|---|---|
+| `enrol/cohort/tests/behat/enrolcohorts.feature` / "Course cohort enrolment creates a new group" — adapted: this system references an existing group on the instance (`groupId`) instead of creating one during sync | "cohort enrolment places synced members into the instance group" |
+| `badges/tests/behat/criteria_*.feature` family (criteria tree semantics) — the `badge` leaf of our criteria evaluator had no e2e | "badge criteria can require another badge: badge B is issued only after badge A" |
+| `calendar/tests/behat/calendar.feature` / "Delete an event" | "deleting a calendar event removes it from the owner listing" |
+| `grade/tests/behat/grade_scales.feature` (grade with custom scales) | "grade scales: a scale item takes index grades and reports them in the gradebook" |
+
+### Gaps found by the audit — recorded, NOT silently skipped
+
+These Behat journeys have business meaning but the behaviour is **not
+implemented** in this system, so no e2e was added (adding the behaviour is
+feature work, outside this cleanup round):
+
+| Behat oracle | Gap |
+|---|---|
+| `enrol/self/tests/behat/self_enrolment.feature` / "Self-enrolment enabled requiring an enrolment key" and "...requiring a group enrolment key" | Self-enrol instances have no enrolment-key field at all (schema has no key column); any user may self-enrol into an enabled self instance |
+| `enrol/self` + `enrol/manual` welcome-message scenarios | No welcome message is sent on enrolment |
+| `enrol/self/tests/behat/self_enrolment.feature` / "Self unenrol as a self-enrolled student" | Unenrol requires the manage capability; a student cannot unenrol themselves |
+| `enrol/cohort/tests/behat/enrolcohorts.feature` / "Editing a cohort enrolment method's role should change participants' role" | Updating an instance does not re-assign the role of already-enrolled members |
+| `badges/tests/behat/criteria_cohort.feature`, `criteria_profile.feature` | Badge criteria leaf types `cohort` and `profile` are not supported (supported: coursecompletion, activitycompletion, competency, badge, manual) |
+| `badges/tests/behat/award_badge.feature` / "Badge awarded depending on the course completion by-date" | The `coursecompletion` leaf ignores Moodle's by-date parameter |
+| `message/tests/behat` / "Disallow sending a message if you are neither a contact nor do you share a course with the user" | Messaging enforces blocks and suspension only; there is no contact/shared-course gate (Moodle ties this to the `messagingallusers` setting, which has no equivalent here) |
+| `message/tests/behat` / group conversation member sync scenarios | Conversations have explicit member lists; course-group conversations that auto-sync members do not exist |
+| `calendar/tests/behat/export.feature` (ICS export + export URLs) | Calendar export (ICS download / tokenised export URL) is not implemented; only subscription import is |
+| `group/tests/behat/private_groups.feature` | Groups have no visibility mode; only the course groupmode (separate groups) law is enforced |
+
+### Recorded divergence (implemented differently on purpose)
+
+| Behat oracle | Divergence |
+|---|---|
+| `message/tests/behat` / "Delete a message sent by the user..." scenarios | Moodle lets a sender delete their own message within a time limit; this system deliberately makes sent messages immutable (project decision recorded in the messaging flow test) and the e2e asserts immutability instead |
