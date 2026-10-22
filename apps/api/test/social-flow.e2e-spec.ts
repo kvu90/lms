@@ -137,15 +137,19 @@ describe('P4 social: tags, comments, ratings, blog, notes', () => {
       raters.push((await login(app, u.username, STRONG_PASSWORD)).accessToken);
     }
     const systemCtx = await contextIdByLevelInstance(app, admin, 10, 0);
+    // Run-unique item ids: lms_test is persistent across runs, and aggregates
+    // are per item — fixed ids would accumulate ratings from previous runs.
+    const base = (Date.now() % 100000) * 10;
+    const [itemA, itemB, itemC, itemBad] = [base + 1, base + 2, base + 3, base + 9];
     const rate = async (token: string, itemid: number, rating: number) => {
       const res = await http(app).post('/api/v1/ratings').set('Authorization', `Bearer ${token}`)
         .send({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid, scaleid: 5, rating });
       expect(res.status).toBe(201);
     };
     // Oracle data of test_get_ratings_sql, item by item.
-    await rate(raters[0]!, 1, 1); await rate(raters[1]!, 1, 3);
-    await rate(raters[0]!, 2, 1); await rate(raters[1]!, 2, 4);
-    await rate(raters[0]!, 3, 3); await rate(raters[1]!, 3, 5);
+    await rate(raters[0]!, itemA, 1); await rate(raters[1]!, itemA, 3);
+    await rate(raters[0]!, itemB, 1); await rate(raters[1]!, itemB, 4);
+    await rate(raters[0]!, itemC, 3); await rate(raters[1]!, itemC, 5);
     const agg = async (itemid: number) => {
       const res = await http(app).get('/api/v1/ratings/aggregate')
         .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid })
@@ -153,24 +157,24 @@ describe('P4 social: tags, comments, ratings, blog, notes', () => {
       expect(res.status).toBe(200);
       return res.body as { count: number; average: number };
     };
-    expect(await agg(1)).toMatchObject({ count: 2, average: 2 });
-    expect(await agg(2)).toMatchObject({ count: 2, average: 2.5 });
-    expect(await agg(3)).toMatchObject({ count: 2, average: 4 });
+    expect(await agg(itemA)).toMatchObject({ count: 2, average: 2 });
+    expect(await agg(itemB)).toMatchObject({ count: 2, average: 2.5 });
+    expect(await agg(itemC)).toMatchObject({ count: 2, average: 4 });
     // Out-of-scale ratings are refused (scale max 5).
     const bad = await http(app).post('/api/v1/ratings').set('Authorization', `Bearer ${raters[0]!}`)
-      .send({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: 9, scaleid: 5, rating: 9 });
+      .send({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: itemBad, scaleid: 5, rating: 9 });
     expect(bad.status).toBe(400);
     // Re-rating updates the same row (one rating per user per item).
-    await rate(raters[0]!, 1, 5);
-    expect(await agg(1)).toMatchObject({ count: 2, average: 4 });
+    await rate(raters[0]!, itemA, 5);
+    expect(await agg(itemA)).toMatchObject({ count: 2, average: 4 });
     // Individual ratings need viewall: a plain rater is refused the list…
     const listDenied = await http(app).get('/api/v1/ratings')
-      .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: 1 })
+      .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: itemA })
       .set('Authorization', `Bearer ${raters[2]!}`);
     expect(listDenied.status).toBe(403);
     // …while the admin (manager archetype) sees them.
     const listAdmin = await http(app).get('/api/v1/ratings')
-      .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: 1 })
+      .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid: itemA })
       .set('Authorization', `Bearer ${admin}`);
     expect(listAdmin.body).toHaveLength(2);
     void ctxId;

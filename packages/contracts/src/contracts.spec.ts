@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  courseCategoryTreeSchema, courseContentSchema, enrolInstanceSchema,
-  gradebookSchema, healthStatusSchema, loginResponseSchema, problemDetailsSchema,
-  questionUsageSchema, userProfileSchema,
+  badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, enrolInstanceSchema,
+  gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, messagePreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
+  questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -23,6 +23,47 @@ describe('contracts', () => {
       checks: { database: 'up', redis: 'up' },
     });
     expect(parsed.checks.database).toBe('up');
+  });
+});
+
+describe('engagement contracts (P4)', () => {
+  it('parses a conversation, a notification and a preference row', () => {
+    const conv = conversationSchema.parse({ id: 1, type: 2, name: 'Study group', members: [2, 3, 4] });
+    expect(conv.members).toHaveLength(3);
+    const notif = notificationSchema.parse({
+      id: 9, useridto: 3, subject: 'Badge awarded', fullmessage: 'You earned Finisher',
+      eventtype: 'badge_awarded', timeread: null, timecreated: new Date().toISOString(),
+    });
+    expect(notif.timeread).toBeNull();
+    const pref = messagePreferenceSchema.parse({ provider: 'badge_awarded', channel: 'popup', loggedin: true, loggedoff: false });
+    expect(pref.loggedoff).toBe(false);
+  });
+
+  it('parses calendar events, badges and rejects impossible shapes', () => {
+    const ev = calendarEventSchema.parse({
+      id: 5, name: 'Deadline', eventtype: 'course', timestart: new Date().toISOString(),
+      timeduration: 3600, repeatid: 5, isexception: false,
+    });
+    expect(ev.eventtype).toBe('course');
+    expect(() => calendarEventSchema.parse({ ...ev, eventtype: 'global' })).toThrow();
+    const badge = badgeSchema.parse({ id: 2, name: 'Finisher', type: 1, status: 1 });
+    expect(badge.status).toBe(1);
+    const issued = issuedBadgeSchema.parse({
+      id: 3, badgeid: 2, userid: 7, uniquehash: 'a'.repeat(64), dateissued: new Date().toISOString(), dateexpire: null, revoked: false,
+    });
+    expect(issued.uniquehash).toHaveLength(64);
+  });
+
+  it('parses learning plans, user competencies, rating aggregates and notes', () => {
+    const plan = learningPlanSchema.parse({ id: 4, name: 'Plan A', userid: 7, templateid: null, status: 1 });
+    expect(plan.status).toBe(1);
+    const uc = userCompetencySchema.parse({ id: 1, userid: 7, competencyid: 3, grade: 1, proficiency: true, status: 0 });
+    expect(uc.proficiency).toBe(true);
+    const agg = ratingAggregateSchema.parse({ count: 2, average: 2.5, sum: 5, min: 1, max: 4 });
+    expect(agg.average).toBe(2.5);
+    const note = noteSchema.parse({ id: 1, userid: 7, courseid: 3, createdby: 5, content: 'x', publishstate: 'public' });
+    expect(note.publishstate).toBe('public');
+    expect(() => noteSchema.parse({ ...note, publishstate: 'custom' })).toThrow();
   });
 });
 

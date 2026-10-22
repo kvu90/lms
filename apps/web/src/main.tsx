@@ -5,6 +5,12 @@ import { Button } from './components/ui/button';
 import { AuthProvider, useAuth } from './lib/auth';
 import { AdminRolesPage } from './pages/admin-roles';
 import { AdminUsersPage } from './pages/admin-users';
+import { BadgesPage } from './pages/badges';
+import { BlogPage } from './pages/blog';
+import { CalendarPage } from './pages/calendar';
+import { LearningPlanPage } from './pages/learning-plan';
+import { MessagesPage } from './pages/messages';
+import { NotificationsPage } from './pages/notifications';
 import { CoursePage } from './pages/course';
 import { CourseAdminPage } from './pages/course-admin';
 import { CoursesPage } from './pages/courses';
@@ -26,6 +32,12 @@ function Shell() {
           <Link to="/profile">Profile</Link>
           <Link to="/courses">Courses</Link>
           <Link to="/questions">Questions</Link>
+          <Link to="/messages">Messages</Link>
+          <Link to="/notifications">Notifications</Link>
+          <Link to="/calendar">Calendar</Link>
+          <Link to="/badges">Badges</Link>
+          <Link to="/learning-plan">Learning plan</Link>
+          <Link to="/blog">Blog</Link>
           <Link to="/admin/users">Users</Link>
           <Link to="/admin/roles">Roles</Link>
           <Link to="/health">Health</Link>
@@ -62,6 +74,12 @@ const router = createBrowserRouter([
       { path: '/courses/:id/grades', element: <GradebookPage /> },
       { path: '/questions', element: <QuestionsPage /> },
       { path: '/question-usages/:id', element: <QuestionUsagePage /> },
+      { path: '/messages', element: <MessagesPage /> },
+      { path: '/notifications', element: <NotificationsPage /> },
+      { path: '/calendar', element: <CalendarPage /> },
+      { path: '/badges', element: <BadgesPage /> },
+      { path: '/learning-plan', element: <LearningPlanPage /> },
+      { path: '/blog', element: <BlogPage /> },
     ],
   },
 ]);

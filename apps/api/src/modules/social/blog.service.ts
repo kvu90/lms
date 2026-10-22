@@ -79,7 +79,7 @@ export class BlogService {
     return false;
   }
 
-  async listPosts(viewerId: number, filter: { userid?: number; courseid?: number; cmid?: number }): Promise<(BlogPostRow & { associations: unknown })[]> {
+  async listPosts(viewerId: number, filter: { userid?: number; courseid?: number; cmid?: number }): Promise<(BlogPostRow & { associations: unknown; contextid: number })[]> {
     let candidates: BlogPostRow[];
     if (filter.courseid) {
       const assocs = await this.repo.listAssociationsForTarget('course', filter.courseid);
@@ -100,10 +100,13 @@ export class BlogService {
     } else {
       candidates = await this.repo.listPosts();
     }
-    const out: (BlogPostRow & { associations: unknown })[] = [];
+    const out: (BlogPostRow & { associations: unknown; contextid: number })[] = [];
     for (const post of candidates) {
       if (await this.canView(post, viewerId)) {
-        out.push({ ...post, associations: await this.repo.listAssociations(post.id) });
+        // contextid = the author's user context, so polymorphic consumers
+        // (tags/comments/ratings) can address the post without guessing.
+        const authorCtx = await this.contexts.getByLevelInstance(30, post.userid);
+        out.push({ ...post, associations: await this.repo.listAssociations(post.id), contextid: authorCtx?.id ?? 0 });
       }
     }
     return out;
