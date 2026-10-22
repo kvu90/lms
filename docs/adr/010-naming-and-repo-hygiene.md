@@ -45,3 +45,14 @@ tham số base ref tuỳ chọn):
 - Di chuyển schema giữa các file KHÔNG được đổi tên bảng/cột/kiểu/ràng
   buộc và không được sinh migration mới (`drizzle-kit generate` phải báo
   không có thay đổi schema).
+
+- Các file biên dịch bị track trước đây (`apps/api/drizzle.config.js`,
+  `.d.ts`, `.js.map`) đã được gỡ khỏi git; `tsconfig.build.json` của api
+  và worker chỉ `include` thư mục `src/` (file cấu hình gốc của app không
+  còn nằm trong chương trình build phát hành) và `.gitignore` chặn mọi
+  `.js`/`.d.ts`/`.js.map` sinh cạnh source.
+- Guard `scripts/check-repo-hygiene.mjs` đã mở rộng từ quét diff thành
+  quét toàn bộ cây git: file biên dịch bị track (whitelist tường minh,
+  hiện rỗng), thư mục `dist/` bị track, và nhãn phase trong nội dung lẫn
+  tên file thuộc `src`/`test` của apps/packages đều làm CI fail (bước
+  "Repo hygiene guards" trong `.github/workflows/ci.yml`).

@@ -38,6 +38,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Repo hygiene guards (ADR-010)
+        run: node scripts/check-repo-hygiene.mjs
       - run: pnpm install --frozen-lockfile
       - name: Create the lms database (lms_test comes from the service)
         run: |
