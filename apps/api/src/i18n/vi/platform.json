@@ -1,15 +1,14 @@
 {
-  "reportReadySubject": "Báo cáo theo lịch đã chạy xong",
-  "reportReadyBody": "Báo cáo \"{name}\" đã chạy xong theo lịch. Mở báo cáo để xem kết quả mới nhất.",
   "backupMode": {
     "new": "Tạo khoá mới",
     "merge": "Gộp vào khoá đích",
     "replace": "Thay thế nội dung khoá đích"
   },
-  "privacyRequestType": {
-    "export": "Xuất dữ liệu cá nhân",
-    "delete": "Xoá dữ liệu cá nhân"
-  },
+  "badgeAwardedBody": "Chúc mừng, bạn đã nhận được huy hiệu \"{name}\" ({issuer}).",
+  "badgeAwardedSmall": "Đã cấp huy hiệu: {name}",
+  "badgeAwardedSubject": "Bạn đã được cấp huy hiệu \"{name}\"",
+  "calendarReminderBody": "Sự kiện \"{name}\" bắt đầu lúc {time}.",
+  "calendarReminderSubject": "Nhắc nhở: {name}",
   "contentVisibility": {
     "draft": "Bản nháp",
     "public": "Công khai"
@@ -19,5 +18,15 @@
     "succeeded": "Thành công",
     "failed": "Thất bại",
     "refunded": "Đã hoàn tiền"
-  }
+  },
+  "planReviewRequestedBody": "Người dùng {userId} đã yêu cầu duyệt kế hoạch học tập {planId}.",
+  "planReviewRequestedSubject": "Yêu cầu duyệt kế hoạch học tập: {name}",
+  "privacyRequestType": {
+    "export": "Xuất dữ liệu cá nhân",
+    "delete": "Xoá dữ liệu cá nhân"
+  },
+  "reportFinishedBody": "Báo cáo {reportId} đã chạy xong với {rows} dòng.",
+  "reportFinishedSubject": "Báo cáo theo lịch đã chạy xong",
+  "reportReadyBody": "Báo cáo \"{name}\" đã chạy xong theo lịch. Mở báo cáo để xem kết quả mới nhất.",
+  "reportReadySubject": "Báo cáo theo lịch đã chạy xong"
 }

@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { I18nService } from '@nestjs/i18n';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
@@ -30,6 +31,7 @@ export class GroupsService implements OnModuleInit {
     private readonly availability: AvailabilityService,
     private readonly outbox: OutboxService,
     private readonly emitter: EventEmitter2,
+    private readonly i18n: I18nService,
   ) {}
 
   onModuleInit(): void {
@@ -37,16 +39,16 @@ export class GroupsService implements OnModuleInit {
     this.availability.register('group', async (leaf, ctx) => {
       const groupId = Number(leaf.id ?? leaf.groupid ?? 0);
       const member = groupId ? await this.repo.isMember(groupId, ctx.userId) : false;
-      return { available: member, description: `Must be in group ${groupId}` };
+      return { available: member, description: this.i18n.t('availability.mustBeInGroup', { args: { groupId } }) };
     });
     this.availability.register('grouping', async (leaf, ctx) => {
       const groupingId = Number(leaf.id ?? leaf.groupingid ?? 0);
-      if (!groupingId) return { available: false, description: 'Grouping condition without id' };
+      if (!groupingId) return { available: false, description: this.i18n.t('availability.groupingMissingId') };
       const groups = await this.repo.groupsInGrouping(groupingId);
       for (const g of groups) {
-        if (await this.repo.isMember(g.id, ctx.userId)) return { available: true, description: `In grouping ${groupingId}` };
+        if (await this.repo.isMember(g.id, ctx.userId)) return { available: true, description: this.i18n.t('availability.inGrouping', { args: { groupingId } }) };
       }
-      return { available: false, description: `Must be in grouping ${groupingId}` };
+      return { available: false, description: this.i18n.t('availability.mustBeInGrouping', { args: { groupingId } }) };
     });
   }
 

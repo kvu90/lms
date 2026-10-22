@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { I18nService } from '@nestjs/i18n';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
@@ -20,7 +21,7 @@ export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'sk
  */
 @Processor('calendar-reminders')
 export class CalendarReminderProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
 
   async process(job: Job<CalendarReminderJobData>): Promise<CalendarReminderResult> {
     const { eventId, userId } = job.data;
@@ -39,10 +40,13 @@ export class CalendarReminderProcessor extends WorkerHost {
       eq(userPreferences.name, 'message_provider_calendar_reminder_popup_loggedin'),
     ));
     if (pref?.value === '0') return { status: 'skipped-preference' };
-    const subject = `Reminder: ${event.name}`;
+    // Text nhắc nhở tra catalog i18n; worker ngoài request context nên
+    // truyền locale tường minh (mặc định 'vi' như các processor nền tảng).
+    const recipientLocale = 'vi';
+    const subject = this.i18n.t('platform.calendarReminderSubject', { locale: recipientLocale, args: { name: event.name } });
     const [notification] = await this.db.insert(notifications).values({
       useridto: userId, subject,
-      fullmessage: `The event "${event.name}" starts at ${event.timestart.toISOString()}.`,
+      fullmessage: this.i18n.t('platform.calendarReminderBody', { locale: recipientLocale, args: { name: event.name, time: event.timestart.toISOString() } }),
       smallmessage: subject, component: 'core_calendar', eventtype: 'calendar_reminder',
       contexturl,
     }).returning();

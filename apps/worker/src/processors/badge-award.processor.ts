@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { I18nService } from '@nestjs/i18n';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
@@ -28,7 +29,7 @@ export interface BadgeAwardResult { evaluated: number; issued: number[] }
  */
 @Processor('badge-award')
 export class BadgeAwardProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
 
   private async leafSatisfied(leaf: { badgeid: number; criteriatype: string; params: unknown }, userId: number): Promise<boolean> {
     const params = (leaf.params ?? {}) as Record<string, unknown>;
@@ -102,11 +103,14 @@ export class BadgeAwardProcessor extends WorkerHost {
       }).onConflictDoNothing({ target: [badgeIssued.badgeid, badgeIssued.userid] }).returning();
       if (!issued) continue;
       issuedIds.push(issued.id);
+      // Text thông báo tra catalog i18n; worker ngoài request context nên
+      // truyền locale tường minh (mặc định 'vi' như các processor nền tảng).
+      const recipientLocale = 'vi';
       await this.db.insert(notifications).values({
         useridto: userId,
-        subject: `You have been awarded the badge "${badgeRow.name}"`,
-        fullmessage: `Congratulations, you earned the badge "${badgeRow.name}" (${badgeRow.issuername}).`,
-        smallmessage: `Badge awarded: ${badgeRow.name}`,
+        subject: this.i18n.t('platform.badgeAwardedSubject', { locale: recipientLocale, args: { name: badgeRow.name } }),
+        fullmessage: this.i18n.t('platform.badgeAwardedBody', { locale: recipientLocale, args: { name: badgeRow.name, issuer: badgeRow.issuername } }),
+        smallmessage: this.i18n.t('platform.badgeAwardedSmall', { locale: recipientLocale, args: { name: badgeRow.name } }),
         component: 'core_badges', eventtype: 'badge_awarded',
         contexturl: `/badges/${badgeRow.id}`,
       });

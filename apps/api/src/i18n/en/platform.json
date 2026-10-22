@@ -1,15 +1,14 @@
 {
-  "reportReadySubject": "Your scheduled report has finished",
-  "reportReadyBody": "The report \"{name}\" has finished its scheduled run. Open the report to see the latest results.",
   "backupMode": {
     "new": "Create a new course",
     "merge": "Merge into the target course",
     "replace": "Replace the target course content"
   },
-  "privacyRequestType": {
-    "export": "Export personal data",
-    "delete": "Delete personal data"
-  },
+  "badgeAwardedBody": "Congratulations, you earned the badge \"{name}\" ({issuer}).",
+  "badgeAwardedSmall": "Badge awarded: {name}",
+  "badgeAwardedSubject": "You have been awarded the badge \"{name}\"",
+  "calendarReminderBody": "The event \"{name}\" starts at {time}.",
+  "calendarReminderSubject": "Reminder: {name}",
   "contentVisibility": {
     "draft": "Draft",
     "public": "Public"
@@ -19,5 +18,15 @@
     "succeeded": "Succeeded",
     "failed": "Failed",
     "refunded": "Refunded"
-  }
+  },
+  "planReviewRequestedBody": "User {userId} requested a review of learning plan {planId}.",
+  "planReviewRequestedSubject": "Learning plan review requested: {name}",
+  "privacyRequestType": {
+    "export": "Export personal data",
+    "delete": "Delete personal data"
+  },
+  "reportFinishedBody": "Report {reportId} finished with {rows} rows.",
+  "reportFinishedSubject": "Scheduled report finished",
+  "reportReadyBody": "The report \"{name}\" has finished its scheduled run. Open the report to see the latest results.",
+  "reportReadySubject": "Your scheduled report has finished"
 }

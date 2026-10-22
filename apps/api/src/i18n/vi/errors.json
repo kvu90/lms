@@ -1,7 +1,31 @@
 {
+  "access": {
+    "capability_denied": "Bạn không có quyền (capability) cần thiết cho thao tác này",
+    "context_not_found": "Không tìm thấy context",
+    "invalid_permission": "Giá trị quyền (permission) không hợp lệ",
+    "parent_context_not_found": "Không tìm thấy context cha",
+    "role_not_found": "Không tìm thấy vai trò (role)",
+    "role_shortname_taken": "Tên ngắn (shortname) của vai trò đã tồn tại"
+  },
   "analytics": {
     "model_not_found": "Không tìm thấy model phân tích",
     "provider_not_found": "Không tìm thấy provider phân tích đã đăng ký"
+  },
+  "auth": {
+    "account_inactive": "Tài khoản chưa được kích hoạt",
+    "account_suspended": "Tài khoản đã bị tạm khoá (suspended)",
+    "guest_login_denied": "Tài khoản khách (guest) không thể đăng nhập bằng mật khẩu",
+    "invalid_credentials": "Tên đăng nhập hoặc mật khẩu không đúng",
+    "locked_out": "Tài khoản đã bị khoá do đăng nhập sai quá nhiều lần",
+    "loginas_admin_denied": "Không thể đăng nhập thay một quản trị viên hệ thống",
+    "refresh_invalid": "Refresh token không hợp lệ hoặc đã hết hạn",
+    "refresh_reuse_detected": "Phát hiện dùng lại refresh token; toàn bộ phiên đã bị thu hồi",
+    "session_expired": "Phiên đăng nhập đã hết hạn",
+    "unauthenticated": "Cần đăng nhập để tiếp tục"
+  },
+  "availability": {
+    "invalid_tree": "Cây điều kiện hiển thị (availability) không hợp lệ",
+    "not_available": "Hoạt động này chưa sẵn sàng cho bạn"
   },
   "backup": {
     "job_not_found": "Không tìm thấy backup job",
@@ -10,10 +34,103 @@
     "target_required": "Chế độ restore này yêu cầu khoá đích",
     "unsupported_format": "Định dạng bản sao lưu không được hỗ trợ"
   },
+  "badges": {
+    "assertion_not_found": "Không tìm thấy bản ghi cấp huy hiệu",
+    "bad_criteria_type": "Loại tiêu chí huy hiệu không được hỗ trợ",
+    "bad_method": "Phương thức tiêu chí phải là 1 (TẤT CẢ) hoặc 2 (BẤT KỲ)",
+    "bad_status": "Không thể đặt trực tiếp trạng thái huy hiệu này",
+    "course_required": "Huy hiệu cấp khoá học yêu cầu khoá học",
+    "criteria_frozen": "Tiêu chí của huy hiệu đang hoạt động đã bị đóng băng. Hãy nhân bản huy hiệu để thay đổi tiêu chí.",
+    "issuer_role": "Tổ chức cấp phát không có vai trò cấp huy hiệu cần thiết",
+    "no_criteria": "Không thể kích hoạt huy hiệu khi chưa có tiêu chí",
+    "no_manual_criteria": "Huy hiệu này không có tiêu chí cấp tay",
+    "not_active": "Chỉ huy hiệu đang hoạt động mới được cấp",
+    "not_found": "Không tìm thấy huy hiệu",
+    "site_badge_manager_only": "Huy hiệu cấp hệ thống yêu cầu vai trò quản lý ở context hệ thống"
+  },
+  "blog": {
+    "associate_forbidden": "Chỉ tác giả mới liên kết được bài viết này",
+    "bad_publishstate": "Trạng thái xuất bản không hợp lệ",
+    "delete_forbidden": "Chỉ tác giả mới xoá được bài viết này",
+    "edit_forbidden": "Chỉ tác giả mới sửa được bài viết này",
+    "not_found": "Không tìm thấy bài blog"
+  },
+  "calendar": {
+    "bad_time": "Thời gian bắt đầu sự kiện không hợp lệ",
+    "bad_type": "Loại sự kiện lịch không được hỗ trợ",
+    "category_required": "Sự kiện cấp danh mục yêu cầu danh mục",
+    "course_required": "Sự kiện cấp khoá học yêu cầu khoá học",
+    "event_not_found": "Không tìm thấy sự kiện lịch",
+    "group_course_mismatch": "Nhóm thuộc về khoá học khác",
+    "group_required": "Sự kiện cấp nhóm yêu cầu khoá học và nhóm",
+    "not_series": "Chỉ một lần xuất hiện trong chuỗi lặp mới có ngoại lệ",
+    "reminder_forbidden": "Bạn không thể đặt nhắc nhở cho sự kiện bạn không xem được",
+    "subscription_not_found": "Không tìm thấy đăng ký lịch"
+  },
+  "cohort": {
+    "category_context_missing": "Không có context cho danh mục của cohort này",
+    "not_found": "Không tìm thấy cohort"
+  },
+  "comments": {
+    "delete_forbidden": "Chỉ tác giả hoặc người có quyền xoá bình luận mới xoá được bình luận này",
+    "not_found": "Không tìm thấy bình luận"
+  },
+  "competency": {
+    "bad_ruleoutcome": "Kết quả áp dụng (rule outcome) không hợp lệ (chỉ nhận complete | attach-evidence | nothing)",
+    "framework_not_found": "Không tìm thấy khung năng lực",
+    "grade_outside_scale": "Mức điểm không thuộc thang đánh giá của khung năng lực",
+    "not_found": "Không tìm thấy năng lực (competency)",
+    "parent_framework_mismatch": "Năng lực cha thuộc về khung năng lực khác",
+    "plan_bad_transition": "Không thể chuyển trạng thái kế hoạch học tập như vậy",
+    "plan_not_found": "Không tìm thấy kế hoạch học tập",
+    "review_in_progress": "Năng lực này đang có một đợt duyệt khác diễn ra",
+    "review_not_in_review": "Chỉ năng lực đang được duyệt mới có thể phê duyệt",
+    "review_not_waiting": "Chỉ có thể bắt đầu duyệt từ trạng thái chờ duyệt",
+    "scale_empty": "Thang đánh giá của khung năng lực cần ít nhất một mức",
+    "scale_no_proficient": "Thang đánh giá không có mức nào được coi là đạt để phê duyệt",
+    "scale_proficient_range": "Chỉ số mức đạt nằm ngoài thang đánh giá",
+    "self_review": "Bạn không thể tự duyệt năng lực của chính mình",
+    "template_not_found": "Không tìm thấy mẫu kế hoạch học tập",
+    "usercomp_not_found": "Không tìm thấy năng lực của người dùng"
+  },
+  "completion": {
+    "bad_criteria_type": "Loại tiêu chí hoàn thành không được hỗ trợ",
+    "bad_method": "Phương thức tổng hợp hoàn thành không hợp lệ",
+    "criteria_cm_required": "Tiêu chí theo hoạt động yêu cầu một course module",
+    "criteria_date_required": "Tiêu chí theo ngày yêu cầu một mốc ngày",
+    "forbidden": "Bạn không có quyền thực hiện thao tác hoàn thành này",
+    "not_enabled": "Hoạt động này chưa bật theo dõi hoàn thành",
+    "not_found": "Không tìm thấy bản ghi hoàn thành",
+    "not_manual": "Hoạt động này không dùng hoàn thành thủ công"
+  },
   "contentbank": {
     "no_file": "Nội dung chưa gắn file nào",
     "not_found": "Không tìm thấy nội dung Content Bank",
     "view_denied": "Không có quyền xem nội dung này"
+  },
+  "course": {
+    "category_bad_mode": "Chế độ xoá danh mục không hợp lệ (chỉ nhận moveup|recursive)",
+    "category_context_missing": "Không có context cho danh mục khoá học này",
+    "category_cycle": "Danh mục không thể là cha của chính nó",
+    "category_moveup_no_parent": "Không thể chuyển nội dung lên từ danh mục cấp cao nhất (không có danh mục cha)",
+    "category_not_empty": "Danh mục chưa rỗng: hãy dùng mode=moveup (chuyển nội dung lên danh mục cha) hoặc mode=recursive (xoá toàn bộ nội dung)",
+    "category_not_found": "Không tìm thấy danh mục khoá học",
+    "cm_not_found": "Không tìm thấy course module",
+    "context_missing": "Không có context cho khoá học này",
+    "hidden": "Khoá học đang bị ẩn",
+    "invalid_dates": "Ngày kết thúc khoá học sớm hơn ngày bắt đầu",
+    "not_enrolled": "Người dùng chưa ghi danh khoá học này (hoặc ghi danh không còn hiệu lực)",
+    "not_found": "Không tìm thấy khoá học",
+    "section_course_mismatch": "Section không thuộc về khoá học này",
+    "section_not_found": "Không tìm thấy section của khoá học",
+    "shortname_taken": "Tên ngắn (shortname) của khoá học đã được sử dụng"
+  },
+  "customfield": {
+    "category_not_found": "Không tìm thấy danh mục trường tuỳ chỉnh",
+    "field_not_found": "Không tìm thấy trường tuỳ chỉnh",
+    "invalid_type": "Loại trường tuỳ chỉnh không được hỗ trợ",
+    "shortname_taken": "Tên ngắn của trường đã tồn tại trong danh mục này",
+    "validation_failed": "Giá trị trường tuỳ chỉnh không hợp lệ"
   },
   "enrol": {
     "cohort_required": "Phương thức ghi danh này yêu cầu cohort",
@@ -33,6 +150,53 @@
     "signature_invalid": "Chữ ký truy cập file không hợp lệ hoặc đã hết hạn",
     "signature_missing": "Thiếu chữ ký truy cập file"
   },
+  "grades": {
+    "bad_aggregation": "Phương thức tổng hợp điểm không hợp lệ",
+    "bad_itemtype": "Loại mục điểm này do hệ thống tự tạo",
+    "bad_range": "Điểm tối đa (grademax) phải lớn hơn điểm tối thiểu (grademin)",
+    "calculated_item": "Điểm tổng của hạng mục/khoá học được tính tự động, không nhập trực tiếp",
+    "category_course_mismatch": "Hạng mục điểm thuộc về khoá học khác",
+    "category_not_empty": "Hạng mục điểm chưa rỗng",
+    "category_not_found": "Không tìm thấy hạng mục điểm",
+    "cm_course_mismatch": "Course module thuộc về khoá học khác",
+    "cm_required": "Mục điểm của hoạt động yêu cầu một course module",
+    "grade_locked": "Điểm này đã bị khoá",
+    "grade_not_found": "Không tìm thấy điểm",
+    "grade_overridden": "Điểm này đang bị ghi đè; hãy bỏ ghi đè trước khi nhập điểm",
+    "item_exists_for_cm": "Hoạt động này đã có mục điểm",
+    "item_locked": "Mục điểm này đã bị khoá",
+    "item_not_found": "Không tìm thấy mục điểm",
+    "override_needs_grade": "Ghi đè điểm yêu cầu điểm cuối (finalgrade)",
+    "parent_course_mismatch": "Hạng mục cha thuộc về khoá học khác",
+    "root_category": "Không thể xoá hạng mục điểm gốc của khoá học",
+    "system_item": "Mục điểm tổng của hạng mục/khoá học bị xoá cùng hạng mục của nó"
+  },
+  "group": {
+    "course_mismatch": "Nhóm và grouping thuộc hai khoá học khác nhau",
+    "grouping_not_found": "Không tìm thấy grouping",
+    "not_found": "Không tìm thấy nhóm",
+    "separate_groups_denied": "Chế độ nhóm tách biệt: bạn không thể xem thành viên của nhóm bạn không thuộc về"
+  },
+  "messaging": {
+    "block_self": "Bạn không thể tự chặn chính mình",
+    "contact_blocked": "Người dùng này đã chặn bạn",
+    "conversation_not_found": "Không tìm thấy cuộc hội thoại",
+    "group_members": "Cuộc hội thoại nhóm cần ít nhất 2 thành viên",
+    "individual_members": "Cuộc hội thoại cá nhân có đúng 2 thành viên",
+    "message_immutable": "Tin nhắn đã gửi không thể sửa",
+    "not_member": "Bạn không phải thành viên của cuộc hội thoại này",
+    "notification_not_found": "Không tìm thấy thông báo",
+    "recipient_suspended": "Người dùng này không thể nhận tin nhắn (đã bị tạm khoá)",
+    "system_send_forbidden": "Chỉ quản trị viên hệ thống mới phát được thông báo hệ thống trực tiếp",
+    "unknown_channel": "Provider tin nhắn không có kênh này",
+    "unknown_provider": "Provider tin nhắn không tồn tại"
+  },
+  "notes": {
+    "bad_publishstate": "Trạng thái xuất bản không hợp lệ",
+    "course_required": "Ghi chú cấp khoá học (công khai) yêu cầu khoá học",
+    "not_found": "Không tìm thấy ghi chú",
+    "view_forbidden": "Bạn không thể xem ghi chú này"
+  },
   "payment": {
     "account_disabled": "Tài khoản thanh toán đang tắt",
     "account_not_found": "Không tìm thấy tài khoản thanh toán",
@@ -50,6 +214,25 @@
     "request_not_found": "Không tìm thấy yêu cầu quyền riêng tư",
     "user_not_found": "Không tìm thấy người dùng của yêu cầu"
   },
+  "question": {
+    "attempt_not_found": "Không tìm thấy lượt làm bài (attempt)",
+    "bad_answer_data": "Dữ liệu đáp án không khớp với loại câu hỏi",
+    "bad_transition": "Không thể chuyển trạng thái lượt làm bài như vậy",
+    "category_not_found": "Không tìm thấy danh mục câu hỏi",
+    "entry_missing": "Câu hỏi không có mục trong ngân hàng câu hỏi",
+    "forbidden": "Bạn không có quyền thực hiện thao tác câu hỏi này",
+    "no_version": "Lượt làm bài chưa gắn phiên bản câu hỏi",
+    "not_found": "Không tìm thấy câu hỏi",
+    "not_started": "Không thể kết thúc một lượt làm bài chưa bắt đầu",
+    "qtype_not_supported": "Loại câu hỏi này không được nhân hệ thống hỗ trợ",
+    "unknown_behaviour": "Hành vi câu hỏi (behaviour) không tồn tại",
+    "usage_empty": "Một lượt sử dụng câu hỏi cần ít nhất một câu hỏi",
+    "usage_not_found": "Không tìm thấy lượt sử dụng câu hỏi",
+    "version_missing": "Thiếu phiên bản mới nhất của câu hỏi"
+  },
+  "ratings": {
+    "outside_scale": "Điểm đánh giá nằm ngoài thang"
+  },
   "report": {
     "datasource_missing": "Báo cáo chưa chọn nguồn dữ liệu",
     "not_found": "Không tìm thấy báo cáo",
@@ -60,6 +243,18 @@
   },
   "search": {
     "unknown_area": "Khu vực tìm kiếm không được hỗ trợ"
+  },
+  "tags": {
+    "area_not_registered": "Chưa đăng ký khu vực thẻ (tag area) cho component/loại item này",
+    "not_found": "Không tìm thấy thẻ (tag)"
+  },
+  "user": {
+    "deleted": "Không thể sửa người dùng đã bị xoá",
+    "email_taken": "Email đã được sử dụng",
+    "guest_immutable": "Không thể thay đổi tài khoản khách (guest) bằng thao tác này",
+    "not_found": "Không tìm thấy người dùng",
+    "password_policy": "Mật khẩu không đáp ứng chính sách mật khẩu",
+    "username_taken": "Tên đăng nhập đã được sử dụng"
   },
   "webservice": {
     "capability_denied": "Chủ sở hữu token không có quyền thực hiện chức năng này",

@@ -22,7 +22,7 @@ export class ContextsService {
     const parent = contextlevel === CONTEXT_LEVELS.SYSTEM
       ? undefined
       : await this.repo.getContextById(parentId ?? (await this.ensureSystemContext()).id);
-    if (contextlevel !== CONTEXT_LEVELS.SYSTEM && !parent) throw new BadRequestException('Parent context not found');
+    if (contextlevel !== CONTEXT_LEVELS.SYSTEM && !parent) throw new BadRequestException({ message: 'Parent context not found', code: 'access.parent_context_not_found' });
     const row = await this.repo.insertContext({ contextlevel, instanceid, path: '', depth: 0 });
     const path = parent ? `${parent.path}/${row.id}` : `/${row.id}`;
     const depth = parent ? parent.depth + 1 : 1;

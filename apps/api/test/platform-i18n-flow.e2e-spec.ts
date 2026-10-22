@@ -52,6 +52,19 @@ describe('Platform i18n flow (e2e)', () => {
     expect(en.body.detail).toBe('The token owner lacks the capability to perform this function');
   });
 
+  it('localizes error details of the older modules by stable code (course.not_found) in Vietnamese by default and English on request', async () => {
+    const auth = { Authorization: `Bearer ${admin}` };
+    const missingCourseId = 999_999_999;
+
+    const vi = await http(app).get(`/api/v1/courses/${missingCourseId}`).set(auth).expect(404);
+    expect(vi.body.code).toBe('course.not_found');
+    expect(vi.body.detail).toBe('Không tìm thấy khoá học');
+
+    const en = await http(app).get(`/api/v1/courses/${missingCourseId}`).set(auth).set('Accept-Language', 'en').expect(404);
+    expect(en.body.code).toBe('course.not_found');
+    expect(en.body.detail).toBe('Course not found');
+  });
+
   it('returns localized Zod validation messages for payments in Vietnamese by default and English on request', async () => {
     const auth = { Authorization: `Bearer ${admin}` };
     const bad = (headers: Record<string, string>) =>

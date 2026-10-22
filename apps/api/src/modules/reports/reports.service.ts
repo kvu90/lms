@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { I18nService } from '@nestjs/i18n';
 import { sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -34,6 +35,7 @@ export class ReportsService {
     private readonly contexts: ContextsService,
     private readonly courses: CoursesService,
     private readonly messaging: MessagingService,
+    private readonly i18n: I18nService,
   ) {
     this.registerBuiltinDatasources();
   }
@@ -203,7 +205,7 @@ export class ReportsService {
       await this.repo.updateSchedule(scheduleId, { lastrun: new Date(), lastresult: { rows: 0, ranAs: schedule.createdby, error: 'forbidden_at_run_time' } });
     }
     await this.messaging.notify(schedule.createdby, 'report_scheduled', {
-      subject: 'Scheduled report finished', body: `Report ${schedule.reportid} finished with ${rowCount} rows.`, contextUrl: `/reports/${schedule.reportid}`,
+      subject: this.i18n.t('platform.reportFinishedSubject'), body: this.i18n.t('platform.reportFinishedBody', { args: { reportId: schedule.reportid, rows: rowCount } }), contextUrl: `/reports/${schedule.reportid}`,
     }).catch(() => undefined);
     return { scheduleId, rows: rowCount };
   }

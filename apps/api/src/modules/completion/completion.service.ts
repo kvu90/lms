@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { I18nService } from '@nestjs/i18n';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { Queue } from 'bullmq';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -73,6 +74,7 @@ export class CompletionService implements OnModuleInit {
     private readonly evaluator: PermissionEvaluator,
     private readonly availability: AvailabilityService,
     private readonly outbox: OutboxService,
+    private readonly i18n: I18nService,
     @InjectQueue(COMPLETION_QUEUE) private readonly recalcQueue: Queue,
   ) {}
 
@@ -81,11 +83,11 @@ export class CompletionService implements OnModuleInit {
     // stored state for this user is COMPLETE (or pass/fail once graded).
     this.availability.register('completion', async (leaf, ctx) => {
       const cmId = Number(leaf.id ?? leaf.cmid ?? leaf.cm ?? 0);
-      if (!cmId) return { available: false, description: 'Completion condition without cm id' };
+      if (!cmId) return { available: false, description: this.i18n.t('availability.completionMissingCm') };
       const row = await this.repo.getCmCompletion(cmId, ctx.userId);
       const state = Number(leaf.state ?? COMPLETION_COMPLETE);
       const available = !!row && row.completionstate >= state && row.completionstate !== COMPLETION_INCOMPLETE;
-      return { available, description: `Activity ${cmId} must be complete` };
+      return { available, description: this.i18n.t('availability.activityMustComplete', { args: { cmId } }) };
     });
     // Enrol unenrol probe: completion records are related data that must survive unenrol.
     this.enrol.registerRelatedDataProbe(async (courseId, userId) => {

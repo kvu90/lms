@@ -1,7 +1,31 @@
 {
+  "access": {
+    "capability_denied": "You do not have the required capability for this action",
+    "context_not_found": "Context not found",
+    "invalid_permission": "Invalid permission value",
+    "parent_context_not_found": "Parent context not found",
+    "role_not_found": "Role not found",
+    "role_shortname_taken": "Role shortname already exists"
+  },
   "analytics": {
     "model_not_found": "Analytics model not found",
     "provider_not_found": "Registered analytics provider not found"
+  },
+  "auth": {
+    "account_inactive": "Account is not active",
+    "account_suspended": "Account is suspended",
+    "guest_login_denied": "The guest account cannot log in with a password",
+    "invalid_credentials": "Invalid username or password",
+    "locked_out": "Account is locked out due to failed login attempts",
+    "loginas_admin_denied": "Cannot log in as a site administrator",
+    "refresh_invalid": "Refresh token is invalid or expired",
+    "refresh_reuse_detected": "Refresh token reuse detected; token family revoked",
+    "session_expired": "Session expired",
+    "unauthenticated": "Authentication required"
+  },
+  "availability": {
+    "invalid_tree": "Invalid availability condition tree",
+    "not_available": "This activity is not available to you yet"
   },
   "backup": {
     "job_not_found": "Backup job not found",
@@ -10,10 +34,103 @@
     "target_required": "This restore mode requires a target course",
     "unsupported_format": "Unsupported backup format"
   },
+  "badges": {
+    "assertion_not_found": "Badge assertion not found",
+    "bad_criteria_type": "Unknown badge criteria type",
+    "bad_method": "Criteria method must be 1 (ALL) or 2 (ANY)",
+    "bad_status": "This badge status cannot be set directly",
+    "course_required": "A course badge requires a course",
+    "criteria_frozen": "Criteria of an active badge are frozen. Duplicate the badge to change its criteria.",
+    "issuer_role": "Issuer does not hold the required awarding role",
+    "no_criteria": "A badge cannot be enabled without criteria",
+    "no_manual_criteria": "This badge has no manual award criterion",
+    "not_active": "Only an active badge can be awarded",
+    "not_found": "Badge not found",
+    "site_badge_manager_only": "Site badges require a manager role at the system context"
+  },
+  "blog": {
+    "associate_forbidden": "Only the author can associate this post",
+    "bad_publishstate": "Unknown publish state",
+    "delete_forbidden": "Only the author can delete this post",
+    "edit_forbidden": "Only the author can edit this post",
+    "not_found": "Blog post not found"
+  },
+  "calendar": {
+    "bad_time": "Invalid event start time",
+    "bad_type": "Unknown calendar event type",
+    "category_required": "Category events require a category",
+    "course_required": "Course events require a course",
+    "event_not_found": "Calendar event not found",
+    "group_course_mismatch": "Group belongs to another course",
+    "group_required": "Group events require a course and a group",
+    "not_series": "Only a series occurrence can have an exception",
+    "reminder_forbidden": "You cannot set a reminder for an event you cannot see",
+    "subscription_not_found": "Calendar subscription not found"
+  },
+  "cohort": {
+    "category_context_missing": "No context for the category of this cohort",
+    "not_found": "Cohort not found"
+  },
+  "comments": {
+    "delete_forbidden": "Only the author or a user with the comment delete capability can delete this comment",
+    "not_found": "Comment not found"
+  },
+  "competency": {
+    "bad_ruleoutcome": "Unknown rule outcome (expected complete | attach-evidence | nothing)",
+    "framework_not_found": "Competency framework not found",
+    "grade_outside_scale": "Grade is not a value of the framework scale",
+    "not_found": "Competency not found",
+    "parent_framework_mismatch": "Parent competency belongs to another framework",
+    "plan_bad_transition": "This learning plan status transition is not allowed",
+    "plan_not_found": "Learning plan not found",
+    "review_in_progress": "A review is already in progress for this competency",
+    "review_not_in_review": "Only a competency in review can be approved",
+    "review_not_waiting": "Review can only start from waiting for review",
+    "scale_empty": "A framework scale needs at least one value",
+    "scale_no_proficient": "The framework scale has no proficient value to approve with",
+    "scale_proficient_range": "Proficient index is outside the scale",
+    "self_review": "You cannot review your own competencies",
+    "template_not_found": "Learning plan template not found",
+    "usercomp_not_found": "User competency not found"
+  },
+  "completion": {
+    "bad_criteria_type": "Unknown completion criteria type",
+    "bad_method": "Unknown completion aggregation method",
+    "criteria_cm_required": "Module criteria require a course module",
+    "criteria_date_required": "Date criteria require a date",
+    "forbidden": "You do not have permission for this completion action",
+    "not_enabled": "Completion tracking is not enabled for this activity",
+    "not_found": "Completion record not found",
+    "not_manual": "This activity does not use manual completion"
+  },
   "contentbank": {
     "no_file": "The content has no attached file",
     "not_found": "Content Bank content not found",
     "view_denied": "You do not have permission to view this content"
+  },
+  "course": {
+    "category_bad_mode": "Unknown category delete mode (expected moveup|recursive)",
+    "category_context_missing": "No context for this course category",
+    "category_cycle": "A category cannot be its own parent",
+    "category_moveup_no_parent": "Cannot move courses up from a top-level category (no parent category)",
+    "category_not_empty": "Category is not empty: pass mode=moveup (move contents to the parent category) or mode=recursive (delete contents)",
+    "category_not_found": "Course category not found",
+    "cm_not_found": "Course module not found",
+    "context_missing": "No context for this course",
+    "hidden": "Course is hidden",
+    "invalid_dates": "Course end date is before its start date",
+    "not_enrolled": "User is not enrolled in this course (or the enrolment is not active)",
+    "not_found": "Course not found",
+    "section_course_mismatch": "Section does not belong to this course",
+    "section_not_found": "Course section not found",
+    "shortname_taken": "Course shortname is taken"
+  },
+  "customfield": {
+    "category_not_found": "Custom field category not found",
+    "field_not_found": "Custom field not found",
+    "invalid_type": "Unsupported custom field type",
+    "shortname_taken": "Field shortname already exists in this category",
+    "validation_failed": "Custom field value validation failed"
   },
   "enrol": {
     "cohort_required": "This enrolment method requires a cohort",
@@ -33,6 +150,53 @@
     "signature_invalid": "The file access signature is invalid or has expired",
     "signature_missing": "Missing file access signature"
   },
+  "grades": {
+    "bad_aggregation": "Unknown aggregation method",
+    "bad_itemtype": "This grade item type is created by the system",
+    "bad_range": "grademax must be greater than grademin",
+    "calculated_item": "Category/course totals are calculated, not entered",
+    "category_course_mismatch": "Grade category belongs to another course",
+    "category_not_empty": "Grade category is not empty",
+    "category_not_found": "Grade category not found",
+    "cm_course_mismatch": "Course module belongs to another course",
+    "cm_required": "A module grade item requires a course module",
+    "grade_locked": "This grade is locked",
+    "grade_not_found": "Grade not found",
+    "grade_overridden": "This grade is overridden; clear the override before entering a grade",
+    "item_exists_for_cm": "This activity already has a grade item",
+    "item_locked": "This grade item is locked",
+    "item_not_found": "Grade item not found",
+    "override_needs_grade": "Overriding requires a final grade",
+    "parent_course_mismatch": "Parent category belongs to another course",
+    "root_category": "The course grade category cannot be deleted",
+    "system_item": "Category/course total items are deleted with their category"
+  },
+  "group": {
+    "course_mismatch": "Group and grouping are in different courses",
+    "grouping_not_found": "Grouping not found",
+    "not_found": "Group not found",
+    "separate_groups_denied": "Separate groups: you cannot see members of a group you are not in"
+  },
+  "messaging": {
+    "block_self": "You cannot block yourself",
+    "contact_blocked": "This user has blocked you",
+    "conversation_not_found": "Conversation not found",
+    "group_members": "A group conversation needs at least 2 members",
+    "individual_members": "An individual conversation has exactly 2 members",
+    "message_immutable": "A sent message cannot be modified",
+    "not_member": "You are not a member of this conversation",
+    "notification_not_found": "Notification not found",
+    "recipient_suspended": "This user cannot receive messages (suspended)",
+    "system_send_forbidden": "Only site administrators can trigger system notifications directly",
+    "unknown_channel": "The message provider has no such channel",
+    "unknown_provider": "Unknown message provider"
+  },
+  "notes": {
+    "bad_publishstate": "Unknown publish state",
+    "course_required": "A course (public) note requires a course",
+    "not_found": "Note not found",
+    "view_forbidden": "You cannot view this note"
+  },
   "payment": {
     "account_disabled": "The payment account is disabled",
     "account_not_found": "Payment account not found",
@@ -50,6 +214,25 @@
     "request_not_found": "Privacy request not found",
     "user_not_found": "The user of this request was not found"
   },
+  "question": {
+    "attempt_not_found": "Question attempt not found",
+    "bad_answer_data": "Answer data does not match the question type",
+    "bad_transition": "This question attempt state transition is not allowed",
+    "category_not_found": "Question category not found",
+    "entry_missing": "Question has no bank entry",
+    "forbidden": "You do not have permission for this question action",
+    "no_version": "Attempt has no pinned question version",
+    "not_found": "Question not found",
+    "not_started": "Cannot finish an attempt that was never started",
+    "qtype_not_supported": "This question type is not supported by the core",
+    "unknown_behaviour": "Unknown question behaviour",
+    "usage_empty": "A question usage needs at least one question slot",
+    "usage_not_found": "Question usage not found",
+    "version_missing": "Question latest version is missing"
+  },
+  "ratings": {
+    "outside_scale": "Rating is outside the scale"
+  },
   "report": {
     "datasource_missing": "The report has no data source selected",
     "not_found": "Report not found",
@@ -60,6 +243,18 @@
   },
   "search": {
     "unknown_area": "Unsupported search area"
+  },
+  "tags": {
+    "area_not_registered": "No tag area is registered for this component/item type",
+    "not_found": "Tag not found"
+  },
+  "user": {
+    "deleted": "Cannot update a deleted user",
+    "email_taken": "Email is taken",
+    "guest_immutable": "The guest account cannot be changed this way",
+    "not_found": "User not found",
+    "password_policy": "Password does not satisfy the password policy",
+    "username_taken": "Username is taken"
   },
   "webservice": {
     "capability_denied": "The token owner lacks the capability to perform this function",

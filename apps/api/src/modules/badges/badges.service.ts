@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { I18nService } from '@nestjs/i18n';
 import type { Queue } from 'bullmq';
 import { createHash, randomUUID } from 'node:crypto';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -53,6 +54,7 @@ export class BadgesService implements OnModuleInit {
     private readonly messaging: MessagingService,
     private readonly users: UsersService,
     private readonly outbox: OutboxService,
+    private readonly i18n: I18nService,
     @InjectQueue(BADGE_AWARD_QUEUE) private readonly awardQueue: Queue,
   ) {}
 
@@ -311,8 +313,8 @@ export class BadgesService implements OnModuleInit {
       return row;
     });
     await this.messaging.notify(userId, 'badge_awarded', {
-      subject: `You have been awarded the badge "${badgeRow.name}"`,
-      body: `Congratulations, you earned the badge "${badgeRow.name}" (${badgeRow.issuername}).`,
+      subject: this.i18n.t('platform.badgeAwardedSubject', { args: { name: badgeRow.name } }),
+      body: this.i18n.t('platform.badgeAwardedBody', { args: { name: badgeRow.name, issuer: badgeRow.issuername } }),
       contextUrl: `/badges/${badgeId}`,
     }).catch(() => undefined);
     await this.repo.updateIssued(issued.id, { issuernotified: true });

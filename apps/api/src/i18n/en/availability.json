@@ -1,0 +1,15 @@
+{
+  "unknownCondition": "Unknown condition {type}",
+  "invalidDate": "Invalid date condition",
+  "dateRange": "Available {direction} {date}",
+  "gradeNotAvailable": "Grade for {id} not available yet",
+  "gradeMustBe": "Grade {id} must be {range}",
+  "profileField": "Profile field {field}",
+  "profileCondition": "Profile {field} {operator} {expected}",
+  "completionMissingCm": "Completion condition without cm id",
+  "activityMustComplete": "Activity {cmId} must be complete",
+  "mustBeInGroup": "Must be in group {groupId}",
+  "groupingMissingId": "Grouping condition without id",
+  "inGrouping": "In grouping {groupingId}",
+  "mustBeInGrouping": "Must be in grouping {groupingId}"
+}

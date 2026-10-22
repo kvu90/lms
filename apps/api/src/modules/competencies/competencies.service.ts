@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { I18nService } from '@nestjs/i18n';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -62,6 +63,7 @@ export class CompetenciesService implements OnModuleInit {
     private readonly users: UsersService,
     private readonly outbox: OutboxService,
     private readonly emitter: EventEmitter2,
+    private readonly i18n: I18nService,
   ) {}
 
   onModuleInit(): void {
@@ -553,8 +555,8 @@ export class CompetenciesService implements OnModuleInit {
     await this.repo.insertPlanReview({ planid: planId, actorid: actorId, action, statusfrom: from, statusto: to, note: note ?? '' });
     if (action === 'request-review' && plan.reviewerid) {
       await this.messaging.notify(plan.reviewerid, 'competency_review_requested', {
-        subject: `Learning plan review requested: ${plan.name}`,
-        body: `User ${plan.userid} requested a review of learning plan ${plan.id}.`,
+        subject: this.i18n.t('platform.planReviewRequestedSubject', { args: { name: plan.name } }),
+        body: this.i18n.t('platform.planReviewRequestedBody', { args: { userId: plan.userid, planId: plan.id } }),
         contextUrl: `/competencies/plans/${plan.id}`,
       }).catch(() => undefined);
     }

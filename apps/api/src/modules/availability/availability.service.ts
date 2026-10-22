@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { I18nService } from '@nestjs/i18n';
 import { UsersService } from '../users/users.service';
 import {
   evaluateTree, parseAvailabilityTree,
@@ -32,7 +33,7 @@ export type LeafEvaluator = (leaf: AvailabilityLeaf, ctx: AvailabilityContext) =
 export class AvailabilityService {
   private readonly evaluators = new Map<string, LeafEvaluator>();
 
-  constructor(private readonly users: UsersService) {
+  constructor(private readonly users: UsersService, private readonly i18n: I18nService) {
     this.register('date', async (leaf, ctx) => this.evalDate(leaf, ctx));
     this.register('grade', async (leaf, ctx) => this.evalGrade(leaf, ctx));
     this.register('profile', async (leaf, ctx) => this.evalProfile(leaf, ctx));
@@ -59,7 +60,7 @@ export class AvailabilityService {
     }
     return evaluateTree(tree, async (leaf) => {
       const evaluator = this.evaluators.get(leaf.type);
-      if (!evaluator) return { available: false, description: `Unknown condition ${leaf.type}` };
+      if (!evaluator) return { available: false, description: this.i18n.t('availability.unknownCondition', { args: { type: leaf.type } }) };
       return evaluator(leaf, ctx);
     });
   }
@@ -76,10 +77,10 @@ export class AvailabilityService {
     const now = ctx.now ?? new Date();
     const rawTime = (leaf.t ?? leaf.time) as number | string | undefined;
     const when = typeof rawTime === 'number' ? new Date(rawTime * (rawTime < 1e12 ? 1000 : 1)) : new Date(String(rawTime));
-    if (Number.isNaN(when.getTime())) return { available: false, description: 'Invalid date condition' };
+    if (Number.isNaN(when.getTime())) return { available: false, description: this.i18n.t('availability.invalidDate') };
     const direction = String(leaf.d ?? leaf.direction ?? '>=');
     const available = direction === '<' || direction === '<=' ? now < when : now >= when;
-    return { available, description: `Available ${direction} ${when.toISOString()}` };
+    return { available, description: this.i18n.t('availability.dateRange', { args: { direction, date: when.toISOString() } }) };
   }
 
   /**
@@ -91,11 +92,12 @@ export class AvailabilityService {
   private async evalGrade(leaf: AvailabilityLeaf, ctx: AvailabilityContext): Promise<LeafResult> {
     const id = String(leaf.id ?? '');
     const grade = ctx.grades?.[id];
-    if (grade === undefined) return { available: false, description: `Grade for ${id} not available yet` };
+    if (grade === undefined) return { available: false, description: this.i18n.t('availability.gradeNotAvailable', { args: { id } }) };
     const min = leaf.min !== undefined ? Number(leaf.min) : undefined;
     const max = leaf.max !== undefined ? Number(leaf.max) : undefined;
     const available = (min === undefined || grade >= min) && (max === undefined || grade <= max);
-    return { available, description: `Grade ${id} must be ${min !== undefined ? `>= ${min}` : ''}${max !== undefined ? `<= ${max}` : ''}`.trim() };
+    const range = `${min !== undefined ? `>= ${min}` : ''}${max !== undefined ? `<= ${max}` : ''}`.trim();
+    return { available, description: this.i18n.t('availability.gradeMustBe', { args: { id, range } }) };
   }
 
   /** profile leaf: {type:'profile', field, operator ('eq'|'contains'|'notempty'|'isempty'), value}. Checks user profile + custom fields. */
@@ -112,7 +114,7 @@ export class AvailabilityService {
       else if (field === 'email') actual = profile.email;
       else actual = profile.customFields.find((f) => f.shortname === field)?.value ?? undefined;
     } catch {
-      return { available: false, description: `Profile field ${field}` };
+      return { available: false, description: this.i18n.t('availability.profileField', { args: { field } }) };
     }
     let available: boolean;
     switch (operator) {
@@ -121,6 +123,6 @@ export class AvailabilityService {
       case 'contains': available = actual !== undefined && actual.includes(expected); break;
       default: available = actual !== undefined && actual === expected;
     }
-    return { available, description: `Profile ${field} ${operator} ${expected}` };
+    return { available, description: this.i18n.t('availability.profileCondition', { args: { field, operator, expected } }) };
   }
 }

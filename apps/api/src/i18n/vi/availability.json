@@ -1,0 +1,15 @@
+{
+  "unknownCondition": "Điều kiện không xác định: {type}",
+  "invalidDate": "Điều kiện ngày không hợp lệ",
+  "dateRange": "Có thể truy cập {direction} {date}",
+  "gradeNotAvailable": "Chưa có điểm cho mục {id}",
+  "gradeMustBe": "Điểm {id} phải đạt {range}",
+  "profileField": "Trường hồ sơ {field}",
+  "profileCondition": "Hồ sơ: {field} {operator} {expected}",
+  "completionMissingCm": "Điều kiện hoàn thành thiếu mã hoạt động",
+  "activityMustComplete": "Hoạt động {cmId} phải được hoàn thành",
+  "mustBeInGroup": "Phải thuộc nhóm {groupId}",
+  "groupingMissingId": "Điều kiện grouping thiếu mã grouping",
+  "inGrouping": "Thuộc grouping {groupingId}",
+  "mustBeInGrouping": "Phải thuộc grouping {groupingId}"
+}
