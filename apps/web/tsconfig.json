@@ -1,0 +1,21 @@
+{
+  "extends": "@lms/config/tsconfig/react.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@lms/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ]
+    },
+    "types": [
+      "vite/client",
+      "vitest/globals"
+    ]
+  },
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
+}
