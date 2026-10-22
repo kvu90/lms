@@ -116,8 +116,8 @@ export const enrolInstanceSchema = z.object({
   status: z.number().int(),
   name: z.string().nullable(),
   roleid: uuidIdSchema.nullable(),
-  customint1: uuidIdSchema,
-  customint2: uuidIdSchema,
+  customint1: uuidIdSchema.nullable(),
+  customint2: uuidIdSchema.nullable(),
   customtext1: z.string(),
 });
 export type EnrolInstance = z.infer<typeof enrolInstanceSchema>;

@@ -30,7 +30,7 @@ export const gradeItemSchema = z.object({
   itemname: z.string(),
   itemtype: z.string(),
   itemmodule: z.string().nullable(),
-  iteminstance: uuidIdSchema,
+  iteminstance: uuidIdSchema.nullable(),
   grademax: z.number(),
   grademin: z.number(),
   gradepass: z.number(),
@@ -173,7 +173,7 @@ export const questionUsageSchema = z.object({
   usage: z.object({
     id: uuidIdSchema,
     component: z.string(),
-    instanceid: uuidIdSchema,
+    instanceid: uuidIdSchema.nullable(),
     preferredbehaviour: z.string(),
   }),
   state: z.string(),
