@@ -90,6 +90,10 @@ function stubFetch(calls: RecordedCall[]) {
       return respond({ id: '01900000-0000-7000-8000-000000000101', course: COURSE_ID, section: 1, name: 'Week 1', summary: '', visible: true, availability: null, modules: [] });
     }
     if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && method === 'DELETE') return respond({ deleted: true });
+    if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && method === 'PATCH') return respond({ ...CONTENT.sections[0]!.modules[0] });
+    if (url === `/api/v1/courses/${COURSE_ID}/sections/${SECTION_ID}` && method === 'PATCH') return respond({ ...CONTENT.sections[0], modules: undefined });
+    if (url === `/api/v1/courses/${COURSE_ID}/groupings`) return respond([]);
+    if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
     // Các khu cũ của trang quản trị khoá: trả danh sách rỗng.
     if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
     if (url === '/api/v1/cohorts') return respond([]);
@@ -130,6 +134,26 @@ describe('Course builder (teacher)', () => {
     await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/sections` && c.method === 'POST')).toBe(true));
     const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/sections` && c.method === 'POST');
     expect(createCall?.body).toEqual({ name: 'Week 1' });
+  });
+
+  it('saves a module availability tree via PATCH /courses/:id/modules/:cmId', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseAdmin();
+
+    const availabilityBox = await screen.findByTestId(`module-availability-${MODULE_ID}`);
+    await userEvent.selectOptions(within(availabilityBox).getByLabelText('Loại điều kiện mới'), 'date');
+    await userEvent.click(within(availabilityBox).getByRole('button', { name: 'Thêm điều kiện' }));
+    await userEvent.click(within(availabilityBox).getByRole('button', { name: 'Lưu điều kiện truy cập' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && c.method === 'PATCH' && (c.body as { availability?: unknown })?.availability != null)).toBe(true));
+    const patch = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && c.method === 'PATCH' && (c.body as { availability?: unknown })?.availability != null);
+    const tree = (patch?.body as { availability: { op: string; c: { type: string; d: string; t: number }[] } }).availability;
+    expect(tree.op).toBe('&');
+    expect(tree.c).toHaveLength(1);
+    expect(tree.c[0]?.type).toBe('date');
+    expect(tree.c[0]?.d).toBe('>=');
+    expect(typeof tree.c[0]?.t).toBe('number');
   });
 
   it('deletes a module via DELETE /courses/:id/modules/:cmId after confirmation', async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import type { Cohort, Course, CourseCompletion, CourseContent, CourseGroup, EnrolInstance, UserEnrolment } from '@lms/contracts';
+import type { Cohort, Course, CourseCompletion, CourseContent, CourseGroup, CourseGrouping, EnrolInstance, GradeItem, UserEnrolment } from '@lms/contracts';
+import { AvailabilityEditor } from '@/components/availability-editor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ export function CourseAdminPage() {
   const courseId = id ?? '';
   const perms = usePermissions();
   const [groups, setGroups] = useState<CourseGroup[]>([]);
+  const [groupings, setGroupings] = useState<CourseGrouping[]>([]);
   const [groupName, setGroupName] = useState('');
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [instances, setInstances] = useState<EnrolInstance[]>([]);
@@ -52,16 +54,19 @@ export function CourseAdminPage() {
   const [sectionEdits, setSectionEdits] = useState<Record<string, { name: string; visible: boolean }>>({});
   const [moduleDrafts, setModuleDrafts] = useState<Record<string, { component: string; name: string }>>({});
   const [moduleEdits, setModuleEdits] = useState<Record<string, { name: string; visible: boolean }>>({});
+  const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
+  const [availabilityDrafts, setAvailabilityDrafts] = useState<Record<string, unknown>>({});
 
   const reload = useCallback(async () => {
-    const [g, c, i, e, comp] = await Promise.all([
+    const [g, gr, c, i, e, comp] = await Promise.all([
       apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`).catch(() => []),
+      apiJson<CourseGrouping[]>(`/api/v1/courses/${courseId}/groupings`).catch(() => []),
       apiJson<Cohort[]>('/api/v1/cohorts').catch(() => []),
       apiJson<EnrolInstance[]>(`/api/v1/courses/${courseId}/enrol/instances`).catch(() => []),
       apiJson<UserEnrolment[]>(`/api/v1/courses/${courseId}/enrolments`).catch(() => []),
       apiJson<CourseCompletion[]>(`/api/v1/courses/${courseId}/completion`).catch(() => []),
     ]);
-    setGroups(g); setCohorts(c); setInstances(i); setEnrolments(e); setCompletions(comp);
+    setGroups(g); setGroupings(gr); setCohorts(c); setInstances(i); setEnrolments(e); setCompletions(comp);
   }, [courseId]);
 
   useEffect(() => { void reload(); }, [reload]);
@@ -74,10 +79,12 @@ export function CourseAdminPage() {
    * thật để form luôn phản ánh trạng thái server sau mỗi lần nạp lại.
    */
   const reloadBuilder = useCallback(async () => {
-    const [courseRes, contentRes] = await Promise.all([
+    const [courseRes, contentRes, itemsRes] = await Promise.all([
       apiJson<Course>(`/api/v1/courses/${courseId}`).catch(() => null),
       apiJson<CourseContent>(`/api/v1/courses/${courseId}/content`).catch(() => null),
+      apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
     ]);
+    setGradeItems(itemsRes);
     if (courseRes) {
       setCourse(courseRes);
       setFullname(courseRes.fullname);
@@ -92,6 +99,10 @@ export function CourseAdminPage() {
       setContent(contentRes);
       setSectionEdits(Object.fromEntries(contentRes.sections.map((s) => [s.id, { name: s.name ?? '', visible: s.visible }])));
       setModuleEdits(Object.fromEntries(contentRes.sections.flatMap((s) => s.modules.map((m) => [m.id, { name: m.name, visible: m.visible }]))));
+      setAvailabilityDrafts(Object.fromEntries([
+        ...contentRes.sections.map((s) => [`section:${s.id}`, s.availability ?? null] as const),
+        ...contentRes.sections.flatMap((s) => s.modules.map((m) => [`module:${m.id}`, m.availability ?? null] as const)),
+      ]));
     }
     if (!courseRes && !contentRes) setBuilderError(t('builderLoadFailed'));
   }, [courseId, t]);
@@ -248,6 +259,36 @@ export function CourseAdminPage() {
     } catch { setBuilderMessage(t('moduleDeleteFailed')); }
   }
 
+  /**
+   * Lưu cây availability của một section qua PATCH section: gửi đúng
+   * trường `availability` của `updateCourseSectionSchema` — payload là cây
+   * JSON do trình sửa phát ra, hoặc `null` khi cây đã rỗng (xoá hạn chế).
+   */
+  async function saveSectionAvailability(sectionId: string) {
+    setBuilderMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ availability: availabilityDrafts[`section:${sectionId}`] ?? null }),
+      });
+      setBuilderMessage(t('availabilitySaved'));
+      await reloadBuilder();
+    } catch { setBuilderMessage(t('availabilitySaveFailed')); }
+  }
+
+  /** Lưu cây availability của một course module qua PATCH module (trường `availability` của `updateCourseModuleSchema`). */
+  async function saveModuleAvailability(cmId: string) {
+    setBuilderMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ availability: availabilityDrafts[`module:${cmId}`] ?? null }),
+      });
+      setBuilderMessage(t('availabilitySaved'));
+      await reloadBuilder();
+    } catch { setBuilderMessage(t('availabilitySaveFailed')); }
+  }
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       {canBuild && (
@@ -356,6 +397,19 @@ export function CourseAdminPage() {
                                 <Button type="button" variant="outline" size="sm" onClick={() => void saveModule(cm.id)}>{t('saveModule')}</Button>
                                 <Button type="button" variant="destructive" size="sm" onClick={() => void deleteModule(cm.id, cm.name || cm.component)}>{t('deleteModule')}</Button>
                               </div>
+                              <div className="space-y-2" data-testid={`module-availability-${cm.id}`}>
+                                <h5 className="text-sm font-medium">{t('availabilityTitle')}</h5>
+                                <AvailabilityEditor
+                                  key={`module-availability-editor-${cm.id}`}
+                                  value={cm.availability}
+                                  onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`module:${cm.id}`]: next }))}
+                                  groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+                                  groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
+                                  modules={(content?.sections ?? []).flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
+                                  gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
+                                />
+                                <Button type="button" variant="outline" size="sm" onClick={() => void saveModuleAvailability(cm.id)}>{t('availabilitySave')}</Button>
+                              </div>
                             </div>
                           </li>
                         );
@@ -381,6 +435,20 @@ export function CourseAdminPage() {
                       </div>
                       <Button type="submit" variant="outline">{t('addModule')}</Button>
                     </form>
+                    <div className="space-y-2" data-testid={`section-availability-${section.id}`}>
+                      <h4 className="text-sm font-medium">{t('availabilityTitle')}</h4>
+                      <p className="text-sm text-muted-foreground">{t('availabilityDescription')}</p>
+                      <AvailabilityEditor
+                        key={`section-availability-editor-${section.id}`}
+                        value={section.availability}
+                        onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`section:${section.id}`]: next }))}
+                        groups={groups.map((g) => ({ id: g.id, name: g.name }))}
+                        groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
+                        modules={(content?.sections ?? []).flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
+                        gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => void saveSectionAvailability(section.id)}>{t('availabilitySave')}</Button>
+                    </div>
                   </div>
                 );
               })}
