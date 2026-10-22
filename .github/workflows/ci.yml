@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lms_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-secret-at-least-16-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create the lms database (lms_test comes from the service)
+        run: |
+          pnpm --filter @lms/api exec node -e "const {Client}=require('pg');(async()=>{const c=new Client({connectionString:'postgres://postgres:postgres@localhost:5432/postgres'});await c.connect();await c.query('CREATE DATABASE lms');await c.end();})()"
+      - name: Migrate from an empty database
+        run: pnpm --filter @lms/api db:migrate
+      - name: Build, typecheck, lint, test
+        run: pnpm exec turbo run build typecheck lint test
