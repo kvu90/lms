@@ -78,6 +78,23 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'moodle/notes:create', captype: 'write', contextlevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'moodle/notes:view', captype: 'read', contextlevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'moodle/notes:manage', captype: 'write', contextlevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW } },
+  // Platform Services
+  { name: 'lms/search:use', captype: 'read', contextlevel: 10, component: 'core_search', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'lms/webservice:manage', captype: 'write', contextlevel: 10, component: 'core_webservice', archetypes: { manager: CAP_ALLOW } },
+  { name: 'moodle/webservice:createtoken', captype: 'write', contextlevel: 10, component: 'core_webservice', archetypes: { manager: CAP_ALLOW } },
+  { name: 'lms/backup:backupcourse', captype: 'write', contextlevel: 50, component: 'core_backup', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'lms/backup:restorecourse', captype: 'write', contextlevel: 50, component: 'core_backup', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/analytics:viewinsights', captype: 'read', contextlevel: 50, component: 'core_analytics', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'lms/analytics:manage', captype: 'write', contextlevel: 10, component: 'core_analytics', archetypes: { manager: CAP_ALLOW } },
+  { name: 'lms/reportbuilder:manage', captype: 'write', contextlevel: 10, component: 'core_reportbuilder', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'lms/reportbuilder:view', captype: 'read', contextlevel: 10, component: 'core_reportbuilder', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'moodle/contentbank:viewcontent', captype: 'read', contextlevel: 50, component: 'core_contentbank', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
+  { name: 'moodle/contentbank:upload', captype: 'write', contextlevel: 50, component: 'core_contentbank', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/contentbank:editcontent', captype: 'write', contextlevel: 50, component: 'core_contentbank', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'lms/payment:manageaccounts', captype: 'write', contextlevel: 10, component: 'core_payment', archetypes: { manager: CAP_ALLOW } },
+  { name: 'lms/payment:pay', captype: 'write', contextlevel: 10, component: 'core_payment', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'lms/privacy:request', captype: 'write', contextlevel: 30, component: 'core_privacy', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  { name: 'lms/privacy:manage', captype: 'write', contextlevel: 10, component: 'core_privacy', archetypes: { manager: CAP_ALLOW } },
 ];
 
 export const CONTEXT_LEVELS = { SYSTEM: 10, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;

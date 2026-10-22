@@ -10,7 +10,7 @@ import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.r
 export const ENROL_ACTIVE = 0;
 export const ENROL_SUSPENDED = 1;
 export const ENROL_WITHDRAWN = 2;
-export const ENROL_METHODS = ['manual', 'cohort', 'self', 'guest'] as const;
+export const ENROL_METHODS = ['manual', 'cohort', 'self', 'guest', 'fee'] as const;
 export type EnrolMethod = (typeof ENROL_METHODS)[number];
 
 /**
@@ -73,6 +73,7 @@ export class EnrolService implements OnModuleInit {
   async createInstance(actorId: number, courseId: number, input: {
     method: string; name?: string; roleShortname?: string; status?: number; enrolperiod?: number;
     cohortId?: number; groupId?: number; onCohortLeave?: 'suspend' | 'unenrol';
+    cost?: number; currency?: string; paymentAccountId?: number;
   }): Promise<EnrolRow> {
     await this.courses.getCourse(courseId);
     await this.requireManage(actorId, courseId);
@@ -90,12 +91,16 @@ export class EnrolService implements OnModuleInit {
     } else {
       roleid = await this.defaultStudentRoleId();
     }
+    if (input.method === 'fee' && (!input.cost || input.cost <= 0 || !input.currency)) {
+      throw new BadRequestException({ message: 'A fee enrol instance requires a positive integer cost and a currency', code: 'enrol.fee_config_required' });
+    }
     const instance = await this.repo.insertInstance({
       courseid: courseId, enrol: input.method, name: input.name ?? null, roleid,
       status: input.status ?? 0, enrolperiod: input.enrolperiod ?? 0,
       customint1: input.method === 'cohort' ? (input.cohortId ?? 0) : 0,
       customint2: input.groupId ?? 0,
       customtext1: input.onCohortLeave ?? 'suspend',
+      cost: input.cost ?? 0, currency: input.currency ?? '', paymentaccountid: input.paymentAccountId ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'enrol', type: 'enrol_instance_created', payload: { instanceId: instance.id, courseId, method: input.method } });
     // Cohort sync: enrol everyone already in the cohort.
@@ -169,7 +174,20 @@ export class EnrolService implements OnModuleInit {
   /** Self-enrolment through a 'self' instance (minimal P2 frame): the user enrols themselves when the instance is enabled. */
   async selfEnrol(userId: number, instanceId: number): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
+    if (instance.enrol === 'fee') {
+      // Enrol có phí chỉ kích hoạt qua PaymentSucceeded đã xác thực (§2#27) — không tự ghi danh trực tiếp.
+      throw new BadRequestException({ message: 'Fee enrol instance requires a succeeded payment before enrolment is activated', code: 'enrol.payment_required' });
+    }
     if (instance.enrol !== 'self') throw new BadRequestException({ message: 'Instance is not a self-enrol instance', code: 'enrol.not_self' });
+    return this.enrolUserInternal(instance, userId, userId);
+  }
+
+  /** Kích hoạt ghi danh sau thanh toán thành công — chỉ PaymentsModule gọi sau webhook đã xác thực/idempotent. */
+  async activatePaidEnrol(instanceId: number, userId: number): Promise<UserEnrolmentRow> {
+    const instance = await this.getInstance(instanceId);
+    if (instance.enrol !== 'fee') throw new BadRequestException({ message: 'Instance is not a fee enrol instance', code: 'enrol.not_fee' });
+    const existing = await this.repo.getUserEnrolment(instanceId, userId);
+    if (existing && existing.status === ENROL_ACTIVE) return existing;
     return this.enrolUserInternal(instance, userId, userId);
   }
 

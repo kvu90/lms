@@ -33,6 +33,7 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'] },
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'] },
   { name: 'course_completed', component: 'core_completion', channels: ['popup'] },
+  { name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'] },
 ];
 
 export function providerByName(name: string): MessageProviderDefinition | undefined {

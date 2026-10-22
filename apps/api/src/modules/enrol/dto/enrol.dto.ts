@@ -9,6 +9,10 @@ export class CreateEnrolInstanceDto {
   @IsOptional() @IsInt() cohortId?: number;
   @IsOptional() @IsInt() groupId?: number;
   @IsOptional() @IsString() onCohortLeave?: 'suspend' | 'unenrol';
+  /** Fee enrol: số tiền nguyên nhỏ nhất + mã tiền tệ + tài khoản thanh toán. */
+  @IsOptional() @IsInt() cost?: number;
+  @IsOptional() @IsString() currency?: string;
+  @IsOptional() @IsInt() paymentAccountId?: number;
 }
 export class UpdateEnrolInstanceDto {
   @IsOptional() @IsString() name?: string;

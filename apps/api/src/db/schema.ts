@@ -435,6 +435,10 @@ export const enrol = pgTable('enrol', {
   customint1: integer('customint1').notNull().default(0),
   customint2: integer('customint2').notNull().default(0),
   customtext1: text('customtext1').notNull().default('suspend'),
+  /** Fee enrol: cost in smallest currency unit (0 = free), currency ISO code, payment account id. */
+  cost: integer('cost').notNull().default(0),
+  currency: text('currency').notNull().default(''),
+  paymentaccountid: integer('paymentaccountid'),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1349,3 +1353,221 @@ export const questionAttemptStepData = pgTable(
   },
   (table) => [unique('question_attempt_step_data_step_name_unique').on(table.attemptstepid, table.name)],
 );
+
+// ---------------------------------------------------------------------------
+// Platform Services (Search / Web Services / Backup / Analytics /
+// Report Builder / Content Bank / Payment / Privacy)
+// ---------------------------------------------------------------------------
+
+/** Tài liệu tìm kiếm (Search): một hàng cho mỗi (area, item) — chứa contextid để re-check quyền tại thời điểm truy vấn. */
+export const searchDocuments = pgTable('search_documents', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  area: text('area').notNull(),
+  itemid: integer('itemid').notNull(),
+  contextid: integer('contextid').notNull(),
+  title: text('title').notNull().default(''),
+  content: text('content').notNull().default(''),
+  ownerid: integer('ownerid'),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('search_documents_area_item_unique').on(t.area, t.itemid)]);
+
+/** Dịch vụ ngoài (Web Services): tập function được phép gọi bằng token. */
+export const externalServices = pgTable('external_services', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull().unique(),
+  shortname: text('shortname').notNull().unique(),
+  enabled: boolean('enabled').notNull().default(true),
+  functions: jsonb('functions').notNull().default([]),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Token ngoài: chỉ lưu HASH của token, gắn user + service, có hạn và IP whitelist tuỳ chọn. */
+export const externalTokens = pgTable('external_tokens', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  tokenhash: text('tokenhash').notNull().unique(),
+  userid: integer('userid').notNull(),
+  serviceid: integer('serviceid').notNull().references(() => externalServices.id, { onDelete: 'cascade' }),
+  validuntil: timestamp('validuntil', { withTimezone: true }),
+  iprestriction: text('iprestriction'),
+  revoked: boolean('revoked').notNull().default(false),
+  lastaccess: timestamp('lastaccess', { withTimezone: true }),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Việc sao lưu/khôi phục: archive là manifest JSON có version riêng (không phải .mbz). */
+export const backupJobs = pgTable('backup_jobs', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  type: text('type').notNull(), // backup | restore
+  courseid: integer('courseid').notNull(),
+  targetcourseid: integer('targetcourseid'),
+  mode: text('mode').notNull().default('new'), // new | merge | replace (restore)
+  status: text('status').notNull().default('pending'), // pending | running | completed | failed
+  anonymize: boolean('anonymize').notNull().default(false),
+  userid: integer('userid').notNull(),
+  archive: jsonb('archive'),
+  error: text('error'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timefinished: timestamp('timefinished', { withTimezone: true }),
+});
+
+/** Các bước của một backup/restore job (kế hoạch nhiều bước chạy ở worker). */
+export const backupJobSteps = pgTable('backup_job_steps', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  jobid: integer('jobid').notNull().references(() => backupJobs.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  status: text('status').notNull().default('pending'),
+  detail: jsonb('detail'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Ánh xạ id gốc → id mới khi restore; id gốc KHÔNG BAO GIỜ được giữ lại. */
+export const backupIdMappings = pgTable('backup_id_mappings', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  jobid: integer('jobid').notNull().references(() => backupJobs.id, { onDelete: 'cascade' }),
+  itemtype: text('itemtype').notNull(),
+  oldid: integer('oldid').notNull(),
+  newid: integer('newid').notNull(),
+}, (t) => [unique('backup_id_mappings_unique').on(t.jobid, t.itemtype, t.oldid)]);
+
+/** Mô hình phân tích: target + indicators là provider đăng ký trong code. */
+export const analyticsModels = pgTable('analytics_models', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull().unique(),
+  target: text('target').notNull(),
+  indicators: jsonb('indicators').notNull().default([]),
+  enabled: boolean('enabled').notNull().default(true),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Dự đoán của model cho một user trong một context — suy luận, không phải dữ kiện. */
+export const analyticsPredictions = pgTable('analytics_predictions', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  modelid: integer('modelid').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
+  userid: integer('userid').notNull(),
+  contextid: integer('contextid').notNull(),
+  courseid: integer('courseid').notNull().default(0),
+  score: doublePrecision('score').notNull().default(0),
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Insight sinh cho user có capability ở context liên quan. */
+export const insights = pgTable('insights', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  modelid: integer('modelid').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
+  predictionid: integer('predictionid'),
+  userid: integer('userid').notNull(), // subject
+  recipientid: integer('recipientid').notNull(),
+  contextid: integer('contextid').notNull(),
+  courseid: integer('courseid').notNull().default(0),
+  heading: text('heading').notNull().default(''),
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Báo cáo tuỳ biến (Report Builder): columns/filters là cấu hình JSON, không bao giờ nới quyền. */
+export const reportbuilderReport = pgTable('reportbuilder_report', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  datasource: text('datasource').notNull(), // enrolments | grades | completion
+  columns: jsonb('columns').notNull().default([]),
+  filters: jsonb('filters').notNull().default({}),
+  createdby: integer('createdby').notNull(),
+  contextid: integer('contextid').notNull().default(0),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Audience của báo cáo: userids/role shortnames được phép xem (giao với quyền từng dòng). */
+export const reportbuilderAudience = pgTable('reportbuilder_audience', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  reportid: integer('reportid').notNull().references(() => reportbuilderReport.id, { onDelete: 'cascade' }),
+  userid: integer('userid'),
+  role: text('role'),
+});
+
+/** Lịch chạy báo cáo: chạy dưới danh tính người tạo với quyền tại thời điểm chạy. */
+export const reportbuilderSchedule = pgTable('reportbuilder_schedule', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  reportid: integer('reportid').notNull().references(() => reportbuilderReport.id, { onDelete: 'cascade' }),
+  createdby: integer('createdby').notNull(),
+  cron: text('cron').notNull().default('daily'),
+  enabled: boolean('enabled').notNull().default(true),
+  lastrun: timestamp('lastrun', { withTimezone: true }),
+  lastresult: jsonb('lastresult'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Nội dung Content Bank: thuộc context, có tác giả, trạng thái draft/public, file qua FilesModule. */
+export const contentbankContent = pgTable('contentbank_content', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  contenttype: text('contenttype').notNull().default('file-based'),
+  contextid: integer('contextid').notNull(),
+  creatorid: integer('creatorid').notNull(),
+  visibility: text('visibility').notNull().default('draft'), // draft | public
+  fileid: integer('fileid'),
+  configdata: jsonb('configdata'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Tài khoản thanh toán (Payment account). */
+export const paymentAccounts = pgTable('payment_accounts', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  gateway: text('gateway').notNull().default('manual'),
+  enabled: boolean('enabled').notNull().default(true),
+  config: jsonb('config'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Thanh toán: amount là số nguyên đơn vị nhỏ nhất + currency; bản ghi thành công là bất biến. */
+export const payments = pgTable('payments', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  accountid: integer('accountid').notNull().references(() => paymentAccounts.id),
+  userid: integer('userid').notNull(),
+  amount: integer('amount').notNull(),
+  currency: text('currency').notNull(),
+  status: text('status').notNull().default('pending'), // pending | succeeded | failed | refunded
+  gateway: text('gateway').notNull().default('manual'),
+  externaltransactionid: text('externaltransactionid'),
+  component: text('component').notNull().default(''),
+  itemid: integer('itemid').notNull().default(0), // e.g. enrol instance id
+  data: jsonb('data'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('payments_external_tx_unique').on(t.gateway, t.externaltransactionid)]);
+
+/** Hoàn tiền là giao dịch bù trừ riêng — payment gốc không bị sửa. */
+export const paymentRefunds = pgTable('payment_refunds', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  paymentid: integer('paymentid').notNull().references(() => payments.id),
+  amount: integer('amount').notNull(),
+  currency: text('currency').notNull(),
+  reason: text('reason').notNull().default(''),
+  externaltransactionid: text('externaltransactionid'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Yêu cầu Privacy: export/delete có phê duyệt, chạy nền, có trạng thái. */
+export const privacyRequests = pgTable('privacy_requests', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  userid: integer('userid').notNull(),
+  type: text('type').notNull(), // export | delete
+  status: text('status').notNull().default('pending'), // pending | approved | rejected | completed | failed
+  requestedby: integer('requestedby').notNull(),
+  approvedby: integer('approvedby'),
+  result: jsonb('result'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** File export của Privacy được lưu qua FilesModule. */
+export const privacyExportFiles = pgTable('privacy_export_files', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  requestid: integer('requestid').notNull().references(() => privacyRequests.id, { onDelete: 'cascade' }),
+  fileid: integer('fileid'),
+  subsystem: text('subsystem').notNull().default(''),
+  manifest: jsonb('manifest'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+});
