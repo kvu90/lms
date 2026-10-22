@@ -7,9 +7,9 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface PostView { id: number; userid: number; subject: string; content: string; publishstate: string; contextid: number }
-interface CommentView { id: number; userid: number; content: string }
-interface TagView { id: number; name: string; ordering: number }
+interface PostView { id: string; userid: string; subject: string; content: string; publishstate: string; contextid: string }
+interface CommentView { id: string; userid: string; content: string }
+interface TagView { id: string; name: string; ordering: number }
 interface AggregateView { count: number; average: number }
 
 /**
@@ -23,11 +23,11 @@ export function BlogPage() {
   const [posts, setPosts] = useState<PostView[]>([]);
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
-  const [comments, setComments] = useState<Record<number, CommentView[]>>({});
-  const [tags, setTags] = useState<Record<number, TagView[]>>({});
-  const [aggregates, setAggregates] = useState<Record<number, AggregateView>>({});
-  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
-  const [tagDrafts, setTagDrafts] = useState<Record<number, string>>({});
+  const [comments, setComments] = useState<Record<string, CommentView[]>>({});
+  const [tags, setTags] = useState<Record<string, TagView[]>>({});
+  const [aggregates, setAggregates] = useState<Record<string, AggregateView>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const loadExtras = useCallback(async (post: PostView) => {

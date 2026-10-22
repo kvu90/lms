@@ -18,7 +18,7 @@ import { apiJson } from '@/lib/api';
 export function GradebookPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
-  const courseId = Number(id);
+  const courseId = id ?? '';
   const [book, setBook] = useState<Gradebook | null>(null);
   const [report, setReport] = useState<GradeReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export function GradebookPage() {
     try {
       await apiJson(`/api/v1/courses/grades/items/${gradeItemId}/grades`, {
         method: 'POST',
-        body: JSON.stringify({ userid: Number(gradeUserId), rawgrade: Number(gradeValue) }),
+        body: JSON.stringify({ userid: gradeUserId, rawgrade: Number(gradeValue) }),
       });
       setMessage(t('gradeSaved'));
       await reload();

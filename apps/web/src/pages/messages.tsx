@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface ConversationView { id: number; type: number; name: string | null; members: number[] }
-interface MessageView { id: number; useridfrom: number; fullmessage: string; timecreated: string }
+interface ConversationView { id: string; type: number; name: string | null; members: string[] }
+interface MessageView { id: string; useridfrom: string; fullmessage: string; timecreated: string }
 
 /**
  * Messages: conversation list with unread count, message thread and
@@ -57,7 +57,7 @@ export function MessagesPage() {
   async function startConversation(event: FormEvent) {
     event.preventDefault();
     const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
-      method: 'POST', body: JSON.stringify({ userids: [Number(newUserId)] }),
+      method: 'POST', body: JSON.stringify({ userids: [newUserId] }),
     });
     setNewUserId('');
     await reload();

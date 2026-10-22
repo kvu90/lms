@@ -8,8 +8,8 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface ContextRow { id: number; contextlevel: number; instanceid: number; path: string }
-interface RoleCapabilityRow { roleid: number; capability: string; contextid: number; permission: number }
+interface ContextRow { id: string; contextlevel: number; instanceid: string; path: string }
+interface RoleCapabilityRow { roleid: string; capability: string; contextid: string; permission: number }
 
 /** Nhãn mức quyền dịch qua catalog ở thời điểm render (xem hook trong component). */
 
@@ -47,7 +47,7 @@ export function AdminRolesPage() {
   async function submitAssignment() {
     await apiJson('/api/v1/access/assignments', {
       method: 'POST',
-      body: JSON.stringify({ userid: Number(assign.userid), roleid: Number(assign.roleid), contextid: Number(assign.contextid) }),
+      body: JSON.stringify({ userid: assign.userid, roleid: assign.roleid, contextid: assign.contextid }),
     });
     setAssign({ ...assign, userid: '' });
   }

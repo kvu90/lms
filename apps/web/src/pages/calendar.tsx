@@ -6,8 +6,8 @@ import '../i18n';
 import { apiJson } from '@/lib/api';
 
 interface EventView {
-  id: number; name: string; description: string; eventtype: string;
-  timestart: string; timeduration: number; repeatid: number; isexception: boolean;
+  id: string; name: string; description: string; eventtype: string;
+  timestart: string; timeduration: number; repeatid: string; isexception: boolean;
 }
 
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;

@@ -33,7 +33,7 @@ export function AdminUsersPage() {
     setDraft({ username: '', email: '', password: '' });
     await load();
   }
-  async function suspend(id: number, suspended: boolean) {
+  async function suspend(id: string, suspended: boolean) {
     await apiJson(`/api/v1/users/${id}/${suspended ? 'suspend' : 'unsuspend'}`, { method: 'POST' });
     await load();
   }

@@ -8,8 +8,8 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface BadgeView { id: number; name: string; description: string; type: number; courseid: number; status: number }
-interface IssuedView { id: number; badgeid: number; uniquehash: string; dateissued: string; dateexpire: string | null; revoked: boolean }
+interface BadgeView { id: string; name: string; description: string; type: number; courseid: string; status: number }
+interface IssuedView { id: string; badgeid: string; uniquehash: string; dateissued: string; dateexpire: string | null; revoked: boolean }
 
 /** Nhãn trạng thái huy hiệu dịch qua catalog ở thời điểm render (xem hook trong component). */
 
@@ -44,7 +44,7 @@ export function BadgesPage() {
 
   useEffect(() => { void reload().catch(() => setError(t('badgesLoadFailed'))); }, [reload]);
 
-  const badgeName = (id: number) => all.find((b) => b.id === id)?.name ?? t('badgeFallback', { id });
+  const badgeName = (id: string) => all.find((b) => b.id === id)?.name ?? t('badgeFallback', { id });
 
   async function createBadge(event: FormEvent) {
     event.preventDefault();
@@ -61,14 +61,14 @@ export function BadgesPage() {
     try {
       await apiJson(`/api/v1/badges/${criteriaBadgeId}/criteria`, {
         method: 'PUT',
-        body: JSON.stringify({ method: 1, leaves: [{ criteriatype: 'coursecompletion', params: { courseId: Number(criteriaCourseId) } }] }),
+        body: JSON.stringify({ method: 1, leaves: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }] }),
       });
       setMessage(t('criteriaSaved'));
       await reload();
     } catch { setMessage(t('criteriaRefused')); }
   }
 
-  async function activate(id: number) {
+  async function activate(id: string) {
     try {
       await apiJson(`/api/v1/badges/${id}/activate`, { method: 'POST', body: '{}' });
       setMessage(t('badgeActivated'));

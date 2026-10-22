@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface NotificationView { id: number; subject: string; fullmessage: string; eventtype: string; timeread: string | null; timecreated: string }
+interface NotificationView { id: string; subject: string; fullmessage: string; eventtype: string; timeread: string | null; timecreated: string }
 interface PreferenceView { provider: string; channel: string; loggedin: boolean; loggedoff: boolean }
 
 /**

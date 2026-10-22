@@ -19,7 +19,7 @@ export function QuestionsPage() {
   const { t } = useTranslation('app');
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [questions, setQuestions] = useState<QuestionView[]>([]);
-  const [versionsOf, setVersionsOf] = useState<{ questionId: number; versions: { version: number; questiontext: string }[] } | null>(null);
+  const [versionsOf, setVersionsOf] = useState<{ questionId: string; versions: { version: number; questiontext: string }[] } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [contextId, setContextId] = useState('1');
   const [catName, setCatName] = useState('');
@@ -28,7 +28,7 @@ export function QuestionsPage() {
   const [qText, setQText] = useState('');
   const [qCorrect, setQCorrect] = useState('true');
 
-  const loadQuestions = useCallback(async (categoryId: number) => {
+  const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
     setQuestions(rows);
   }, []);
@@ -37,7 +37,7 @@ export function QuestionsPage() {
     setCategories(cats);
     if (cats.length) {
       setQCategory((prev) => prev || String(cats[0]!.id));
-      await loadQuestions(Number(qCategory || cats[0]!.id));
+      await loadQuestions(qCategory || cats[0]!.id);
     }
   }, [loadQuestions, qCategory]);
 
@@ -47,7 +47,7 @@ export function QuestionsPage() {
     event.preventDefault();
     try {
       await apiJson('/api/v1/questions/categories', {
-        method: 'POST', body: JSON.stringify({ name: catName, contextid: Number(contextId) }),
+        method: 'POST', body: JSON.stringify({ name: catName, contextid: contextId }),
       });
       setCatName('');
       await reload();
@@ -60,12 +60,12 @@ export function QuestionsPage() {
       await apiJson('/api/v1/questions', {
         method: 'POST',
         body: JSON.stringify({
-          categoryId: Number(qCategory), qtype: 'truefalse', name: qName, questiontext: qText,
+          categoryId: qCategory, qtype: 'truefalse', name: qName, questiontext: qText,
           answer: { correct: qCorrect === 'true' },
         }),
       });
       setQName(''); setQText('');
-      await loadQuestions(Number(qCategory));
+      await loadQuestions(qCategory);
     } catch { setMessage(t('questionCreateFailed')); }
   }
 

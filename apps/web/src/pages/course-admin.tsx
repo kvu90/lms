@@ -13,7 +13,7 @@ import { apiJson } from '@/lib/api';
 export function CourseAdminPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
-  const courseId = Number(id);
+  const courseId = id ?? '';
   const [groups, setGroups] = useState<CourseGroup[]>([]);
   const [groupName, setGroupName] = useState('');
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -58,7 +58,7 @@ export function CourseAdminPage() {
         });
       }
       await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${instance.id}/enrol`, {
-        method: 'POST', body: JSON.stringify({ userid: Number(enrolUserId) }),
+        method: 'POST', body: JSON.stringify({ userid: enrolUserId }),
       });
       await reload();
       setMessage(t('userEnrolled'));

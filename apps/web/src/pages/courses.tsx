@@ -64,7 +64,7 @@ export function CoursesPage() {
     try {
       await apiJson('/api/v1/courses/categories', {
         method: 'POST',
-        body: JSON.stringify({ name: catName, parent: Number(catParent) || 0 }),
+        body: JSON.stringify({ name: catName, parent: catParent || null }),
       });
       setCatName('');
       await reload();
@@ -78,7 +78,7 @@ export function CoursesPage() {
     try {
       await apiJson('/api/v1/courses', {
         method: 'POST',
-        body: JSON.stringify({ fullname: courseName, shortname: courseShort, category: Number(courseCategory) }),
+        body: JSON.stringify({ fullname: courseName, shortname: courseShort, category: courseCategory }),
       });
       setCourseName(''); setCourseShort('');
       await reload();

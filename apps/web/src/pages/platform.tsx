@@ -7,15 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiJson } from '@/lib/api';
 
-interface SearchDoc { id: number; area: string; itemid: number; title: string; content: string }
-interface ServiceView { id: number; name: string; shortname: string; enabled: boolean; functions: string[] }
-interface TokenView { id: number; userid: number; serviceid: number; revoked: boolean }
-interface BackupJob { id: number; type: string; courseid: number; targetcourseid: number | null; mode: string; status: string }
-interface BackupStep { id: number; name: string; status: string }
-interface InsightView { id: number; userid: number; heading: string; courseid: number }
-interface ReportView { id: number; name: string; datasource: string; columns: string[] }
-interface ContentView { id: number; name: string; visibility: string; contextid: number; fileid: number | null }
-interface PrivacyRequestView { id: number; userid: number; type: string; status: string }
+interface SearchDoc { id: string; area: string; itemid: string; title: string; content: string }
+interface ServiceView { id: string; name: string; shortname: string; enabled: boolean; functions: string[] }
+interface TokenView { id: string; userid: string; serviceid: string; revoked: boolean }
+interface BackupJob { id: string; type: string; courseid: string; targetcourseid: string | null; mode: string; status: string }
+interface BackupStep { id: string; name: string; status: string }
+interface InsightView { id: string; userid: string; heading: string; courseid: string }
+interface ReportView { id: string; name: string; datasource: string; columns: string[] }
+interface ContentView { id: string; name: string; visibility: string; contextid: string; fileid: string | null }
+interface PrivacyRequestView { id: string; userid: string; type: string; status: string }
 
 /**
  * Tìm kiếm toàn cục (platform services): kết quả đã được server lọc theo quyền của người
@@ -82,15 +82,15 @@ export function TokensPage() {
     setName('');
     await reload();
   }
-  async function createToken(serviceid: number) {
-    const me = await apiJson<{ id: number }>('/api/v1/users/me');
+  async function createToken(serviceid: string) {
+    const me = await apiJson<{ id: string }>('/api/v1/users/me');
     const created = await apiJson<{ token: string }>('/api/v1/webservice/tokens', {
       method: 'POST', body: JSON.stringify({ userid: me.id, serviceid }),
     });
     setCreatedToken(created.token);
     await reload();
   }
-  async function revoke(id: number) {
+  async function revoke(id: string) {
     await apiJson(`/api/v1/webservice/tokens/${id}/revoke`, { method: 'POST', body: '{}' });
     await reload();
   }
@@ -138,11 +138,11 @@ export function BackupPage() {
   useEffect(() => { void reload().catch(() => undefined); }, [reload]);
   async function createBackup(event: FormEvent) {
     event.preventDefault();
-    await apiJson('/api/v1/backup/jobs', { method: 'POST', body: JSON.stringify({ courseId: Number(courseId) }) });
+    await apiJson('/api/v1/backup/jobs', { method: 'POST', body: JSON.stringify({ courseId }) });
     await reload();
   }
-  async function viewSteps(id: number) { setSteps(await apiJson<BackupStep[]>(`/api/v1/backup/jobs/${id}/steps`)); }
-  async function restore(id: number) {
+  async function viewSteps(id: string) { setSteps(await apiJson<BackupStep[]>(`/api/v1/backup/jobs/${id}/steps`)); }
+  async function restore(id: string) {
     await apiJson('/api/v1/backup/restore', { method: 'POST', body: JSON.stringify({ backupJobId: id, mode: 'new' }) });
     await reload();
   }
@@ -214,11 +214,11 @@ export function ReportsPage() {
     setName('');
     await reload();
   }
-  async function run(id: number) {
+  async function run(id: string) {
     const result = await apiJson<{ rows: Record<string, unknown>[] }>(`/api/v1/reports/${id}/run`);
     setRows(result.rows);
   }
-  async function schedule(id: number) {
+  async function schedule(id: string) {
     await apiJson(`/api/v1/reports/${id}/schedules`, { method: 'POST', body: JSON.stringify({ cron: 'daily' }) });
   }
   return (
@@ -269,11 +269,11 @@ export function ContentBankPage() {
   useEffect(() => { void reload().catch(() => undefined); }, [reload]);
   async function create(event: FormEvent) {
     event.preventDefault();
-    await apiJson('/api/v1/contentbank', { method: 'POST', body: JSON.stringify({ name, contextid: Number(contextId), visibility: 'public' }) });
+    await apiJson('/api/v1/contentbank', { method: 'POST', body: JSON.stringify({ name, contextid: contextId, visibility: 'public' }) });
     setName('');
     await reload();
   }
-  async function upload(id: number) {
+  async function upload(id: string) {
     await apiJson(`/api/v1/contentbank/${id}/file`, {
       method: 'POST',
       body: JSON.stringify({ filename: 'file.txt', contentBase64: btoa('content bank upload'), mimetype: 'text/plain' }),
@@ -321,7 +321,7 @@ export function PrivacyPage() {
     setSent(t('requestSent', { id: created.id, type: created.type, status: created.status }));
     await reload();
   }
-  async function decide(id: number, decision: 'approved' | 'rejected') {
+  async function decide(id: string, decision: 'approved' | 'rejected') {
     await apiJson(`/api/v1/privacy/requests/${id}/decide`, { method: 'POST', body: JSON.stringify({ decision }) });
     await reload();
   }
