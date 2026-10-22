@@ -41,11 +41,10 @@ class-validator", **không** dùng `legacy-peer-deps`.
 Ghi nhận thực tế cài đặt: `pnpm add @nestjs/i18n@0.0.1 --save-exact` cài
 thành công cho cả api và worker, chỉ kèm cảnh báo peer chưa thoả
 (class-validator 0.15.1 còn trong cây từ code cũ) — không lỗi ERESOLVE.
-Kế hoạch gỡ hẳn: xoá class-validator khỏi dependencies của toàn repo và
-chuyển đổi code cũ đang dùng class-validator sang Zod thuộc đợt rà soát
-ngược ngay sau đợt này (chưa làm trong phạm vi quyết định này — ADR không
-ghi là đã gỡ xong). Điều kiện gỡ block hoàn toàn: khi đợt rà soát đó xong,
-cảnh báo peer tự biến mất; hoặc khi @nestjs/i18n ra bản nới peer range.
+ĐÃ ĐÓNG (đợt rà soát bề mặt cũ): class-validator/class-transformer đã gỡ
+hẳn khỏi toàn repo (xem ADR-009, mục trạng thái chuyển đổi) nên cảnh báo
+peer biến mất hoàn toàn; `pnpm-workspace.yaml` đặt `autoInstallPeers:
+false` để pnpm không tự cài lại các peer tuỳ chọn này.
 
 ## Hệ quả
 - Thiếu khoá dịch ở môi trường dev/test làm request lỗi 500 (missingKey

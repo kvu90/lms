@@ -31,8 +31,6 @@
     "argon2": "0.45.1",
     "bullmq": "^6.4.0",
     "cache-manager": "^7.2.9",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
     "drizzle-orm": "1.0.0-rc.5",
     "ioredis": "^6.0.0",
     "keyv": "^6.1.0",

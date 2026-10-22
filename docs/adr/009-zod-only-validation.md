@@ -39,17 +39,27 @@ Một nguồn sự thật duy nhất (schema) phục vụ cả API lẫn form Re
 song song (class DTO + type) dễ lệch nhau; bỏ class-validator cũng đóng
 luôn block peer của @nestjs/i18n (ADR-008).
 
-## Trạng thái chuyển đổi (ghi đúng thực tế)
-- Code mới của đợt nền tảng dịch vụ đã chuyển 100% sang Zod: toàn bộ DTO
-  của search, web services, backup, analytics, reports, content bank,
-  payments, privacy là schema/type suy từ `@lms/contracts`.
-- Code cũ (các module đã xây trước) vẫn còn class-validator trong
-  dependencies và trong DTO của chúng. Việc **gỡ hẳn class-validator khỏi
-  dependencies của toàn repo + chuyển đổi code cũ** thuộc đợt rà soát
-  ngược tiếp theo — CHƯA làm, ADR này không ghi là đã gỡ xong. Trong thời
-  gian chuyển tiếp, global `ValidationPipe` (main.ts) vẫn phục vụ DTO cũ;
-  các param gắn `schema` được pipe Standard Schema xử lý (hai pipe không
-  chồng chéo vì param schema không có class metatype).
+## Trạng thái chuyển đổi — ĐÃ GỠ HOÀN TOÀN (đợt rà soát bề mặt cũ)
+
+- Toàn bộ DTO cũ (access, users, auth, custom-fields, files, courses, groups,
+  enrol, completion, grades, questions, messaging, calendar, badges,
+  competencies, social) đã chuyển sang schema Zod: schema nền ở
+  `packages/contracts` (identity/course/assessment/engagement/platform),
+  file `dto/*.dto.ts` của mỗi module chỉ re-export schema + type suy ra và
+  EXTEND cho nhu cầu riêng của server (ép kiểu query string/multipart bằng
+  `z.coerce`, đúng mẫu privacy/search trước đây).
+- `class-validator` và `class-transformer` đã GỠ HẲN khỏi mọi
+  `package.json` và khỏi đồ thị lockfile (không còn package entry nào;
+  chỉ còn khai báo peer tuỳ chọn trong metadata của chính các gói Nest).
+  Global `ValidationPipe` đã gỡ khỏi `main.ts` và khỏi test helper — mọi
+  validation đi qua `APP_PIPE` (`I18nStandardSchemaValidationPipe`).
+- Env validation của ConfigModule (api + worker) vốn đã là Zod
+  (`validateEnv`), giữ nguyên.
+- Để pnpm không tự cài lại các peer tuỳ chọn này cho `@nestjs/common` /
+  `@nestjs/swagger`, `pnpm-workspace.yaml` đặt `autoInstallPeers: false` —
+  từ nay mọi peer cần thiết phải khai tường minh trong `package.json`.
+- Hệ quả phụ: cảnh báo peer chưa thoả của `@nestjs/i18n` (xem ADR-008)
+  biến mất hoàn toàn.
 
 ## Hệ quả
 - Mọi payload mới phải có schema ở contracts trước khi có endpoint.

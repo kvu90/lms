@@ -82,7 +82,7 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
 - **Validation is Zod-only** (ADR-009): base schemas live in
   `packages/contracts` and are the single source of truth for the API
   (Standard Schema pipe) and React forms; server-only fields extend the
-  base schema. No class-validator for new code.
+  base schema. class-validator/class-transformer are removed from the repo entirely.
 - **Language of code and comments**: identifiers, API docs, log keys and
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
