@@ -77,7 +77,7 @@ export function GradebookPage() {
 
   /** Staff của khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
-  const isStaff = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || courseAccess?.report != null;
+  const isStaff = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/grade:viewall') ?? false);
 
   const [adminCategories, setAdminCategories] = useState<GradeCategory[]>([]);
   const [adminItems, setAdminItems] = useState<GradeItem[]>([]);

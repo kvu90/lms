@@ -180,9 +180,9 @@ describe('Gradebook administration (teacher of the course)', () => {
   interface RecordedCall { url: string; method: string; body: unknown }
 
   /**
-   * Stub fetch cho giáo viên của khoá: các điểm dò quyền của
-   * PermissionsProvider trả về ghi danh đang hoạt động + báo cáo lớp gọi
-   * được (grade:viewall) nên trang kết luận là staff và mới tải thêm
+   * Stub fetch cho giáo viên của khoá: ảnh chụp quyền
+   * (GET /users/me/capabilities) khai gán editingteacher tại context khoá
+   * kèm moodle/grade:viewall nên trang kết luận là staff và mới tải thêm
    * categories/items/letters/scales. Mọi lời gọi đều được ghi lại để
    * khẳng định URL/method/body đúng controller phía API.
    */
@@ -192,6 +192,20 @@ describe('Gradebook administration (teacher of the course)', () => {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities') {
+        return respond({
+          userId: TEACHER_ID, isSiteAdmin: false,
+          assignments: [{
+            id: '01900000-0000-7000-8000-0000000000f1', roleId: '01900000-0000-7000-8000-0000000000b9',
+            roleShortname: 'editingteacher', roleName: 'Teacher',
+            contextId: '01900000-0000-7000-8000-000000000055', contextLevel: 50, contextPath: '/1/9/10', instanceId: COURSE_ID,
+          }],
+          contexts: [
+            { contextId: '01900000-0000-7000-8000-0000000000e1', contextLevel: 10, contextPath: '/1', capabilities: [] },
+            { contextId: '01900000-0000-7000-8000-000000000055', contextLevel: 50, contextPath: '/1/9/10', capabilities: ['moodle/grade:viewall', 'moodle/grade:edit', 'moodle/question:useall'] },
+          ],
+        });
+      }
       if (url === '/api/v1/users?pageSize=1') return respond(FORBIDDEN, 403);
       if (url === '/api/v1/access/roles') return respond(FORBIDDEN, 403);
       if (url === '/api/v1/questions/categories') return respond([]);

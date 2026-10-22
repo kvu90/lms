@@ -31,6 +31,7 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
     calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
     const respond = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url === '/api/v1/users/me') return respond(PROFILE);
+    if (url === '/api/v1/users/me/capabilities') return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
     if (url === '/api/v1/users?pageSize=1') return respond({ users: [PROFILE], total: 1, page: 1, pageSize: 1 });
     if (url === '/api/v1/access/roles') return respond([]);
     if (url === '/api/v1/questions/categories') return respond([]);

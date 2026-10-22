@@ -135,6 +135,7 @@ describe('Courses page — category administration (admin)', () => {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(profile);
+      if (url === '/api/v1/users/me/capabilities') return respond({ userId: profile.id, isSiteAdmin: true, assignments: [], contexts: [] });
       if (url === '/api/v1/users?pageSize=1') return respond({ users: [profile], total: 1, page: 1, pageSize: 1 });
       if (url === '/api/v1/access/roles') return respond([]);
       if (url === '/api/v1/questions/categories') return respond([]);

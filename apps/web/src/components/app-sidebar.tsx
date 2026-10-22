@@ -46,9 +46,9 @@ import "../i18n"
  * - Mục ngân hàng câu hỏi: chỉ hiện khi API cho phép đọc danh mục câu hỏi
  *   (canUseQuestionBank) — học viên thuần không nhìn thấy.
  * - Nhóm quản trị: chỉ hiện khi người dùng có ít nhất một capability quản
- *   trị cấp hệ thống (canAdminister do PermissionsProvider dò từ chính các
- *   endpoint quản trị). Phần tử không có quyền thì KHÔNG render — không
- *   render rồi disable, không để link dẫn tới trang chắc chắn 403.
+ *   trị cấp hệ thống (canAdminister do PermissionsProvider đọc từ ảnh chụp
+ *   quyền GET /users/me/capabilities). Phần tử không có quyền thì KHÔNG
+ *   render — không render rồi disable, không để link dẫn tới trang 403.
  */
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation(["app", "dashboard"])

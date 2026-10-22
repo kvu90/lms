@@ -35,7 +35,7 @@ export function CourseAdminPage() {
 
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
-  const canBuild = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || courseAccess?.report != null;
+  const canBuild = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);

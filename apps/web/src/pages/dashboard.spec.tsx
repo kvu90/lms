@@ -53,6 +53,35 @@ const REPORT = {
 
 const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
 
+const SYS_CTX_ID = '01900000-0000-7000-8000-0000000000e1';
+const COURSE_CTX_ID = '01900000-0000-7000-8000-0000000000e2';
+
+/** Ảnh chụp quyền (GET /users/me/capabilities) mà API thật trả cho từng vai trò. */
+function accessView(role: 'admin' | 'teacher' | 'student') {
+  const me = role === 'admin' ? PROFILES.admin : role === 'teacher' ? PROFILES.teacher1 : PROFILES.student1;
+  if (role === 'admin') {
+    return {
+      userId: me.id, isSiteAdmin: true, assignments: [],
+      contexts: [{ contextId: SYS_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: ['moodle/user:viewdetails', 'moodle/role:manage'] }],
+    };
+  }
+  return {
+    userId: me.id, isSiteAdmin: false,
+    assignments: [{
+      id: '01900000-0000-7000-8000-0000000000f1', roleId: '01900000-0000-7000-8000-0000000000b9',
+      roleShortname: role === 'teacher' ? 'editingteacher' : 'student', roleName: role === 'teacher' ? 'Teacher' : 'Student',
+      contextId: COURSE_CTX_ID, contextLevel: 50, contextPath: '/1/9/10', instanceId: COURSE_ID,
+    }],
+    contexts: [
+      { contextId: SYS_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: [] },
+      {
+        contextId: COURSE_CTX_ID, contextLevel: 50, contextPath: '/1/9/10',
+        capabilities: role === 'teacher' ? ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall'] : ['moodle/course:view'],
+      },
+    ],
+  };
+}
+
 type Handler = (url: string) => { status: number; body: unknown } | undefined;
 
 function ok(body: unknown) {
@@ -63,9 +92,10 @@ function forbidden() {
 }
 
 /**
- * Stub fetch theo đúng bề mặt API thật: endpoint nào vai trò không có
- * quyền thì trả 403 như PermissionEvaluator của API, để test kiểm chứng
- * giao diện suy ra đúng quyền từ hành vi API.
+ * Stub fetch theo đúng bề mặt API thật: quyền của từng vai trò được khai
+ * qua GET /users/me/capabilities (đúng nguồn PermissionsProvider đọc),
+ * còn các endpoint dữ liệu bị khoá quyền vẫn trả 403 như PermissionEvaluator
+ * của API để test kiểm chứng cả dữ liệu hiển thị theo vai trò.
  */
 function stubFetch(handler: Handler) {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -105,6 +135,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
   const me = role === 'admin' ? PROFILES.admin : role === 'teacher' ? PROFILES.teacher1 : PROFILES.student1;
   return (url) => {
     if (url === '/api/v1/users/me') return ok(me);
+    if (url === '/api/v1/users/me/capabilities') return ok(accessView(role));
     if (url.startsWith('/api/v1/users?')) {
       if (role !== 'admin') return forbidden();
       return url.includes('pageSize=100')

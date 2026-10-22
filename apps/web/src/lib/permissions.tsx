@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Course, Gradebook, GradeReport } from '@lms/contracts';
+import type { Course, Gradebook, GradeReport, MyAccessView } from '@lms/contracts';
 import { apiJson } from './api';
 import { useAuth } from './auth';
 
@@ -21,42 +21,57 @@ export interface CourseAccess {
   /** Ghi danh của chính người dùng trong khoá (null nếu API không trả về). */
   enrolment: MyEnrolment | null;
   /**
-   * Báo cáo điểm toàn lớp: chỉ tải được khi người dùng có capability
-   * moodle/grade:viewall tại context của khoá — đây là dấu hiệu "đội ngũ
-   * giảng dạy" trong khoá đó. null nghĩa là không có quyền này (API trả 403).
+   * Capability đã phân giải của người dùng tại context của khoá này, lấy từ
+   * GET /users/me/capabilities — nguồn quyết định phân loại giảng dạy/học
+   * viên và các nút thao tác theo ngữ cảnh khoá. Rỗng khi không tải được
+   * ảnh chụp quyền (API vẫn là nơi thực thi quyền thật).
    */
+  capabilities: string[];
+  /** Báo cáo điểm toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
   report: GradeReport | null;
   /** Sổ điểm của chính người dùng trong khoá (null nếu không truy cập được). */
   gradebook: Gradebook | null;
 }
 
+/** Cấp context theo quy ước của hệ thống quyền (khớp CONTEXT_LEVELS phía API). */
+const CONTEXT_LEVEL = { SYSTEM: 10, COURSECAT: 40, COURSE: 50 } as const;
+
+/** Các capability mở quyền dùng ngân hàng câu hỏi ở ít nhất một context. */
+const QUESTION_CAPABILITIES = [
+  'moodle/question:useall',
+  'moodle/question:add',
+  'moodle/question:editall',
+  'moodle/question:managecategory',
+] as const;
+
 /**
- * Ảnh chụp quyền hiệu lực của người đang đăng nhập, suy ra hoàn toàn từ dữ
- * liệu API hiện có.
+ * Ảnh chụp quyền hiệu lực của người đang đăng nhập.
  *
- * Vì sao phải "dò" endpoint thay vì đọc một trường role: API hiện không có
- * endpoint tự phục vụ nào trả về role/capability của chính người gọi —
- * /users/me chỉ có hồ sơ, còn mọi endpoint /access/* đều bị khoá bằng
- * capability quản trị (moodle/role:manage, moodle/role:assign). Nguồn sự
- * thật khả thi duy nhất là hành vi của chính các endpoint đọc đã được API
- * khoá quyền: gọi được (200) tức là có quyền, bị 403 tức là không. Site
- * admin (danh sách siteadmins phía server, bỏ qua mọi capability check) tự
- * động qua mọi điểm dò — đúng semantics của PermissionEvaluator.
+ * Nguồn sự thật duy nhất là GET /users/me/capabilities: endpoint tự phục vụ
+ * trả cờ site admin, các gán vai trò theo context và capability mà
+ * PermissionEvaluator đã phân giải tại context hệ thống, các context có gán
+ * vai trò và tổ tiên của chúng. Giao diện KHÔNG còn suy quyền bằng cách gọi
+ * thử các endpoint bị khoá quyền rồi đoán qua mã 200/403 nữa — cách dò cũ
+ * vừa tốn request vừa dễ lệch khi endpoint đổi capability. Các endpoint dữ
+ * liệu (báo cáo điểm, sổ điểm) vẫn được tải bình thường để hiển thị, nhưng
+ * kết quả của chúng không còn quyết định việc phân loại quyền.
  */
 export interface PermissionsState {
-  /** false trong lúc đang dò quyền lần đầu. */
+  /** false trong lúc đang nạp ảnh chụp quyền lần đầu. */
   ready: boolean;
-  /** Gọi được GET /users (moodle/user:viewdetails tại context hệ thống). */
+  /** Toàn bộ ảnh chụp quyền từ API (null khi chưa tải được). */
+  access: MyAccessView | null;
+  /** Có moodle/user:viewdetails tại context hệ thống (hoặc là site admin). */
   canViewUsers: boolean;
-  /** Gọi được GET /access/roles (moodle/role:manage). */
+  /** Có moodle/role:manage tại context hệ thống (hoặc là site admin). */
   canManageRoles: boolean;
   /** Có ít nhất một quyền quản trị cấp hệ thống — điều kiện hiện khối quản trị. */
   canAdminister: boolean;
-  /** Gọi được GET /questions/categories — điều kiện hiện mục ngân hàng câu hỏi. */
+  /** Có capability ngân hàng câu hỏi ở ít nhất một context — điều kiện hiện mục ngân hàng câu hỏi. */
   canUseQuestionBank: boolean;
   /** Mọi khoá học kèm quyền của người dùng trong từng khoá. */
   courses: CourseAccess[];
-  /** Các khoá người dùng đang ghi danh VÀ thuộc đội giảng dạy (có grade:viewall). */
+  /** Các khoá người dùng đang ghi danh VÀ thuộc đội giảng dạy (có grade:viewall tại context khoá). */
   teaching: CourseAccess[];
   /** Các khoá người dùng đang ghi danh còn hiệu lực với tư cách học viên. */
   learning: CourseAccess[];
@@ -64,6 +79,7 @@ export interface PermissionsState {
 
 const EMPTY: PermissionsState = {
   ready: false,
+  access: null,
   canViewUsers: false,
   canManageRoles: false,
   canAdminister: false,
@@ -75,7 +91,7 @@ const EMPTY: PermissionsState = {
 
 const PermissionsContext = createContext<PermissionsState | null>(null);
 
-/** Dò một endpoint đọc: trả dữ liệu khi gọi được, null khi bị từ chối/lỗi. */
+/** Tải một tài nguyên đọc: trả dữ liệu khi gọi được, null khi bị từ chối/lỗi. */
 async function probe<T>(path: string): Promise<T | null> {
   try {
     return await apiJson<T>(path);
@@ -84,11 +100,50 @@ async function probe<T>(path: string): Promise<T | null> {
   }
 }
 
+/** Capability đã phân giải tại context hệ thống (luôn có trong ảnh chụp quyền). */
+function systemCapabilities(access: MyAccessView): string[] {
+  return access.contexts.find((c) => c.contextLevel === CONTEXT_LEVEL.SYSTEM)?.capabilities ?? [];
+}
+
 /**
- * Nạp ảnh chụp quyền cho người đang đăng nhập: ba điểm dò cấp hệ thống,
- * sau đó với mỗi khoá học là ba điểm dò theo ngữ cảnh khoá (ghi danh của
- * tôi, báo cáo điểm toàn lớp, sổ điểm của tôi). Mọi điểm dò chạy song song
- * và thất bại độc lập — một endpoint 403 chỉ tắt đúng khối tương ứng.
+ * Phân giải capability hiệu lực của người dùng tại context của MỘT khoá học
+ * từ ảnh chụp quyền: ưu tiên gán vai trò ngay tại context khoá (sâu nhất),
+ * sau đó tới gán tại context danh mục chứa khoá, cuối cùng là context hệ
+ * thống — đúng thứ tự kế thừa mà PermissionEvaluator áp dụng khi kiểm quyền
+ * tại context khoá. Nhiều gán cùng cấp thì hợp nhất capability.
+ */
+function courseCapabilities(access: MyAccessView, course: Course): string[] {
+  const capsByContext = new Map(access.contexts.map((c) => [c.contextId, c.capabilities]));
+  const levels = [
+    { level: CONTEXT_LEVEL.COURSE, instanceId: course.id },
+    { level: CONTEXT_LEVEL.COURSECAT, instanceId: course.category },
+  ];
+  for (const { level, instanceId } of levels) {
+    const caps = new Set<string>();
+    let matched = false;
+    for (const assignment of access.assignments) {
+      if (assignment.contextLevel === level && assignment.instanceId === instanceId) {
+        matched = true;
+        for (const cap of capsByContext.get(assignment.contextId) ?? []) caps.add(cap);
+      }
+    }
+    if (matched) return [...caps];
+  }
+  return systemCapabilities(access);
+}
+
+/** Người dùng thuộc đội giảng dạy của khoá khi có grade:viewall tại context khoá (site admin luôn đúng). */
+function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess): boolean {
+  if (!access) return false;
+  return access.isSiteAdmin || courseAccess.capabilities.includes('moodle/grade:viewall');
+}
+
+/**
+ * Nạp ảnh chụp quyền cho người đang đăng nhập từ GET /users/me/capabilities,
+ * kèm danh sách khoá học và dữ liệu hiển thị theo từng khoá (ghi danh của
+ * tôi, báo cáo điểm toàn lớp, sổ điểm của tôi). Phân loại quản trị/giảng
+ * dạy/học viên suy ra hoàn toàn từ capability đã phân giải; các tải dữ liệu
+ * thất bại độc lập và chỉ làm rỗng đúng phần dữ liệu đó.
  */
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -102,10 +157,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setState(EMPTY);
     void (async () => {
-      const [users, roles, questionCategories, courseList] = await Promise.all([
-        probe('/api/v1/users?pageSize=1'),
-        probe('/api/v1/access/roles'),
-        probe('/api/v1/questions/categories'),
+      const [access, courseList] = await Promise.all([
+        probe<MyAccessView>('/api/v1/users/me/capabilities'),
         probe<Course[]>('/api/v1/courses'),
       ]);
       const courses = await Promise.all(
@@ -115,20 +168,34 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
             probe<GradeReport>(`/api/v1/courses/${course.id}/grades/report`),
             probe<Gradebook>(`/api/v1/courses/${course.id}/gradebook`),
           ]);
-          return { course, enrolment, report, gradebook };
+          return {
+            course,
+            enrolment,
+            report,
+            gradebook,
+            capabilities: access ? courseCapabilities(access, course) : [],
+          };
         }),
       );
       if (cancelled) return;
-      const teaching = courses.filter((c) => c.enrolment?.enrolled && c.report !== null);
+      const sysCaps = access ? systemCapabilities(access) : [];
+      const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/user:viewdetails');
+      const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/role:manage');
+      const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
       const learning = courses.filter(
-        (c) => c.enrolment?.enrolled && c.enrolment.active && c.report === null,
+        (c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c),
       );
       setState({
         ready: true,
-        canViewUsers: users !== null,
-        canManageRoles: roles !== null,
-        canAdminister: users !== null || roles !== null,
-        canUseQuestionBank: questionCategories !== null,
+        access,
+        canViewUsers,
+        canManageRoles,
+        canAdminister: canViewUsers || canManageRoles,
+        canUseQuestionBank:
+          (access?.isSiteAdmin ?? false) ||
+          (access?.contexts.some((c) =>
+            c.capabilities.some((cap) => (QUESTION_CAPABILITIES as readonly string[]).includes(cap)),
+          ) ?? false),
         courses,
         teaching,
         learning,
