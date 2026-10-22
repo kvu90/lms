@@ -346,3 +346,59 @@ Skipped / deferred Moodle cases for P5 (with reasons):
   `privacy/tests/provider_test.php`) — behaviour was taken from the verified
   sibling files + report §2 rows, and that substitution is recorded here
   rather than silently assumed.
+
+## Addendum — platform standards sync (i18n + Zod-only validation)
+
+The cross-cutting standards from the decision log (report §3.10) were applied
+to the platform services scope in the same delivery:
+
+- **i18n foundation** — official `@nestjs/i18n` pinned exact 0.0.1
+  (ADR-008): catalogs `apps/api/src/i18n/{vi,en}/{errors,validation,platform}.json`
+  (53 error codes of the platform scope), resolvers Query → Header('x-lang') →
+  Accept-Language → Cookie, `missingKey` throw/fallback; worker catalog copy +
+  explicit-locale translation for the scheduled-report notification;
+  frontend i18next resources in `apps/web/src/i18n.ts` (vi default).
+  Tests: `apps/api/test/platform-i18n-flow.e2e-spec.ts` (token capability 403
+  detail in vi by default / en with `Accept-Language: en`; payments Zod
+  validation messages localized both ways), worker catalog parity test in
+  `apps/worker/test/platform-jobs.spec.ts`.
+- **Zod-only validation** (ADR-009): all request DTOs of search, web
+  services, backup, analytics, reports, content bank, payments and privacy
+  are Zod schemas from `packages/contracts` bound via the `schema` parameter
+  option and the global `I18nStandardSchemaValidationPipe`; server-side
+  extensions: privacy `userid` (admin-only), search raw indexing fields.
+  Issue-code → catalog-key mapping lives in the api `validation.json`
+  catalogs. Tests: schema cases in `packages/contracts/src/contracts.spec.ts`
+  (strict objects reject unknown fields; integer smallest-unit amounts;
+  restore modes; report datasources).
+- **Conventions recorded**: ADR-008 (i18n), ADR-009 (Zod-only), ADR-010
+  (business naming + repo hygiene, with `scripts/check-repo-hygiene.mjs`),
+  ADR-011 (business-flow-test acceptance), ADR-012 (latest-first versions);
+  README conventions section updated to match.
+
+## Oracle types for the platform flow tests (PHPUnit vs Behat)
+
+Per the testing documentation of Moodle (moodledev.io Testing), PHPUnit is
+the oracle for business rules, while Behat `.feature` files hold the
+user-journey acceptance scenarios. Every platform flow test below names its
+oracle type explicitly. Behat steps tied to the PHP UI (header search box,
+breadcrumbs, fieldsets, autocomplete pickers, action menus, dialogues, bulk
+checkboxes) are UI implementation details and were skipped, exactly like
+PHP-implementation-bound PHPUnit cases; only business steps and expected
+outcomes were translated into HTTP (Supertest) tests.
+
+| Flow test | Oracle type | Oracle source (verified live 22/10/2026 on MOODLE_503_STABLE) |
+|---|---|---|
+| `platform-search-webservice-flow.e2e-spec.ts` — search PROHIBIT + stale-index re-check | PHPUnit | `search/tests/manager_test.php`, `search/tests/base_test.php` |
+| same file — webservice token cannot bypass owner capability | PHPUnit | `webservice/tests/externallib_test.php` |
+| same file — content bank draft/public by dedicated capability | PHPUnit | `contentbank/tests/contentbank_test.php` |
+| same file — students-at-risk insights, no grade/enrol side-effect | PHPUnit | `analytics/tests/model_test.php`, `analytics/tests/prediction_test.php` |
+| same file — report audience ∩ per-row context rights; schedule runs as creator | PHPUnit | `reportbuilder/tests/manager_test.php`, `reportbuilder/tests/permission_test.php` |
+| `platform-backup-payments-privacy-flow.e2e-spec.ts` — backup→restore checklist + id mapping | PHPUnit | `backup/tests/backup_restore_permission_test.php`, `backup/tests/backup_restore_base_testcase.php` (the initially guessed `backup/tests/backup_test.php` and `backup/tests/restore_test.php` return 404) |
+| same file — payments integer amounts, webhook replay idempotency, refunds | PHPUnit | `payment/tests/helper_test.php`, `payment/tests/generator_test.php` |
+| same file — privacy registry completeness, export/delete propagation | PHPUnit | `privacy/tests/manager_test.php`, `privacy/tests/collection_test.php` |
+| `platform-i18n-flow.e2e-spec.ts` — localized error detail + validation messages | Decision-log standard (§3.10), no Moodle oracle | Project convention (ADR-008/ADR-009); behaviour asserted in vi (default) and en |
+| `platform-user-journeys-flow.e2e-spec.ts` — search journey: matching query returns visible matches, non-matching query returns none | Behat | `search/tests/behat/search_query.feature` — scenario "Search from search page with two results" |
+| same file — user-picker scoping by course | Behat (SKIPPED as UI detail) | `search/tests/behat/search_by_user.feature` — scenario "As student, cannot see users on other courses": the expectation binds to the PHP search form's course-scoped autocomplete; the API-level business rule (user documents filtered by `moodle/user:viewdetails` at the user context) is covered by the PHPUnit-derived search flow test above |
+| same file — restore into an existing course keeps the target identity and gains the source content; restore as new copies exactly the source structure | Behat | `backup/util/ui/tests/behat/restore_moodle2_courses.feature` — scenarios "Restore a course in another existing course" and "Restore a course in a new course" (the `.mbz` filename, blocks and format settings in the scenarios are Moodle-format/UI details and were skipped; content and section-count expectations were kept) |
+| same file — two users submit export requests; officer sees both awaiting approval; approving completes them, denying rejects | Behat | `admin/tool/dataprivacy/tests/behat/manage_data_requests.feature` — scenarios "Bulk accepting requests" and "Bulk denying requests" (bulk selection on the UI translated into per-request decisions through the API; the "general enquiry" message requests of the first scenario are a separate request type not implemented here and were skipped) |

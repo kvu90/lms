@@ -68,3 +68,32 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
   `outbox_events`); extracting a shared backend-schema package is a P1 chore.
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
+
+## Conventions (official — see `docs/adr/`)
+
+- **I18n is mandatory and centralized** (ADR-008): no hardcoded display
+  strings. Backend/worker use the official **@nestjs/i18n** (pinned exact
+  `0.0.1`) with JSON catalogs in `src/i18n/<locale>/` — default locale
+  **Vietnamese**, English alongside; errors carry stable English `code`s and
+  their display text is looked up by code. Frontend uses i18next +
+  react-i18next with centralized resources (`apps/web/src/i18n.ts`).
+- **Validation is Zod-only** (ADR-009): base schemas live in
+  `packages/contracts` and are the single source of truth for the API
+  (Standard Schema pipe) and React forms; server-only fields extend the
+  base schema. No class-validator for new code.
+- **Language of code and comments**: identifiers, API docs, log keys and
+  error codes in English; **comments in Vietnamese in TSDoc style**
+  (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
+  public API and for non-obvious business logic.
+- **Naming & repo hygiene** (ADR-010): everything is named after the
+  business / bounded context — **no phase labels** in code, comments, test
+  names or commit subjects; **never commit compiled output** (`dist/`,
+  stray `.js`/`.d.ts` next to sources). Run
+  `node scripts/check-repo-hygiene.mjs` before committing.
+- **Feature acceptance** (ADR-011): a feature is done only when its
+  backend business flow is covered by a flow test translated from the
+  Moodle PHPUnit oracle, with the mapping recorded in
+  `docs/business-traceability.md`.
+- **Versions are latest-first** (ADR-012): always the newest release;
+  pin or downgrade only for a documented blocker recorded in an ADR
+  (current blocker: TypeScript 6 for the NestJS apps — ADR-003).
