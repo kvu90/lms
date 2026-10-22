@@ -6,7 +6,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { I18nWorkerModule } from './i18n/i18n.config';
-import { redisConnectionFromUrl, validateEnv } from './config/env';
+import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
@@ -33,7 +33,10 @@ import {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         drizzle,
-        connection: config.getOrThrow<string>('DATABASE_URL'),
+        connection: databaseConnectionFromEnv(
+          config.getOrThrow<string>('DATABASE_URL'),
+          config.get<boolean>('DATABASE_SSL') ?? false,
+        ),
         relations,
       }),
     }),

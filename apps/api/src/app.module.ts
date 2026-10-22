@@ -5,7 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DrizzleModule } from '@nestjs/drizzle';
 import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { redisConnectionFromUrl, validateEnv } from './config/env';
+import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { CacheInfraModule } from './infra/cache/cache-infra.module';
 import { EventsModule } from './infra/events/events.module';
@@ -59,7 +59,10 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         drizzle,
-        connection: config.getOrThrow<string>('DATABASE_URL'),
+        connection: databaseConnectionFromEnv(
+          config.getOrThrow<string>('DATABASE_URL'),
+          config.get<boolean>('DATABASE_SSL') ?? false,
+        ),
         relations,
       }),
     }),
