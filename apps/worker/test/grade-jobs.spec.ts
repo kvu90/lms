@@ -91,6 +91,10 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     await mk2({ itemname: 'Q1', idnumber: 'wq1' }, 80);
     await mk2({ itemname: 'Q2', idnumber: 'wq2' }, 60);
     const calc = await mk2({ itemname: 'Avg', itemtype: 'calculated', idnumber: 'wavg', calculation: '=average([[wq1]],[[wq2]])' });
+    // Outcome tham chiếu phải tồn tại thật trong grade_outcomes (kèm scale của nó):
+    // test tự dựng hai dòng này, không dựa vào trạng thái DB do suite khác để lại.
+    await db.execute(sql`insert into scales (id, name, scale) values ('01910000-0000-7000-8000-0000000000ab', 'Worker outcome scale', '1,2,3') on conflict (id) do nothing`);
+    await db.execute(sql`insert into grade_outcomes (id, scaleid, name) values ('01910000-0000-7000-8000-0000000000aa', '01910000-0000-7000-8000-0000000000ab', 'Worker outcome') on conflict (id) do nothing`);
     // Item outcome (gradetype scale + outcomeid): điểm 3/3 KHÔNG được cộng vào tổng số.
     await mk2({ itemname: 'Outcome item', gradetype: 'scale', outcomeid: '01910000-0000-7000-8000-0000000000aa', grademax: 3, grademin: 1 }, 3);
     const processor = context.get(GradeRegradeProcessor);
