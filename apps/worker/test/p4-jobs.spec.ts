@@ -1,0 +1,140 @@
+import { Test } from '@nestjs/testing';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { INestApplicationContext } from '@nestjs/common';
+import { getDrizzleToken } from '@nestjs/drizzle';
+import { and, eq, sql } from 'drizzle-orm';
+import { BadgeAwardProcessor } from '../src/processors/badge-award.processor';
+import { CalendarImportProcessor } from '../src/processors/calendar-import.processor';
+import { CalendarReminderProcessor } from '../src/processors/calendar-reminder.processor';
+import { NotificationDispatchProcessor } from '../src/processors/notification-dispatch.processor';
+import {
+  badge, badgeCriteria, badgeIssued, calendarEvents, calendarSubscriptions,
+  courseCompletions, notificationDispatchLog, notifications, userPreferences,
+} from '../src/db/schema';
+import { WorkerModule } from '../src/worker.module';
+
+/**
+ * P4 worker jobs. Oracles: report §2#12 (preference + suspended delivery
+ * law, re-checked at dispatch time), §2#13/#14 (reminders become
+ * notifications; badge auto-award is idempotent), calendar/tests/lib_test
+ * test_add_subscription (ICS import result counts shape).
+ * Users are raw-inserted with unique high ids to stay independent of the
+ * API test suites sharing lms_test.
+ */
+describe('Worker P4: notification dispatch, calendar reminder/import, badge auto-award', () => {
+  let context: INestApplicationContext;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let db: any;
+  const suffix = Date.now() % 100000;
+  const userA = 920000 + suffix;
+  const userSuspended = 930000 + suffix;
+  const userPrefOff = 940000 + suffix;
+
+  beforeAll(async () => {
+    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
+    await context.init();
+    db = context.get(getDrizzleToken());
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userPrefOff}, ${`wk-p-${suffix}`}, ${`wkp${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
+    // Preference off in BOTH login states for the email channel of grade_updated.
+    await db.insert(userPreferences).values({ userid: userPrefOff, name: 'message_provider_grade_updated_email_loggedin', value: '0' });
+    await db.insert(userPreferences).values({ userid: userPrefOff, name: 'message_provider_grade_updated_email_loggedoff', value: '0' });
+  });
+  afterAll(async () => { await context.close(); });
+
+  it('notification dispatch logs the external channel dispatch and is idempotent by dedupekey', async () => {
+    const processor = context.get(NotificationDispatchProcessor);
+    const job = { data: { userId: userA, provider: 'grade_updated', channel: 'email', subject: 'Grade posted', body: 'b', dedupekey: `test-dispatch-${suffix}` } } as never;
+    const first = await processor.process(job);
+    expect(first.status).toBe('logged');
+    const second = await processor.process(job);
+    expect(second.status).toBe('duplicate');
+    const rows = await db.select().from(notificationDispatchLog)
+      .where(eq(notificationDispatchLog.dedupekey, `test-dispatch-${suffix}`));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe('logged');
+  });
+
+  it('notification dispatch never dispatches for a suspended user or when the preference is off in both states', async () => {
+    const processor = context.get(NotificationDispatchProcessor);
+    const suspended = await processor.process({ data: { userId: userSuspended, provider: 'grade_updated', channel: 'email', subject: 's', body: 'b', dedupekey: `test-susp-${suffix}` } } as never);
+    expect(suspended.status).toBe('skipped-suspended');
+    const prefOff = await processor.process({ data: { userId: userPrefOff, provider: 'grade_updated', channel: 'email', subject: 's', body: 'b', dedupekey: `test-pref-${suffix}` } } as never);
+    expect(prefOff.status).toBe('skipped-preference');
+    const rows = await db.select().from(notificationDispatchLog)
+      .where(eq(notificationDispatchLog.userid, userPrefOff));
+    expect(rows.every((r: { status: string }) => r.status !== 'logged')).toBe(true);
+  });
+
+  it('calendar reminder creates exactly one notification and respects the popup preference', async () => {
+    const [event] = await db.insert(calendarEvents).values({
+      name: `Reminder event ${suffix}`, eventtype: 'user', userid: userA, contextid: 0, timestart: new Date(Date.now() + 3600_000),
+    }).returning();
+    const processor = context.get(CalendarReminderProcessor);
+    const job = { data: { eventId: event.id, userId: userA, minutesBefore: 15 } } as never;
+    const first = await processor.process(job);
+    expect(first.status).toBe('notified');
+    const second = await processor.process(job);
+    expect(second.status).toBe('duplicate');
+    const rows = await db.select().from(notifications).where(and(
+      eq(notifications.useridto, userA), eq(notifications.eventtype, 'calendar_reminder'),
+      eq(notifications.contexturl, `/calendar/events/${event.id}`),
+    ));
+    expect(rows).toHaveLength(1);
+    // Suspended user: nothing is created.
+    const susp = await processor.process({ data: { eventId: event.id, userId: userSuspended, minutesBefore: 15 } } as never);
+    expect(susp.status).toBe('skipped-suspended');
+  });
+
+  it('calendar import parses ICS into subscription events; a rerun imports nothing twice (lib_test import counts)', async () => {
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0',
+      'BEGIN:VEVENT', 'UID:import-1@lms', 'SUMMARY:Keynote', 'DTSTART:20270105T090000Z', 'DTEND:20270105T100000Z', 'END:VEVENT',
+      'BEGIN:VEVENT', 'UID:import-2@lms', 'SUMMARY:Workshop', 'DTSTART:20270106T090000Z', 'DTEND:20270106T110000Z', 'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+    const [sub] = await db.insert(calendarSubscriptions).values({
+      name: `Feed ${suffix}`, eventtype: 'site', userid: userA, icsdata: ics,
+    }).returning();
+    const processor = context.get(CalendarImportProcessor);
+    const first = await processor.process({ data: { subscriptionId: sub.id } } as never);
+    expect(first).toEqual({ eventsimported: 2, eventsskipped: 0, eventsupdated: 0, eventsdeleted: 0 });
+    const second = await processor.process({ data: { subscriptionId: sub.id } } as never);
+    expect(second).toEqual({ eventsimported: 0, eventsskipped: 2, eventsupdated: 0, eventsdeleted: 0 });
+    const rows = await db.select().from(calendarEvents).where(eq(calendarEvents.subscriptionid, sub.id));
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r: { name: string }) => r.name).sort()).toEqual(['Keynote', 'Workshop']);
+    expect(rows[0].timeduration).toBeGreaterThan(0);
+  });
+
+  it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
+    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk-cat4-${suffix}`}, '') returning id`);
+    const catId = (catRows.rows[0] as { id: number }).id;
+    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker P4 course', ${`wk4c${suffix}`}) returning id`);
+    const courseId = (courseRows.rows[0] as { id: number }).id;
+    await db.insert(courseCompletions).values({ userid: userA, course: courseId, status: 'complete', timestarted: new Date(), timecompleted: new Date() });
+
+    const [badgeRow] = await db.insert(badge).values({ name: `Worker badge ${suffix}`, type: 1, status: 1, issuername: 'LMS' }).returning();
+    await db.insert(badgeCriteria).values({ badgeid: badgeRow.id, criteriatype: 'overall', method: 1, params: {} });
+    await db.insert(badgeCriteria).values({ badgeid: badgeRow.id, criteriatype: 'coursecompletion', method: 1, params: { courseId } });
+    const [hardBadge] = await db.insert(badge).values({ name: `Hard badge ${suffix}`, type: 1, status: 1, issuername: 'LMS' }).returning();
+    await db.insert(badgeCriteria).values({ badgeid: hardBadge.id, criteriatype: 'overall', method: 1, params: {} });
+    await db.insert(badgeCriteria).values({ badgeid: hardBadge.id, criteriatype: 'coursecompletion', method: 1, params: { courseId } });
+    await db.insert(badgeCriteria).values({ badgeid: hardBadge.id, criteriatype: 'competency', method: 1, params: { competencyId: 999999 } });
+
+    const processor = context.get(BadgeAwardProcessor);
+    const first = await processor.process({ data: { userId: userA, trigger: 'test' } } as never);
+    expect(first.issued).toHaveLength(1);
+    const second = await processor.process({ data: { userId: userA, trigger: 'test' } } as never);
+    expect(second.issued).toHaveLength(0);
+    const issued = await db.select().from(badgeIssued).where(eq(badgeIssued.userid, userA));
+    const mine = (issued as { badgeid: number }[]).filter((r) => r.badgeid === badgeRow.id);
+    expect(mine).toHaveLength(1);
+    expect((issued as { badgeid: number }[]).some((r) => r.badgeid === hardBadge.id)).toBe(false);
+    const notifs = await db.select().from(notifications).where(and(
+      eq(notifications.useridto, userA), eq(notifications.eventtype, 'badge_awarded'),
+    ));
+    expect((notifs as { subject: string }[]).some((n) => n.subject.includes(`Worker badge ${suffix}`))).toBe(true);
+  });
+});
