@@ -4,10 +4,11 @@
   "private": true,
   "packageManager": "pnpm@12.14.0",
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "scripts": {
     "build": "turbo run build",
+    "heroku-postbuild": "turbo run build --filter=@lms/api --filter=@lms/worker --filter=@lms/web",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
