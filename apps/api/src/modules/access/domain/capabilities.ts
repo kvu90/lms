@@ -41,6 +41,14 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'lms/enrol:manage', captype: 'write', contextlevel: 50, component: 'core_enrol', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'lms/completion:manage', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'lms/completion:markothers', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // P3 — Assessment (Grades / Questions)
+  { name: 'moodle/grade:manage', captype: 'write', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/grade:edit', captype: 'write', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/grade:viewall', captype: 'read', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/question:managecategory', captype: 'write', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/question:add', captype: 'write', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'moodle/question:editall', captype: 'write', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'moodle/question:useall', captype: 'read', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
 ];
 
 export const CONTEXT_LEVELS = { SYSTEM: 10, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;

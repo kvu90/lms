@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   integer,
   jsonb,
   pgTable,
@@ -530,3 +531,274 @@ export const files = pgTable('files', {
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// P3 — Assessment (Grades / Questions). Table names follow Moodle (no mdl_).
+// ---------------------------------------------------------------------------
+
+/** Scales (Moodle `scale`): courseid 0 = site scale. `scale` is a comma-separated list of values, lowest first. */
+export const scales = pgTable('scales', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull().default(0),
+  name: text('name').notNull(),
+  scale: text('scale').notNull().default(''),
+  description: text('description').notNull().default(''),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Grade categories form a tree per course (Moodle `grade_categories`).
+ * aggregation: natural|mean|weightedmean|simpleweightedmean|median|lowest|highest|mode|sum.
+ * The category's own total is a grade_items row with itemtype='category'
+ * (course total: itemtype='course'), exactly like Moodle.
+ */
+export const gradeCategories = pgTable('grade_categories', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  parent: integer('parent'),
+  fullname: text('fullname').notNull().default(''),
+  aggregation: text('aggregation').notNull().default('natural'),
+  droplow: integer('droplow').notNull().default(0),
+  keephigh: integer('keephigh').notNull().default(0),
+  aggregateonlygraded: boolean('aggregateonlygraded').notNull().default(false),
+  depth: integer('depth').notNull().default(1),
+  path: text('path').notNull().default(''),
+  hidden: boolean('hidden').notNull().default(false),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Grade items (Moodle `grade_items`). itemtype: course|category|manual|mod.
+ * For 'mod', iteminstance = course_modules id and itemmodule = component.
+ * For 'category', iteminstance = grade_categories id. For 'course', iteminstance = course id.
+ * aggregationcoef is the item's weight inside its parent category (used by
+ * weightedmean always, and by natural when weightoverride is set).
+ */
+export const gradeItems = pgTable(
+  'grade_items',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    courseid: integer('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    categoryid: integer('categoryid').references(() => gradeCategories.id, { onDelete: 'cascade' }),
+    itemname: text('itemname').notNull().default(''),
+    itemtype: text('itemtype').notNull().default('manual'),
+    itemmodule: text('itemmodule'),
+    iteminstance: integer('iteminstance').notNull().default(0),
+    gradetype: text('gradetype').notNull().default('value'),
+    grademax: doublePrecision('grademax').notNull().default(100),
+    grademin: doublePrecision('grademin').notNull().default(0),
+    gradepass: doublePrecision('gradepass').notNull().default(0),
+    scaleid: integer('scaleid').references(() => scales.id, { onDelete: 'set null' }),
+    weightoverride: boolean('weightoverride').notNull().default(false),
+    aggregationcoef: doublePrecision('aggregationcoef').notNull().default(0),
+    extracredit: boolean('extracredit').notNull().default(false),
+    multiplicator: doublePrecision('multiplicator').notNull().default(1),
+    plusfactor: doublePrecision('plusfactor').notNull().default(0),
+    hidden: boolean('hidden').notNull().default(false),
+    locked: boolean('locked').notNull().default(false),
+    sortorder: integer('sortorder').notNull().default(0),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('grade_items_course_type_instance_unique').on(table.courseid, table.itemtype, table.iteminstance, table.itemmodule)],
+);
+
+/**
+ * Per-user grades (Moodle `grade_grades`). rawgrade is what was entered;
+ * finalgrade is what counts (after multiplicator/offset + aggregation for
+ * category/course items). `frozen` is explicit data (report §2#7): once a
+ * grade was produced with a multiplicator/offset (a penalty-style formula),
+ * its finalgrade is frozen and regrades reuse it verbatim until unfrozen.
+ */
+export const gradeGrades = pgTable(
+  'grade_grades',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    itemid: integer('itemid').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
+    userid: integer('userid').notNull(),
+    rawgrade: doublePrecision('rawgrade'),
+    rawgrademax: doublePrecision('rawgrademax').notNull().default(100),
+    rawgrademin: doublePrecision('rawgrademin').notNull().default(0),
+    finalgrade: doublePrecision('finalgrade'),
+    hidden: boolean('hidden').notNull().default(false),
+    locked: boolean('locked').notNull().default(false),
+    locktime: timestamp('locktime', { withTimezone: true }),
+    overridden: boolean('overridden').notNull().default(false),
+    excluded: boolean('excluded').notNull().default(false),
+    frozen: boolean('frozen').notNull().default(false),
+    feedback: text('feedback'),
+    information: text('information'),
+    aggregationstatus: text('aggregationstatus').notNull().default('unknown'),
+    aggregationweight: doublePrecision('aggregationweight'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('grade_grades_item_user_unique').on(table.itemid, table.userid)],
+);
+
+/** Grade change history (Moodle `grade_grades_history`). action: 1=insert, 2=update, 3=delete. */
+export const gradeGradesHistory = pgTable('grade_grades_history', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  action: integer('action').notNull().default(2),
+  oldid: integer('oldid'),
+  itemid: integer('itemid').notNull(),
+  userid: integer('userid').notNull(),
+  rawgrade: doublePrecision('rawgrade'),
+  finalgrade: doublePrecision('finalgrade'),
+  overridden: boolean('overridden').notNull().default(false),
+  excluded: boolean('excluded').notNull().default(false),
+  frozen: boolean('frozen').notNull().default(false),
+  source: text('source'),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  loggeduser: integer('loggeduser'),
+});
+
+/** Grade letters per context (Moodle `grade_letters`): letter applies when percentage >= lowerboundary. */
+export const gradeLetters = pgTable(
+  'grade_letters',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    contextid: integer('contextid').notNull(),
+    lowerboundary: doublePrecision('lowerboundary').notNull(),
+    letter: text('letter').notNull(),
+  },
+  (table) => [unique('grade_letters_context_boundary_unique').on(table.contextid, table.lowerboundary)],
+);
+
+/** Question categories live in a context (Moodle `question_categories`). */
+export const questionCategories = pgTable('question_categories', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  name: text('name').notNull(),
+  contextid: integer('contextid').notNull(),
+  info: text('info').notNull().default(''),
+  parent: integer('parent'),
+  sortorder: integer('sortorder').notNull().default(0),
+  stamp: text('stamp').notNull().default(''),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Question identity (Moodle `question`): stable across versions; content lives in question_versions. */
+export const question = pgTable('question', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  category: integer('category').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
+  qtype: text('qtype').notNull(),
+  name: text('name').notNull(),
+  createdby: integer('createdby'),
+  modifiedby: integer('modifiedby'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Bank entries (Moodle `question_bank_entries`) link a question identity to a
+ * category and track the latest version number. Editing a question creates a
+ * NEW question_versions row and bumps latestversion; attempts already started
+ * keep pointing at the version they pinned.
+ */
+export const questionBankEntries = pgTable(
+  'question_bank_entries',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    questioncategoryid: integer('questioncategoryid').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
+    questionid: integer('questionid').notNull().references(() => question.id, { onDelete: 'cascade' }),
+    latestversion: integer('latestversion').notNull().default(1),
+    status: text('status').notNull().default('ready'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('question_bank_entries_question_unique').on(table.questionid)],
+);
+
+/**
+ * Immutable question content versions (Moodle `question_versions`).
+ * answerdata is the generic correct-answer payload of the version
+ * (truefalse: {correct: boolean}; shortanswer: {answers: string[], casesensitive?: boolean}) —
+ * qtypes are plugins and out of scope; the engine grades against THIS data.
+ */
+export const questionVersions = pgTable(
+  'question_versions',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    questionbankentryid: integer('questionbankentryid').notNull().references(() => questionBankEntries.id, { onDelete: 'cascade' }),
+    questionid: integer('questionid').notNull().references(() => question.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('ready'),
+    questiontext: text('questiontext').notNull().default(''),
+    defaultmark: doublePrecision('defaultmark').notNull().default(1),
+    answerdata: jsonb('answerdata').notNull().default({}),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('question_versions_entry_version_unique').on(table.questionbankentryid, table.version)],
+);
+
+/** Question usages group attempts for one activity instance (Moodle `question_usages`). */
+export const questionUsages = pgTable('question_usages', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  component: text('component').notNull(),
+  instanceid: integer('instanceid').notNull().default(0),
+  owningcontextid: integer('owningcontextid'),
+  preferredbehaviour: text('preferredbehaviour').notNull().default('deferredfeedback'),
+  userid: integer('userid'),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One attempt at one question inside a usage (Moodle `question_attempts`).
+ * questionversionid is PINNED when the attempt starts: later edits of the
+ * question (new versions) never change how this attempt is graded.
+ * state follows Moodle question_state names.
+ */
+export const questionAttempts = pgTable(
+  'question_attempts',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    questionusageid: integer('questionusageid').notNull().references(() => questionUsages.id, { onDelete: 'cascade' }),
+    slot: integer('slot').notNull(),
+    behaviour: text('behaviour').notNull().default('deferredfeedback'),
+    questionid: integer('questionid').notNull().references(() => question.id, { onDelete: 'cascade' }),
+    questionversionid: integer('questionversionid').references(() => questionVersions.id, { onDelete: 'set null' }),
+    variant: integer('variant').notNull().default(1),
+    maxmark: doublePrecision('maxmark').notNull().default(1),
+    minfraction: doublePrecision('minfraction').notNull().default(0),
+    maxfraction: doublePrecision('maxfraction').notNull().default(1),
+    flagged: boolean('flagged').notNull().default(false),
+    questionsummary: text('questionsummary'),
+    responsesummary: text('responsesummary'),
+    rightanswer: text('rightanswer'),
+    state: text('state').notNull().default('notstarted'),
+    fraction: doublePrecision('fraction'),
+    userid: integer('userid'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('question_attempts_usage_slot_unique').on(table.questionusageid, table.slot)],
+);
+
+/** Every state transition of an attempt is a step (Moodle `question_attempt_steps`). */
+export const questionAttemptSteps = pgTable(
+  'question_attempt_steps',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    questionattemptid: integer('questionattemptid').notNull().references(() => questionAttempts.id, { onDelete: 'cascade' }),
+    sequencenumber: integer('sequencenumber').notNull(),
+    state: text('state').notNull(),
+    fraction: doublePrecision('fraction'),
+    userid: integer('userid'),
+    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique('question_attempt_steps_attempt_seq_unique').on(table.questionattemptid, table.sequencenumber)],
+);
+
+/** Step payload data (Moodle `question_attempt_step_data`): e.g. name='answer', value='true'. */
+export const questionAttemptStepData = pgTable(
+  'question_attempt_step_data',
+  {
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    attemptstepid: integer('attemptstepid').notNull().references(() => questionAttemptSteps.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    value: text('value'),
+  },
+  (table) => [unique('question_attempt_step_data_step_name_unique').on(table.attemptstepid, table.name)],
+);
