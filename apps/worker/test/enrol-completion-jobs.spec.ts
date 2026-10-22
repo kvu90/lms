@@ -24,10 +24,10 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now();
-  const userId = 900000 + (suffix % 10000);
-  let instanceId = 0;
-  let courseId = 0;
-  let cmId = 0;
+  const userId = `01900000-0000-7000-8000-${String(900000 + (suffix % 10000)).padStart(12, '0')}`;
+  let instanceId = '';
+  let courseId = '';
+  let cmId = '';
 
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
@@ -36,15 +36,15 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     // Create a real category+course+section via raw SQL (FKs in the shared DB require real rows;
     // the worker's schema view intentionally only carries the tables its processors touch).
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat-${suffix}`}, '') returning id`);
-    const catId = (catRows.rows[0] as { id: number }).id;
+    const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker course', ${`wk${suffix}`}) returning id`);
-    courseId = (courseRows.rows[0] as { id: number }).id;
+    courseId = (courseRows.rows[0] as { id: string }).id;
     const sectionRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
-    const sectionId = (sectionRows.rows[0] as { id: number }).id;
+    const sectionId = (sectionRows.rows[0] as { id: string }).id;
     const [inst] = await db.insert(enrol).values({ courseid: courseId, enrol: 'manual', status: 0 }).returning();
     instanceId = inst.id;
     const cmRows = await db.execute(sql`insert into course_modules (course, section, component) values (${courseId}, ${sectionId}, 'mod_page') returning id`);
-    cmId = (cmRows.rows[0] as { id: number }).id;
+    cmId = (cmRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await context.close(); });
 
@@ -60,7 +60,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     const [row] = await db.select().from(userEnrolments).where(eq(userEnrolments.id, expired.id));
     expect(row.status).toBe(1);
     const events = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'user_enrolment_suspended'));
-    expect((events as { payload: { enrolmentId?: number } }[]).some((e) => e.payload.enrolmentId === expired.id)).toBe(true);
+    expect((events as { payload: { enrolmentId?: string } }[]).some((e) => e.payload.enrolmentId === expired.id)).toBe(true);
     // Idempotent: a second sweep does not flip it again.
     const second = await processor.process({ data: {} } as never);
     expect(second.suspendedIds).not.toContain(expired.id);

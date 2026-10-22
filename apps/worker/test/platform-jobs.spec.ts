@@ -24,30 +24,30 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now() % 100000;
-  const userId = 950000 + suffix;
-  const teacherId = 960000 + suffix;
-  let courseId = 0;
-  let courseCtxId = 0;
+  const userId = `01950000-0000-7000-8000-${String(950000 + suffix).padStart(12, '0')}`;
+  const teacherId = `01960000-0000-7000-8000-${String(960000 + suffix).padStart(12, '0')}`;
+  let courseId = '';
+  let courseCtxId = '';
 
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk5-cat-${suffix}`}, '') returning id`);
-    const catId = (catRows.rows[0] as { id: number }).id;
+    const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
-    courseId = (courseRows.rows[0] as { id: number }).id;
+    courseId = (courseRows.rows[0] as { id: string }).id;
     const ctxRows = await db.execute(sql`insert into context (contextlevel, instanceid, path, depth) values (50, ${courseId}, ${'/1/' + courseId}, 2) returning id`);
-    courseCtxId = (ctxRows.rows[0] as { id: number }).id;
+    courseCtxId = (ctxRows.rows[0] as { id: string }).id;
     void courseCtxId;
-    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) overriding system value values (${userId}, ${`wk5-u-${suffix}`}, ${`wk5u${suffix}@x.io`}, 'Risk', 'Student', false, false) on conflict (id) do nothing`);
-    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) overriding system value values (${teacherId}, ${`wk5-t-${suffix}`}, ${`wk5t${suffix}@x.io`}, 'Teach', 'Er', false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${userId}, ${`wk5-u-${suffix}`}, ${`wk5u${suffix}@x.io`}, 'Risk', 'Student', false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${teacherId}, ${`wk5-t-${suffix}`}, ${`wk5t${suffix}@x.io`}, 'Teach', 'Er', false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into course_sections (course, section, name) values (${courseId}, 0, 'General')`);
     await db.execute(sql`insert into course_sections (course, section, name) values (${courseId}, 1, 'Week 1')`);
     // Teacher assignment ở course context (role editingteacher có sẵn từ seed API? tạo nếu thiếu).
     await db.execute(sql`insert into role (name, shortname, archetype, sortorder) values ('Teacher', ${`wkteach${suffix}`}, 'editingteacher', 3) on conflict (shortname) do nothing`);
     const roleRows = await db.execute(sql`select id from role where shortname = ${`wkteach${suffix}`}`);
-    const roleId = (roleRows.rows[0] as { id: number }).id;
+    const roleId = (roleRows.rows[0] as { id: string }).id;
     await db.execute(sql`insert into role_assignments (roleid, userid, contextid) values (${roleId}, ${teacherId}, ${courseCtxId})`);
   });
   afterAll(async () => { await context.close(); });
@@ -67,16 +67,16 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
 
   it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
-    const catId = (catRows.rows[0] as { category: number }).category;
+    const catId = (catRows.rows[0] as { category: string }).category;
     const targetRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
-    const targetId = (targetRows.rows[0] as { id: number }).id;
+    const targetId = (targetRows.rows[0] as { id: string }).id;
     const [job] = await db.insert(backupJobs).values({ type: 'restore', courseid: courseId, targetcourseid: targetId, mode: 'new', userid: teacherId, status: 'pending' }).returning();
     const processor = context.get(RestoreProcessor);
     const result = await processor.process({ data: { jobId: job.id } } as never);
     expect(result.status).toBe('completed');
     const sections = await db.execute(sql`select id from course_sections where course = ${targetId}`);
     expect(sections.rows.length).toBe(2);
-    expect(sections.rows.every((r: { id: number }) => r.id !== undefined)).toBe(true);
+    expect(sections.rows.every((r: { id: string }) => r.id !== undefined)).toBe(true);
   });
 
   it('search reindex indexes the course and the active user, and a rerun does not duplicate documents', async () => {
@@ -94,7 +94,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     const [instance] = await db.insert(enrol).values({ courseid: courseId, enrol: 'manual', status: 0 }).returning();
     await db.insert(userEnrolments).values({ enrolid: instance.id, userid: userId, status: 0 });
     const itemsRows = await db.execute(sql`insert into grade_items (courseid, itemname, itemtype, grademax) values (${courseId}, 'WK5 item', 'manual', 100) returning id`);
-    const itemId = (itemsRows.rows[0] as { id: number }).id;
+    const itemId = (itemsRows.rows[0] as { id: string }).id;
     await db.insert(gradeGrades).values({ itemid: itemId, userid: userId, rawgrade: 10, finalgrade: 10 });
     const processor = context.get(AnalyticsRunProcessor);
     const result = await processor.process({ data: { courseId } } as never);
@@ -138,7 +138,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
 
   it('payment webhook twin is idempotent by external transaction id and reconciliation counts succeeded', async () => {
     const acctRows = await db.execute(sql`insert into payment_accounts (name, gateway) values (${`WK5 acct ${suffix}`}, 'manual') returning id`);
-    const acctId = (acctRows.rows[0] as { id: number }).id;
+    const acctId = (acctRows.rows[0] as { id: string }).id;
     const [payment] = await db.insert(payments).values({ accountid: acctId, userid: teacherId, amount: 12000, currency: 'VND', status: 'pending', gateway: 'manual' }).returning();
     const processor = context.get(PaymentReconciliationProcessor);
     const tx = `wk5-tx-${suffix}`;

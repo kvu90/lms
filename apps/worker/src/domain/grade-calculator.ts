@@ -46,7 +46,7 @@ export const AGGREGATIONS: AggregationStrategy[] = [
 ];
 
 export interface CalcItemInput {
-  itemId: number;
+  itemId: string;
   grademin: number;
   grademax: number;
   /** The stored grade (raw for leaf items; already-aggregated final for subcategories). Null = empty. */
@@ -81,7 +81,7 @@ export interface CategoryCalcResult {
   grademin: number;
   grademax: number;
   /** Effective weight (percent, sums to 100 over non-extra items) per itemId — natural strategy. */
-  weights: Record<number, number>;
+  weights: Record<string, number>;
   /** Normalised fraction in [0,1] before scaling (null when finalgrade is null). */
   fraction: number | null;
 }
@@ -121,9 +121,9 @@ interface Prepared {
 /**
  * Trọng số tự nhiên theo (grademax - grademin) đã chuẩn hoá; extra credit không tăng mẫu số.
  */
-export function naturalWeights(items: CalcItemInput[]): Record<number, number> {
+export function naturalWeights(items: CalcItemInput[]): Record<string, number> {
   const nonExtra = items.filter((i) => !i.extracredit);
-  const weights: Record<number, number> = {};
+  const weights: Record<string, number> = {};
   const overridden = nonExtra.filter((i) => i.weightOverride);
   const rest = nonExtra.filter((i) => !i.weightOverride);
   const usedByOverride = overridden.reduce((s, i) => s + (i.weight ?? 0), 0);
@@ -190,7 +190,7 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
   // Structural max for natural/sum: sum of (max-min) of every non-extra item (empty-excluded items still define the scale).
   const structuralRange = nonExtraAll.reduce((s, i) => s + Math.max(0, i.grademax - i.grademin), 0);
 
-  let weights: Record<number, number> = {};
+  let weights: Record<string, number> = {};
   if (input.aggregation === 'natural') {
     weights = naturalWeights(prepared.map((p) => p.item));
   }

@@ -9,7 +9,7 @@ import { parseIcs } from '../domain/ics';
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface CalendarImportJobData { subscriptionId: number }
+export interface CalendarImportJobData { subscriptionId: string }
 export interface CalendarImportResult { eventsimported: number; eventsskipped: number; eventsupdated: 0; eventsdeleted: 0 }
 
 /**

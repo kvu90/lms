@@ -13,8 +13,8 @@ import {
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface BadgeAwardJobData { userId: number; trigger?: string }
-export interface BadgeAwardResult { evaluated: number; issued: number[] }
+export interface BadgeAwardJobData { userId: string; trigger?: string }
+export interface BadgeAwardResult { evaluated: number; issued: string[] }
 
 /**
  * Badge auto-award evaluation: the worker twin of the API evaluator,
@@ -34,32 +34,32 @@ export interface BadgeAwardResult { evaluated: number; issued: number[] }
 export class BadgeAwardProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
 
-  private async leafSatisfied(leaf: { badgeid: number; criteriatype: string; params: unknown }, userId: number): Promise<boolean> {
+  private async leafSatisfied(leaf: { badgeid: string; criteriatype: string; params: unknown }, userId: string): Promise<boolean> {
     const params = (leaf.params ?? {}) as Record<string, unknown>;
     switch (leaf.criteriatype) {
       case 'coursecompletion': {
-        const courseId = Number(params.courseId ?? 0);
+        const courseId = typeof params.courseId === 'string' ? params.courseId : '';
         if (!courseId) return false;
         const [row] = await this.db.select().from(courseCompletions)
           .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userid, userId)));
         return row?.status === 'complete';
       }
       case 'activitycompletion': {
-        const cmId = Number(params.cmId ?? 0);
+        const cmId = typeof params.cmId === 'string' ? params.cmId : '';
         if (!cmId) return false;
         const [row] = await this.db.select().from(courseModulesCompletion)
           .where(and(eq(courseModulesCompletion.coursemoduleid, cmId), eq(courseModulesCompletion.userid, userId)));
         return !!row && row.completionstate >= 1;
       }
       case 'competency': {
-        const competencyId = Number(params.competencyId ?? 0);
+        const competencyId = typeof params.competencyId === 'string' ? params.competencyId : '';
         if (!competencyId) return false;
         const rows = await this.db.select().from(competencyUsercomp)
           .where(and(eq(competencyUsercomp.userid, userId), eq(competencyUsercomp.competencyid, competencyId)));
         return rows.some((r) => r.proficiency === true);
       }
       case 'badge': {
-        const otherBadgeId = Number(params.badgeId ?? 0);
+        const otherBadgeId = typeof params.badgeId === 'string' ? params.badgeId : '';
         if (!otherBadgeId) return false;
         const [row] = await this.db.select().from(badgeIssued)
           .where(and(eq(badgeIssued.badgeid, otherBadgeId), eq(badgeIssued.userid, userId)));
@@ -81,7 +81,7 @@ export class BadgeAwardProcessor extends WorkerHost {
   async process(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
     const { userId } = job.data;
     const activeBadges = await this.db.select().from(badge).where(eq(badge.status, 1));
-    const issuedIds: number[] = [];
+    const issuedIds: string[] = [];
     for (const badgeRow of activeBadges) {
       const [existing] = await this.db.select().from(badgeIssued)
         .where(and(eq(badgeIssued.badgeid, badgeRow.id), eq(badgeIssued.userid, userId)));

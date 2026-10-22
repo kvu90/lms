@@ -9,12 +9,12 @@ import { notificationDispatchLog, userPreferences, users } from '../db/schema';
 type Database = NodePgDatabase<typeof relations>;
 
 export interface NotificationDispatchJobData {
-  userId: number;
+  userId: string;
   provider: string;
   channel: string; // email | push (external ports)
   subject: string;
   body: string;
-  notificationId?: number | null;
+  notificationId?: string | null;
   dedupekey: string;
 }
 export interface NotificationDispatchResult {

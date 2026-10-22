@@ -26,17 +26,17 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now() % 100000;
-  const userA = 920000 + suffix;
-  const userSuspended = 930000 + suffix;
-  const userPrefOff = 940000 + suffix;
+  const userA = `01920000-0000-7000-8000-${String(920000 + suffix).padStart(12, '0')}`;
+  const userSuspended = `01930000-0000-7000-8000-${String(930000 + suffix).padStart(12, '0')}`;
+  const userPrefOff = `01940000-0000-7000-8000-${String(940000 + suffix).padStart(12, '0')}`;
 
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
-    await db.execute(sql`insert into users (id, username, email, suspended, deleted) overriding system value values (${userPrefOff}, ${`wk-p-${suffix}`}, ${`wkp${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userPrefOff}, ${`wk-p-${suffix}`}, ${`wkp${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
     // Preference off in BOTH login states for the email channel of grade_updated.
     await db.insert(userPreferences).values({ userid: userPrefOff, name: 'message_provider_grade_updated_email_loggedin', value: '0' });
     await db.insert(userPreferences).values({ userid: userPrefOff, name: 'message_provider_grade_updated_email_loggedoff', value: '0' });
@@ -69,7 +69,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
 
   it('calendar reminder creates exactly one notification and respects the popup preference', async () => {
     const [event] = await db.insert(calendarEvents).values({
-      name: `Reminder event ${suffix}`, eventtype: 'user', userid: userA, contextid: 0, timestart: new Date(Date.now() + 3600_000),
+      name: `Reminder event ${suffix}`, eventtype: 'user', userid: userA, contextid: null, timestart: new Date(Date.now() + 3600_000),
     }).returning();
     const processor = context.get(CalendarReminderProcessor);
     const job = { data: { eventId: event.id, userId: userA, minutesBefore: 15 } } as never;
@@ -110,9 +110,9 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
 
   it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk-cat4-${suffix}`}, '') returning id`);
-    const catId = (catRows.rows[0] as { id: number }).id;
+    const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker engagement course', ${`wk4c${suffix}`}) returning id`);
-    const courseId = (courseRows.rows[0] as { id: number }).id;
+    const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userid: userA, course: courseId, status: 'complete', timestarted: new Date(), timecompleted: new Date() });
 
     const [badgeRow] = await db.insert(badge).values({ name: `Worker badge ${suffix}`, type: 1, status: 1, issuername: 'LMS' }).returning();
@@ -129,9 +129,9 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     const second = await processor.process({ data: { userId: userA, trigger: 'test' } } as never);
     expect(second.issued).toHaveLength(0);
     const issued = await db.select().from(badgeIssued).where(eq(badgeIssued.userid, userA));
-    const mine = (issued as { badgeid: number }[]).filter((r) => r.badgeid === badgeRow.id);
+    const mine = (issued as { badgeid: string }[]).filter((r) => r.badgeid === badgeRow.id);
     expect(mine).toHaveLength(1);
-    expect((issued as { badgeid: number }[]).some((r) => r.badgeid === hardBadge.id)).toBe(false);
+    expect((issued as { badgeid: string }[]).some((r) => r.badgeid === hardBadge.id)).toBe(false);
     const notifs = await db.select().from(notifications).where(and(
       eq(notifications.useridto, userA), eq(notifications.eventtype, 'badge_awarded'),
     ));

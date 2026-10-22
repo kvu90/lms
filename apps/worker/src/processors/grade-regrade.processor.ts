@@ -9,8 +9,8 @@ import { calculateCategory, type AggregationStrategy, type CalcItemInput } from 
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface GradeRegradeJobData { courseId: number; categoryId?: number }
-export interface GradeRegradeResult { courseId: number; users: number; updatedTotals: number }
+export interface GradeRegradeJobData { courseId: string; categoryId?: string }
+export interface GradeRegradeResult { courseId: string; users: number; updatedTotals: number }
 
 /**
  * Bulk regrade: enqueued by the API when a category's aggregation
@@ -45,11 +45,11 @@ export class GradeRegradeProcessor extends WorkerHost {
     for (const userId of userIds) {
       const grades = allGrades.filter((g) => g.userid === userId);
       const gradeByItem = new Map(grades.map((g) => [g.itemid, g]));
-      const finalByItem = new Map<number, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
+      const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
       const byDepthDesc = [...categories].sort((a, b) => b.depth - a.depth);
       for (const cat of byDepthDesc) {
         const totalItem = items.find((i) => (i.itemtype === 'category' && i.iteminstance === cat.id)
-          || (i.itemtype === 'course' && (cat.parent === null || cat.parent === 0)));
+          || (i.itemtype === 'course' && cat.parent === null));
         if (!totalItem) continue;
         const existing = gradeByItem.get(totalItem.id);
         if (existing?.overridden) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }

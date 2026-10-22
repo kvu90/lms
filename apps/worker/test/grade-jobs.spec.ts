@@ -23,19 +23,19 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now();
-  const userId = 910000 + (suffix % 10000);
-  let courseId = 0;
-  let rootCatId = 0;
-  let courseItemId = 0;
+  const userId = `01910000-0000-7000-8000-${String(910000 + (suffix % 10000)).padStart(12, '0')}`;
+  let courseId = '';
+  let rootCatId = '';
+  let courseItemId = '';
 
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat3-${suffix}`}, '') returning id`);
-    const catId = (catRows.rows[0] as { id: number }).id;
+    const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker grades course', ${`wk3${suffix}`}) returning id`);
-    courseId = (courseRows.rows[0] as { id: number }).id;
+    courseId = (courseRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await context.close(); });
 
@@ -67,7 +67,7 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     expect(history.length).toBeGreaterThanOrEqual(1);
     expect(history[history.length - 1].source).toBe('regrade-worker');
     const events = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'grade_updated'));
-    expect((events as { payload: { itemId?: number } }[]).some((e) => e.payload.itemId === courseItemId)).toBe(true);
+    expect((events as { payload: { itemId?: string } }[]).some((e) => e.payload.itemId === courseItemId)).toBe(true);
     // Idempotent: second run changes nothing.
     const second = await processor.process({ data: { courseId } } as never);
     expect(second.updatedTotals).toBe(0);

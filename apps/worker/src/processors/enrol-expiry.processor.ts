@@ -8,7 +8,7 @@ import { outboxEvents, userEnrolments } from '../db/schema';
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface EnrolExpiryResult { checkedAt: string; suspendedIds: number[] }
+export interface EnrolExpiryResult { checkedAt: string; suspendedIds: string[] }
 
 /**
  * Enrolment expiry: ACTIVE user_enrolments whose timeend has passed
@@ -32,7 +32,7 @@ export class EnrolExpiryProcessor extends WorkerHost {
     const now = new Date();
     const expired = await this.db.select().from(userEnrolments)
       .where(and(eq(userEnrolments.status, 0), lt(userEnrolments.timeend, now)));
-    const suspendedIds: number[] = [];
+    const suspendedIds: string[] = [];
     for (const ue of expired) {
       await this.db.transaction(async (tx) => {
         await tx.update(userEnrolments).set({ status: 1, timemodified: now }).where(eq(userEnrolments.id, ue.id));

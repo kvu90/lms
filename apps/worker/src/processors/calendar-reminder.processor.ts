@@ -9,8 +9,8 @@ import { calendarEvents, notificationDispatchLog, notifications, userPreferences
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface CalendarReminderJobData { eventId: number; userId: number; minutesBefore: number }
-export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'event-missing'; notificationId?: number }
+export interface CalendarReminderJobData { eventId: string; userId: string; minutesBefore: number }
+export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'event-missing'; notificationId?: string }
 
 /**
  * Calendar reminders: the API schedules these as BullMQ DELAYED jobs;

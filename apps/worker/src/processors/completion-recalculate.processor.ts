@@ -12,8 +12,8 @@ import {
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface CompletionRecalculateJobData { courseId: number }
-export interface CompletionRecalculateResult { courseId: number; users: number; completedUsers: number[] }
+export interface CompletionRecalculateJobData { courseId: string }
+export interface CompletionRecalculateResult { courseId: string; users: number; completedUsers: string[] }
 
 /**
  * Completion recalculation (report §2#9): when course criteria change
@@ -44,7 +44,7 @@ export class CompletionRecalculateProcessor extends WorkerHost {
     // Candidate users: everyone enrolled in the course (any instance) plus
     // anyone who already has a stored course completion.
     const instances = await this.db.select().from(enrol).where(eq(enrol.courseid, courseId));
-    const userIds = new Set<number>();
+    const userIds = new Set<string>();
     if (instances.length) {
       const ues = await this.db.select().from(userEnrolments)
         .where(inArray(userEnrolments.enrolid, instances.map((i) => i.id)));
@@ -55,7 +55,7 @@ export class CompletionRecalculateProcessor extends WorkerHost {
     for (const cc of existingCompletions) userIds.add(cc.userid);
 
     const cms = await this.db.select().from(courseModules).where(eq(courseModules.course, courseId));
-    const completedUsers: number[] = [];
+    const completedUsers: string[] = [];
     for (const userId of userIds) {
       const results: boolean[] = [];
       for (const c of criteria) {

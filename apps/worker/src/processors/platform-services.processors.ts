@@ -33,7 +33,7 @@ export class BackupProcessor extends WorkerHost {
   /**
    * Xử lý một job của queue tương ứng.
    */
-  async process(job: Job<{ jobId: number }>): Promise<{ status: string; sections?: number; cms?: number }> {
+  async process(job: Job<{ jobId: string }>): Promise<{ status: string; sections?: number; cms?: number }> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
@@ -59,7 +59,7 @@ export class BackupProcessor extends WorkerHost {
  */
 export class RestoreProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
-  async process(job: Job<{ jobId: number }>): Promise<{ status: string; mapped?: number }> {
+  async process(job: Job<{ jobId: string }>): Promise<{ status: string; mapped?: number }> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
@@ -71,7 +71,7 @@ export class RestoreProcessor extends WorkerHost {
     let mapped = 0;
     const sections = await this.db.select().from(courseSections).where(eq(courseSections.course, row.courseid));
     const existing = await this.db.select().from(courseSections).where(eq(courseSections.course, targetId));
-    const sectionMap = new Map<number, number>();
+    const sectionMap = new Map<string, string>();
     for (const s of sections.sort((a, b) => a.section - b.section)) {
       const already = existing.find((e) => e.section === s.section);
       if (already) { sectionMap.set(s.id, already.id); continue; }
@@ -99,7 +99,7 @@ export class SearchReindexProcessor extends WorkerHost {
     let indexed = 0;
     const courses = await this.db.select().from(course);
     const contexts = await this.db.select().from(contextTable);
-    const ctxFor = (level: number, instance: number) => contexts.find((c) => c.contextlevel === level && c.instanceid === instance);
+    const ctxFor = (level: number, instance: string) => contexts.find((c) => c.contextlevel === level && c.instanceid === instance);
     for (const c of courses) {
       if (!c.visible) continue;
       const ctx = ctxFor(50, c.id); if (!ctx) continue;
@@ -143,7 +143,7 @@ export class SearchReindexProcessor extends WorkerHost {
  */
 export class AnalyticsRunProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
-  async process(job: Job<{ courseId: number }>): Promise<{ predictions: number; insights: number }> {
+  async process(job: Job<{ courseId: string }>): Promise<{ predictions: number; insights: number }> {
     const courseId = job.data.courseId;
     let [model] = await this.db.select().from(analyticsModels).where(eq(analyticsModels.name, 'students_at_risk'));
     if (!model) {
@@ -196,7 +196,7 @@ export class AnalyticsRunProcessor extends WorkerHost {
  */
 export class ReportScheduleProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
-  async process(job: Job<{ scheduleId: number }>): Promise<{ rows: number; status: string }> {
+  async process(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
     const [schedule] = await this.db.select().from(reportbuilderSchedule).where(eq(reportbuilderSchedule.id, job.data.scheduleId));
     if (!schedule || !schedule.enabled) return { rows: 0, status: 'missing-or-disabled' };
     const [report] = await this.db.select().from(reportbuilderReport).where(eq(reportbuilderReport.id, schedule.reportid));
@@ -232,7 +232,7 @@ export class ReportScheduleProcessor extends WorkerHost {
  */
 export class PrivacyProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
-  async process(job: Job<{ requestId: number }>): Promise<{ status: string; subsystems: string[] }> {
+  async process(job: Job<{ requestId: string }>): Promise<{ status: string; subsystems: string[] }> {
     const [req] = await this.db.select().from(privacyRequests).where(eq(privacyRequests.id, job.data.requestId));
     if (!req) return { status: 'missing', subsystems: [] };
     if (req.status === 'completed') return { status: 'duplicate', subsystems: [] };
@@ -259,7 +259,7 @@ export class PrivacyProcessor extends WorkerHost {
     deleted.social = (await this.db.delete(blogPosts).where(eq(blogPosts.userid, userId)).returning()).length;
     deleted.search = (await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerid, userId)).returning()).length;
     deleted.contentbank = (await this.db.delete(contentbankContent).where(eq(contentbankContent.creatorid, userId)).returning()).length;
-    deleted.payments = (await this.db.update(payments).set({ userid: 0 }).where(eq(payments.userid, userId)).returning()).length;
+    deleted.payments = (await this.db.update(payments).set({ userid: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userid, userId)).returning()).length;
     await this.db.delete(userPreferences).where(eq(userPreferences.userid, userId));
     const [u] = await this.db.select().from(users).where(eq(users.id, userId));
     if (u) {
@@ -278,7 +278,7 @@ export class PrivacyProcessor extends WorkerHost {
  */
 export class PaymentReconciliationProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
-  async process(job: Job<{ paymentId?: number; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
+  async process(job: Job<{ paymentId?: string; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
     if (job.data.paymentId && job.data.externalTransactionId) {
       const [existing] = await this.db.select().from(payments)
         .where(and(eq(payments.gateway, 'manual'), eq(payments.externaltransactionid, job.data.externalTransactionId)));

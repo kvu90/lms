@@ -35,8 +35,8 @@ describe('Worker: file-cleanup processor removes only unreferenced physical file
     await mkdir(join(physical, '..'), { recursive: true });
     await writeFile(physical, content);
     await db.insert(files).values({
-      contenthash: hash, contextid: 1, component: 'core_user', filearea: 'profile',
-      itemid: 0, filepath: '/', filename: 'orphan.txt', filesize: content.length,
+      contenthash: hash, contextid: '01900000-0000-7000-8000-0000000000aa', component: 'core_user', filearea: 'profile',
+      itemid: null, filepath: '/', filename: 'orphan.txt', filesize: content.length,
     });
   });
   afterAll(async () => { await context.close(); });
