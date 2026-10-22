@@ -1,0 +1,11 @@
+{
+  "extends": "@lms/config/tsconfig/nest.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": [
+    "src",
+    "test",
+    "vitest.config.ts"
+  ]
+}
