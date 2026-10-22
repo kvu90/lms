@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } 
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { BadgesService } from './badges.service';
-import { CreateBadgeDto, EvaluateDto, ManualAwardDto, SetCriteriaDto, SetStatusDto, UpdateBadgeDto } from './dto/badges.dto';
+import { badgeUserSchema, createBadgeSchema, setBadgeCriteriaSchema, setBadgeStatusSchema, updateBadgeSchema, type CreateBadgeDto, type EvaluateDto, type ManualAwardDto, type SetCriteriaDto, type SetStatusDto, type UpdateBadgeDto } from './dto/badges.dto';
 
 @ApiTags('badges')
 @Controller({ path: 'badges', version: '1' })
@@ -10,7 +10,7 @@ export class BadgesController {
   constructor(private readonly badges: BadgesService) {}
 
   @Post()
-  async create(@Body() dto: CreateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createBadgeSchema }) dto: CreateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.createBadge(actor.id, dto);
   }
   @Get()
@@ -22,7 +22,7 @@ export class BadgesController {
   @Get(':id')
   async get(@Param('id', ParseIntPipe) id: number) { return this.badges.getBadge(id); }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateBadgeSchema }) dto: UpdateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.updateBadge(actor.id, id, dto);
   }
   @Delete(':id')
@@ -30,7 +30,7 @@ export class BadgesController {
     return this.badges.archiveBadge(actor.id, id);
   }
   @Post(':id/status')
-  async setStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: SetStatusDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setStatus(@Param('id', ParseIntPipe) id: number, @Body({ schema: setBadgeStatusSchema }) dto: SetStatusDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.setStatus(actor.id, id, dto.status);
   }
   @Post(':id/duplicate')
@@ -40,11 +40,11 @@ export class BadgesController {
   @Get(':id/criteria')
   async criteria(@Param('id', ParseIntPipe) id: number) { return this.badges.getCriteria(id); }
   @Put(':id/criteria')
-  async setCriteria(@Param('id', ParseIntPipe) id: number, @Body() dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setCriteria(@Param('id', ParseIntPipe) id: number, @Body({ schema: setBadgeCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.setCriteria(actor.id, id, dto);
   }
   @Post(':id/award')
-  async award(@Param('id', ParseIntPipe) id: number, @Body() dto: ManualAwardDto, @CurrentUser() actor: AuthenticatedUser) {
+  async award(@Param('id', ParseIntPipe) id: number, @Body({ schema: badgeUserSchema }) dto: ManualAwardDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.manualAward(actor.id, id, dto.userId);
   }
   @Get(':id/issued')
@@ -52,11 +52,11 @@ export class BadgesController {
     return this.badges.listIssuedForBadge(actor.id, id);
   }
   @Post(':id/evaluate')
-  async evaluate(@Param('id', ParseIntPipe) id: number, @Body() dto: EvaluateDto) {
+  async evaluate(@Param('id', ParseIntPipe) id: number, @Body({ schema: badgeUserSchema }) dto: EvaluateDto) {
     return this.badges.evaluateBadge(id, dto.userId);
   }
   @Post('evaluate-user')
-  async evaluateUser(@Body() dto: EvaluateDto, @CurrentUser() actor: AuthenticatedUser) {
+  async evaluateUser(@Body({ schema: badgeUserSchema }) dto: EvaluateDto, @CurrentUser() actor: AuthenticatedUser) {
     void actor;
     return this.badges.evaluateUserBadges(dto.userId);
   }

@@ -1,24 +1,20 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MinLength, IsArray } from 'class-validator';
+import {
+  createConversationSchema,
+  notifyUserSchema,
+  sendMessageSchema,
+  setMessagePreferenceSchema,
+  type CreateConversation,
+  type NotifyUser,
+  type SendMessage,
+  type SetMessagePreference,
+} from '@lms/contracts';
 
-export class CreateConversationDto {
-  @IsOptional() @IsInt() type?: number; // 1=individual, 2=group
-  @IsArray() @IsInt({ each: true }) memberIds!: number[];
-  @IsOptional() @IsString() name?: string;
-}
-export class SendMessageDto {
-  @IsString() @MinLength(1) text!: string;
-  @IsOptional() @IsString() subject?: string;
-}
-export class SetPreferenceDto {
-  @IsString() @MinLength(1) provider!: string;
-  @IsIn(['popup', 'email', 'push']) channel!: 'popup' | 'email' | 'push';
-  @IsIn(['loggedin', 'loggedoff']) state!: 'loggedin' | 'loggedoff';
-  @IsBoolean() enabled!: boolean;
-}
-export class NotifyDto {
-  @IsInt() userId!: number;
-  @IsString() @MinLength(1) provider!: string;
-  @IsString() @MinLength(1) subject!: string;
-  @IsString() @MinLength(1) body!: string;
-  @IsOptional() @IsString() contextUrl?: string;
-}
+/**
+ * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
+ * `@lms/contracts` là nguồn sự thật duy nhất.
+ */
+export { createConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema };
+export type CreateConversationDto = CreateConversation;
+export type SendMessageDto = SendMessage;
+export type SetPreferenceDto = SetMessagePreference;
+export type NotifyDto = NotifyUser;

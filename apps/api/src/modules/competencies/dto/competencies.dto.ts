@@ -1,62 +1,57 @@
-import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, MinLength, ValidateNested } from 'class-validator';
+import {
+  addCompetencyEvidenceSchema,
+  addTemplateCohortSchema,
+  addTemplateCompetencySchema,
+  competencyNoteSchema,
+  competencyReviewDecisionSchema,
+  createCompetencyFrameworkSchema,
+  createCompetencySchema,
+  createLearningPlanSchema,
+  createLearningPlanTemplateSchema,
+  gradeUserCompetencySchema,
+  linkCompetencySchema,
+  numericValueSchema,
+  type AddCompetencyEvidence,
+  type AddTemplateCohort,
+  type AddTemplateCompetency,
+  type CompetencyNote,
+  type CompetencyReviewDecision,
+  type CreateCompetency,
+  type CreateCompetencyFramework,
+  type CreateLearningPlan,
+  type CreateLearningPlanTemplate,
+  type GradeUserCompetency,
+  type LinkCompetency,
+  type NumericValue,
+} from '@lms/contracts';
 
-export class ScaleDto {
-  @IsArray() @IsString({ each: true }) values!: string[];
-  @IsArray() @IsInt({ each: true }) proficient!: number[];
-}
-export class CreateFrameworkDto {
-  @IsString() @MinLength(1) shortname!: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-  @ValidateNested() @Type(() => ScaleDto) scale!: ScaleDto;
-  @IsOptional() @IsBoolean() visible?: boolean;
-}
-export class CreateCompetencyDto {
-  @IsString() @MinLength(1) shortname!: string;
-  @IsOptional() @IsString() idnumber?: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsInt() parentId?: number;
-}
-export class LinkCompetencyDto {
-  @IsInt() competencyId!: number;
-  @IsString() ruleoutcome!: string;
-}
-export class CreateTemplateDto {
-  @IsString() @MinLength(1) shortname!: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsString() duedate?: string;
-}
-export class AddTemplateCompetencyDto { @IsInt() competencyId!: number; }
-export class AddTemplateCohortDto { @IsInt() cohortId!: number; }
-export class CreatePlanDto {
-  @IsOptional() @IsInt() userId?: number;
-  @IsString() @MinLength(1) name!: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsInt() templateId?: number;
-}
-export class AddEvidenceDto {
-  @IsInt() userId!: number;
-  @IsInt() competencyId!: number;
-  @IsOptional() @IsInt() planId?: number;
-  @IsOptional() @IsInt() courseId?: number;
-  @IsString() @MinLength(1) description!: string;
-  @IsOptional() @IsString() url?: string;
-  @IsOptional() @IsInt() grade?: number;
-  @IsOptional() @IsString() note?: string;
-  @IsOptional() @IsBoolean() sendForReview?: boolean;
-}
-export class GradeUsercompDto {
-  @IsInt() userId!: number;
-  @IsInt() competencyId!: number;
-  @IsOptional() @IsInt() planId?: number;
-  @IsOptional() @IsInt() courseId?: number;
-  @IsInt() grade!: number;
-  @IsOptional() @IsString() note?: string;
-}
-export class ReviewDecisionDto {
-  @IsOptional() @IsInt() grade?: number;
-  @IsOptional() @IsString() note?: string;
-}
-export class NoteDto { @IsOptional() @IsString() note?: string; }
-export class NumericDto { @IsOptional() @IsNumber() value?: number; }
+/**
+ * Validation của Competencies dùng Zod qua Standard Schema — schema nền ở
+ * `@lms/contracts` là nguồn sự thật duy nhất.
+ */
+export {
+  addCompetencyEvidenceSchema,
+  addTemplateCohortSchema,
+  addTemplateCompetencySchema,
+  competencyNoteSchema,
+  competencyReviewDecisionSchema,
+  createCompetencyFrameworkSchema,
+  createCompetencySchema,
+  createLearningPlanSchema,
+  createLearningPlanTemplateSchema,
+  gradeUserCompetencySchema,
+  linkCompetencySchema,
+  numericValueSchema,
+};
+export type CreateFrameworkDto = CreateCompetencyFramework;
+export type CreateCompetencyDto = CreateCompetency;
+export type LinkCompetencyDto = LinkCompetency;
+export type CreateTemplateDto = CreateLearningPlanTemplate;
+export type AddTemplateCompetencyDto = AddTemplateCompetency;
+export type AddTemplateCohortDto = AddTemplateCohort;
+export type CreatePlanDto = CreateLearningPlan;
+export type AddEvidenceDto = AddCompetencyEvidence;
+export type GradeUsercompDto = GradeUserCompetency;
+export type ReviewDecisionDto = CompetencyReviewDecision;
+export type NoteDto = CompetencyNote;
+export type NumericDto = NumericValue;

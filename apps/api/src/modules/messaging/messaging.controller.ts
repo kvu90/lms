@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } 
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { CreateConversationDto, NotifyDto, SendMessageDto, SetPreferenceDto } from './dto/messaging.dto';
+import { createConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -10,7 +10,7 @@ export class MessagingController {
   constructor(private readonly messaging: MessagingService) {}
 
   @Post('conversations')
-  async createConversation(@Body() dto: CreateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createConversation(@Body({ schema: createConversationSchema }) dto: CreateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.createConversation(actor.id, dto);
   }
   @Get('conversations')
@@ -22,7 +22,7 @@ export class MessagingController {
     return this.messaging.getConversation(actor.id, id);
   }
   @Post('conversations/:id/messages')
-  async send(@Param('id', ParseIntPipe) id: number, @Body() dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
+  async send(@Param('id', ParseIntPipe) id: number, @Body({ schema: sendMessageSchema }) dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.sendMessage(actor.id, id, dto);
   }
   @Post('conversations/:id/read')
@@ -44,7 +44,7 @@ export class MessagingController {
     return this.messaging.getPreferences(actor.id);
   }
   @Put('preferences')
-  async setPreference(@Body() dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
   }
   @Get('contacts/blocked')
@@ -79,7 +79,7 @@ export class NotificationsController {
     return this.messaging.listDispatchLog(actor.id);
   }
   @Post('send')
-  async send(@Body() dto: NotifyDto, @CurrentUser() actor: AuthenticatedUser) {
+  async send(@Body({ schema: notifyUserSchema }) dto: NotifyDto, @CurrentUser() actor: AuthenticatedUser) {
     // System-trigger endpoint (used by other subsystems/tests): site admins
     // only; delivery law lives in MessagingService.notify.
     return this.messaging.sendSystemNotification(actor.id, dto);

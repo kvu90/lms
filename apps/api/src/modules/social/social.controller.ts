@@ -6,10 +6,7 @@ import { CommentsService } from './comments.service';
 import { NotesService } from './notes.service';
 import { RatingsService } from './ratings.service';
 import { TagsService } from './tags.service';
-import {
-  AddCommentDto, AddItemTagDto, AssociatePostDto, CreateNoteDto, CreatePostDto,
-  RateDto, SetItemTagsDto, UpdatePostDto,
-} from './dto/social.dto';
+import { addCommentSchema, addItemTagSchema, associateBlogPostSchema, createBlogPostSchema, createNoteSchema, rateItemSchema, setItemTagsSchema, updateBlogPostSchema, type AddCommentDto, type AddItemTagDto, type AssociatePostDto, type CreateNoteDto, type CreatePostDto, type RateDto, type SetItemTagsDto, type UpdatePostDto } from './dto/social.dto';
 
 @ApiTags('tags')
 @Controller({ path: 'tags', version: '1' })
@@ -20,11 +17,11 @@ export class TagsController {
   @Get('collections')
   async collections() { return this.tags.listCollections(); }
   @Post('items')
-  async set(@Body() dto: SetItemTagsDto, @CurrentUser() actor: AuthenticatedUser) {
+  async set(@Body({ schema: setItemTagsSchema }) dto: SetItemTagsDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tags.setItemTags(actor.id, dto);
   }
   @Post('items/add')
-  async add(@Body() dto: AddItemTagDto, @CurrentUser() actor: AuthenticatedUser) {
+  async add(@Body({ schema: addItemTagSchema }) dto: AddItemTagDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tags.addItemTag(actor.id, dto);
   }
   @Get('items')
@@ -42,7 +39,7 @@ export class TagsController {
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
   @Post()
-  async add(@Body() dto: AddCommentDto, @CurrentUser() actor: AuthenticatedUser) {
+  async add(@Body({ schema: addCommentSchema }) dto: AddCommentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.comments.addComment(actor.id, dto);
   }
   @Get()
@@ -61,7 +58,7 @@ export class CommentsController {
 export class RatingsController {
   constructor(private readonly ratings: RatingsService) {}
   @Post()
-  async rate(@Body() dto: RateDto, @CurrentUser() actor: AuthenticatedUser) {
+  async rate(@Body({ schema: rateItemSchema }) dto: RateDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.ratings.rate(actor.id, dto);
   }
   @Get('aggregate')
@@ -81,7 +78,7 @@ export class RatingsController {
 export class BlogController {
   constructor(private readonly blog: BlogService) {}
   @Post('posts')
-  async create(@Body() dto: CreatePostDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createBlogPostSchema }) dto: CreatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.createPost(actor.id, dto);
   }
   @Get('posts')
@@ -99,7 +96,7 @@ export class BlogController {
     return { ...post, visibleToMe: await this.blog.canView(post, actor.id) };
   }
   @Patch('posts/:id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateBlogPostSchema }) dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.updatePost(actor.id, id, dto);
   }
   @Delete('posts/:id')
@@ -107,7 +104,7 @@ export class BlogController {
     return this.blog.deletePost(actor.id, id);
   }
   @Post('posts/:id/associations')
-  async associate(@Param('id', ParseIntPipe) id: number, @Body() dto: AssociatePostDto, @CurrentUser() actor: AuthenticatedUser) {
+  async associate(@Param('id', ParseIntPipe) id: number, @Body({ schema: associateBlogPostSchema }) dto: AssociatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.associate(actor.id, id, dto);
   }
 }
@@ -117,7 +114,7 @@ export class BlogController {
 export class NotesController {
   constructor(private readonly notes: NotesService) {}
   @Post()
-  async create(@Body() dto: CreateNoteDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createNoteSchema }) dto: CreateNoteDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.notes.createNote(actor.id, dto);
   }
   @Get('user/:userId')

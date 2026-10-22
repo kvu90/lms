@@ -1,54 +1,41 @@
-import { IsArray, IsIn, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  addCommentSchema,
+  addItemTagSchema,
+  associateBlogPostSchema,
+  createBlogPostSchema,
+  createNoteSchema,
+  rateItemSchema,
+  setItemTagsSchema,
+  updateBlogPostSchema,
+  type AddComment,
+  type AddItemTag,
+  type AssociateBlogPost,
+  type CreateBlogPost,
+  type CreateNote,
+  type RateItem,
+  type SetItemTags,
+  type UpdateBlogPost,
+} from '@lms/contracts';
 
-export class SetItemTagsDto {
-  @IsString() component!: string;
-  @IsString() itemtype!: string;
-  @IsInt() itemid!: number;
-  @IsInt() contextid!: number;
-  @IsArray() @IsString({ each: true }) tags!: string[];
-}
-export class AddItemTagDto {
-  @IsString() component!: string;
-  @IsString() itemtype!: string;
-  @IsInt() itemid!: number;
-  @IsInt() contextid!: number;
-  @IsString() @MinLength(1) tag!: string;
-}
-export class AddCommentDto {
-  @IsInt() contextid!: number;
-  @IsString() component!: string;
-  @IsString() commentarea!: string;
-  @IsInt() itemid!: number;
-  @IsString() @MinLength(1) content!: string;
-}
-export class RateDto {
-  @IsInt() contextid!: number;
-  @IsString() component!: string;
-  @IsString() ratingarea!: string;
-  @IsInt() itemid!: number;
-  @IsInt() scaleid!: number;
-  @IsInt() rating!: number;
-}
-export class CreatePostDto {
-  @IsString() @MinLength(1) subject!: string;
-  @IsOptional() @IsString() summary?: string;
-  @IsString() content!: string;
-  @IsOptional() @IsIn(['draft', 'site']) publishstate?: string;
-}
-export class UpdatePostDto {
-  @IsOptional() @IsString() subject?: string;
-  @IsOptional() @IsString() summary?: string;
-  @IsOptional() @IsString() content?: string;
-  @IsOptional() @IsIn(['draft', 'site']) publishstate?: string;
-}
-export class AssociatePostDto {
-  @IsIn(['course', 'coursemodule']) assoctype!: 'course' | 'coursemodule';
-  @IsInt() associd!: number;
-}
-export class CreateNoteDto {
-  @IsInt() userid!: number;
-  @IsOptional() @IsInt() courseid?: number;
-  @IsString() @MinLength(1) content!: string;
-  @IsOptional() @IsIn(['draft', 'public', 'site']) publishstate?: string;
-  @IsOptional() @IsInt() groupid?: number;
-}
+/**
+ * Validation của Social (tags/comments/ratings/blog/notes) dùng Zod qua
+ * Standard Schema — schema nền ở `@lms/contracts` là nguồn sự thật duy nhất.
+ */
+export {
+  addCommentSchema,
+  addItemTagSchema,
+  associateBlogPostSchema,
+  createBlogPostSchema,
+  createNoteSchema,
+  rateItemSchema,
+  setItemTagsSchema,
+  updateBlogPostSchema,
+};
+export type SetItemTagsDto = SetItemTags;
+export type AddItemTagDto = AddItemTag;
+export type AddCommentDto = AddComment;
+export type RateDto = RateItem;
+export type CreatePostDto = CreateBlogPost;
+export type UpdatePostDto = UpdateBlogPost;
+export type AssociatePostDto = AssociateBlogPost;
+export type CreateNoteDto = CreateNote;

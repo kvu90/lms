@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from 
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CalendarService } from './calendar.service';
-import { CreateEventDto, CreateExceptionDto, CreateSubscriptionDto, RemindDto } from './dto/calendar.dto';
+import { calendarRemindSchema, createCalendarEventSchema, createCalendarExceptionSchema, createCalendarSubscriptionSchema, type CreateEventDto, type CreateExceptionDto, type CreateSubscriptionDto, type RemindDto } from './dto/calendar.dto';
 
 @ApiTags('calendar')
 @Controller({ path: 'calendar', version: '1' })
@@ -10,7 +10,7 @@ export class CalendarController {
   constructor(private readonly calendar: CalendarService) {}
 
   @Post('events')
-  async create(@Body() dto: CreateEventDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createCalendarEventSchema }) dto: CreateEventDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.createEvent(actor.id, dto);
   }
   @Get('events')
@@ -24,11 +24,11 @@ export class CalendarController {
     return { ...event, visibleToMe: await this.calendar.isVisibleTo(event, actor.id) };
   }
   @Post('events/:id/exception')
-  async exception(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateExceptionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async exception(@Param('id', ParseIntPipe) id: number, @Body({ schema: createCalendarExceptionSchema }) dto: CreateExceptionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.createException(actor.id, id, dto);
   }
   @Post('events/:id/remind')
-  async remind(@Param('id', ParseIntPipe) id: number, @Body() dto: RemindDto, @CurrentUser() actor: AuthenticatedUser) {
+  async remind(@Param('id', ParseIntPipe) id: number, @Body({ schema: calendarRemindSchema }) dto: RemindDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.scheduleReminder(actor.id, id, dto.minutesBefore);
   }
   @Delete('events/:id')
@@ -36,7 +36,7 @@ export class CalendarController {
     return this.calendar.deleteEvent(actor.id, id);
   }
   @Post('subscriptions')
-  async createSubscription(@Body() dto: CreateSubscriptionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createSubscription(@Body({ schema: createCalendarSubscriptionSchema }) dto: CreateSubscriptionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.createSubscription(actor.id, dto);
   }
   @Get('subscriptions')
