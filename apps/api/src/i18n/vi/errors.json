@@ -32,8 +32,11 @@
     "not_available": "Hoạt động này chưa sẵn sàng cho bạn"
   },
   "backup": {
+    "course_required": "Sao lưu mức khoá học yêu cầu một khoá học",
     "job_not_found": "Không tìm thấy backup job",
     "not_completed": "Backup job chưa hoàn thành nên chưa thể restore",
+    "site_course_forbidden": "Sao lưu mức hệ thống không được gắn với một khoá học",
+    "site_target_forbidden": "Bản sao lưu mức hệ thống chỉ khôi phục được thành dữ liệu hệ thống mới, không có khoá đích",
     "target_forbidden": "Không có quyền trên khoá đích để restore",
     "target_required": "Chế độ restore này yêu cầu khoá đích",
     "unsupported_format": "Định dạng bản sao lưu không được hỗ trợ"
@@ -85,6 +88,8 @@
     "bad_ruleoutcome": "Kết quả áp dụng (rule outcome) không hợp lệ (chỉ nhận complete | attach-evidence | nothing)",
     "framework_not_found": "Không tìm thấy khung năng lực",
     "grade_outside_scale": "Mức điểm không thuộc thang đánh giá của khung năng lực",
+    "import_invalid": "Tài liệu import khung năng lực không hợp lệ",
+    "rule_invalid": "Cấu hình rule điểm (points rule) của năng lực không hợp lệ",
     "not_found": "Không tìm thấy năng lực (competency)",
     "parent_framework_mismatch": "Năng lực cha thuộc về khung năng lực khác",
     "plan_bad_transition": "Không thể chuyển trạng thái kế hoạch học tập như vậy",
@@ -202,10 +207,14 @@
   "messaging": {
     "block_self": "Bạn không thể tự chặn chính mình",
     "contact_blocked": "Người dùng này đã chặn bạn",
+    "contact_self": "Bạn không thể tự thêm chính mình vào danh bạ",
     "conversation_not_found": "Không tìm thấy cuộc hội thoại",
+    "group_conversation_forbidden": "Chỉ thành viên của nhóm hoặc cán bộ của khoá học mới tạo được cuộc hội thoại của nhóm",
     "group_members": "Cuộc hội thoại nhóm cần ít nhất 2 thành viên",
+    "group_not_found": "Không tìm thấy nhóm của khoá học",
     "individual_members": "Cuộc hội thoại cá nhân có đúng 2 thành viên",
     "message_immutable": "Tin nhắn đã gửi không thể sửa",
+    "not_a_contact_or_course_member": "Bạn chỉ có thể nhắn tin cho người đã thêm bạn vào danh bạ của họ hoặc người học cùng khoá học với bạn",
     "not_member": "Bạn không phải thành viên của cuộc hội thoại này",
     "notification_not_found": "Không tìm thấy thông báo",
     "recipient_suspended": "Người dùng này không thể nhận tin nhắn (đã bị tạm khoá)",

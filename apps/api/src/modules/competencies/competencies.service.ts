@@ -34,6 +34,36 @@ export function isProficientGrade(framework: FrameworkRow, grade: number | null 
   return parseScale(framework).proficient.includes(grade);
 }
 
+/** Một dòng điểm trong cấu hình rule points: competency con đóng góp điểm khi đạt proficiency. */
+export interface CompetencyRulePointsEntry { competencyId: string; points: number; required: boolean }
+
+/** Cấu hình rule points đã chuẩn hoá (Moodle `competency_rule_points`: base points + danh sách con). */
+export interface CompetencyRulePointsConfig { pointsRequired: number; entries: CompetencyRulePointsEntry[] }
+
+/** Đọc cấu hình rule points từ `competency.ruleconfig` (jsonb); trả null khi không đúng hình dạng. */
+export function parseRuleConfig(raw: unknown): CompetencyRulePointsConfig | null {
+  const cfg = (raw ?? {}) as { pointsRequired?: unknown; entries?: unknown };
+  if (!Number.isInteger(cfg.pointsRequired) || !Array.isArray(cfg.entries)) return null;
+  const entries: CompetencyRulePointsEntry[] = [];
+  for (const e of cfg.entries as { competencyId?: unknown; points?: unknown; required?: unknown }[]) {
+    if (typeof e?.competencyId !== 'string' || !Number.isInteger(e.points) || typeof e.required !== 'boolean') return null;
+    entries.push({ competencyId: e.competencyId, points: e.points as number, required: e.required });
+  }
+  return { pointsRequired: cfg.pointsRequired as number, entries };
+}
+
+/** Hình dạng tài liệu export framework (khớp `frameworkExportSchema` ở @lms/contracts). */
+export interface FrameworkExportDoc {
+  format: 'lms-competency-framework';
+  version: 1;
+  framework: { shortname: string; idnumber: string; description: string; visible: boolean; taxonomies: string; scale: ScaleConfiguration };
+  competencies: {
+    key: string; shortname: string; idnumber: string; description: string;
+    parentKey: string | null; sortorder: number;
+    rule: { outcome: string; pointsRequired: number; entries: { competencyKey: string; points: number; required: boolean }[] } | null;
+  }[];
+}
+
 /**
  * CompetenciesModule facade (Moodle core_competency / tool_lp):
  *  - Frameworks own a competency TREE (path/depth) and a SCALE; proficiency
@@ -159,6 +189,254 @@ export class CompetenciesService implements OnModuleInit {
   async listCompetencies(frameworkId: string): Promise<CompetencyRow[]> {
     await this.getFramework(frameworkId);
     return this.repo.listCompetencies(frameworkId);
+  }
+
+  // --- competency rules (points) ---------------------------------------------------------
+
+  /**
+   * Xem rule của một competency (null khi competency chưa có rule).
+   */
+  async getCompetencyRule(competencyId: string): Promise<{ competencyId: string; type: string | null; outcome: string; config: CompetencyRulePointsConfig | null }> {
+    const row = await this.getCompetency(competencyId);
+    return {
+      competencyId: row.id,
+      type: row.ruletype,
+      outcome: row.ruleoutcome,
+      config: row.ruletype === 'points' ? parseRuleConfig(row.ruleconfig) : null,
+    };
+  }
+
+  /**
+   * Đặt rule points cho competency cha (oracle: Moodle `competency_rule_points::validate_config`).
+   * Quy tắc kiểm tra bám Moodle: ngưỡng điểm >= 1; mỗi dòng điểm tham chiếu một competency
+   * CON TRỰC TIẾP, không trùng, không tự tham chiếu, điểm >= 0; tổng điểm các con phải
+   * với tới ngưỡng — cấu hình không bao giờ đạt được bị từ chối ngay khi đặt.
+   */
+  async setCompetencyRule(actorId: string, competencyId: string, input: { outcome: string; pointsRequired: number; entries: CompetencyRulePointsEntry[] }): Promise<{ competencyId: string; type: string | null; outcome: string; config: CompetencyRulePointsConfig | null }> {
+    await this.requireManage(actorId);
+    const parent = await this.getCompetency(competencyId);
+    void parent;
+    const invalid = (msg: string): never => { throw new BadRequestException({ message: msg, code: 'competency.rule_invalid' }); };
+    const outcome = this.assertOutcome(input.outcome === 'nothing' ? 'nothing' : input.outcome);
+    if (!Number.isInteger(input.pointsRequired) || input.pointsRequired < 1) invalid('The points required must be at least 1');
+    const children = await this.repo.listChildren(competencyId);
+    const childIds = new Set(children.map((c) => c.id));
+    const seen = new Set<string>();
+    let total = 0;
+    for (const entry of input.entries) {
+      if (entry.competencyId === competencyId) invalid('A competency cannot contribute points to its own rule');
+      if (seen.has(entry.competencyId)) invalid('The rule lists the same competency twice');
+      seen.add(entry.competencyId);
+      if (!childIds.has(entry.competencyId)) invalid('Rule points can only come from direct children of the competency');
+      if (!Number.isInteger(entry.points) || entry.points < 0) invalid('Rule points must be a non-negative integer');
+      total += entry.points;
+    }
+    if (!seen.size) invalid('A points rule needs at least one child competency');
+    if (input.pointsRequired > total) invalid('The points required exceed the total points the children can contribute');
+    const config: CompetencyRulePointsConfig = { pointsRequired: input.pointsRequired, entries: input.entries };
+    await this.repo.updateCompetency(competencyId, { ruletype: 'points', ruleconfig: config, ruleoutcome: outcome });
+    return this.getCompetencyRule(competencyId);
+  }
+
+  /**
+   * Đánh giá rule points của competency CHA sau khi một competency con đạt proficiency
+   * (oracle: Moodle `api::apply_competency_rules_from_usercompetency`). Rule thỏa khi mọi
+   * con `required` đều proficient (trong cùng scope plan/course của con) và tổng điểm
+   * các con đã đạt >= ngưỡng. Idempotent: cha đã proficient (outcome complete) hoặc đã có
+   * evidence `rule_points_met` (outcome attach-evidence) thì không ghi thêm gì.
+   * Cha đạt nhờ rule lại được đánh giá tiếp lên ông (đệ quy theo cây).
+   */
+  private async evaluateParentRule(userId: string, childCompetencyId: string, scope: { planId?: string; courseId?: string }): Promise<void> {
+    const child = await this.repo.getCompetency(childCompetencyId);
+    if (!child?.parentid) return;
+    const parent = await this.repo.getCompetency(child.parentid);
+    if (!parent || parent.ruletype !== 'points' || parent.ruleoutcome === 'nothing') return;
+    const config = parseRuleConfig(parent.ruleconfig);
+    if (!config) return;
+    const planid = scope.planId ?? null;
+    const courseid = scope.courseId ?? null;
+    const scoped = (await this.repo.listUsercompsForUser(userId))
+      .filter((r) => (r.planid ?? null) === planid && (r.courseid ?? null) === courseid);
+    const proficientIds = new Set(scoped.filter((r) => r.proficiency === true).map((r) => r.competencyid));
+    let points = 0;
+    for (const entry of config.entries) {
+      if (!proficientIds.has(entry.competencyId)) {
+        if (entry.required) return; // con bắt buộc chưa đạt ⇒ rule chưa thỏa
+        continue;
+      }
+      points += entry.points;
+    }
+    if (points < config.pointsRequired) return;
+    const parentUc = await this.getOrCreateUsercomp(userId, parent.id, scope);
+    const existing = await this.repo.listEvidence(parentUc.id);
+    if (existing.some((e) => e.action === 'rule_points_met')) return; // đã áp rule rồi — không ghi trùng
+    if (parent.ruleoutcome === 'attach-evidence') {
+      // Chỉ ghi evidence: proficiency của cha KHÔNG đổi (bám Moodle OUTCOME_EVIDENCE).
+      await this.repo.insertEvidence({
+        usercompetencyid: parentUc.id, actionuserid: userId, action: 'rule_points_met',
+        description: 'Competency rule (points) matched', grade: null,
+      });
+      return;
+    }
+    // outcome 'complete': cha tự đạt proficiency theo mức proficient đầu tiên của scale.
+    if (parentUc.proficiency === true) return;
+    const framework = await this.getFramework(parent.frameworkid);
+    const grade = parseScale(framework).proficient[0];
+    if (grade === undefined) return;
+    await this.repo.updateUsercomp(parentUc.id, { grade, proficiency: true });
+    await this.repo.insertEvidence({
+      usercompetencyid: parentUc.id, actionuserid: userId, action: 'rule_points_met',
+      description: 'Competency rule (points) matched', grade,
+    });
+    await this.emitter.emitAsync('competency_proficiency_changed', { userId, competencyId: parent.id });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'competency', type: 'competency_proficiency_changed',
+      payload: { userId, competencyId: parent.id, proficient: true, via: 'rule-points' },
+    });
+    await this.evaluateParentRule(userId, parent.id, scope);
+  }
+
+  // --- framework export / import / duplication --------------------------------------------
+
+  /**
+   * Export một framework ra tài liệu JSON của hệ thống (cây competency + scale + taxonomies + rule).
+   * `key` trong tài liệu là id nguồn, chỉ dùng để nối cấu trúc nội bộ của file.
+   */
+  async exportFramework(actorId: string, frameworkId: string): Promise<FrameworkExportDoc> {
+    await this.requireManage(actorId);
+    const framework = await this.getFramework(frameworkId);
+    const competencies = await this.repo.listCompetencies(frameworkId);
+    return {
+      format: 'lms-competency-framework',
+      version: 1,
+      framework: {
+        shortname: framework.shortname, idnumber: framework.idnumber, description: framework.description,
+        visible: framework.visible, taxonomies: framework.taxonomies, scale: parseScale(framework),
+      },
+      competencies: competencies.map((c) => {
+        const config = c.ruletype === 'points' ? parseRuleConfig(c.ruleconfig) : null;
+        return {
+          key: c.id, shortname: c.shortname, idnumber: c.idnumber, description: c.description,
+          parentKey: c.parentid, sortorder: c.sortorder,
+          rule: config ? {
+            outcome: c.ruleoutcome, pointsRequired: config.pointsRequired,
+            entries: config.entries.map((e) => ({ competencyKey: e.competencyId, points: e.points, required: e.required })),
+          } : null,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Kiểm tra tính toàn vẹn nội bộ của tài liệu export trước khi tạo framework:
+   * key duy nhất, parentKey tồn tại và không tạo chu trình, rule chỉ tham chiếu con
+   * trực tiếp của chính competency mang rule, ngưỡng điểm với tới được, scale hợp lệ.
+   * Mọi lỗi đều là `competency.import_invalid` (400) và không có gì được tạo.
+   */
+  private validateFrameworkExport(doc: FrameworkExportDoc): void {
+    const invalid = (msg: string): never => { throw new BadRequestException({ message: msg, code: 'competency.import_invalid' }); };
+    if (!doc.framework.scale.values.length) invalid('The framework scale needs at least one value');
+    for (const idx of doc.framework.scale.proficient) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= doc.framework.scale.values.length) invalid('A proficient index is outside the scale');
+    }
+    const byKey = new Map<string, FrameworkExportDoc['competencies'][number]>();
+    for (const c of doc.competencies) {
+      if (byKey.has(c.key)) invalid(`Duplicate competency key ${c.key}`);
+      byKey.set(c.key, c);
+    }
+    for (const c of doc.competencies) {
+      if (c.parentKey !== null) {
+        if (c.parentKey === c.key) invalid('A competency cannot be its own parent');
+        if (!byKey.has(c.parentKey)) invalid(`Unknown parent key ${c.parentKey}`);
+      }
+      if (c.rule) {
+        const seen = new Set<string>();
+        let total = 0;
+        for (const entry of c.rule.entries) {
+          const target = byKey.get(entry.competencyKey);
+          if (!target) invalid(`Rule references unknown competency key ${entry.competencyKey}`);
+          if (target!.parentKey !== c.key) invalid('Rule points can only come from direct children of the competency');
+          if (seen.has(entry.competencyKey)) invalid('The rule lists the same competency twice');
+          seen.add(entry.competencyKey);
+          total += entry.points;
+        }
+        if (!seen.size) invalid('A points rule needs at least one child competency');
+        if (c.rule.pointsRequired > total) invalid('The points required exceed the total points the children can contribute');
+      }
+    }
+  }
+
+  /**
+   * Tạo framework MỚI từ tài liệu export (id mới toàn bộ, cấu trúc cây/scale/rule giữ nguyên).
+   * Toàn bộ thao tác nằm trong MỘT transaction: tài liệu hỏng ⇒ rollback, không tạo nửa vời.
+   * Dùng chung cho import và duplication.
+   */
+  private async createFrameworkFromExport(doc: FrameworkExportDoc, overrides?: { shortname?: string; idnumber?: string }): Promise<FrameworkRow> {
+    this.validateFrameworkExport(doc);
+    const frameworkId = await this.repo.dbHandle.transaction(async (tx) => {
+      const framework = await this.repo.insertFramework({
+        shortname: overrides?.shortname ?? doc.framework.shortname,
+        idnumber: overrides?.idnumber ?? doc.framework.idnumber,
+        description: doc.framework.description, contextid: await this.systemCtx(),
+        scaleconfiguration: doc.framework.scale, taxonomies: doc.framework.taxonomies,
+        visible: doc.framework.visible,
+      }, tx as never);
+      // Chèn theo thứ tự topo: cha trước con (tài liệu export vốn đã xếp theo path,
+      // nhưng import từ ngoài vào không được tin cậy thứ tự đó).
+      const mapped = new Map<string, { id: string; path: string; depth: number }>();
+      const pending = [...doc.competencies];
+      while (pending.length) {
+        const idx = pending.findIndex((c) => c.parentKey === null || mapped.has(c.parentKey));
+        if (idx === -1) throw new BadRequestException({ message: 'The competency tree contains a cycle', code: 'competency.import_invalid' });
+        const [node] = pending.splice(idx, 1);
+        const parentInfo = node.parentKey ? mapped.get(node.parentKey)! : undefined;
+        const created = await this.repo.insertCompetency({
+          frameworkid: framework.id, shortname: node.shortname, idnumber: node.idnumber,
+          description: node.description, parentid: parentInfo?.id ?? null,
+          path: '', depth: parentInfo ? parentInfo.depth + 1 : 1, sortorder: node.sortorder,
+        }, tx as never);
+        const path = parentInfo ? `${parentInfo.path}/${created.id}` : `/${created.id}`;
+        await this.repo.updateCompetency(created.id, { path }, tx as never);
+        mapped.set(node.key, { id: created.id, path, depth: parentInfo ? parentInfo.depth + 1 : 1 });
+      }
+      // Rule gắn sau khi mọi competency đã có id mới (config tham chiếu id con).
+      for (const node of doc.competencies) {
+        if (!node.rule) continue;
+        const config: CompetencyRulePointsConfig = {
+          pointsRequired: node.rule.pointsRequired,
+          entries: node.rule.entries.map((e) => ({ competencyId: mapped.get(e.competencyKey)!.id, points: e.points, required: e.required })),
+        };
+        await this.repo.updateCompetency(mapped.get(node.key)!.id, {
+          ruletype: 'points', ruleconfig: config, ruleoutcome: node.rule.outcome,
+        }, tx as never);
+      }
+      return framework.id;
+    });
+    return this.getFramework(frameworkId);
+  }
+
+  /**
+   * Import tài liệu export thành một framework mới (capability quản lý framework).
+   */
+  async importFramework(actorId: string, doc: FrameworkExportDoc): Promise<FrameworkRow> {
+    await this.requireManage(actorId);
+    return this.createFrameworkFromExport(doc);
+  }
+
+  /**
+   * Nhân bản framework ngay trong hệ thống (oracle: Moodle `api::duplicate_framework` /
+   * `test_duplicate_framework`): framework mới mang idnumber chưa dùng (hậu tố `_1`, `_2`, …),
+   * shortname thêm " (copy)", toàn bộ cây + rule được sao với id mới (rule config được
+   * migrate sang id con mới như Moodle `migrate_competency_tree_rules`).
+   */
+  async duplicateFramework(actorId: string, frameworkId: string): Promise<FrameworkRow> {
+    const doc = await this.exportFramework(actorId, frameworkId);
+    const original = await this.getFramework(frameworkId);
+    const used = new Set((await this.repo.listFrameworks()).map((f) => f.idnumber));
+    let n = 1;
+    let candidate = `${original.idnumber}_${n}`;
+    while (used.has(candidate)) { n += 1; candidate = `${original.idnumber}_${n}`; }
+    return this.createFrameworkFromExport(doc, { shortname: `${original.shortname} (copy)`, idnumber: candidate });
   }
 
   // --- course / cm links --------------------------------------------------------------
@@ -299,6 +577,13 @@ export class CompetenciesService implements OnModuleInit {
         payload: { userId: input.userId, competencyId: input.competencyId, evidenceId: evidence.id },
       });
     });
+    // Evidence kèm grade của người có quyền chấm đã đặt proficiency ⇒ đánh giá rule của cha.
+    if (input.grade !== undefined && canRate) {
+      const framework = await this.getFramework(competencyRow.frameworkid);
+      if (isProficientGrade(framework, input.grade)) {
+        await this.evaluateParentRule(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
+      }
+    }
     return { usercomp: await this.getUsercomp(usercomp.id), evidence };
   }
 
@@ -355,6 +640,10 @@ export class CompetenciesService implements OnModuleInit {
           aggregate: 'competency', type: 'competency_proficiency_changed',
           payload: { userId: usercomp.userid, competencyId: usercomp.competencyid, proficient: true },
         });
+        // Con vừa đạt proficiency ⇒ đánh giá rule points của cha (cùng đường Moodle dùng khi duyệt).
+        if (isProficientGrade(framework, grade)) {
+          await this.evaluateParentRule(usercomp.userid, usercomp.competencyid, { planId: usercomp.planid ?? undefined, courseId: usercomp.courseid ?? undefined });
+        }
       } else {
         if (usercomp.status !== USERCOMP_REVIEW.IN_REVIEW && usercomp.status !== USERCOMP_REVIEW.WAITING) {
           throw new BadRequestException({ message: 'Only a competency in review can be rejected', code: 'competency.review_not_in_review' });
@@ -408,6 +697,9 @@ export class CompetenciesService implements OnModuleInit {
       description: 'Rated by reviewer', grade: input.grade, note: input.note ?? '',
     });
     await this.emitter.emitAsync('competency_proficiency_changed', { userId: input.userId, competencyId: input.competencyId });
+    if (isProficientGrade(framework, input.grade)) {
+      await this.evaluateParentRule(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
+    }
     return this.getUsercomp(usercomp.id);
   }
 
@@ -466,6 +758,7 @@ export class CompetenciesService implements OnModuleInit {
         aggregate: 'competency', type: 'competency_proficiency_changed',
         payload: { userId, competencyId, proficient: true, via: 'course-completion' },
       });
+      await this.evaluateParentRule(userId, competencyId, scope);
     }
   }
 

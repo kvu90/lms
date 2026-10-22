@@ -37,7 +37,14 @@ export const competencyFramework = pgTable('competency_framework', {
   ]);
 
 
-/** Competencies form a tree inside a framework (Moodle `competency`): path/depth like contexts. */
+/**
+ * Competencies form a tree inside a framework (Moodle `competency`): path/depth like contexts.
+ * Rule fields mirror Moodle's `competency.ruletype`/`ruleconfig`/`ruleoutcome`:
+ * `ruletype` is 'points' (Moodle `competency_rule_points`) or null; `ruleconfig`
+ * jsonb = { pointsRequired: number, entries: [{ competencyId, points, required }] }
+ * where the entries are DIRECT children of this competency; `ruleoutcome` is
+ * what happens when the rule matches: 'complete' | 'attach-evidence' | 'nothing'.
+ */
 export const competency = pgTable('competency', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   frameworkid: uuid('frameworkid').notNull().references(() => competencyFramework.id, { onDelete: 'cascade' }),
@@ -48,6 +55,9 @@ export const competency = pgTable('competency', {
   path: text('path').notNull().default(''),
   depth: integer('depth').notNull().default(1),
   sortorder: integer('sortorder').notNull().default(0),
+  ruletype: text('ruletype'),
+  ruleconfig: jsonb('ruleconfig'),
+  ruleoutcome: text('ruleoutcome').notNull().default('nothing'),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 },

@@ -398,4 +398,150 @@ describe('Badges & competencies', () => {
     expect(actions).toContain('review_approved');
     void assignRole; void roleIdByShortname; void courseContextId;
   });
+
+  /** Helper: đưa một user competency của learner qua đường duyệt (evidence → start → approve) tới proficiency. */
+  async function approveChild(learnerId: string, competencyId: string) {
+    const evidence = await http(app).post('/api/v1/competencies/evidence').set('Authorization', `Bearer ${admin}`)
+      .send({ userId: learnerId, competencyId, description: 'Portfolio', sendForReview: true });
+    expect(evidence.status).toBe(201);
+    const usercompId = evidence.body.usercomp.id as string;
+    await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
+    const approved = await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/approve`).set('Authorization', `Bearer ${admin}`).send({ grade: 1 });
+    expect(approved.body.proficiency).toBe(true);
+    return usercompId;
+  }
+
+  async function parentChildFramework(suffix: string) {
+    const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
+      .send({ shortname: `Rule FW ${suffix}`, idnumber: `rule-fw-${suffix}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
+    expect(fw.status).toBe(201);
+    const mk = async (shortname: string, parentId?: string) => {
+      const res = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
+        .send({ shortname, ...(parentId ? { parentId } : {}) });
+      expect(res.status).toBe(201);
+      return res.body as { id: string; shortname: string; parentid: string | null };
+    };
+    const parent = await mk('Parent skill');
+    const childA = await mk('Child A', parent.id);
+    const childB = await mk('Child B', parent.id);
+    return { framework: fw.body, parent, childA, childB };
+  }
+
+  it('competency rule points: parent auto-attains proficiency when the children reach the required points, not before (Moodle competency_rule_points; config shape from api_test test_duplicate_framework)', async () => {
+    const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-pts`);
+    const ruleUrl = `/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`;
+    // Unreachable rule (required points above the children's total) is refused at set time (validate_config).
+    const unreachable = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 99, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+    expect(unreachable.status).toBe(400);
+    expect(unreachable.body.code).toBe('competency.rule_invalid');
+    // A non-child cannot contribute points.
+    const { competency: stranger } = await frameworkWithCompetency();
+    const nonChild = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 1, entries: [{ competencyId: stranger.id, points: 1, required: false }] });
+    expect(nonChild.status).toBe(400);
+    expect(nonChild.body.code).toBe('competency.rule_invalid');
+    // Moodle's own test config shape: base 4 points; child A = 3 (optional), child B = 2 (required).
+    const set = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+    expect(set.status).toBe(201);
+    expect(set.body.type).toBe('points');
+    expect(set.body.config.pointsRequired).toBe(4);
+    const view = await http(app).get(ruleUrl).set('Authorization', `Bearer ${admin}`);
+    expect(view.body.config.entries).toHaveLength(2);
+
+    const learner = await createUserViaApi(app, admin);
+    const parentRow = async () => {
+      const rows = await http(app).get(`/api/v1/competencies/usercomp/user/${learner.id}`).set('Authorization', `Bearer ${admin}`);
+      return (rows.body as { competencyid: string; proficiency: boolean | null; grade: number | null; id: string }[])
+        .find((r) => r.competencyid === parent.id);
+    };
+    // Required child B approved (2 points < 4 required): parent NOT proficient yet.
+    await approveChild(learner.id, childB.id);
+    expect((await parentRow())?.proficiency).not.toBe(true);
+    // Child A approved too (2 + 3 = 5 >= 4, required met): parent auto-attains proficiency from the scale.
+    await approveChild(learner.id, childA.id);
+    const parentUc = await parentRow();
+    expect(parentUc?.proficiency).toBe(true);
+    expect(parentUc?.grade).toBe(1);
+    // Idempotent: re-grading a child re-evaluates the rule but writes no second rule evidence.
+    await http(app).post('/api/v1/competencies/usercomp/grade').set('Authorization', `Bearer ${admin}`)
+      .send({ userId: learner.id, competencyId: childA.id, grade: 1 });
+    const evidence = await http(app).get(`/api/v1/competencies/usercomp/${parentUc!.id}/evidence`).set('Authorization', `Bearer ${admin}`);
+    expect((evidence.body as { action: string }[]).filter((e) => e.action === 'rule_points_met')).toHaveLength(1);
+  });
+
+  it('framework export → import: tree/scale/rule preserved with brand-new ids; duplicate mirrors Moodle test_duplicate_framework', async () => {
+    const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-exp`);
+    await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`).set('Authorization', `Bearer ${admin}`)
+      .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
+
+    const exported = await http(app).get(`/api/v1/competencies/frameworks/${framework.id}/export`).set('Authorization', `Bearer ${admin}`);
+    expect(exported.status).toBe(200);
+    expect(exported.body.format).toBe('lms-competency-framework');
+    expect(exported.body.version).toBe(1);
+    expect(exported.body.competencies).toHaveLength(3);
+
+    const imported = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`).send(exported.body);
+    expect(imported.status).toBe(201);
+    expect(imported.body.id).not.toBe(framework.id);
+    expect(imported.body.scaleconfiguration).toEqual({ values: ['Not competent', 'Competent'], proficient: [1] });
+    expect(imported.body.taxonomies).toBe(exported.body.framework.taxonomies);
+    const importedComps = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
+    const rows = importedComps.body as { id: string; shortname: string; parentid: string | null; path: string }[];
+    expect(rows).toHaveLength(3);
+    const sourceIds = new Set([parent.id, childA.id, childB.id]);
+    for (const row of rows) expect(sourceIds.has(row.id)).toBe(false); // toàn bộ id đều mới
+    const newParent = rows.find((r) => r.shortname === 'Parent skill')!;
+    const newChildA = rows.find((r) => r.shortname === 'Child A')!;
+    const newChildB = rows.find((r) => r.shortname === 'Child B')!;
+    expect(newChildA.parentid).toBe(newParent.id);
+    expect(newChildB.parentid).toBe(newParent.id);
+    expect(newChildA.path).toBe(`/${newParent.id}/${newChildA.id}`);
+    // Rule được mang sang với id con ĐÃ remap sang framework mới.
+    const rule = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies/${newParent.id}/rule`).set('Authorization', `Bearer ${admin}`);
+    expect(rule.body.type).toBe('points');
+    expect(rule.body.outcome).toBe('complete');
+    expect(rule.body.config.pointsRequired).toBe(4);
+    expect(new Set(rule.body.config.entries.map((e: { competencyId: string }) => e.competencyId))).toEqual(new Set([newChildA.id, newChildB.id]));
+
+    // Duplicate: idnumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
+    const duplicate = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(duplicate.status).toBe(201);
+    expect(duplicate.body.id).not.toBe(framework.id);
+    expect(duplicate.body.idnumber).toBe(`${framework.idnumber}_1`);
+    const dupComps = await http(app).get(`/api/v1/competencies/frameworks/${duplicate.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
+    expect(dupComps.body).toHaveLength(3);
+    const duplicate2 = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(duplicate2.body.idnumber).toBe(`${framework.idnumber}_2`);
+  });
+
+  it('framework import: malformed documents are refused with 400 and create no framework at all', async () => {
+    const before = await http(app).get('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`);
+    const countBefore = (before.body as unknown[]).length;
+    const scale = { values: ['Not competent', 'Competent'], proficient: [1] };
+    // Sai version → Zod từ chối.
+    const wrongVersion = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
+      .send({ format: 'lms-competency-framework', version: 2, framework: { shortname: 'Bad', idnumber: '', description: '', visible: true, taxonomies: 'competency', scale }, competencies: [] });
+    expect(wrongVersion.status).toBe(400);
+    // Đúng hình dạng nhưng rule tham chiếu competency không phải con trực tiếp → import_invalid, rollback toàn bộ.
+    const badRef = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
+      .send({
+        format: 'lms-competency-framework', version: 1,
+        framework: { shortname: `Bad import ${Date.now()}`, idnumber: '', description: '', visible: true, taxonomies: 'competency', scale },
+        competencies: [
+          { key: 'p', shortname: 'P', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: { outcome: 'complete', pointsRequired: 1, entries: [{ competencyKey: 'x', points: 1, required: true }] } },
+          { key: 'c', shortname: 'C', idnumber: '', description: '', parentKey: 'p', sortorder: 0, rule: null },
+          { key: 'x', shortname: 'X', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: null },
+        ],
+      });
+    expect(badRef.status).toBe(400);
+    expect(badRef.body.code).toBe('competency.import_invalid');
+    // Thiếu hẳn trường bắt buộc → 400.
+    const missing = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`).send({ format: 'lms-competency-framework' });
+    expect(missing.status).toBe(400);
+    // Không framework rác nào được tạo.
+    const after = await http(app).get('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`);
+    expect((after.body as unknown[]).length).toBe(countBefore);
+  });
 });

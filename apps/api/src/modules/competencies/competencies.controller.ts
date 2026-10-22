@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CompetenciesService } from './competencies.service';
-import { addCompetencyEvidenceSchema, addTemplateCohortSchema, addTemplateCompetencySchema, competencyNoteSchema, competencyReviewDecisionSchema, createCompetencyFrameworkSchema, createCompetencySchema, createLearningPlanSchema, createLearningPlanTemplateSchema, gradeUserCompetencySchema, linkCompetencySchema, type AddEvidenceDto, type AddTemplateCohortDto, type AddTemplateCompetencyDto, type CreateCompetencyDto, type CreateFrameworkDto, type CreatePlanDto, type CreateTemplateDto, type GradeUsercompDto, type LinkCompetencyDto, type NoteDto, type ReviewDecisionDto } from './dto/competencies.dto';
+import { addCompetencyEvidenceSchema, addTemplateCohortSchema, addTemplateCompetencySchema, competencyNoteSchema, competencyReviewDecisionSchema, createCompetencyFrameworkSchema, createCompetencySchema, createLearningPlanSchema, createLearningPlanTemplateSchema, frameworkExportSchema, gradeUserCompetencySchema, linkCompetencySchema, setCompetencyRuleSchema, type AddEvidenceDto, type AddTemplateCohortDto, type AddTemplateCompetencyDto, type CreateCompetencyDto, type CreateFrameworkDto, type CreatePlanDto, type CreateTemplateDto, type FrameworkExportDto, type GradeUsercompDto, type LinkCompetencyDto, type NoteDto, type ReviewDecisionDto, type SetCompetencyRuleDto } from './dto/competencies.dto';
 
 @ApiTags('competencies')
 @Controller({ path: 'competencies', version: '1' })
@@ -42,6 +42,41 @@ export class CompetenciesController {
    * GET /competencies/frameworks/:id/competencies — liệt kê competency.
    */
   async listCompetencies(@Param('id', { schema: uuidIdSchema }) id: string) { return this.competencies.listCompetencies(id); }
+  @Get('frameworks/:id/export')
+  /**
+   * GET /competencies/frameworks/:id/export — export framework ra tài liệu JSON của hệ thống.
+   */
+  async exportFramework(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.exportFramework(actor.id, id);
+  }
+  @Post('frameworks/import')
+  /**
+   * POST /competencies/frameworks/import — import tài liệu JSON thành framework MỚI (id mới toàn bộ).
+   */
+  async importFramework(@Body({ schema: frameworkExportSchema }) dto: FrameworkExportDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.importFramework(actor.id, dto);
+  }
+  @Post('frameworks/:id/duplicate')
+  /**
+   * POST /competencies/frameworks/:id/duplicate — nhân bản framework (cây + rule, id mới).
+   */
+  async duplicateFramework(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.duplicateFramework(actor.id, id);
+  }
+  @Get('frameworks/:frameworkId/competencies/:competencyId/rule')
+  /**
+   * GET /competencies/frameworks/:frameworkId/competencies/:competencyId/rule — xem rule points của competency cha.
+   */
+  async getCompetencyRule(@Param('competencyId', { schema: uuidIdSchema }) competencyId: string) {
+    return this.competencies.getCompetencyRule(competencyId);
+  }
+  @Post('frameworks/:frameworkId/competencies/:competencyId/rule')
+  /**
+   * POST /competencies/frameworks/:frameworkId/competencies/:competencyId/rule — đặt rule points cho competency cha.
+   */
+  async setCompetencyRule(@Param('competencyId', { schema: uuidIdSchema }) competencyId: string, @Body({ schema: setCompetencyRuleSchema }) dto: SetCompetencyRuleDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.setCompetencyRule(actor.id, competencyId, dto);
+  }
 
   @Post('courses/:courseId/links')
   /**

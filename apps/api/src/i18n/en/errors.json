@@ -32,8 +32,11 @@
     "not_available": "This activity is not available to you yet"
   },
   "backup": {
+    "course_required": "A course backup requires a course",
     "job_not_found": "Backup job not found",
     "not_completed": "The backup job has not completed yet, so it cannot be restored",
+    "site_course_forbidden": "A site backup must not be attached to a course",
+    "site_target_forbidden": "A site backup can only be restored as new site-level data, without a target course",
     "target_forbidden": "You do not have permission on the target course to restore into it",
     "target_required": "This restore mode requires a target course",
     "unsupported_format": "Unsupported backup format"
@@ -85,6 +88,8 @@
     "bad_ruleoutcome": "Unknown rule outcome (expected complete | attach-evidence | nothing)",
     "framework_not_found": "Competency framework not found",
     "grade_outside_scale": "Grade is not a value of the framework scale",
+    "import_invalid": "The competency framework import document is invalid",
+    "rule_invalid": "The competency points rule configuration is invalid",
     "not_found": "Competency not found",
     "parent_framework_mismatch": "Parent competency belongs to another framework",
     "plan_bad_transition": "This learning plan status transition is not allowed",
@@ -202,10 +207,14 @@
   "messaging": {
     "block_self": "You cannot block yourself",
     "contact_blocked": "This user has blocked you",
+    "contact_self": "You cannot add yourself as a contact",
     "conversation_not_found": "Conversation not found",
+    "group_conversation_forbidden": "Only group members or course staff can create the group conversation",
     "group_members": "A group conversation needs at least 2 members",
+    "group_not_found": "Course group not found",
     "individual_members": "An individual conversation has exactly 2 members",
     "message_immutable": "A sent message cannot be modified",
+    "not_a_contact_or_course_member": "You can only message a user who has you as a contact or who shares a course with you",
     "not_member": "You are not a member of this conversation",
     "notification_not_found": "Notification not found",
     "recipient_suspended": "This user cannot receive messages (suspended)",
