@@ -89,7 +89,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
 
   it('the guest account cannot be suspended or deleted', async () => {
     const list = await http(app).get('/api/v1/users').query({ search: 'guest' }).set('Authorization', `Bearer ${admin}`);
-    const guest = (list.body.users as { id: number; username: string }[]).find((u) => u.username === 'guest');
+    const guest = (list.body.users as { id: string; username: string }[]).find((u) => u.username === 'guest');
     expect(guest).toBeTruthy();
     const del = await http(app).delete(`/api/v1/users/${guest!.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(400);

@@ -41,7 +41,7 @@ describe('Messaging & calendar', () => {
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(conv.status).toBe(201);
-    const conversationId = conv.body.id as number;
+    const conversationId = conv.body.id as string;
     // Re-creating the same individual conversation returns the same one.
     const again = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${bToken}`)
       .send({ type: 1, memberIds: [a.id] });
@@ -73,7 +73,7 @@ describe('Messaging & calendar', () => {
       .send({ type: 1, memberIds: [b.id] });
     const sent = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Permanent words' });
-    const messageId = sent.body.id as number;
+    const messageId = sent.body.id as string;
     const patch = await http(app).patch(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Edited!' });
     expect(patch.status).toBe(403);
@@ -237,10 +237,10 @@ describe('Messaging & calendar', () => {
       .send({ name: 'Weekly yoga', eventtype: 'user', timestart: start.toISOString(), repeat: { freq: 'WEEKLY', count: 3 } });
     expect(created.status).toBe(201);
     expect(created.body.occurrences).toHaveLength(3);
-    const root = created.body.event as { id: number; rrule: string; repeatid: number };
+    const root = created.body.event as { id: string; rrule: string; repeatid: string };
     expect(root.rrule).toContain('FREQ=WEEKLY');
     expect(root.repeatid).toBe(root.id);
-    const secondOccurrence = created.body.occurrences[1] as { id: number; timestart: string };
+    const secondOccurrence = created.body.occurrences[1] as { id: string; timestart: string };
 
     const moved = new Date(new Date(secondOccurrence.timestart).getTime() + 7200_000).toISOString();
     const exception = await http(app).post(`/api/v1/calendar/events/${secondOccurrence.id}/exception`).set('Authorization', `Bearer ${accessToken}`)

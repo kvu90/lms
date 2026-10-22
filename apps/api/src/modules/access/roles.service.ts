@@ -52,7 +52,7 @@ export class RolesService {
   /**
    * Lấy role theo id; ném NotFound khi vắng.
    */
-  async getRole(id: number): Promise<RoleRow> {
+  async getRole(id: string): Promise<RoleRow> {
     const row = await this.repo.getRoleById(id);
     if (!row) throw new NotFoundException({ message: `Role ${id} not found`, code: 'access.role_not_found' });
     return row;
@@ -64,7 +64,7 @@ export class RolesService {
   /**
    * Cập nhật tên/mô tả/archetype của role.
    */
-  async updateRole(id: number, input: { name?: string; description?: string }): Promise<RoleRow> {
+  async updateRole(id: string, input: { name?: string; description?: string }): Promise<RoleRow> {
     await this.getRole(id);
     await this.repo.updateRole(id, input);
     return this.getRole(id);
@@ -72,7 +72,7 @@ export class RolesService {
   /**
    * Xoá role (kèm gán và override của nó).
    */
-  async deleteRole(id: number): Promise<void> {
+  async deleteRole(id: string): Promise<void> {
     await this.getRole(id);
     await this.repo.deleteRole(id);
   }
@@ -80,7 +80,7 @@ export class RolesService {
   /**
    * Gán role cho user tại context; trùng gán hiện hữu thì bỏ qua.
    */
-  async assignRole(userId: number, roleId: number, contextId: number, modifierId?: number): Promise<unknown> {
+  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string): Promise<unknown> {
     await this.getRole(roleId);
     await this.contexts.getContext(contextId);
     const row = await this.repo.insertAssignment({ roleid: roleId, userid: userId, contextid: contextId, modifierid: modifierId });
@@ -90,13 +90,13 @@ export class RolesService {
   /**
    * Gỡ gán role của user tại context.
    */
-  async unassignRole(assignmentId: number): Promise<void> {
+  async unassignRole(assignmentId: string): Promise<void> {
     await this.repo.deleteAssignment(assignmentId);
   }
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userid?: number; contextid?: number }): Promise<unknown[]> {
+  async listAssignments(filter: { userid?: string; contextid?: string }): Promise<unknown[]> {
     return this.repo.listAssignments(filter);
   }
 
@@ -104,7 +104,7 @@ export class RolesService {
   /**
    * Đặt override CAP_* cho role tại context (ALLOW/INHERIT/PREVENT/PROHIBIT).
    */
-  async setCapabilityOverride(roleId: number, capability: string, contextId: number, permission: number, modifierId?: number): Promise<void> {
+  async setCapabilityOverride(roleId: string, capability: string, contextId: string, permission: number, modifierId?: string): Promise<void> {
     if (!VALID_PERMISSIONS.includes(permission)) {
       throw new BadRequestException({ message: `Invalid permission ${permission}`, code: 'access.invalid_permission' });
     }
@@ -120,7 +120,7 @@ export class RolesService {
   /**
    * Liệt kê override đã lưu của role.
    */
-  async listRoleCapabilities(roleId: number): Promise<unknown[]> {
+  async listRoleCapabilities(roleId: string): Promise<unknown[]> {
     await this.getRole(roleId);
     return this.repo.listRoleCapabilities(roleId);
   }

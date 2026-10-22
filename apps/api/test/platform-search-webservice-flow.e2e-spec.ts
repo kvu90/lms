@@ -49,7 +49,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     // Người có quyền (học viên đã ghi danh) tìm thấy.
     const found = await http(app).get(`/api/v1/search?q=${encodeURIComponent('Course')}`).set('Authorization', `Bearer ${studentToken}`);
     expect(found.status).toBe(200);
-    expect((found.body as { itemid: number }[]).some((d) => d.itemid === course.id)).toBe(true);
+    expect((found.body as { itemid: string }[]).some((d) => d.itemid === course.id)).toBe(true);
     void q;
     // User bị PROHIBIT moodle/course:view tại course context: tạo role riêng + assignment + PROHIBIT override.
     const blocked = await createUserViaApi(app, admin);
@@ -59,7 +59,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const blockedToken = (await login(app, blocked.username, STRONG_PASSWORD)).accessToken;
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent('Course')}`).set('Authorization', `Bearer ${blockedToken}`);
     expect(res.status).toBe(200);
-    expect((res.body as { itemid: number }[]).some((d) => d.itemid === course.id)).toBe(false);
+    expect((res.body as { itemid: string }[]).some((d) => d.itemid === course.id)).toBe(false);
     // Kể cả khi index còn sót một tài liệu trỏ vào context đó, re-check vẫn chặn.
     const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
       .send({ area: 'courses', itemid: 999000 + course.id, title: 'StaleSecretCourse', content: 'StaleSecretCourse leaked content', contextid: ctxId });
@@ -83,7 +83,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const idx2 = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemid: user.id });
     expect(idx2.body.indexed).toBe(false);
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(user.username)}`).set('Authorization', `Bearer ${admin}`);
-    expect((res.body as { itemid: number }[]).some((d) => d.itemid === user.id)).toBe(false);
+    expect((res.body as { itemid: string }[]).some((d) => d.itemid === user.id)).toBe(false);
   });
 
   it('webservice DoD: a student token cannot call a function requiring a teacher capability (403), but can call a view function in its service', async () => {
@@ -129,7 +129,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(draft.body.visibility).toBe('draft');
     // Student không thấy draft.
     const listStudent = await http(app).get(`/api/v1/contentbank?contextid=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
-    expect((listStudent.body as { id: number }[]).some((c) => c.id === draft.body.id)).toBe(false);
+    expect((listStudent.body as { id: string }[]).some((c) => c.id === draft.body.id)).toBe(false);
     // Upload file qua FilesModule + chuyển public ⇒ student thấy và lấy được signed URL.
     const up = await http(app).post(`/api/v1/contentbank/${draft.body.id}/file`).set('Authorization', `Bearer ${teacherToken}`)
       .send({ filename: 'notes.txt', contentBase64: Buffer.from('content-bank-file').toString('base64'), mimetype: 'text/plain' });
@@ -138,7 +138,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const pub = await http(app).patch(`/api/v1/contentbank/${draft.body.id}`).set('Authorization', `Bearer ${teacherToken}`).send({ visibility: 'public' });
     expect(pub.body.visibility).toBe('public');
     const list2 = await http(app).get(`/api/v1/contentbank?contextid=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
-    expect((list2.body as { id: number }[]).some((c) => c.id === draft.body.id)).toBe(true);
+    expect((list2.body as { id: string }[]).some((c) => c.id === draft.body.id)).toBe(true);
     const url = await http(app).get(`/api/v1/contentbank/${draft.body.id}/file-url`).set('Authorization', `Bearer ${studentToken}`);
     expect(url.status).toBeLessThan(300);
     expect(url.body.url).toContain('/files/');
@@ -167,7 +167,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(run.body.predictions).toBeGreaterThanOrEqual(1);
     expect(run.body.insights).toBeGreaterThanOrEqual(1);
     const teacherInsights = await http(app).get('/api/v1/analytics/insights/me').set('Authorization', `Bearer ${teacherToken}`);
-    expect((teacherInsights.body as { userid: number }[]).some((i) => i.userid === student.id)).toBe(true);
+    expect((teacherInsights.body as { userid: string }[]).some((i) => i.userid === student.id)).toBe(true);
     // Student không phải recipient có viewinsights ⇒ không thấy insight về mình trong hộp của mình.
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const studentInsights = await http(app).get('/api/v1/analytics/insights/me').set('Authorization', `Bearer ${studentToken}`);
@@ -188,7 +188,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(report.status).toBeLessThan(300);
     const run = await http(app).get(`/api/v1/reports/${report.body.id}/run`).set('Authorization', `Bearer ${a.studentToken}`);
     expect(run.status).toBe(200);
-    const rows = run.body.rows as { courseId: number; userId: number }[];
+    const rows = run.body.rows as { courseId: string; userId: string }[];
     // Không có dòng nào của course B (A không có quyền ở đó, và các dòng đó không phải của A).
     expect(rows.some((r) => r.courseId === b.course.id)).toBe(false);
     // Chỉ thấy tối đa dòng của chính mình ở course A.
@@ -202,7 +202,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const ran = await http(app).post(`/api/v1/reports/schedules/${sched.body.id}/run`).set('Authorization', `Bearer ${admin}`).send({});
     expect(ran.status).toBeLessThan(300);
     const schedules = await http(app).get('/api/v1/reports/schedules/all').set('Authorization', `Bearer ${admin}`);
-    const mine = (schedules.body as { id: number; lastresult: { ranAs: number } | null }[]).find((s) => s.id === sched.body.id);
+    const mine = (schedules.body as { id: string; lastresult: { ranAs: number } | null }[]).find((s) => s.id === sched.body.id);
     expect(mine?.lastresult).toBeTruthy();
     void b;
   });

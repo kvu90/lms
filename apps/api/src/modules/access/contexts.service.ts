@@ -12,14 +12,14 @@ import { CONTEXT_LEVELS } from './domain/capabilities';
 export class ContextsService {
   constructor(private readonly repo: AccessRepository) {}
 
-  /** The system context (level 10, instance 0) is created lazily and is the root of every path. */
+  /** The system context (level 10, instance null) is created lazily and is the root of every path. */
   /**
    * Đảm bảo context hệ thống (level CONTEXT_SYSTEM, instance 0) tồn tại; idempotent.
    */
   async ensureSystemContext(): Promise<ContextRow> {
-    const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, 0);
+    const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, null);
     if (existing) return existing;
-    const row = await this.repo.insertContext({ contextlevel: CONTEXT_LEVELS.SYSTEM, instanceid: 0, path: '', depth: 0 });
+    const row = await this.repo.insertContext({ contextlevel: CONTEXT_LEVELS.SYSTEM, instanceid: null, path: '', depth: 0 });
     const path = `/${row.id}`;
     await this.repo.updateContextPath(row.id, path, 1);
     return { ...row, path, depth: 1 };
@@ -28,7 +28,7 @@ export class ContextsService {
   /**
    * Tạo context con dưới một context cha, tính path/depth; cha không tồn tại → lỗi access.parent_context_not_found.
    */
-  async createContext(contextlevel: number, instanceid: number, parentId?: number): Promise<ContextRow> {
+  async createContext(contextlevel: number, instanceid: string, parentId?: string): Promise<ContextRow> {
     const existing = await this.repo.getContextByLevelInstance(contextlevel, instanceid);
     if (existing) return existing;
     const parent = contextlevel === CONTEXT_LEVELS.SYSTEM
@@ -45,7 +45,7 @@ export class ContextsService {
   /**
    * Lấy context theo id; ném NotFound khi vắng.
    */
-  async getContext(id: number): Promise<ContextRow> {
+  async getContext(id: string): Promise<ContextRow> {
     const row = await this.repo.getContextById(id);
     if (!row) throw new NotFoundException({ message: `Context ${id} not found`, code: 'access.context_not_found' });
     return row;
@@ -53,7 +53,7 @@ export class ContextsService {
   /**
    * Lấy context theo (level, instance); undefined nếu chưa được tạo.
    */
-  async getByLevelInstance(contextlevel: number, instanceid: number): Promise<ContextRow | undefined> {
+  async getByLevelInstance(contextlevel: number, instanceid: string): Promise<ContextRow | undefined> {
     return this.repo.getContextByLevelInstance(contextlevel, instanceid);
   }
   /**
@@ -64,11 +64,11 @@ export class ContextsService {
   /**
    * Xoá context và dọn override quyền gắn với nó.
    */
-  async deleteContext(id: number): Promise<void> { await this.repo.deleteContext(id); }
+  async deleteContext(id: string): Promise<void> { await this.repo.deleteContext(id); }
   /**
    * Xoá context theo (level, instance) — dùng khi entity chủ (khoá học/module) bị xoá.
    */
-  async deleteByLevelInstance(contextlevel: number, instanceid: number): Promise<void> {
+  async deleteByLevelInstance(contextlevel: number, instanceid: string): Promise<void> {
     const row = await this.repo.getContextByLevelInstance(contextlevel, instanceid);
     if (row) await this.repo.deleteContext(row.id);
   }
@@ -78,7 +78,7 @@ export class ContextsService {
    * Trả các context tổ tiên của một context (kèm chính nó) theo thứ tự từ gốc xuống.
    */
   async getPathContexts(ctx: ContextRow): Promise<ContextRow[]> {
-    const ids = ctx.path.split('/').filter(Boolean).map(Number);
+    const ids = ctx.path.split('/').filter(Boolean);
     const rows = await this.repo.getContextsByIds(ids);
     const byId = new Map(rows.map((r) => [r.id, r]));
     return ids.slice().reverse().map((id) => byId.get(id)!).filter(Boolean);
@@ -88,7 +88,7 @@ export class ContextsService {
   /**
    * Di chuyển context sang cha mới và viết lại path cho cả cây con.
    */
-  async reparentContext(id: number, newParentId: number): Promise<void> {
+  async reparentContext(id: string, newParentId: string): Promise<void> {
     const ctx = await this.getContext(id);
     const parent = await this.getContext(newParentId);
     const oldPath = ctx.path;
@@ -106,7 +106,7 @@ export class ContextsService {
   /**
    * Đánh dấu cây context đã đổi để các cache phụ thuộc phải tính lại.
    */
-  async markContextDirty(contextId: number): Promise<void> {
+  async markContextDirty(contextId: string): Promise<void> {
     const ctx = await this.repo.getContextById(contextId);
     if (ctx) await this.repo.bumpContextVersions(ctx.path);
   }

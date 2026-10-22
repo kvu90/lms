@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { BadgesService } from './badges.service';
@@ -35,66 +36,66 @@ export class BadgesController {
   /**
    * GET /badges/:id — chi tiết badge.
    */
-  async get(@Param('id', ParseIntPipe) id: number) { return this.badges.getBadge(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.badges.getBadge(id); }
   @Patch(':id')
   /**
    * PATCH /badges/:id — cập nhật badge.
    */
-  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateBadgeSchema }) dto: UpdateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateBadgeSchema }) dto: UpdateBadgeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.updateBadge(actor.id, id, dto);
   }
   @Delete(':id')
   /**
    * POST /badges/:id/archive — lưu trữ badge.
    */
-  async archive(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async archive(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.archiveBadge(actor.id, id);
   }
   @Post(':id/status')
   /**
    * POST /badges/:id/status — đổi trạng thái (kích hoạt…).
    */
-  async setStatus(@Param('id', ParseIntPipe) id: number, @Body({ schema: setBadgeStatusSchema }) dto: SetStatusDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setStatus(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setBadgeStatusSchema }) dto: SetStatusDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.setStatus(actor.id, id, dto.status);
   }
   @Post(':id/duplicate')
   /**
    * POST /badges/:id/duplicate — nhân bản badge.
    */
-  async duplicate(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async duplicate(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.duplicateBadge(actor.id, id);
   }
   @Get(':id/criteria')
   /**
    * GET /badges/:id/criteria — bộ tiêu chí.
    */
-  async criteria(@Param('id', ParseIntPipe) id: number) { return this.badges.getCriteria(id); }
+  async criteria(@Param('id', { schema: uuidIdSchema }) id: string) { return this.badges.getCriteria(id); }
   @Put(':id/criteria')
   /**
    * PUT /badges/:id/criteria — đặt bộ tiêu chí.
    */
-  async setCriteria(@Param('id', ParseIntPipe) id: number, @Body({ schema: setBadgeCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setCriteria(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setBadgeCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.setCriteria(actor.id, id, dto);
   }
   @Post(':id/award')
   /**
    * POST /badges/:id/award — cấp thủ công cho user.
    */
-  async award(@Param('id', ParseIntPipe) id: number, @Body({ schema: badgeUserSchema }) dto: ManualAwardDto, @CurrentUser() actor: AuthenticatedUser) {
+  async award(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: badgeUserSchema }) dto: ManualAwardDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.manualAward(actor.id, id, dto.userId);
   }
   @Get(':id/issued')
   /**
    * GET /badges/:id/issued — danh sách đã cấp.
    */
-  async issued(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async issued(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.listIssuedForBadge(actor.id, id);
   }
   @Post(':id/evaluate')
   /**
    * POST /badges/:id/evaluate — đánh giá tiêu chí cho một user.
    */
-  async evaluate(@Param('id', ParseIntPipe) id: number, @Body({ schema: badgeUserSchema }) dto: EvaluateDto) {
+  async evaluate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: badgeUserSchema }) dto: EvaluateDto) {
     return this.badges.evaluateBadge(id, dto.userId);
   }
   @Post('evaluate-user')
@@ -109,14 +110,14 @@ export class BadgesController {
   /**
    * GET /badges/issued/:id — một bản ghi cấp phát.
    */
-  async getIssued(@Param('issuedId', ParseIntPipe) issuedId: number) {
+  async getIssued(@Param('issuedId', { schema: uuidIdSchema }) issuedId: string) {
     return this.badges.getIssued(issuedId);
   }
   @Post('issued/:issuedId/revoke')
   /**
    * POST /badges/issued/:id/revoke — thu hồi huy hiệu đã cấp.
    */
-  async revoke(@Param('issuedId', ParseIntPipe) issuedId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async revoke(@Param('issuedId', { schema: uuidIdSchema }) issuedId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.revokeIssued(actor.id, issuedId);
   }
 }

@@ -91,9 +91,9 @@ export class ReportsService {
     });
   }
 
-  async createReport(actorId: number, input: {
+  async createReport(actorId: string, input: {
     name: string; datasource: string; columns?: string[]; filters?: Record<string, unknown>;
-    audienceUserIds?: number[]; audienceRoles?: string[];
+    audienceUserIds?: string[]; audienceRoles?: string[];
   }): Promise<ReportRow> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
@@ -111,7 +111,7 @@ export class ReportsService {
     return report;
   }
 
-  async getReport(id: number): Promise<ReportRow> {
+  async getReport(id: string): Promise<ReportRow> {
     const row = await this.repo.getReport(id);
     if (!row) throw new NotFoundException({ message: `Report ${id} not found`, code: 'report.not_found' });
     return row;
@@ -119,7 +119,7 @@ export class ReportsService {
   async listReports(): Promise<ReportRow[]> { return this.repo.listReports(); }
 
   /** Kiểm tra audience: user có trong audience trực tiếp hoặc qua role shortname tại system context. */
-  async isInAudience(userId: number, report: ReportRow): Promise<boolean> {
+  async isInAudience(userId: string, report: ReportRow): Promise<boolean> {
     if (report.createdby === userId) return true;
     if (await this.evaluator.isSiteAdmin(userId)) return true;
     const audience = await this.repo.listAudience(report.id);
@@ -140,7 +140,7 @@ export class ReportsService {
    * context của dòng (hoặc là chính chủ dòng dữ liệu của mình cho grades/
    * enrolments/completion của bản thân — học viên xem được dòng của mình).
    */
-  async runReport(viewerId: number, reportId: number): Promise<{ report: ReportRow; rows: Record<string, unknown>[] }> {
+  async runReport(viewerId: string, reportId: string): Promise<{ report: ReportRow; rows: Record<string, unknown>[] }> {
     const report = await this.getReport(reportId);
     if (!(await this.isInAudience(viewerId, report))) {
       throw new ForbiddenException({ message: 'You are not in the audience of this report', code: 'report.not_in_audience' });
@@ -153,22 +153,22 @@ export class ReportsService {
     const filtered = allRows.filter((row) => Object.entries(filters).every(([k, v]) => v === undefined || v === null || row[k] === v));
     const columns = (report.columns as string[]) ?? ds.columns;
     const out: Record<string, unknown>[] = [];
-    const ctxCache = new Map<number, number>();
+    const ctxCache = new Map<string, string>();
     for (const row of filtered) {
-      const courseId = Number(row.courseId ?? 0);
+      const courseId = String(row.courseId ?? '');
       let allowed = false;
-      if (courseId > 0) {
+      if (courseId) {
         if (!ctxCache.has(courseId)) {
-          try { ctxCache.set(courseId, await this.courses.courseContextId(courseId)); } catch { ctxCache.set(courseId, 0); }
+          try { ctxCache.set(courseId, await this.courses.courseContextId(courseId)); } catch { ctxCache.set(courseId, ''); }
         }
         const ctxId = ctxCache.get(courseId)!;
         if (ctxId) {
           // Staff có grade:viewall thấy mọi dòng của course; người thường chỉ thấy dòng của chính mình trong course họ được xem.
           allowed = (await this.evaluator.hasCapability(viewerId, 'moodle/grade:viewall', ctxId))
-            || ((await this.evaluator.hasCapability(viewerId, 'moodle/course:view', ctxId)) && Number(row.userId) === viewerId);
+            || ((await this.evaluator.hasCapability(viewerId, 'moodle/course:view', ctxId)) && String(row.userId) === viewerId);
         }
       } else {
-        allowed = Number(row.userId) === viewerId;
+        allowed = String(row.userId) === viewerId;
       }
       if (!allowed) continue;
       const projected: Record<string, unknown> = {};
@@ -180,7 +180,7 @@ export class ReportsService {
     return { report, rows: out };
   }
 
-  async createSchedule(actorId: number, reportId: number, cron = 'daily'): Promise<ScheduleRow> {
+  async createSchedule(actorId: string, reportId: string, cron = 'daily'): Promise<ScheduleRow> {
     const report = await this.getReport(reportId);
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
@@ -193,7 +193,7 @@ export class ReportsService {
    * thời điểm chạy, lưu kết quả vào schedule, và gửi notification qua
    * MessagingModule cho người tạo.
    */
-  async runSchedule(scheduleId: number): Promise<{ scheduleId: number; rows: number }> {
+  async runSchedule(scheduleId: string): Promise<{ scheduleId: string; rows: number }> {
     const schedule = await this.repo.getSchedule(scheduleId);
     if (!schedule) throw new NotFoundException({ message: `Schedule ${scheduleId} not found`, code: 'report.schedule_not_found' });
     let rowCount = 0;

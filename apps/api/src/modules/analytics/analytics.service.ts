@@ -9,7 +9,7 @@ import { gradeGrades, gradeItems, users } from '../../db/schema';
 /** Một indicator đăng ký trong code: tính một tín hiệu cho (user, course). */
 export interface AnalyticsIndicator {
   name: string;
-  calculate(userId: number, courseId: number): Promise<number>;
+  calculate(userId: string, courseId: string): Promise<number>;
 }
 /** Một model đăng ký: target + danh sách indicator. */
 export interface AnalyticsModelProvider {
@@ -94,7 +94,7 @@ export class AnalyticsService {
    * indicator; score ≥ 0.6 ⇒ tạo prediction + insight cho các teacher của khoá.
    * Hàm này CHỈ ghi analytics_predictions/insights — không chạm grades/enrol.
    */
-  async runModel(modelName: string, courseId: number): Promise<{ predictions: number; insights: number }> {
+  async runModel(modelName: string, courseId: string): Promise<{ predictions: number; insights: number }> {
     const model = await this.getModelByName(modelName);
     const providerDef = this.modelProviders.find((p) => p.name === modelName);
     if (!providerDef) throw new NotFoundException({ message: `Model provider ${modelName} not registered`, code: 'analytics.provider_not_found' });
@@ -103,7 +103,7 @@ export class AnalyticsService {
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
     const activeUserIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userid))];
     // Recipients: mọi user (không suspended/deleted) có analytics:viewinsights ở course context.
-    const recipients: number[] = [];
+    const recipients: string[] = [];
     const allUsers = await db.select().from(users);
     for (const u of allUsers) {
       if (u.suspended || u.deleted || u.isGuest) continue;
@@ -139,7 +139,7 @@ export class AnalyticsService {
   }
 
   /** Insight chỉ hiển thị cho recipient có capability viewinsights tại context của insight. */
-  async listInsightsFor(userId: number): Promise<InsightRow[]> {
+  async listInsightsFor(userId: string): Promise<InsightRow[]> {
     const rows = await this.repo.listInsightsForRecipient(userId);
     const out: InsightRow[] = [];
     for (const row of rows) {

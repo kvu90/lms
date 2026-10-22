@@ -11,7 +11,7 @@ export interface QuestionView {
   latestVersion: VersionRow;
 }
 export interface AttemptView extends AttemptRow {
-  steps: { id: number; sequencenumber: number; state: string; fraction: number | null; data: Record<string, string | null> }[];
+  steps: { id: string; sequencenumber: number; state: string; fraction: number | null; data: Record<string, string | null> }[];
 }
 export interface UsageView {
   usage: UsageRow;
@@ -49,12 +49,12 @@ export class QuestionsService {
     private readonly outbox: OutboxService,
   ) {}
 
-  private async requireCap(actorId: number, capability: string, contextId: number): Promise<void> {
+  private async requireCap(actorId: string, capability: string, contextId: string): Promise<void> {
     // Question contexts in this core are course/system contexts; the seeded
     // archetypes live at those levels and the evaluator walks the tree.
     await this.evaluator.requireCapability(actorId, capability, contextId);
   }
-  private async contextOrSystem(contextId: number) {
+  private async contextOrSystem(contextId: string) {
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
     return ctx ?? (await this.contexts.ensureSystemContext());
   }
@@ -64,7 +64,7 @@ export class QuestionsService {
   /**
    * Tạo category câu hỏi trong context.
    */
-  async createCategory(actorId: number, input: { name: string; contextid: number; info?: string; parent?: number }): Promise<QCategoryRow> {
+  async createCategory(actorId: string, input: { name: string; contextid: string; info?: string; parent?: string }): Promise<QCategoryRow> {
     const ctx = await this.contextOrSystem(input.contextid);
     await this.requireCap(actorId, 'moodle/question:managecategory', ctx.id);
     return this.repo.insertCategory({
@@ -75,11 +75,11 @@ export class QuestionsService {
   /**
    * Liệt kê category.
    */
-  async listCategories(contextId?: number): Promise<QCategoryRow[]> { return this.repo.listCategories(contextId); }
+  async listCategories(contextId?: string): Promise<QCategoryRow[]> { return this.repo.listCategories(contextId); }
   /**
    * Lấy category; ném questions.category_not_found khi vắng.
    */
-  async getCategory(id: number): Promise<QCategoryRow> {
+  async getCategory(id: string): Promise<QCategoryRow> {
     const row = await this.repo.getCategory(id);
     if (!row) throw new NotFoundException({ message: `Question category ${id} not found`, code: 'question.category_not_found' });
     return row;
@@ -101,8 +101,8 @@ export class QuestionsService {
   /**
    * Tạo câu hỏi kèm version 1 và entry.
    */
-  async createQuestion(actorId: number, input: {
-    categoryId: number; qtype: string; name: string; questiontext: string;
+  async createQuestion(actorId: string, input: {
+    categoryId: string; qtype: string; name: string; questiontext: string;
     defaultmark?: number; answer: Record<string, unknown>;
   }): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
@@ -128,7 +128,7 @@ export class QuestionsService {
   /**
    * Lấy câu hỏi ở version mới nhất.
    */
-  async getQuestion(id: number): Promise<QuestionView> {
+  async getQuestion(id: string): Promise<QuestionView> {
     const q = await this.repo.getQuestion(id);
     if (!q) throw new NotFoundException({ message: `Question ${id} not found`, code: 'question.not_found' });
     const entry = await this.repo.getEntryByQuestion(id);
@@ -140,7 +140,7 @@ export class QuestionsService {
   /**
    * Câu hỏi trong category.
    */
-  async listQuestions(categoryId: number): Promise<QuestionView[]> {
+  async listQuestions(categoryId: string): Promise<QuestionView[]> {
     const rows = await this.repo.listQuestionsInCategory(categoryId);
     const out: QuestionView[] = [];
     for (const q of rows) out.push(await this.getQuestion(q.id));
@@ -149,7 +149,7 @@ export class QuestionsService {
   /**
    * Lịch sử version của câu hỏi.
    */
-  async listVersions(questionId: number): Promise<VersionRow[]> {
+  async listVersions(questionId: string): Promise<VersionRow[]> {
     const entry = await this.repo.getEntryByQuestion(questionId);
     if (!entry) throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
     return this.repo.listVersions(entry.id);
@@ -159,7 +159,7 @@ export class QuestionsService {
   /**
    * Sửa câu hỏi = tạo version mới và nâng latestversion của entry.
    */
-  async updateQuestion(actorId: number, questionId: number, input: {
+  async updateQuestion(actorId: string, questionId: string, input: {
     name?: string; questiontext?: string; defaultmark?: number; answer?: Record<string, unknown>;
   }): Promise<QuestionView> {
     const { question: q, entry, latestVersion } = await this.getQuestion(questionId);
@@ -184,9 +184,9 @@ export class QuestionsService {
   /**
    * Tạo usage mới cho một component (vd quiz) với behaviour cho trước.
    */
-  async createUsage(actorId: number, input: {
-    component: string; instanceid?: number; contextid?: number; preferredbehaviour?: string;
-    slots: { questionId: number; maxmark?: number }[];
+  async createUsage(actorId: string, input: {
+    component: string; instanceid?: string; contextid?: string; preferredbehaviour?: string;
+    slots: { questionId: string; maxmark?: number }[];
   }): Promise<UsageView> {
     const behaviour = input.preferredbehaviour ?? 'deferredfeedback';
     if (!BEHAVIOURS[behaviour]) {
@@ -194,7 +194,7 @@ export class QuestionsService {
     }
     if (!input.slots.length) throw new BadRequestException({ message: 'A usage needs at least one question slot', code: 'question.usage_empty' });
     const usage = await this.repo.insertUsage({
-      component: input.component, instanceid: input.instanceid ?? 0,
+      component: input.component, instanceid: input.instanceid ?? null,
       owningcontextid: input.contextid ?? null, preferredbehaviour: behaviour, userid: actorId,
     });
     let slot = 1;
@@ -215,7 +215,7 @@ export class QuestionsService {
   /**
    * Lấy usage kèm các attempt và trạng thái tổng.
    */
-  async getUsage(id: number): Promise<UsageView> {
+  async getUsage(id: string): Promise<UsageView> {
     const usage = await this.repo.getUsage(id);
     if (!usage) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
     const attempts = await this.repo.listAttempts(id);
@@ -237,13 +237,13 @@ export class QuestionsService {
   /**
    * Lấy một attempt.
    */
-  async getAttempt(id: number): Promise<AttemptRow> {
+  async getAttempt(id: string): Promise<AttemptRow> {
     const row = await this.repo.getAttempt(id);
     if (!row) throw new NotFoundException({ message: `Question attempt ${id} not found`, code: 'question.attempt_not_found' });
     return row;
   }
 
-  private async appendStep(attempt: AttemptRow, userId: number, state: QuestionState, fraction: number | null, data?: Record<string, string>): Promise<void> {
+  private async appendStep(attempt: AttemptRow, userId: string, state: QuestionState, fraction: number | null, data?: Record<string, string>): Promise<void> {
     const steps = await this.repo.listSteps(attempt.id);
     const seq = steps.length;
     await this.repo.dbHandle.transaction(async (tx) => {
@@ -262,7 +262,7 @@ export class QuestionsService {
       throw new BadRequestException({ message: `Cannot move a question attempt from ${attempt.state} to ${to}`, code: 'question.bad_transition' });
     }
   }
-  private async latestResponse(attemptId: number): Promise<string | null> {
+  private async latestResponse(attemptId: string): Promise<string | null> {
     const steps = await this.repo.listSteps(attemptId);
     let response: string | null = null;
     for (const s of steps) {
@@ -277,7 +277,7 @@ export class QuestionsService {
   /**
    * Bắt đầu attempt cho một slot: pin version hiện tại của câu hỏi.
    */
-  async startAttempt(userId: number, attemptId: number): Promise<AttemptView> {
+  async startAttempt(userId: string, attemptId: string): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     await this.transition(attempt, 'todo');
     const { entry, latestVersion } = await this.getQuestion(attempt.questionid);
@@ -293,7 +293,7 @@ export class QuestionsService {
   /**
    * Nộp câu trả lời: ghi step, chấm theo behaviour, cập nhật trạng thái/fraction.
    */
-  async submitResponse(userId: number, attemptId: number, response: string | null): Promise<AttemptView> {
+  async submitResponse(userId: string, attemptId: string, response: string | null): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     const behaviour = BEHAVIOURS[attempt.behaviour];
     if (!behaviour) throw new BadRequestException({ message: `Unknown behaviour ${attempt.behaviour}`, code: 'question.unknown_behaviour' });
@@ -310,7 +310,7 @@ export class QuestionsService {
   /**
    * Kết thúc một attempt (chấm nốt nếu behaviour cho phép).
    */
-  async finishAttempt(userId: number, attemptId: number): Promise<AttemptView> {
+  async finishAttempt(userId: string, attemptId: string): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     if (attempt.state === 'notstarted') {
       throw new BadRequestException({ message: 'Cannot finish an attempt that was never started', code: 'question.not_started' });
@@ -345,7 +345,7 @@ export class QuestionsService {
   /**
    * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
    */
-  async finishUsage(userId: number, usageId: number): Promise<UsageView> {
+  async finishUsage(userId: string, usageId: string): Promise<UsageView> {
     const before = await this.getUsage(usageId);
     for (const a of before.attempts) {
       if (a.state !== 'notstarted') await this.finishAttempt(userId, a.id);
@@ -362,7 +362,7 @@ export class QuestionsService {
   /**
    * Bắt đầu usage (ủy quyền nội bộ).
    */
-  async startUsage(userId: number, usageId: number): Promise<UsageView> {
+  async startUsage(userId: string, usageId: string): Promise<UsageView> {
     const view = await this.getUsage(usageId);
     for (const a of view.attempts) {
       if (a.state === 'notstarted') await this.startAttempt(userId, a.id);

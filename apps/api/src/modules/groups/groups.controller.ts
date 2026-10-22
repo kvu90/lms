@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { createCohortSchema, createGroupSchema, createGroupingSchema, groupMemberSchema, groupingGroupSchema, updateCohortSchema, updateGroupSchema, type CreateCohortDto, type CreateGroupDto, type CreateGroupingDto, type GroupingGroupDto, type MemberDto, type UpdateCohortDto, type UpdateGroupDto } from './dto/groups.dto';
@@ -16,35 +17,35 @@ export class CourseGroupsController {
   /**
    * POST /courses/:id/groups — tạo nhóm.
    */
-  async createGroup(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGroupSchema }) dto: CreateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createGroup(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createGroupSchema }) dto: CreateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.createGroup(actor.id, courseId, dto);
   }
   @Get(':courseId/groups')
   /**
    * GET /courses/:id/groups — nhóm của khoá học (đã lọc theo quyền nhìn thấy của người xem).
    */
-  async listGroups(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async listGroups(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.listGroups(actor.id, courseId);
   }
   @Get(':courseId/groups/visible-members')
   /**
    * GET /groups/:id/visible-members — thành viên được phép thấy.
    */
-  async visibleMembers(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async visibleMembers(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.listVisibleMembers(actor.id, courseId);
   }
   @Patch(':courseId/groups/:groupId')
   /**
    * PATCH /groups/:id — cập nhật nhóm.
    */
-  async updateGroup(@Param('groupId', ParseIntPipe) groupId: number, @Body({ schema: updateGroupSchema }) dto: UpdateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateGroup(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @Body({ schema: updateGroupSchema }) dto: UpdateGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.updateGroup(actor.id, groupId, dto);
   }
   @Delete(':courseId/groups/:groupId')
   /**
    * DELETE /groups/:id — xoá nhóm.
    */
-  async deleteGroup(@Param('groupId', ParseIntPipe) groupId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async deleteGroup(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.deleteGroup(actor.id, groupId);
     return { deleted: true };
   }
@@ -52,7 +53,7 @@ export class CourseGroupsController {
   /**
    * POST /groups/:id/members — thêm thành viên.
    */
-  async addMember(@Param('groupId', ParseIntPipe) groupId: number, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addMember(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addMember(actor.id, groupId, dto.userid);
     return { added: true };
   }
@@ -60,7 +61,7 @@ export class CourseGroupsController {
   /**
    * DELETE /groups/:id/members/:userId — gỡ thành viên.
    */
-  async removeMember(@Param('groupId', ParseIntPipe) groupId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async removeMember(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.removeMember(actor.id, groupId, userId);
     return { removed: true };
   }
@@ -68,7 +69,7 @@ export class CourseGroupsController {
   /**
    * GET /groups/:id/members hoặc /cohorts/:id/members — liệt kê thành viên.
    */
-  async members(@Param('groupId', ParseIntPipe) groupId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async members(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.listMembers(actor.id, groupId);
   }
 
@@ -76,21 +77,21 @@ export class CourseGroupsController {
   /**
    * POST /courses/:id/groupings — tạo grouping.
    */
-  async createGrouping(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGroupingSchema }) dto: CreateGroupingDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createGrouping(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createGroupingSchema }) dto: CreateGroupingDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.createGrouping(actor.id, courseId, dto);
   }
   @Get(':courseId/groupings')
   /**
    * GET /courses/:id/groupings — liệt kê grouping.
    */
-  async listGroupings(@Param('courseId', ParseIntPipe) courseId: number) {
+  async listGroupings(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
     return this.groups.listGroupings(courseId);
   }
   @Post(':courseId/groupings/:groupingId/groups')
   /**
    * POST /groupings/:id/groups — đưa nhóm vào grouping.
    */
-  async addToGrouping(@Param('groupingId', ParseIntPipe) groupingId: number, @Body({ schema: groupingGroupSchema }) dto: GroupingGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addToGrouping(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string, @Body({ schema: groupingGroupSchema }) dto: GroupingGroupDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addGroupToGrouping(actor.id, groupingId, dto.groupid);
     return { added: true };
   }
@@ -98,14 +99,14 @@ export class CourseGroupsController {
   /**
    * GET /groupings/:id/groups — nhóm thuộc grouping.
    */
-  async groupingGroups(@Param('groupingId', ParseIntPipe) groupingId: number) {
+  async groupingGroups(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string) {
     return this.groups.groupsInGrouping(groupingId);
   }
   @Delete(':courseId/groupings/:groupingId')
   /**
    * DELETE /groupings/:id — xoá grouping.
    */
-  async deleteGrouping(@Param('groupingId', ParseIntPipe) groupingId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async deleteGrouping(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.deleteGrouping(actor.id, groupingId);
     return { deleted: true };
   }
@@ -135,34 +136,34 @@ export class CohortsController {
   /**
    * GET /cohorts/:id — chi tiết cohort.
    */
-  async get(@Param('id', ParseIntPipe) id: number) { return this.groups.getCohort(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.groups.getCohort(id); }
   @Patch(':id')
   /**
    * PATCH /cohorts/:id — cập nhật cohort.
    */
-  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateCohortSchema }) dto: UpdateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateCohortSchema }) dto: UpdateCohortDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.groups.updateCohort(actor.id, id, dto);
   }
   @Delete(':id')
   /**
    * DELETE /cohorts/:id — xoá cohort.
    */
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.deleteCohort(actor.id, id);
     return { deleted: true };
   }
   @Get(':id/members')
   /** GET /cohorts/:id/members — thành viên của cohort. */
-  async members(@Param('id', ParseIntPipe) id: number) { return this.groups.listCohortMembers(id); }
+  async members(@Param('id', { schema: uuidIdSchema }) id: string) { return this.groups.listCohortMembers(id); }
   @Post(':id/members')
   /** POST /cohorts/:id/members — thêm thành viên cohort (kích hoạt cohort sync). */
-  async addMember(@Param('id', ParseIntPipe) id: number, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
+  async addMember(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.addCohortMember(actor.id, id, dto.userid);
     return { added: true };
   }
   @Delete(':id/members/:userId')
   /** DELETE /cohorts/:id/members/:userId — gỡ thành viên cohort. */
-  async removeMember(@Param('id', ParseIntPipe) id: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async removeMember(@Param('id', { schema: uuidIdSchema }) id: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.groups.removeCohortMember(actor.id, id, userId);
     return { removed: true };
   }

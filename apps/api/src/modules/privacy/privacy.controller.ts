@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { createPrivacyRequestServerSchema, decidePrivacyRequestSchema, type CreatePrivacyRequestDto, type DecidePrivacyRequestDto } from './dto/privacy.dto';
@@ -20,13 +21,13 @@ export class PrivacyController {
   @Get('requests')
   async list(@CurrentUser() actor: AuthenticatedUser) { return this.privacy.listRequestsFor(actor.id); }
   @Get('requests/:id')
-  async get(@Param('id', ParseIntPipe) id: number) { return this.privacy.getRequest(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.privacy.getRequest(id); }
   @Get('requests/:id/files')
-  async files(@Param('id', ParseIntPipe) id: number) { return this.privacy.listExportFiles(id); }
+  async files(@Param('id', { schema: uuidIdSchema }) id: string) { return this.privacy.listExportFiles(id); }
   @Post('requests/:id/decide')
-  async decide(@Param('id', ParseIntPipe) id: number, @Body({ schema: decidePrivacyRequestSchema }) dto: DecidePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
+  async decide(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: decidePrivacyRequestSchema }) dto: DecidePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.privacy.decide(actor.id, id, dto.decision);
   }
   @Post('requests/:id/process')
-  async process(@Param('id', ParseIntPipe) id: number) { return this.privacy.processRequest(id); }
+  async process(@Param('id', { schema: uuidIdSchema }) id: string) { return this.privacy.processRequest(id); }
 }

@@ -54,7 +54,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
 
     // Behat "two results": truy vấn khớp → thấy kết quả của khoá mình tham gia.
     const hits = await http(app).get(`/api/v1/search?q=${tokenA}`).set('Authorization', `Bearer ${studentToken}`);
-    expect((hits.body as { area: string; itemid: number }[]).some((d) => d.area === 'courses' && d.itemid === courseA.id)).toBe(true);
+    expect((hits.body as { area: string; itemid: string }[]).some((d) => d.area === 'courses' && d.itemid === courseA.id)).toBe(true);
     // Behat "cannot see users on other courses" gắn với user-picker của form
     // tìm kiếm PHP (autocomplete chỉ liệt kê user của khoá đang chọn trong
     // "Search within") — đó là chi tiết cài đặt UI, bỏ qua theo quy ước dịch
@@ -65,7 +65,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     // trong index (admin thấy), để các assertion "không thấy" không rỗng.
     void tokenB; void courseB;
     const asAdmin = await http(app).get(`/api/v1/search?q=${outsider.username}`).set('Authorization', `Bearer ${admin}`);
-    expect((asAdmin.body as { area: string; itemid: number }[]).some((d) => d.area === 'users' && d.itemid === outsider.id)).toBe(true);
+    expect((asAdmin.body as { area: string; itemid: string }[]).some((d) => d.area === 'users' && d.itemid === outsider.id)).toBe(true);
     // Behat "No results": truy vấn không khớp gì → danh sách rỗng.
     const none = await http(app).get(`/api/v1/search?q=${uniqueName('nomatch')}`).set('Authorization', `Bearer ${studentToken}`);
     expect(none.body).toEqual([]);
@@ -121,7 +121,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
 
     // Officer thấy cả hai yêu cầu ở trạng thái chờ duyệt (Awaiting approval).
     const list = await http(app).get('/api/v1/privacy/requests').set('Authorization', `Bearer ${admin}`);
-    const byId = new Map((list.body as { id: number; status: string }[]).map((r) => [r.id, r.status]));
+    const byId = new Map((list.body as { id: string; status: string }[]).map((r) => [r.id, r.status]));
     expect(byId.get(reqA.body.id)).toBe('pending');
     expect(byId.get(reqB.body.id)).toBe('pending');
 

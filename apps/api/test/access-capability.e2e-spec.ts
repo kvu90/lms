@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { v7 as uuidv7 } from 'uuid';
 import { PermissionEvaluator } from '../src/modules/access/permission-evaluator.service';
 import { UsersService } from '../src/modules/users/users.service';
 import {
@@ -19,20 +20,20 @@ const ALLOW = 1, PREVENT = -1, PROHIBIT = -1000;
 describe('Access: capability evaluation over the context tree (golden)', () => {
   let app: INestApplication;
   let admin: string;
-  let systemId: number, catId: number, courseId: number, modId: number;
+  let systemId: string, catId: string, courseId: string, modId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     systemId = await systemContextId(app, admin);
-    const inst = Date.now() % 100000;
+    const inst = uuidv7();
     catId = (await createContextViaApi(app, admin, 40, inst, systemId)).id;
     courseId = (await createContextViaApi(app, admin, 50, inst, catId)).id;
     modId = (await createContextViaApi(app, admin, 70, inst, courseId)).id;
   });
   afterAll(async () => { await app.close(); });
 
-  async function freshUserAndRole(): Promise<{ userId: number; roleId: number }> {
+  async function freshUserAndRole(): Promise<{ userId: string; roleId: string }> {
     const user = await createUserViaApi(app, admin);
     const roleId = await createRoleViaApi(app, admin);
     return { userId: user.id, roleId };
@@ -100,7 +101,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
 
   it('site admin bypasses capability checks (doanything)', async () => {
     const res = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${admin}`);
-    const adminId = res.body.id as number;
+    const adminId = res.body.id as string;
     expect(await hasCapability(app, admin, adminId, CAP, modId)).toBe(true);
     expect(await hasCapability(app, admin, adminId, 'moodle/site:config', systemId)).toBe(true);
   });

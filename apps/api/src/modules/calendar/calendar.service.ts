@@ -19,9 +19,9 @@ export interface CreateEventInput {
   name: string;
   description?: string;
   eventtype: CalendarEventType;
-  courseid?: number;
-  groupid?: number;
-  categoryid?: number;
+  courseid?: string;
+  groupid?: string;
+  categoryid?: string;
   timestart: string;
   timeduration?: number;
   location?: string;
@@ -63,12 +63,12 @@ export class CalendarService {
     @InjectQueue(CALENDAR_IMPORT_QUEUE) private readonly importQueue: Queue,
   ) {}
 
-  private async systemCtx(): Promise<number> {
+  private async systemCtx(): Promise<string> {
     return (await this.contexts.ensureSystemContext()).id;
   }
 
   /** The context an event is managed in, by type. */
-  private async manageContextId(input: { eventtype: string; courseid?: number; categoryid?: number; userid?: number }): Promise<number> {
+  private async manageContextId(input: { eventtype: string; courseid?: string; categoryid?: string; userid?: string }): Promise<string> {
     switch (input.eventtype) {
       case 'course':
       case 'group':
@@ -82,7 +82,7 @@ export class CalendarService {
     }
   }
 
-  private async requireManage(actorId: number, input: { eventtype: string; courseid?: number; categoryid?: number; userid?: number }): Promise<void> {
+  private async requireManage(actorId: string, input: { eventtype: string; courseid?: string; categoryid?: string; userid?: string }): Promise<void> {
     if (input.eventtype === 'user') {
       if (input.userid !== undefined && input.userid !== actorId) {
         // Managing someone else's personal events needs site-level manageentries.
@@ -100,7 +100,7 @@ export class CalendarService {
   /**
    * Tạo sự kiện (có thể kèm RRULE) tại một phạm vi.
    */
-  async createEvent(actorId: number, input: CreateEventInput): Promise<{ event: CalendarEventRow; occurrences: CalendarEventRow[] }> {
+  async createEvent(actorId: string, input: CreateEventInput): Promise<{ event: CalendarEventRow; occurrences: CalendarEventRow[] }> {
     if (!EVENT_TYPES.includes(input.eventtype)) {
       throw new BadRequestException({ message: `Unknown event type ${input.eventtype}`, code: 'calendar.bad_type' });
     }
@@ -111,7 +111,7 @@ export class CalendarService {
       const group = await this.groups.getGroup(input.groupid!);
       if (group.courseid !== input.courseid) throw new BadRequestException({ message: 'Group belongs to another course', code: 'calendar.group_course_mismatch' });
     }
-    const owner = input.eventtype === 'user' ? actorId : 0;
+    const owner = input.eventtype === 'user' ? actorId : undefined;
     await this.requireManage(actorId, { eventtype: input.eventtype, courseid: input.courseid, categoryid: input.categoryid, userid: owner });
     const contextId = await this.manageContextId({ eventtype: input.eventtype, courseid: input.courseid, categoryid: input.categoryid, userid: owner });
     const start = new Date(input.timestart);
@@ -119,7 +119,7 @@ export class CalendarService {
 
     const base = {
       name: input.name, description: input.description ?? '', eventtype: input.eventtype,
-      courseid: input.courseid ?? 0, groupid: input.groupid ?? 0, categoryid: input.categoryid ?? 0,
+      courseid: input.courseid ?? null, groupid: input.groupid ?? null, categoryid: input.categoryid ?? null,
       userid: owner, contextid: contextId, timeduration: input.timeduration ?? 0,
       location: input.location ?? '', visible: true,
     };
@@ -133,7 +133,7 @@ export class CalendarService {
     const occurrences: CalendarEventRow[] = [];
     let root: CalendarEventRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
-      root = await this.repo.insertEvent({ ...base, timestart: starts[0]!, rrule: formatRrule(spec), repeatid: 0 }, tx as never);
+      root = await this.repo.insertEvent({ ...base, timestart: starts[0]!, rrule: formatRrule(spec), repeatid: null }, tx as never);
       await this.repo.updateEvent(root.id, { repeatid: root.id }, tx as never);
       root = { ...root, repeatid: root.id };
       occurrences.push(root);
@@ -148,7 +148,7 @@ export class CalendarService {
   /**
    * Lấy sự kiện; ném calendar.event_not_found khi vắng.
    */
-  async getEvent(id: number): Promise<CalendarEventRow> {
+  async getEvent(id: string): Promise<CalendarEventRow> {
     const row = await this.repo.getEvent(id);
     if (!row) throw new NotFoundException({ message: `Calendar event ${id} not found`, code: 'calendar.event_not_found' });
     return row;
@@ -158,7 +158,7 @@ export class CalendarService {
   /**
    * Tạo exception cho một occurrence của chuỗi lặp (đổi giờ/nội dung riêng lần đó).
    */
-  async createException(actorId: number, occurrenceId: number, input: { name?: string; timestart: string; description?: string }): Promise<CalendarEventRow> {
+  async createException(actorId: string, occurrenceId: string, input: { name?: string; timestart: string; description?: string }): Promise<CalendarEventRow> {
     const occurrence = await this.getEvent(occurrenceId);
     if (!occurrence.repeatid) throw new BadRequestException({ message: 'Only a series occurrence can have an exception', code: 'calendar.not_series' });
     await this.requireManage(actorId, { eventtype: occurrence.eventtype, courseid: occurrence.courseid || undefined, categoryid: occurrence.categoryid || undefined, userid: occurrence.userid || undefined });
@@ -175,7 +175,7 @@ export class CalendarService {
   /**
    * Xoá sự kiện (hoặc một occurrence qua exception tuỳ chọn).
    */
-  async deleteEvent(actorId: number, id: number): Promise<{ deleted: boolean; seriesDeleted: number }> {
+  async deleteEvent(actorId: string, id: string): Promise<{ deleted: boolean; seriesDeleted: number }> {
     const event = await this.getEvent(id);
     await this.requireManage(actorId, { eventtype: event.eventtype, courseid: event.courseid || undefined, categoryid: event.categoryid || undefined, userid: event.userid || undefined });
     let count = 1;
@@ -191,7 +191,8 @@ export class CalendarService {
 
   // --- visibility --------------------------------------------------------------
 
-  private async canViewCoursePart(viewerId: number, courseId: number): Promise<boolean> {
+  private async canViewCoursePart(viewerId: string, courseId: string | undefined): Promise<boolean> {
+    if (!courseId) return false;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
     if (await this.enrol.isEnrolled(courseId, viewerId, { onlyActive: true })) return true;
     const ctx = await this.courses.courseContextId(courseId);
@@ -201,7 +202,7 @@ export class CalendarService {
   /**
    * User có được thấy sự kiện này theo phạm vi của nó hay không.
    */
-  async isVisibleTo(event: CalendarEventRow, viewerId: number): Promise<boolean> {
+  async isVisibleTo(event: CalendarEventRow, viewerId: string): Promise<boolean> {
     if (!event.visible) {
       // Hidden events are visible only to their managers.
       return this.requireManage(viewerId, { eventtype: event.eventtype, courseid: event.courseid || undefined, categoryid: event.categoryid || undefined, userid: event.userid || undefined }).then(() => true).catch(() => false);
@@ -213,19 +214,19 @@ export class CalendarService {
         return event.userid === viewerId;
       case 'category': {
         if (await this.evaluator.isSiteAdmin(viewerId)) return true;
-        const courses = await this.courses.listCourses(event.categoryid);
+        const courses = await this.courses.listCourses(event.categoryid ?? undefined);
         for (const c of courses) {
           if (await this.canViewCoursePart(viewerId, c.id)) return true;
         }
-        const ctx = await this.courses.categoryContextId(event.categoryid);
+        const ctx = await this.courses.categoryContextId(event.categoryid!);
         return this.evaluator.hasCapability(viewerId, 'moodle/calendar:manageentries', ctx);
       }
       case 'course':
-        return this.canViewCoursePart(viewerId, event.courseid);
+        return this.canViewCoursePart(viewerId, event.courseid ?? undefined);
       case 'group': {
-        if (!(await this.canViewCoursePart(viewerId, event.courseid))) return false;
-        if (await this.groups.isMember(event.groupid, viewerId)) return true;
-        const ctx = await this.courses.courseContextId(event.courseid);
+        if (!(await this.canViewCoursePart(viewerId, event.courseid ?? undefined))) return false;
+        if (await this.groups.isMember(event.groupid!, viewerId)) return true;
+        const ctx = await this.courses.courseContextId(event.courseid!);
         return this.evaluator.hasCapability(viewerId, 'moodle/group:accessallgroups', ctx);
       }
       default:
@@ -237,7 +238,7 @@ export class CalendarService {
   /**
    * Sự kiện hiển thị cho user trong khoảng thời gian, đã mở rộng chuỗi lặp và áp exception.
    */
-  async listEventsForUser(viewerId: number, filter: { from?: string; to?: string; eventtype?: string }): Promise<CalendarEventRow[]> {
+  async listEventsForUser(viewerId: string, filter: { from?: string; to?: string; eventtype?: string }): Promise<CalendarEventRow[]> {
     const from = filter.from ? new Date(filter.from) : new Date(Date.now() - 31 * 86400_000);
     const to = filter.to ? new Date(filter.to) : new Date(Date.now() + 62 * 86400_000);
     const rows = await this.repo.listEventsInRange(from, to);
@@ -257,7 +258,7 @@ export class CalendarService {
   /**
    * Lên lịch nhắc trước sự kiện (worker calendar-reminder sẽ gửi notification đã dịch).
    */
-  async scheduleReminder(actorId: number, eventId: number, minutesBefore: number): Promise<{ eventId: number; userId: number; remindAt: string; delayMs: number }> {
+  async scheduleReminder(actorId: string, eventId: string, minutesBefore: number): Promise<{ eventId: string; userId: string; remindAt: string; delayMs: number }> {
     const event = await this.getEvent(eventId);
     if (!(await this.isVisibleTo(event, actorId))) {
       throw new ForbiddenException({ message: 'You cannot set a reminder for an event you cannot see', code: 'calendar.reminder_forbidden' });
@@ -276,7 +277,7 @@ export class CalendarService {
   /**
    * Đăng ký lịch ngoài theo URL .ics.
    */
-  async createSubscription(actorId: number, input: { name: string; url?: string; icsdata?: string; eventtype?: string; courseid?: number; categoryid?: number; pollinterval?: number }): Promise<CalendarSubscriptionRow> {
+  async createSubscription(actorId: string, input: { name: string; url?: string; icsdata?: string; eventtype?: string; courseid?: string; categoryid?: string; pollinterval?: number }): Promise<CalendarSubscriptionRow> {
     const eventtype = input.eventtype ?? 'site';
     if (eventtype === 'site') {
       await this.evaluator.requireCapability(actorId, 'moodle/calendar:managesubscriptions', await this.systemCtx());
@@ -285,7 +286,7 @@ export class CalendarService {
     }
     const subscription = await this.repo.insertSubscription({
       name: input.name, url: input.url ?? null, icsdata: input.icsdata ?? null,
-      eventtype, courseid: input.courseid ?? 0, categoryid: input.categoryid ?? 0,
+      eventtype, courseid: input.courseid ?? null, categoryid: input.categoryid ?? null,
       userid: actorId, pollinterval: input.pollinterval ?? 604800,
     });
     if (subscription.icsdata) {
@@ -304,7 +305,7 @@ export class CalendarService {
   /**
    * Đưa yêu cầu nhập/đồng bộ subscription vào hàng đợi worker.
    */
-  async requestImport(actorId: number, subscriptionId: number): Promise<{ queued: boolean; subscriptionId: number }> {
+  async requestImport(actorId: string, subscriptionId: string): Promise<{ queued: boolean; subscriptionId: string }> {
     const sub = await this.repo.getSubscription(subscriptionId);
     if (!sub) throw new NotFoundException({ message: `Subscription ${subscriptionId} not found`, code: 'calendar.subscription_not_found' });
     await this.evaluator.requireCapability(actorId, 'moodle/calendar:managesubscriptions', await this.systemCtx());

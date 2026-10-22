@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -24,10 +25,10 @@ export class FilesController {
    * POST /files — tải file lên (multipart; metadata kiểm bằng schema Zod phía server).
    */
   async upload(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body({ schema: uploadMetaServerSchema }) meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.files.assertCanUpload(Number(meta.contextid), actor);
+    await this.files.assertCanUpload(meta.contextid, actor);
     const row = await this.files.upload({
-      contextid: Number(meta.contextid), component: meta.component, filearea: meta.filearea,
-      itemid: meta.itemid ? Number(meta.itemid) : 0, filepath: meta.filepath,
+      contextid: meta.contextid, component: meta.component, filearea: meta.filearea,
+      itemid: meta.itemid, filepath: meta.filepath,
       filename: file.originalname, data: file.buffer, mimetype: file.mimetype, userid: actor.id,
     });
     return { id: row.id, contenthash: row.contenthash, filesize: row.filesize, filename: row.filename, contextid: row.contextid };
@@ -37,7 +38,7 @@ export class FilesController {
   /**
    * GET /files/:id — metadata file.
    */
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
     await this.files.assertCanView(f, actor);
     return { id: f.id, contenthash: f.contenthash, filesize: f.filesize, filename: f.filename, contextid: f.contextid, component: f.component, filearea: f.filearea, mimetype: f.mimetype };
@@ -48,7 +49,7 @@ export class FilesController {
   /**
    * POST /files/:id/signed-url — tạo URL tải ký tạm thời.
    */
-  async signedUrl(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async signedUrl(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.files.createSignedUrl(id, actor.id, actor.username === 'guest');
   }
 
@@ -56,7 +57,7 @@ export class FilesController {
   /**
    * DELETE /files/:id — xoá file.
    */
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
     await this.files.assertCanUpload(f.contextid, actor);
     return this.files.deleteFile(id);
@@ -68,7 +69,7 @@ export class FilesController {
   /**
    * GET /files/:id/download — tải nội dung (kiểm quyền hoặc chữ ký tạm thời).
    */
-  async download(@Param('id', ParseIntPipe) id: number, @Query('sig') sig: string | undefined, @Res() res: Response) {
+  async download(@Param('id', { schema: uuidIdSchema }) id: string, @Query('sig') sig: string | undefined, @Res() res: Response) {
     this.files.verifySignature(id, sig);
     const { file, data } = await this.files.readContent(id);
     res.setHeader('Content-Type', file.mimetype ?? 'application/octet-stream');
@@ -81,7 +82,7 @@ export class FilesController {
   /**
    * GET /files/content — phục vụ nội dung qua URL đã ký.
    */
-  async content(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+  async content(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
     const probe = await this.files.getFile(id);
     await this.files.createSignedUrl(id, actor.id, actor.username === 'guest'); // throws 403 when not allowed
     void probe;

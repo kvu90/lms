@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
@@ -20,7 +21,7 @@ export class IntegrationsController {
   @Get('services')
   async listServices() { return this.integrations.listServices(); }
   @Patch('services/:id')
-  async setEnabled(@Param('id', ParseIntPipe) id: number, @Body({ schema: setExternalServiceEnabledSchema }) body: SetEnabledDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setEnabled(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setExternalServiceEnabledSchema }) body: SetEnabledDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.integrations.setServiceEnabled(actor.id, id, body.enabled);
   }
   @Post('tokens')
@@ -31,7 +32,7 @@ export class IntegrationsController {
   @Get('tokens')
   async listTokens(@CurrentUser() actor: AuthenticatedUser) { return this.integrations.listTokens(actor.id); }
   @Post('tokens/:id/revoke')
-  async revoke(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async revoke(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.integrations.revokeToken(actor.id, id);
   }
   /** Endpoint gọi function: xác thực bằng external token (không phải JWT). */

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
@@ -21,17 +22,17 @@ export class PaymentsController {
     return this.payments.createPayment(actor.id, dto);
   }
   @Post('fee/:instanceId')
-  async createFee(@Param('instanceId', ParseIntPipe) instanceId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async createFee(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createFeePayment(actor.id, instanceId);
   }
   @Get('me')
   async mine(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listPaymentsForUser(actor.id); }
   @Get(':id')
-  async get(@Param('id', ParseIntPipe) id: number) { return this.payments.getPayment(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.payments.getPayment(id); }
   @Get(':id/refunds')
-  async refunds(@Param('id', ParseIntPipe) id: number) { return this.payments.listRefunds(id); }
+  async refunds(@Param('id', { schema: uuidIdSchema }) id: string) { return this.payments.listRefunds(id); }
   @Post(':id/refund')
-  async refund(@Param('id', ParseIntPipe) id: number, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
+  async refund(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.refund(actor.id, id, dto);
   }
   /** Webhook của gateway — không dùng JWT, tính đúng đắn dựa trên idempotency theo external tx id. */

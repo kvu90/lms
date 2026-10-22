@@ -19,7 +19,7 @@ describe('Platform i18n flow (e2e)', () => {
   let app: INestApplication;
   let admin: string;
   let externalToken: string;
-  let courseId: number;
+  let courseId: string;
 
   beforeAll(async () => {
     app = await createTestApp();

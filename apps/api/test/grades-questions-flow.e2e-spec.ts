@@ -150,7 +150,7 @@ describe('Grades & questions', () => {
     expect(book.categories[0]?.items.find((i) => i.item.id === item.id)?.grade?.finalgrade).toBeCloseTo(40, 6);
     // Unfreezing + re-entering applies the current formula.
     const g2 = await http(app).get(`/api/v1/courses/${course.id}/gradebook`).query({ userid: student.id }).set('Authorization', `Bearer ${admin}`);
-    const gradeId = (g2.body.categories[0].items as { item: { id: number }; grade: { id: number } | null }[]).find((i) => i.item.id === item.id)?.grade?.id;
+    const gradeId = (g2.body.categories[0].items as { item: { id: string }; grade: { id: string } | null }[]).find((i) => i.item.id === item.id)?.grade?.id;
     await http(app).patch(`/api/v1/courses/grades/grades/${gradeId}`).set('Authorization', `Bearer ${admin}`).send({ frozen: false });
     // Re-entering the same raw grade now recomputes without the penalty — but the row is no longer
     // overridden/frozen; entry overwrites finalgrade through the normal path.
@@ -191,19 +191,19 @@ describe('Grades & questions', () => {
     expect(book.categories[0]?.items[0]?.grade?.letter).toBe('B');
     expect(book.courseTotal?.grade?.letter).toBe('B'); // 85/100
     const report = await http(app).get(`/api/v1/courses/${course.id}/grades/report`).set('Authorization', `Bearer ${admin}`);
-    expect(report.body.rows.find((r: { userId: number }) => r.userId === student.id)?.letter).toBe('B');
+    expect(report.body.rows.find((r: { userId: string }) => r.userId === student.id)?.letter).toBe('B');
   });
 
   it('question bank versioning: editing a question creates a new version and bumps the entry pointer; old versions stay intact', async () => {
     const systemCtxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
-    const systemCtx = (systemCtxRes.body as { id: number; contextlevel: number }[]).find((c) => c.contextlevel === 10)!;
+    const systemCtx = (systemCtxRes.body as { id: string; contextlevel: number }[]).find((c) => c.contextlevel === 10)!;
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Bank cat', contextid: systemCtx.id });
     expect(catRes.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: catRes.body.id, qtype: 'truefalse', name: 'Sky is blue', questiontext: 'The sky is blue.', answer: { correct: true } });
     expect(qRes.status).toBeLessThan(300);
-    const qid = qRes.body.question.id as number;
+    const qid = qRes.body.question.id as string;
     expect(qRes.body.entry.latestversion).toBe(1);
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
       .send({ questiontext: 'The sky is green.', answer: { correct: false } });
@@ -219,21 +219,21 @@ describe('Grades & questions', () => {
 
   it('INVARIANT: an attempt started on version 1 is graded by version 1 even after the question is edited to version 2', async () => {
     const systemCtxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
-    const systemCtx = (systemCtxRes.body as { id: number; contextlevel: number }[]).find((c) => c.contextlevel === 10)!;
+    const systemCtx = (systemCtxRes.body as { id: string; contextlevel: number }[]).find((c) => c.contextlevel === 10)!;
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Invariant cat', contextid: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: catRes.body.id, qtype: 'truefalse', name: 'Water wet', questiontext: 'Water is wet.', answer: { correct: true } });
-    const qid = qRes.body.question.id as number;
+    const qid = qRes.body.question.id as string;
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Usage created and STARTED while v1 is latest ⇒ pins v1.
     const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
       .send({ component: 'mod_quiz', instanceid: 42, slots: [{ questionId: qid }] });
-    const usageId = usageRes.body.usage.id as number;
-    const attemptId = usageRes.body.attempts[0].id as number;
+    const usageId = usageRes.body.usage.id as string;
+    const attemptId = usageRes.body.attempts[0].id as string;
     expect(usageRes.body.attempts[0].state).toBe('notstarted');
-    const v1Id = qRes.body.latestVersion.id as number;
+    const v1Id = qRes.body.latestVersion.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`).set('Authorization', `Bearer ${studentToken}`);
     // NOW the teacher edits the question: correct answer flips in v2.
     await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`).send({ answer: { correct: false } });
@@ -252,8 +252,8 @@ describe('Grades & questions', () => {
     // A NEW usage pins v2: the same answer is now wrong.
     const usage2 = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
       .send({ component: 'mod_quiz', instanceid: 42, slots: [{ questionId: qid }] });
-    const usage2Id = usage2.body.usage.id as number;
-    const attempt2Id = usage2.body.attempts[0].id as number;
+    const usage2Id = usage2.body.usage.id as string;
+    const attempt2Id = usage2.body.attempts[0].id as string;
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/start`).set('Authorization', `Bearer ${studentToken}`);
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: 'true' });
     const finished2 = await http(app).post(`/api/v1/question-usages/${usage2Id}/finish`).set('Authorization', `Bearer ${studentToken}`);
@@ -273,16 +273,16 @@ describe('Grades & questions', () => {
     // Before any grade: gated activity is 403 and completion is incomplete.
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmNext.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     let progress = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(progress.body.activities.find((a: { cmId: number }) => a.cmId === cmQuiz.id)?.state).toBe(0);
+    expect(progress.body.activities.find((a: { cmId: string }) => a.cmId === cmQuiz.id)?.state).toBe(0);
     // Failing grade (40 < pass 50): completion becomes complete-fail (3), gate stays shut (40% < 50%).
     await setGrade(app, admin, item.id, student.id, 40);
     progress = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(progress.body.activities.find((a: { cmId: number }) => a.cmId === cmQuiz.id)?.state).toBe(3);
+    expect(progress.body.activities.find((a: { cmId: string }) => a.cmId === cmQuiz.id)?.state).toBe(3);
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmNext.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     // Passing grade (80): completion becomes complete-pass (2) and the gate opens.
     await setGrade(app, admin, item.id, student.id, 80);
     progress = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(progress.body.activities.find((a: { cmId: number }) => a.cmId === cmQuiz.id)?.state).toBe(2);
+    expect(progress.body.activities.find((a: { cmId: string }) => a.cmId === cmQuiz.id)?.state).toBe(2);
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmNext.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
     // The durable chain exists in the outbox: grade_updated + cm_completion_changed.
     const types = await outboxTypes('courseId', course.id);
@@ -296,7 +296,7 @@ describe('Grades & questions', () => {
     const item = await createGradeItem(app, admin, course.id, { itemname: 'Only assignment', grademax: 100 });
     // Set the course total's gradepass by patching the course item.
     const items = await http(app).get(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`);
-    const courseItem = (items.body as { id: number; itemtype: string }[]).find((i) => i.itemtype === 'course')!;
+    const courseItem = (items.body as { id: string; itemtype: string }[]).find((i) => i.itemtype === 'course')!;
     await http(app).patch(`/api/v1/courses/grades/items/${courseItem.id}`).set('Authorization', `Bearer ${admin}`).send({ gradepass: 50 });
     void item;
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)

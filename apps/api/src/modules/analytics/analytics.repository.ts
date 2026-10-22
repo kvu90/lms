@@ -22,7 +22,7 @@ export class AnalyticsRepository {
   async getModelByName(name: string): Promise<ModelRow | undefined> {
     const [row] = await this.db.select().from(analyticsModels).where(eq(analyticsModels.name, name)); return row;
   }
-  async getModel(id: number): Promise<ModelRow | undefined> {
+  async getModel(id: string): Promise<ModelRow | undefined> {
     const [row] = await this.db.select().from(analyticsModels).where(eq(analyticsModels.id, id)); return row;
   }
   async listModels(): Promise<ModelRow[]> { return this.db.select().from(analyticsModels); }
@@ -34,7 +34,7 @@ export class AnalyticsRepository {
     const [row] = await this.db.insert(insights).values(v).returning(); return row!;
   }
   async listInsights(): Promise<InsightRow[]> { return this.db.select().from(insights); }
-  async listInsightsForRecipient(recipientid: number): Promise<InsightRow[]> {
+  async listInsightsForRecipient(recipientid: string): Promise<InsightRow[]> {
     return this.db.select().from(insights).where(eq(insights.recipientid, recipientid));
   }
 }

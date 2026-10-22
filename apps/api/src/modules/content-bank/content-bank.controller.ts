@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { ContentBankService } from './content-bank.service';
@@ -15,26 +16,26 @@ export class ContentBankController {
   }
   @Get()
   async list(@Query('contextid') contextid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.contentBank.listFor(actor.id, contextid ? Number(contextid) : undefined);
+    return this.contentBank.listFor(actor.id, contextid || undefined);
   }
   @Get(':id')
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.getFor(actor.id, id);
   }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateContentBankContentSchema }) dto: UpdateContentDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateContentBankContentSchema }) dto: UpdateContentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.update(actor.id, id, dto);
   }
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.contentBank.remove(actor.id, id); return { deleted: true };
   }
   @Post(':id/file')
-  async upload(@Param('id', ParseIntPipe) id: number, @Body({ schema: uploadContentBankFileSchema }) dto: UploadContentFileDto, @CurrentUser() actor: AuthenticatedUser) {
+  async upload(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: uploadContentBankFileSchema }) dto: UploadContentFileDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.uploadFile(actor.id, id, dto);
   }
   @Get(':id/file-url')
-  async fileUrl(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async fileUrl(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.contentBank.signedUrl(actor.id, id);
   }
 }

@@ -15,11 +15,11 @@ export class IntegrationsRepository {
   async insertService(v: typeof externalServices.$inferInsert): Promise<ServiceRow> {
     const [row] = await this.db.insert(externalServices).values(v).returning(); return row!;
   }
-  async getService(id: number): Promise<ServiceRow | undefined> {
+  async getService(id: string): Promise<ServiceRow | undefined> {
     const [row] = await this.db.select().from(externalServices).where(eq(externalServices.id, id)); return row;
   }
   async listServices(): Promise<ServiceRow[]> { return this.db.select().from(externalServices); }
-  async updateService(id: number, v: Partial<typeof externalServices.$inferInsert>): Promise<void> {
+  async updateService(id: string, v: Partial<typeof externalServices.$inferInsert>): Promise<void> {
     await this.db.update(externalServices).set(v).where(eq(externalServices.id, id));
   }
   async insertToken(v: typeof externalTokens.$inferInsert): Promise<TokenRow> {
@@ -28,11 +28,11 @@ export class IntegrationsRepository {
   async getTokenByHash(tokenhash: string): Promise<TokenRow | undefined> {
     const [row] = await this.db.select().from(externalTokens).where(eq(externalTokens.tokenhash, tokenhash)); return row;
   }
-  async getToken(id: number): Promise<TokenRow | undefined> {
+  async getToken(id: string): Promise<TokenRow | undefined> {
     const [row] = await this.db.select().from(externalTokens).where(eq(externalTokens.id, id)); return row;
   }
   async listTokens(): Promise<TokenRow[]> { return this.db.select().from(externalTokens); }
-  async updateToken(id: number, v: Partial<typeof externalTokens.$inferInsert>): Promise<void> {
+  async updateToken(id: string, v: Partial<typeof externalTokens.$inferInsert>): Promise<void> {
     await this.db.update(externalTokens).set(v).where(eq(externalTokens.id, id));
   }
 }

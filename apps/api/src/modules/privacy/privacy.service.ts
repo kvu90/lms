@@ -21,8 +21,8 @@ export interface PrivacyProvider {
   subsystem: string;
   /** Metadata: các bảng/trường giữ dữ liệu cá nhân của subsystem. */
   metadata: string[];
-  export(userId: number): Promise<unknown>;
-  delete(userId: number): Promise<{ deleted: number }>;
+  export(userId: string): Promise<unknown>;
+  delete(userId: string): Promise<{ deleted: number }>;
 }
 
 /** Danh sách subsystem nghiệp vụ BẮT BUỘC có provider — completeness test đối chiếu danh sách này với registry. */
@@ -65,8 +65,8 @@ export class PrivacyService {
     const db = this.repo.dbHandle;
     const simple = (
       subsystem: string, metadata: string[],
-      exportFn: (userId: number) => Promise<unknown>,
-      deleteFn: (userId: number) => Promise<number>,
+      exportFn: (userId: string) => Promise<unknown>,
+      deleteFn: (userId: string) => Promise<number>,
     ) => this.registerProvider({
       subsystem, metadata, export: exportFn,
       delete: async (userId) => ({ deleted: await deleteFn(userId) }),
@@ -160,13 +160,13 @@ export class PrivacyService {
     simple('payments', ['payments.userid/amount/currency'],
       async (userId) => db.select().from(payments).where(eq(payments.userid, userId)),
       // Dữ liệu tài chính được ẩn danh hoá (userid → 0) thay vì xoá cứng để giữ vết đối soát; danh tính không còn truy được.
-      async (userId) => (await db.update(payments).set({ userid: 0 }).where(eq(payments.userid, userId)).returning()).length);
+      async (userId) => (await db.update(payments).set({ userid: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userid, userId)).returning()).length);
   }
 
   // --- vòng đời yêu cầu -------------------------------------------------------
 
   /** Người dùng tự gửi yêu cầu cho chính mình; admin có manage có thể gửi hộ. */
-  async createRequest(actorId: number, input: { type: 'export' | 'delete'; userid?: number }): Promise<PrivacyRequestRow> {
+  async createRequest(actorId: string, input: { type: 'export' | 'delete'; userid?: string }): Promise<PrivacyRequestRow> {
     const target = input.userid ?? actorId;
     if (target !== actorId) {
       const sys = await this.contexts.ensureSystemContext();
@@ -177,19 +177,19 @@ export class PrivacyService {
     if (!user) throw new NotFoundException({ message: `User ${target} not found`, code: 'privacy.user_not_found' });
     return this.repo.insertRequest({ userid: target, type: input.type, requestedby: actorId, status: 'pending' });
   }
-  async getRequest(id: number): Promise<PrivacyRequestRow> {
+  async getRequest(id: string): Promise<PrivacyRequestRow> {
     const row = await this.repo.getRequest(id);
     if (!row) throw new NotFoundException({ message: `Privacy request ${id} not found`, code: 'privacy.request_not_found' });
     return row;
   }
-  async listRequestsFor(actorId: number): Promise<PrivacyRequestRow[]> {
+  async listRequestsFor(actorId: string): Promise<PrivacyRequestRow[]> {
     const sys = await this.contexts.ensureSystemContext();
     if (await this.evaluator.hasCapability(actorId, 'lms/privacy:manage', sys.id)) return this.repo.listRequests();
     return this.repo.listRequestsForUser(actorId);
   }
 
   /** Phê duyệt/từ chối bởi admin có capability privacy:manage; approve ⇒ xử lý ngay (API twin của worker job). */
-  async decide(actorId: number, id: number, decision: 'approved' | 'rejected'): Promise<PrivacyRequestRow> {
+  async decide(actorId: string, id: string, decision: 'approved' | 'rejected'): Promise<PrivacyRequestRow> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/privacy:manage', sys.id);
     const req = await this.getRequest(id);
@@ -207,7 +207,7 @@ export class PrivacyService {
    * qua FilesModule; delete ⇒ gọi delete của MỌI provider đã đăng ký và ghi
    * kết quả từng subsystem — thiếu provider nào (completeness) là FAIL.
    */
-  async processRequest(id: number): Promise<PrivacyRequestRow> {
+  async processRequest(id: string): Promise<PrivacyRequestRow> {
     const req = await this.getRequest(id);
     if (req.status !== 'approved') throw new ForbiddenException({ message: 'Privacy request is not approved', code: 'privacy.not_approved' });
     const missing = this.missingProviders();
@@ -241,5 +241,5 @@ export class PrivacyService {
     }
     return this.getRequest(id);
   }
-  async listExportFiles(requestId: number) { return this.repo.listExportFiles(requestId); }
+  async listExportFiles(requestId: string) { return this.repo.listExportFiles(requestId); }
 }

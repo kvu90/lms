@@ -33,14 +33,14 @@ export class CustomFieldsService {
   /**
    * Xoá category.
    */
-  async deleteCategory(id: number): Promise<void> {
+  async deleteCategory(id: string): Promise<void> {
     if (!(await this.repo.getCategory(id))) throw new NotFoundException({ message: `Category ${id} not found`, code: 'customfield.category_not_found' });
     await this.repo.deleteCategory(id);
   }
   /**
    * Tạo field trong category với configdata theo kiểu dữ liệu.
    */
-  async createField(categoryid: number, input: { shortname: string; name: string; type: string; configdata?: FieldConfig }): Promise<FieldRow> {
+  async createField(categoryid: string, input: { shortname: string; name: string; type: string; configdata?: FieldConfig }): Promise<FieldRow> {
     const category = await this.repo.getCategory(categoryid);
     if (!category) throw new NotFoundException({ message: `Category ${categoryid} not found`, code: 'customfield.category_not_found' });
     if (!FIELD_TYPES.includes(input.type as CustomFieldType)) {
@@ -64,7 +64,7 @@ export class CustomFieldsService {
   /**
    * Xoá field và giá trị của nó.
    */
-  async deleteField(id: number): Promise<void> {
+  async deleteField(id: string): Promise<void> {
     if (!(await this.repo.getField(id))) throw new NotFoundException({ message: `Field ${id} not found`, code: 'customfield.field_not_found' });
     await this.repo.deleteField(id);
   }
@@ -111,7 +111,7 @@ export class CustomFieldsService {
   /**
    * Ghi các giá trị field cho instance sau khi kiểm hợp lệ.
    */
-  async setValuesForInstance(component: string, area: string, instanceid: number, values: Record<string, string>): Promise<void> {
+  async setValuesForInstance(component: string, area: string, instanceid: string, values: Record<string, string>): Promise<void> {
     const fields = await this.listFields(component, area);
     const errors: string[] = [];
     for (const field of fields) {
@@ -126,7 +126,7 @@ export class CustomFieldsService {
   /**
    * Đọc giá trị field của instance để hiển thị hồ sơ.
    */
-  async getValuesForInstance(component: string, area: string, instanceid: number): Promise<{ field: FieldRow; value: string | null }[]> {
+  async getValuesForInstance(component: string, area: string, instanceid: string): Promise<{ field: FieldRow; value: string | null }[]> {
     const fields = await this.listFields(component, area);
     const data = await this.repo.getDataForInstance(fields.map((f) => f.id), instanceid);
     return fields.map((field) => ({ field, value: data.find((d) => d.fieldid === field.id)?.value ?? null }));

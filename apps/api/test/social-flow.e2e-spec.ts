@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { v7 as uuidv7 } from 'uuid';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
@@ -56,9 +57,9 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     const post = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
       .send({ subject: 'Field notes', content: 'We measured things', publishstate: 'site' });
     expect(post.status).toBe(201);
-    const authorCtx = await contextIdByLevelInstance(app, admin, 30, (await http(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${studentToken}`)).body.id as number).catch(() => 0);
+    const authorCtx = await contextIdByLevelInstance(app, admin, 30, (await http(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${studentToken}`)).body.id as string).catch(() => '');
     void authorCtx;
-    const studentId = post.body.userid as number;
+    const studentId = post.body.userid as string;
     const userCtx = await contextIdByLevelInstance(app, admin, 30, studentId);
     const setPost = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'core_blog', itemtype: 'post', itemid: post.body.id, contextid: userCtx, tags: ['science', 'fieldwork'] });
@@ -71,11 +72,11 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     const postTags = await http(app).get('/api/v1/tags/items').query({ component: 'core_blog', itemtype: 'post', itemid: post.body.id }).set('Authorization', `Bearer ${studentToken}`);
     expect(postTags.body.map((t: { name: string }) => t.name)).toEqual(['science', 'fieldwork']);
     // 'science' is shared: its correlation set links the co-occurring tags of both items.
-    const science = (courseTags.body as { id: number; name: string }[]).find((t) => t.name === 'science')!;
+    const science = (courseTags.body as { id: string; name: string }[]).find((t) => t.name === 'science')!;
     const corr = await http(app).get(`/api/v1/tags/${science.id}/correlated`).set('Authorization', `Bearer ${studentToken}`);
     const corrNames: string[] = [];
-    for (const id of corr.body.correlatedtags as number[]) {
-      const all = [...courseTags.body, ...postTags.body] as { id: number; name: string }[];
+    for (const id of corr.body.correlatedtags as string[]) {
+      const all = [...courseTags.body, ...postTags.body] as { id: string; name: string }[];
       const found = all.find((t) => t.id === id);
       if (found) corrNames.push(found.name);
     }
@@ -136,12 +137,11 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
       // role applies — system context itself.
       raters.push((await login(app, u.username, STRONG_PASSWORD)).accessToken);
     }
-    const systemCtx = await contextIdByLevelInstance(app, admin, 10, 0);
+    const systemCtx = await contextIdByLevelInstance(app, admin, 10, null);
     // Run-unique item ids: lms_test is persistent across runs, and aggregates
     // are per item — fixed ids would accumulate ratings from previous runs.
-    const base = (Date.now() % 100000) * 10;
-    const [itemA, itemB, itemC, itemBad] = [base + 1, base + 2, base + 3, base + 9];
-    const rate = async (token: string, itemid: number, rating: number) => {
+    const [itemA, itemB, itemC, itemBad] = [uuidv7(), uuidv7(), uuidv7(), uuidv7()];
+    const rate = async (token: string, itemid: string, rating: number) => {
       const res = await http(app).post('/api/v1/ratings').set('Authorization', `Bearer ${token}`)
         .send({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid, scaleid: 5, rating });
       expect(res.status).toBe(201);
@@ -150,7 +150,7 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     await rate(raters[0]!, itemA, 1); await rate(raters[1]!, itemA, 3);
     await rate(raters[0]!, itemB, 1); await rate(raters[1]!, itemB, 4);
     await rate(raters[0]!, itemC, 3); await rate(raters[1]!, itemC, 5);
-    const agg = async (itemid: number) => {
+    const agg = async (itemid: string) => {
       const res = await http(app).get('/api/v1/ratings/aggregate')
         .query({ contextid: systemCtx, component: 'mod_forum', ratingarea: 'post', itemid })
         .set('Authorization', `Bearer ${raters[2]!}`);

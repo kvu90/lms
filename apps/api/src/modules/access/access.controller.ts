@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
@@ -39,7 +40,7 @@ export class AccessController {
   /**
    * GET /access/contexts/:id — chi tiết một context.
    */
-  async getContext(@Param('id', ParseIntPipe) id: number) { return this.contexts.getContext(id); }
+  async getContext(@Param('id', { schema: uuidIdSchema }) id: string) { return this.contexts.getContext(id); }
 
   @Post('roles')
   @RequireCapability('moodle/role:manage')
@@ -58,19 +59,19 @@ export class AccessController {
   /**
    * GET /access/roles/:id — chi tiết role.
    */
-  async getRole(@Param('id', ParseIntPipe) id: number) { return this.roles.getRole(id); }
+  async getRole(@Param('id', { schema: uuidIdSchema }) id: string) { return this.roles.getRole(id); }
   @Patch('roles/:id')
   @RequireCapability('moodle/role:manage')
   /**
    * PATCH /access/roles/:id — cập nhật role.
    */
-  async updateRole(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateRoleSchema }) dto: UpdateRoleDto) { return this.roles.updateRole(id, dto); }
+  async updateRole(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateRoleSchema }) dto: UpdateRoleDto) { return this.roles.updateRole(id, dto); }
   @Delete('roles/:id')
   @RequireCapability('moodle/role:manage')
   /**
    * DELETE /access/roles/:id — xoá role.
    */
-  async deleteRole(@Param('id', ParseIntPipe) id: number) { await this.roles.deleteRole(id); return { deleted: true }; }
+  async deleteRole(@Param('id', { schema: uuidIdSchema }) id: string) { await this.roles.deleteRole(id); return { deleted: true }; }
 
   @Get('capabilities')
   @RequireCapability('moodle/role:manage')
@@ -83,7 +84,7 @@ export class AccessController {
   /**
    * GET /access/roles/:id/capabilities — ma trận override đã lưu của role.
    */
-  async listRoleCapabilities(@Param('id', ParseIntPipe) id: number) { return this.roles.listRoleCapabilities(id); }
+  async listRoleCapabilities(@Param('id', { schema: uuidIdSchema }) id: string) { return this.roles.listRoleCapabilities(id); }
 
   @Post('assignments')
   @RequireCapability('moodle/role:assign')
@@ -99,14 +100,14 @@ export class AccessController {
    * GET /access/assignments — liệt kê gán role.
    */
   async listAssignments(@Query('userid') userid?: string, @Query('contextid') contextid?: string) {
-    return this.roles.listAssignments({ userid: userid ? Number(userid) : undefined, contextid: contextid ? Number(contextid) : undefined });
+    return this.roles.listAssignments({ userid: userid || undefined, contextid: contextid || undefined });
   }
   @Delete('assignments/:id')
   @RequireCapability('moodle/role:assign')
   /**
    * DELETE /access/assignments/:id — gỡ gán role.
    */
-  async unassign(@Param('id', ParseIntPipe) id: number) { await this.roles.unassignRole(id); return { deleted: true }; }
+  async unassign(@Param('id', { schema: uuidIdSchema }) id: string) { await this.roles.unassignRole(id); return { deleted: true }; }
 
   @Post('overrides')
   @RequireCapability('moodle/role:override', 'body:contextId')
@@ -125,7 +126,7 @@ export class AccessController {
    * GET /access/has-capability — kiểm tra capability của một user tại context (dùng cho client và kiểm chứng).
    */
   async hasCapability(@Query({ schema: hasCapabilityQueryServerSchema }) query: HasCapabilityQueryDto) {
-    const allowed = await this.evaluator.hasCapability(Number(query.userid), query.capability, Number(query.contextid));
-    return { userid: Number(query.userid), capability: query.capability, contextid: Number(query.contextid), allowed };
+    const allowed = await this.evaluator.hasCapability(query.userid, query.capability, query.contextid);
+    return { userid: query.userid, capability: query.capability, contextid: query.contextid, allowed };
   }
 }

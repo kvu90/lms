@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { existsSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { v7 as uuidv7 } from 'uuid';
 import { FilesService } from '../src/modules/files/files.service';
 import {
   adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login,
@@ -17,12 +18,12 @@ import {
 describe('Files: content-addressed dedup, refcount cleanup, capability-checked serving', () => {
   let app: INestApplication;
   let admin: string;
-  let courseCtx: number;
+  let courseCtx: string;
   let uploaderToken: string;
-  let uploaderId: number;
+  let uploaderId: string;
   const CONTENT = `hello-dedup-content-${Date.now()}`;
 
-  async function upload(token: string, filename: string, content: string): Promise<{ id: number; contenthash: string }> {
+  async function upload(token: string, filename: string, content: string): Promise<{ id: string; contenthash: string }> {
     const res = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${token}`)
       .field('contextid', String(courseCtx)).field('component', 'core_user').field('filearea', 'profile')
       .attach('file', Buffer.from(content), filename);
@@ -34,7 +35,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     app = await createTestApp();
     admin = await adminToken(app);
     const systemId = await systemContextId(app, admin);
-    courseCtx = (await createContextViaApi(app, admin, 50, Date.now() % 100000, systemId)).id;
+    courseCtx = (await createContextViaApi(app, admin, 50, uuidv7(), systemId)).id;
     const uploader = await createUserViaApi(app, admin);
     uploaderId = uploader.id;
     const studentRole = await roleIdByShortname(app, admin, 'student');

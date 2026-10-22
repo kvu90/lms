@@ -22,13 +22,13 @@ export class FilesRepository {
   /**
    * Lấy bản ghi theo id.
    */
-  async getById(id: number): Promise<FileRow | undefined> {
+  async getById(id: string): Promise<FileRow | undefined> {
     const [row] = await this.db.select().from(files).where(eq(files.id, id)); return row;
   }
   /**
    * Xoá bản ghi theo id.
    */
-  async deleteById(id: number): Promise<void> { await this.db.delete(files).where(eq(files.id, id)); }
+  async deleteById(id: string): Promise<void> { await this.db.delete(files).where(eq(files.id, id)); }
   /** Refcount = number of logical records pointing at a contenthash (Moodle semantics: physical lives while refcount > 0). */
   /**
    * Đếm bản ghi cùng contenthash (refcount nội dung vật lý).
@@ -40,7 +40,7 @@ export class FilesRepository {
   /**
    * Liệt kê file trong một context.
    */
-  async listByContext(contextid: number): Promise<FileRow[]> {
+  async listByContext(contextid: string): Promise<FileRow[]> {
     return this.db.select().from(files).where(eq(files.contextid, contextid)).orderBy(files.id);
   }
 }

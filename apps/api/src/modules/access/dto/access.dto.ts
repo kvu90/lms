@@ -11,6 +11,7 @@ import {
   type CreateRole,
   type OverrideCapability,
   type UpdateRole,
+  uuidIdSchema,
 } from '@lms/contracts';
 
 /**
@@ -30,7 +31,7 @@ export type OverrideCapabilityDto = OverrideCapability;
  * `z.coerce` ở tầng server, schema nền vẫn giữ kiểu số cho bề mặt dùng chung.
  */
 export const hasCapabilityQueryServerSchema = hasCapabilityQuerySchema.extend({
-  userid: z.coerce.number().int(),
-  contextid: z.coerce.number().int(),
+  userid: uuidIdSchema,
+  contextid: uuidIdSchema,
 });
 export type HasCapabilityQueryDto = z.infer<typeof hasCapabilityQueryServerSchema>;

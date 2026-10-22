@@ -9,8 +9,8 @@ import { Inject } from '@nestjs/common';
 
 export const FILE_CLEANUP_QUEUE = 'file-cleanup';
 export interface UploadInput {
-  contextid: number; component: string; filearea: string; itemid?: number;
-  filepath?: string; filename: string; data: Buffer; mimetype?: string; userid?: number;
+  contextid: string; component: string; filearea: string; itemid?: string;
+  filepath?: string; filename: string; data: Buffer; mimetype?: string; userid?: string;
 }
 
 /**
@@ -46,7 +46,7 @@ export class FilesService {
     await this.storage.put(contenthash, input.data); // put() is a no-op when the hash already exists (dedup)
     return this.repo.insert({
       contenthash, contextid: input.contextid, component: input.component, filearea: input.filearea,
-      itemid: input.itemid ?? 0, filepath: input.filepath ?? '/', filename: input.filename,
+      itemid: input.itemid ?? null, filepath: input.filepath ?? '/', filename: input.filename,
       userid: input.userid, filesize: input.data.length, mimetype: input.mimetype,
     });
   }
@@ -54,7 +54,7 @@ export class FilesService {
   /**
    * Lấy metadata file; ném files.not_found khi vắng.
    */
-  async getFile(id: number): Promise<FileRow> {
+  async getFile(id: string): Promise<FileRow> {
     const row = await this.repo.getById(id);
     if (!row) throw new NotFoundException({ message: `File ${id} not found`, code: 'file.not_found' });
     return row;
@@ -80,7 +80,7 @@ export class FilesService {
   /**
    * Xoá bản ghi file; xoá nội dung vật lý khi refcount về 0.
    */
-  async deleteFile(id: number): Promise<{ deleted: true; contenthash: string; refcount: number }> {
+  async deleteFile(id: string): Promise<{ deleted: true; contenthash: string; refcount: number }> {
     const row = await this.getFile(id);
     await this.repo.deleteById(id);
     const refcount = await this.repo.countByHash(row.contenthash);
@@ -103,13 +103,13 @@ export class FilesService {
   /**
    * Kiểm quyền xem file tại context của nó.
    */
-  async assertCanView(file: FileRow, actor: { id: number; username?: string }): Promise<void> {
+  async assertCanView(file: FileRow, actor: { id: string; username?: string }): Promise<void> {
     await this.evaluator.requireCapability(actor.id, 'lms/files:view', file.contextid, { isGuest: actor.username === 'guest' });
   }
   /**
    * Kiểm quyền tải file lên context đích.
    */
-  async assertCanUpload(contextid: number, actor: { id: number; username?: string }): Promise<void> {
+  async assertCanUpload(contextid: string, actor: { id: string; username?: string }): Promise<void> {
     await this.evaluator.requireCapability(actor.id, 'lms/files:upload', contextid, { isGuest: actor.username === 'guest' });
   }
 
@@ -117,7 +117,7 @@ export class FilesService {
   /**
    * Tạo URL tải có ký + hạn dùng.
    */
-  async createSignedUrl(fileId: number, userId: number, isGuest = false): Promise<{ url: string; expiresAt: number }> {
+  async createSignedUrl(fileId: string, userId: string, isGuest = false): Promise<{ url: string; expiresAt: number }> {
     const file = await this.getFile(fileId);
     await this.evaluator.requireCapability(userId, 'lms/files:view', file.contextid, { isGuest });
     const { token, expiresAt } = this.signing.sign(fileId);
@@ -126,11 +126,11 @@ export class FilesService {
   /**
    * Kiểm chữ ký URL (ủy quyền cho FileSigningService).
    */
-  verifySignature(fileId: number, token: string | undefined): void { this.signing.verify(fileId, token); }
+  verifySignature(fileId: string, token: string | undefined): void { this.signing.verify(fileId, token); }
   /**
    * Đọc nội dung file (sau kiểm quyền) để trả về/tải xuống.
    */
-  async readContent(fileId: number): Promise<{ file: FileRow; data: Buffer }> {
+  async readContent(fileId: string): Promise<{ file: FileRow; data: Buffer }> {
     const file = await this.getFile(fileId);
     const data = await this.storage.get(file.contenthash);
     return { file, data };
@@ -138,5 +138,5 @@ export class FilesService {
   /**
    * Liệt kê file trong context.
    */
-  async listByContext(contextid: number): Promise<FileRow[]> { return this.repo.listByContext(contextid); }
+  async listByContext(contextid: string): Promise<FileRow[]> { return this.repo.listByContext(contextid); }
 }

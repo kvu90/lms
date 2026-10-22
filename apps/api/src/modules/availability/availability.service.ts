@@ -7,8 +7,8 @@ import {
 } from './domain/availability-tree';
 
 export interface AvailabilityContext {
-  userId: number;
-  courseId?: number;
+  userId: string;
+  courseId?: string;
   now?: Date;
   /** Grade PERCENTAGES (0-100, Moodle availability_grade semantics) keyed by grade-item id / cm id — supplied by the GradesModule-registered provider via CoursesService. Absent ⇒ grade conditions are unmet. */
   grades?: Record<string, number>;

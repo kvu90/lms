@@ -11,7 +11,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 describe('CustomFields: profile fields are defined as metadata and validated on save', () => {
   let app: INestApplication;
   let admin: string;
-  let categoryId: number;
+  let categoryId: string;
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);

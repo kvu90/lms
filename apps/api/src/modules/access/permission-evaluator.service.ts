@@ -31,29 +31,29 @@ export class PermissionEvaluator {
   /**
    * User có nằm trong danh sách site admin (config siteadmins) hay không — admin bỏ qua mọi capability check.
    */
-  async isSiteAdmin(userId: number): Promise<boolean> {
+  async isSiteAdmin(userId: string): Promise<boolean> {
     const raw = await this.repo.getConfigValue('siteadmins');
     if (!Array.isArray(raw)) return false;
-    return raw.map(Number).includes(userId);
+    return raw.map((v) => String(v)).includes(userId);
   }
   /**
    * Danh sách id site admin hiện tại.
    */
-  async listSiteAdmins(): Promise<number[]> {
+  async listSiteAdmins(): Promise<string[]> {
     const raw = await this.repo.getConfigValue('siteadmins');
-    return Array.isArray(raw) ? raw.map(Number) : [];
+    return Array.isArray(raw) ? raw.map((v) => String(v)) : [];
   }
   /**
    * Thay danh sách site admin (lưu vào config).
    */
-  async setSiteAdmins(userIds: number[]): Promise<void> {
+  async setSiteAdmins(userIds: string[]): Promise<void> {
     await this.repo.setConfigValue('siteadmins', userIds);
   }
 
   /**
    * Đánh giá capability cho user tại context theo thuật toán cây context; kết quả có thể cache theo path version.
    */
-  async hasCapability(userId: number, capability: string, contextId: number, opts?: { isGuest?: boolean }): Promise<boolean> {
+  async hasCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<boolean> {
     if (await this.isSiteAdmin(userId)) return true;
     const target = await this.contexts.getContext(contextId);
     const pathContexts = await this.contexts.getPathContexts(target);
@@ -66,10 +66,10 @@ export class PermissionEvaluator {
     return result;
   }
 
-  private async evaluate(userId: number, capability: string, pathContexts: { id: number }[], opts?: { isGuest?: boolean }): Promise<boolean> {
+  private async evaluate(userId: string, capability: string, pathContexts: { id: string }[], opts?: { isGuest?: boolean }): Promise<boolean> {
     const pathIds = pathContexts.map((c) => c.id); // leaf → root
     const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
-    const roleIds = new Set<number>(assignments.map((a) => a.roleid));
+    const roleIds = new Set<string>(assignments.map((a) => a.roleid));
     // Moodle adds virtual default-role assignments: `user` for any logged-in
     // user, `guest` for the guest account — both anchored at the system context.
     const systemId = pathIds[pathIds.length - 1];
@@ -102,9 +102,9 @@ export class PermissionEvaluator {
    * Như hasCapability nhưng chỉ tính gán role thật, bỏ qua lối tắt site admin — dùng cho các luồng cần phân biệt (vd login-as).
    */
   async hasCapabilityFromRealAssignment(
-    userId: number,
+    userId: string,
     capability: string,
-    contextId: number,
+    contextId: string,
     opts?: { excludeArchetypes?: string[] },
   ): Promise<boolean> {
     if (await this.isSiteAdmin(userId)) return true;
@@ -112,7 +112,7 @@ export class PermissionEvaluator {
     const pathContexts = await this.contexts.getPathContexts(target);
     const pathIds = pathContexts.map((c) => c.id);
     const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
-    const roleIds = new Set<number>();
+    const roleIds = new Set<string>();
     for (const a of assignments) {
       if (opts?.excludeArchetypes?.length) {
         const roleRow = await this.repo.getRoleById(a.roleid);
@@ -137,7 +137,7 @@ export class PermissionEvaluator {
   /**
    * Như hasCapability nhưng ném Forbidden (access.forbidden) khi không đạt — cổng chặn chuẩn của các service.
    */
-  async requireCapability(userId: number, capability: string, contextId: number, opts?: { isGuest?: boolean }): Promise<void> {
+  async requireCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<void> {
     if (!(await this.hasCapability(userId, capability, contextId, opts))) {
       throw new ForbiddenException({ message: `Missing capability ${capability} in context ${contextId}`, code: 'access.capability_denied' });
     }

@@ -47,8 +47,8 @@ export function preferenceName(provider: string, channel: MessageChannel, state:
 
 export interface NotifyResult {
   provider: string;
-  userId: number;
-  notificationId: number | null;
+  userId: string;
+  notificationId: string | null;
   channels: Record<string, string>;
   skipped?: 'suspended' | 'unknown-provider';
 }
@@ -59,7 +59,7 @@ export interface NotificationChannelPort {
   /**
    * Phân phối một notification tới các kênh đã bật của người nhận và ghi dispatch log.
    */
-  deliver(input: { userId: number; provider: string; subject: string; body: string; notificationId: number | null }): Promise<string>;
+  deliver(input: { userId: string; provider: string; subject: string; body: string; notificationId: string | null }): Promise<string>;
 }
 
 /**
@@ -99,7 +99,7 @@ export class MessagingService {
   /**
    * Kênh có đang bật cho provider này theo tuỳ chọn của user (phân biệt logged-in/logged-off) hay không.
    */
-  async isChannelEnabled(userId: number, provider: string, channel: MessageChannel, state: LoginState): Promise<boolean> {
+  async isChannelEnabled(userId: string, provider: string, channel: MessageChannel, state: LoginState): Promise<boolean> {
     const value = await this.users.getPreference(userId, preferenceName(provider, channel, state));
     return value !== '0'; // default: enabled (Moodle default for core providers)
   }
@@ -107,7 +107,7 @@ export class MessagingService {
   /**
    * Tuỳ chọn notification của user theo provider/kênh.
    */
-  async getPreferences(userId: number): Promise<{
+  async getPreferences(userId: string): Promise<{
     provider: string; component: string; channel: MessageChannel; state: LoginState; enabled: boolean;
   }[]> {
     const out: { provider: string; component: string; channel: MessageChannel; state: LoginState; enabled: boolean }[] = [];
@@ -127,7 +127,7 @@ export class MessagingService {
   /**
    * Đặt tuỳ chọn một provider/kênh.
    */
-  async setPreference(userId: number, input: { provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }): Promise<{ provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }> {
+  async setPreference(userId: string, input: { provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }): Promise<{ provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }> {
     const provider = providerByName(input.provider);
     if (!provider) throw new BadRequestException({ message: `Unknown message provider ${input.provider}`, code: 'messaging.unknown_provider' });
     if (!provider.channels.includes(input.channel)) {
@@ -150,8 +150,8 @@ export class MessagingService {
   /**
    * Tạo notification cho user từ một provider (điểm vào chuẩn của các module khác).
    */
-  async notify(userId: number, providerName: string, input: {
-    subject: string; body: string; contextUrl?: string; fromUserId?: number; loggedIn?: boolean;
+  async notify(userId: string, providerName: string, input: {
+    subject: string; body: string; contextUrl?: string; fromUserId?: string; loggedIn?: boolean;
   }): Promise<NotifyResult> {
     const provider = providerByName(providerName);
     if (!provider) return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'unknown-provider' };
@@ -166,7 +166,7 @@ export class MessagingService {
     }
     const state: LoginState = (input.loggedIn ?? true) ? 'loggedin' : 'loggedoff';
     const channels: Record<string, string> = {};
-    let notificationId: number | null = null;
+    let notificationId: string | null = null;
 
     // In-app (popup) is the only REAL channel: the notification row IS the delivery.
     if (provider.channels.includes('popup')) {
@@ -223,7 +223,7 @@ export class MessagingService {
   /**
    * Gửi notification hệ thống (vd hoàn tất báo cáo) kèm nội dung đã dịch.
    */
-  async sendSystemNotification(actorId: number, dto: { userId: number; provider: string; subject: string; body: string; contextUrl?: string }): Promise<NotifyResult> {
+  async sendSystemNotification(actorId: string, dto: { userId: string; provider: string; subject: string; body: string; contextUrl?: string }): Promise<NotifyResult> {
     if (!(await this.evaluator.isSiteAdmin(actorId))) {
       throw new ForbiddenException({ message: 'Only site administrators can trigger system notifications directly', code: 'messaging.system_send_forbidden' });
     }
@@ -233,19 +233,19 @@ export class MessagingService {
   /**
    * Notification của user.
    */
-  async listNotifications(userId: number): Promise<NotificationRow[]> {
+  async listNotifications(userId: string): Promise<NotificationRow[]> {
     return this.repo.listNotifications(userId);
   }
   /**
    * Số notification chưa đọc.
    */
-  async unreadNotificationCount(userId: number): Promise<number> {
+  async unreadNotificationCount(userId: string): Promise<number> {
     return this.repo.countUnreadNotifications(userId);
   }
   /**
    * Đánh dấu đã đọc.
    */
-  async markNotificationRead(userId: number, notificationId: number): Promise<{ read: boolean }> {
+  async markNotificationRead(userId: string, notificationId: string): Promise<{ read: boolean }> {
     const ok = await this.repo.markNotificationRead(notificationId, userId);
     if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
     return { read: true };
@@ -253,13 +253,13 @@ export class MessagingService {
   /**
    * Đánh dấu tất cả đã đọc.
    */
-  async markAllNotificationsRead(userId: number): Promise<{ marked: number }> {
+  async markAllNotificationsRead(userId: string): Promise<{ marked: number }> {
     return { marked: await this.repo.markAllNotificationsRead(userId) };
   }
   /**
    * Nhật ký phân phối notification.
    */
-  async listDispatchLog(userId: number) {
+  async listDispatchLog(userId: string) {
     return this.repo.listDispatchLog(userId);
   }
 
@@ -268,7 +268,7 @@ export class MessagingService {
   /**
    * Chặn một liên hệ.
    */
-  async blockContact(userId: number, blockedUserId: number): Promise<{ blocked: number[] }> {
+  async blockContact(userId: string, blockedUserId: string): Promise<{ blocked: string[] }> {
     if (blockedUserId === userId) throw new BadRequestException({ message: 'You cannot block yourself', code: 'messaging.block_self' });
     await this.users.getUser(blockedUserId);
     await this.repo.block(userId, blockedUserId);
@@ -277,20 +277,20 @@ export class MessagingService {
   /**
    * Bỏ chặn liên hệ.
    */
-  async unblockContact(userId: number, blockedUserId: number): Promise<{ blocked: number[] }> {
+  async unblockContact(userId: string, blockedUserId: string): Promise<{ blocked: string[] }> {
     await this.repo.unblock(userId, blockedUserId);
     return { blocked: await this.repo.listBlocked(userId) };
   }
   /**
    * Danh sách liên hệ bị chặn.
    */
-  async listBlocked(userId: number): Promise<number[]> {
+  async listBlocked(userId: string): Promise<string[]> {
     return this.repo.listBlocked(userId);
   }
   /**
    * User có bị người kia chặn hay không.
    */
-  async isBlockedBy(blockerId: number, senderId: number): Promise<boolean> {
+  async isBlockedBy(blockerId: string, senderId: string): Promise<boolean> {
     return this.repo.isBlocked(blockerId, senderId);
   }
 
@@ -299,7 +299,7 @@ export class MessagingService {
   /**
    * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại).
    */
-  async createConversation(actorId: number, input: { type?: number; memberIds: number[]; name?: string }): Promise<ConversationRow & { members: number[] }> {
+  async createConversation(actorId: string, input: { type?: number; memberIds: string[]; name?: string }): Promise<ConversationRow & { members: string[] }> {
     const type = input.type ?? 1;
     const memberIds = [...new Set([actorId, ...input.memberIds])];
     if (type === 1) {
@@ -323,9 +323,9 @@ export class MessagingService {
   /**
    * Conversation của user kèm số chưa đọc.
    */
-  async listConversations(userId: number): Promise<(ConversationRow & { members: number[]; unread: number })[]> {
+  async listConversations(userId: string): Promise<(ConversationRow & { members: string[]; unread: number })[]> {
     const conversations = await this.repo.listConversationsForUser(userId);
-    const out: (ConversationRow & { members: number[]; unread: number })[] = [];
+    const out: (ConversationRow & { members: string[]; unread: number })[] = [];
     for (const c of conversations) {
       const messages = await this.repo.listMessages(c.id);
       out.push({
@@ -340,7 +340,7 @@ export class MessagingService {
   /**
    * Chi tiết conversation + tin nhắn (chỉ thành viên mới xem được).
    */
-  async getConversation(userId: number, conversationId: number): Promise<ConversationRow & { members: number[]; messages: MessageRow[] }> {
+  async getConversation(userId: string, conversationId: string): Promise<ConversationRow & { members: string[]; messages: MessageRow[] }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     if (!(await this.repo.isMember(conversationId, userId))) {
@@ -357,7 +357,7 @@ export class MessagingService {
   /**
    * Gửi tin nhắn: kiểm tra thành viên và quan hệ chặn.
    */
-  async sendMessage(actorId: number, conversationId: number, input: { text: string; subject?: string }): Promise<MessageRow> {
+  async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string }): Promise<MessageRow> {
     const systemCtx = await this.contexts.ensureSystemContext();
     const senderCtx = await this.contexts.getByLevelInstance(30, actorId);
     await this.evaluator.requireCapability(actorId, 'moodle/site:sendmessage', senderCtx?.id ?? systemCtx.id);
@@ -415,7 +415,7 @@ export class MessagingService {
   /**
    * Đánh dấu đã đọc conversation.
    */
-  async markConversationRead(userId: number, conversationId: number): Promise<{ marked: number }> {
+  async markConversationRead(userId: string, conversationId: string): Promise<{ marked: number }> {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
@@ -425,7 +425,7 @@ export class MessagingService {
   /**
    * Số conversation chưa đọc và số notification chưa đọc (cho huy hiệu trên giao diện).
    */
-  async unreadCounts(userId: number): Promise<{ conversations: number; notifications: number }> {
+  async unreadCounts(userId: string): Promise<{ conversations: number; notifications: number }> {
     return {
       conversations: await this.repo.countUnreadConversations(userId),
       notifications: await this.repo.countUnreadNotifications(userId),

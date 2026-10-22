@@ -39,7 +39,7 @@ describe('Enrol & groups/cohorts', () => {
     const assignments = await http(app).get('/api/v1/access/assignments')
       .query({ userid: user.id, contextid: content.body.contextId }).set('Authorization', `Bearer ${admin}`);
     const studentRole = await roleIdByShortname(app, admin, 'student');
-    expect((assignments.body as { roleid: number }[]).some((a) => a.roleid === studentRole)).toBe(true);
+    expect((assignments.body as { roleid: string }[]).some((a) => a.roleid === studentRole)).toBe(true);
     // isEnrolled facade view:
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     const mine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${userLogin.accessToken}`);
@@ -93,7 +93,7 @@ describe('Enrol & groups/cohorts', () => {
     const del = await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${user.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.body.withdrawn).toBe(false);
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((list.body as { userid: number }[]).some((e) => e.userid === user.id)).toBe(false);
+    expect((list.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(false);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`);
     expect(res.status).toBe(403);
@@ -108,16 +108,16 @@ describe('Enrol & groups/cohorts', () => {
     expect(gA.status).toBe(201);
     await http(app).post(`/api/v1/courses/${course.id}/groups/${gA.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: user.id });
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${gA.body.id}/members`).set('Authorization', `Bearer ${admin}`);
-    expect((members.body as { userid: number }[]).map((m) => m.userid)).toContain(user.id);
+    expect((members.body as { userid: string }[]).map((m) => m.userid)).toContain(user.id);
     const grouping = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'All teams' });
     await http(app).post(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gA.body.id });
     await http(app).post(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gB.body.id });
     const inGrouping = await http(app).get(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
-    expect((inGrouping.body as { id: number }[]).map((g) => g.id).sort()).toEqual([gA.body.id, gB.body.id].sort());
+    expect((inGrouping.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.body.id, gB.body.id].sort());
     // Deleting group A removes it from the grouping.
     await http(app).delete(`/api/v1/courses/${course.id}/groups/${gA.body.id}`).set('Authorization', `Bearer ${admin}`);
     const after = await http(app).get(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
-    expect((after.body as { id: number }[]).map((g) => g.id)).toEqual([gB.body.id]);
+    expect((after.body as { id: string }[]).map((g) => g.id)).toEqual([gB.body.id]);
   });
 
   it('SEPARATE GROUPS is a server-side data law: a student in group A gets 403 for group B members and never sees them in lists', async () => {
@@ -141,7 +141,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(own.status).toBe(200);
     // Group list contains ONLY her group.
     const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
-    expect((list.body as { id: number }[]).map((g) => g.id)).toEqual([gA.body.id]);
+    expect((list.body as { id: string }[]).map((g) => g.id)).toEqual([gA.body.id]);
     // Visible-members aggregate contains only her own membership.
     const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(visibleMembers.body).toEqual([{ groupId: gA.body.id, userid: alice.id }]);
@@ -155,7 +155,7 @@ describe('Enrol & groups/cohorts', () => {
     const course = await createCourse(app, admin, cat.id);
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Class of 2026' });
     expect(cohortRes.status).toBe(201);
-    const cohortId = cohortRes.body.id as number;
+    const cohortId = cohortRes.body.id as string;
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId });
     const user = await createUserViaApi(app, admin);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
@@ -163,13 +163,13 @@ describe('Enrol & groups/cohorts', () => {
     // Add to cohort ⇒ enrolled + can access.
     await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: user.id });
     const enrolled = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((enrolled.body as { userid: number; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(0);
+    expect((enrolled.body as { userid: string; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(0);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
 
     // Remove from cohort ⇒ suspended (default sync mode), access blocked.
     await http(app).delete(`/api/v1/cohorts/${cohortId}/members/${user.id}`).set('Authorization', `Bearer ${admin}`);
     const afterRemove = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((afterRemove.body as { userid: number; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(1);
+    expect((afterRemove.body as { userid: string; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(1);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
 
     // Second course with onCohortLeave=unenrol: removal withdraws the enrolment entirely.
@@ -179,10 +179,10 @@ describe('Enrol & groups/cohorts', () => {
     void instance;
     await http(app).post(`/api/v1/cohorts/${cohort2.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: user.id });
     let list2 = await http(app).get(`/api/v1/courses/${course2.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((list2.body as { userid: number }[]).some((e) => e.userid === user.id)).toBe(true);
+    expect((list2.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(true);
     await http(app).delete(`/api/v1/cohorts/${cohort2.body.id}/members/${user.id}`).set('Authorization', `Bearer ${admin}`);
     list2 = await http(app).get(`/api/v1/courses/${course2.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((list2.body as { userid: number }[]).some((e) => e.userid === user.id)).toBe(false);
+    expect((list2.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(false);
   });
 
   it('a cohort enrol instance created AFTER users joined the cohort syncs the existing members', async () => {
@@ -193,7 +193,7 @@ describe('Enrol & groups/cohorts', () => {
     const course = await createCourse(app, admin, cat.id);
     await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId: cohortRes.body.id });
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((list.body as { userid: number; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(0);
+    expect((list.body as { userid: string; status: number }[]).find((e) => e.userid === user.id)?.status).toBe(0);
   });
 
   it('expired enrolment (timeend in the past) is not active: access blocked before any sweep runs', async () => {

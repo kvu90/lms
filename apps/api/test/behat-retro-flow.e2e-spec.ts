@@ -24,7 +24,7 @@ describe('Behat retro-audit journeys', () => {
     const group = await createGroupViaApi(app, admin, course.id, 'Cohort class A');
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Sync group cohort' });
     expect(cohortRes.status).toBe(201);
-    const cohortId = cohortRes.body.id as number;
+    const cohortId = cohortRes.body.id as string;
     await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId, groupId: group.id });
     const user = await createUserViaApi(app, admin);
     // Vào cohort ⇒ được ghi danh qua cohort sync VÀ vào group của instance.
@@ -34,7 +34,7 @@ describe('Behat retro-audit journeys', () => {
     expect(mine.body).toMatchObject({ enrolled: true, active: true });
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${group.id}/members`).set('Authorization', `Bearer ${admin}`);
     expect(members.status).toBe(200);
-    expect((members.body as { userid: number }[]).some((m) => m.userid === user.id)).toBe(true);
+    expect((members.body as { userid: string }[]).some((m) => m.userid === user.id)).toBe(true);
   });
 
   it('badge criteria can require another badge: badge B is issued only after badge A (Behat: badges/tests/behat/criteria_*.feature họ tiêu chí; lá "badge" của evaluator)', async () => {
@@ -42,12 +42,12 @@ describe('Behat retro-audit journeys', () => {
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Badge A: tiêu chí manual, cấp thủ công.
     const aRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step one', type: 1, issuername: 'LMS HQ' });
-    const aId = aRes.body.id as number;
+    const aId = aRes.body.id as string;
     await http(app).put(`/api/v1/badges/${aId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
     await http(app).post(`/api/v1/badges/${aId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Badge B: yêu cầu đã có badge A.
     const bRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step two', type: 1, issuername: 'LMS HQ' });
-    const bId = bRes.body.id as number;
+    const bId = bRes.body.id as string;
     await http(app).put(`/api/v1/badges/${bId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriatype: 'badge', params: { badgeId: aId } }] });
     await http(app).post(`/api/v1/badges/${bId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Chưa có A ⇒ đánh giá B không đạt, B chưa được cấp.
@@ -57,7 +57,7 @@ describe('Behat retro-audit journeys', () => {
     await http(app).post(`/api/v1/badges/${aId}/award`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${studentToken}`);
-    const ids = (mine.body as { badgeid: number }[]).map((r) => r.badgeid);
+    const ids = (mine.body as { badgeid: string }[]).map((r) => r.badgeid);
     expect(ids).toContain(aId);
     expect(ids).toContain(bId);
   });
@@ -69,13 +69,13 @@ describe('Behat retro-audit journeys', () => {
     const created = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`)
       .send({ name: 'Dentist appointment', eventtype: 'user', timestart: soon });
     expect(created.status).toBe(201);
-    const eventId = created.body.event.id as number;
+    const eventId = created.body.event.id as string;
     let list = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`);
-    expect((list.body as { id: number }[]).some((e) => e.id === eventId)).toBe(true);
+    expect((list.body as { id: string }[]).some((e) => e.id === eventId)).toBe(true);
     const removed = await http(app).delete(`/api/v1/calendar/events/${eventId}`).set('Authorization', `Bearer ${userToken}`);
     expect(removed.status).toBe(200);
     list = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`);
-    expect((list.body as { id: number }[]).some((e) => e.id === eventId)).toBe(false);
+    expect((list.body as { id: string }[]).some((e) => e.id === eventId)).toBe(false);
   });
 
   it('grade scales: a scale item takes index grades and reports them in the gradebook (Behat: grade/tests/behat/grade_scales.feature)', async () => {
@@ -84,9 +84,9 @@ describe('Behat retro-audit journeys', () => {
     const scaleRes = await http(app).post(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Quality scale', scale: 'Poor,OK,Good,Excellent' });
     expect(scaleRes.status).toBe(201);
-    const scaleId = scaleRes.body.id as number;
+    const scaleId = scaleRes.body.id as string;
     const listed = await http(app).get(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`);
-    expect((listed.body as { id: number }[]).some((s) => s.id === scaleId)).toBe(true);
+    expect((listed.body as { id: string }[]).some((s) => s.id === scaleId)).toBe(true);
     // Item dùng scale: grademax bằng số mức của scale (4).
     const item = await createGradeItem(app, admin, course.id, { itemname: 'Essay quality', scaleId, grademax: 4 });
     const student = await createUserViaApi(app, admin);

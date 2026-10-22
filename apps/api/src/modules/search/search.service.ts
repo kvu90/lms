@@ -10,9 +10,9 @@ import { blogPosts, contentbankContent, course, users } from '../../db/schema';
 export interface SearchArea {
   name: string;
   /** Trả về tài liệu của một item, hoặc null nếu item không còn/không nên index. */
-  fetch(itemid: number): Promise<{ title: string; content: string; contextid: number; ownerid?: number } | null>;
+  fetch(itemid: string): Promise<{ title: string; content: string; contextid: string; ownerid?: string } | null>;
   /** Liệt kê mọi itemid hiện có của area (dùng cho reindex toàn bộ). */
-  listIds(): Promise<number[]>;
+  listIds(): Promise<string[]>;
 }
 
 /** PORT của search engine — bản thật là PostgresSearchEngine bên dưới. */
@@ -102,7 +102,7 @@ export class SearchService {
   }
 
   /** Lập chỉ mục một item: fetch từ area; null ⇒ gỡ khỏi index. */
-  async indexItem(area: string, itemid: number): Promise<boolean> {
+  async indexItem(area: string, itemid: string): Promise<boolean> {
     const provider = this.areas.get(area);
     if (!provider) return false;
     const doc = await provider.fetch(itemid);
@@ -121,15 +121,15 @@ export class SearchService {
   }
 
   /** Gỡ mọi tài liệu thuộc về một user (suspended/deleted) khỏi index. */
-  async purgeOwner(ownerid: number): Promise<void> { await this.repo.removeByOwner(ownerid); }
+  async purgeOwner(ownerid: string): Promise<void> { await this.repo.removeByOwner(ownerid); }
 
   /** Indexer nghe sự kiện miền qua EventEmitter/outbox relay trong process. */
   @OnEvent('course_created')
-  async onCourseCreated(p: { courseId?: number }): Promise<void> { if (p.courseId) await this.indexItem('courses', p.courseId); }
+  async onCourseCreated(p: { courseId?: string }): Promise<void> { if (p.courseId) await this.indexItem('courses', p.courseId); }
   @OnEvent('user_suspended')
-  async onUserSuspended(p: { userId?: number }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
+  async onUserSuspended(p: { userId?: string }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
   @OnEvent('user_deleted')
-  async onUserDeleted(p: { userId?: number }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
+  async onUserDeleted(p: { userId?: string }): Promise<void> { if (p.userId) await this.purgeOwner(p.userId); }
 
   /**
    * Tìm kiếm toàn cục cho một user: engine trả ứng viên, sau đó lọc bằng
@@ -137,7 +137,7 @@ export class SearchService {
    * của tài liệu) và RE-CHECK bằng cách fetch lại bản ghi gốc qua area —
    * tài liệu gốc đã suspended/deleted/ẩn thì bị loại dù index còn sót.
    */
-  async search(userId: number, q: string): Promise<SearchDocRow[]> {
+  async search(userId: string, q: string): Promise<SearchDocRow[]> {
     const candidates = await this.repo.queryEngine(q);
     const out: SearchDocRow[] = [];
     /** Capability bắt buộc theo từng area — mỗi area khai báo đúng một capability để re-check, không OR nhiều capability. */
@@ -165,10 +165,10 @@ export class SearchService {
   }
 
   /** Chèn thẳng một tài liệu vào index (dùng cho indexer/test khi cần mô phỏng index sót). */
-  async indexRaw(v: { area: string; itemid: number; title: string; content: string; contextid: number; ownerid?: number }): Promise<SearchDocRow> {
+  async indexRaw(v: { area: string; itemid: string; title: string; content: string; contextid: string; ownerid?: string }): Promise<SearchDocRow> {
     return this.repo.upsert(v);
   }
-  async removeDoc(area: string, itemid: number): Promise<void> { return this.repo.remove(area, itemid); }
+  async removeDoc(area: string, itemid: string): Promise<void> { return this.repo.remove(area, itemid); }
   async listDocs(): Promise<SearchDocRow[]> { return this.repo.listAll(); }
   async countDocs(): Promise<number> { return (await this.repo.listAll()).length; }
   /** Truy vấn SQL thô phục vụ chẩn đoán — không dùng trong luồng nghiệp vụ. */

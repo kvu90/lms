@@ -22,21 +22,21 @@ export class ContentBankService {
     private readonly search: SearchService,
   ) {}
 
-  async get(id: number): Promise<ContentRow> {
+  async get(id: string): Promise<ContentRow> {
     const row = await this.repo.get(id);
     if (!row) throw new NotFoundException({ message: `Content ${id} not found`, code: 'contentbank.not_found' });
     return row;
   }
 
   /** Ai được xem: nội dung public cần viewcontent; draft chỉ tác giả hoặc người có editcontent. */
-  async canView(userId: number, row: ContentRow): Promise<boolean> {
+  async canView(userId: string, row: ContentRow): Promise<boolean> {
     if (row.creatorid === userId) return true;
     if (await this.evaluator.hasCapability(userId, 'moodle/contentbank:editcontent', row.contextid)) return true;
     if (row.visibility !== 'public') return false;
     return this.evaluator.hasCapability(userId, 'moodle/contentbank:viewcontent', row.contextid);
   }
 
-  async create(actorId: number, input: { name: string; contextid: number; contenttype?: string; visibility?: string; fileid?: number }): Promise<ContentRow> {
+  async create(actorId: string, input: { name: string; contextid: string; contenttype?: string; visibility?: string; fileid?: string }): Promise<ContentRow> {
     await this.evaluator.requireCapability(actorId, 'moodle/contentbank:upload', input.contextid);
     const row = await this.repo.insert({
       name: input.name, contextid: input.contextid, creatorid: actorId,
@@ -46,20 +46,20 @@ export class ContentBankService {
     return row;
   }
 
-  async listFor(userId: number, contextid?: number): Promise<ContentRow[]> {
+  async listFor(userId: string, contextid?: string): Promise<ContentRow[]> {
     const rows = contextid ? await this.repo.listByContext(contextid) : await this.repo.list();
     const out: ContentRow[] = [];
     for (const row of rows) if (await this.canView(userId, row)) out.push(row);
     return out;
   }
 
-  async getFor(userId: number, id: number): Promise<ContentRow> {
+  async getFor(userId: string, id: string): Promise<ContentRow> {
     const row = await this.get(id);
     if (!(await this.canView(userId, row))) throw new ForbiddenException({ message: 'You cannot view this content bank item', code: 'contentbank.view_denied' });
     return row;
   }
 
-  async update(actorId: number, id: number, input: { name?: string; visibility?: string; fileid?: number }): Promise<ContentRow> {
+  async update(actorId: string, id: string, input: { name?: string; visibility?: string; fileid?: string }): Promise<ContentRow> {
     const row = await this.get(id);
     if (row.creatorid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextid);
     await this.repo.update(id, { name: input.name ?? row.name, visibility: input.visibility ?? row.visibility, fileid: input.fileid ?? row.fileid });
@@ -70,7 +70,7 @@ export class ContentBankService {
     return updated;
   }
 
-  async remove(actorId: number, id: number): Promise<void> {
+  async remove(actorId: string, id: string): Promise<void> {
     const row = await this.get(id);
     if (row.creatorid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextid);
     await this.repo.remove(id);
@@ -78,7 +78,7 @@ export class ContentBankService {
   }
 
   /** Upload file qua FilesModule và gắn vào nội dung. */
-  async uploadFile(actorId: number, id: number, input: { filename: string; contentBase64: string; mimetype?: string }): Promise<ContentRow> {
+  async uploadFile(actorId: string, id: string, input: { filename: string; contentBase64: string; mimetype?: string }): Promise<ContentRow> {
     const row = await this.get(id);
     if (row.creatorid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextid);
     const data = Buffer.from(input.contentBase64, 'base64');
@@ -91,7 +91,7 @@ export class ContentBankService {
   }
 
   /** Signed URL của file đính kèm — FilesModule tự re-check quyền file. */
-  async signedUrl(actorId: number, id: number): Promise<{ url: string; expiresAt: number }> {
+  async signedUrl(actorId: string, id: string): Promise<{ url: string; expiresAt: number }> {
     const row = await this.getFor(actorId, id);
     if (!row.fileid) throw new NotFoundException({ message: 'Content has no file', code: 'contentbank.no_file' });
     return this.files.createSignedUrl(row.fileid, actorId);

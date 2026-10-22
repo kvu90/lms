@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CalendarService } from './calendar.service';
@@ -31,7 +32,7 @@ export class CalendarController {
   /**
    * GET /calendar/events/:id — chi tiết sự kiện.
    */
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const event = await this.calendar.getEvent(id);
     return { ...event, visibleToMe: await this.calendar.isVisibleTo(event, actor.id) };
   }
@@ -39,21 +40,21 @@ export class CalendarController {
   /**
    * POST /calendar/events/:id/exceptions — tạo exception cho một occurrence.
    */
-  async exception(@Param('id', ParseIntPipe) id: number, @Body({ schema: createCalendarExceptionSchema }) dto: CreateExceptionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async exception(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createCalendarExceptionSchema }) dto: CreateExceptionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.createException(actor.id, id, dto);
   }
   @Post('events/:id/remind')
   /**
    * POST /calendar/events/:id/remind — đặt nhắc cho sự kiện.
    */
-  async remind(@Param('id', ParseIntPipe) id: number, @Body({ schema: calendarRemindSchema }) dto: RemindDto, @CurrentUser() actor: AuthenticatedUser) {
+  async remind(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: calendarRemindSchema }) dto: RemindDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.scheduleReminder(actor.id, id, dto.minutesBefore);
   }
   @Delete('events/:id')
   /**
    * DELETE /calendar/events/:id — xoá sự kiện.
    */
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.deleteEvent(actor.id, id);
   }
   @Post('subscriptions')
@@ -74,7 +75,7 @@ export class CalendarController {
   /**
    * POST /calendar/subscriptions/:id/import — đồng bộ ngay subscription.
    */
-  async importNow(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async importNow(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.requestImport(actor.id, id);
   }
 }

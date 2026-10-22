@@ -44,7 +44,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     await markCmComplete(app, admin, course.id, cm.id, student.id);
     // File trong course context qua Files API.
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
-    const courseCtx = content.body.contextId as number;
+    const courseCtx = content.body.contextId as string;
     const upload = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${admin}`)
       .field('contextid', String(courseCtx)).field('component', 'core_course').field('filearea', 'summary')
       .attach('file', Buffer.from('backup-file-content'), 'syllabus.txt');
@@ -63,7 +63,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ backupJobId: backup.body.id, mode: 'new' });
     expect(restore.status).toBeLessThan(300);
     expect(restore.body.status).toBe('completed');
-    const newCourseId = restore.body.targetcourseid as number;
+    const newCourseId = restore.body.targetcourseid as string;
     expect(newCourseId).not.toBe(course.id);
 
     const checklist = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/checklist`).set('Authorization', `Bearer ${admin}`);
@@ -73,7 +73,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(checklist.body.gradeItems.target).toBeGreaterThanOrEqual(checklist.body.gradeItems.source - 0);
     // Id mapping: mọi mapping đều trỏ sang id khác gốc (trừ course mapping cũng khác).
     const mappings = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/mappings`).set('Authorization', `Bearer ${admin}`);
-    const rows = mappings.body as { itemtype: string; oldid: number; newid: number }[];
+    const rows = mappings.body as { itemtype: string; oldid: string; newid: string }[];
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((m) => m.newid !== m.oldid)).toBe(true);
     expect(rows.some((m) => m.itemtype === 'cm' && m.oldid === cm.id)).toBe(true);
@@ -103,9 +103,9 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     await enrolUser(app, admin, course.id, instance.id, student.id);
     const backup = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({ courseId: course.id, anonymize: true });
     expect(backup.body.status).toBe('completed');
-    const enrolData = backup.body.archive.contributors.enrol as { enrolments: { userid: number }[] };
+    const enrolData = backup.body.archive.contributors.enrol as { enrolments: { userid: string | null }[] };
     expect(enrolData.enrolments.length).toBeGreaterThan(0);
-    expect(enrolData.enrolments.every((e) => e.userid === 0)).toBe(true);
+    expect(enrolData.enrolments.every((e) => e.userid === null)).toBe(true);
   });
 
   it('payments DoD: webhook replay does not activate a fee enrolment twice and the payment is immutable; refund is a separate compensating row', async () => {
@@ -135,13 +135,13 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     const after = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${buyerToken}`);
     expect(after.body.active).toBe(true);
     const enrolments = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    const mine = (enrolments.body as { userid: number }[]).filter((e) => e.userid === buyer.id);
+    const mine = (enrolments.body as { userid: string }[]).filter((e) => e.userid === buyer.id);
     expect(mine).toHaveLength(1);
     // Replay webhook cùng external tx ⇒ duplicate, enrolment vẫn đúng 1, outbox payment_succeeded chỉ 1 (kiểm qua số enrolment + duplicate flag).
     const replay = await http(app).post('/api/v1/payments/webhook').send({ gateway: 'manual', externalTransactionId: txId, paymentId: payment.body.id, status: 'succeeded' });
     expect(replay.body.duplicate).toBe(true);
     const enrolments2 = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((enrolments2.body as { userid: number }[]).filter((e) => e.userid === buyer.id)).toHaveLength(1);
+    expect((enrolments2.body as { userid: string }[]).filter((e) => e.userid === buyer.id)).toHaveLength(1);
     // Refund là giao dịch bù trừ riêng; payment gốc giữ nguyên amount.
     const refund = await http(app).post(`/api/v1/payments/${payment.body.id}/refund`).set('Authorization', `Bearer ${admin}`).send({ amount: 50000, reason: 'changed mind' });
     expect(refund.status).toBeLessThan(300);
@@ -193,7 +193,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     for (const s of EXPECTED_PRIVACY_SUBSYSTEMS) expect(Object.keys(delDone.body.result.deleted)).toContain(s);
     // Lan đủ subsystem: enrolment, grades, completion của user đều biến mất; user bị soft-delete/ẩn danh.
     const enrolments = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    expect((enrolments.body as { userid: number }[]).some((e) => e.userid === user.id)).toBe(false);
+    expect((enrolments.body as { userid: string }[]).some((e) => e.userid === user.id)).toBe(false);
     const book = await http(app).get(`/api/v1/courses/${course.id}/gradebook?userid=${user.id}`).set('Authorization', `Bearer ${admin}`);
     const flat = JSON.stringify(book.body);
     expect(flat).not.toContain('"finalgrade":42');

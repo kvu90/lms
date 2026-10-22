@@ -8,7 +8,7 @@ import { SocialRepository, type RatingRow } from './social.repository';
 export interface RatingAggregate {
   component: string;
   ratingarea: string;
-  itemid: number;
+  itemid: string;
   count: number;
   average: number | null;
   sum: number;
@@ -40,31 +40,29 @@ export class RatingsService {
   ) {}
 
   /** Course/module contexts additionally require real course access (enrolled or staff). */
-  private async assertItemAccess(actorId: number, contextid: number): Promise<void> {
+  private async assertItemAccess(actorId: string, contextid: string): Promise<void> {
     const ctx = await this.contexts.getContext(contextid).catch(() => undefined);
     if (!ctx) return;
-    if (ctx.contextlevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceid);
+    if (ctx.contextlevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceid!);
     if (ctx.contextlevel === 70) {
-      const cm = await this.courses.getCm(ctx.instanceid);
+      const cm = await this.courses.getCm(ctx.instanceid!);
       await this.courses.assertCourseAccess(actorId, cm.course);
     }
   }
 
-  /** Scale size for a scaleid: from the GradesModule scale registry (site scales), else the id itself is the max. */
+  /**
+   * Kích thước thang cho scaleid mã hoá signed kiểu Moodle: giá trị tuyệt đối
+   * là điểm tối đa (scaleid không phải khoá thực thể — xem ADR-013).
+   */
   private async scaleMax(scaleid: number): Promise<number> {
-    if (scaleid > 0) {
-      const siteScales = await this.grades.listScales(0).catch(() => []);
-      const scale = siteScales.find((s) => s.id === scaleid);
-      if (scale) return scale.scale.split(',').length;
-    }
     return Math.abs(scaleid);
   }
 
   /**
    * Đặt/cập nhật rating của user cho item.
    */
-  async rate(actorId: number, input: {
-    contextid: number; component: string; ratingarea: string; itemid: number; scaleid: number; rating: number;
+  async rate(actorId: string, input: {
+    contextid: string; component: string; ratingarea: string; itemid: string; scaleid: number; rating: number;
   }): Promise<RatingRow> {
     await this.evaluator.requireCapability(actorId, 'lms/rating:rate', input.contextid);
     await this.assertItemAccess(actorId, input.contextid);
@@ -84,8 +82,8 @@ export class RatingsService {
   /**
    * Tổng hợp average + count của item.
    */
-  async aggregate(viewerId: number, input: {
-    contextid: number; component: string; ratingarea: string; itemid: number;
+  async aggregate(viewerId: string, input: {
+    contextid: string; component: string; ratingarea: string; itemid: string;
   }): Promise<RatingAggregate> {
     await this.evaluator.requireCapability(viewerId, 'lms/rating:view', input.contextid);
     await this.assertItemAccess(viewerId, input.contextid);
@@ -105,8 +103,8 @@ export class RatingsService {
   /**
    * Danh sách rating của item.
    */
-  async listRatings(viewerId: number, input: {
-    contextid: number; component: string; ratingarea: string; itemid: number;
+  async listRatings(viewerId: string, input: {
+    contextid: string; component: string; ratingarea: string; itemid: string;
   }): Promise<RatingRow[]> {
     await this.evaluator.requireCapability(viewerId, 'lms/rating:viewall', input.contextid);
     await this.assertItemAccess(viewerId, input.contextid);

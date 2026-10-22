@@ -63,7 +63,7 @@ describe('Badges & competencies', () => {
   it('badge criteria tree: ALL requires every leaf, ANY requires one; activation needs criteria and locks them (badgeslib + §2#14)', async () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Finisher', type: 1, issuername: 'LMS HQ' });
-    const badgeId = badgeRes.body.id as number;
+    const badgeId = badgeRes.body.id as string;
     // Cannot activate without criteria.
     const early = await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     expect(early.status).toBe(400);
@@ -87,7 +87,7 @@ describe('Badges & competencies', () => {
     await markCmComplete(app, admin, course.id, cm.id, student.id);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${studentToken}`);
-    const mineRows = mine.body as { badgeid: number; uniquehash: string; snapshot: { criteria: unknown[] } }[];
+    const mineRows = mine.body as { badgeid: string; uniquehash: string; snapshot: { criteria: unknown[] } }[];
     const awarded = mineRows.find((r) => r.badgeid === badgeId);
     expect(awarded).toBeTruthy();
     expect(awarded!.uniquehash).toHaveLength(64);
@@ -103,7 +103,7 @@ describe('Badges & competencies', () => {
     const { competency } = await frameworkWithCompetency();
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Competent', type: 1 });
-    const badgeId = badgeRes.body.id as number;
+    const badgeId = badgeRes.body.id as string;
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 2, criteria: [{ criteriatype: 'competency', params: { competencyId: competency.id } }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
@@ -111,12 +111,12 @@ describe('Badges & competencies', () => {
     // Becoming proficient (review approve) triggers the competency listener → auto-award.
     const evidence = await http(app).post('/api/v1/competencies/evidence').set('Authorization', `Bearer ${admin}`)
       .send({ userId: user.id, competencyId: competency.id, description: 'Portfolio', sendForReview: true });
-    const usercompId = evidence.body.usercomp.id as number;
+    const usercompId = evidence.body.usercomp.id as string;
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/approve`).set('Authorization', `Bearer ${admin}`).send({ grade: 1 });
     const userToken = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${userToken}`);
-    const assertion = (mine.body as { id: number; badgeid: number }[]).find((r) => r.badgeid === badgeId);
+    const assertion = (mine.body as { id: string; badgeid: string }[]).find((r) => r.badgeid === badgeId);
     expect(assertion).toBeTruthy();
     // Deactivate, then try to edit criteria: still frozen because awards exist.
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 0 });
@@ -143,7 +143,7 @@ describe('Badges & competencies', () => {
   it('manual award: requires the awardbadge capability and a manual criterion; ALL with an unmet leaf does not issue', async () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Mentor pick', type: 1 });
-    const badgeId = badgeRes.body.id as number;
+    const badgeId = badgeRes.body.id as string;
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
@@ -174,7 +174,7 @@ describe('Badges & competencies', () => {
     await markCmComplete(app, admin, b.course.id, b.cm.id, student.id);
 
     const usercomps = await http(app).get(`/api/v1/competencies/usercomp/user/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    const rows = usercomps.body as { competencyid: number; proficiency: boolean | null; grade: number | null; id: number }[];
+    const rows = usercomps.body as { competencyid: string; proficiency: boolean | null; grade: number | null; id: string }[];
     const completeRow = rows.find((r) => r.competencyid === competency.id);
     expect(completeRow?.proficiency).toBe(true);
     expect(completeRow?.grade).toBe(1); // first proficient index of the scale
@@ -216,7 +216,7 @@ describe('Badges & competencies', () => {
     const ownerToken = (await login(app, owner.username, STRONG_PASSWORD)).accessToken;
     const plan = await http(app).post('/api/v1/competencies/plans').set('Authorization', `Bearer ${ownerToken}`)
       .send({ name: 'My growth plan' });
-    const planId = plan.body.id as number;
+    const planId = plan.body.id as string;
     expect(plan.body.status).toBe(0);
     // Bad transition: cannot request review from draft.
     const badReq = await http(app).post(`/api/v1/competencies/plans/${planId}/request-review`).set('Authorization', `Bearer ${ownerToken}`).send({});
@@ -252,7 +252,7 @@ describe('Badges & competencies', () => {
     const evidence = await http(app).post('/api/v1/competencies/evidence').set('Authorization', `Bearer ${learnerToken}`)
       .send({ userId: learner.id, competencyId: competency.id, description: 'My portfolio', sendForReview: true });
     expect(evidence.status).toBe(201);
-    const usercompId = evidence.body.usercomp.id as number;
+    const usercompId = evidence.body.usercomp.id as string;
     expect(evidence.body.usercomp.status).toBe(1); // waiting for review
     expect(evidence.body.usercomp.proficiency).toBeNull(); // self-evidence never self-certifies
 

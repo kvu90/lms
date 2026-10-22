@@ -41,7 +41,7 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
 export class EnrolService implements OnModuleInit {
   /** Probe registered by CompletionModule: does this user have completion data in this course? */
   /** Related-data probes (Completion, Grades, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
-  private relatedDataProbes: ((courseId: number, userId: number) => Promise<boolean>)[] = [];
+  private relatedDataProbes: ((courseId: string, userId: string) => Promise<boolean>)[] = [];
 
   constructor(
     private readonly repo: EnrolRepository,
@@ -63,23 +63,23 @@ export class EnrolService implements OnModuleInit {
   /**
    * Đăng ký probe kiểm tra user còn dữ liệu liên quan trong khoá học hay không (module khác cắm vào).
    */
-  registerRelatedDataProbe(probe: (courseId: number, userId: number) => Promise<boolean>): void {
+  registerRelatedDataProbe(probe: (courseId: string, userId: string) => Promise<boolean>): void {
     this.relatedDataProbes.push(probe);
   }
   /**
    * User còn dữ liệu liên quan (điểm/bài nộp) trong khoá học hay không — quyết định rút hẳn hay chỉ đình chỉ khi rời cohort.
    */
-  async hasRelatedData(courseId: number, userId: number): Promise<boolean> {
+  async hasRelatedData(courseId: string, userId: string): Promise<boolean> {
     for (const probe of this.relatedDataProbes) {
       if (await probe(courseId, userId)) return true;
     }
     return false;
   }
 
-  private async requireManage(actorId: number, courseId: number): Promise<void> {
+  private async requireManage(actorId: string, courseId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, 'lms/enrol:manage', await this.courses.courseContextId(courseId));
   }
-  private async defaultStudentRoleId(): Promise<number> {
+  private async defaultStudentRoleId(): Promise<string> {
     const roleRow = await this.roles.getRoleByShortname('student');
     if (!roleRow) throw new Error('student role not seeded');
     return roleRow.id;
@@ -89,10 +89,10 @@ export class EnrolService implements OnModuleInit {
   /**
    * Tạo enrol instance cho khoá học (manual/self/cohort/paypal).
    */
-  async createInstance(actorId: number, courseId: number, input: {
+  async createInstance(actorId: string, courseId: string, input: {
     method: string; name?: string; roleShortname?: string; status?: number; enrolperiod?: number;
-    cohortId?: number; groupId?: number; onCohortLeave?: 'suspend' | 'unenrol';
-    cost?: number; currency?: string; paymentAccountId?: number;
+    cohortId?: string; groupId?: string; onCohortLeave?: 'suspend' | 'unenrol';
+    cost?: number; currency?: string; paymentAccountId?: string;
   }): Promise<EnrolRow> {
     await this.courses.getCourse(courseId);
     await this.requireManage(actorId, courseId);
@@ -102,7 +102,7 @@ export class EnrolService implements OnModuleInit {
     if (input.method === 'cohort' && !input.cohortId) {
       throw new BadRequestException({ message: 'A cohort enrol instance requires cohortId', code: 'enrol.cohort_required' });
     }
-    let roleid: number | undefined;
+    let roleid: string | undefined;
     if (input.roleShortname) {
       const roleRow = await this.roles.getRoleByShortname(input.roleShortname);
       if (!roleRow) throw new BadRequestException({ message: `Role ${input.roleShortname} not found`, code: 'enrol.role_not_found' });
@@ -116,8 +116,8 @@ export class EnrolService implements OnModuleInit {
     const instance = await this.repo.insertInstance({
       courseid: courseId, enrol: input.method, name: input.name ?? null, roleid,
       status: input.status ?? 0, enrolperiod: input.enrolperiod ?? 0,
-      customint1: input.method === 'cohort' ? (input.cohortId ?? 0) : 0,
-      customint2: input.groupId ?? 0,
+      customint1: input.method === 'cohort' ? (input.cohortId ?? null) : null,
+      customint2: input.groupId ?? null,
       customtext1: input.onCohortLeave ?? 'suspend',
       cost: input.cost ?? 0, currency: input.currency ?? '', paymentaccountid: input.paymentAccountId ?? null,
     });
@@ -132,7 +132,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Lấy instance; ném enrol.instance_not_found khi vắng.
    */
-  async getInstance(id: number): Promise<EnrolRow> {
+  async getInstance(id: string): Promise<EnrolRow> {
     const row = await this.repo.getInstance(id);
     if (!row) throw new NotFoundException({ message: `Enrol instance ${id} not found`, code: 'enrol.instance_not_found' });
     return row;
@@ -140,11 +140,11 @@ export class EnrolService implements OnModuleInit {
   /**
    * Liệt kê instance của khoá học.
    */
-  async listInstances(courseId: number): Promise<EnrolRow[]> { return this.repo.listInstances(courseId); }
+  async listInstances(courseId: string): Promise<EnrolRow[]> { return this.repo.listInstances(courseId); }
   /**
    * Cập nhật instance.
    */
-  async updateInstance(actorId: number, id: number, input: { name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: number }): Promise<EnrolRow> {
+  async updateInstance(actorId: string, id: string, input: { name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: string }): Promise<EnrolRow> {
     const instance = await this.getInstance(id);
     await this.requireManage(actorId, instance.courseid);
     const patch: Partial<EnrolRow> = {};
@@ -159,7 +159,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Xoá instance.
    */
-  async deleteInstance(actorId: number, id: number): Promise<void> {
+  async deleteInstance(actorId: string, id: string): Promise<void> {
     const instance = await this.getInstance(id);
     await this.requireManage(actorId, instance.courseid);
     await this.repo.deleteInstance(id);
@@ -170,7 +170,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Ghi danh nội bộ không kiểm capability (dùng cho cohort sync và thanh toán đã xác nhận).
    */
-  async enrolUserInternal(instance: EnrolRow, userId: number, modifierId?: number, opts?: { timestart?: Date; timeend?: Date }): Promise<UserEnrolmentRow> {
+  async enrolUserInternal(instance: EnrolRow, userId: string, modifierId?: string, opts?: { timestart?: Date; timeend?: Date }): Promise<UserEnrolmentRow> {
     if (instance.status !== 0) throw new BadRequestException({ message: 'Enrol instance is disabled', code: 'enrol.instance_disabled' });
     const timestart = opts?.timestart ?? new Date();
     const timeend = opts?.timeend ?? (instance.enrolperiod > 0 ? new Date(timestart.getTime() + instance.enrolperiod * 1000) : null);
@@ -199,7 +199,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Ghi danh thủ công một user (kiểm capability enrol).
    */
-  async enrolUser(actorId: number, instanceId: number, userId: number, opts?: { timestart?: string; timeend?: string }): Promise<UserEnrolmentRow> {
+  async enrolUser(actorId: string, instanceId: string, userId: string, opts?: { timestart?: string; timeend?: string }): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
     return this.enrolUserInternal(instance, userId, actorId, {
@@ -213,7 +213,7 @@ export class EnrolService implements OnModuleInit {
    * Tự ghi danh: chỉ dành cho instance self đang bật; instance fee bị từ chối (enrol.payment_required) vì phải qua thanh toán đã xác nhận.
    * Lưu ý: khoá ghi danh (enrolment key) của Moodle enrol_self chưa được cài đặt ở hệ này — xem docs/business-traceability.md.
    */
-  async selfEnrol(userId: number, instanceId: number): Promise<UserEnrolmentRow> {
+  async selfEnrol(userId: string, instanceId: string): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol === 'fee') {
       // Enrol có phí chỉ kích hoạt qua PaymentSucceeded đã xác thực (§2#27) — không tự ghi danh trực tiếp.
@@ -227,7 +227,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Kích hoạt ghi danh sau khi thanh toán PayPal được xác nhận.
    */
-  async activatePaidEnrol(instanceId: number, userId: number): Promise<UserEnrolmentRow> {
+  async activatePaidEnrol(instanceId: string, userId: string): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol !== 'fee') throw new BadRequestException({ message: 'Instance is not a fee enrol instance', code: 'enrol.not_fee' });
     const existing = await this.repo.getUserEnrolment(instanceId, userId);
@@ -238,7 +238,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Đình chỉ hoặc kích hoạt lại một ghi danh.
    */
-  async setSuspended(actorId: number, instanceId: number, userId: number, suspended: boolean): Promise<UserEnrolmentRow> {
+  async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
@@ -264,7 +264,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Rút ghi danh (kiểm capability).
    */
-  async unenrolUser(actorId: number, instanceId: number, userId: number): Promise<{ withdrawn: boolean }> {
+  async unenrolUser(actorId: string, instanceId: string, userId: string): Promise<{ withdrawn: boolean }> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
     return this.unenrolInternal(instance, userId, actorId);
@@ -273,7 +273,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Rút ghi danh nội bộ không kiểm capability.
    */
-  async unenrolInternal(instance: EnrolRow, userId: number, modifierId?: number): Promise<{ withdrawn: boolean }> {
+  async unenrolInternal(instance: EnrolRow, userId: string, modifierId?: string): Promise<{ withdrawn: boolean }> {
     const ue = await this.repo.getUserEnrolment(instance.id, userId);
     if (!ue) return { withdrawn: false };
     const hasRelated = await this.hasRelatedData(instance.courseid, userId);
@@ -291,7 +291,7 @@ export class EnrolService implements OnModuleInit {
     // Moodle; here: the instance role at the course context).
     if (instance.roleid) {
       const assignments = await this.roles.listAssignments({ userid: userId, contextid: await this.courses.courseContextId(instance.courseid) });
-      for (const a of assignments as { id: number; roleid: number }[]) {
+      for (const a of assignments as { id: string; roleid: string }[]) {
         if (a.roleid === instance.roleid) await this.roles.unassignRole(a.id);
       }
     }
@@ -307,7 +307,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * User có ghi danh đang hiệu lực và trong cửa sổ thời gian hay không.
    */
-  async isEnrolled(courseId: number, userId: number, opts?: { onlyActive?: boolean; capability?: string }): Promise<boolean> {
+  async isEnrolled(courseId: string, userId: string, opts?: { onlyActive?: boolean; capability?: string }): Promise<boolean> {
     const instances = await this.repo.listInstances(courseId);
     const now = new Date();
     for (const instance of instances) {
@@ -331,19 +331,19 @@ export class EnrolService implements OnModuleInit {
   /**
    * Ghi danh của khoá học.
    */
-  async listEnrolmentsForCourse(courseId: number): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
+  async listEnrolmentsForCourse(courseId: string): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
     return this.repo.listUserEnrolmentsForCourse(courseId);
   }
   /**
    * Ghi danh của user.
    */
-  async listEnrolmentsForUser(userId: number): Promise<UserEnrolmentRow[]> {
+  async listEnrolmentsForUser(userId: string): Promise<UserEnrolmentRow[]> {
     return this.repo.listUserEnrolmentsForUser(userId);
   }
   /**
    * Một ghi danh cụ thể của user trong khoá học.
    */
-  async getUserEnrolment(instanceId: number, userId: number): Promise<UserEnrolmentRow | undefined> {
+  async getUserEnrolment(instanceId: string, userId: string): Promise<UserEnrolmentRow | undefined> {
     return this.repo.getUserEnrolment(instanceId, userId);
   }
 
@@ -351,9 +351,9 @@ export class EnrolService implements OnModuleInit {
   /**
    * Xử lý các ghi danh quá hạn (worker enrol-expiry gọi): đình chỉ/rút theo cấu hình instance.
    */
-  async expireEnrolments(now = new Date()): Promise<number[]> {
+  async expireEnrolments(now = new Date()): Promise<string[]> {
     const expired = await this.repo.listExpiredActive(now);
-    const flipped: number[] = [];
+    const flipped: string[] = [];
     for (const ue of expired) {
       const instance = await this.repo.getInstance(ue.enrolid);
       await this.repo.dbHandle.transaction(async (tx) => {
@@ -373,7 +373,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Sự kiện thành viên cohort mới → ghi danh vào mọi khoá học có instance cohort tương ứng.
    */
-  async onCohortMemberAdded(payload: { cohortId: number; userId: number }): Promise<void> {
+  async onCohortMemberAdded(payload: { cohortId: string; userId: string }): Promise<void> {
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
       if (instance.status !== 0) continue;
@@ -385,7 +385,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Sự kiện rời cohort → rút/đình chỉ ghi danh cohort tương ứng.
    */
-  async onCohortMemberRemoved(payload: { cohortId: number; userId: number }): Promise<void> {
+  async onCohortMemberRemoved(payload: { cohortId: string; userId: string }): Promise<void> {
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
       const ue = await this.repo.getUserEnrolment(instance.id, payload.userId);

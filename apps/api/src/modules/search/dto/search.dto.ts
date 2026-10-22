@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { searchIndexItemSchema, type SearchIndexItem } from '@lms/contracts';
+import { searchIndexItemSchema, type SearchIndexItem, uuidIdSchema } from '@lms/contracts';
 
 /**
  * Validation của Search dùng Zod qua Standard Schema (xem ADR Zod-only):
@@ -17,7 +17,7 @@ export type IndexItemDto = SearchIndexItem;
 export const indexRawDocumentSchema = searchIndexItemSchema.extend({
   title: z.string().min(1),
   content: z.string(),
-  contextid: z.number().int(),
-  ownerid: z.number().int().optional(),
+  contextid: uuidIdSchema,
+  ownerid: uuidIdSchema.optional(),
 });
 export type IndexRawDto = z.infer<typeof indexRawDocumentSchema>;

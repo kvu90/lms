@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { createEnrolInstanceSchema, enrolUserSchema, updateEnrolInstanceSchema, type CreateEnrolInstanceDto, type EnrolUserDto, type UpdateEnrolInstanceDto } from './dto/enrol.dto';
@@ -16,28 +17,28 @@ export class EnrolController {
   /**
    * POST /courses/:courseId/enrol/instances — tạo phương thức ghi danh.
    */
-  async createInstance(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createEnrolInstanceSchema }) dto: CreateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createInstance(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createEnrolInstanceSchema }) dto: CreateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.createInstance(actor.id, courseId, dto);
   }
   @Get(':courseId/enrol/instances')
   /**
    * GET /courses/:courseId/enrol/instances — liệt kê phương thức.
    */
-  async listInstances(@Param('courseId', ParseIntPipe) courseId: number) {
+  async listInstances(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
     return this.enrol.listInstances(courseId);
   }
   @Patch(':courseId/enrol/instances/:instanceId')
   /**
    * PATCH /courses/:courseId/enrol/instances/:instanceId — cập nhật phương thức.
    */
-  async updateInstance(@Param('instanceId', ParseIntPipe) instanceId: number, @Body({ schema: updateEnrolInstanceSchema }) dto: UpdateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateInstance(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Body({ schema: updateEnrolInstanceSchema }) dto: UpdateEnrolInstanceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.updateInstance(actor.id, instanceId, dto);
   }
   @Delete(':courseId/enrol/instances/:instanceId')
   /**
    * DELETE /courses/:courseId/enrol/instances/:instanceId — xoá phương thức.
    */
-  async deleteInstance(@Param('instanceId', ParseIntPipe) instanceId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async deleteInstance(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.enrol.deleteInstance(actor.id, instanceId);
     return { deleted: true };
   }
@@ -46,35 +47,35 @@ export class EnrolController {
   /**
    * POST /courses/:courseId/enrol/instances/:instanceId/enrol — ghi danh thủ công.
    */
-  async enrolUser(@Param('instanceId', ParseIntPipe) instanceId: number, @Body({ schema: enrolUserSchema }) dto: EnrolUserDto, @CurrentUser() actor: AuthenticatedUser) {
+  async enrolUser(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Body({ schema: enrolUserSchema }) dto: EnrolUserDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.enrolUser(actor.id, instanceId, dto.userid, { timestart: dto.timestart, timeend: dto.timeend });
   }
   @Post(':courseId/enrol/instances/:instanceId/self-enrol')
   /**
    * POST /courses/:courseId/enrol/instances/:instanceId/self-enrol — tự ghi danh (có thể cần khoá ghi danh).
    */
-  async selfEnrol(@Param('instanceId', ParseIntPipe) instanceId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async selfEnrol(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.selfEnrol(actor.id, instanceId);
   }
   @Post(':courseId/enrol/instances/:instanceId/users/:userId/suspend')
   /**
    * POST /courses/:courseId/enrol/instances/:instanceId/users/:userId/suspend — đình chỉ ghi danh.
    */
-  async suspend(@Param('instanceId', ParseIntPipe) instanceId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async suspend(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.setSuspended(actor.id, instanceId, userId, true);
   }
   @Post(':courseId/enrol/instances/:instanceId/users/:userId/reactivate')
   /**
    * POST /courses/:courseId/enrol/instances/:instanceId/users/:userId/reactivate — kích hoạt lại ghi danh.
    */
-  async reactivate(@Param('instanceId', ParseIntPipe) instanceId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async reactivate(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.setSuspended(actor.id, instanceId, userId, false);
   }
   @Delete(':courseId/enrol/instances/:instanceId/users/:userId')
   /**
    * DELETE /courses/:courseId/enrol/instances/:instanceId/users/:userId — rút ghi danh.
    */
-  async unenrol(@Param('instanceId', ParseIntPipe) instanceId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async unenrol(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.enrol.unenrolUser(actor.id, instanceId, userId);
   }
 
@@ -82,14 +83,14 @@ export class EnrolController {
   /**
    * GET /courses/:courseId/enrolments — ghi danh của khoá học.
    */
-  async listEnrolments(@Param('courseId', ParseIntPipe) courseId: number) {
+  async listEnrolments(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
     return this.enrol.listEnrolmentsForCourse(courseId);
   }
   @Get(':courseId/enrolments/me')
   /**
    * GET /courses/:courseId/enrolments/me — ghi danh của chính user hiện tại.
    */
-  async myEnrolment(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() viewer: AuthenticatedUser) {
+  async myEnrolment(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() viewer: AuthenticatedUser) {
     return {
       courseId, userId: viewer.id,
       enrolled: await this.enrol.isEnrolled(courseId, viewer.id),

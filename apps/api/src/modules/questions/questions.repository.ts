@@ -34,17 +34,17 @@ export class QuestionsRepository {
   /**
    * Lấy category theo id.
    */
-  async getCategory(id: number): Promise<QCategoryRow | undefined> {
+  async getCategory(id: string): Promise<QCategoryRow | undefined> {
     const [row] = await this.db.select().from(questionCategories).where(eq(questionCategories.id, id)); return row;
   }
   /**
    * Liệt kê category trong context.
    */
-  async listCategories(contextId?: number): Promise<QCategoryRow[]> {
+  async listCategories(contextId?: string): Promise<QCategoryRow[]> {
     const rows = contextId !== undefined
       ? await this.db.select().from(questionCategories).where(eq(questionCategories.contextid, contextId))
       : await this.db.select().from(questionCategories);
-    return rows.sort((a, b) => a.id - b.id);
+    return rows.sort((a, b) => a.timecreated.getTime() - b.timecreated.getTime() || a.id.localeCompare(b.id));
   }
 
   /**
@@ -56,19 +56,19 @@ export class QuestionsRepository {
   /**
    * Lấy question theo id.
    */
-  async getQuestion(id: number): Promise<QuestionRow | undefined> {
+  async getQuestion(id: string): Promise<QuestionRow | undefined> {
     const [row] = await this.db.select().from(question).where(eq(question.id, id)); return row;
   }
   /**
    * Cập nhật question.
    */
-  async updateQuestion(id: number, patch: Partial<QuestionRow>): Promise<void> {
+  async updateQuestion(id: string, patch: Partial<QuestionRow>): Promise<void> {
     await this.db.update(question).set({ ...patch, timemodified: new Date() }).where(eq(question.id, id));
   }
   /**
    * Câu hỏi trong category.
    */
-  async listQuestionsInCategory(categoryId: number): Promise<QuestionRow[]> {
+  async listQuestionsInCategory(categoryId: string): Promise<QuestionRow[]> {
     return this.db.select().from(question).where(eq(question.category, categoryId)).orderBy(asc(question.id));
   }
 
@@ -81,13 +81,13 @@ export class QuestionsRepository {
   /**
    * Entry của một question.
    */
-  async getEntryByQuestion(questionId: number): Promise<EntryRow | undefined> {
+  async getEntryByQuestion(questionId: string): Promise<EntryRow | undefined> {
     const [row] = await this.db.select().from(questionBankEntries).where(eq(questionBankEntries.questionid, questionId)); return row;
   }
   /**
    * Cập nhật entry (latestversion).
    */
-  async updateEntry(id: number, patch: Partial<EntryRow>): Promise<void> {
+  async updateEntry(id: string, patch: Partial<EntryRow>): Promise<void> {
     await this.db.update(questionBankEntries).set({ ...patch, timemodified: new Date() }).where(eq(questionBankEntries.id, id));
   }
 
@@ -100,13 +100,13 @@ export class QuestionsRepository {
   /**
    * Lấy version theo id.
    */
-  async getVersion(id: number): Promise<VersionRow | undefined> {
+  async getVersion(id: string): Promise<VersionRow | undefined> {
     const [row] = await this.db.select().from(questionVersions).where(eq(questionVersions.id, id)); return row;
   }
   /**
    * Lấy version theo số thứ tự của question.
    */
-  async getVersionByNumber(entryId: number, version: number): Promise<VersionRow | undefined> {
+  async getVersionByNumber(entryId: string, version: number): Promise<VersionRow | undefined> {
     const [row] = await this.db.select().from(questionVersions)
       .where(and(eq(questionVersions.questionbankentryid, entryId), eq(questionVersions.version, version)));
     return row;
@@ -114,7 +114,7 @@ export class QuestionsRepository {
   /**
    * Mọi version của question (lịch sử).
    */
-  async listVersions(entryId: number): Promise<VersionRow[]> {
+  async listVersions(entryId: string): Promise<VersionRow[]> {
     return this.db.select().from(questionVersions).where(eq(questionVersions.questionbankentryid, entryId)).orderBy(asc(questionVersions.version));
   }
 
@@ -127,7 +127,7 @@ export class QuestionsRepository {
   /**
    * Lấy usage theo id.
    */
-  async getUsage(id: number): Promise<UsageRow | undefined> {
+  async getUsage(id: string): Promise<UsageRow | undefined> {
     const [row] = await this.db.select().from(questionUsages).where(eq(questionUsages.id, id)); return row;
   }
   /**
@@ -139,19 +139,19 @@ export class QuestionsRepository {
   /**
    * Lấy attempt theo id.
    */
-  async getAttempt(id: number): Promise<AttemptRow | undefined> {
+  async getAttempt(id: string): Promise<AttemptRow | undefined> {
     const [row] = await this.db.select().from(questionAttempts).where(eq(questionAttempts.id, id)); return row;
   }
   /**
    * Attempt của usage.
    */
-  async listAttempts(usageId: number): Promise<AttemptRow[]> {
+  async listAttempts(usageId: string): Promise<AttemptRow[]> {
     return this.db.select().from(questionAttempts).where(eq(questionAttempts.questionusageid, usageId)).orderBy(asc(questionAttempts.slot));
   }
   /**
    * Cập nhật attempt (trạng thái, fraction, version đã pin).
    */
-  async updateAttempt(id: number, patch: Partial<AttemptRow>): Promise<void> {
+  async updateAttempt(id: string, patch: Partial<AttemptRow>): Promise<void> {
     await this.db.update(questionAttempts).set({ ...patch, timemodified: new Date() }).where(eq(questionAttempts.id, id));
   }
 
@@ -164,7 +164,7 @@ export class QuestionsRepository {
   /**
    * Các bước của attempt theo thứ tự.
    */
-  async listSteps(attemptId: number): Promise<StepRow[]> {
+  async listSteps(attemptId: string): Promise<StepRow[]> {
     return this.db.select().from(questionAttemptSteps).where(eq(questionAttemptSteps.questionattemptid, attemptId)).orderBy(asc(questionAttemptSteps.sequencenumber));
   }
   /**
@@ -176,7 +176,7 @@ export class QuestionsRepository {
   /**
    * Dữ liệu các bước của attempt.
    */
-  async listStepData(stepId: number): Promise<(typeof questionAttemptStepData.$inferSelect)[]> {
+  async listStepData(stepId: string): Promise<(typeof questionAttemptStepData.$inferSelect)[]> {
     return this.db.select().from(questionAttemptStepData).where(eq(questionAttemptStepData.attemptstepid, stepId));
   }
 }

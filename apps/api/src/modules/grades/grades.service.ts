@@ -71,7 +71,7 @@ export class GradesService implements OnModuleInit {
     });
   }
 
-  private async requireCap(actorId: number, capability: string, courseId: number): Promise<void> {
+  private async requireCap(actorId: string, capability: string, courseId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, capability, await this.courses.courseContextId(courseId));
   }
 
@@ -81,7 +81,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Đảm bảo khoá học có category điểm gốc.
    */
-  async ensureCourseCategory(courseId: number): Promise<{ category: CategoryRow; courseItem: ItemRow }> {
+  async ensureCourseCategory(courseId: string): Promise<{ category: CategoryRow; courseItem: ItemRow }> {
     let root = await this.repo.rootCategory(courseId);
     if (!root) {
       root = await this.repo.insertCategory({ courseid: courseId, parent: null, fullname: '', aggregation: 'natural', depth: 1, path: '' });
@@ -101,8 +101,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Tạo category điểm con.
    */
-  async createCategory(actorId: number, courseId: number, input: {
-    fullname: string; parentId?: number; aggregation?: string; droplow?: number; keephigh?: number;
+  async createCategory(actorId: string, courseId: string, input: {
+    fullname: string; parentId?: string; aggregation?: string; droplow?: number; keephigh?: number;
     aggregateonlygraded?: boolean; hidden?: boolean;
   }): Promise<CategoryRow> {
     await this.courses.getCourse(courseId);
@@ -133,7 +133,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Lấy category; ném grades.category_not_found khi vắng.
    */
-  async getCategory(id: number): Promise<CategoryRow> {
+  async getCategory(id: string): Promise<CategoryRow> {
     const row = await this.repo.getCategory(id);
     if (!row) throw new NotFoundException({ message: `Grade category ${id} not found`, code: 'grades.category_not_found' });
     return row;
@@ -141,7 +141,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Category của khoá học.
    */
-  async listCategories(courseId: number): Promise<CategoryRow[]> {
+  async listCategories(courseId: string): Promise<CategoryRow[]> {
     await this.ensureCourseCategory(courseId);
     return this.repo.listCategories(courseId);
   }
@@ -149,7 +149,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Cập nhật category (chiến lược tổng hợp, drop-lowest…).
    */
-  async updateCategory(actorId: number, categoryId: number, input: {
+  async updateCategory(actorId: string, categoryId: string, input: {
     fullname?: string; aggregation?: string; droplow?: number; keephigh?: number;
     aggregateonlygraded?: boolean; hidden?: boolean;
   }): Promise<CategoryRow> {
@@ -187,7 +187,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Xoá category (item con được nâng lên category cha).
    */
-  async deleteCategory(actorId: number, categoryId: number): Promise<void> {
+  async deleteCategory(actorId: string, categoryId: string): Promise<void> {
     const cat = await this.getCategory(categoryId);
     await this.requireCap(actorId, 'moodle/grade:manage', cat.courseid);
     const root = await this.repo.rootCategory(cat.courseid);
@@ -210,9 +210,9 @@ export class GradesService implements OnModuleInit {
   /**
    * Tạo grade item (manual hoặc gắn với hoạt động).
    */
-  async createItem(actorId: number, courseId: number, input: {
-    itemname: string; itemtype?: string; categoryId?: number; cmId?: number;
-    grademax?: number; grademin?: number; gradepass?: number; scaleId?: number;
+  async createItem(actorId: string, courseId: string, input: {
+    itemname: string; itemtype?: string; categoryId?: string; cmId?: string;
+    grademax?: number; grademin?: number; gradepass?: number; scaleId?: string;
     weightoverride?: boolean; weight?: number; extracredit?: boolean;
     multiplicator?: number; plusfactor?: number; hidden?: boolean;
   }): Promise<ItemRow> {
@@ -241,7 +241,7 @@ export class GradesService implements OnModuleInit {
     if (grademax <= grademin) throw new BadRequestException({ message: 'grademax must be greater than grademin', code: 'grades.bad_range' });
     const item = await this.repo.insertItem({
       courseid: courseId, categoryid: category.id, itemname: input.itemname, itemtype,
-      itemmodule, iteminstance: itemtype === 'mod' ? input.cmId! : 0,
+      itemmodule, iteminstance: itemtype === 'mod' ? input.cmId! : null,
       gradetype: input.scaleId ? 'scale' : 'value', scaleid: input.scaleId ?? null,
       grademax, grademin, gradepass: input.gradepass ?? 0,
       weightoverride: input.weightoverride ?? false, aggregationcoef: input.weight ?? 0,
@@ -255,7 +255,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Lấy item; ném grades.item_not_found khi vắng.
    */
-  async getItem(id: number): Promise<ItemRow> {
+  async getItem(id: string): Promise<ItemRow> {
     const row = await this.repo.getItem(id);
     if (!row) throw new NotFoundException({ message: `Grade item ${id} not found`, code: 'grades.item_not_found' });
     return row;
@@ -263,7 +263,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Item của khoá học.
    */
-  async listItems(courseId: number): Promise<ItemRow[]> {
+  async listItems(courseId: string): Promise<ItemRow[]> {
     await this.ensureCourseCategory(courseId);
     return this.repo.listItems(courseId);
   }
@@ -271,8 +271,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Cập nhật item.
    */
-  async updateItem(actorId: number, itemId: number, input: {
-    itemname?: string; categoryId?: number; grademax?: number; grademin?: number; gradepass?: number;
+  async updateItem(actorId: string, itemId: string, input: {
+    itemname?: string; categoryId?: string; grademax?: number; grademin?: number; gradepass?: number;
     weightoverride?: boolean; weight?: number; extracredit?: boolean;
     multiplicator?: number; plusfactor?: number; hidden?: boolean; locked?: boolean;
   }): Promise<ItemRow> {
@@ -304,7 +304,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Xoá item và điểm của nó.
    */
-  async deleteItem(actorId: number, itemId: number): Promise<void> {
+  async deleteItem(actorId: string, itemId: string): Promise<void> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'moodle/grade:manage', item.courseid);
     if (item.itemtype === 'course' || item.itemtype === 'category') {
@@ -331,7 +331,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Đặt điểm cho user tại item: kiểm capability grade:edit, ghi lịch sử, kích hoạt regrade.
    */
-  async setGrade(actorId: number, itemId: number, userId: number, input: { rawgrade?: number | null; feedback?: string }): Promise<GradeRow> {
+  async setGrade(actorId: string, itemId: string, userId: string, input: { rawgrade?: number | null; feedback?: string }): Promise<GradeRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'moodle/grade:edit', item.courseid);
     if (item.itemtype === 'course' || item.itemtype === 'category') {
@@ -376,7 +376,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Sửa một bản ghi điểm đã có (kèm lịch sử).
    */
-  async updateGrade(actorId: number, gradeId: number, input: {
+  async updateGrade(actorId: string, gradeId: string, input: {
     overridden?: boolean; finalgrade?: number | null; locked?: boolean; excluded?: boolean;
     hidden?: boolean; frozen?: boolean; feedback?: string;
   }): Promise<GradeRow> {
@@ -424,12 +424,12 @@ export class GradesService implements OnModuleInit {
   /**
    * Tính lại tổng cho một user trong khoá học.
    */
-  async regradeUser(courseId: number, userId: number): Promise<void> {
+  async regradeUser(courseId: string, userId: string): Promise<void> {
     const categories = await this.repo.listCategories(courseId);
     const items = await this.repo.listItems(courseId);
     const grades = await this.repo.listGradesForCourse(courseId, userId);
-    const gradeByItem = new Map<number, GradeRow>(grades.map((g) => [g.itemid, g]));
-    const finalByItem = new Map<number, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
+    const gradeByItem = new Map<string, GradeRow>(grades.map((g) => [g.itemid, g]));
+    const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
 
     const byDepthDesc = [...categories].sort((a, b) => b.depth - a.depth);
     for (const cat of byDepthDesc) {
@@ -478,7 +478,7 @@ export class GradesService implements OnModuleInit {
       finalByItem.set(totalItem.id, result.finalgrade);
       // Record effective natural weights on the child grade rows.
       for (const [itemIdStr, w] of Object.entries(result.weights)) {
-        const childGrade = gradeByItem.get(Number(itemIdStr));
+        const childGrade = gradeByItem.get(itemIdStr);
         if (childGrade && childGrade.aggregationweight !== w) {
           await this.repo.updateGrade(childGrade.id, { aggregationweight: w });
         }
@@ -500,8 +500,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Tính lại tổng cho toàn bộ khoá học.
    */
-  async regradeCourse(courseId: number): Promise<{ courseId: number; users: number }> {
-    const userIds = new Set<number>();
+  async regradeCourse(courseId: string): Promise<{ courseId: string; users: number }> {
+    const userIds = new Set<string>();
     for (const g of await this.repo.listGradesForCourse(courseId)) userIds.add(g.userid);
     for (const ue of await this.enrol.listEnrolmentsForCourse(courseId)) userIds.add(ue.userid);
     for (const userId of userIds) await this.regradeUser(courseId, userId);
@@ -513,7 +513,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Đưa yêu cầu regrade vào hàng đợi (worker) khi thay đổi lớn.
    */
-  async triggerRegrade(actorId: number, courseId: number): Promise<{ courseId: number; users: number }> {
+  async triggerRegrade(actorId: string, courseId: string): Promise<{ courseId: string; users: number }> {
     await this.requireCap(actorId, 'moodle/grade:manage', courseId);
     return this.regradeCourse(courseId);
   }
@@ -524,7 +524,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Điểm phần trăm của user tại cm — đầu vào cho availability/completion theo điểm.
    */
-  async evaluateCmGrade(cmId: number, userId: number): Promise<number | null> {
+  async evaluateCmGrade(cmId: string, userId: string): Promise<number | null> {
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     if (!cm) return null;
     const item = await this.repo.findItemForCm(cm.course, cmId);
@@ -539,7 +539,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Điểm tổng khoá học của user có đạt ngưỡng qua môn hay không.
    */
-  async courseGradePassed(courseId: number, userId: number): Promise<boolean> {
+  async courseGradePassed(courseId: string, userId: string): Promise<boolean> {
     const { courseItem } = await this.ensureCourseCategory(courseId);
     const grade = await this.repo.getGrade(courseItem.id, userId);
     if (!grade || grade.finalgrade === null) return false;
@@ -550,7 +550,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Điểm phần trăm theo từng item của user (cho availability).
    */
-  async gradePercentagesForUser(userId: number, courseId: number): Promise<Record<string, number>> {
+  async gradePercentagesForUser(userId: string, courseId: string): Promise<Record<string, number>> {
     const items = await this.repo.listItems(courseId);
     const grades = await this.repo.listGradesForCourse(courseId, userId);
     const out: Record<string, number> = {};
@@ -569,24 +569,24 @@ export class GradesService implements OnModuleInit {
   /**
    * Điểm cuối cùng của user tại item (sau tính toán).
    */
-  async getFinalGrade(itemId: number, userId: number): Promise<number | null> {
+  async getFinalGrade(itemId: string, userId: string): Promise<number | null> {
     const g = await this.repo.getGrade(itemId, userId);
     return g?.finalgrade ?? null;
   }
   /**
    * Một dòng điểm đầy đủ (item + grade + letter).
    */
-  async getGradeRow(itemId: number, userId: number): Promise<GradeRow | undefined> {
+  async getGradeRow(itemId: string, userId: string): Promise<GradeRow | undefined> {
     return this.repo.getGrade(itemId, userId);
   }
   /**
    * Lịch sử thay đổi điểm.
    */
-  async listHistory(itemId: number, userId: number) {
+  async listHistory(itemId: string, userId: string) {
     return this.repo.listHistory(itemId, userId);
   }
 
-  private async refreshCompletionForUser(courseId: number, userId: number): Promise<void> {
+  private async refreshCompletionForUser(courseId: string, userId: string): Promise<void> {
     const cms = await this.courses.listCms(courseId);
     for (const cm of cms) {
       if (cm.completionusegrade) await this.completion.refreshGradeCompletion(cm.id, userId);
@@ -600,7 +600,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Đặt bảng grade letters của khoá học.
    */
-  async setLetters(actorId: number, courseId: number, letters: { letter: string; lowerboundary: number }[]): Promise<LetterRow[]> {
+  async setLetters(actorId: string, courseId: string, letters: { letter: string; lowerboundary: number }[]): Promise<LetterRow[]> {
     await this.requireCap(actorId, 'moodle/grade:manage', courseId);
     const contextId = await this.courses.courseContextId(courseId);
     await this.repo.replaceLetters(contextId, letters);
@@ -609,7 +609,7 @@ export class GradesService implements OnModuleInit {
   /**
    * Bảng grade letters hiện tại.
    */
-  async getLetters(courseId: number): Promise<LetterRow[]> {
+  async getLetters(courseId: string): Promise<LetterRow[]> {
     const contextId = await this.courses.courseContextId(courseId);
     return this.repo.listLetters(contextId);
   }
@@ -617,14 +617,14 @@ export class GradesService implements OnModuleInit {
   /**
    * Tạo scale điểm tuỳ biến.
    */
-  async createScale(actorId: number, courseId: number, input: { name: string; scale: string; description?: string }): Promise<ScaleRow> {
+  async createScale(actorId: string, courseId: string, input: { name: string; scale: string; description?: string }): Promise<ScaleRow> {
     await this.requireCap(actorId, 'moodle/grade:manage', courseId);
     return this.repo.insertScale({ courseid: courseId, name: input.name, scale: input.scale, description: input.description ?? '' });
   }
   /**
    * Liệt kê scales.
    */
-  async listScales(courseId: number): Promise<ScaleRow[]> { return this.repo.listScales(courseId); }
+  async listScales(courseId: string): Promise<ScaleRow[]> { return this.repo.listScales(courseId); }
 
   private withLetter(grade: GradeRow | undefined, item: ItemRow, letters: LetterRow[]): (GradeRow & { letter: string | null }) | null {
     if (!grade) return null;
@@ -640,8 +640,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Sổ điểm của một user: cây category/item kèm điểm và tổng.
    */
-  async getGradebook(viewerId: number, courseId: number, targetUserId: number): Promise<{
-    courseId: number; userId: number; categories: GradebookCategoryView[]; courseTotal: GradebookItemView | null;
+  async getGradebook(viewerId: string, courseId: string, targetUserId: string): Promise<{
+    courseId: string; userId: string; categories: GradebookCategoryView[]; courseTotal: GradebookItemView | null;
   }> {
     const canViewAll = viewerId === targetUserId
       ? await this.evaluator.hasCapability(viewerId, 'moodle/grade:viewall', await this.courses.courseContextId(courseId)).catch(() => false)
@@ -685,8 +685,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Báo cáo điểm toàn lớp cho giáo viên.
    */
-  async getReport(viewerId: number, courseId: number): Promise<{
-    courseId: number; rows: { userId: number; finalgrade: number | null; letter: string | null }[];
+  async getReport(viewerId: string, courseId: string): Promise<{
+    courseId: string; rows: { userId: string; finalgrade: number | null; letter: string | null }[];
   }> {
     await this.requireCap(viewerId, 'moodle/grade:viewall', courseId);
     const { courseItem } = await this.ensureCourseCategory(courseId);

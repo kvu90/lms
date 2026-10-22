@@ -28,8 +28,8 @@ export class NotesService {
   /**
    * Tạo note về một học viên.
    */
-  async createNote(actorId: number, input: {
-    userid: number; courseid?: number; content: string; publishstate?: string; groupid?: number;
+  async createNote(actorId: string, input: {
+    userid: string; courseid?: string; content: string; publishstate?: string; groupid?: string;
   }): Promise<NoteRow> {
     const publishstate = input.publishstate ?? 'draft';
     if (!['draft', 'public', 'site'].includes(publishstate)) {
@@ -46,20 +46,20 @@ export class NotesService {
       : (await this.contexts.ensureSystemContext()).id;
     await this.evaluator.requireCapability(actorId, 'moodle/notes:create', ctxId);
     return this.repo.insertNote({
-      courseid: input.courseid ?? 0, userid: input.userid, createdby: actorId,
-      content: input.content, publishstate, groupid: input.groupid ?? 0, usermodified: actorId,
+      courseid: input.courseid ?? null, userid: input.userid, createdby: actorId,
+      content: input.content, publishstate, groupid: input.groupid ?? null, usermodified: actorId,
     });
   }
 
   /**
    * User có được xem note này hay không.
    */
-  async canView(note: NoteRow, viewerId: number): Promise<boolean> {
+  async canView(note: NoteRow, viewerId: string): Promise<boolean> {
     if (note.createdby === viewerId) return true;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
     if (note.publishstate === 'draft') return false;
     if (note.publishstate === 'public') {
-      const ctx = await this.courses.courseContextId(note.courseid);
+      const ctx = await this.courses.courseContextId(note.courseid!);
       return this.evaluator.hasCapability(viewerId, 'moodle/notes:view', ctx);
     }
     // site note
@@ -70,7 +70,7 @@ export class NotesService {
   /**
    * Note viết về một user (đã lọc quyền xem).
    */
-  async listNotesAbout(viewerId: number, subjectUserId: number, courseId?: number): Promise<NoteRow[]> {
+  async listNotesAbout(viewerId: string, subjectUserId: string, courseId?: string): Promise<NoteRow[]> {
     const rows = await this.repo.listNotesAbout(subjectUserId);
     const out: NoteRow[] = [];
     for (const note of rows) {
@@ -83,7 +83,7 @@ export class NotesService {
   /**
    * Lấy note theo id.
    */
-  async getNote(viewerId: number, id: number): Promise<NoteRow> {
+  async getNote(viewerId: string, id: string): Promise<NoteRow> {
     const note = await this.repo.getNote(id);
     if (!note) throw new NotFoundException({ message: `Note ${id} not found`, code: 'notes.not_found' });
     if (!(await this.canView(note, viewerId))) {
@@ -95,12 +95,12 @@ export class NotesService {
   /**
    * Xoá note của chính mình.
    */
-  async deleteNote(actorId: number, id: number): Promise<{ deleted: boolean }> {
+  async deleteNote(actorId: string, id: string): Promise<{ deleted: boolean }> {
     const note = await this.repo.getNote(id);
     if (!note) throw new NotFoundException({ message: `Note ${id} not found`, code: 'notes.not_found' });
     if (note.createdby !== actorId) {
       const ctx = note.publishstate === 'public'
-        ? await this.courses.courseContextId(note.courseid)
+        ? await this.courses.courseContextId(note.courseid!)
         : (await this.contexts.ensureSystemContext()).id;
       await this.evaluator.requireCapability(actorId, 'moodle/notes:manage', ctx);
     }

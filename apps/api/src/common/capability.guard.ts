@@ -24,13 +24,13 @@ export class CapabilityGuard {
     if (!ok) throw new ForbiddenException({ message: `Missing capability ${requirement.capability}`, code: 'access.capability_denied' });
     return true;
   }
-  private async resolveContextId(req: CapabilityRequirement, http: { params: Record<string, string>; query: Record<string, string>; body?: Record<string, unknown> }): Promise<number> {
+  private async resolveContextId(req: CapabilityRequirement, http: { params: Record<string, string>; query: Record<string, string>; body?: Record<string, unknown> }): Promise<string> {
     switch (req.contextResolver) {
-      case 'param:contextId': return Number(http.params.contextId);
-      case 'query:contextId': return Number(http.query.contextId ?? (await this.contexts.ensureSystemContext()).id);
-      case 'body:contextId': return Number(http.body?.contextId ?? http.body?.contextid ?? (await this.contexts.ensureSystemContext()).id);
+      case 'param:contextId': return http.params.contextId!;
+      case 'query:contextId': return http.query.contextId ?? (await this.contexts.ensureSystemContext()).id;
+      case 'body:contextId': return String(http.body?.contextId ?? http.body?.contextid ?? (await this.contexts.ensureSystemContext()).id);
       case 'param:userId:userctx': {
-        const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, Number(http.params.id));
+        const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, http.params.id!);
         if (ctx) return ctx.id;
         return (await this.contexts.ensureSystemContext()).id;
       }

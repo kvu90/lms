@@ -16,20 +16,20 @@ export class BackupRepository {
   async insertJob(v: typeof backupJobs.$inferInsert): Promise<JobRow> {
     const [row] = await this.db.insert(backupJobs).values(v).returning(); return row!;
   }
-  async getJob(id: number): Promise<JobRow | undefined> {
+  async getJob(id: string): Promise<JobRow | undefined> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, id)); return row;
   }
   async listJobs(): Promise<JobRow[]> { return this.db.select().from(backupJobs); }
-  async updateJob(id: number, v: Partial<typeof backupJobs.$inferInsert>): Promise<void> {
+  async updateJob(id: string, v: Partial<typeof backupJobs.$inferInsert>): Promise<void> {
     await this.db.update(backupJobs).set(v).where(eq(backupJobs.id, id));
   }
   async insertStep(v: typeof backupJobSteps.$inferInsert): Promise<StepRow> {
     const [row] = await this.db.insert(backupJobSteps).values(v).returning(); return row!;
   }
-  async listSteps(jobid: number): Promise<StepRow[]> {
+  async listSteps(jobid: string): Promise<StepRow[]> {
     return this.db.select().from(backupJobSteps).where(eq(backupJobSteps.jobid, jobid));
   }
-  async updateStep(id: number, v: Partial<typeof backupJobSteps.$inferInsert>): Promise<void> {
+  async updateStep(id: string, v: Partial<typeof backupJobSteps.$inferInsert>): Promise<void> {
     await this.db.update(backupJobSteps).set(v).where(eq(backupJobSteps.id, id));
   }
   async insertMapping(v: typeof backupIdMappings.$inferInsert): Promise<MappingRow> {
@@ -38,10 +38,10 @@ export class BackupRepository {
       .returning();
     return row!;
   }
-  async listMappings(jobid: number): Promise<MappingRow[]> {
+  async listMappings(jobid: string): Promise<MappingRow[]> {
     return this.db.select().from(backupIdMappings).where(eq(backupIdMappings.jobid, jobid));
   }
-  async getMapping(jobid: number, itemtype: string, oldid: number): Promise<MappingRow | undefined> {
+  async getMapping(jobid: string, itemtype: string, oldid: string): Promise<MappingRow | undefined> {
     const [row] = await this.db.select().from(backupIdMappings)
       .where(and(eq(backupIdMappings.jobid, jobid), eq(backupIdMappings.itemtype, itemtype), eq(backupIdMappings.oldid, oldid)));
     return row;

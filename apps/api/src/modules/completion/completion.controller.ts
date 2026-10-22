@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService } from '../courses/courses.service';
@@ -20,7 +21,7 @@ export class CompletionController {
   /**
    * GET /courses/:courseId/completion/me — tiến độ hoàn thành của chính user.
    */
-  async myCompletion(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() viewer: AuthenticatedUser) {
+  async myCompletion(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() viewer: AuthenticatedUser) {
     await this.courses.assertCourseAccess(viewer.id, courseId);
     const activities = await this.completion.listCmCompletionsForCourse(courseId, viewer.id);
     const courseCompletion = await this.completion.getCourseCompletion(viewer.id, courseId);
@@ -31,7 +32,7 @@ export class CompletionController {
   /**
    * GET /courses/:courseId/completion/users/:userId — tiến độ của một học viên.
    */
-  async userCompletion(@Param('courseId', ParseIntPipe) courseId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() viewer: AuthenticatedUser) {
+  async userCompletion(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() viewer: AuthenticatedUser) {
     if (viewer.id !== userId) await this.completion.requireCompletionManage(viewer.id, courseId);
     const activities = await this.completion.listCmCompletionsForCourse(courseId, userId);
     const courseCompletion = await this.completion.getCourseCompletion(userId, courseId);
@@ -42,7 +43,7 @@ export class CompletionController {
   /**
    * GET /courses/:courseId/completion — tiến độ toàn khoá học.
    */
-  async listCourseCompletions(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() viewer: AuthenticatedUser) {
+  async listCourseCompletions(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() viewer: AuthenticatedUser) {
     await this.completion.requireCompletionManage(viewer.id, courseId);
     return this.completion.listCourseCompletions(courseId);
   }
@@ -51,7 +52,7 @@ export class CompletionController {
   /**
    * POST /courses/:courseId/modules/:cmId/completion/manual — đánh dấu hoàn thành thủ công.
    */
-  async markManual(@Param('cmId', ParseIntPipe) cmId: number, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
+  async markManual(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.markManual(actor.id, cmId, dto.userid, dto.complete);
   }
 
@@ -59,21 +60,21 @@ export class CompletionController {
   /**
    * GET /courses/:courseId/completion/criteria — bộ tiêu chí hiện tại.
    */
-  async getCriteria(@Param('courseId', ParseIntPipe) courseId: number) {
+  async getCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
     return this.completion.getCriteria(courseId);
   }
   @Put(':courseId/completion/criteria')
   /**
    * PUT /courses/:courseId/completion/criteria — đặt bộ tiêu chí.
    */
-  async setCriteria(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: setCompletionCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: setCompletionCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.setCriteria(actor.id, courseId, dto);
   }
   @Post(':courseId/completion/recalculate')
   /**
    * POST /courses/:courseId/completion/recalculate — tính lại completion toàn khoá học.
    */
-  async recalculate(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async recalculate(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.completion.requireCompletionManage(actor.id, courseId);
     return this.completion.recalculateCourse(courseId);
   }

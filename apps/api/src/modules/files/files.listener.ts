@@ -19,7 +19,7 @@ export class FilesListener {
   /**
    * Khi một course module bị xoá: xoá các file thuộc context của module đó.
    */
-  async onCmDeleted(payload: { cmId: number; contextId?: number | null }): Promise<void> {
+  async onCmDeleted(payload: { cmId: string; contextId?: string | null }): Promise<void> {
     if (!payload.contextId) return;
     const records = await this.files.listByContext(payload.contextId);
     for (const record of records) await this.files.deleteFile(record.id);

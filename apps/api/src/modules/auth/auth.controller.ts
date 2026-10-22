@@ -35,7 +35,7 @@ export class AuthController {
   /**
    * POST /auth/token — đăng nhập, trả cặp access/refresh token.
    */
-  async login(@Req() req: Request & { user: { id: number; username: string } }, @Body({ schema: loginSchema }) _dto: LoginDto) {
+  async login(@Req() req: Request & { user: { id: string; username: string } }, @Body({ schema: loginSchema }) _dto: LoginDto) {
     const user = await this.users.getUser(req.user.id);
     await this.users.recordLogin(user.id);
     // validateCredentials already ran inside the local strategy; issue a fresh token family here.

@@ -31,7 +31,7 @@ export class BlogService {
   /**
    * Tạo bài blog.
    */
-  async createPost(actorId: number, input: { subject: string; summary?: string; content: string; publishstate?: string }): Promise<BlogPostRow> {
+  async createPost(actorId: string, input: { subject: string; summary?: string; content: string; publishstate?: string }): Promise<BlogPostRow> {
     const userCtx = await this.contexts.getByLevelInstance(30, actorId);
     const systemCtx = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'moodle/blog:create', userCtx?.id ?? systemCtx.id);
@@ -48,7 +48,7 @@ export class BlogService {
   /**
    * Lấy bài blog; ném social.post_not_found khi vắng.
    */
-  async getPost(id: number): Promise<BlogPostRow> {
+  async getPost(id: string): Promise<BlogPostRow> {
     const row = await this.repo.getPost(id);
     if (!row) throw new NotFoundException({ message: `Blog post ${id} not found`, code: 'blog.not_found' });
     return row;
@@ -57,14 +57,14 @@ export class BlogService {
   /**
    * Liên kết bài với khoá học/module.
    */
-  async associate(actorId: number, postId: number, input: { assoctype: 'course' | 'coursemodule'; associd: number }): Promise<{ postId: number; associations: unknown }> {
+  async associate(actorId: string, postId: string, input: { assoctype: 'course' | 'coursemodule'; associd: string }): Promise<{ postId: string; associations: unknown }> {
     const post = await this.getPost(postId);
     if (post.userid !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userid);
       const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can associate this post', code: 'blog.associate_forbidden' });
     }
-    let contextid: number;
+    let contextid: string;
     if (input.assoctype === 'course') {
       await this.courses.getCourse(input.associd);
       contextid = await this.courses.courseContextId(input.associd);
@@ -79,7 +79,7 @@ export class BlogService {
   /**
    * User có được xem bài này hay không.
    */
-  async canView(post: BlogPostRow, viewerId: number): Promise<boolean> {
+  async canView(post: BlogPostRow, viewerId: string): Promise<boolean> {
     if (post.userid === viewerId) return true;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
     if (post.publishstate === 'draft') return false;
@@ -98,7 +98,7 @@ export class BlogService {
   /**
    * Liệt kê bài blog được phép xem.
    */
-  async listPosts(viewerId: number, filter: { userid?: number; courseid?: number; cmid?: number }): Promise<(BlogPostRow & { associations: unknown; contextid: number })[]> {
+  async listPosts(viewerId: string, filter: { userid?: string; courseid?: string; cmid?: string }): Promise<(BlogPostRow & { associations: unknown; contextid: string | null })[]> {
     let candidates: BlogPostRow[];
     if (filter.courseid) {
       const assocs = await this.repo.listAssociationsForTarget('course', filter.courseid);
@@ -119,13 +119,13 @@ export class BlogService {
     } else {
       candidates = await this.repo.listPosts();
     }
-    const out: (BlogPostRow & { associations: unknown; contextid: number })[] = [];
+    const out: (BlogPostRow & { associations: unknown; contextid: string | null })[] = [];
     for (const post of candidates) {
       if (await this.canView(post, viewerId)) {
         // contextid = the author's user context, so polymorphic consumers
         // (tags/comments/ratings) can address the post without guessing.
         const authorCtx = await this.contexts.getByLevelInstance(30, post.userid);
-        out.push({ ...post, associations: await this.repo.listAssociations(post.id), contextid: authorCtx?.id ?? 0 });
+        out.push({ ...post, associations: await this.repo.listAssociations(post.id), contextid: authorCtx?.id ?? null });
       }
     }
     return out;
@@ -134,7 +134,7 @@ export class BlogService {
   /**
    * Cập nhật bài của chính mình.
    */
-  async updatePost(actorId: number, id: number, input: { subject?: string; summary?: string; content?: string; publishstate?: string }): Promise<BlogPostRow> {
+  async updatePost(actorId: string, id: string, input: { subject?: string; summary?: string; content?: string; publishstate?: string }): Promise<BlogPostRow> {
     const post = await this.getPost(id);
     if (post.userid !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userid);
@@ -153,7 +153,7 @@ export class BlogService {
   /**
    * Xoá bài của chính mình.
    */
-  async deletePost(actorId: number, id: number): Promise<{ deleted: boolean }> {
+  async deletePost(actorId: string, id: string): Promise<{ deleted: boolean }> {
     const post = await this.getPost(id);
     if (post.userid !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userid);

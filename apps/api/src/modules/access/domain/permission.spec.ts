@@ -8,7 +8,7 @@ import { aggregateRoleResults, CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT
  * PROHIBIT absolute, multi-role aggregation.
  */
 describe('PermissionEvaluator domain (Moodle accesslib semantics)', () => {
-  const pts = (...permissions: number[]) => permissions.map((permission, i) => ({ contextId: i + 1, permission }));
+  const pts = (...permissions: number[]) => permissions.map((permission, i) => ({ contextId: `ctx-${i + 1}`, permission }));
 
   it('no overrides at all evaluates to INHERIT (deny)', () => {
     expect(evaluateSingleRole([])).toBe(CAP_INHERIT);

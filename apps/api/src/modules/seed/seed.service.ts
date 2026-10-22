@@ -49,7 +49,7 @@ export class SeedService implements OnApplicationBootstrap {
       this.logger.log(`Seeded initial site administrator "${username}" (id ${admin.id})`);
     }
   }
-  private async currentSiteAdmins(): Promise<number[]> {
+  private async currentSiteAdmins(): Promise<string[]> {
     return this.evaluator.listSiteAdmins();
   }
 }

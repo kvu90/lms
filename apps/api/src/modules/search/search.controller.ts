@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { indexRawDocumentSchema, searchIndexItemSchema, type IndexItemDto, type IndexRawDto } from './dto/search.dto';
@@ -22,7 +23,7 @@ export class SearchController {
   @Post('reindex')
   async reindex() { return this.search.reindexAll(); }
   @Delete(':area/:itemid')
-  async remove(@Param('area') area: string, @Param('itemid', ParseIntPipe) itemid: number) {
+  async remove(@Param('area') area: string, @Param('itemid', { schema: uuidIdSchema }) itemid: string) {
     await this.search.removeDoc(area, itemid); return { deleted: true };
   }
 }

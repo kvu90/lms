@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { BlogService } from './blog.service';
@@ -29,10 +30,10 @@ export class TagsController {
   }
   @Get('items')
   async list(@Query('component') component: string, @Query('itemtype') itemtype: string, @Query('itemid') itemid: string) {
-    return this.tags.listItemTags(component, itemtype, Number(itemid));
+    return this.tags.listItemTags(component, itemtype, itemid);
   }
   @Get(':tagId/correlated')
-  async correlated(@Param('tagId', ParseIntPipe) tagId: number) {
+  async correlated(@Param('tagId', { schema: uuidIdSchema }) tagId: string) {
     return this.tags.getCorrelated(tagId);
   }
 }
@@ -51,10 +52,10 @@ export class CommentsController {
   @Get()
   async list(@Query('contextid') contextid: string, @Query('component') component: string,
     @Query('commentarea') commentarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.comments.listComments(actor.id, { contextid: Number(contextid), component, commentarea, itemid: Number(itemid) });
+    return this.comments.listComments(actor.id, { contextid, component, commentarea, itemid });
   }
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.comments.deleteComment(actor.id, id);
   }
 }
@@ -73,12 +74,12 @@ export class RatingsController {
   @Get('aggregate')
   async aggregate(@Query('contextid') contextid: string, @Query('component') component: string,
     @Query('ratingarea') ratingarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.ratings.aggregate(actor.id, { contextid: Number(contextid), component, ratingarea, itemid: Number(itemid) });
+    return this.ratings.aggregate(actor.id, { contextid, component, ratingarea, itemid });
   }
   @Get()
   async list(@Query('contextid') contextid: string, @Query('component') component: string,
     @Query('ratingarea') ratingarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.ratings.listRatings(actor.id, { contextid: Number(contextid), component, ratingarea, itemid: Number(itemid) });
+    return this.ratings.listRatings(actor.id, { contextid, component, ratingarea, itemid });
   }
 }
 
@@ -97,26 +98,26 @@ export class BlogController {
   async list(@Query('userid') userid: string | undefined, @Query('courseid') courseid: string | undefined,
     @Query('cmid') cmid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.listPosts(actor.id, {
-      userid: userid ? Number(userid) : undefined,
-      courseid: courseid ? Number(courseid) : undefined,
-      cmid: cmid ? Number(cmid) : undefined,
+      userid: userid || undefined,
+      courseid: courseid || undefined,
+      cmid: cmid || undefined,
     });
   }
   @Get('posts/:id')
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const post = await this.blog.getPost(id);
     return { ...post, visibleToMe: await this.blog.canView(post, actor.id) };
   }
   @Patch('posts/:id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateBlogPostSchema }) dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateBlogPostSchema }) dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.updatePost(actor.id, id, dto);
   }
   @Delete('posts/:id')
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.deletePost(actor.id, id);
   }
   @Post('posts/:id/associations')
-  async associate(@Param('id', ParseIntPipe) id: number, @Body({ schema: associateBlogPostSchema }) dto: AssociatePostDto, @CurrentUser() actor: AuthenticatedUser) {
+  async associate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: associateBlogPostSchema }) dto: AssociatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.associate(actor.id, id, dto);
   }
 }
@@ -133,15 +134,15 @@ export class NotesController {
     return this.notes.createNote(actor.id, dto);
   }
   @Get('user/:userId')
-  async listAbout(@Param('userId', ParseIntPipe) userId: number, @Query('courseid') courseid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.notes.listNotesAbout(actor.id, userId, courseid ? Number(courseid) : undefined);
+  async listAbout(@Param('userId', { schema: uuidIdSchema }) userId: string, @Query('courseid') courseid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.notes.listNotesAbout(actor.id, userId, courseid || undefined);
   }
   @Get(':id')
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.notes.getNote(actor.id, id);
   }
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.notes.deleteNote(actor.id, id);
   }
 }

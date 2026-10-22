@@ -22,13 +22,13 @@ export class SearchRepository {
       .returning();
     return row!;
   }
-  async remove(area: string, itemid: number): Promise<void> {
+  async remove(area: string, itemid: string): Promise<void> {
     await this.db.delete(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemid, itemid)));
   }
-  async removeByOwner(ownerid: number): Promise<void> {
+  async removeByOwner(ownerid: string): Promise<void> {
     await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerid, ownerid));
   }
-  async get(area: string, itemid: number): Promise<SearchDocRow | undefined> {
+  async get(area: string, itemid: string): Promise<SearchDocRow | undefined> {
     const [row] = await this.db.select().from(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemid, itemid)));
     return row;
   }

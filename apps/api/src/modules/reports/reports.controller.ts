@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { createReportSchema, createReportScheduleSchema, type CreateReportDto, type CreateScheduleDto } from './dto/reports.dto';
@@ -20,15 +21,15 @@ export class ReportsController {
   @Get('schedules/all')
   async schedules() { return this.reports.listSchedules(); }
   @Post('schedules/:id/run')
-  async runSchedule(@Param('id', ParseIntPipe) id: number) { return this.reports.runSchedule(id); }
+  async runSchedule(@Param('id', { schema: uuidIdSchema }) id: string) { return this.reports.runSchedule(id); }
   @Get(':id')
-  async get(@Param('id', ParseIntPipe) id: number) { return this.reports.getReport(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.reports.getReport(id); }
   @Get(':id/run')
-  async run(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async run(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.reports.runReport(actor.id, id);
   }
   @Post(':id/schedules')
-  async schedule(@Param('id', ParseIntPipe) id: number, @Body({ schema: createReportScheduleSchema }) dto: CreateScheduleDto, @CurrentUser() actor: AuthenticatedUser) {
+  async schedule(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createReportScheduleSchema }) dto: CreateScheduleDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.reports.createSchedule(actor.id, id, dto.cron ?? 'daily');
   }
 }

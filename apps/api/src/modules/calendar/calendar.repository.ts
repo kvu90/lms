@@ -25,19 +25,19 @@ export class CalendarRepository {
   /**
    * Lấy sự kiện theo id.
    */
-  async getEvent(id: number): Promise<CalendarEventRow | undefined> {
+  async getEvent(id: string): Promise<CalendarEventRow | undefined> {
     const [row] = await this.db.select().from(calendarEvents).where(eq(calendarEvents.id, id)); return row;
   }
   /**
    * Cập nhật sự kiện.
    */
-  async updateEvent(id: number, patch: Partial<CalendarEventRow>, tx?: DbTx): Promise<void> {
+  async updateEvent(id: string, patch: Partial<CalendarEventRow>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(calendarEvents).set({ ...patch, timemodified: new Date() }).where(eq(calendarEvents.id, id));
   }
   /**
    * Xoá sự kiện.
    */
-  async deleteEvent(id: number): Promise<void> {
+  async deleteEvent(id: string): Promise<void> {
     await this.db.delete(calendarEvents).where(eq(calendarEvents.id, id));
   }
   /**
@@ -57,13 +57,13 @@ export class CalendarRepository {
   /**
    * Các sự kiện thuộc cùng một chuỗi lặp.
    */
-  async listSeries(repeatid: number): Promise<CalendarEventRow[]> {
+  async listSeries(repeatid: string): Promise<CalendarEventRow[]> {
     return this.db.select().from(calendarEvents).where(eq(calendarEvents.repeatid, repeatid)).orderBy(asc(calendarEvents.timestart));
   }
   /**
    * Tìm sự kiện đã nhập theo uuid của subscription (để đồng bộ không trùng).
    */
-  async findBySubscriptionUuid(subscriptionid: number, uuid: string): Promise<CalendarEventRow | undefined> {
+  async findBySubscriptionUuid(subscriptionid: string, uuid: string): Promise<CalendarEventRow | undefined> {
     const [row] = await this.db.select().from(calendarEvents)
       .where(and(eq(calendarEvents.subscriptionid, subscriptionid), eq(calendarEvents.uuid, uuid)));
     return row;
@@ -78,7 +78,7 @@ export class CalendarRepository {
   /**
    * Lấy subscription theo id.
    */
-  async getSubscription(id: number): Promise<CalendarSubscriptionRow | undefined> {
+  async getSubscription(id: string): Promise<CalendarSubscriptionRow | undefined> {
     const [row] = await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.id, id)); return row;
   }
   /**
@@ -90,7 +90,7 @@ export class CalendarRepository {
   /**
    * Cập nhật mốc đồng bộ gần nhất của subscription.
    */
-  async touchSubscription(id: number): Promise<void> {
+  async touchSubscription(id: string): Promise<void> {
     await this.db.update(calendarSubscriptions).set({ lastupdated: new Date() }).where(eq(calendarSubscriptions.id, id));
   }
 }

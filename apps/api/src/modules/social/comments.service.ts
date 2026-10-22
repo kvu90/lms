@@ -25,12 +25,12 @@ export class CommentsService {
   ) {}
 
   /** For course/module contexts, commenting also requires real course access (the virtual 'user' role alone never opens a course). */
-  private async assertItemAccess(actorId: number, contextid: number): Promise<void> {
+  private async assertItemAccess(actorId: string, contextid: string): Promise<void> {
     const ctx = await this.contexts.getContext(contextid).catch(() => undefined);
     if (!ctx) return;
-    if (ctx.contextlevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceid);
+    if (ctx.contextlevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceid!);
     if (ctx.contextlevel === 70) {
-      const cm = await this.courses.getCm(ctx.instanceid);
+      const cm = await this.courses.getCm(ctx.instanceid!);
       await this.courses.assertCourseAccess(actorId, cm.course);
     }
   }
@@ -38,8 +38,8 @@ export class CommentsService {
   /**
    * Thêm bình luận vào item.
    */
-  async addComment(actorId: number, input: {
-    contextid: number; component: string; commentarea: string; itemid: number; content: string;
+  async addComment(actorId: string, input: {
+    contextid: string; component: string; commentarea: string; itemid: string; content: string;
   }): Promise<CommentRow> {
     await this.evaluator.requireCapability(actorId, 'moodle/comment:post', input.contextid);
     await this.assertItemAccess(actorId, input.contextid);
@@ -52,8 +52,8 @@ export class CommentsService {
   /**
    * Bình luận của item.
    */
-  async listComments(viewerId: number, input: {
-    contextid: number; component: string; commentarea: string; itemid: number;
+  async listComments(viewerId: string, input: {
+    contextid: string; component: string; commentarea: string; itemid: string;
   }): Promise<{ comments: CommentRow[]; count: number; canpost: boolean }> {
     await this.evaluator.requireCapability(viewerId, 'moodle/comment:view', input.contextid);
     await this.assertItemAccess(viewerId, input.contextid);
@@ -65,7 +65,7 @@ export class CommentsService {
   /**
    * Xoá mềm bình luận (kiểm tác giả/capability).
    */
-  async deleteComment(actorId: number, commentId: number): Promise<{ deleted: boolean }> {
+  async deleteComment(actorId: string, commentId: string): Promise<{ deleted: boolean }> {
     const comment = await this.repo.getComment(commentId);
     if (!comment || comment.timedeleted) throw new NotFoundException({ message: `Comment ${commentId} not found`, code: 'comments.not_found' });
     if (comment.userid !== actorId) {

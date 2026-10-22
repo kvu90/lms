@@ -27,7 +27,7 @@ export class BadgesRepository {
   /**
    * Lấy badge theo id.
    */
-  async getBadge(id: number): Promise<BadgeRow | undefined> {
+  async getBadge(id: string): Promise<BadgeRow | undefined> {
     const [row] = await this.db.select().from(badge).where(eq(badge.id, id)); return row;
   }
   /**
@@ -39,7 +39,7 @@ export class BadgesRepository {
   /**
    * Cập nhật badge.
    */
-  async updateBadge(id: number, patch: Partial<BadgeRow>): Promise<void> {
+  async updateBadge(id: string, patch: Partial<BadgeRow>): Promise<void> {
     await this.db.update(badge).set({ ...patch, timemodified: new Date() }).where(eq(badge.id, id));
   }
 
@@ -52,13 +52,13 @@ export class BadgesRepository {
   /**
    * Tiêu chí của badge.
    */
-  async listCriteria(badgeid: number): Promise<CriteriaRow[]> {
+  async listCriteria(badgeid: string): Promise<CriteriaRow[]> {
     return this.db.select().from(badgeCriteria).where(eq(badgeCriteria.badgeid, badgeid)).orderBy(asc(badgeCriteria.id));
   }
   /**
    * Xoá tiêu chí của badge.
    */
-  async deleteCriteria(badgeid: number, tx?: DbTx): Promise<void> {
+  async deleteCriteria(badgeid: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(badgeCriteria).where(eq(badgeCriteria.badgeid, badgeid));
   }
 
@@ -76,13 +76,13 @@ export class BadgesRepository {
   /**
    * Lấy bản ghi cấp phát theo id.
    */
-  async getIssued(id: number): Promise<IssuedRow | undefined> {
+  async getIssued(id: string): Promise<IssuedRow | undefined> {
     const [row] = await this.db.select().from(badgeIssued).where(eq(badgeIssued.id, id)); return row;
   }
   /**
    * Tìm bản ghi cấp phát của user cho một badge.
    */
-  async findIssued(badgeid: number, userid: number): Promise<IssuedRow | undefined> {
+  async findIssued(badgeid: string, userid: string): Promise<IssuedRow | undefined> {
     const [row] = await this.db.select().from(badgeIssued)
       .where(and(eq(badgeIssued.badgeid, badgeid), eq(badgeIssued.userid, userid)));
     return row;
@@ -90,26 +90,26 @@ export class BadgesRepository {
   /**
    * Bản ghi cấp phát của một badge.
    */
-  async listIssuedForBadge(badgeid: number): Promise<IssuedRow[]> {
+  async listIssuedForBadge(badgeid: string): Promise<IssuedRow[]> {
     return this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeid, badgeid)).orderBy(asc(badgeIssued.id));
   }
   /**
    * Huy hiệu đã cấp cho user.
    */
-  async listIssuedForUser(userid: number): Promise<IssuedRow[]> {
+  async listIssuedForUser(userid: string): Promise<IssuedRow[]> {
     return this.db.select().from(badgeIssued).where(eq(badgeIssued.userid, userid)).orderBy(asc(badgeIssued.id));
   }
   /**
    * Số lần badge đã được cấp.
    */
-  async countIssued(badgeid: number): Promise<number> {
+  async countIssued(badgeid: string): Promise<number> {
     const rows = await this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeid, badgeid));
     return rows.length;
   }
   /**
    * Cập nhật bản ghi cấp phát (thu hồi).
    */
-  async updateIssued(id: number, patch: Partial<IssuedRow>): Promise<void> {
+  async updateIssued(id: string, patch: Partial<IssuedRow>): Promise<void> {
     await this.db.update(badgeIssued).set(patch).where(eq(badgeIssued.id, id));
   }
 
@@ -127,7 +127,7 @@ export class BadgesRepository {
   /**
    * Tìm bản ghi cấp thủ công.
    */
-  async findManualAward(badgeid: number, recipientid: number): Promise<ManualAwardRow | undefined> {
+  async findManualAward(badgeid: string, recipientid: string): Promise<ManualAwardRow | undefined> {
     const [row] = await this.db.select().from(badgeManualAward)
       .where(and(eq(badgeManualAward.badgeid, badgeid), eq(badgeManualAward.recipientid, recipientid)));
     return row;

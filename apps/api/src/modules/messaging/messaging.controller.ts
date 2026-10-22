@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
@@ -30,21 +31,21 @@ export class MessagingController {
   /**
    * GET /messages/conversations/:id — chi tiết + tin nhắn.
    */
-  async getConversation(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async getConversation(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getConversation(actor.id, id);
   }
   @Post('conversations/:id/messages')
   /**
    * POST /messages/conversations/:id/messages — gửi tin nhắn (handler send của NotificationsController là POST /notifications/send).
    */
-  async send(@Param('id', ParseIntPipe) id: number, @Body({ schema: sendMessageSchema }) dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
+  async send(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: sendMessageSchema }) dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.sendMessage(actor.id, id, dto);
   }
   @Post('conversations/:id/read')
   /**
    * POST /messages/conversations/:id/read — đánh dấu đã đọc.
    */
-  async markRead(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async markRead(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markConversationRead(actor.id, id);
   }
   /** Sent messages are immutable: both verbs exist only to refuse (report §2#12). */
@@ -91,14 +92,14 @@ export class MessagingController {
   /**
    * POST /messages/contacts/:userId/block — chặn liên hệ.
    */
-  async block(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async block(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.blockContact(actor.id, userId);
   }
   @Delete('contacts/:userId/block')
   /**
    * DELETE /messages/contacts/:userId/block — bỏ chặn.
    */
-  async unblock(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
+  async unblock(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unblockContact(actor.id, userId);
   }
 }
@@ -146,7 +147,7 @@ export class NotificationsController {
   /**
    * POST /notifications/:id/read — đánh dấu một thông báo đã đọc.
    */
-  async read(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+  async read(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markNotificationRead(actor.id, id);
   }
 }

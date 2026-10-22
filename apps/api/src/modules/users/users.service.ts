@@ -11,7 +11,7 @@ export const USER_COMPONENT = 'core_user';
 export const USER_AREA = 'user';
 
 export interface UserProfileView {
-  id: number; username: string; firstname: string; lastname: string;
+  id: string; username: string; firstname: string; lastname: string;
   email?: string; // identity field — only present when the viewer may see it
   suspended: boolean; deleted: boolean; isGuest: boolean; forcePasswordChange: boolean;
   lastlogin: Date | null; timecreated: Date;
@@ -79,7 +79,7 @@ export class UsersService {
   /**
    * Lấy user theo id; ném user.not_found khi vắng.
    */
-  async getUser(id: number): Promise<UserRow> {
+  async getUser(id: string): Promise<UserRow> {
     const row = await this.repo.getById(id);
     if (!row) throw new NotFoundException({ message: `User ${id} not found`, code: 'user.not_found' });
     return row;
@@ -91,7 +91,7 @@ export class UsersService {
   /**
    * Lấy user theo id, trả undefined thay vì ném lỗi.
    */
-  async getByIdOrUndefined(id: number): Promise<UserRow | undefined> { return this.repo.getById(id); }
+  async getByIdOrUndefined(id: string): Promise<UserRow | undefined> { return this.repo.getById(id); }
 
   /**
    * Danh sách user có tìm kiếm/phân trang.
@@ -104,7 +104,7 @@ export class UsersService {
   /**
    * Cập nhật hồ sơ (họ tên, email, …) với kiểm tra trùng email.
    */
-  async updateUser(id: number, input: { email?: string; firstname?: string; lastname?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
+  async updateUser(id: string, input: { email?: string; firstname?: string; lastname?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
     const user = await this.getUser(id);
     if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     if (user.deleted) throw new BadRequestException({ message: 'Cannot update a deleted user', code: 'user.deleted' });
@@ -134,7 +134,7 @@ export class UsersService {
   /**
    * Đình chỉ hoặc khôi phục tài khoản; user bị đình chỉ không đăng nhập được.
    */
-  async setSuspended(id: number, suspended: boolean): Promise<UserRow> {
+  async setSuspended(id: string, suspended: boolean): Promise<UserRow> {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be suspended', code: 'user.guest_immutable' });
     await this.repo.dbHandle.transaction(async (tx) => {
@@ -148,7 +148,7 @@ export class UsersService {
   /**
    * Xoá mềm tài khoản.
    */
-  async deleteUser(id: number): Promise<UserRow> {
+  async deleteUser(id: string): Promise<UserRow> {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be deleted', code: 'user.guest_immutable' });
     if (user.deleted) return user;
@@ -165,11 +165,11 @@ export class UsersService {
   /**
    * Ghi nhận lần đăng nhập thành công (first/last access, IP).
    */
-  async recordLogin(id: number): Promise<void> { await this.repo.updateUser(id, { lastlogin: new Date() }); }
+  async recordLogin(id: string): Promise<void> { await this.repo.updateUser(id, { lastlogin: new Date() }); }
   /**
    * Gỡ cờ bắt buộc đổi mật khẩu sau khi user đã đổi.
    */
-  async clearForcePasswordChange(id: number): Promise<void> { await this.repo.updateUser(id, { forcePasswordChange: false }); }
+  async clearForcePasswordChange(id: string): Promise<void> { await this.repo.updateUser(id, { forcePasswordChange: false }); }
   /**
    * Xác thực mật khẩu của user (dùng cho auth và đổi mật khẩu).
    */
@@ -180,11 +180,11 @@ export class UsersService {
   /**
    * Ghi tuỳ chọn cá nhân.
    */
-  async setPreference(userid: number, name: string, value: string | null): Promise<void> { return this.repo.setPreference(userid, name, value); }
+  async setPreference(userid: string, name: string, value: string | null): Promise<void> { return this.repo.setPreference(userid, name, value); }
   /**
    * Đọc tuỳ chọn cá nhân.
    */
-  async getPreference(userid: number, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userid, name); }
+  async getPreference(userid: string, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userid, name); }
 
   /**
    * Profile view with Moodle's privacy-by-capability rule: identity fields
@@ -194,7 +194,7 @@ export class UsersService {
   /**
    * Dựng dữ liệu hiển thị hồ sơ: email chỉ lộ khi người xem có capability xem định danh.
    */
-  async getProfileView(targetId: number, viewerId: number): Promise<UserProfileView> {
+  async getProfileView(targetId: string, viewerId: string): Promise<UserProfileView> {
     const user = await this.getUser(targetId);
     const userCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, targetId);
     const systemCtx = await this.contexts.ensureSystemContext();
@@ -215,7 +215,7 @@ export class UsersService {
   /**
    * Chặn cập nhật hồ sơ người khác khi thiếu capability moodle/user:update.
    */
-  async assertCanUpdateProfile(actorId: number, targetId: number): Promise<void> {
+  async assertCanUpdateProfile(actorId: string, targetId: string): Promise<void> {
     if (actorId === targetId) return;
     const systemCtx = await this.contexts.ensureSystemContext();
     if (!(await this.evaluator.hasCapability(actorId, 'moodle/user:update', systemCtx.id))) {

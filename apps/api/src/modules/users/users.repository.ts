@@ -23,13 +23,13 @@ export class UsersRepository {
   /**
    * Cập nhật các trường hồ sơ của user.
    */
-  async updateUser(id: number, v: Partial<typeof users.$inferInsert>, tx?: DbTx): Promise<void> {
+  async updateUser(id: string, v: Partial<typeof users.$inferInsert>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(users).set({ ...v, timemodified: new Date() }).where(eq(users.id, id));
   }
   /**
    * Lấy user theo id.
    */
-  async getById(id: number): Promise<UserRow | undefined> {
+  async getById(id: string): Promise<UserRow | undefined> {
     const [row] = await this.db.select().from(users).where(eq(users.id, id)); return row;
   }
   /**
@@ -62,14 +62,14 @@ export class UsersRepository {
   /**
    * Ghi tuỳ chọn cá nhân của user (upsert theo tên).
    */
-  async setPreference(userid: number, name: string, value: string | null): Promise<void> {
+  async setPreference(userid: string, name: string, value: string | null): Promise<void> {
     await this.db.insert(userPreferences).values({ userid, name, value })
       .onConflictDoUpdate({ target: [userPreferences.userid, userPreferences.name], set: { value } });
   }
   /**
    * Đọc một tuỳ chọn cá nhân; undefined nếu chưa đặt.
    */
-  async getPreference(userid: number, name: string): Promise<string | null | undefined> {
+  async getPreference(userid: string, name: string): Promise<string | null | undefined> {
     const [row] = await this.db.select().from(userPreferences)
       .where(and(eq(userPreferences.userid, userid), eq(userPreferences.name, name)));
     return row?.value;

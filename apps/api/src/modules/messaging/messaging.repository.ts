@@ -30,26 +30,26 @@ export class MessagingRepository {
   /**
    * Lấy conversation theo id.
    */
-  async getConversation(id: number): Promise<ConversationRow | undefined> {
+  async getConversation(id: string): Promise<ConversationRow | undefined> {
     const [row] = await this.db.select().from(messageConversations).where(eq(messageConversations.id, id)); return row;
   }
   /**
    * Thêm thành viên conversation.
    */
-  async addMember(conversationid: number, userid: number, tx?: DbTx): Promise<void> {
+  async addMember(conversationid: string, userid: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).insert(messageConversationMembers).values({ conversationid, userid }).onConflictDoNothing();
   }
   /**
    * Thành viên của conversation.
    */
-  async listMembers(conversationid: number): Promise<number[]> {
+  async listMembers(conversationid: string): Promise<string[]> {
     const rows = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.conversationid, conversationid));
     return rows.map((r) => r.userid);
   }
   /**
    * User có thuộc conversation hay không.
    */
-  async isMember(conversationid: number, userid: number): Promise<boolean> {
+  async isMember(conversationid: string, userid: string): Promise<boolean> {
     const rows = await this.db.select().from(messageConversationMembers)
       .where(and(eq(messageConversationMembers.conversationid, conversationid), eq(messageConversationMembers.userid, userid)));
     return rows.length > 0;
@@ -57,7 +57,7 @@ export class MessagingRepository {
   /**
    * Conversation của user, mới nhất trước.
    */
-  async listConversationsForUser(userid: number): Promise<ConversationRow[]> {
+  async listConversationsForUser(userid: string): Promise<ConversationRow[]> {
     const memberships = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.userid, userid));
     if (!memberships.length) return [];
     const rows: ConversationRow[] = [];
@@ -71,7 +71,7 @@ export class MessagingRepository {
   /**
    * Tìm conversation 1-1 giữa hai user.
    */
-  async findIndividualConversation(a: number, b: number): Promise<ConversationRow | undefined> {
+  async findIndividualConversation(a: string, b: string): Promise<ConversationRow | undefined> {
     const mine = await this.listConversationsForUser(a);
     for (const c of mine) {
       if (c.type !== 1) continue;
@@ -83,7 +83,7 @@ export class MessagingRepository {
   /**
    * Cập nhật mốc hoạt động của conversation khi có tin mới.
    */
-  async touchConversation(id: number, tx?: DbTx): Promise<void> {
+  async touchConversation(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(messageConversations).set({ timemodified: new Date() }).where(eq(messageConversations.id, id));
   }
 
@@ -96,19 +96,19 @@ export class MessagingRepository {
   /**
    * Lấy tin nhắn theo id.
    */
-  async getMessage(id: number): Promise<MessageRow | undefined> {
+  async getMessage(id: string): Promise<MessageRow | undefined> {
     const [row] = await this.db.select().from(message).where(eq(message.id, id)); return row;
   }
   /**
    * Tin nhắn của conversation.
    */
-  async listMessages(conversationid: number): Promise<MessageRow[]> {
+  async listMessages(conversationid: string): Promise<MessageRow[]> {
     return this.db.select().from(message).where(eq(message.conversationid, conversationid)).orderBy(asc(message.id));
   }
   /**
    * Đánh dấu user đã đọc conversation tới thời điểm hiện tại.
    */
-  async markConversationRead(conversationid: number, readerId: number): Promise<number> {
+  async markConversationRead(conversationid: string, readerId: string): Promise<number> {
     const rows = await this.db.update(message).set({ timeread: new Date() })
       .where(and(eq(message.conversationid, conversationid), ne(message.useridfrom, readerId), isNull(message.timeread)))
       .returning();
@@ -118,7 +118,7 @@ export class MessagingRepository {
   /**
    * Số conversation có tin chưa đọc của user.
    */
-  async countUnreadConversations(userid: number): Promise<number> {
+  async countUnreadConversations(userid: string): Promise<number> {
     const convs = await this.listConversationsForUser(userid);
     let count = 0;
     for (const c of convs) {
@@ -132,20 +132,20 @@ export class MessagingRepository {
   /**
    * Chặn liên lạc từ một user.
    */
-  async block(userid: number, blockeduserid: number): Promise<void> {
+  async block(userid: string, blockeduserid: string): Promise<void> {
     await this.db.insert(messageUsersBlocked).values({ userid, blockeduserid }).onConflictDoNothing();
   }
   /**
    * Bỏ chặn.
    */
-  async unblock(userid: number, blockeduserid: number): Promise<void> {
+  async unblock(userid: string, blockeduserid: string): Promise<void> {
     await this.db.delete(messageUsersBlocked)
       .where(and(eq(messageUsersBlocked.userid, userid), eq(messageUsersBlocked.blockeduserid, blockeduserid)));
   }
   /**
    * A có chặn B hay không.
    */
-  async isBlocked(userid: number, blockeduserid: number): Promise<boolean> {
+  async isBlocked(userid: string, blockeduserid: string): Promise<boolean> {
     const rows = await this.db.select().from(messageUsersBlocked)
       .where(and(eq(messageUsersBlocked.userid, userid), eq(messageUsersBlocked.blockeduserid, blockeduserid)));
     return rows.length > 0;
@@ -153,7 +153,7 @@ export class MessagingRepository {
   /**
    * Danh sách user bị chặn.
    */
-  async listBlocked(userid: number): Promise<number[]> {
+  async listBlocked(userid: string): Promise<string[]> {
     const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userid, userid));
     return rows.map((r) => r.blockeduserid);
   }
@@ -167,13 +167,13 @@ export class MessagingRepository {
   /**
    * Notification của user.
    */
-  async listNotifications(useridto: number): Promise<NotificationRow[]> {
+  async listNotifications(useridto: string): Promise<NotificationRow[]> {
     return this.db.select().from(notifications).where(eq(notifications.useridto, useridto)).orderBy(desc(notifications.id));
   }
   /**
    * Số notification chưa đọc.
    */
-  async countUnreadNotifications(useridto: number): Promise<number> {
+  async countUnreadNotifications(useridto: string): Promise<number> {
     const rows = await this.db.select().from(notifications)
       .where(and(eq(notifications.useridto, useridto), isNull(notifications.timeread)));
     return rows.length;
@@ -181,7 +181,7 @@ export class MessagingRepository {
   /**
    * Đánh dấu một notification đã đọc.
    */
-  async markNotificationRead(id: number, useridto: number): Promise<boolean> {
+  async markNotificationRead(id: string, useridto: string): Promise<boolean> {
     const rows = await this.db.update(notifications).set({ timeread: new Date() })
       .where(and(eq(notifications.id, id), eq(notifications.useridto, useridto))).returning();
     return rows.length > 0;
@@ -189,7 +189,7 @@ export class MessagingRepository {
   /**
    * Đánh dấu mọi notification đã đọc.
    */
-  async markAllNotificationsRead(useridto: number): Promise<number> {
+  async markAllNotificationsRead(useridto: string): Promise<number> {
     const rows = await this.db.update(notifications).set({ timeread: new Date() })
       .where(and(eq(notifications.useridto, useridto), isNull(notifications.timeread))).returning();
     return rows.length;
@@ -209,7 +209,7 @@ export class MessagingRepository {
   /**
    * Nhật ký dispatch (kiểm chứng gửi).
    */
-  async listDispatchLog(userid: number): Promise<DispatchLogRow[]> {
+  async listDispatchLog(userid: string): Promise<DispatchLogRow[]> {
     return this.db.select().from(notificationDispatchLog).where(eq(notificationDispatchLog.userid, userid)).orderBy(asc(notificationDispatchLog.id));
   }
 }

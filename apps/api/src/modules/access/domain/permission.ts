@@ -5,7 +5,7 @@ export const CAP_PREVENT = -1;
 export const CAP_PROHIBIT = -1000;
 
 export interface RoleOverridePoint {
-  contextId: number;
+  contextId: string;
   permission: number;
 }
 

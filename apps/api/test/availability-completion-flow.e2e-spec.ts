@@ -41,7 +41,7 @@ describe('Availability & completion', () => {
     expect(access.body.code).toBe('availability.not_available');
     // Listed, shown-but-locked:
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`);
-    const listed = content.body.sections.flatMap((s: { modules: unknown[] }) => s.modules).find((m: { id: number }) => m.id === cm.id);
+    const listed = content.body.sections.flatMap((s: { modules: unknown[] }) => s.modules).find((m: { id: string }) => m.id === cm.id);
     expect(listed).toBeDefined();
     expect(listed.availabilityResult.available).toBe(false);
     expect(listed.availabilityResult.visible).toBe(true);
@@ -55,7 +55,7 @@ describe('Availability & completion', () => {
       availability: { op: '&', show: false, showc: [true], c: [{ type: 'date', d: '>=', t: future }] },
     });
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`);
-    const listed = content.body.sections.flatMap((s: { modules: unknown[] }) => s.modules).find((m: { id: number }) => m.id === cm.id);
+    const listed = content.body.sections.flatMap((s: { modules: unknown[] }) => s.modules).find((m: { id: string }) => m.id === cm.id);
     expect(listed).toBeUndefined();
     const access = await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`);
     expect(access.status).toBe(403);
@@ -80,7 +80,7 @@ describe('Availability & completion', () => {
   it('group leaf + nested tree: AND inside NOT-OR gates access by group membership (golden combination, API level)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
     const groupRes = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Gate group' });
-    const groupId = groupRes.body.id as number;
+    const groupId = groupRes.body.id as string;
     // Available when NOT(group AND profile-department=blocked): student is neither, so open.
     const tree = {
       op: '!|', show: true, showc: [true],
@@ -116,11 +116,11 @@ describe('Availability & completion', () => {
     const { course, sectionId, student, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Read me', completion: 2, completionview: true });
     const before = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(before.body.activities.find((a: { cmId: number }) => a.cmId === cm.id)?.state).toBe(0);
+    expect(before.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)?.state).toBe(0);
     const view = await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/view`).set('Authorization', `Bearer ${studentToken}`);
     expect(view.status).toBeLessThan(300);
     const after = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    const record = after.body.activities.find((a: { cmId: number }) => a.cmId === cm.id);
+    const record = after.body.activities.find((a: { cmId: string }) => a.cmId === cm.id);
     expect(record.viewed).toBe(true);
     expect(record.state).toBe(1);
   });
@@ -193,11 +193,11 @@ describe('Availability & completion', () => {
     const del = await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.body.withdrawn).toBe(true);
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    const ue = (list.body as { userid: number; status: number }[]).find((e) => e.userid === student.id);
+    const ue = (list.body as { userid: string; status: number }[]).find((e) => e.userid === student.id);
     expect(ue?.status).toBe(2);
     // The completion record itself survived the unenrol.
     const completion = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(completion.body.activities.find((a: { cmId: number }) => a.cmId === cm.id)?.state).toBe(1);
+    expect(completion.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)?.state).toBe(1);
     // But access is gone.
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
@@ -219,12 +219,12 @@ describe('Availability & completion', () => {
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Enrolled via cohort sync, member of the group via the instance config:
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${groupRes.body.id}/members`).set('Authorization', `Bearer ${admin}`);
-    expect((members.body as { userid: number }[]).map((m) => m.userid)).toContain(student.id);
+    expect((members.body as { userid: string }[]).map((m) => m.userid)).toContain(student.id);
     // Step 2 blocked until Step 1 viewed:
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm2.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cm1.id}/view`).set('Authorization', `Bearer ${studentToken}`);
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm2.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
     const progress = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
-    expect(progress.body.activities.find((a: { cmId: number }) => a.cmId === cm1.id)?.state).toBe(1);
+    expect(progress.body.activities.find((a: { cmId: string }) => a.cmId === cm1.id)?.state).toBe(1);
   });
 });

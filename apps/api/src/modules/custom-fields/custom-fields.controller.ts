@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { CustomFieldsService, type FieldConfig } from './custom-fields.service';
@@ -29,7 +30,7 @@ export class CustomFieldsController {
   /**
    * DELETE /custom-fields/categories/:id — xoá category.
    */
-  async deleteCategory(@Param('id', ParseIntPipe) id: number) { await this.service.deleteCategory(id); return { deleted: true }; }
+  async deleteCategory(@Param('id', { schema: uuidIdSchema }) id: string) { await this.service.deleteCategory(id); return { deleted: true }; }
   @Post('fields')
   @RequireCapability('lms/customfield:manage')
   /**
@@ -47,5 +48,5 @@ export class CustomFieldsController {
   /**
    * DELETE /custom-fields/fields/:id — xoá field.
    */
-  async deleteField(@Param('id', ParseIntPipe) id: number) { await this.service.deleteField(id); return { deleted: true }; }
+  async deleteField(@Param('id', { schema: uuidIdSchema }) id: string) { await this.service.deleteField(id); return { deleted: true }; }
 }

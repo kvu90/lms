@@ -3,6 +3,7 @@ import {
   createPrivacyRequestSchema,
   decidePrivacyRequestSchema,
   type DecidePrivacyRequest,
+  uuidIdSchema,
 } from '@lms/contracts';
 
 /** Validation Privacy dùng Zod qua Standard Schema — schema nền ở `@lms/contracts`. */
@@ -15,6 +16,6 @@ export type DecidePrivacyRequestDto = DecidePrivacyRequest;
  * schema nền không có field này.
  */
 export const createPrivacyRequestServerSchema = createPrivacyRequestSchema.extend({
-  userid: z.number().int().optional(),
+  userid: uuidIdSchema.optional(),
 });
 export type CreatePrivacyRequestDto = z.infer<typeof createPrivacyRequestServerSchema>;

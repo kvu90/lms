@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { RolesService } from '../access/roles.service';
@@ -18,8 +18,8 @@ export const BACKUP_FORMAT_VERSION = 1;
 
 /** Ngữ cảnh import dùng chung cho các contributor: tra cứu và ghi id mapping của job restore. */
 export interface RestoreMapping {
-  map(itemtype: string, oldid: number, newid: number): Promise<void>;
-  get(itemtype: string, oldid: number): number | undefined;
+  map(itemtype: string, oldid: string, newid: string): Promise<void>;
+  get(itemtype: string, oldid: string): string | undefined;
 }
 
 /**
@@ -29,8 +29,8 @@ export interface RestoreMapping {
  */
 export interface BackupContributor {
   name: string;
-  export(courseId: number, anonymize: boolean): Promise<unknown>;
-  import(targetCourseId: number, data: never, mapping: RestoreMapping, actorId: number): Promise<void>;
+  export(courseId: string, anonymize: boolean): Promise<unknown>;
+  import(targetCourseId: string, data: never, mapping: RestoreMapping, actorId: string): Promise<void>;
 }
 
 /**
@@ -82,7 +82,7 @@ export class BackupService {
           const sectionId = mapping.get('section', cm.section);
           if (!sectionId) continue;
           const created = await this.courses.createCm(actorId, targetCourseId, {
-            sectionId, component: cm.component, instanceid: 0, name: cm.name, visible: cm.visible,
+            sectionId, component: cm.component, instanceid: undefined, name: cm.name, visible: cm.visible,
             groupmode: cm.groupmode, completion: cm.completion, completionview: cm.completionview,
             completionusegrade: cm.completionusegrade, completionmanual: cm.completionmanual,
           });
@@ -98,7 +98,7 @@ export class BackupService {
         const ues = instances.length ? await db.select().from(userEnrolments).where(inArray(userEnrolments.enrolid, instances.map((i) => i.id))) : [];
         return {
           instances,
-          enrolments: ues.map((ue) => ({ ...ue, userid: anonymize ? 0 : ue.userid })),
+          enrolments: ues.map((ue) => ({ ...ue, userid: anonymize ? null : ue.userid })),
         };
       },
       import: async (targetCourseId, data, mapping) => {
@@ -107,7 +107,7 @@ export class BackupService {
         for (const inst of d.instances) {
           const [row] = await db.insert(enrol).values({
             courseid: targetCourseId, enrol: inst.enrol, status: inst.status, name: inst.name, roleid: inst.roleid,
-            enrolperiod: inst.enrolperiod, customint1: inst.customint1, customint2: 0, customtext1: inst.customtext1,
+            enrolperiod: inst.enrolperiod, customint1: inst.customint1, customint2: null, customtext1: inst.customtext1,
             cost: inst.cost, currency: inst.currency, paymentaccountid: inst.paymentaccountid,
           }).returning();
           await mapping.map('enrol', inst.id, row!.id);
@@ -189,8 +189,8 @@ export class BackupService {
         }
         for (const item of d.items) {
           let instance = item.iteminstance;
-          if (item.itemtype === 'mod') instance = mapping.get('cm', item.iteminstance) ?? 0;
-          else if (item.itemtype === 'category') instance = mapping.get('grade_category', item.iteminstance) ?? 0;
+          if (item.itemtype === 'mod') instance = item.iteminstance ? (mapping.get('cm', item.iteminstance) ?? null) : null;
+          else if (item.itemtype === 'category') instance = item.iteminstance ? (mapping.get('grade_category', item.iteminstance) ?? null) : null;
           else if (item.itemtype === 'course') instance = targetCourseId;
           const categoryid = item.categoryid ? mapping.get('grade_category', item.categoryid) ?? null : null;
           const [row] = await db.insert(gradeItems).values({
@@ -200,7 +200,7 @@ export class BackupService {
             aggregationcoef: item.aggregationcoef, extracredit: item.extracredit, hidden: item.hidden, sortorder: item.sortorder,
           }).onConflictDoNothing().returning();
           const existing = row ?? (await db.select().from(gradeItems).where(and(
-            eq(gradeItems.courseid, targetCourseId), eq(gradeItems.itemtype, item.itemtype), eq(gradeItems.iteminstance, instance),
+            eq(gradeItems.courseid, targetCourseId), eq(gradeItems.itemtype, item.itemtype), instance === null ? isNull(gradeItems.iteminstance) : eq(gradeItems.iteminstance, instance),
           )))[0];
           if (existing) await mapping.map('grade_item', item.id, existing.id);
         }
@@ -223,7 +223,7 @@ export class BackupService {
         const courseComp = await db.select().from(courseCompletions).where(eq(courseCompletions.course, courseId));
         const criteria = await db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
         const [settings] = await db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, courseId));
-        const scrub = <T extends { userid: number }>(rows: T[]): T[] => anonymize ? rows.map((r) => ({ ...r, userid: 0 })) : rows;
+        const scrub = <T extends { userid: string }>(rows: T[]): T[] => anonymize ? rows.map((r) => ({ ...r, userid: 0 })) : rows;
         return { cmCompletion: scrub(cmComp), courseCompletions: scrub(courseComp), criteria, settings: settings ?? null };
       },
       import: async (targetCourseId, data, mapping) => {
@@ -263,7 +263,7 @@ export class BackupService {
       export: async (courseId) => {
         const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
         const cms = await db.select().from(courseModules).where(eq(courseModules.course, courseId));
-        const ctxIds: number[] = courseCtx ? [courseCtx.id] : [];
+        const ctxIds: string[] = courseCtx ? [courseCtx.id] : [];
         for (const cm of cms) {
           const ctx = await this.contexts.getByLevelInstance(70, cm.id);
           if (ctx) ctxIds.push(ctx.id);
@@ -285,15 +285,15 @@ export class BackupService {
           let newContextId = newCourseCtx;
           const oldCtx = await this.contexts.getContext(f.contextid).catch(() => undefined);
           if (oldCtx?.contextlevel === 70) {
-            const newCm = mapping.get('cm', oldCtx.instanceid);
+            const newCm = oldCtx.instanceid ? mapping.get('cm', oldCtx.instanceid) : undefined;
             if (newCm) {
               const ctx = await this.contexts.getByLevelInstance(70, newCm);
               if (ctx) newContextId = ctx.id;
             }
           }
-          const itemid = mapping.get('cm', f.itemid) ?? f.itemid;
+          const itemid = f.itemid ? (mapping.get('cm', f.itemid) ?? f.itemid) : null;
           const created = await this.files.upload({
-            contextid: newContextId, component: f.component, filearea: f.filearea, itemid,
+            contextid: newContextId, component: f.component, filearea: f.filearea, itemid: itemid ?? undefined,
             filepath: f.filepath, filename: f.filename, data: Buffer.from(f.dataBase64, 'base64'),
             mimetype: f.mimetype ?? undefined, userid: f.userid ?? undefined,
           });
@@ -303,17 +303,17 @@ export class BackupService {
     });
   }
 
-  async getJob(id: number): Promise<JobRow> {
+  async getJob(id: string): Promise<JobRow> {
     const row = await this.repo.getJob(id);
     if (!row) throw new NotFoundException({ message: `Backup job ${id} not found`, code: 'backup.job_not_found' });
     return row;
   }
   async listJobs(): Promise<JobRow[]> { return this.repo.listJobs(); }
-  async listSteps(jobId: number) { return this.repo.listSteps(jobId); }
-  async listMappings(jobId: number) { return this.repo.listMappings(jobId); }
+  async listSteps(jobId: string) { return this.repo.listSteps(jobId); }
+  async listMappings(jobId: string) { return this.repo.listMappings(jobId); }
 
   /** Tạo và chạy backup job (API twin của worker processor): ghi bước cho từng contributor. */
-  async createBackup(actorId: number, courseId: number, anonymize = false): Promise<JobRow> {
+  async createBackup(actorId: string, courseId: string, anonymize = false): Promise<JobRow> {
     const courseRow = await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'lms/backup:backupcourse', await this.courses.courseContextId(courseId));
     const job = await this.repo.insertJob({ type: 'backup', courseid: courseId, userid: actorId, anonymize, status: 'running' });
@@ -338,19 +338,19 @@ export class BackupService {
   }
 
   /** Tạo và chạy restore job với 3 chế độ tường minh. */
-  async restore(actorId: number, backupJobId: number, mode: 'new' | 'merge' | 'replace', targetCourseId?: number): Promise<JobRow> {
+  async restore(actorId: string, backupJobId: string, mode: 'new' | 'merge' | 'replace', targetCourseId?: string): Promise<JobRow> {
     const backup = await this.getJob(backupJobId);
     if (backup.type !== 'backup' || backup.status !== 'completed' || !backup.archive) {
       throw new BadRequestException({ message: 'Backup job is not a completed backup', code: 'backup.not_completed' });
     }
-    const archive = backup.archive as { format: string; version: number; course: { fullname: string; shortname: string; category: number; summary: string }; contributors: Record<string, unknown> };
+    const archive = backup.archive as { format: string; version: number; course: { fullname: string; shortname: string; category: string; summary: string }; contributors: Record<string, unknown> };
     if (archive.format !== BACKUP_FORMAT || archive.version !== BACKUP_FORMAT_VERSION) {
       throw new BadRequestException({ message: `Unsupported backup format ${archive.format} v${archive.version}`, code: 'backup.unsupported_format' });
     }
     if (mode !== 'new' && !targetCourseId) throw new BadRequestException({ message: `Restore mode ${mode} requires targetCourseId`, code: 'backup.target_required' });
     if (mode === 'new' && targetCourseId) throw new BadRequestException({ message: 'Restore mode new must not pass targetCourseId', code: 'backup.target_forbidden' });
 
-    let targetId: number;
+    let targetId: string;
     if (mode === 'new') {
       await this.evaluator.requireCapability(actorId, 'lms/backup:restorecourse', await this.courses.categoryContextId(archive.course.category));
       const created = await this.courses.createCourse(actorId, {
@@ -366,7 +366,7 @@ export class BackupService {
     const job = await this.repo.insertJob({
       type: 'restore', courseid: backup.courseid, targetcourseid: targetId, mode, userid: actorId, status: 'running',
     });
-    const mappingState = new Map<string, number>();
+    const mappingState = new Map<string, string>();
     const mapping: RestoreMapping = {
       map: async (itemtype, oldid, newid) => {
         mappingState.set(`${itemtype}:${oldid}`, newid);
@@ -391,7 +391,7 @@ export class BackupService {
   }
 
   /** Replace mode: xoá nội dung hiện có của course đích trước khi khôi phục. */
-  private async clearCourseContent(courseId: number): Promise<void> {
+  private async clearCourseContent(courseId: string): Promise<void> {
     const db = this.repo.dbHandle;
     await db.delete(courseSections).where(eq(courseSections.course, courseId));
     await db.delete(enrol).where(eq(enrol.courseid, courseId));
@@ -403,11 +403,11 @@ export class BackupService {
   }
 
   /** Checklist tương đương giữa course nguồn và course đích của một restore job. */
-  async restoreChecklist(restoreJobId: number): Promise<Record<string, { source: number; target: number }>> {
+  async restoreChecklist(restoreJobId: string): Promise<Record<string, { source: number; target: number }>> {
     const job = await this.getJob(restoreJobId);
     const targetId = job.targetcourseid!;
     const db = this.repo.dbHandle;
-    const countFor = async (courseId: number) => {
+    const countFor = async (courseId: string) => {
       const sections = await db.select().from(courseSections).where(eq(courseSections.course, courseId));
       const cms = await db.select().from(courseModules).where(eq(courseModules.course, courseId));
       const instances = await db.select().from(enrol).where(eq(enrol.courseid, courseId));

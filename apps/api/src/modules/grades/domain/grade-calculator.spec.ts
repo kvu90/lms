@@ -26,7 +26,7 @@ import { calculateCategory, letterForGrade, type CalcItemInput } from './grade-c
 
 let nextId = 1;
 function item(partial: Partial<CalcItemInput> & { grade: number | null }): CalcItemInput {
-  return { itemId: nextId++, grademin: 0, grademax: 100, ...partial };
+  return { itemId: `item-${nextId++}`, grademin: 0, grademax: 100, ...partial };
 }
 function resetIds(): void { nextId = 1; }
 

@@ -31,13 +31,13 @@ export class CustomFieldsRepository {
   /**
    * Lấy category theo id.
    */
-  async getCategory(id: number): Promise<CategoryRow | undefined> {
+  async getCategory(id: string): Promise<CategoryRow | undefined> {
     const [row] = await this.db.select().from(customfieldCategory).where(eq(customfieldCategory.id, id)); return row;
   }
   /**
    * Xoá category.
    */
-  async deleteCategory(id: number): Promise<void> {
+  async deleteCategory(id: string): Promise<void> {
     const fields = await this.listFieldsByCategory(id);
     for (const f of fields) await this.db.delete(customfieldData).where(eq(customfieldData.fieldid, f.id));
     await this.db.delete(customfieldField).where(eq(customfieldField.categoryid, id));
@@ -52,33 +52,33 @@ export class CustomFieldsRepository {
   /**
    * Lấy field theo id.
    */
-  async getField(id: number): Promise<FieldRow | undefined> {
+  async getField(id: string): Promise<FieldRow | undefined> {
     const [row] = await this.db.select().from(customfieldField).where(eq(customfieldField.id, id)); return row;
   }
   /**
    * Liệt kê field trong category.
    */
-  async listFieldsByCategory(categoryid: number): Promise<FieldRow[]> {
+  async listFieldsByCategory(categoryid: string): Promise<FieldRow[]> {
     return this.db.select().from(customfieldField).where(eq(customfieldField.categoryid, categoryid)).orderBy(customfieldField.sortorder);
   }
   /**
    * Xoá field.
    */
-  async deleteField(id: number): Promise<void> {
+  async deleteField(id: string): Promise<void> {
     await this.db.delete(customfieldData).where(eq(customfieldData.fieldid, id));
     await this.db.delete(customfieldField).where(eq(customfieldField.id, id));
   }
   /**
    * Ghi giá trị field cho một instance (upsert theo field+instance).
    */
-  async upsertData(fieldid: number, instanceid: number, value: string | null): Promise<void> {
+  async upsertData(fieldid: string, instanceid: string, value: string | null): Promise<void> {
     await this.db.insert(customfieldData).values({ fieldid, instanceid, value })
       .onConflictDoUpdate({ target: [customfieldData.fieldid, customfieldData.instanceid], set: { value, timemodified: new Date() } });
   }
   /**
    * Đọc mọi giá trị field của một instance.
    */
-  async getDataForInstance(fieldIds: number[], instanceid: number): Promise<DataRow[]> {
+  async getDataForInstance(fieldIds: string[], instanceid: string): Promise<DataRow[]> {
     if (fieldIds.length === 0) return [];
     return this.db.select().from(customfieldData)
       .where(and(eq(customfieldData.instanceid, instanceid)));

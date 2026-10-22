@@ -30,19 +30,19 @@ export class AuthRepository {
   /**
    * Xoay family sang refresh token mới (ghi hash mới, đánh dấu hash cũ đã dùng).
    */
-  async rotateFamily(id: number, currentTokenHash: string, previousTokenHash: string): Promise<void> {
+  async rotateFamily(id: string, currentTokenHash: string, previousTokenHash: string): Promise<void> {
     await this.db.update(refreshTokenFamily).set({ currentTokenHash, previousTokenHash, rotatedAt: new Date() }).where(eq(refreshTokenFamily.id, id));
   }
   /**
    * Thu hồi toàn bộ family (đăng xuất hoặc phát hiện tái sử dụng).
    */
-  async revokeFamily(id: number): Promise<void> {
+  async revokeFamily(id: string): Promise<void> {
     await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.id, id));
   }
   /**
    * Thu hồi mọi family của user (đổi mật khẩu, đình chỉ).
    */
-  async revokeAllForUser(userid: number): Promise<void> {
+  async revokeAllForUser(userid: string): Promise<void> {
     await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.userid, userid));
   }
   /**
@@ -53,7 +53,7 @@ export class AuthRepository {
   /**
    * Số lần đăng nhập thất bại gần đây của username — đầu vào của chính sách lockout.
    */
-  async recentFailedAttempts(userid: number, since: Date): Promise<(typeof loginAttempts.$inferSelect)[]> {
+  async recentFailedAttempts(userid: string, since: Date): Promise<(typeof loginAttempts.$inferSelect)[]> {
     return this.db.select().from(loginAttempts).where(and(
       eq(loginAttempts.userid, userid), eq(loginAttempts.success, false), gte(loginAttempts.attemptedAt, since),
     )).orderBy(desc(loginAttempts.attemptedAt));
@@ -61,7 +61,7 @@ export class AuthRepository {
   /**
    * Thời điểm đăng nhập thành công gần nhất.
    */
-  async lastSuccessfulAttemptAt(userid: number): Promise<Date | undefined> {
+  async lastSuccessfulAttemptAt(userid: string): Promise<Date | undefined> {
     const [row] = await this.db.select().from(loginAttempts).where(and(
       eq(loginAttempts.userid, userid), eq(loginAttempts.success, true),
     )).orderBy(desc(loginAttempts.attemptedAt)).limit(1);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { uploadFileMetaSchema, type UploadFileMeta } from '@lms/contracts';
+import { uploadFileMetaSchema, type UploadFileMeta, uuidIdSchema } from '@lms/contracts';
 
 /**
  * Validation của Files dùng Zod qua Standard Schema — schema nền ở
@@ -14,7 +14,7 @@ export type UploadMetaBaseDto = UploadFileMeta;
  * `z.coerce` ở tầng server.
  */
 export const uploadMetaServerSchema = uploadFileMetaSchema.extend({
-  contextid: z.coerce.number().int(),
-  itemid: z.coerce.number().int().optional(),
+  contextid: uuidIdSchema,
+  itemid: uuidIdSchema.optional(),
 });
 export type UploadMetaDto = z.infer<typeof uploadMetaServerSchema>;

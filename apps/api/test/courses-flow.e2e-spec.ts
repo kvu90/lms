@@ -158,18 +158,18 @@ describe('Courses: categories, courses, sections, course modules', () => {
       .field('contextid', String(cm.contextId)).field('component', 'mod_page').field('filearea', 'content')
       .attach('file', Buffer.from('hello cm'), 'page.txt');
     expect(upload.status).toBe(201);
-    const uploadedFileId = upload.body?.id as number | undefined;
+    const uploadedFileId = upload.body?.id as string | undefined;
 
     const view = await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/view`).set('Authorization', `Bearer ${studentLogin.accessToken}`);
     expect(view.status).toBeLessThan(300);
     const completionBefore = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(completionBefore.body.activities.find((a: { cmId: number }) => a.cmId === cm.id)?.state).toBe(1);
+    expect(completionBefore.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)?.state).toBe(1);
 
     // Delete the cm: completion records and file records of its context must be cleaned by the owning modules' event handlers.
     const del = await http(app).delete(`/api/v1/courses/${course.id}/modules/${cm.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(200);
     const completionAfter = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(completionAfter.body.activities.find((a: { cmId: number }) => a.cmId === cm.id)).toBeUndefined();
+    expect(completionAfter.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)).toBeUndefined();
     if (uploadedFileId) {
       const fileAfter = await http(app).get(`/api/v1/files/${uploadedFileId}`).set('Authorization', `Bearer ${admin}`);
       expect(fileAfter.status).toBe(404);

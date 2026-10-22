@@ -36,29 +36,29 @@ export class PaymentsService {
     private readonly enrol: EnrolService,
   ) {}
 
-  private async requireManageAccounts(actorId: number): Promise<void> {
+  private async requireManageAccounts(actorId: string): Promise<void> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/payment:manageaccounts', sys.id);
   }
 
-  async createAccount(actorId: number, input: { name: string; gateway?: string }): Promise<AccountRow> {
+  async createAccount(actorId: string, input: { name: string; gateway?: string }): Promise<AccountRow> {
     await this.requireManageAccounts(actorId);
     return this.repo.insertAccount({ name: input.name, gateway: input.gateway ?? 'manual' });
   }
   async listAccounts(): Promise<AccountRow[]> { return this.repo.listAccounts(); }
-  async getAccount(id: number): Promise<AccountRow> {
+  async getAccount(id: string): Promise<AccountRow> {
     const row = await this.repo.getAccount(id);
     if (!row) throw new NotFoundException({ message: `Payment account ${id} not found`, code: 'payment.account_not_found' });
     return row;
   }
-  async getPayment(id: number): Promise<PaymentRow> {
+  async getPayment(id: string): Promise<PaymentRow> {
     const row = await this.repo.getPayment(id);
     if (!row) throw new NotFoundException({ message: `Payment ${id} not found`, code: 'payment.not_found' });
     return row;
   }
 
   /** Tạo payment ở trạng thái pending cho một user. */
-  async createPayment(userId: number, input: { accountid: number; amount: number; currency: string; component?: string; itemid?: number }): Promise<PaymentRow> {
+  async createPayment(userId: string, input: { accountid: string; amount: number; currency: string; component?: string; itemid?: string }): Promise<PaymentRow> {
     if (!Number.isInteger(input.amount) || input.amount <= 0) {
       throw new BadRequestException({ message: 'Amount must be a positive integer in the smallest currency unit', code: 'payment.amount_not_integer' });
     }
@@ -66,12 +66,12 @@ export class PaymentsService {
     if (!account.enabled) throw new BadRequestException({ message: 'Payment account is disabled', code: 'payment.account_disabled' });
     return this.repo.insertPayment({
       accountid: input.accountid, userid: userId, amount: input.amount, currency: input.currency.toUpperCase(),
-      status: 'pending', gateway: account.gateway, component: input.component ?? '', itemid: input.itemid ?? 0,
+      status: 'pending', gateway: account.gateway, component: input.component ?? '', itemid: input.itemid ?? null,
     });
   }
 
   /** Tạo payment cho một enrol instance có phí, lấy amount/currency từ config của instance. */
-  async createFeePayment(userId: number, enrolInstanceId: number): Promise<PaymentRow> {
+  async createFeePayment(userId: string, enrolInstanceId: string): Promise<PaymentRow> {
     const instance = await this.enrol.getInstance(enrolInstanceId);
     if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) {
       throw new BadRequestException({ message: 'Enrol instance has no fee configured', code: 'payment.no_fee' });
@@ -85,7 +85,7 @@ export class PaymentsService {
    * Xử lý webhook: idempotent theo (gateway, externalTransactionId).
    * Replay ⇒ trả duplicate và KHÔNG phát lại sự kiện, KHÔNG kích hoạt lại enrol.
    */
-  async handleWebhook(input: { gateway: string; externalTransactionId: string; paymentId: number; status: string }): Promise<{ status: string; duplicate?: boolean; payment: PaymentRow }> {
+  async handleWebhook(input: { gateway: string; externalTransactionId: string; paymentId: string; status: string }): Promise<{ status: string; duplicate?: boolean; payment: PaymentRow }> {
     const existing = await this.repo.getByExternalTx(input.gateway, input.externalTransactionId);
     if (existing) return { status: existing.status, duplicate: true, payment: existing };
     const payment = await this.getPayment(input.paymentId);
@@ -108,7 +108,7 @@ export class PaymentsService {
   }
 
   /** Hoàn tiền: tạo refund riêng, payment gốc chỉ đổi status sang refunded (không sửa amount). */
-  async refund(actorId: number, paymentId: number, input: { amount: number; reason?: string; externalTransactionId?: string }): Promise<RefundRow> {
+  async refund(actorId: string, paymentId: string, input: { amount: number; reason?: string; externalTransactionId?: string }): Promise<RefundRow> {
     await this.requireManageAccounts(actorId);
     const payment = await this.getPayment(paymentId);
     if (payment.status !== 'succeeded') throw new BadRequestException({ message: 'Only a succeeded payment can be refunded', code: 'payment.not_succeeded' });
@@ -122,8 +122,8 @@ export class PaymentsService {
     if (input.amount === payment.amount) await this.repo.updatePayment(payment.id, { status: 'refunded' });
     return refund;
   }
-  async listRefunds(paymentId: number): Promise<RefundRow[]> { return this.repo.listRefunds(paymentId); }
-  async listPaymentsForUser(userId: number): Promise<PaymentRow[]> { return this.repo.listPaymentsForUser(userId); }
+  async listRefunds(paymentId: string): Promise<RefundRow[]> { return this.repo.listRefunds(paymentId); }
+  async listPaymentsForUser(userId: string): Promise<PaymentRow[]> { return this.repo.listPaymentsForUser(userId); }
 
   /** Đối soát tối giản ở worker: đếm payment succeeded chưa có external tx (cần rà soát). */
   async reconcile(): Promise<{ total: number; succeeded: number; pendingWithoutExternalTx: number }> {

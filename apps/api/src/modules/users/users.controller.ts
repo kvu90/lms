@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
@@ -46,7 +47,7 @@ export class UsersController {
   /**
    * GET /users/:id — hồ sơ một user (email ẩn nếu thiếu capability).
    */
-  async get(@Param('id', ParseIntPipe) id: number, @CurrentUser() viewer: AuthenticatedUser) {
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() viewer: AuthenticatedUser) {
     return this.users.getProfileView(id, viewer.id);
   }
 
@@ -54,7 +55,7 @@ export class UsersController {
   /**
    * PATCH /users/:id — cập nhật hồ sơ.
    */
-  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateUserSchema }) dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateUserSchema }) dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
     const user = await this.users.updateUser(id, dto);
     return this.users.getProfileView(user.id, actor.id);
@@ -65,7 +66,7 @@ export class UsersController {
   /**
    * POST /users/:id/suspend — đình chỉ tài khoản.
    */
-  async suspend(@Param('id', ParseIntPipe) id: number) {
+  async suspend(@Param('id', { schema: uuidIdSchema }) id: string) {
     const user = await this.users.setSuspended(id, true);
     return { id: user.id, suspended: user.suspended };
   }
@@ -74,7 +75,7 @@ export class UsersController {
   /**
    * POST /users/:id/unsuspend — khôi phục tài khoản.
    */
-  async unsuspend(@Param('id', ParseIntPipe) id: number) {
+  async unsuspend(@Param('id', { schema: uuidIdSchema }) id: string) {
     const user = await this.users.setSuspended(id, false);
     return { id: user.id, suspended: user.suspended };
   }
@@ -83,7 +84,7 @@ export class UsersController {
   /**
    * DELETE /users/:id — xoá mềm tài khoản.
    */
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string) {
     const user = await this.users.deleteUser(id);
     return { id: user.id, deleted: user.deleted };
   }
@@ -92,7 +93,7 @@ export class UsersController {
   /**
    * PUT /users/me/preferences/:name — ghi tuỳ chọn cá nhân.
    */
-  async setPreference(@Param('id', ParseIntPipe) id: number, @Body({ schema: setUserPreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setPreference(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setUserPreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
     await this.users.setPreference(id, dto.name, dto.value ?? null);
     return { saved: true };
@@ -101,7 +102,7 @@ export class UsersController {
   /**
    * GET /users/me/preferences/:name — đọc tuỳ chọn cá nhân.
    */
-  async getPreference(@Param('id', ParseIntPipe) id: number, @Param('name') name: string, @CurrentUser() actor: AuthenticatedUser) {
+  async getPreference(@Param('id', { schema: uuidIdSchema }) id: string, @Param('name') name: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
     return { name, value: (await this.users.getPreference(id, name)) ?? null };
   }

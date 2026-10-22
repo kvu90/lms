@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { BackupService } from './backup.service';
@@ -22,11 +23,11 @@ export class BackupController {
   @Get('jobs')
   async jobs() { return this.backup.listJobs(); }
   @Get('jobs/:id')
-  async job(@Param('id', ParseIntPipe) id: number) { return this.backup.getJob(id); }
+  async job(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.getJob(id); }
   @Get('jobs/:id/steps')
-  async steps(@Param('id', ParseIntPipe) id: number) { return this.backup.listSteps(id); }
+  async steps(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.listSteps(id); }
   @Get('jobs/:id/mappings')
-  async mappings(@Param('id', ParseIntPipe) id: number) { return this.backup.listMappings(id); }
+  async mappings(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.listMappings(id); }
   @Get('jobs/:id/checklist')
-  async checklist(@Param('id', ParseIntPipe) id: number) { return this.backup.restoreChecklist(id); }
+  async checklist(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.restoreChecklist(id); }
 }

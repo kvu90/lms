@@ -44,7 +44,7 @@ export class AuthService {
   /**
    * Username có đang bị khoá tạm thời do quá nhiều lần thất bại hay không.
    */
-  async isLockedOut(userId: number): Promise<boolean> {
+  async isLockedOut(userId: string): Promise<boolean> {
     const threshold = this.config.get<number>('LOCKOUT_THRESHOLD') ?? 5;
     if (threshold <= 0) return false; // lockout disabled when threshold is 0 (Moodle behaviour)
     const windowMin = this.config.get<number>('LOCKOUT_WINDOW_MINUTES') ?? 20;
@@ -151,7 +151,7 @@ export class AuthService {
   /**
    * Đổi mật khẩu: kiểm mật khẩu cũ + chính sách, sau đó thu hồi mọi phiên khác.
    */
-  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
     const user = await this.users.getUser(userId);
     if (!(await this.users.verifyPassword(user, currentPassword))) {
       throw new UnauthorizedException({ message: 'Current password is incorrect', code: 'auth.invalid_credentials' });
@@ -170,7 +170,7 @@ export class AuthService {
   /**
    * Đăng nhập thay (login-as) cho quản trị/giáo viên có capability; phiên mang dấu vết người mạo danh.
    */
-  async loginAs(adminId: number, targetUserId: number): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async loginAs(adminId: string, targetUserId: string): Promise<{ user: UserRow; tokens: TokenPair }> {
     const system = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(adminId, 'moodle/user:loginas', system.id);
     const target = await this.users.getUser(targetUserId);

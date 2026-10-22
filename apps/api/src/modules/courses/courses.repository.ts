@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { course, courseCategories, courseFormatOptions, courseModules, courseSections } from '../../db/schema';
 
@@ -28,7 +28,7 @@ export class CoursesRepository {
   /**
    * Lấy category theo id.
    */
-  async getCategory(id: number): Promise<CategoryRow | undefined> {
+  async getCategory(id: string): Promise<CategoryRow | undefined> {
     const [row] = await this.db.select().from(courseCategories).where(eq(courseCategories.id, id)); return row;
   }
   /**
@@ -40,7 +40,7 @@ export class CoursesRepository {
   /**
    * Các category con trực tiếp của một category.
    */
-  async childrenOf(parent: number): Promise<CategoryRow[]> {
+  async childrenOf(parent: string): Promise<CategoryRow[]> {
     return this.db.select().from(courseCategories).where(eq(courseCategories.parent, parent)).orderBy(asc(courseCategories.sortorder));
   }
   /** Category and all descendants via path prefix (path is like /1/4/9). */
@@ -54,26 +54,26 @@ export class CoursesRepository {
   /**
    * Cập nhật category.
    */
-  async updateCategory(id: number, v: Partial<typeof courseCategories.$inferInsert>, tx?: DbTx): Promise<void> {
+  async updateCategory(id: string, v: Partial<typeof courseCategories.$inferInsert>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(courseCategories).set({ ...v, timemodified: new Date() }).where(eq(courseCategories.id, id));
   }
   /**
    * Viết lại path/depth khi di chuyển category.
    */
-  async updateCategoryPath(id: number, path: string, depth: number): Promise<void> {
+  async updateCategoryPath(id: string, path: string, depth: number): Promise<void> {
     await this.db.update(courseCategories).set({ path, depth }).where(eq(courseCategories.id, id));
   }
   /**
    * Xoá category.
    */
-  async deleteCategory(id: number, tx?: DbTx): Promise<void> {
+  async deleteCategory(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(courseCategories).where(eq(courseCategories.id, id));
   }
   /**
    * Số category anh em (phục vụ sortorder).
    */
-  async countSiblingCategories(parent: number): Promise<number> {
-    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(courseCategories).where(eq(courseCategories.parent, parent));
+  async countSiblingCategories(parent: string | null): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(courseCategories).where(parent === null ? isNull(courseCategories.parent) : eq(courseCategories.parent, parent));
     return row?.n ?? 0;
   }
 
@@ -87,7 +87,7 @@ export class CoursesRepository {
   /**
    * Lấy khoá học theo id.
    */
-  async getCourse(id: number): Promise<CourseRow | undefined> {
+  async getCourse(id: string): Promise<CourseRow | undefined> {
     const [row] = await this.db.select().from(course).where(eq(course.id, id)); return row;
   }
   /**
@@ -99,7 +99,7 @@ export class CoursesRepository {
   /**
    * Liệt kê khoá học.
    */
-  async listCourses(categoryId?: number): Promise<CourseRow[]> {
+  async listCourses(categoryId?: string): Promise<CourseRow[]> {
     return this.db.select().from(course)
       .where(categoryId !== undefined ? eq(course.category, categoryId) : undefined)
       .orderBy(asc(course.sortorder), asc(course.id));
@@ -107,7 +107,7 @@ export class CoursesRepository {
   /**
    * Khoá học thuộc các category cho trước.
    */
-  async listCoursesInCategories(categoryIds: number[]): Promise<CourseRow[]> {
+  async listCoursesInCategories(categoryIds: string[]): Promise<CourseRow[]> {
     if (!categoryIds.length) return [];
     const rows: CourseRow[] = [];
     for (const id of categoryIds) rows.push(...(await this.listCourses(id)));
@@ -116,13 +116,13 @@ export class CoursesRepository {
   /**
    * Cập nhật khoá học.
    */
-  async updateCourse(id: number, v: Partial<typeof course.$inferInsert>, tx?: DbTx): Promise<void> {
+  async updateCourse(id: string, v: Partial<typeof course.$inferInsert>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(course).set({ ...v, timemodified: new Date() }).where(eq(course.id, id));
   }
   /**
    * Xoá khoá học.
    */
-  async deleteCourse(id: number, tx?: DbTx): Promise<void> {
+  async deleteCourse(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(course).where(eq(course.id, id));
   }
 
@@ -136,25 +136,25 @@ export class CoursesRepository {
   /**
    * Lấy section theo id.
    */
-  async getSection(id: number): Promise<SectionRow | undefined> {
+  async getSection(id: string): Promise<SectionRow | undefined> {
     const [row] = await this.db.select().from(courseSections).where(eq(courseSections.id, id)); return row;
   }
   /**
    * Liệt kê section của khoá học theo thứ tự.
    */
-  async listSections(courseId: number): Promise<SectionRow[]> {
+  async listSections(courseId: string): Promise<SectionRow[]> {
     return this.db.select().from(courseSections).where(eq(courseSections.course, courseId)).orderBy(asc(courseSections.section));
   }
   /**
    * Cập nhật section (tên, summary, availability JSON).
    */
-  async updateSection(id: number, v: Partial<typeof courseSections.$inferInsert>): Promise<void> {
+  async updateSection(id: string, v: Partial<typeof courseSections.$inferInsert>): Promise<void> {
     await this.db.update(courseSections).set({ ...v, timemodified: new Date() }).where(eq(courseSections.id, id));
   }
   /**
    * Xoá section.
    */
-  async deleteSection(id: number): Promise<void> { await this.db.delete(courseSections).where(eq(courseSections.id, id)); }
+  async deleteSection(id: string): Promise<void> { await this.db.delete(courseSections).where(eq(courseSections.id, id)); }
 
   // course modules
   /**
@@ -166,31 +166,31 @@ export class CoursesRepository {
   /**
    * Lấy cm theo id.
    */
-  async getCm(id: number): Promise<CmRow | undefined> {
+  async getCm(id: string): Promise<CmRow | undefined> {
     const [row] = await this.db.select().from(courseModules).where(eq(courseModules.id, id)); return row;
   }
   /**
    * Liệt kê mọi cm của khoá học.
    */
-  async listCms(courseId: number): Promise<CmRow[]> {
+  async listCms(courseId: string): Promise<CmRow[]> {
     return this.db.select().from(courseModules).where(and(eq(courseModules.course, courseId), eq(courseModules.deletioninprogress, false))).orderBy(asc(courseModules.id));
   }
   /**
    * Cm trong một section.
    */
-  async listCmsInSection(sectionId: number): Promise<CmRow[]> {
+  async listCmsInSection(sectionId: string): Promise<CmRow[]> {
     return this.db.select().from(courseModules).where(and(eq(courseModules.section, sectionId), eq(courseModules.deletioninprogress, false))).orderBy(asc(courseModules.id));
   }
   /**
    * Cập nhật cm.
    */
-  async updateCm(id: number, v: Partial<typeof courseModules.$inferInsert>): Promise<void> {
+  async updateCm(id: string, v: Partial<typeof courseModules.$inferInsert>): Promise<void> {
     await this.db.update(courseModules).set(v).where(eq(courseModules.id, id));
   }
   /**
    * Xoá cm.
    */
-  async deleteCm(id: number, tx?: DbTx): Promise<void> {
+  async deleteCm(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(courseModules).where(eq(courseModules.id, id));
   }
 
@@ -198,14 +198,27 @@ export class CoursesRepository {
   /**
    * Ghi một tuỳ chọn định dạng khoá học (format option).
    */
-  async setFormatOption(courseid: number, format: string, name: string, value: string | null, sectionid = 0): Promise<void> {
+  async setFormatOption(courseid: string, format: string, name: string, value: string | null, sectionid: string | null = null): Promise<void> {
+    if (sectionid === null) {
+      // sectionid NULL không tham gia unique conflict (NULL luôn khác nhau trong PostgreSQL) nên upsert thủ công cho tuỳ chọn cấp khoá học.
+      const [existing] = await this.db.select().from(courseFormatOptions).where(and(
+        eq(courseFormatOptions.courseid, courseid), eq(courseFormatOptions.format, format),
+        isNull(courseFormatOptions.sectionid), eq(courseFormatOptions.name, name),
+      ));
+      if (existing) {
+        await this.db.update(courseFormatOptions).set({ value }).where(eq(courseFormatOptions.id, existing.id));
+        return;
+      }
+      await this.db.insert(courseFormatOptions).values({ courseid, format, name, value, sectionid });
+      return;
+    }
     await this.db.insert(courseFormatOptions).values({ courseid, format, name, value, sectionid })
       .onConflictDoUpdate({ target: [courseFormatOptions.courseid, courseFormatOptions.format, courseFormatOptions.sectionid, courseFormatOptions.name], set: { value } });
   }
   /**
    * Đọc các tuỳ chọn định dạng của khoá học.
    */
-  async listFormatOptions(courseid: number): Promise<(typeof courseFormatOptions.$inferSelect)[]> {
+  async listFormatOptions(courseid: string): Promise<(typeof courseFormatOptions.$inferSelect)[]> {
     return this.db.select().from(courseFormatOptions).where(eq(courseFormatOptions.courseid, courseid));
   }
 }

@@ -86,10 +86,10 @@ export class CompetenciesService implements OnModuleInit {
     });
   }
 
-  private async systemCtx(): Promise<number> {
+  private async systemCtx(): Promise<string> {
     return (await this.contexts.ensureSystemContext()).id;
   }
-  private async requireManage(actorId: number): Promise<void> {
+  private async requireManage(actorId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, 'moodle/competency:competencymanage', await this.systemCtx());
   }
 
@@ -98,7 +98,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Tạo framework năng lực.
    */
-  async createFramework(actorId: number, input: { shortname: string; idnumber?: string; description?: string; scale: ScaleConfiguration; visible?: boolean }): Promise<FrameworkRow> {
+  async createFramework(actorId: string, input: { shortname: string; idnumber?: string; description?: string; scale: ScaleConfiguration; visible?: boolean }): Promise<FrameworkRow> {
     await this.requireManage(actorId);
     if (!input.scale.values.length) throw new BadRequestException({ message: 'A framework scale needs at least one value', code: 'competency.scale_empty' });
     for (const idx of input.scale.proficient) {
@@ -114,7 +114,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Lấy framework; ném competencies.framework_not_found khi vắng.
    */
-  async getFramework(id: number): Promise<FrameworkRow> {
+  async getFramework(id: string): Promise<FrameworkRow> {
     const row = await this.repo.getFramework(id);
     if (!row) throw new NotFoundException({ message: `Framework ${id} not found`, code: 'competency.framework_not_found' });
     return row;
@@ -127,7 +127,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Thêm competency vào framework (có thể lồng nhau theo parent).
    */
-  async createCompetency(actorId: number, frameworkId: number, input: { shortname: string; idnumber?: string; description?: string; parentId?: number }): Promise<CompetencyRow> {
+  async createCompetency(actorId: string, frameworkId: string, input: { shortname: string; idnumber?: string; description?: string; parentId?: string }): Promise<CompetencyRow> {
     await this.requireManage(actorId);
     const framework = await this.getFramework(frameworkId);
     void framework;
@@ -138,7 +138,7 @@ export class CompetenciesService implements OnModuleInit {
     }
     const created = await this.repo.insertCompetency({
       frameworkid: frameworkId, shortname: input.shortname, idnumber: input.idnumber ?? '',
-      description: input.description ?? '', parentid: parent?.id ?? 0,
+      description: input.description ?? '', parentid: parent?.id ?? null,
       path: '', depth: parent ? parent.depth + 1 : 1,
     });
     const path = parent ? `${parent.path}/${created.id}` : `/${created.id}`;
@@ -148,7 +148,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Lấy competency; ném competencies.not_found khi vắng.
    */
-  async getCompetency(id: number): Promise<CompetencyRow> {
+  async getCompetency(id: string): Promise<CompetencyRow> {
     const row = await this.repo.getCompetency(id);
     if (!row) throw new NotFoundException({ message: `Competency ${id} not found`, code: 'competency.not_found' });
     return row;
@@ -156,7 +156,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Competency của framework.
    */
-  async listCompetencies(frameworkId: number): Promise<CompetencyRow[]> {
+  async listCompetencies(frameworkId: string): Promise<CompetencyRow[]> {
     await this.getFramework(frameworkId);
     return this.repo.listCompetencies(frameworkId);
   }
@@ -173,7 +173,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Liên kết competency với khoá học + quy tắc tự cấp proficiency.
    */
-  async linkCourseCompetency(actorId: number, courseId: number, input: { competencyId: number; ruleoutcome: string }) {
+  async linkCourseCompetency(actorId: string, courseId: string, input: { competencyId: string; ruleoutcome: string }) {
     await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(courseId));
     const competencyRow = await this.getCompetency(input.competencyId);
@@ -182,13 +182,13 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Competency đã liên kết với khoá học.
    */
-  async listCourseCompetencies(courseId: number) {
+  async listCourseCompetencies(courseId: string) {
     return this.repo.listCourseLinks(courseId);
   }
   /**
    * Liên kết competency với course module.
    */
-  async linkModuleCompetency(actorId: number, cmId: number, input: { competencyId: number; ruleoutcome: string }) {
+  async linkModuleCompetency(actorId: string, cmId: string, input: { competencyId: string; ruleoutcome: string }) {
     const cm = await this.courses.getCm(cmId);
     await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(cm.course));
     const competencyRow = await this.getCompetency(input.competencyId);
@@ -197,7 +197,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Competency đã liên kết với module.
    */
-  async listModuleCompetencies(cmId: number) {
+  async listModuleCompetencies(cmId: string) {
     return this.repo.listModuleLinks(cmId);
   }
 
@@ -206,9 +206,9 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Lấy hoặc tạo bản ghi năng lực của user cho một competency.
    */
-  async getOrCreateUsercomp(userId: number, competencyId: number, scope: { planId?: number; courseId?: number }): Promise<UsercompRow> {
-    const planid = scope.planId ?? 0;
-    const courseid = scope.courseId ?? 0;
+  async getOrCreateUsercomp(userId: string, competencyId: string, scope: { planId?: string; courseId?: string }): Promise<UsercompRow> {
+    const planid = scope.planId ?? null;
+    const courseid = scope.courseId ?? null;
     const existing = await this.repo.findUsercomp(userId, competencyId, planid, courseid);
     if (existing) return existing;
     return this.repo.insertUsercomp({ userid: userId, competencyid: competencyId, planid, courseid });
@@ -217,7 +217,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Lấy usercomp theo id.
    */
-  async getUsercomp(id: number): Promise<UsercompRow> {
+  async getUsercomp(id: string): Promise<UsercompRow> {
     const row = await this.repo.getUsercomp(id);
     if (!row) throw new NotFoundException({ message: `User competency ${id} not found`, code: 'competency.usercomp_not_found' });
     return row;
@@ -225,7 +225,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Usercomp của user.
    */
-  async listUsercompsForUser(userId: number): Promise<UsercompRow[]> {
+  async listUsercompsForUser(userId: string): Promise<UsercompRow[]> {
     return this.repo.listUsercompsForUser(userId);
   }
 
@@ -233,12 +233,12 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * User đã đạt chuẩn competency hay chưa.
    */
-  async isProficient(userId: number, competencyId: number): Promise<boolean> {
+  async isProficient(userId: string, competencyId: string): Promise<boolean> {
     const rows = await this.repo.listUsercompsForUser(userId);
     return rows.some((r) => r.competencyid === competencyId && r.proficiency === true);
   }
 
-  private async validateGrade(competencyId: number, grade: number): Promise<FrameworkRow> {
+  private async validateGrade(competencyId: string, grade: number): Promise<FrameworkRow> {
     const competencyRow = await this.getCompetency(competencyId);
     const framework = await this.getFramework(competencyRow.frameworkid);
     const scale = parseScale(framework);
@@ -262,8 +262,8 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Thêm bằng chứng cho usercomp (có thể đồng thời gửi duyệt).
    */
-  async addEvidence(actorId: number, input: {
-    userId: number; competencyId: number; planId?: number; courseId?: number;
+  async addEvidence(actorId: string, input: {
+    userId: string; competencyId: string; planId?: string; courseId?: string;
     description: string; url?: string; grade?: number; note?: string; sendForReview?: boolean;
   }): Promise<{ usercomp: UsercompRow; evidence: EvidenceRow }> {
     const competencyRow = await this.getCompetency(input.competencyId);
@@ -305,14 +305,14 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Bằng chứng của usercomp.
    */
-  async listEvidence(usercompId: number): Promise<EvidenceRow[]> {
+  async listEvidence(usercompId: string): Promise<EvidenceRow[]> {
     await this.getUsercomp(usercompId);
     return this.repo.listEvidence(usercompId);
   }
 
   // --- usercomp review workflow ---------------------------------------------------------
 
-  private async transitionUsercompReview(actorId: number, usercompId: number, action: 'request' | 'start' | 'approve' | 'reject',
+  private async transitionUsercompReview(actorId: string, usercompId: string, action: 'request' | 'start' | 'approve' | 'reject',
     opts?: { grade?: number; note?: string }): Promise<UsercompRow> {
     const usercomp = await this.getUsercomp(usercompId);
     const systemCtx = await this.systemCtx();
@@ -372,25 +372,25 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Gửi usercomp đi duyệt.
    */
-  async requestUsercompReview(actorId: number, usercompId: number): Promise<UsercompRow> {
+  async requestUsercompReview(actorId: string, usercompId: string): Promise<UsercompRow> {
     return this.transitionUsercompReview(actorId, usercompId, 'request');
   }
   /**
    * Reviewer bắt đầu duyệt usercomp.
    */
-  async startUsercompReview(actorId: number, usercompId: number): Promise<UsercompRow> {
+  async startUsercompReview(actorId: string, usercompId: string): Promise<UsercompRow> {
     return this.transitionUsercompReview(actorId, usercompId, 'start');
   }
   /**
    * Duyệt đạt: đặt proficiency theo thang của framework.
    */
-  async approveUsercompReview(actorId: number, usercompId: number, grade?: number, note?: string): Promise<UsercompRow> {
+  async approveUsercompReview(actorId: string, usercompId: string, grade?: number, note?: string): Promise<UsercompRow> {
     return this.transitionUsercompReview(actorId, usercompId, 'approve', { grade, note });
   }
   /**
    * Từ chối duyệt usercomp.
    */
-  async rejectUsercompReview(actorId: number, usercompId: number, note?: string): Promise<UsercompRow> {
+  async rejectUsercompReview(actorId: string, usercompId: string, note?: string): Promise<UsercompRow> {
     return this.transitionUsercompReview(actorId, usercompId, 'reject', { note });
   }
 
@@ -398,7 +398,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Chấm trực tiếp proficiency cho usercomp bởi người có capability.
    */
-  async gradeUsercomp(actorId: number, input: { userId: number; competencyId: number; planId?: number; courseId?: number; grade: number; note?: string }): Promise<UsercompRow> {
+  async gradeUsercomp(actorId: string, input: { userId: string; competencyId: string; planId?: string; courseId?: string; grade: number; note?: string }): Promise<UsercompRow> {
     await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
     const framework = await this.validateGrade(input.competencyId, input.grade);
     const usercomp = await this.getOrCreateUsercomp(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
@@ -417,7 +417,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Hook hoàn thành khoá học: cấp proficiency cho competency liên kết có quy tắc tự động.
    */
-  async applyCourseCompletion(courseId: number, userId: number): Promise<void> {
+  async applyCourseCompletion(courseId: string, userId: string): Promise<void> {
     const links = await this.repo.listCourseLinks(courseId);
     for (const link of links) {
       if (link.ruleoutcome === 'nothing') continue;
@@ -428,17 +428,17 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Hook hoàn thành cm: cấp proficiency cho competency liên kết với module.
    */
-  async applyCmCompletion(cmId: number, userId: number): Promise<void> {
+  async applyCmCompletion(cmId: string, userId: string): Promise<void> {
     const links = await this.repo.listModuleLinks(cmId);
     if (!links.length) return;
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     for (const link of links) {
       if (link.ruleoutcome === 'nothing') continue;
-      await this.applyOutcome(userId, link.competencyid, { courseId: cm?.course ?? 0 }, link.ruleoutcome as RuleOutcome, `Activity ${cmId} completed`);
+      await this.applyOutcome(userId, link.competencyid, { courseId: cm?.course }, link.ruleoutcome as RuleOutcome, `Activity ${cmId} completed`);
     }
   }
 
-  private async applyOutcome(userId: number, competencyId: number, scope: { planId?: number; courseId?: number },
+  private async applyOutcome(userId: string, competencyId: string, scope: { planId?: string; courseId?: string },
     outcome: RuleOutcome, description: string): Promise<void> {
     const usercomp = await this.getOrCreateUsercomp(userId, competencyId, scope);
     if (outcome === 'attach-evidence') {
@@ -474,7 +474,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Tạo template kế hoạch.
    */
-  async createTemplate(actorId: number, input: { shortname: string; description?: string; duedate?: string }): Promise<TemplateRow> {
+  async createTemplate(actorId: string, input: { shortname: string; description?: string; duedate?: string }): Promise<TemplateRow> {
     await this.requireManage(actorId);
     return this.repo.insertTemplate({
       shortname: input.shortname, description: input.description ?? '',
@@ -484,7 +484,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Lấy template; ném competencies.template_not_found khi vắng.
    */
-  async getTemplate(id: number): Promise<TemplateRow> {
+  async getTemplate(id: string): Promise<TemplateRow> {
     const row = await this.repo.getTemplate(id);
     if (!row) throw new NotFoundException({ message: `Template ${id} not found`, code: 'competency.template_not_found' });
     return row;
@@ -496,7 +496,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Thêm competency vào template.
    */
-  async addTemplateCompetency(actorId: number, templateId: number, competencyId: number): Promise<{ templateId: number; competencies: CompetencyRow[] }> {
+  async addTemplateCompetency(actorId: string, templateId: string, competencyId: string): Promise<{ templateId: string; competencies: CompetencyRow[] }> {
     await this.requireManage(actorId);
     await this.getTemplate(templateId);
     await this.getCompetency(competencyId);
@@ -506,7 +506,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Gắn cohort vào template.
    */
-  async addTemplateCohort(actorId: number, templateId: number, cohortId: number): Promise<{ templateId: number; cohorts: number[] }> {
+  async addTemplateCohort(actorId: string, templateId: string, cohortId: string): Promise<{ templateId: string; cohorts: string[] }> {
     await this.requireManage(actorId);
     await this.getTemplate(templateId);
     await this.groups.getCohort(cohortId);
@@ -518,7 +518,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Sinh plan cho mọi thành viên cohort của template (bỏ qua user đã có plan từ template này).
    */
-  async createPlansFromTemplate(actorId: number, templateId: number): Promise<{ created: number; plans: PlanRow[] }> {
+  async createPlansFromTemplate(actorId: string, templateId: string): Promise<{ created: number; plans: PlanRow[] }> {
     await this.requireManage(actorId);
     const template = await this.getTemplate(templateId);
     const cohortIds = await this.repo.listTemplateCohorts(templateId);
@@ -533,7 +533,7 @@ export class CompetenciesService implements OnModuleInit {
     return { created: plans.length, plans };
   }
 
-  private async createPlanFromTemplate(template: TemplateRow, userId: number): Promise<PlanRow | null> {
+  private async createPlanFromTemplate(template: TemplateRow, userId: string): Promise<PlanRow | null> {
     const existing = await this.repo.findPlanFromTemplate(userId, template.id);
     if (existing) return null;
     const competencies = await this.repo.listTemplateCompetencies(template.id);
@@ -556,7 +556,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Tạo plan thủ công cho user.
    */
-  async createPlan(actorId: number, input: { userId?: number; name: string; description?: string; templateId?: number }): Promise<PlanRow & { competencies: number[] }> {
+  async createPlan(actorId: string, input: { userId?: string; name: string; description?: string; templateId?: string }): Promise<PlanRow & { competencies: string[] }> {
     const userId = input.userId ?? actorId;
     if (userId !== actorId) {
       await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
@@ -578,7 +578,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Chi tiết plan kèm trạng thái từng competency.
    */
-  async getPlanView(actorId: number, planId: number): Promise<{ plan: PlanRow; competencies: { competency: CompetencyRow; usercomp: UsercompRow | null }[]; reviews: unknown }> {
+  async getPlanView(actorId: string, planId: string): Promise<{ plan: PlanRow; competencies: { competency: CompetencyRow; usercomp: UsercompRow | null }[]; reviews: unknown }> {
     const plan = await this.repo.getPlan(planId);
     if (!plan) throw new NotFoundException({ message: `Learning plan ${planId} not found`, code: 'competency.plan_not_found' });
     if (plan.userid !== actorId) {
@@ -601,14 +601,14 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Plan của user.
    */
-  async listPlansForUser(actorId: number, userId: number): Promise<PlanRow[]> {
+  async listPlansForUser(actorId: string, userId: string): Promise<PlanRow[]> {
     if (actorId !== userId) {
       await this.evaluator.requireCapability(actorId, 'moodle/competency:planview', await this.systemCtx());
     }
     return this.repo.listPlansForUser(userId);
   }
 
-  private async planTransition(actorId: number, planId: number, action: 'activate' | 'request-review' | 'cancel-review' | 'start-review' | 'stop-review' | 'approve' | 'unapprove' | 'complete',
+  private async planTransition(actorId: string, planId: string, action: 'activate' | 'request-review' | 'cancel-review' | 'start-review' | 'stop-review' | 'approve' | 'unapprove' | 'complete',
     note?: string): Promise<PlanRow> {
     const plan = await this.repo.getPlan(planId);
     if (!plan) throw new NotFoundException({ message: `Learning plan ${planId} not found`, code: 'competency.plan_not_found' });
@@ -676,41 +676,41 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Kích hoạt plan (draft → active).
    */
-  async activatePlan(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'activate'); }
+  async activatePlan(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'activate'); }
   /**
    * Gửi plan đi duyệt (notification nội dung lấy từ catalog i18n).
    */
-  async requestPlanReview(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'request-review'); }
+  async requestPlanReview(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'request-review'); }
   /**
    * Huỷ yêu cầu duyệt plan.
    */
-  async cancelPlanReview(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'cancel-review'); }
+  async cancelPlanReview(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'cancel-review'); }
   /**
    * Reviewer bắt đầu duyệt plan.
    */
-  async startPlanReview(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'start-review'); }
+  async startPlanReview(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'start-review'); }
   /**
    * Dừng vòng duyệt plan.
    */
-  async stopPlanReview(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'stop-review'); }
+  async stopPlanReview(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'stop-review'); }
   /**
    * Duyệt plan.
    */
-  async approvePlan(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'approve'); }
+  async approvePlan(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'approve'); }
   /**
    * Gỡ duyệt plan.
    */
-  async unapprovePlan(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'unapprove'); }
+  async unapprovePlan(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'unapprove'); }
   /**
    * Hoàn tất plan.
    */
-  async completePlan(actorId: number, planId: number): Promise<PlanRow> { return this.planTransition(actorId, planId, 'complete'); }
+  async completePlan(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'complete'); }
 
   /** Forbidden import guard: plan owners may not review their own plans. */
   /**
    * Chặn tự duyệt: reviewer phải khác chủ plan/usercomp.
    */
-  async assertNotSelfReview(actorId: number, userId: number): Promise<void> {
+  async assertNotSelfReview(actorId: string, userId: string): Promise<void> {
     if (actorId === userId) throw new ForbiddenException({ message: 'You cannot review your own competencies', code: 'competency.self_review' });
   }
 }

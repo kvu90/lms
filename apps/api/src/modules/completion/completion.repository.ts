@@ -20,7 +20,7 @@ export class CompletionRepository {
   /**
    * Trạng thái hoàn thành một cm của một user.
    */
-  async getCmCompletion(cmid: number, userid: number): Promise<CmCompletionRow | undefined> {
+  async getCmCompletion(cmid: string, userid: string): Promise<CmCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseModulesCompletion)
       .where(and(eq(courseModulesCompletion.coursemoduleid, cmid), eq(courseModulesCompletion.userid, userid)));
     return row;
@@ -39,7 +39,7 @@ export class CompletionRepository {
   /**
    * Mọi trạng thái hoàn thành cm của user trong khoá học.
    */
-  async listCmCompletionsForUser(userid: number, cmIds: number[]): Promise<CmCompletionRow[]> {
+  async listCmCompletionsForUser(userid: string, cmIds: string[]): Promise<CmCompletionRow[]> {
     if (!cmIds.length) return [];
     return this.db.select().from(courseModulesCompletion)
       .where(and(eq(courseModulesCompletion.userid, userid), inArray(courseModulesCompletion.coursemoduleid, cmIds)));
@@ -47,20 +47,20 @@ export class CompletionRepository {
   /**
    * Mọi trạng thái hoàn thành của một cm.
    */
-  async listCmCompletionsForCm(cmid: number): Promise<CmCompletionRow[]> {
+  async listCmCompletionsForCm(cmid: string): Promise<CmCompletionRow[]> {
     return this.db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid));
   }
   /**
    * Xoá trạng thái hoàn thành khi cm bị xoá.
    */
-  async deleteCmCompletionsForCm(cmid: number): Promise<number> {
+  async deleteCmCompletionsForCm(cmid: string): Promise<number> {
     const deleted = await this.db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid)).returning();
     return deleted.length;
   }
   /**
    * Cm đã có bất kỳ bản ghi hoàn thành nào chưa (probe dữ liệu liên quan).
    */
-  async hasAnyCmCompletion(userid: number, cmIds: number[]): Promise<boolean> {
+  async hasAnyCmCompletion(userid: string, cmIds: string[]): Promise<boolean> {
     const rows = await this.listCmCompletionsForUser(userid, cmIds);
     return rows.length > 0;
   }
@@ -74,26 +74,26 @@ export class CompletionRepository {
   /**
    * Tiêu chí của khoá học.
    */
-  async listCriteria(courseId: number): Promise<CriteriaRow[]> {
+  async listCriteria(courseId: string): Promise<CriteriaRow[]> {
     return this.db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId)).orderBy(courseCompletionCriteria.sortorder, courseCompletionCriteria.id);
   }
   /**
    * Xoá toàn bộ tiêu chí của khoá học (khi đặt lại).
    */
-  async deleteCriteria(id: number): Promise<void> {
+  async deleteCriteria(id: string): Promise<void> {
     await this.db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.id, id));
   }
   /**
    * Cấu hình completion của khoá học.
    */
-  async getSettings(courseId: number): Promise<{ method: number }> {
+  async getSettings(courseId: string): Promise<{ method: number }> {
     const [row] = await this.db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, courseId));
     return row ?? { method: 1 };
   }
   /**
    * Ghi cấu hình completion.
    */
-  async setSettings(courseId: number, method: number): Promise<void> {
+  async setSettings(courseId: string, method: number): Promise<void> {
     await this.db.insert(courseCompletionSettings).values({ course: courseId, method })
       .onConflictDoUpdate({ target: courseCompletionSettings.course, set: { method } });
   }
@@ -101,7 +101,7 @@ export class CompletionRepository {
   /**
    * Bản ghi hoàn thành khoá học của user.
    */
-  async getCourseCompletion(userid: number, courseId: number): Promise<CourseCompletionRow | undefined> {
+  async getCourseCompletion(userid: string, courseId: string): Promise<CourseCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseCompletions)
       .where(and(eq(courseCompletions.userid, userid), eq(courseCompletions.course, courseId)));
     return row;
@@ -120,7 +120,7 @@ export class CompletionRepository {
   /**
    * Mọi bản ghi hoàn thành của khoá học.
    */
-  async listCourseCompletions(courseId: number): Promise<CourseCompletionRow[]> {
+  async listCourseCompletions(courseId: string): Promise<CourseCompletionRow[]> {
     return this.db.select().from(courseCompletions).where(eq(courseCompletions.course, courseId));
   }
 }

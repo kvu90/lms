@@ -10,8 +10,8 @@ export interface ExternalFunctionDef {
   name: string;
   capability: string;
   /** Resolve contextid từ args; mặc định là system context. */
-  resolveContext?: (args: Record<string, unknown>, ctx: ContextsService, courses: CoursesService) => Promise<number>;
-  handler: (callerId: number, args: Record<string, unknown>) => Promise<unknown>;
+  resolveContext?: (args: Record<string, unknown>, ctx: ContextsService, courses: CoursesService) => Promise<string>;
+  handler: (callerId: string, args: Record<string, unknown>) => Promise<unknown>;
 }
 
 /** Băm token để lưu trữ — token thô chỉ trả về đúng một lần khi tạo. */
@@ -51,28 +51,28 @@ export class IntegrationsService {
     this.registerFunction({
       name: 'core_course_get_course_content',
       capability: 'moodle/course:view',
-      resolveContext: async (args, _ctx, courses) => courses.courseContextId(Number(args.courseId)),
+      resolveContext: async (args, _ctx, courses) => courses.courseContextId(String(args.courseId)),
       handler: async (callerId, args) => {
-        const content = await this.courses.getCourseContent(callerId, Number(args.courseId));
+        const content = await this.courses.getCourseContent(callerId, String(args.courseId));
         return { courseId: content.course.id, sections: content.sections.length };
       },
     });
     this.registerFunction({
       name: 'core_grades_update_grades',
       capability: 'moodle/grade:edit',
-      resolveContext: async (args, _ctx, courses) => courses.courseContextId(Number(args.courseId)),
-      handler: async (_callerId, args) => ({ updated: true, courseId: Number(args.courseId), note: 'grade write delegated to GradesModule in production wiring' }),
+      resolveContext: async (args, _ctx, courses) => courses.courseContextId(String(args.courseId)),
+      handler: async (_callerId, args) => ({ updated: true, courseId: String(args.courseId), note: 'grade write delegated to GradesModule in production wiring' }),
     });
   }
 
   // --- quản trị service/token (capability riêng ở controller/guard + kiểm tra ở service) ---
 
-  private async requireManage(actorId: number): Promise<void> {
+  private async requireManage(actorId: string): Promise<void> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/webservice:manage', sys.id);
   }
 
-  async createService(actorId: number, input: { name: string; shortname: string; enabled?: boolean; functions?: string[] }): Promise<ServiceRow> {
+  async createService(actorId: string, input: { name: string; shortname: string; enabled?: boolean; functions?: string[] }): Promise<ServiceRow> {
     await this.requireManage(actorId);
     for (const fn of input.functions ?? []) {
       if (!this.functions.has(fn)) throw new BadRequestException({ message: `Unknown function ${fn}`, code: 'webservice.unknown_function' });
@@ -80,12 +80,12 @@ export class IntegrationsService {
     return this.repo.insertService({ name: input.name, shortname: input.shortname, enabled: input.enabled ?? true, functions: input.functions ?? [] });
   }
   async listServices(): Promise<ServiceRow[]> { return this.repo.listServices(); }
-  async getService(id: number): Promise<ServiceRow> {
+  async getService(id: string): Promise<ServiceRow> {
     const row = await this.repo.getService(id);
     if (!row) throw new NotFoundException({ message: `Service ${id} not found`, code: 'webservice.service_not_found' });
     return row;
   }
-  async setServiceEnabled(actorId: number, id: number, enabled: boolean): Promise<ServiceRow> {
+  async setServiceEnabled(actorId: string, id: string, enabled: boolean): Promise<ServiceRow> {
     await this.requireManage(actorId);
     await this.getService(id);
     await this.repo.updateService(id, { enabled });
@@ -93,7 +93,7 @@ export class IntegrationsService {
   }
 
   /** Tạo token: trả token thô đúng một lần; DB chỉ lưu hash. */
-  async createToken(actorId: number, input: { userid: number; serviceid: number; validuntil?: string; iprestriction?: string }): Promise<{ token: string; row: TokenRow }> {
+  async createToken(actorId: string, input: { userid: string; serviceid: string; validuntil?: string; iprestriction?: string }): Promise<{ token: string; row: TokenRow }> {
     await this.requireManage(actorId);
     await this.getService(input.serviceid);
     const raw = randomBytes(32).toString('hex');
@@ -104,8 +104,8 @@ export class IntegrationsService {
     });
     return { token: raw, row };
   }
-  async listTokens(actorId: number): Promise<TokenRow[]> { await this.requireManage(actorId); return this.repo.listTokens(); }
-  async revokeToken(actorId: number, id: number): Promise<TokenRow> {
+  async listTokens(actorId: string): Promise<TokenRow[]> { await this.requireManage(actorId); return this.repo.listTokens(); }
+  async revokeToken(actorId: string, id: string): Promise<TokenRow> {
     await this.requireManage(actorId);
     const row = await this.repo.getToken(id);
     if (!row) throw new NotFoundException({ message: `Token ${id} not found`, code: 'webservice.token_not_found' });

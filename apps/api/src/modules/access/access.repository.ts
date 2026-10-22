@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { capabilities, config, context, role, roleAssignments, roleCapabilities } from '../../db/schema';
 
@@ -27,28 +27,28 @@ export class AccessRepository {
   /**
    * Cập nhật path vật chất hoá (danh sách id tổ tiên) và depth của context sau khi chèn/di chuyển.
    */
-  async updateContextPath(id: number, path: string, depth: number): Promise<void> {
+  async updateContextPath(id: string, path: string, depth: number): Promise<void> {
     await this.db.update(context).set({ path, depth }).where(eq(context.id, id));
   }
   /**
    * Lấy context theo id; undefined nếu không tồn tại.
    */
-  async getContextById(id: number): Promise<ContextRow | undefined> {
+  async getContextById(id: string): Promise<ContextRow | undefined> {
     const [row] = await this.db.select().from(context).where(eq(context.id, id));
     return row;
   }
   /**
    * Lấy context theo cặp (contextlevel, instanceid) — khoá tự nhiên của cây context.
    */
-  async getContextByLevelInstance(contextlevel: number, instanceid: number): Promise<ContextRow | undefined> {
+  async getContextByLevelInstance(contextlevel: number, instanceid: string | null): Promise<ContextRow | undefined> {
     const [row] = await this.db.select().from(context)
-      .where(and(eq(context.contextlevel, contextlevel), eq(context.instanceid, instanceid)));
+      .where(and(eq(context.contextlevel, contextlevel), instanceid === null ? isNull(context.instanceid) : eq(context.instanceid, instanceid)));
     return row;
   }
   /**
    * Lấy nhiều context theo danh sách id (dùng khi duyệt path).
    */
-  async getContextsByIds(ids: number[]): Promise<ContextRow[]> {
+  async getContextsByIds(ids: string[]): Promise<ContextRow[]> {
     if (ids.length === 0) return [];
     return this.db.select().from(context).where(inArray(context.id, ids));
   }
@@ -61,7 +61,7 @@ export class AccessRepository {
   /**
    * Xoá context theo id.
    */
-  async deleteContext(id: number): Promise<void> {
+  async deleteContext(id: string): Promise<void> {
     await this.db.delete(context).where(eq(context.id, id));
   }
   /** Bump `version` for a context and every descendant (path prefix) — the dirty-marking behind evaluator cache invalidation. */
@@ -99,7 +99,7 @@ export class AccessRepository {
   /**
    * Lấy role theo id.
    */
-  async getRoleById(id: number): Promise<RoleRow | undefined> {
+  async getRoleById(id: string): Promise<RoleRow | undefined> {
     const [row] = await this.db.select().from(role).where(eq(role.id, id));
     return row;
   }
@@ -119,13 +119,13 @@ export class AccessRepository {
   /**
    * Cập nhật thông tin role.
    */
-  async updateRole(id: number, values: Partial<typeof role.$inferInsert>): Promise<void> {
+  async updateRole(id: string, values: Partial<typeof role.$inferInsert>): Promise<void> {
     await this.db.update(role).set(values).where(eq(role.id, id));
   }
   /**
    * Xoá role.
    */
-  async deleteRole(id: number): Promise<void> {
+  async deleteRole(id: string): Promise<void> {
     await this.db.delete(roleAssignments).where(eq(roleAssignments.roleid, id));
     await this.db.delete(roleCapabilities).where(eq(roleCapabilities.roleid, id));
     await this.db.delete(role).where(eq(role.id, id));
@@ -147,13 +147,13 @@ export class AccessRepository {
   /**
    * Gỡ một gán role cụ thể.
    */
-  async deleteAssignment(id: number): Promise<void> {
+  async deleteAssignment(id: string): Promise<void> {
     await this.db.delete(roleAssignments).where(eq(roleAssignments.id, id));
   }
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userid?: number; contextid?: number }): Promise<(typeof roleAssignments.$inferSelect)[]> {
+  async listAssignments(filter: { userid?: string; contextid?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {
     const conds = [];
     if (filter.userid !== undefined) conds.push(eq(roleAssignments.userid, filter.userid));
     if (filter.contextid !== undefined) conds.push(eq(roleAssignments.contextid, filter.contextid));
@@ -163,7 +163,7 @@ export class AccessRepository {
   /**
    * Lấy mọi gán role của user tại các context cho trước (đầu vào của PermissionEvaluator).
    */
-  async getAssignmentsForUserInContexts(userid: number, contextIds: number[]): Promise<(typeof roleAssignments.$inferSelect)[]> {
+  async getAssignmentsForUserInContexts(userid: string, contextIds: string[]): Promise<(typeof roleAssignments.$inferSelect)[]> {
     if (contextIds.length === 0) return [];
     return this.db.select().from(roleAssignments)
       .where(and(eq(roleAssignments.userid, userid), inArray(roleAssignments.contextid, contextIds)));
@@ -182,7 +182,7 @@ export class AccessRepository {
   /**
    * Xoá một override cụ thể.
    */
-  async deleteRoleCapability(contextid: number, roleid: number, capability: string): Promise<void> {
+  async deleteRoleCapability(contextid: string, roleid: string, capability: string): Promise<void> {
     await this.db.delete(roleCapabilities).where(and(
       eq(roleCapabilities.contextid, contextid), eq(roleCapabilities.roleid, roleid),
       eq(roleCapabilities.capability, capability)));
@@ -190,7 +190,7 @@ export class AccessRepository {
   /**
    * Lấy mọi override của các role tại các context cho trước (đầu vào của PermissionEvaluator).
    */
-  async getOverridesForRoles(roleIds: number[], capability: string, contextIds: number[]): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+  async getOverridesForRoles(roleIds: string[], capability: string, contextIds: string[]): Promise<(typeof roleCapabilities.$inferSelect)[]> {
     if (roleIds.length === 0 || contextIds.length === 0) return [];
     return this.db.select().from(roleCapabilities).where(and(
       inArray(roleCapabilities.roleid, roleIds),
@@ -201,7 +201,7 @@ export class AccessRepository {
   /**
    * Xoá toàn bộ override tại một context (khi context bị xoá).
    */
-  async deleteRoleCapabilitiesAtContext(roleid: number, contextid: number, capabilityNames: string[]): Promise<void> {
+  async deleteRoleCapabilitiesAtContext(roleid: string, contextid: string, capabilityNames: string[]): Promise<void> {
     await this.db.delete(roleCapabilities).where(and(
       eq(roleCapabilities.roleid, roleid), eq(roleCapabilities.contextid, contextid),
       inArray(roleCapabilities.capability, capabilityNames)));
@@ -209,7 +209,7 @@ export class AccessRepository {
   /**
    * Liệt kê override đã lưu của role (hiển thị ma trận capability).
    */
-  async listRoleCapabilities(roleid: number): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+  async listRoleCapabilities(roleid: string): Promise<(typeof roleCapabilities.$inferSelect)[]> {
     return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleid, roleid));
   }
 

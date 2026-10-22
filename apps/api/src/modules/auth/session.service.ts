@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { SessionCacheService } from '../../infra/cache/session-cache.service';
 
-export interface WebSession { userId: number; username: string; createdAt: string; loginAs?: { byUserId: number } }
+export interface WebSession { userId: string; username: string; createdAt: string; loginAs?: { byUserId: string } }
 
 /**
  * SessionModule (inside AuthModule per report §3.7): server-side web sessions

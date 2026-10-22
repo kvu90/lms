@@ -42,14 +42,14 @@ export const AGGREGATION_ANY = 2;
 export class CompletionService implements OnModuleInit {
   private readonly logger = new Logger(CompletionService.name);
   /** Registered by GradesModule: cm grade state (0 incomplete / 1 complete / 2 pass / 3 fail), null = no grade yet. */
-  private gradeEvaluator?: (cmId: number, userId: number) => Promise<number | null>;
+  private gradeEvaluator?: (cmId: string, userId: string) => Promise<number | null>;
   /** Registered by GradesModule: course 'grade' criterion check. */
-  private courseGradeChecker?: (courseId: number, userId: number) => Promise<boolean>;
+  private courseGradeChecker?: (courseId: string, userId: string) => Promise<boolean>;
 
   /**
    * Đăng ký evaluator điểm cho điều kiện hoàn thành theo điểm (module grades cắm vào).
    */
-  registerGradeEvaluator(fn: (cmId: number, userId: number) => Promise<number | null>): void {
+  registerGradeEvaluator(fn: (cmId: string, userId: string) => Promise<number | null>): void {
     this.gradeEvaluator = fn;
   }
 
@@ -59,21 +59,21 @@ export class CompletionService implements OnModuleInit {
    * (report §2#9: completion is an INPUT to badges/competency — consumers
    * subscribe, they never re-derive completion themselves).
    */
-  private readonly cmCompletionHooks: ((e: { cmId: number; courseId: number; userId: number; state: number }) => Promise<void>)[] = [];
-  private readonly courseCompletionHooks: ((e: { courseId: number; userId: number }) => Promise<void>)[] = [];
+  private readonly cmCompletionHooks: ((e: { cmId: string; courseId: string; userId: string; state: number }) => Promise<void>)[] = [];
+  private readonly courseCompletionHooks: ((e: { courseId: string; userId: string }) => Promise<void>)[] = [];
   /**
    * Đăng ký hook chạy sau khi trạng thái cm thay đổi (badges/competencies lắng nghe).
    */
-  registerCmCompletionHook(fn: (e: { cmId: number; courseId: number; userId: number; state: number }) => Promise<void>): void {
+  registerCmCompletionHook(fn: (e: { cmId: string; courseId: string; userId: string; state: number }) => Promise<void>): void {
     this.cmCompletionHooks.push(fn);
   }
   /**
    * Đăng ký hook chạy sau khi hoàn thành khoá học thay đổi.
    */
-  registerCourseCompletionHook(fn: (e: { courseId: number; userId: number }) => Promise<void>): void {
+  registerCourseCompletionHook(fn: (e: { courseId: string; userId: string }) => Promise<void>): void {
     this.courseCompletionHooks.push(fn);
   }
-  private async fireCmCompletion(cmId: number, courseId: number, userId: number, state: number): Promise<void> {
+  private async fireCmCompletion(cmId: string, courseId: string, userId: string, state: number): Promise<void> {
     if (state === COMPLETION_INCOMPLETE) return;
     for (const hook of this.cmCompletionHooks) {
       await hook({ cmId, courseId, userId, state }).catch((err) => this.logger.warn(`cm completion hook failed: ${String(err)}`));
@@ -82,7 +82,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Đăng ký hàm kiểm tra điểm khoá học đạt ngưỡng (cho tiêu chí theo điểm tổng).
    */
-  registerCourseGradeChecker(fn: (courseId: number, userId: number) => Promise<boolean>): void {
+  registerCourseGradeChecker(fn: (courseId: string, userId: string) => Promise<boolean>): void {
     this.courseGradeChecker = fn;
   }
 
@@ -104,7 +104,7 @@ export class CompletionService implements OnModuleInit {
     // Availability 'completion' leaf: complete when the referenced cm's
     // stored state for this user is COMPLETE (or pass/fail once graded).
     this.availability.register('completion', async (leaf, ctx) => {
-      const cmId = Number(leaf.id ?? leaf.cmid ?? leaf.cm ?? 0);
+      const cmId = String(leaf.id ?? leaf.cmid ?? leaf.cm ?? '');
       if (!cmId) return { available: false, description: this.i18n.t('availability.completionMissingCm') };
       const row = await this.repo.getCmCompletion(cmId, ctx.userId);
       const state = Number(leaf.state ?? COMPLETION_COMPLETE);
@@ -124,7 +124,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tính trạng thái hoàn thành của một cm cho user từ các điều kiện đã cấu hình.
    */
-  async computeCmState(cmId: number, userId: number): Promise<number> {
+  async computeCmState(cmId: string, userId: string): Promise<number> {
     const cm = await this.courses.getCm(cmId);
     const row = await this.repo.getCmCompletion(cmId, userId);
     if (cm.completion === 0) return row?.completionstate ?? COMPLETION_INCOMPLETE;
@@ -154,7 +154,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tính lại completion theo điểm của cm sau khi điểm thay đổi.
    */
-  async refreshGradeCompletion(cmId: number, userId: number): Promise<void> {
+  async refreshGradeCompletion(cmId: string, userId: string): Promise<void> {
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     if (!cm || cm.completion === 0 || !cm.completionusegrade) return;
     const state = await this.computeCmState(cmId, userId);
@@ -174,7 +174,7 @@ export class CompletionService implements OnModuleInit {
     await this.reaggregateCourseCompletion(userId, cm.course);
   }
 
-  private async refreshCmState(cmId: number, userId: number): Promise<number> {
+  private async refreshCmState(cmId: string, userId: string): Promise<number> {
     const state = await this.computeCmState(cmId, userId);
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     if (cm && cm.completion !== 0) {
@@ -191,7 +191,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Xử lý sự kiện xem cm: cập nhật completion theo lượt xem nếu cm cấu hình điều kiện view.
    */
-  async onCmViewed(payload: { cmId: number; courseId: number; userId: number }): Promise<void> {
+  async onCmViewed(payload: { cmId: string; courseId: string; userId: string }): Promise<void> {
     const cm = await this.courses.getCm(payload.cmId).catch(() => undefined);
     if (!cm || cm.completion === 0) return;
     const existing = await this.repo.getCmCompletion(payload.cmId, payload.userId);
@@ -210,7 +210,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Xử lý sự kiện xoá cm: dọn trạng thái hoàn thành của cm.
    */
-  async onCmDeleted(payload: { cmId: number; courseId: number }): Promise<void> {
+  async onCmDeleted(payload: { cmId: string; courseId: string }): Promise<void> {
     const removed = await this.repo.deleteCmCompletionsForCm(payload.cmId);
     if (removed) this.logger.log(`cm_deleted: removed ${removed} completion record(s) for cm ${payload.cmId}`);
   }
@@ -218,7 +218,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Trạng thái hoàn thành hiện tại của cm cho user.
    */
-  async getCmCompletion(cmId: number, userId: number): Promise<{ cmId: number; userId: number; state: number; viewed: boolean }> {
+  async getCmCompletion(cmId: string, userId: string): Promise<{ cmId: string; userId: string; state: number; viewed: boolean }> {
     const row = await this.repo.getCmCompletion(cmId, userId);
     const state = await this.computeCmState(cmId, userId).catch(() => row?.completionstate ?? 0);
     return { cmId, userId, state: row && row.completionstate !== COMPLETION_INCOMPLETE ? row.completionstate : state, viewed: row?.viewed ?? false };
@@ -227,7 +227,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tiến độ hoàn thành cm của mọi học viên trong khoá học.
    */
-  async listCmCompletionsForCourse(courseId: number, userId: number): Promise<{ cmId: number; state: number; viewed: boolean }[]> {
+  async listCmCompletionsForCourse(courseId: string, userId: string): Promise<{ cmId: string; state: number; viewed: boolean }[]> {
     const cms = await this.courses.listCms(courseId);
     const rows = await this.repo.listCmCompletionsForUser(userId, cms.map((c) => c.id));
     return cms.map((cm) => {
@@ -243,7 +243,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Đánh dấu hoàn thành thủ công (self hoặc giáo viên ghi thay theo capability).
    */
-  async markManual(actorId: number, cmId: number, targetUserId: number, complete: boolean): Promise<{ cmId: number; userId: number; state: number }> {
+  async markManual(actorId: string, cmId: string, targetUserId: string, complete: boolean): Promise<{ cmId: string; userId: string; state: number }> {
     const cm = await this.courses.getCm(cmId);
     if (cm.completion === 0) throw new BadRequestException({ message: 'Completion tracking is not enabled for this activity', code: 'completion.not_enabled' });
     if (!cm.completionmanual && cm.completion !== 1) {
@@ -276,9 +276,9 @@ export class CompletionService implements OnModuleInit {
   /**
    * Đặt bộ tiêu chí hoàn thành khoá học (thay thế toàn bộ).
    */
-  async setCriteria(actorId: number, courseId: number, input: {
+  async setCriteria(actorId: string, courseId: string, input: {
     method?: number;
-    criteria: { criteriatype: string; moduleinstance?: number; date?: string }[];
+    criteria: { criteriatype: string; moduleinstance?: string; date?: string }[];
   }): Promise<{ method: number; criteria: unknown[] }> {
     await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
@@ -325,7 +325,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Bộ tiêu chí hiện tại của khoá học.
    */
-  async getCriteria(courseId: number): Promise<{ method: number; criteria: unknown[] }> {
+  async getCriteria(courseId: string): Promise<{ method: number; criteria: unknown[] }> {
     const settings = await this.repo.getSettings(courseId);
     return { method: settings.method, criteria: await this.repo.listCriteria(courseId) };
   }
@@ -334,7 +334,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Đánh giá bộ tiêu chí cho một user: đạt tất cả/bất kỳ theo cấu hình tổng hợp.
    */
-  async evaluateCriteria(courseId: number, userId: number, now = new Date()): Promise<{ results: boolean[]; complete: boolean; method: number }> {
+  async evaluateCriteria(courseId: string, userId: string, now = new Date()): Promise<{ results: boolean[]; complete: boolean; method: number }> {
     const criteria = await this.repo.listCriteria(courseId);
     const { method } = await this.repo.getSettings(courseId);
     const results: boolean[] = [];
@@ -360,7 +360,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tổng hợp lại trạng thái hoàn thành khoá học của user và phát hook khi thay đổi.
    */
-  async reaggregateCourseCompletion(userId: number, courseId: number): Promise<CourseCompletionRow> {
+  async reaggregateCourseCompletion(userId: string, courseId: string): Promise<CourseCompletionRow> {
     const existing = await this.repo.getCourseCompletion(userId, courseId);
     const { complete } = await this.evaluateCriteria(courseId, userId);
     const criteria = await this.repo.listCriteria(courseId);
@@ -380,7 +380,7 @@ export class CompletionService implements OnModuleInit {
     }
     return row;
   }
-  private async hasStarted(userId: number, courseId: number): Promise<boolean> {
+  private async hasStarted(userId: string, courseId: string): Promise<boolean> {
     const cms = await this.courses.listCms(courseId);
     return this.repo.hasAnyCmCompletion(userId, cms.map((c) => c.id));
   }
@@ -389,7 +389,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tính lại completion toàn khoá học (hàng loạt, qua worker khi cần).
    */
-  async recalculateCourse(courseId: number): Promise<{ courseId: number; users: number }> {
+  async recalculateCourse(courseId: string): Promise<{ courseId: string; users: number }> {
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
     const userIds = [...new Set(enrolments.map((e) => e.userid))];
     // Also include users who already have a stored course completion.
@@ -403,7 +403,7 @@ export class CompletionService implements OnModuleInit {
   /**
    * Bản ghi hoàn thành khoá học của user.
    */
-  async getCourseCompletion(userId: number, courseId: number): Promise<CourseCompletionRow> {
+  async getCourseCompletion(userId: string, courseId: string): Promise<CourseCompletionRow> {
     const existing = await this.repo.getCourseCompletion(userId, courseId);
     if (existing) return existing;
     return this.reaggregateCourseCompletion(userId, courseId);
@@ -411,14 +411,14 @@ export class CompletionService implements OnModuleInit {
   /**
    * Tiến độ hoàn thành khoá học của mọi học viên.
    */
-  async listCourseCompletions(courseId: number): Promise<CourseCompletionRow[]> {
+  async listCourseCompletions(courseId: string): Promise<CourseCompletionRow[]> {
     return this.repo.listCourseCompletions(courseId);
   }
 
   /**
    * Cổng capability quản trị completion tại context khoá học.
    */
-  async requireCompletionManage(actorId: number, courseId: number): Promise<void> {
+  async requireCompletionManage(actorId: string, courseId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
   }
   notFound(): never { throw new NotFoundException({ message: 'Completion record not found', code: 'completion.not_found' }); }
