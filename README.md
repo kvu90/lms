@@ -96,8 +96,9 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
 - **Naming & repo hygiene** (ADR-010): everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
-  stray `.js`/`.d.ts` next to sources). Run
-  `node scripts/check-repo-hygiene.mjs` before committing.
+  stray `.js`/`.d.ts` next to sources). This is a writing discipline,
+  upheld by authoring code correctly in the first place and by review —
+  there is deliberately no automated enforcement for it.
 - **Feature acceptance** (ADR-011): a feature is done only when its
   backend business flow is covered by a flow test translated from the
   Moodle PHPUnit oracle, with the mapping recorded in
