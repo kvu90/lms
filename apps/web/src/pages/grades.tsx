@@ -25,6 +25,20 @@ interface GradeScaleView {
 }
 
 /**
+ * Một grade outcome như API trả về (bảng `grade_outcomes` phía grades
+ * service): `courseid` null nghĩa là outcome mức hệ thống dùng chung;
+ * contracts chỉ có schema create/update nên trang khai báo view tại chỗ
+ * như GradeScaleView.
+ */
+interface GradeOutcomeView {
+  id: string;
+  courseid: string | null;
+  scaleid: string;
+  name: string;
+  description: string;
+}
+
+/**
  * Một dòng lịch sử thay đổi điểm như API trả về (bảng
  * `grade_grades_history` phía grades service): `action` 1 = tạo mới,
  * 2 = cập nhật, 3 = xoá theo quy ước của Moodle.
@@ -94,6 +108,11 @@ export function GradebookPage() {
   const [scaleName, setScaleName] = useState('');
   const [scaleValues, setScaleValues] = useState('');
   const [scaleDescription, setScaleDescription] = useState('');
+  const [adminOutcomes, setAdminOutcomes] = useState<GradeOutcomeView[]>([]);
+  const [outcomeName, setOutcomeName] = useState('');
+  const [outcomeScaleId, setOutcomeScaleId] = useState('');
+  const [outcomeDescription, setOutcomeDescription] = useState('');
+  const [outcomeEdits, setOutcomeEdits] = useState<Record<string, string>>({});
   const [historyItemId, setHistoryItemId] = useState('');
   const [historyUserId, setHistoryUserId] = useState('');
   const [historyRows, setHistoryRows] = useState<GradeHistoryView[] | null>(null);
@@ -116,12 +135,15 @@ export function GradebookPage() {
    * Mỗi endpoint lỗi độc lập thì phần đó để rỗng, không sập cả trang.
    */
   const reloadAdmin = useCallback(async () => {
-    const [cats, items, letters, scales] = await Promise.all([
+    const [cats, items, letters, scales, outcomes] = await Promise.all([
       apiJson<GradeCategory[]>(`/api/v1/courses/${courseId}/grades/categories`).catch(() => []),
       apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
       apiJson<GradeLetter[]>(`/api/v1/courses/${courseId}/grades/letters`).catch(() => []),
       apiJson<GradeScaleView[]>(`/api/v1/courses/${courseId}/grades/scales`).catch(() => []),
+      apiJson<GradeOutcomeView[]>(`/api/v1/courses/${courseId}/grades/outcomes`).catch(() => []),
     ]);
+    setAdminOutcomes(outcomes);
+    setOutcomeEdits(Object.fromEntries(outcomes.map((o) => [o.id, o.name])));
     setAdminCategories(cats);
     setCatEdits(Object.fromEntries(cats.map((c) => [c.id, c.fullname])));
     setAdminItems(items);
@@ -272,6 +294,49 @@ export function GradebookPage() {
       setAdminMessage(t('scaleCreated'));
       await reloadAdmin();
     } catch { setAdminMessage(t('scaleCreateFailed')); }
+  }
+
+  /** Tạo outcome của khoá qua POST /courses/:courseId/grades/outcomes (`createGradeOutcomeSchema`: name, scaleId bắt buộc, description tuỳ chọn). */
+  async function createOutcome(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/outcomes`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: outcomeName,
+          scaleId: outcomeScaleId || adminScales[0]?.id,
+          ...(outcomeDescription.trim() ? { description: outcomeDescription.trim() } : {}),
+        }),
+      });
+      setOutcomeName(''); setOutcomeDescription('');
+      setAdminMessage(t('outcomeCreated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('outcomeCreateFailed')); }
+  }
+
+  /** Đổi tên outcome qua PATCH /courses/grades/outcomes/:outcomeId (endpoint không mang tiền tố courseId, đúng controller phía API). */
+  async function updateOutcome(outcome: GradeOutcomeView) {
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/outcomes/${outcome.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: outcomeEdits[outcome.id] ?? outcome.name }),
+      });
+      setAdminMessage(t('outcomeUpdated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('outcomeUpdateFailed')); }
+  }
+
+  /** Xoá outcome qua DELETE /courses/grades/outcomes/:outcomeId (item đang gắn được gỡ outcomeid phía server). */
+  async function deleteOutcome(outcome: GradeOutcomeView) {
+    if (!window.confirm(t('confirmDeleteOutcome', { name: outcome.name }))) return;
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/outcomes/${outcome.id}`, { method: 'DELETE' });
+      setAdminMessage(t('outcomeDeleted'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('outcomeDeleteFailed')); }
   }
 
   /** Tính lại điểm toàn khoá qua POST /courses/:courseId/grades/regrade (không body). */
@@ -552,6 +617,41 @@ export function GradebookPage() {
                   <Input id="scale-description" value={scaleDescription} onChange={(e) => setScaleDescription(e.target.value)} />
                 </div>
                 <Button type="submit">{t('createScale')}</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>{t('gradeOutcomesTitle')}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-2">
+                {adminOutcomes.map((outcome) => (
+                  <li key={outcome.id} className="flex flex-wrap items-center gap-2 text-sm">
+                    <Input aria-label={t('outcomeName')} className="max-w-xs" value={outcomeEdits[outcome.id] ?? outcome.name} onChange={(e) => setOutcomeEdits((prev) => ({ ...prev, [outcome.id]: e.target.value }))} />
+                    <span className="text-muted-foreground">{adminScales.find((s) => s.id === outcome.scaleid)?.name ?? outcome.scaleid}</span>
+                    {outcome.courseid === null ? <span className="text-muted-foreground">{t('outcomeSiteBadge')}</span> : null}
+                    <Button type="button" variant="outline" size="sm" onClick={() => void updateOutcome(outcome)}>{t('saveOutcome')}</Button>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => void deleteOutcome(outcome)}>{t('deleteOutcome')}</Button>
+                  </li>
+                ))}
+                {adminOutcomes.length === 0 ? <li className="text-sm text-muted-foreground">{t('noOutcomes')}</li> : null}
+              </ul>
+              <form onSubmit={(e) => void createOutcome(e)} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="outcome-name">{t('outcomeName')}</Label>
+                  <Input id="outcome-name" value={outcomeName} onChange={(e) => setOutcomeName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="outcome-scale">{t('outcomeScale')}</Label>
+                  <select id="outcome-scale" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={outcomeScaleId} onChange={(e) => setOutcomeScaleId(e.target.value)}>
+                    {adminScales.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="outcome-description">{t('outcomeDescriptionLabel')}</Label>
+                  <Input id="outcome-description" value={outcomeDescription} onChange={(e) => setOutcomeDescription(e.target.value)} />
+                </div>
+                <Button type="submit">{t('createOutcome')}</Button>
               </form>
             </CardContent>
           </Card>

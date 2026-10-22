@@ -73,7 +73,7 @@ function stubFetch(calls: RecordedCall[]) {
         }],
         contexts: [
           { contextId: '01900000-0000-7000-8000-0000000000e1', contextLevel: 10, contextPath: '/1', capabilities: [] },
-          { contextId: CONTENT.contextId, contextLevel: 50, contextPath: '/1/9/10', capabilities: ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall'] },
+          { contextId: CONTENT.contextId, contextLevel: 50, contextPath: '/1/9/10', capabilities: ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall', 'lms/completion:manage'] },
         ],
       });
     }
@@ -100,6 +100,12 @@ function stubFetch(calls: RecordedCall[]) {
     if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
     if (url === `/api/v1/courses/${COURSE_ID}/enrolments`) return respond([]);
     if (url === `/api/v1/courses/${COURSE_ID}/completion`) return respond([]);
+    // Tiêu chí hoàn thành: PUT thay toàn bộ bộ tiêu chí, recalculate trả về số bản ghi đã tính lại.
+    if (url === `/api/v1/courses/${COURSE_ID}/completion/criteria`) {
+      if (init?.method === 'PUT') return respond({ method: 1, criteria: [] });
+      return respond({ method: 1, criteria: [] });
+    }
+    if (url === `/api/v1/courses/${COURSE_ID}/completion/recalculate` && init?.method === 'POST') return respond({ courseId: COURSE_ID, enrolled: 1, evaluated: 1, completed: 0 });
     return respond({}, 404);
   }));
 }
@@ -119,6 +125,26 @@ function renderCourseAdmin() {
     </AuthProvider>,
   );
 }
+
+describe('Course completion criteria (teacher with lms/completion:manage)', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  it('saves the criteria set via PUT /courses/:id/completion/criteria with an activity-completion criterion', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseAdmin();
+
+    const box = await screen.findByTestId('completion-criteria');
+    await userEvent.selectOptions(within(box).getByLabelText('Cách tổng hợp tiêu chí'), '2');
+    await userEvent.click(within(box).getByRole('button', { name: 'Thêm tiêu chí' }));
+    await userEvent.selectOptions(within(box).getByLabelText('Loại tiêu chí'), 'module');
+    await userEvent.click(within(box).getByRole('button', { name: 'Lưu tiêu chí hoàn thành' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT')).toBe(true));
+    const put = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT');
+    expect(put?.body).toEqual({ method: 2, criteria: [{ criteriatype: 'module', moduleinstance: MODULE_ID }] });
+  });
+});
 
 describe('Course builder (teacher)', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
+import { apiFetch, apiJson } from '@/lib/api';
 
 interface EventView {
   id: string; name: string; description: string; eventtype: string;
@@ -46,6 +46,8 @@ export function CalendarPage() {
   const [evCategoryId, setEvCategoryId] = useState('');
   const [subName, setSubName] = useState('');
   const [subUrl, setSubUrl] = useState('');
+  /** Đường dẫn đăng ký xuất lịch của chính user (từ GET /calendar/export-token); null = chưa tạo. */
+  const [exportToken, setExportToken] = useState<{ token: string; url: string } | null>(null);
   const now = useMemo(() => new Date(), []);
 
   /** Nạp sự kiện của tháng hiện tại và danh sách subscription. */
@@ -56,6 +58,8 @@ export function CalendarPage() {
     setEvents(list);
     const subs = await apiJson<SubscriptionView[]>('/api/v1/calendar/subscriptions').catch(() => null);
     if (subs) setSubscriptions(subs);
+    const token = await apiJson<{ token: string; url: string } | null>('/api/v1/calendar/export-token').catch(() => undefined);
+    if (token !== undefined) setExportToken(token);
   }, [now]);
 
   useEffect(() => { void reload().catch(() => setError(t('calendarLoadFailed'))); }, [reload, t]);
@@ -133,6 +137,42 @@ export function CalendarPage() {
       setMessage(t('importQueued'));
       await reload();
     } catch { setMessage(t('importFailed')); }
+  }
+
+  /** Tải tệp ICS của chính user qua GET /calendar/export.ics (endpoint đòi đăng nhập nên phải fetch kèm token rồi tải blob, không dùng link trực tiếp). */
+  async function downloadIcs() {
+    setMessage(null);
+    try {
+      const response = await apiFetch('/api/v1/calendar/export.ics');
+      if (!response.ok) throw new Error('export failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = 'calendar.ics';
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch { setMessage(t('downloadIcsFailed')); }
+  }
+
+  /** Tạo hoặc tạo lại đường dẫn đăng ký xuất lịch (POST /calendar/export-token thay token cũ). */
+  async function createExportToken() {
+    setMessage(null);
+    try {
+      const created = await apiJson<{ token: string; url: string }>('/api/v1/calendar/export-token', { method: 'POST' });
+      setExportToken(created);
+      setMessage(t('exportTokenCreated'));
+    } catch { setMessage(t('exportTokenCreateFailed')); }
+  }
+
+  /** Thu hồi đường dẫn đăng ký xuất lịch (DELETE /calendar/export-token) — đường dẫn cũ lập tức hết hiệu lực. */
+  async function revokeExportToken() {
+    setMessage(null);
+    try {
+      await apiJson('/api/v1/calendar/export-token', { method: 'DELETE' });
+      setExportToken(null);
+      setMessage(t('exportTokenRevoked'));
+    } catch { setMessage(t('exportTokenRevokeFailed')); }
   }
 
   const visible = events.filter((e) => typeFilter === 'all' || e.eventtype === typeFilter);
@@ -229,6 +269,28 @@ export function CalendarPage() {
             ) : null}
             <Button type="submit">{t('createEvent')}</Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>{t('calendarExportTitle')}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t('calendarExportDescription')}</p>
+          <Button type="button" variant="outline" onClick={() => void downloadIcs()}>{t('downloadIcs')}</Button>
+          <div className="space-y-2">
+            <Label htmlFor="export-token-url">{t('exportToken')}</Label>
+            {exportToken ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input id="export-token-url" readOnly value={exportToken.url} className="max-w-xl" />
+                <Button type="button" variant="destructive" size="sm" onClick={() => void revokeExportToken()}>{t('revokeExportToken')}</Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-muted-foreground">{t('noExportToken')}</p>
+                <Button type="button" size="sm" onClick={() => void createExportToken()}>{t('createExportToken')}</Button>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

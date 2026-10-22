@@ -45,6 +45,8 @@ export function CourseAdminPage() {
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
   const canBuild = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
+  /** Sửa tiêu chí hoàn thành khoá cần `lms/completion:manage` tại context khoá (đúng capability backend đòi ở completion service) hoặc quyền quản trị hệ thống. */
+  const canManageCompletion = perms.canAdminister || (courseAccess?.capabilities.includes('lms/completion:manage') ?? false);
   /** Quản lý grouping cần `moodle/course:managegroups` tại context khoá (đúng capability backend đòi ở groups service) hoặc quyền quản trị hệ thống. */
   const canManageGroups = perms.canAdminister || (courseAccess?.capabilities.includes('moodle/course:managegroups') ?? false);
   /** Quản lý thành viên cohort cần `moodle/cohort:manage` ở context của cohort; giao diện hiện thao tác khi capability này xuất hiện trong ảnh chụp quyền ở bất kỳ context nào hoặc là quản trị hệ thống — API vẫn thực thi theo đúng context của từng cohort. */
@@ -67,6 +69,8 @@ export function CourseAdminPage() {
   const [moduleEdits, setModuleEdits] = useState<Record<string, { name: string; visible: boolean }>>({});
   const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
   const [availabilityDrafts, setAvailabilityDrafts] = useState<Record<string, unknown>>({});
+  const [criteriaMethod, setCriteriaMethod] = useState(1);
+  const [criteriaDraft, setCriteriaDraft] = useState<{ criteriatype: string; moduleinstance: string; date: string }[]>([]);
 
   const reload = useCallback(async () => {
     const [g, gr, c, i, e, comp] = await Promise.all([
@@ -90,12 +94,21 @@ export function CourseAdminPage() {
    * thật để form luôn phản ánh trạng thái server sau mỗi lần nạp lại.
    */
   const reloadBuilder = useCallback(async () => {
-    const [courseRes, contentRes, itemsRes] = await Promise.all([
+    const [courseRes, contentRes, itemsRes, criteriaRes] = await Promise.all([
       apiJson<Course>(`/api/v1/courses/${courseId}`).catch(() => null),
       apiJson<CourseContent>(`/api/v1/courses/${courseId}/content`).catch(() => null),
       apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
+      apiJson<{ method: number; criteria: { id: string; criteriatype: string; moduleinstance: string | null; date: string | null }[] }>(`/api/v1/courses/${courseId}/completion/criteria`).catch(() => null),
     ]);
     setGradeItems(itemsRes);
+    if (criteriaRes) {
+      setCriteriaMethod(criteriaRes.method);
+      setCriteriaDraft(criteriaRes.criteria.map((criterion) => ({
+        criteriatype: criterion.criteriatype,
+        moduleinstance: criterion.moduleinstance ?? '',
+        date: criterion.date ? String(criterion.date).slice(0, 10) : '',
+      })));
+    }
     if (courseRes) {
       setCourse(courseRes);
       setFullname(courseRes.fullname);
@@ -390,6 +403,42 @@ export function CourseAdminPage() {
     } catch { setBuilderMessage(t('availabilitySaveFailed')); }
   }
 
+  /**
+   * Lưu toàn bộ bộ tiêu chí hoàn thành qua PUT /courses/:id/completion/criteria
+   * (`completionCriteriaSchema`): method 1 = đạt tất cả (ALL), 2 = đạt bất kỳ
+   * (ANY); từng tiêu chí gửi kèm moduleinstance với loại `module` hoặc date với
+   * loại `date`, loại `grade` không cần thêm trường.
+   */
+  async function saveCriteria(event: FormEvent) {
+    event.preventDefault();
+    setBuilderMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/completion/criteria`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          method: criteriaMethod,
+          criteria: criteriaDraft.map((criterion) => ({
+            criteriatype: criterion.criteriatype,
+            ...(criterion.criteriatype === 'module' ? { moduleinstance: criterion.moduleinstance } : {}),
+            ...(criterion.criteriatype === 'date' ? { date: criterion.date } : {}),
+          })),
+        }),
+      });
+      setBuilderMessage(t('completionCriteriaSaved'));
+      await reloadBuilder();
+    } catch { setBuilderMessage(t('completionCriteriaSaveFailed')); }
+  }
+
+  /** Yêu cầu tính lại trạng thái hoàn thành cho cả khoá qua POST /courses/:id/completion/recalculate. */
+  async function recalculateCompletion() {
+    setBuilderMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/completion/recalculate`, { method: 'POST' });
+      setBuilderMessage(t('recalculatedCompletion'));
+      await reloadBuilder();
+    } catch { setBuilderMessage(t('recalculateFailed')); }
+  }
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       {canBuild && (
@@ -556,6 +605,56 @@ export function CourseAdminPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {canBuild && canManageCompletion && (
+        <Card>
+          <CardHeader><CardTitle>{t('completionCriteriaTitle')}</CardTitle><CardDescription>{t('completionCriteriaDescription')}</CardDescription></CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => void saveCriteria(e)} className="space-y-3" data-testid="completion-criteria">
+              <div className="space-y-2">
+                <Label htmlFor="criteria-method">{t('completionMethod')}</Label>
+                <select id="criteria-method" aria-label={t('completionMethod')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criteriaMethod} onChange={(e) => setCriteriaMethod(Number(e.target.value))}>
+                  <option value={1}>{t('completionMethodAll')}</option>
+                  <option value={2}>{t('completionMethodAny')}</option>
+                </select>
+              </div>
+              {criteriaDraft.length === 0 ? <p className="text-sm text-muted-foreground">{t('noCriteria')}</p> : null}
+              {criteriaDraft.map((criterion, index) => (
+                <div key={index} className="flex flex-wrap items-end gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={`criterion-type-${index}`}>{t('criterionType')}</Label>
+                    <select id={`criterion-type-${index}`} className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criterion.criteriatype} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, criteriatype: e.target.value, moduleinstance: e.target.value === 'module' && !c.moduleinstance ? ((content?.sections ?? []).flatMap((s) => s.modules)[0]?.id ?? '') : c.moduleinstance } : c)))}>
+                      <option value="module">{t('criterionTypeModule')}</option>
+                      <option value="date">{t('criterionTypeDate')}</option>
+                      <option value="grade">{t('criterionTypeGrade')}</option>
+                    </select>
+                  </div>
+                  {criterion.criteriatype === 'module' ? (
+                    <div className="space-y-1">
+                      <Label htmlFor={`criterion-module-${index}`}>{t('criterionModule')}</Label>
+                      <select id={`criterion-module-${index}`} className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criterion.moduleinstance} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, moduleinstance: e.target.value } : c)))}>
+                        {(content?.sections ?? []).flatMap((s) => s.modules).map((m) => <option key={m.id} value={m.id}>{m.name || m.component}</option>)}
+                      </select>
+                    </div>
+                  ) : null}
+                  {criterion.criteriatype === 'date' ? (
+                    <div className="space-y-1">
+                      <Label htmlFor={`criterion-date-${index}`}>{t('criterionDate')}</Label>
+                      <Input id={`criterion-date-${index}`} type="date" value={criterion.date} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, date: e.target.value } : c)))} />
+                    </div>
+                  ) : null}
+                  <Button type="button" variant="destructive" size="sm" onClick={() => setCriteriaDraft((prev) => prev.filter((_, i) => i !== index))}>{t('removeCriterion')}</Button>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setCriteriaDraft((prev) => [...prev, { criteriatype: 'grade', moduleinstance: '', date: '' }])}>{t('addCriterion')}</Button>
+                <Button type="submit">{t('saveCriteria')}</Button>
+                <Button type="button" variant="outline" onClick={() => void recalculateCompletion()}>{t('recalculateCompletion')}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
