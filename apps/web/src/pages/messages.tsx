@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 interface ConversationView { id: string; type: number; name: string | null; members: string[] }
 interface MessageView { id: string; useridfrom: string; fullmessage: string; timecreated: string }
@@ -13,10 +14,13 @@ interface MessageView { id: string; useridfrom: string; fullmessage: string; tim
 /**
  * Messages: conversation list with unread count, message thread and
  * sending. Messages are immutable once sent — the API rejects edits, and
- * this UI offers no edit affordance at all.
+ * this UI offers no edit affordance at all. Trang còn quản lý chặn liên
+ * lạc: chặn/bỏ chặn người đối thoại trong cuộc trò chuyện đang mở và xem
+ * danh sách đã chặn (GET/POST/DELETE /messages/contacts...).
  */
 export function MessagesPage() {
   const { t } = useTranslation('app');
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<ConversationView[]>([]);
   const [unread, setUnread] = useState(0);
   const [active, setActive] = useState<ConversationView | null>(null);
@@ -24,15 +28,39 @@ export function MessagesPage() {
   const [draft, setDraft] = useState('');
   const [newUserId, setNewUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<string[]>([]);
+  const [blockMessage, setBlockMessage] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [list, count] = await Promise.all([
+    const [list, count, blockedRes] = await Promise.all([
       apiJson<ConversationView[]>('/api/v1/messages/conversations'),
       apiJson<{ unread: number }>('/api/v1/messages/unread-count'),
+      apiJson<{ blocked: string[] }>('/api/v1/messages/contacts/blocked'),
     ]);
     setConversations(list);
     setUnread(count.unread);
+    setBlocked(blockedRes.blocked);
   }, []);
+
+  /** Chặn một liên hệ; server trả về danh sách đã chặn mới để hiển thị ngay. */
+  async function blockContact(userId: string) {
+    setBlockMessage(null);
+    try {
+      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, { method: 'POST', body: '{}' });
+      setBlocked(res.blocked);
+      setBlockMessage(t('contactBlocked'));
+    } catch { setBlockMessage(t('blockFailed')); }
+  }
+
+  /** Bỏ chặn một liên hệ; server trả về danh sách đã chặn mới để hiển thị ngay. */
+  async function unblockContact(userId: string) {
+    setBlockMessage(null);
+    try {
+      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, { method: 'DELETE' });
+      setBlocked(res.blocked);
+      setBlockMessage(t('contactUnblocked'));
+    } catch { setBlockMessage(t('unblockFailed')); }
+  }
 
   useEffect(() => { void reload().catch(() => setError(t('messagesLoadFailed'))); }, [reload]);
 
@@ -86,6 +114,19 @@ export function MessagesPage() {
             <Input id="new-user" value={newUserId} onChange={(e) => setNewUserId(e.target.value)} />
             <Button type="submit">{t('start')}</Button>
           </form>
+          <div className="space-y-2">
+            <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
+            {blockMessage ? <p role="status">{blockMessage}</p> : null}
+            <ul className="space-y-1">
+              {blocked.map((userId) => (
+                <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
+                  <span className="text-sm">{userId}</span>
+                  <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>{t('unblockContact')}</Button>
+                </li>
+              ))}
+            </ul>
+            {blocked.length === 0 ? <p className="text-sm text-muted-foreground">{t('noBlockedContacts')}</p> : null}
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -93,6 +134,20 @@ export function MessagesPage() {
         <CardContent className="space-y-3">
           {active ? (
             <>
+              <div className="flex flex-wrap items-center gap-2">
+                {active.members.filter((memberId) => memberId !== user?.id).map((memberId) => (
+                  blocked.includes(memberId) ? (
+                    <span key={memberId} className="flex items-center gap-2 text-sm">
+                      {memberId} {t('blockedSuffix')}
+                      <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>{t('unblockContact')}</Button>
+                    </span>
+                  ) : (
+                    <Button key={memberId} type="button" variant="outline" onClick={() => void blockContact(memberId)}>
+                      {t('blockContact')}
+                    </Button>
+                  )
+                ))}
+              </div>
               <ul className="space-y-2" aria-label={t('messagesListLabel')}>
                 {messages.map((m) => (
                   <li key={m.id} className="rounded border p-2">
