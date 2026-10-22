@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 /** Category tree + course list. Creation forms are shown to everyone but the API enforces the capabilities server-side. */
 export function CoursesPage() {
+  const { t } = useTranslation('app');
   const [tree, setTree] = useState<CourseCategoryTreeNode[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -28,7 +31,7 @@ export function CoursesPage() {
     if (c.length === 0 && t.length > 0) setCourseCategory(String(t[0]!.id));
   }, []);
 
-  useEffect(() => { void reload().catch(() => setMessage('Could not load courses')); }, [reload]);
+  useEffect(() => { void reload().catch(() => setMessage(t('coursesLoadFailed'))); }, [reload]);
 
   const flatCategories: CourseCategory[] = [];
   const walk = (nodes: CourseCategoryTreeNode[]) => { for (const n of nodes) { flatCategories.push(n); walk(n.children); } };
@@ -44,7 +47,7 @@ export function CoursesPage() {
               {courses.filter((c) => c.category === node.id).map((c) => (
                 <li key={c.id}>
                   <Link to={`/courses/${c.id}`}>{c.fullname} ({c.shortname})</Link>
-                  {!c.visible && <span> — hidden</span>}
+                  {!c.visible && <span> {t('hiddenSuffix')}</span>}
                 </li>
               ))}
             </ul>
@@ -65,8 +68,8 @@ export function CoursesPage() {
       });
       setCatName('');
       await reload();
-      setMessage('Category created');
-    } catch { setMessage('Could not create category (permission or validation error)'); }
+      setMessage(t('categoryCreated'));
+    } catch { setMessage(t('categoryCreateFailed')); }
   }
 
   async function createCourse(event: FormEvent) {
@@ -79,61 +82,61 @@ export function CoursesPage() {
       });
       setCourseName(''); setCourseShort('');
       await reload();
-      setMessage('Course created');
-    } catch { setMessage('Could not create course (permission, duplicate shortname or validation error)'); }
+      setMessage(t('courseCreated'));
+    } catch { setMessage(t('courseCreateFailed')); }
   }
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
         <CardHeader>
-          <CardTitle>Course categories</CardTitle>
-          <CardDescription>Category tree with the courses in each category.</CardDescription>
+          <CardTitle>{t('courseCategories')}</CardTitle>
+          <CardDescription>{t('courseCategoriesDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {tree.length === 0 ? <p>No categories yet.</p> : renderTree(tree)}
+          {tree.length === 0 ? <p>{t('noCategories')}</p> : renderTree(tree)}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Create category</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('createCategory')}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={createCategory} className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="cat-name">Category name</Label>
+              <Label htmlFor="cat-name">{t('categoryName')}</Label>
               <Input id="cat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-parent">Parent category</Label>
+              <Label htmlFor="cat-parent">{t('parentCategory')}</Label>
               <select id="cat-parent" value={catParent} onChange={(e) => setCatParent(e.target.value)} className="border px-2 py-1">
-                <option value="0">Top level</option>
+                <option value="0">{t('topLevel')}</option>
                 {flatCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <Button type="submit">Create category</Button>
+            <Button type="submit">{t('createCategory')}</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Create course</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('createCourse')}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={createCourse} className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="course-fullname">Course full name</Label>
+              <Label htmlFor="course-fullname">{t('courseFullName')}</Label>
               <Input id="course-fullname" value={courseName} onChange={(e) => setCourseName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="course-shortname">Course short name</Label>
+              <Label htmlFor="course-shortname">{t('courseShortName')}</Label>
               <Input id="course-shortname" value={courseShort} onChange={(e) => setCourseShort(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="course-category">Course category</Label>
+              <Label htmlFor="course-category">{t('courseCategory')}</Label>
               <select id="course-category" value={courseCategory} onChange={(e) => setCourseCategory(e.target.value)} className="border px-2 py-1">
                 {flatCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <Button type="submit">Create course</Button>
+            <Button type="submit">{t('createCourse')}</Button>
           </form>
           {message && <p role="status" className="pt-2 text-sm">{message}</p>}
         </CardContent>

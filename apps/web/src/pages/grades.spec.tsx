@@ -64,9 +64,9 @@ describe('Gradebook page', () => {
     expect(screen.getByTestId('grade-item-5')).toHaveTextContent('85');
     expect(screen.getByTestId('grade-item-5')).toHaveTextContent('B');
     expect(screen.getByText('Quizzes')).toBeInTheDocument();
-    expect(screen.getByText(/Course total: 85 \(B\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Tổng điểm khoá học: 85 \(B\)/)).toBeInTheDocument();
     // Teacher report renders alongside.
-    expect(screen.getByText('Class report')).toBeInTheDocument();
+    expect(screen.getByText('Báo cáo lớp')).toBeInTheDocument();
   });
 });
 
@@ -93,9 +93,9 @@ describe('Question bank page', () => {
     const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], { initialEntries: ['/questions'] });
     render(<RouterProvider router={router} />);
     await waitFor(() => expect(screen.getByTestId('version-badge-4')).toHaveTextContent('v1'));
-    await userEvent.click(screen.getByRole('button', { name: /Edit \(new version\)/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Sửa \(phiên bản mới\)/ }));
     await waitFor(() => expect(screen.getByTestId('version-badge-4')).toHaveTextContent('v2'));
-    expect(screen.getByText(/Attempts already started keep their pinned version/)).toBeInTheDocument();
+    expect(screen.getByText(/Các lượt làm đã bắt đầu vẫn giữ phiên bản đã gắn/)).toBeInTheDocument();
   });
 
   it('renders a usage with attempt states, steps and the pinned version', async () => {
@@ -123,6 +123,6 @@ describe('Question bank page', () => {
     await waitFor(() => expect(screen.getByTestId('attempt-11')).toBeInTheDocument());
     expect(screen.getByTestId('attempt-11')).toHaveTextContent('gradedright');
     expect(screen.getByTestId('attempt-11')).toHaveTextContent('todo → complete → gradedright');
-    expect(screen.getByText(/Usage state: finished/)).toBeInTheDocument();
+    expect(screen.getByText(/Trạng thái lượt làm: finished/)).toBeInTheDocument();
   });
 });

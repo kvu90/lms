@@ -48,10 +48,10 @@ describe('Login flow (real API contract shapes, fetch mocked at the boundary)', 
     });
     vi.stubGlobal('fetch', fetchMock);
     renderApp();
-    await userEvent.type(screen.getByLabelText('Username'), 'learner');
-    await userEvent.type(screen.getByLabelText('Password'), 'Passw0rd!');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    await waitFor(() => expect(screen.getByText(/Profile — learner/)).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText('Tên đăng nhập'), 'learner');
+    await userEvent.type(screen.getByLabelText('Mật khẩu'), 'Passw0rd!');
+    await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
+    await waitFor(() => expect(screen.getByText(/Hồ sơ — learner/)).toBeInTheDocument());
     expect(localStorage.getItem('lms.accessToken')).toBe('access-1');
     expect(localStorage.getItem('lms.refreshToken')).toBe('refresh-1');
     expect(screen.getByLabelText(/Department/)).toHaveValue('Sales');
@@ -62,9 +62,9 @@ describe('Login flow (real API contract shapes, fetch mocked at the boundary)', 
       type: 'about:blank', title: 'Unauthorized', status: 401, detail: 'Invalid username or password', code: 'auth.invalid_credentials',
     }), { status: 401, headers: { 'Content-Type': 'application/problem+json' } })));
     renderApp();
-    await userEvent.type(screen.getByLabelText('Username'), 'learner');
-    await userEvent.type(screen.getByLabelText('Password'), 'wrong');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await userEvent.type(screen.getByLabelText('Tên đăng nhập'), 'learner');
+    await userEvent.type(screen.getByLabelText('Mật khẩu'), 'wrong');
+    await userEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Invalid username or password'));
     expect(localStorage.getItem('lms.accessToken')).toBeNull();
   });

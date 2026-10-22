@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 /**
@@ -14,6 +16,7 @@ import { apiJson } from '@/lib/api';
  * started keep the version they pinned; that invariant is API-side).
  */
 export function QuestionsPage() {
+  const { t } = useTranslation('app');
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [questions, setQuestions] = useState<QuestionView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{ questionId: number; versions: { version: number; questiontext: string }[] } | null>(null);
@@ -38,7 +41,7 @@ export function QuestionsPage() {
     }
   }, [loadQuestions, qCategory]);
 
-  useEffect(() => { void reload().catch(() => setMessage('Could not load the question bank')); }, [reload]);
+  useEffect(() => { void reload().catch(() => setMessage(t('questionBankLoadFailed'))); }, [reload]);
 
   async function createCategory(event: FormEvent) {
     event.preventDefault();
@@ -48,7 +51,7 @@ export function QuestionsPage() {
       });
       setCatName('');
       await reload();
-    } catch { setMessage('Could not create the category (question:managecategory required).'); }
+    } catch { setMessage(t('categoryCreateFailedShort')); }
   }
 
   async function createQuestion(event: FormEvent) {
@@ -63,7 +66,7 @@ export function QuestionsPage() {
       });
       setQName(''); setQText('');
       await loadQuestions(Number(qCategory));
-    } catch { setMessage('Could not create the question.'); }
+    } catch { setMessage(t('questionCreateFailed')); }
   }
 
   async function editQuestion(view: QuestionView) {
@@ -72,9 +75,9 @@ export function QuestionsPage() {
       const updated = await apiJson<QuestionView>(`/api/v1/questions/${view.question.id}`, {
         method: 'PATCH', body: JSON.stringify({ questiontext: newText }),
       });
-      setMessage(`Saved as version ${updated.entry.latestversion}. Attempts already started keep their pinned version.`);
+      setMessage(t('questionSavedAsVersion', { version: updated.entry.latestversion }));
       await loadQuestions(view.question.category);
-    } catch { setMessage('Could not edit the question.'); }
+    } catch { setMessage(t('questionEditFailed')); }
   }
 
   async function showVersions(view: QuestionView) {
@@ -86,8 +89,8 @@ export function QuestionsPage() {
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
         <CardHeader>
-          <CardTitle>Question bank</CardTitle>
-          <CardDescription>Editing a question creates a new version; old versions are kept.</CardDescription>
+          <CardTitle>{t('questionBank')}</CardTitle>
+          <CardDescription>{t('questionBankDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ul className="space-y-2">
@@ -107,14 +110,14 @@ export function QuestionsPage() {
                   v{view.entry.latestversion}
                 </span>
                 <span className="text-sm text-muted-foreground">{view.latestVersion.questiontext}</span>
-                <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>Edit (new version)</Button>
-                <Button type="button" variant="outline" onClick={() => void showVersions(view)}>History</Button>
+                <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>{t('editNewVersion')}</Button>
+                <Button type="button" variant="outline" onClick={() => void showVersions(view)}>{t('history')}</Button>
               </li>
             ))}
           </ul>
           {versionsOf && (
             <div data-testid="version-history">
-              <h3 className="font-medium">Version history</h3>
+              <h3 className="font-medium">{t('versionHistory')}</h3>
               <ul>
                 {versionsOf.versions.map((v) => (
                   <li key={v.version}>v{v.version} — {v.questiontext}</li>
@@ -127,39 +130,39 @@ export function QuestionsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>New category</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('newCategory')}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createCategory(e)} className="space-y-3">
             <div>
-              <Label htmlFor="qcat-name">Name</Label>
+              <Label htmlFor="qcat-name">{t('name')}</Label>
               <Input id="qcat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="qcat-context">Context id</Label>
+              <Label htmlFor="qcat-context">{t('contextId')}</Label>
               <Input id="qcat-context" value={contextId} onChange={(e) => setContextId(e.target.value)} />
             </div>
-            <Button type="submit">Create category</Button>
+            <Button type="submit">{t('createCategory')}</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>New true/false question</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('newTrueFalseQuestion')}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createQuestion(e)} className="space-y-3">
             <div>
-              <Label htmlFor="q-name">Name</Label>
+              <Label htmlFor="q-name">{t('name')}</Label>
               <Input id="q-name" value={qName} onChange={(e) => setQName(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="q-text">Question text</Label>
+              <Label htmlFor="q-text">{t('questionText')}</Label>
               <Input id="q-text" value={qText} onChange={(e) => setQText(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="q-correct">Correct answer is true</Label>
+              <Label htmlFor="q-correct">{t('correctAnswerIsTrue')}</Label>
               <Input id="q-correct" value={qCorrect} onChange={(e) => setQCorrect(e.target.value)} />
             </div>
-            <Button type="submit">Create question</Button>
+            <Button type="submit">{t('createQuestion')}</Button>
           </form>
         </CardContent>
       </Card>
@@ -169,37 +172,38 @@ export function QuestionsPage() {
 
 /** Minimal attempt view: one usage of a simulated activity, with per-attempt state and pinned version. */
 export function QuestionUsagePage() {
+  const { t } = useTranslation('app');
   const { id } = useParams();
   const [usage, setUsage] = useState<QuestionUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     void apiJson<QuestionUsage>(`/api/v1/question-usages/${id}`)
       .then(setUsage)
-      .catch(() => setError('Could not load this attempt'));
+      .catch(() => setError(t('attemptLoadFailed')));
   }, [id]);
   if (error) return <main className="p-8"><p role="alert">{error}</p></main>;
-  if (!usage) return <main className="p-8">Loading attempt…</main>;
+  if (!usage) return <main className="p-8">{t('attemptLoading')}</main>;
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
         <CardHeader>
-          <CardTitle>Question attempt — {usage.usage.component}</CardTitle>
-          <CardDescription>Usage state: {usage.state}</CardDescription>
+          <CardTitle>{t('questionAttemptTitle', { component: usage.usage.component })}</CardTitle>
+          <CardDescription>{t('usageState', { state: usage.state })}</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
             {usage.attempts.map((a) => (
               <li key={a.id} data-testid={`attempt-${a.id}`}>
-                Slot {a.slot}: <strong>{a.state}</strong>
-                {a.fraction !== null ? ` — fraction ${a.fraction}` : ''}
-                {a.questionversionid ? ` — pinned version id ${a.questionversionid}` : ''}
+                {t('slotLine', { slot: a.slot })} <strong>{a.state}</strong>
+                {a.fraction !== null ? ` ${t('fractionSuffix', { fraction: a.fraction })}` : ''}
+                {a.questionversionid ? ` ${t('pinnedVersionSuffix', { versionId: a.questionversionid })}` : ''}
                 <span className="block text-sm text-muted-foreground">
-                  Steps: {a.steps.map((s) => s.state).join(' → ') || 'none'}
+                  {t('stepsLine', { steps: a.steps.map((s) => s.state).join(' → ') || t('stepsNone') })}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-4 text-sm"><Link to="/questions">Back to the question bank</Link></p>
+          <p className="mt-4 text-sm"><Link to="/questions">{t('backToQuestionBank')}</Link></p>
         </CardContent>
       </Card>
     </main>

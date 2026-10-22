@@ -28,7 +28,7 @@ describe('HealthPage', () => {
     );
 
     expect(await screen.findByText('ok')).toBeInTheDocument();
-    expect(screen.getByText('Database')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở dữ liệu')).toBeInTheDocument();
     expect(screen.getAllByText('up')).toHaveLength(2);
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/v1/health');
   });

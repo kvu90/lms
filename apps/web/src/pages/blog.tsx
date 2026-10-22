@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 interface PostView { id: number; userid: number; subject: string; content: string; publishstate: string; contextid: number }
@@ -17,6 +19,7 @@ interface AggregateView { count: number; average: number }
  * (component, itemtype, itemid, contextid), never by a blog-specific API.
  */
 export function BlogPage() {
+  const { t } = useTranslation('app');
   const [posts, setPosts] = useState<PostView[]>([]);
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
@@ -44,7 +47,7 @@ export function BlogPage() {
     for (const post of list) await loadExtras(post);
   }, [loadExtras]);
 
-  useEffect(() => { void reload().catch(() => setError('Could not load the blog')); }, [reload]);
+  useEffect(() => { void reload().catch(() => setError(t('blogLoadFailed'))); }, [reload]);
 
   async function createPost(event: FormEvent) {
     event.preventDefault();
@@ -87,14 +90,14 @@ export function BlogPage() {
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       {error ? <p role="alert">{error}</p> : null}
       <Card>
-        <CardHeader><CardTitle>Write a post</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('writePost')}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createPost(e)} className="space-y-2">
-            <Label htmlFor="post-subject">Subject</Label>
+            <Label htmlFor="post-subject">{t('subject')}</Label>
             <Input id="post-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
-            <Label htmlFor="post-content">Content</Label>
+            <Label htmlFor="post-content">{t('content')}</Label>
             <Input id="post-content" value={content} onChange={(e) => setContent(e.target.value)} />
-            <Button type="submit">Publish</Button>
+            <Button type="submit">{t('publish')}</Button>
           </form>
         </CardContent>
       </Card>
@@ -104,24 +107,24 @@ export function BlogPage() {
           <CardContent className="space-y-3">
             <p>{post.content}</p>
             <p className="text-sm text-muted-foreground">
-              Rating: {aggregates[post.id]?.count ? `${aggregates[post.id]!.average} average from ${aggregates[post.id]!.count} rating(s)` : 'not rated yet'}
+              {t('ratingPrefix')} {aggregates[post.id]?.count ? t('ratingLine', { average: aggregates[post.id]!.average, count: aggregates[post.id]!.count }) : t('notRatedYet')}
               {[1, 2, 3, 4, 5].map((v) => (
-                <Button key={v} type="button" variant="outline" aria-label={`Rate ${post.subject} ${v}`} onClick={() => void rate(post, v)}>{v}</Button>
+                <Button key={v} type="button" variant="outline" aria-label={t('rateAria', { subject: post.subject, value: v })} onClick={() => void rate(post, v)}>{v}</Button>
               ))}
             </p>
             <p className="text-sm">
-              Tags: {(tags[post.id] ?? []).map((t) => t.name).join(', ') || 'none'}
+              {t('tagsPrefix')} {(tags[post.id] ?? []).map((tag) => tag.name).join(', ') || t('tagsNone')}
             </p>
             <div className="flex gap-2">
-              <Input aria-label={`Tags for ${post.subject}`} value={tagDrafts[post.id] ?? ''} onChange={(e) => setTagDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))} />
-              <Button type="button" variant="outline" onClick={() => void setPostTags(post)}>Set tags</Button>
+              <Input aria-label={t('tagsForAria', { subject: post.subject })} value={tagDrafts[post.id] ?? ''} onChange={(e) => setTagDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))} />
+              <Button type="button" variant="outline" onClick={() => void setPostTags(post)}>{t('setTags')}</Button>
             </div>
-            <ul className="space-y-1" aria-label={`Comments on ${post.subject}`}>
-              {(comments[post.id] ?? []).map((c) => <li key={c.id} className="text-sm">{c.content} <span className="text-muted-foreground">(user {c.userid})</span></li>)}
+            <ul className="space-y-1" aria-label={t('commentsOnAria', { subject: post.subject })}>
+              {(comments[post.id] ?? []).map((c) => <li key={c.id} className="text-sm">{c.content} <span className="text-muted-foreground">{t('commentByUser', { userId: c.userid })}</span></li>)}
             </ul>
             <div className="flex gap-2">
-              <Input aria-label={`Comment on ${post.subject}`} value={commentDrafts[post.id] ?? ''} onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))} />
-              <Button type="button" variant="outline" onClick={() => void addComment(post)}>Comment</Button>
+              <Input aria-label={t('commentOnAria', { subject: post.subject })} value={commentDrafts[post.id] ?? ''} onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))} />
+              <Button type="button" variant="outline" onClick={() => void addComment(post)}>{t('comment')}</Button>
             </div>
           </CardContent>
         </Card>

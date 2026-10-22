@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 interface EventView {
@@ -17,6 +19,7 @@ const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
  * receives by day.
  */
 export function CalendarPage() {
+  const { t } = useTranslation('app');
   const [events, setEvents] = useState<EventView[]>([]);
   const [typeFilter, setTypeFilter] = useState<(typeof TYPES)[number]>('all');
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +32,7 @@ export function CalendarPage() {
     setEvents(list);
   }, [now]);
 
-  useEffect(() => { void reload().catch(() => setError('Could not load the calendar')); }, [reload]);
+  useEffect(() => { void reload().catch(() => setError(t('calendarLoadFailed'))); }, [reload]);
 
   const visible = events.filter((e) => typeFilter === 'all' || e.eventtype === typeFilter);
   const byDay = new Map<string, EventView[]>();
@@ -42,14 +45,14 @@ export function CalendarPage() {
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
         <CardHeader>
-          <CardTitle>Calendar — {now.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</CardTitle>
+          <CardTitle>{t('calendarTitle', { month: now.toLocaleString(undefined, { month: 'long', year: 'numeric' }) })}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <p role="alert">{error}</p> : null}
           <div className="flex items-center gap-2">
-            <Label htmlFor="type-filter">Event type</Label>
+            <Label htmlFor="type-filter">{t('eventType')}</Label>
             <select id="type-filter" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as (typeof TYPES)[number])}>
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {TYPES.map((type) => <option key={type} value={type}>{t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}</option>)}
             </select>
           </div>
           {[...byDay.entries()].map(([day, dayEvents]) => (
@@ -60,13 +63,13 @@ export function CalendarPage() {
                   <li key={e.id} className="rounded border p-2 text-sm">
                     <span className="font-medium">{e.name}</span>
                     <span className="text-muted-foreground"> · {e.eventtype} · {new Date(e.timestart).toLocaleTimeString()}</span>
-                    {e.isexception ? <span> · adjusted occurrence</span> : null}
+                    {e.isexception ? <span> {t('adjustedOccurrence')}</span> : null}
                   </li>
                 ))}
               </ul>
             </section>
           ))}
-          {visible.length === 0 ? <p>No events this month.</p> : null}
+          {visible.length === 0 ? <p>{t('noEventsThisMonth')}</p> : null}
         </CardContent>
       </Card>
     </main>

@@ -47,7 +47,7 @@ describe('Notifications page', () => {
     });
     render(<NotificationsPage />);
     await waitFor(() => expect(screen.getByText('Badge awarded')).toBeInTheDocument());
-    const toggle = screen.getByLabelText('badge_awarded popup logged in');
+    const toggle = screen.getByLabelText('badge_awarded popup đã đăng nhập');
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
     await waitFor(() => expect(puts).toHaveLength(1));
@@ -77,7 +77,7 @@ describe('Badges page', () => {
     const router = createMemoryRouter([{ path: '/badges', element: <BadgesPage /> }], { initialEntries: ['/badges'] });
     render(<AuthProvider><RouterProvider router={router} /></AuthProvider>);
     // Wait for the issued list itself (it loads after the auth profile resolves).
-    expect(await screen.findByText(/Old honour \(revoked\)/)).toBeInTheDocument();
-    expect(screen.getByText(/assertion abcdef012345/)).toBeInTheDocument();
+    expect(await screen.findByText(/Old honour \(đã thu hồi\)/)).toBeInTheDocument();
+    expect(screen.getByText(/bản ghi abcdef012345/)).toBeInTheDocument();
   });
 });

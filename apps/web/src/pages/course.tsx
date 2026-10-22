@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import type { CourseContent } from '@lms/contracts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 /**
@@ -11,6 +13,7 @@ import { apiJson } from '@/lib/api';
  * already filtered it). The API, not this page, is the access gate.
  */
 export function CoursePage() {
+  const { t } = useTranslation('app');
   const { id } = useParams();
   const [content, setContent] = useState<CourseContent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,29 +22,29 @@ export function CoursePage() {
     try {
       setContent(await apiJson<CourseContent>(`/api/v1/courses/${id}/content`));
     } catch {
-      setError('You cannot access this course (not enrolled, suspended, or the course is hidden).');
+      setError(t('courseAccessDenied'));
     }
   }, [id]);
 
   useEffect(() => { void reload(); }, [reload]);
 
   if (error) return <main className="p-8"><p role="alert">{error}</p></main>;
-  if (!content) return <main className="p-8">Loading course…</main>;
+  if (!content) return <main className="p-8">{t('courseLoading')}</main>;
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
         <CardHeader>
           <CardTitle>{content.course.fullname}</CardTitle>
-          <CardDescription>{content.course.shortname}{content.course.visible ? '' : ' — hidden course'}</CardDescription>
+          <CardDescription>{content.course.shortname}{content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}</CardDescription>
         </CardHeader>
       </Card>
       {content.sections.map((section) => (
         <Card key={section.id}>
           <CardHeader>
-            <CardTitle>{section.name ?? `Section ${section.section}`}</CardTitle>
+            <CardTitle>{section.name ?? t('sectionDefaultName', { number: section.section })}</CardTitle>
             {section.availabilityResult && !section.availabilityResult.available && (
-              <CardDescription>Section restricted: {section.availabilityResult.failedDescriptions.join('; ')}</CardDescription>
+              <CardDescription>{t('sectionRestricted', { reasons: section.availabilityResult.failedDescriptions.join('; ') })}</CardDescription>
             )}
           </CardHeader>
           <CardContent>
@@ -53,13 +56,13 @@ export function CoursePage() {
                   <li key={cm.id} data-testid={`cm-${cm.id}`} aria-disabled={locked || undefined} className={locked ? 'opacity-50' : undefined}>
                     <span>{cm.name || cm.component}</span>
                     {locked && (
-                      <span role="note"> — Locked: {result.failedDescriptions.length ? result.failedDescriptions.join('; ') : 'not available yet'}</span>
+                      <span role="note"> {t('lockedSuffix', { reasons: result.failedDescriptions.length ? result.failedDescriptions.join('; ') : t('notAvailableYet') })}</span>
                     )}
-                    {!locked && result && <span> — Available</span>}
+                    {!locked && result && <span> {t('availableSuffix')}</span>}
                   </li>
                 );
               })}
-              {section.modules.length === 0 && <li>No activities in this section.</li>}
+              {section.modules.length === 0 && <li>{t('noActivities')}</li>}
             </ul>
           </CardContent>
         </Card>

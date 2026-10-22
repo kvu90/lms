@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -8,6 +10,7 @@ type State =
   | { kind: 'ready'; health: HealthStatus };
 
 export function HealthPage() {
+  const { t } = useTranslation('app');
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
@@ -24,7 +27,7 @@ export function HealthPage() {
         if (!cancelled) {
           setState({
             kind: 'error',
-            message: error instanceof Error ? error.message : 'Unknown error',
+            message: error instanceof Error ? error.message : t('unknownError'),
           });
         }
       });
@@ -37,28 +40,28 @@ export function HealthPage() {
     <main className="mx-auto max-w-2xl p-8">
       <Card>
         <CardHeader>
-          <CardTitle>API health</CardTitle>
-          <CardDescription>Live status from GET /api/v1/health</CardDescription>
+          <CardTitle>{t('healthTitle')}</CardTitle>
+          <CardDescription>{t('healthDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {state.kind === 'loading' && <p>Loading…</p>}
-          {state.kind === 'error' && <p role="alert">Failed to load health: {state.message}</p>}
+          {state.kind === 'loading' && <p>{t('loading')}</p>}
+          {state.kind === 'error' && <p role="alert">{t('healthLoadFailed', { message: state.message })}</p>}
           {state.kind === 'ready' && (
             <dl className="space-y-2">
               <div>
-                <dt className="font-medium">Status</dt>
+                <dt className="font-medium">{t('status')}</dt>
                 <dd>{state.health.status}</dd>
               </div>
               <div>
-                <dt className="font-medium">Database</dt>
+                <dt className="font-medium">{t('database')}</dt>
                 <dd>{state.health.checks.database}</dd>
               </div>
               <div>
-                <dt className="font-medium">Redis</dt>
+                <dt className="font-medium">{t('redis')}</dt>
                 <dd>{state.health.checks.redis}</dd>
               </div>
               <div>
-                <dt className="font-medium">Timestamp</dt>
+                <dt className="font-medium">{t('timestamp')}</dt>
                 <dd>{state.health.timestamp}</dd>
               </div>
             </dl>

@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { apiJson } from '@/lib/api';
 
 /** Course administration: groups, cohorts, manual enrolment with suspend/reactivate, and learner completion progress. */
 export function CourseAdminPage() {
+  const { t } = useTranslation('app');
   const { id } = useParams();
   const courseId = Number(id);
   const [groups, setGroups] = useState<CourseGroup[]>([]);
@@ -41,8 +44,8 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}/groups`, { method: 'POST', body: JSON.stringify({ name: groupName }) });
       setGroupName('');
       await reload();
-      setMessage('Group created');
-    } catch { setMessage('Could not create group'); }
+      setMessage(t('groupCreated'));
+    } catch { setMessage(t('groupCreateFailed')); }
   }
 
   async function ensureManualAndEnrol(event: FormEvent) {
@@ -58,8 +61,8 @@ export function CourseAdminPage() {
         method: 'POST', body: JSON.stringify({ userid: Number(enrolUserId) }),
       });
       await reload();
-      setMessage('User enrolled');
-    } catch { setMessage('Could not enrol user'); }
+      setMessage(t('userEnrolled'));
+    } catch { setMessage(t('userEnrolFailed')); }
   }
 
   async function toggleSuspend(ue: UserEnrolment) {
@@ -67,46 +70,46 @@ export function CourseAdminPage() {
     try {
       await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${ue.enrolid}/users/${ue.userid}/${action}`, { method: 'POST' });
       await reload();
-    } catch { setMessage('Could not change enrolment status'); }
+    } catch { setMessage(t('enrolStatusChangeFailed')); }
   }
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Groups</CardTitle><CardDescription>Groups in this course.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t('groups')}</CardTitle><CardDescription>{t('groupsInCourse')}</CardDescription></CardHeader>
         <CardContent>
           <ul>{groups.map((g) => <li key={g.id}>{g.name}</li>)}</ul>
           <form onSubmit={createGroup} className="mt-3 space-y-2">
-            <Label htmlFor="group-name">New group name</Label>
+            <Label htmlFor="group-name">{t('newGroupName')}</Label>
             <Input id="group-name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-            <Button type="submit">Create group</Button>
+            <Button type="submit">{t('createGroup')}</Button>
           </form>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Cohorts</CardTitle><CardDescription>Site/category cohorts available for cohort sync enrolment.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t('cohorts')}</CardTitle><CardDescription>{t('cohortsDescription')}</CardDescription></CardHeader>
         <CardContent>
-          <ul>{cohorts.map((c) => <li key={c.id}>{c.name} ({c.idnumber || 'no idnumber'})</li>)}</ul>
-          {cohorts.length === 0 && <p>No cohorts yet.</p>}
+          <ul>{cohorts.map((c) => <li key={c.id}>{c.name} ({c.idnumber || t('noIdnumber')})</li>)}</ul>
+          {cohorts.length === 0 && <p>{t('noCohorts')}</p>}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Enrolment</CardTitle><CardDescription>Manual enrolment: add a user, suspend or reactivate them.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t('enrolment')}</CardTitle><CardDescription>{t('enrolmentDescription')}</CardDescription></CardHeader>
         <CardContent>
           <form onSubmit={ensureManualAndEnrol} className="space-y-2">
-            <Label htmlFor="enrol-userid">User ID to enrol</Label>
+            <Label htmlFor="enrol-userid">{t('userIdToEnrol')}</Label>
             <Input id="enrol-userid" value={enrolUserId} onChange={(e) => setEnrolUserId(e.target.value)} />
-            <Button type="submit">Enrol user</Button>
+            <Button type="submit">{t('enrolUser')}</Button>
           </form>
           <ul className="mt-4 space-y-2">
             {enrolments.map((ue) => (
               <li key={ue.id} className="flex items-center gap-3">
-                <span>User {ue.userid} — {ue.status === 0 ? 'Active' : ue.status === 1 ? 'Suspended' : 'Withdrawn'} ({ue.enrolMethod ?? ''})</span>
+                <span>{t('enrolUserLine', { userId: ue.userid, status: ue.status === 0 ? t('enrolActive') : ue.status === 1 ? t('enrolSuspended') : t('enrolWithdrawn'), method: ue.enrolMethod ?? '' })}</span>
                 {ue.status !== 2 && (
                   <Button type="button" variant="outline" onClick={() => void toggleSuspend(ue)}>
-                    {ue.status === 1 ? 'Reactivate' : 'Suspend'}
+                    {ue.status === 1 ? t('reactivate') : t('suspend')}
                   </Button>
                 )}
               </li>
@@ -116,14 +119,14 @@ export function CourseAdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Completion progress</CardTitle><CardDescription>Course completion per learner.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t('completionProgress')}</CardTitle><CardDescription>{t('completionProgressDescription')}</CardDescription></CardHeader>
         <CardContent>
           <ul>
             {completions.map((c) => (
-              <li key={c.id}>User {c.userid}: {c.status}{c.timecompleted ? ` (completed ${c.timecompleted})` : ''}</li>
+              <li key={c.id}>{t('completionLine', { userId: c.userid, status: c.status, suffix: c.timecompleted ? t('completionSuffix', { time: c.timecompleted }) : '' })}</li>
             ))}
           </ul>
-          {completions.length === 0 && <p>No completion records yet.</p>}
+          {completions.length === 0 && <p>{t('noCompletionRecords')}</p>}
           {message && <p role="status" className="pt-2 text-sm">{message}</p>}
         </CardContent>
       </Card>

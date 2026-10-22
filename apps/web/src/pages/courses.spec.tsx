@@ -83,10 +83,10 @@ describe('Courses pages', () => {
     await waitFor(() => expect(screen.getByText('Welcome page')).toBeInTheDocument());
     const locked = screen.getByTestId('cm-1001');
     expect(locked).toHaveAttribute('aria-disabled', 'true');
-    expect(locked).toHaveTextContent(/Locked:/);
+    expect(locked).toHaveTextContent(/Đã khoá:/);
     expect(locked).toHaveTextContent(/2100-01-01/);
     const open = screen.getByTestId('cm-1000');
     expect(open).not.toHaveAttribute('aria-disabled');
-    expect(open).toHaveTextContent(/Available/);
+    expect(open).toHaveTextContent(/Có thể truy cập/);
   });
 });
