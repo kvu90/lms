@@ -4,6 +4,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /** HMAC-signed, short-lived download tokens for local storage (the S3 adapter would use presigned URLs instead). */
 @Injectable()
+/**
+ * Ký URL tải file có thời hạn (HMAC): URL chứa hạn dùng và chữ ký, server kiểm chữ ký + hạn trước khi trả nội dung.
+ * Chữ ký không thay thế kiểm quyền — chỉ dùng cho các area được phép chia sẻ liên kết tạm thời.
+ */
 export class FileSigningService {
   private readonly secret: string;
   private readonly ttlSeconds: number;
@@ -11,11 +15,17 @@ export class FileSigningService {
     this.secret = config.getOrThrow<string>('JWT_SECRET');
     this.ttlSeconds = config.get<number>('FILE_SIGNED_URL_TTL_SECONDS') ?? 300;
   }
+  /**
+   * Tạo chữ ký cho một file id với thời hạn cho trước.
+   */
   sign(fileId: number): { token: string; expiresAt: number } {
     const expiresAt = Math.floor(Date.now() / 1000) + this.ttlSeconds;
     const mac = createHmac('sha256', this.secret).update(`${fileId}.${expiresAt}`).digest('base64url');
     return { token: `${expiresAt}.${mac}`, expiresAt };
   }
+  /**
+   * Kiểm chữ ký và hạn dùng của URL đã ký.
+   */
   verify(fileId: number, token: string | undefined): void {
     if (!token) throw new UnauthorizedException({ message: 'Missing file signature', code: 'file.signature_missing' });
     const [expRaw, mac] = token.split('.');

@@ -21,4 +21,5 @@ import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.servi
   providers: [MessagingRepository, MessagingService],
   exports: [MessagingService],
 })
+/** Module nhắn tin và thông báo. */
 export class MessagingModule {}

@@ -25,4 +25,5 @@ import { BADGE_AWARD_QUEUE, BadgesService } from './badges.service';
   providers: [BadgesRepository, BadgesService],
   exports: [BadgesService],
 })
+/** Module huy hiệu. */
 export class BadgesModule {}

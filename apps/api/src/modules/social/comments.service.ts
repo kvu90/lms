@@ -12,6 +12,10 @@ import { SocialRepository, type CommentRow } from './social.repository';
  * externallib_test test_get_comments / test_add_comments_single).
  */
 @Injectable()
+/**
+ * Bình luận theo (context, component, area, item).
+ * Đối chiếu Moodle: lib/commentlib (comment). Xoá là xoá mềm; chỉ tác giả hoặc người có capability mới xoá được.
+ */
 export class CommentsService {
   constructor(
     private readonly repo: SocialRepository,
@@ -31,6 +35,9 @@ export class CommentsService {
     }
   }
 
+  /**
+   * Thêm bình luận vào item.
+   */
   async addComment(actorId: number, input: {
     contextid: number; component: string; commentarea: string; itemid: number; content: string;
   }): Promise<CommentRow> {
@@ -42,6 +49,9 @@ export class CommentsService {
     });
   }
 
+  /**
+   * Bình luận của item.
+   */
   async listComments(viewerId: number, input: {
     contextid: number; component: string; commentarea: string; itemid: number;
   }): Promise<{ comments: CommentRow[]; count: number; canpost: boolean }> {
@@ -52,6 +62,9 @@ export class CommentsService {
     return { comments: rows, count: rows.length, canpost };
   }
 
+  /**
+   * Xoá mềm bình luận (kiểm tác giả/capability).
+   */
   async deleteComment(actorId: number, commentId: number): Promise<{ deleted: boolean }> {
     const comment = await this.repo.getComment(commentId);
     if (!comment || comment.timedeleted) throw new NotFoundException({ message: `Comment ${commentId} not found`, code: 'comments.not_found' });

@@ -35,6 +35,12 @@ const SUPPORTED_QTYPES = ['truefalse', 'shortanswer'];
  * data; the usage state is a rollup of its attempts.
  */
 @Injectable()
+/**
+ * Ngân hàng câu hỏi và vòng đời làm bài (question engine).
+ * Đối chiếu Moodle: lib/questionlib.php và question/engine.
+ * Bất biến version: sửa câu hỏi tạo version mới, không sửa tại chỗ; attempt đã bắt đầu giữ nguyên
+ * version đã pin nên điểm cũ không đổi; chấm điểm do question-engine domain thực hiện theo qtype và behaviour.
+ */
 export class QuestionsService {
   constructor(
     private readonly repo: QuestionsRepository,
@@ -55,6 +61,9 @@ export class QuestionsService {
 
   // --- bank ------------------------------------------------------------------
 
+  /**
+   * Tạo category câu hỏi trong context.
+   */
   async createCategory(actorId: number, input: { name: string; contextid: number; info?: string; parent?: number }): Promise<QCategoryRow> {
     const ctx = await this.contextOrSystem(input.contextid);
     await this.requireCap(actorId, 'moodle/question:managecategory', ctx.id);
@@ -63,7 +72,13 @@ export class QuestionsService {
       stamp: `qcat-${Date.now().toString(36)}`,
     });
   }
+  /**
+   * Liệt kê category.
+   */
   async listCategories(contextId?: number): Promise<QCategoryRow[]> { return this.repo.listCategories(contextId); }
+  /**
+   * Lấy category; ném questions.category_not_found khi vắng.
+   */
   async getCategory(id: number): Promise<QCategoryRow> {
     const row = await this.repo.getCategory(id);
     if (!row) throw new NotFoundException({ message: `Question category ${id} not found`, code: 'question.category_not_found' });
@@ -83,6 +98,9 @@ export class QuestionsService {
     return answer;
   }
 
+  /**
+   * Tạo câu hỏi kèm version 1 và entry.
+   */
   async createQuestion(actorId: number, input: {
     categoryId: number; qtype: string; name: string; questiontext: string;
     defaultmark?: number; answer: Record<string, unknown>;
@@ -107,6 +125,9 @@ export class QuestionsService {
     return view;
   }
 
+  /**
+   * Lấy câu hỏi ở version mới nhất.
+   */
   async getQuestion(id: number): Promise<QuestionView> {
     const q = await this.repo.getQuestion(id);
     if (!q) throw new NotFoundException({ message: `Question ${id} not found`, code: 'question.not_found' });
@@ -116,12 +137,18 @@ export class QuestionsService {
     if (!latest) throw new NotFoundException({ message: `Question ${id} latest version missing`, code: 'question.version_missing' });
     return { question: q, entry, latestVersion: latest };
   }
+  /**
+   * Câu hỏi trong category.
+   */
   async listQuestions(categoryId: number): Promise<QuestionView[]> {
     const rows = await this.repo.listQuestionsInCategory(categoryId);
     const out: QuestionView[] = [];
     for (const q of rows) out.push(await this.getQuestion(q.id));
     return out;
   }
+  /**
+   * Lịch sử version của câu hỏi.
+   */
   async listVersions(questionId: number): Promise<VersionRow[]> {
     const entry = await this.repo.getEntryByQuestion(questionId);
     if (!entry) throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
@@ -129,6 +156,9 @@ export class QuestionsService {
   }
 
   /** Editing creates a NEW version; existing versions (and attempts pinned to them) are untouched. */
+  /**
+   * Sửa câu hỏi = tạo version mới và nâng latestversion của entry.
+   */
   async updateQuestion(actorId: number, questionId: number, input: {
     name?: string; questiontext?: string; defaultmark?: number; answer?: Record<string, unknown>;
   }): Promise<QuestionView> {
@@ -151,6 +181,9 @@ export class QuestionsService {
 
   // --- engine ------------------------------------------------------------------
 
+  /**
+   * Tạo usage mới cho một component (vd quiz) với behaviour cho trước.
+   */
   async createUsage(actorId: number, input: {
     component: string; instanceid?: number; contextid?: number; preferredbehaviour?: string;
     slots: { questionId: number; maxmark?: number }[];
@@ -179,6 +212,9 @@ export class QuestionsService {
     return this.getUsage(usage.id);
   }
 
+  /**
+   * Lấy usage kèm các attempt và trạng thái tổng.
+   */
   async getUsage(id: number): Promise<UsageView> {
     const usage = await this.repo.getUsage(id);
     if (!usage) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
@@ -198,6 +234,9 @@ export class QuestionsService {
     }
     return { usage, state: usageState(attempts.map((a) => a.state)), attempts: views };
   }
+  /**
+   * Lấy một attempt.
+   */
   async getAttempt(id: number): Promise<AttemptRow> {
     const row = await this.repo.getAttempt(id);
     if (!row) throw new NotFoundException({ message: `Question attempt ${id} not found`, code: 'question.attempt_not_found' });
@@ -235,6 +274,9 @@ export class QuestionsService {
   }
 
   /** Start an attempt: PIN the bank entry's current latest version. */
+  /**
+   * Bắt đầu attempt cho một slot: pin version hiện tại của câu hỏi.
+   */
   async startAttempt(userId: number, attemptId: number): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     await this.transition(attempt, 'todo');
@@ -248,6 +290,9 @@ export class QuestionsService {
   }
 
   /** Submit a response (deferredfeedback: stored as a step, NOT graded yet). */
+  /**
+   * Nộp câu trả lời: ghi step, chấm theo behaviour, cập nhật trạng thái/fraction.
+   */
   async submitResponse(userId: number, attemptId: number, response: string | null): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     const behaviour = BEHAVIOURS[attempt.behaviour];
@@ -262,6 +307,9 @@ export class QuestionsService {
   }
 
   /** Finish one attempt: grade against the PINNED version (never the latest). */
+  /**
+   * Kết thúc một attempt (chấm nốt nếu behaviour cho phép).
+   */
   async finishAttempt(userId: number, attemptId: number): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     if (attempt.state === 'notstarted') {
@@ -294,6 +342,9 @@ export class QuestionsService {
   }
 
   /** Finish every attempt in a usage (deferredfeedback grading point) and emit the usage event. */
+  /**
+   * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
+   */
   async finishUsage(userId: number, usageId: number): Promise<UsageView> {
     const before = await this.getUsage(usageId);
     for (const a of before.attempts) {
@@ -308,6 +359,9 @@ export class QuestionsService {
   }
 
   /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */
+  /**
+   * Bắt đầu usage (ủy quyền nội bộ).
+   */
   async startUsage(userId: number, usageId: number): Promise<UsageView> {
     const view = await this.getUsage(usageId);
     for (const a of view.attempts) {
@@ -316,5 +370,6 @@ export class QuestionsService {
     return this.getUsage(usageId);
   }
 
+  /** Ném lỗi 403 chuẩn hoá của module (hàm hỗ trợ nội bộ). */
   forbidden(msg: string): never { throw new ForbiddenException({ message: msg, code: 'question.forbidden' }); }
 }

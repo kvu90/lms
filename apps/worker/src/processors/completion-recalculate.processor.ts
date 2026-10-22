@@ -23,9 +23,15 @@ export interface CompletionRecalculateResult { courseId: number; users: number; 
  * criteria) — idempotently, in the worker, not inline in the request.
  */
 @Processor('completion-recalculate')
+/**
+ * Xử lý job tính lại completion hàng loạt cho khoá học.
+ */
 export class CompletionRecalculateProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<CompletionRecalculateJobData>): Promise<CompletionRecalculateResult> {
     const { courseId } = job.data;
     const now = new Date();

@@ -13,4 +13,5 @@ import { RolesService } from './roles.service';
   providers: [AccessRepository, ContextsService, RolesService, PermissionEvaluator],
   exports: [ContextsService, RolesService, PermissionEvaluator],
 })
+/** Module phân quyền: context, capability, role. */
 export class AccessModule {}

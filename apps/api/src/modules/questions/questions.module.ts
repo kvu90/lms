@@ -12,4 +12,5 @@ import { QuestionsService } from './questions.service';
   providers: [QuestionsRepository, QuestionsService],
   exports: [QuestionsService],
 })
+/** Module ngân hàng câu hỏi và question engine. */
 export class QuestionsModule {}

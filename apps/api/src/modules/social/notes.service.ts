@@ -13,6 +13,10 @@ import { SocialRepository, type NoteRow } from './social.repository';
  * (moodle/notes:view at the system context).
  */
 @Injectable()
+/**
+ * Ghi chú khoá học về học viên (course notes): site/course/personal/draft theo mức hiển thị.
+ * Đối chiếu Moodle: notes/classes (note). Note nháp chỉ tác giả thấy.
+ */
 export class NotesService {
   constructor(
     private readonly repo: SocialRepository,
@@ -21,6 +25,9 @@ export class NotesService {
     private readonly courses: CoursesService,
   ) {}
 
+  /**
+   * Tạo note về một học viên.
+   */
   async createNote(actorId: number, input: {
     userid: number; courseid?: number; content: string; publishstate?: string; groupid?: number;
   }): Promise<NoteRow> {
@@ -44,6 +51,9 @@ export class NotesService {
     });
   }
 
+  /**
+   * User có được xem note này hay không.
+   */
   async canView(note: NoteRow, viewerId: number): Promise<boolean> {
     if (note.createdby === viewerId) return true;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
@@ -57,6 +67,9 @@ export class NotesService {
     return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'moodle/notes:view', systemCtx.id);
   }
 
+  /**
+   * Note viết về một user (đã lọc quyền xem).
+   */
   async listNotesAbout(viewerId: number, subjectUserId: number, courseId?: number): Promise<NoteRow[]> {
     const rows = await this.repo.listNotesAbout(subjectUserId);
     const out: NoteRow[] = [];
@@ -67,6 +80,9 @@ export class NotesService {
     return out;
   }
 
+  /**
+   * Lấy note theo id.
+   */
   async getNote(viewerId: number, id: number): Promise<NoteRow> {
     const note = await this.repo.getNote(id);
     if (!note) throw new NotFoundException({ message: `Note ${id} not found`, code: 'notes.not_found' });
@@ -76,6 +92,9 @@ export class NotesService {
     return note;
   }
 
+  /**
+   * Xoá note của chính mình.
+   */
   async deleteNote(actorId: number, id: number): Promise<{ deleted: boolean }> {
     const note = await this.repo.getNote(id);
     if (!note) throw new NotFoundException({ message: `Note ${id} not found`, code: 'notes.not_found' });

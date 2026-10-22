@@ -22,9 +22,15 @@ export interface GradeRegradeResult { courseId: number; users: number; updatedTo
  * Overridden and frozen totals are never recomputed.
  */
 @Processor('grade-regrade')
+/**
+ * Xử lý job tính lại điểm (regrade) cho user/khoá học bằng grade-calculator của worker.
+ */
 export class GradeRegradeProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<GradeRegradeJobData>): Promise<GradeRegradeResult> {
     const { courseId } = job.data;
     const categories = await this.db.select().from(gradeCategories).where(eq(gradeCategories.courseid, courseId));

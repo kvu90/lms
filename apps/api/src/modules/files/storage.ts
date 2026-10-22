@@ -12,12 +12,28 @@ export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
  * except the hash is SHA-256 (project decision: no legacy compatibility).
  * The local adapter ships now; an S3 adapter can implement the same port.
  */
+/** Hợp đồng kho lưu trữ nội dung file: ghi/đọc/xoá theo key suy từ contenthash. */
 export interface ObjectStorage {
+  /**
+   * Ghi nội dung theo key (không ghi trùng nếu đã tồn tại).
+   */
   put(contentHash: string, data: Buffer): Promise<void>;
+  /**
+   * Đọc nội dung theo key; null nếu không có.
+   */
   get(contentHash: string): Promise<Buffer>;
+  /**
+   * Xoá nội dung theo key.
+   */
   delete(contentHash: string): Promise<void>;
+  /**
+   * Kiểm tra key đã có nội dung chưa.
+   */
   exists(contentHash: string): Promise<boolean>;
   /** Absolute path/key for a hash — exposed for tests and orphan cleanup. */
+  /**
+   * Suy key lưu trữ từ contenthash.
+   */
   keyFor(contentHash: string): string;
 }
 
@@ -25,6 +41,10 @@ export function sha256Hex(data: Buffer): string { return createHash('sha256').up
 export function contentKey(contentHash: string): string { return `${contentHash.slice(0, 2)}/${contentHash.slice(2, 4)}/${contentHash}`; }
 
 @Injectable()
+/**
+ * Kho lưu trữ nội dung file trên đĩa local, khoá theo contenthash (hai ký tự đầu làm thư mục con).
+ * Interface chung cho phép thay bằng object storage ngoài mà không đổi tầng service.
+ */
 export class LocalObjectStorage implements ObjectStorage {
   private readonly root: string;
   constructor(config: ConfigService) { this.root = config.get<string>('FILE_STORAGE_DIR') ?? './data/files'; }

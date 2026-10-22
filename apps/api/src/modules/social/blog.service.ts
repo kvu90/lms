@@ -15,6 +15,10 @@ import { SocialRepository, type BlogPostRow } from './social.repository';
  * blog/tests/lib_test test_overrides).
  */
 @Injectable()
+/**
+ * Blog cá nhân và liên kết bài viết với khoá học/module (association).
+ * Đối chiếu Moodle: blog/classes (blog_entry). Quyền xem theo mức hiển thị của bài và quan hệ với khoá học liên kết.
+ */
 export class BlogService {
   constructor(
     private readonly repo: SocialRepository,
@@ -24,6 +28,9 @@ export class BlogService {
     private readonly enrol: EnrolService,
   ) {}
 
+  /**
+   * Tạo bài blog.
+   */
   async createPost(actorId: number, input: { subject: string; summary?: string; content: string; publishstate?: string }): Promise<BlogPostRow> {
     const userCtx = await this.contexts.getByLevelInstance(30, actorId);
     const systemCtx = await this.contexts.ensureSystemContext();
@@ -38,12 +45,18 @@ export class BlogService {
     });
   }
 
+  /**
+   * Lấy bài blog; ném social.post_not_found khi vắng.
+   */
   async getPost(id: number): Promise<BlogPostRow> {
     const row = await this.repo.getPost(id);
     if (!row) throw new NotFoundException({ message: `Blog post ${id} not found`, code: 'blog.not_found' });
     return row;
   }
 
+  /**
+   * Liên kết bài với khoá học/module.
+   */
   async associate(actorId: number, postId: number, input: { assoctype: 'course' | 'coursemodule'; associd: number }): Promise<{ postId: number; associations: unknown }> {
     const post = await this.getPost(postId);
     if (post.userid !== actorId) {
@@ -63,6 +76,9 @@ export class BlogService {
     return { postId, associations: await this.repo.listAssociations(postId) };
   }
 
+  /**
+   * User có được xem bài này hay không.
+   */
   async canView(post: BlogPostRow, viewerId: number): Promise<boolean> {
     if (post.userid === viewerId) return true;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
@@ -79,6 +95,9 @@ export class BlogService {
     return false;
   }
 
+  /**
+   * Liệt kê bài blog được phép xem.
+   */
   async listPosts(viewerId: number, filter: { userid?: number; courseid?: number; cmid?: number }): Promise<(BlogPostRow & { associations: unknown; contextid: number })[]> {
     let candidates: BlogPostRow[];
     if (filter.courseid) {
@@ -112,6 +131,9 @@ export class BlogService {
     return out;
   }
 
+  /**
+   * Cập nhật bài của chính mình.
+   */
   async updatePost(actorId: number, id: number, input: { subject?: string; summary?: string; content?: string; publishstate?: string }): Promise<BlogPostRow> {
     const post = await this.getPost(id);
     if (post.userid !== actorId) {
@@ -128,6 +150,9 @@ export class BlogService {
     return this.getPost(id);
   }
 
+  /**
+   * Xoá bài của chính mình.
+   */
   async deletePost(actorId: number, id: number): Promise<{ deleted: boolean }> {
     const post = await this.getPost(id);
     if (post.userid !== actorId) {

@@ -6,56 +6,98 @@ import { createConversationSchema, notifyUserSchema, sendMessageSchema, setMessa
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
+/**
+ * API nhắn tin: conversation, tin nhắn, chặn liên hệ.
+ */
 export class MessagingController {
   constructor(private readonly messaging: MessagingService) {}
 
   @Post('conversations')
+  /**
+   * POST /conversations — tạo conversation.
+   */
   async createConversation(@Body({ schema: createConversationSchema }) dto: CreateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.createConversation(actor.id, dto);
   }
   @Get('conversations')
+  /**
+   * GET /conversations — conversation của tôi.
+   */
   async listConversations(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listConversations(actor.id);
   }
   @Get('conversations/:id')
+  /**
+   * GET /conversations/:id — chi tiết + tin nhắn.
+   */
   async getConversation(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getConversation(actor.id, id);
   }
   @Post('conversations/:id/messages')
+  /**
+   * POST /conversations/:id/messages hoặc POST /notifications/send — gửi tin nhắn / gửi notification.
+   */
   async send(@Param('id', ParseIntPipe) id: number, @Body({ schema: sendMessageSchema }) dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.sendMessage(actor.id, id, dto);
   }
   @Post('conversations/:id/read')
+  /**
+   * POST /conversations/:id/read — đánh dấu đã đọc.
+   */
   async markRead(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markConversationRead(actor.id, id);
   }
   /** Sent messages are immutable: both verbs exist only to refuse (report §2#12). */
   @Patch('messages/:id')
+  /**
+   * PATCH /messages/:id — sửa tin nhắn.
+   */
   async updateMessage() { return this.messaging.updateMessage(); }
   @Delete('messages/:id')
+  /**
+   * DELETE /messages/:id — xoá tin nhắn.
+   */
   async deleteMessage() { return this.messaging.deleteMessage(); }
 
   @Get('unread-count')
+  /**
+   * GET /conversations/unread-count hoặc /notifications/unread-count — số chưa đọc.
+   */
   async unread(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unreadCounts(actor.id);
   }
   @Get('preferences')
+  /**
+   * GET /notifications/preferences — tuỳ chọn kênh của tôi.
+   */
   async preferences(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getPreferences(actor.id);
   }
   @Put('preferences')
+  /**
+   * PUT /notifications/preferences — đặt tuỳ chọn kênh.
+   */
   async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
   }
   @Get('contacts/blocked')
+  /**
+   * GET /contacts/blocked — liên hệ bị chặn.
+   */
   async blocked(@CurrentUser() actor: AuthenticatedUser) {
     return { blocked: await this.messaging.listBlocked(actor.id) };
   }
   @Post('contacts/:userId/block')
+  /**
+   * POST /contacts/:id/block — chặn liên hệ.
+   */
   async block(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.blockContact(actor.id, userId);
   }
   @Delete('contacts/:userId/block')
+  /**
+   * DELETE /contacts/:id/block — bỏ chặn.
+   */
   async unblock(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unblockContact(actor.id, userId);
   }
@@ -63,10 +105,16 @@ export class MessagingController {
 
 @ApiTags('notifications')
 @Controller({ path: 'notifications', version: '1' })
+/**
+ * API thông báo: danh sách, chưa đọc, tuỳ chọn kênh và gửi (nội bộ).
+ */
 export class NotificationsController {
   constructor(private readonly messaging: MessagingService) {}
 
   @Get()
+  /**
+   * GET /notifications — danh sách thông báo.
+   */
   async list(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listNotifications(actor.id);
   }
@@ -75,6 +123,9 @@ export class NotificationsController {
     return { unread: await this.messaging.unreadNotificationCount(actor.id) };
   }
   @Get('dispatch-log')
+  /**
+   * GET /notifications/dispatch-log — nhật ký phân phối.
+   */
   async dispatchLog(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listDispatchLog(actor.id);
   }
@@ -85,10 +136,16 @@ export class NotificationsController {
     return this.messaging.sendSystemNotification(actor.id, dto);
   }
   @Post('read-all')
+  /**
+   * POST /notifications/read-all — đánh dấu tất cả đã đọc.
+   */
   async readAll(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markAllNotificationsRead(actor.id);
   }
   @Post(':id/read')
+  /**
+   * POST /notifications/:id/read — đánh dấu một thông báo đã đọc.
+   */
   async read(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markNotificationRead(actor.id, id);
   }

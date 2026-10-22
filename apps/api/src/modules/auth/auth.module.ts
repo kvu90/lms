@@ -24,4 +24,5 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
   providers: [AuthRepository, AuthService, SessionService, LocalAuthStrategy, JwtAuthStrategy],
   exports: [AuthService, SessionService],
 })
+/** Module xác thực và phiên. */
 export class AuthModule {}

@@ -13,6 +13,13 @@ import { aggregateRoleResults, evaluateSingleRole, type RoleOverridePoint } from
  * dirty-marking a context (version bump) lazily invalidates its subtree.
  */
 @Injectable()
+/**
+ * Trái tim phân quyền kiểu Moodle: quyết định user có capability tại một context hay không.
+ * Quy tắc (đối chiếu lib/accesslib.php has_capability): duyệt cây context từ lá lên gốc;
+ * tại mỗi context, gộp override của mọi role user được gán ở context đó và các context tổ tiên;
+ * PROHIBIT ở bất kỳ đâu thắng tuyệt đối, PREVENT thắng ALLOW ở cùng/cao hơn theo thứ tự duyệt,
+ * quyền chỉ được cấp khi có ít nhất một ALLOW còn hiệu lực. Site admin bỏ qua mọi kiểm tra.
+ */
 export class PermissionEvaluator {
   constructor(
     private readonly repo: AccessRepository,
@@ -21,19 +28,31 @@ export class PermissionEvaluator {
   ) {}
 
   /** Site admins ($CFG->siteadmins equivalent, config key `siteadmins`) bypass every capability check. */
+  /**
+   * User có nằm trong danh sách site admin (config siteadmins) hay không — admin bỏ qua mọi capability check.
+   */
   async isSiteAdmin(userId: number): Promise<boolean> {
     const raw = await this.repo.getConfigValue('siteadmins');
     if (!Array.isArray(raw)) return false;
     return raw.map(Number).includes(userId);
   }
+  /**
+   * Danh sách id site admin hiện tại.
+   */
   async listSiteAdmins(): Promise<number[]> {
     const raw = await this.repo.getConfigValue('siteadmins');
     return Array.isArray(raw) ? raw.map(Number) : [];
   }
+  /**
+   * Thay danh sách site admin (lưu vào config).
+   */
   async setSiteAdmins(userIds: number[]): Promise<void> {
     await this.repo.setConfigValue('siteadmins', userIds);
   }
 
+  /**
+   * Đánh giá capability cho user tại context theo thuật toán cây context; kết quả có thể cache theo path version.
+   */
   async hasCapability(userId: number, capability: string, contextId: number, opts?: { isGuest?: boolean }): Promise<boolean> {
     if (await this.isSiteAdmin(userId)) return true;
     const target = await this.contexts.getContext(contextId);
@@ -79,6 +98,9 @@ export class PermissionEvaluator {
    * `moodle/course:view` is the student role the enrolment itself granted,
    * while a genuine staff assignment (teacher/manager/…) still lets them in.
    */
+  /**
+   * Như hasCapability nhưng chỉ tính gán role thật, bỏ qua lối tắt site admin — dùng cho các luồng cần phân biệt (vd login-as).
+   */
   async hasCapabilityFromRealAssignment(
     userId: number,
     capability: string,
@@ -112,6 +134,9 @@ export class PermissionEvaluator {
     return aggregateRoleResults(roleResults);
   }
 
+  /**
+   * Như hasCapability nhưng ném Forbidden (access.forbidden) khi không đạt — cổng chặn chuẩn của các service.
+   */
   async requireCapability(userId: number, capability: string, contextId: number, opts?: { isGuest?: boolean }): Promise<void> {
     if (!(await this.hasCapability(userId, capability, contextId, opts))) {
       throw new ForbiddenException({ message: `Missing capability ${capability} in context ${contextId}`, code: 'access.capability_denied' });

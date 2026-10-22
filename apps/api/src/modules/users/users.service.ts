@@ -22,6 +22,12 @@ export function normalizeIdentity(value: string): string { return value.trim().t
 
 /** UsersModule facade. Authentication ≠ enrolment ≠ role assignment: this service only owns identity/profile data. */
 @Injectable()
+/**
+ * Quản lý tài khoản người dùng: tạo, hồ sơ, đình chỉ, xoá mềm và tuỳ chọn cá nhân.
+ * Đối chiếu Moodle: lib/moodlelib.php (user_create_user, user_update_user) và user/lib.php.
+ * Bất biến: user bị xoá là xoá mềm (deleted=1) để giữ toàn vẹn tham chiếu lịch sử;
+ * username/email là duy nhất trong số user chưa xoá.
+ */
 export class UsersService {
   constructor(
     private readonly repo: UsersRepository,
@@ -32,6 +38,9 @@ export class UsersService {
     private readonly outbox: OutboxService,
   ) {}
 
+  /**
+   * Tạo user: kiểm chính sách mật khẩu, hash, chống trùng username/email (user.username_taken, user.email_taken).
+   */
   async createUser(input: { username: string; email: string; password: string; firstname?: string; lastname?: string; forcePasswordChange?: boolean; customFields?: Record<string, string> }): Promise<UserRow> {
     const username = normalizeIdentity(input.username);
     const email = normalizeIdentity(input.email);
@@ -56,6 +65,9 @@ export class UsersService {
   }
 
   /** The special guest account: no password login for enrolment purposes, never assigned roles directly (Moodle rule). */
+  /**
+   * Đảm bảo tài khoản khách (guest) tồn tại cho các luồng truy cập công khai; idempotent.
+   */
   async ensureGuestUser(): Promise<UserRow> {
     const existing = await this.repo.getByUsername('guest');
     if (existing) return existing;
@@ -64,19 +76,34 @@ export class UsersService {
     return guest;
   }
 
+  /**
+   * Lấy user theo id; ném user.not_found khi vắng.
+   */
   async getUser(id: number): Promise<UserRow> {
     const row = await this.repo.getById(id);
     if (!row) throw new NotFoundException({ message: `User ${id} not found`, code: 'user.not_found' });
     return row;
   }
+  /**
+   * Lấy user theo username; ném user.not_found khi vắng.
+   */
   async getByUsername(username: string): Promise<UserRow | undefined> { return this.repo.getByUsername(normalizeIdentity(username)); }
+  /**
+   * Lấy user theo id, trả undefined thay vì ném lỗi.
+   */
   async getByIdOrUndefined(id: number): Promise<UserRow | undefined> { return this.repo.getById(id); }
 
+  /**
+   * Danh sách user có tìm kiếm/phân trang.
+   */
   async listUsers(search: string | undefined, page = 1, pageSize = 20, includeDeleted = false): Promise<{ users: UserRow[]; total: number; page: number; pageSize: number }> {
     const { rows, total } = await this.repo.search(search, page, pageSize, includeDeleted);
     return { users: rows, total, page, pageSize };
   }
 
+  /**
+   * Cập nhật hồ sơ (họ tên, email, …) với kiểm tra trùng email.
+   */
   async updateUser(id: number, input: { email?: string; firstname?: string; lastname?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
     const user = await this.getUser(id);
     if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
@@ -104,6 +131,9 @@ export class UsersService {
     return this.getUser(id);
   }
 
+  /**
+   * Đình chỉ hoặc khôi phục tài khoản; user bị đình chỉ không đăng nhập được.
+   */
   async setSuspended(id: number, suspended: boolean): Promise<UserRow> {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be suspended', code: 'user.guest_immutable' });
@@ -115,6 +145,9 @@ export class UsersService {
   }
 
   /** Soft delete (Moodle semantics): the row stays for log/grade traceability, marked deleted and identity-mangled so the originals can be reused. */
+  /**
+   * Xoá mềm tài khoản.
+   */
   async deleteUser(id: number): Promise<UserRow> {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be deleted', code: 'user.guest_immutable' });
@@ -129,19 +162,37 @@ export class UsersService {
     return this.getUser(id);
   }
 
+  /**
+   * Ghi nhận lần đăng nhập thành công (first/last access, IP).
+   */
   async recordLogin(id: number): Promise<void> { await this.repo.updateUser(id, { lastlogin: new Date() }); }
+  /**
+   * Gỡ cờ bắt buộc đổi mật khẩu sau khi user đã đổi.
+   */
   async clearForcePasswordChange(id: number): Promise<void> { await this.repo.updateUser(id, { forcePasswordChange: false }); }
+  /**
+   * Xác thực mật khẩu của user (dùng cho auth và đổi mật khẩu).
+   */
   async verifyPassword(user: UserRow, password: string): Promise<boolean> {
     if (!user.passwordHash) return false;
     return this.passwords.verify(user.passwordHash, password);
   }
+  /**
+   * Ghi tuỳ chọn cá nhân.
+   */
   async setPreference(userid: number, name: string, value: string | null): Promise<void> { return this.repo.setPreference(userid, name, value); }
+  /**
+   * Đọc tuỳ chọn cá nhân.
+   */
   async getPreference(userid: number, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userid, name); }
 
   /**
    * Profile view with Moodle's privacy-by-capability rule: identity fields
    * (email) are exposed only to the owner, site admins, or viewers holding
    * `moodle/site:viewuseridentity` — enforced here, not in the UI.
+   */
+  /**
+   * Dựng dữ liệu hiển thị hồ sơ: email chỉ lộ khi người xem có capability xem định danh.
    */
   async getProfileView(targetId: number, viewerId: number): Promise<UserProfileView> {
     const user = await this.getUser(targetId);
@@ -161,6 +212,9 @@ export class UsersService {
   }
 
   /** Guard helper for profile mutation: self-service or holders of moodle/user:update. */
+  /**
+   * Chặn cập nhật hồ sơ người khác khi thiếu capability moodle/user:update.
+   */
   async assertCanUpdateProfile(actorId: number, targetId: number): Promise<void> {
     if (actorId === targetId) return;
     const systemCtx = await this.contexts.ensureSystemContext();

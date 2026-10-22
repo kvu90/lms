@@ -12,4 +12,5 @@ import { AvailabilityService } from './availability.service';
   providers: [AvailabilityService],
   exports: [AvailabilityService],
 })
+/** Module điều kiện availability. */
 export class AvailabilityModule {}

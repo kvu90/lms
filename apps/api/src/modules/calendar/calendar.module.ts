@@ -20,4 +20,5 @@ import { CALENDAR_IMPORT_QUEUE, CALENDAR_REMINDER_QUEUE, CalendarService } from 
   providers: [CalendarRepository, CalendarService],
   exports: [CalendarService],
 })
+/** Module lịch. */
 export class CalendarModule {}

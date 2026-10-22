@@ -19,4 +19,5 @@ import { COMPLETION_QUEUE, CompletionService } from './completion.service';
   providers: [CompletionRepository, CompletionService],
   exports: [CompletionService],
 })
+/** Module theo dõi hoàn thành. */
 export class CompletionModule {}

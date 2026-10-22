@@ -42,6 +42,13 @@ export interface CriteriaInput {
  *    worker runs the same evaluation from the 'badge-award' queue.
  */
 @Injectable()
+/**
+ * Nghiệp vụ huy hiệu (Open Badges).
+ * Đối chiếu Moodle: badges/classes (badge, criteria) và lib/badgeslib.php.
+ * Vòng đời: badge nháp (inactive) → đặt tiêu chí → kích hoạt (active); badge đã kích hoạt hoặc đã cấp
+ * thì bộ tiêu chí bị đóng băng — muốn sửa phải nhân bản (duplicate). Đánh giá tiêu chí chạy theo sự kiện
+ * (hoàn thành khoá học/cm, năng lực đạt) và theo yêu cầu; mỗi lần cấp sinh assertion có uniquehash kiểm chứng được.
+ */
 export class BadgesService implements OnModuleInit {
   constructor(
     private readonly repo: BadgesRepository,
@@ -58,6 +65,9 @@ export class BadgesService implements OnModuleInit {
     @InjectQueue(BADGE_AWARD_QUEUE) private readonly awardQueue: Queue,
   ) {}
 
+  /**
+   * Khởi tạo: đăng ký hook hoàn thành để tự động đánh giá huy hiệu.
+   */
   onModuleInit(): void {
     this.completion.registerCourseCompletionHook(async ({ userId, courseId }) => {
       void courseId;
@@ -71,6 +81,9 @@ export class BadgesService implements OnModuleInit {
 
   /** Competency proficiency changed (in-process event from CompetenciesService) ⇒ re-evaluate. */
   @OnEvent('competency_proficiency_changed')
+  /**
+   * Sự kiện năng lực đạt chuẩn → đánh giá lại huy hiệu có tiêu chí năng lực.
+   */
   async onProficiencyChanged(payload: { userId: number; competencyId: number }): Promise<void> {
     await this.enqueueEvaluation(payload.userId, 'competency');
     await this.evaluateUserBadges(payload.userId);
@@ -94,6 +107,9 @@ export class BadgesService implements OnModuleInit {
 
   // --- badge CRUD -----------------------------------------------------------------
 
+  /**
+   * Tạo badge ở trạng thái inactive.
+   */
   async createBadge(actorId: number, input: {
     name: string; description?: string; type?: number; courseid?: number;
     issuername?: string; issuerurl?: string; issuercontact?: string;
@@ -119,13 +135,22 @@ export class BadgesService implements OnModuleInit {
     });
   }
 
+  /**
+   * Lấy badge; ném badges.not_found khi vắng.
+   */
   async getBadge(id: number): Promise<BadgeRow> {
     const row = await this.repo.getBadge(id);
     if (!row) throw new NotFoundException({ message: `Badge ${id} not found`, code: 'badges.not_found' });
     return row;
   }
+  /**
+   * Liệt kê badge.
+   */
   async listBadges(): Promise<BadgeRow[]> { return this.repo.listBadges(); }
 
+  /**
+   * Cập nhật thông tin badge (trước khi kích hoạt).
+   */
   async updateBadge(actorId: number, id: number, input: { name?: string; description?: string; issuername?: string; expireperiod?: number }): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
@@ -139,6 +164,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** Moodle delete = archive (badgeslib_test test_delete_badge): the badge is never hard-deleted by default. */
+  /**
+   * Lưu trữ badge (không cấp thêm).
+   */
   async archiveBadge(actorId: number, id: number): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
@@ -146,6 +174,9 @@ export class BadgesService implements OnModuleInit {
     return this.getBadge(id);
   }
 
+  /**
+   * Đổi trạng thái vòng đời của badge; kích hoạt yêu cầu đã có tiêu chí.
+   */
   async setStatus(actorId: number, id: number, status: number): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
@@ -165,6 +196,9 @@ export class BadgesService implements OnModuleInit {
 
   // --- criteria -----------------------------------------------------------------------
 
+  /**
+   * Bộ tiêu chí của badge.
+   */
   async getCriteria(badgeId: number): Promise<{ method: number; criteria: CriteriaRow[] }> {
     await this.getBadge(badgeId);
     const rows = await this.repo.listCriteria(badgeId);
@@ -173,6 +207,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** The freeze law (report §2#14): active badges and badges with awards have immutable criteria. */
+  /**
+   * Chặn sửa tiêu chí khi badge đã kích hoạt/đã cấp (badges.criteria_frozen).
+   */
   async assertCriteriaEditable(badgeRow: BadgeRow): Promise<void> {
     if (badgeRow.status === BADGE_STATUS.ACTIVE || badgeRow.status === BADGE_STATUS.DISABLED) {
       throw new ForbiddenException({
@@ -188,6 +225,9 @@ export class BadgesService implements OnModuleInit {
     }
   }
 
+  /**
+   * Đặt bộ tiêu chí (ALL/ANY) cho badge chưa bị đóng băng.
+   */
   async setCriteria(actorId: number, badgeId: number, input: CriteriaInput): Promise<{ method: number; criteria: CriteriaRow[] }> {
     const badgeRow = await this.getBadge(badgeId);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
@@ -214,6 +254,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** Duplicate = the sanctioned way to edit a frozen badge (new INACTIVE badge with copied criteria). */
+  /**
+   * Nhân bản badge (kèm tiêu chí) để chỉnh sửa mà không đụng bản đang chạy.
+   */
   async duplicateBadge(actorId: number, badgeId: number): Promise<BadgeRow> {
     const source = await this.getBadge(badgeId);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:createbadge', await this.badgeContextId(source));
@@ -272,6 +315,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** Evaluate the criteria tree of one badge for one user. */
+  /**
+   * Đánh giá một badge cho một user: đủ tiêu chí thì cấp.
+   */
   async evaluateBadge(badgeId: number, userId: number): Promise<{ satisfied: boolean; method: number; leaves: { criteriaId: number; criteriatype: string; satisfied: boolean }[] }> {
     const { method, criteria } = await this.getCriteria(badgeId);
     const leaves = [];
@@ -287,6 +333,9 @@ export class BadgesService implements OnModuleInit {
    * Issue a badge: creates the immutable assertion. Idempotent — a user
    * holds a given badge at most once (a second call returns the existing
    * assertion).
+   */
+  /**
+   * Cấp huy hiệu: tạo assertion với uniquehash và gửi notification đã dịch cho người nhận.
    */
   async issueBadge(badgeId: number, userId: number, evidence?: Record<string, unknown>): Promise<IssuedRow> {
     const badgeRow = await this.getBadge(badgeId);
@@ -322,6 +371,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** Evaluate every ACTIVE badge for a user and issue the ones newly satisfied. */
+  /**
+   * Đánh giá mọi badge liên quan cho user (sau sự kiện hoàn thành).
+   */
   async evaluateUserBadges(userId: number): Promise<{ evaluated: number; issued: number[] }> {
     const user = await this.users.getByIdOrUndefined(userId);
     if (!user || user.suspended || user.deleted) return { evaluated: 0, issued: [] };
@@ -345,6 +397,9 @@ export class BadgesService implements OnModuleInit {
    * declare a manual criterion; if it names a role, the issuer must hold
    * that role at the badge context. The award satisfies the manual leaf;
    * the badge is issued only if the overall aggregation then holds.
+   */
+  /**
+   * Cấp thủ công cho user bởi người có capability award.
    */
   async manualAward(actorId: number, badgeId: number, recipientId: number): Promise<{ award: unknown; issued: IssuedRow | null; evaluation: unknown }> {
     const badgeRow = await this.getBadge(badgeId);
@@ -374,6 +429,9 @@ export class BadgesService implements OnModuleInit {
 
   // --- assertions --------------------------------------------------------------------------------
 
+  /**
+   * Huy hiệu đã cấp cho user hiện tại.
+   */
   async listMyBadges(userId: number): Promise<(IssuedRow & { badge: BadgeRow })[]> {
     const rows = await this.repo.listIssuedForUser(userId);
     const out: (IssuedRow & { badge: BadgeRow })[] = [];
@@ -383,11 +441,17 @@ export class BadgesService implements OnModuleInit {
     }
     return out;
   }
+  /**
+   * Danh sách cấp phát của badge.
+   */
   async listIssuedForBadge(actorId: number, badgeId: number): Promise<IssuedRow[]> {
     const badgeRow = await this.getBadge(badgeId);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:awardbadge', await this.badgeContextId(badgeRow));
     return this.repo.listIssuedForBadge(badgeId);
   }
+  /**
+   * Một bản ghi cấp phát.
+   */
   async getIssued(id: number): Promise<IssuedRow> {
     const row = await this.repo.getIssued(id);
     if (!row) throw new NotFoundException({ message: `Badge assertion ${id} not found`, code: 'badges.assertion_not_found' });
@@ -395,6 +459,9 @@ export class BadgesService implements OnModuleInit {
   }
 
   /** Revoke: the assertion row SURVIVES (marked revoked); only its visibility/effect ends. */
+  /**
+   * Thu hồi một huy hiệu đã cấp.
+   */
   async revokeIssued(actorId: number, issuedId: number): Promise<IssuedRow> {
     const issued = await this.getIssued(issuedId);
     const badgeRow = await this.getBadge(issued.badgeid);

@@ -7,6 +7,9 @@ import { markManualCompletionSchema, setCompletionCriteriaSchema, type MarkManua
 
 @ApiTags('completion')
 @Controller({ path: 'courses', version: '1' })
+/**
+ * API hoàn thành: tiến độ của tôi, tiến độ theo học viên, đánh dấu thủ công, tiêu chí và tính lại.
+ */
 export class CompletionController {
   constructor(
     private readonly completion: CompletionService,
@@ -14,6 +17,9 @@ export class CompletionController {
   ) {}
 
   @Get(':courseId/completion/me')
+  /**
+   * GET /courses/:id/my-completion — tiến độ hoàn thành của chính user.
+   */
   async myCompletion(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() viewer: AuthenticatedUser) {
     await this.courses.assertCourseAccess(viewer.id, courseId);
     const activities = await this.completion.listCmCompletionsForCourse(courseId, viewer.id);
@@ -22,6 +28,9 @@ export class CompletionController {
   }
 
   @Get(':courseId/completion/users/:userId')
+  /**
+   * GET /courses/:id/completion/:userId — tiến độ của một học viên.
+   */
   async userCompletion(@Param('courseId', ParseIntPipe) courseId: number, @Param('userId', ParseIntPipe) userId: number, @CurrentUser() viewer: AuthenticatedUser) {
     if (viewer.id !== userId) await this.completion.requireCompletionManage(viewer.id, courseId);
     const activities = await this.completion.listCmCompletionsForCourse(courseId, userId);
@@ -30,25 +39,40 @@ export class CompletionController {
   }
 
   @Get(':courseId/completion')
+  /**
+   * GET /courses/:id/completions — tiến độ toàn khoá học.
+   */
   async listCourseCompletions(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() viewer: AuthenticatedUser) {
     await this.completion.requireCompletionManage(viewer.id, courseId);
     return this.completion.listCourseCompletions(courseId);
   }
 
   @Post(':courseId/modules/:cmId/completion/manual')
+  /**
+   * POST /modules/:id/completion/manual — đánh dấu hoàn thành thủ công.
+   */
   async markManual(@Param('cmId', ParseIntPipe) cmId: number, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.markManual(actor.id, cmId, dto.userid, dto.complete);
   }
 
   @Get(':courseId/completion/criteria')
+  /**
+   * GET /courses/:id/completion/criteria — bộ tiêu chí hiện tại.
+   */
   async getCriteria(@Param('courseId', ParseIntPipe) courseId: number) {
     return this.completion.getCriteria(courseId);
   }
   @Put(':courseId/completion/criteria')
+  /**
+   * PUT /courses/:id/completion/criteria — đặt bộ tiêu chí.
+   */
   async setCriteria(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: setCompletionCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.setCriteria(actor.id, courseId, dto);
   }
   @Post(':courseId/completion/recalculate')
+  /**
+   * POST /courses/:id/completion/recalculate — tính lại completion toàn khoá học.
+   */
   async recalculate(@Param('courseId', ParseIntPipe) courseId: number, @CurrentUser() actor: AuthenticatedUser) {
     await this.completion.requireCompletionManage(actor.id, courseId);
     return this.completion.recalculateCourse(courseId);

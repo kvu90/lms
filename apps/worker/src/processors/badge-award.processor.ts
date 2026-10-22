@@ -28,6 +28,9 @@ export interface BadgeAwardResult { evaluated: number; issued: number[] }
  * notification (popup channel) and a badge_issued outbox event.
  */
 @Processor('badge-award')
+/**
+ * Xử lý job cấp huy hiệu nền: đánh giá tiêu chí cho user được chỉ định và cấp nếu đủ điều kiện.
+ */
 export class BadgeAwardProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
 
@@ -72,6 +75,9 @@ export class BadgeAwardProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
     const { userId } = job.data;
     const activeBadges = await this.db.select().from(badge).where(eq(badge.status, 1));

@@ -21,4 +21,5 @@ import { CompetenciesService } from './competencies.service';
   providers: [CompetenciesRepository, CompetenciesService],
   exports: [CompetenciesService],
 })
+/** Module năng lực và kế hoạch học tập. */
 export class CompetenciesModule {}

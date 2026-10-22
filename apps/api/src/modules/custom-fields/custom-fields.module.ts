@@ -8,4 +8,5 @@ import { CustomFieldsService } from './custom-fields.service';
   providers: [CustomFieldsRepository, CustomFieldsService],
   exports: [CustomFieldsService],
 })
+/** Module trường tuỳ biến. */
 export class CustomFieldsModule {}

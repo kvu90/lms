@@ -26,6 +26,10 @@ export interface RatingAggregate {
  * for the individual rating list — three separate gates, as in Moodle.
  */
 @Injectable()
+/**
+ * Đánh giá sao (ratings) cho item: mỗi user một rating, tổng hợp trả average + count.
+ * Đối chiếu Moodle: lib/rating (rating_manager).
+ */
 export class RatingsService {
   constructor(
     private readonly repo: SocialRepository,
@@ -56,6 +60,9 @@ export class RatingsService {
     return Math.abs(scaleid);
   }
 
+  /**
+   * Đặt/cập nhật rating của user cho item.
+   */
   async rate(actorId: number, input: {
     contextid: number; component: string; ratingarea: string; itemid: number; scaleid: number; rating: number;
   }): Promise<RatingRow> {
@@ -74,6 +81,9 @@ export class RatingsService {
     });
   }
 
+  /**
+   * Tổng hợp average + count của item.
+   */
   async aggregate(viewerId: number, input: {
     contextid: number; component: string; ratingarea: string; itemid: number;
   }): Promise<RatingAggregate> {
@@ -92,6 +102,9 @@ export class RatingsService {
     };
   }
 
+  /**
+   * Danh sách rating của item.
+   */
   async listRatings(viewerId: number, input: {
     contextid: number; component: string; ratingarea: string; itemid: number;
   }): Promise<RatingRow[]> {

@@ -14,4 +14,5 @@ import { CoursesService } from './courses.service';
   providers: [CoursesRepository, CoursesService],
   exports: [CoursesService],
 })
+/** Module khoá học. */
 export class CoursesModule {}

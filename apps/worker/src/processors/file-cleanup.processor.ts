@@ -22,6 +22,9 @@ export interface FileCleanupResult { contenthash: string; removed: boolean; refc
  * trusted from enqueue time.
  */
 @Processor('file-cleanup')
+/**
+ * Xử lý job dọn file: xoá nội dung vật lý của các file đã bị xoá mềm khi refcount về 0.
+ */
 export class FileCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(FileCleanupProcessor.name);
   constructor(
@@ -29,6 +32,9 @@ export class FileCleanupProcessor extends WorkerHost {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
     const { contenthash } = job.data;
     const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contenthash, contenthash));

@@ -56,6 +56,9 @@ export interface NotifyResult {
 export interface NotificationChannelPort {
   channel: MessageChannel;
   /** Deliver for real or record the dispatch. Returns the log status. */
+  /**
+   * Phân phối một notification tới các kênh đã bật của người nhận và ghi dispatch log.
+   */
   deliver(input: { userId: number; provider: string; subject: string; body: string; notificationId: number | null }): Promise<string>;
 }
 
@@ -74,6 +77,13 @@ export interface NotificationChannelPort {
  *    are ports that only LOG the dispatch (no real email/push is sent).
  */
 @Injectable()
+/**
+ * Nhắn tin và thông báo.
+ * Đối chiếu Moodle: message/classes (api, output) và message providers.
+ * Quy tắc: người bị chặn không gửi được tin; notification được tạo theo provider và phân phối theo
+ * tuỳ chọn kênh của người nhận (logged-in/logged-off), mọi lần phân phối đều ghi dispatch log;
+ * chuỗi hiển thị của notification do tầng tạo nội dung lấy từ catalog i18n.
+ */
 export class MessagingService {
   constructor(
     private readonly repo: MessagingRepository,
@@ -86,11 +96,17 @@ export class MessagingService {
 
   // --- preferences -----------------------------------------------------------
 
+  /**
+   * Kênh có đang bật cho provider này theo tuỳ chọn của user (phân biệt logged-in/logged-off) hay không.
+   */
   async isChannelEnabled(userId: number, provider: string, channel: MessageChannel, state: LoginState): Promise<boolean> {
     const value = await this.users.getPreference(userId, preferenceName(provider, channel, state));
     return value !== '0'; // default: enabled (Moodle default for core providers)
   }
 
+  /**
+   * Tuỳ chọn notification của user theo provider/kênh.
+   */
   async getPreferences(userId: number): Promise<{
     provider: string; component: string; channel: MessageChannel; state: LoginState; enabled: boolean;
   }[]> {
@@ -108,6 +124,9 @@ export class MessagingService {
     return out;
   }
 
+  /**
+   * Đặt tuỳ chọn một provider/kênh.
+   */
   async setPreference(userId: number, input: { provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }): Promise<{ provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }> {
     const provider = providerByName(input.provider);
     if (!provider) throw new BadRequestException({ message: `Unknown message provider ${input.provider}`, code: 'messaging.unknown_provider' });
@@ -127,6 +146,9 @@ export class MessagingService {
    * callers pass `loggedIn` explicitly (default true for direct API calls).
    * A preference set to disabled for the relevant state means the channel
    * is NOT dispatched — and that is asserted by the dispatch log.
+   */
+  /**
+   * Tạo notification cho user từ một provider (điểm vào chuẩn của các module khác).
    */
   async notify(userId: number, providerName: string, input: {
     subject: string; body: string; contextUrl?: string; fromUserId?: number; loggedIn?: boolean;
@@ -198,6 +220,9 @@ export class MessagingService {
   }
 
   /** The /notifications/send endpoint is a system trigger: site admins only. */
+  /**
+   * Gửi notification hệ thống (vd hoàn tất báo cáo) kèm nội dung đã dịch.
+   */
   async sendSystemNotification(actorId: number, dto: { userId: number; provider: string; subject: string; body: string; contextUrl?: string }): Promise<NotifyResult> {
     if (!(await this.evaluator.isSiteAdmin(actorId))) {
       throw new ForbiddenException({ message: 'Only site administrators can trigger system notifications directly', code: 'messaging.system_send_forbidden' });
@@ -205,45 +230,75 @@ export class MessagingService {
     return this.notify(dto.userId, dto.provider, { subject: dto.subject, body: dto.body, contextUrl: dto.contextUrl });
   }
 
+  /**
+   * Notification của user.
+   */
   async listNotifications(userId: number): Promise<NotificationRow[]> {
     return this.repo.listNotifications(userId);
   }
+  /**
+   * Số notification chưa đọc.
+   */
   async unreadNotificationCount(userId: number): Promise<number> {
     return this.repo.countUnreadNotifications(userId);
   }
+  /**
+   * Đánh dấu đã đọc.
+   */
   async markNotificationRead(userId: number, notificationId: number): Promise<{ read: boolean }> {
     const ok = await this.repo.markNotificationRead(notificationId, userId);
     if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
     return { read: true };
   }
+  /**
+   * Đánh dấu tất cả đã đọc.
+   */
   async markAllNotificationsRead(userId: number): Promise<{ marked: number }> {
     return { marked: await this.repo.markAllNotificationsRead(userId) };
   }
+  /**
+   * Nhật ký phân phối notification.
+   */
   async listDispatchLog(userId: number) {
     return this.repo.listDispatchLog(userId);
   }
 
   // --- blocked contacts ---------------------------------------------------------
 
+  /**
+   * Chặn một liên hệ.
+   */
   async blockContact(userId: number, blockedUserId: number): Promise<{ blocked: number[] }> {
     if (blockedUserId === userId) throw new BadRequestException({ message: 'You cannot block yourself', code: 'messaging.block_self' });
     await this.users.getUser(blockedUserId);
     await this.repo.block(userId, blockedUserId);
     return { blocked: await this.repo.listBlocked(userId) };
   }
+  /**
+   * Bỏ chặn liên hệ.
+   */
   async unblockContact(userId: number, blockedUserId: number): Promise<{ blocked: number[] }> {
     await this.repo.unblock(userId, blockedUserId);
     return { blocked: await this.repo.listBlocked(userId) };
   }
+  /**
+   * Danh sách liên hệ bị chặn.
+   */
   async listBlocked(userId: number): Promise<number[]> {
     return this.repo.listBlocked(userId);
   }
+  /**
+   * User có bị người kia chặn hay không.
+   */
   async isBlockedBy(blockerId: number, senderId: number): Promise<boolean> {
     return this.repo.isBlocked(blockerId, senderId);
   }
 
   // --- conversations & messages ---------------------------------------------------
 
+  /**
+   * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại).
+   */
   async createConversation(actorId: number, input: { type?: number; memberIds: number[]; name?: string }): Promise<ConversationRow & { members: number[] }> {
     const type = input.type ?? 1;
     const memberIds = [...new Set([actorId, ...input.memberIds])];
@@ -265,6 +320,9 @@ export class MessagingService {
     return { ...conversation, members: memberIds };
   }
 
+  /**
+   * Conversation của user kèm số chưa đọc.
+   */
   async listConversations(userId: number): Promise<(ConversationRow & { members: number[]; unread: number })[]> {
     const conversations = await this.repo.listConversationsForUser(userId);
     const out: (ConversationRow & { members: number[]; unread: number })[] = [];
@@ -279,6 +337,9 @@ export class MessagingService {
     return out;
   }
 
+  /**
+   * Chi tiết conversation + tin nhắn (chỉ thành viên mới xem được).
+   */
   async getConversation(userId: number, conversationId: number): Promise<ConversationRow & { members: number[]; messages: MessageRow[] }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
@@ -292,6 +353,9 @@ export class MessagingService {
    * Send a user-to-user message. Delivery law (report §2#12): every other
    * member must be contactable — not suspended, and must not have blocked
    * the sender. Once stored, the message is immutable through the API.
+   */
+  /**
+   * Gửi tin nhắn: kiểm tra thành viên và quan hệ chặn.
    */
   async sendMessage(actorId: number, conversationId: number, input: { text: string; subject?: string }): Promise<MessageRow> {
     const systemCtx = await this.contexts.ensureSystemContext();
@@ -329,12 +393,18 @@ export class MessagingService {
   }
 
   /** Messages are owned by core_message after sending: edits are refused, always. */
+  /**
+   * Sửa tin nhắn của chính mình.
+   */
   async updateMessage(): Promise<never> {
     throw new ForbiddenException({
       message: 'A sent message cannot be modified: ownership passed to core_message when it was sent',
       code: 'messaging.message_immutable',
     });
   }
+  /**
+   * Xoá tin nhắn của chính mình.
+   */
   async deleteMessage(): Promise<never> {
     throw new ForbiddenException({
       message: 'A sent message cannot be deleted by its sender: ownership passed to core_message when it was sent',
@@ -342,6 +412,9 @@ export class MessagingService {
     });
   }
 
+  /**
+   * Đánh dấu đã đọc conversation.
+   */
   async markConversationRead(userId: number, conversationId: number): Promise<{ marked: number }> {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
@@ -349,6 +422,9 @@ export class MessagingService {
     return { marked: await this.repo.markConversationRead(conversationId, userId) };
   }
 
+  /**
+   * Số conversation chưa đọc và số notification chưa đọc (cho huy hiệu trên giao diện).
+   */
   async unreadCounts(userId: number): Promise<{ conversations: number; notifications: number }> {
     return {
       conversations: await this.repo.countUnreadConversations(userId),

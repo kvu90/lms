@@ -18,9 +18,15 @@ export interface EnrolExpiryResult { checkedAt: string; suspendedIds: number[] }
  * sweep never opens a window of access — the sweep only normalises state.
  */
 @Processor('enrol-expiry')
+/**
+ * Xử lý job hết hạn ghi danh: quét các ghi danh quá hạn và áp hành động hết hạn của instance.
+ */
 export class EnrolExpiryProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(_job: Job): Promise<EnrolExpiryResult> {
     void _job;
     const now = new Date();

@@ -17,4 +17,5 @@ import { LocalObjectStorage, OBJECT_STORAGE } from './storage';
   ],
   exports: [FilesService],
 })
+/** Module quản lý file. */
 export class FilesModule {}

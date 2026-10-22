@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
+/** Chiến lược xác thực cục bộ (username + mật khẩu) cho các guard cần kiểm tra thông tin đăng nhập trực tiếp. */
 export class LocalAuthStrategy extends PassportStrategy(LocalStrategy, 'local') {
   constructor(private readonly auth: AuthService) { super(); }
   async validate(username: string, password: string): Promise<{ id: number; username: string }> {
@@ -19,6 +20,7 @@ export class LocalAuthStrategy extends PassportStrategy(LocalStrategy, 'local') 
 export interface JwtPayload { sub: number; username: string; sid: string }
 
 @Injectable()
+/** Chiến lược JWT: giải mã access token và dựng principal cho request (id, username, cờ site admin). */
 export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
   constructor(config: ConfigService, private readonly users: UsersService) {
     super({

@@ -15,6 +15,12 @@ type Database = NodePgDatabase<typeof relations>;
  * as the API-side relay (apps/api OutboxRelayService).
  */
 @Injectable()
+/**
+ * Chuyển tiếp outbox → hàng đợi BullMQ (transactional outbox pattern).
+ * Sự kiện nghiệp vụ được ghi cùng transaction với dữ liệu vào bảng outbox ở API;
+ * relay này đọc các bản ghi chưa phát hành, đẩy vào queue tương ứng và đánh dấu đã phát hành —
+ * đảm bảo sự kiện không mất khi tiến trình sập giữa chừng (at-least-once; processor phải idempotent).
+ */
 export class OutboxRelayScheduler {
   private readonly logger = new Logger(OutboxRelayScheduler.name);
 
@@ -24,10 +30,16 @@ export class OutboxRelayScheduler {
   ) {}
 
   @Interval(5000)
+  /**
+   * Một nhịp relay: lấy lô sự kiện chờ và phát hành.
+   */
   async relayTick(): Promise<void> {
     await this.publishPending();
   }
 
+  /**
+   * Phát hành mọi sự kiện outbox đang chờ vào các queue BullMQ.
+   */
   async publishPending(limit = 50): Promise<number> {
     const pending = await this.db
       .select()

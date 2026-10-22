@@ -7,6 +7,9 @@
  * Outlook 2010, OSX Yosemite, Google Gmail, repeated events — each import
  * exactly their VEVENTs).
  */
+/**
+ * Một sự kiện đọc từ file iCalendar (.ics) khi nhập lịch đăng ký (subscription import).
+ */
 export interface IcsEvent {
   uid: string;
   summary: string;
@@ -15,6 +18,9 @@ export interface IcsEvent {
   end?: Date;
 }
 
+/**
+ * Phân tích mốc thời gian ICS (dạng UTC hoặc floating) thành Date; undefined khi không hợp lệ.
+ */
 export function parseIcsDate(value: string): Date | undefined {
   const v = value.trim();
   const dateTime = /^(\d{4})(\d{2})(\d{2})[Tt](\d{2})(\d{2})(\d{2})(Z?)$/.exec(v);
@@ -33,6 +39,9 @@ export function parseIcsDate(value: string): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+/**
+ * Phân tích toàn bộ nội dung .ics thành danh sách sự kiện (VEVENT) phục vụ đồng bộ lịch.
+ */
 export function parseIcs(ics: string): IcsEvent[] {
   // Unfold: lines starting with a space/tab continue the previous line.
   const lines = ics.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r\n|\n|\r/);

@@ -31,6 +31,13 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  *    job `enrol-expiry` also flips them to SUSPENDED in bulk.
  */
 @Injectable()
+/**
+ * Nghiệp vụ ghi danh (enrolment).
+ * Đối chiếu Moodle: lib/enrollib.php (enrol_get_plugin, user_enrolment) và các plugin enrol_manual/enrol_self/enrol_cohort.
+ * Trạng thái ghi danh: 0 = đang hiệu lực, 1 = tạm đình chỉ, 2 = đã rút; ghi danh có thể có cửa sổ thời gian (timestart/timeend).
+ * Cohort sync: thành viên cohort được tự động ghi danh qua instance cohort; rời cohort thì ghi danh cohort bị rút
+ * (chỉ rút khi user không còn dữ liệu liên quan — bài nộp/điểm — theo probe dữ liệu liên quan, khớp hành vi Moodle).
+ */
 export class EnrolService implements OnModuleInit {
   /** Probe registered by CompletionModule: does this user have completion data in this course? */
   /** Related-data probes (Completion, Grades, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
@@ -45,14 +52,23 @@ export class EnrolService implements OnModuleInit {
     private readonly outbox: OutboxService,
   ) {}
 
+  /**
+   * Khởi tạo: đăng ký enrol checker cho module courses và lắng nghe sự kiện thành viên cohort.
+   */
   onModuleInit(): void {
     this.courses.registerEnrolChecker({
       isEnrolled: (courseId, userId, opts) => this.isEnrolled(courseId, userId, opts),
     });
   }
+  /**
+   * Đăng ký probe kiểm tra user còn dữ liệu liên quan trong khoá học hay không (module khác cắm vào).
+   */
   registerRelatedDataProbe(probe: (courseId: number, userId: number) => Promise<boolean>): void {
     this.relatedDataProbes.push(probe);
   }
+  /**
+   * User còn dữ liệu liên quan (điểm/bài nộp) trong khoá học hay không — quyết định rút hẳn hay chỉ đình chỉ khi rời cohort.
+   */
   async hasRelatedData(courseId: number, userId: number): Promise<boolean> {
     for (const probe of this.relatedDataProbes) {
       if (await probe(courseId, userId)) return true;
@@ -70,6 +86,9 @@ export class EnrolService implements OnModuleInit {
   }
 
   // --- instances ----------------------------------------------------------------
+  /**
+   * Tạo enrol instance cho khoá học (manual/self/cohort/paypal).
+   */
   async createInstance(actorId: number, courseId: number, input: {
     method: string; name?: string; roleShortname?: string; status?: number; enrolperiod?: number;
     cohortId?: number; groupId?: number; onCohortLeave?: 'suspend' | 'unenrol';
@@ -110,12 +129,21 @@ export class EnrolService implements OnModuleInit {
     }
     return instance;
   }
+  /**
+   * Lấy instance; ném enrol.instance_not_found khi vắng.
+   */
   async getInstance(id: number): Promise<EnrolRow> {
     const row = await this.repo.getInstance(id);
     if (!row) throw new NotFoundException({ message: `Enrol instance ${id} not found`, code: 'enrol.instance_not_found' });
     return row;
   }
+  /**
+   * Liệt kê instance của khoá học.
+   */
   async listInstances(courseId: number): Promise<EnrolRow[]> { return this.repo.listInstances(courseId); }
+  /**
+   * Cập nhật instance.
+   */
   async updateInstance(actorId: number, id: number, input: { name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: number }): Promise<EnrolRow> {
     const instance = await this.getInstance(id);
     await this.requireManage(actorId, instance.courseid);
@@ -128,6 +156,9 @@ export class EnrolService implements OnModuleInit {
     if (Object.keys(patch).length) await this.repo.updateInstance(id, patch);
     return this.getInstance(id);
   }
+  /**
+   * Xoá instance.
+   */
   async deleteInstance(actorId: number, id: number): Promise<void> {
     const instance = await this.getInstance(id);
     await this.requireManage(actorId, instance.courseid);
@@ -136,6 +167,9 @@ export class EnrolService implements OnModuleInit {
 
   // --- enrol / unenrol ----------------------------------------------------------
   /** Core enrol path (also used by cohort sync). Assigns the instance role at the course context via the Access facade. */
+  /**
+   * Ghi danh nội bộ không kiểm capability (dùng cho cohort sync và thanh toán đã xác nhận).
+   */
   async enrolUserInternal(instance: EnrolRow, userId: number, modifierId?: number, opts?: { timestart?: Date; timeend?: Date }): Promise<UserEnrolmentRow> {
     if (instance.status !== 0) throw new BadRequestException({ message: 'Enrol instance is disabled', code: 'enrol.instance_disabled' });
     const timestart = opts?.timestart ?? new Date();
@@ -162,6 +196,9 @@ export class EnrolService implements OnModuleInit {
     return ue;
   }
 
+  /**
+   * Ghi danh thủ công một user (kiểm capability enrol).
+   */
   async enrolUser(actorId: number, instanceId: number, userId: number, opts?: { timestart?: string; timeend?: string }): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
@@ -172,6 +209,9 @@ export class EnrolService implements OnModuleInit {
   }
 
   /** Self-enrolment through a 'self' instance (minimal frame): the user enrols themselves when the instance is enabled. */
+  /**
+   * Tự ghi danh: kiểm instance self còn mở, khoá ghi danh (enrol password) và cửa sổ thời gian.
+   */
   async selfEnrol(userId: number, instanceId: number): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol === 'fee') {
@@ -183,6 +223,9 @@ export class EnrolService implements OnModuleInit {
   }
 
   /** Kích hoạt ghi danh sau thanh toán thành công — chỉ PaymentsModule gọi sau webhook đã xác thực/idempotent. */
+  /**
+   * Kích hoạt ghi danh sau khi thanh toán PayPal được xác nhận.
+   */
   async activatePaidEnrol(instanceId: number, userId: number): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol !== 'fee') throw new BadRequestException({ message: 'Instance is not a fee enrol instance', code: 'enrol.not_fee' });
@@ -191,6 +234,9 @@ export class EnrolService implements OnModuleInit {
     return this.enrolUserInternal(instance, userId, userId);
   }
 
+  /**
+   * Đình chỉ hoặc kích hoạt lại một ghi danh.
+   */
   async setSuspended(actorId: number, instanceId: number, userId: number, suspended: boolean): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
@@ -214,12 +260,18 @@ export class EnrolService implements OnModuleInit {
    * hard-deleted, exactly Moodle's split between visible participation data
    * (kept) and invisible participation (purged).
    */
+  /**
+   * Rút ghi danh (kiểm capability).
+   */
   async unenrolUser(actorId: number, instanceId: number, userId: number): Promise<{ withdrawn: boolean }> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseid);
     return this.unenrolInternal(instance, userId, actorId);
   }
 
+  /**
+   * Rút ghi danh nội bộ không kiểm capability.
+   */
   async unenrolInternal(instance: EnrolRow, userId: number, modifierId?: number): Promise<{ withdrawn: boolean }> {
     const ue = await this.repo.getUserEnrolment(instance.id, userId);
     if (!ue) return { withdrawn: false };
@@ -251,6 +303,9 @@ export class EnrolService implements OnModuleInit {
    * onlyActive additionally requires status=ACTIVE and now within
    * [timestart, timeend]. A record in ANY enabled instance of the course counts.
    */
+  /**
+   * User có ghi danh đang hiệu lực và trong cửa sổ thời gian hay không.
+   */
   async isEnrolled(courseId: number, userId: number, opts?: { onlyActive?: boolean; capability?: string }): Promise<boolean> {
     const instances = await this.repo.listInstances(courseId);
     const now = new Date();
@@ -272,17 +327,29 @@ export class EnrolService implements OnModuleInit {
     return false;
   }
 
+  /**
+   * Ghi danh của khoá học.
+   */
   async listEnrolmentsForCourse(courseId: number): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
     return this.repo.listUserEnrolmentsForCourse(courseId);
   }
+  /**
+   * Ghi danh của user.
+   */
   async listEnrolmentsForUser(userId: number): Promise<UserEnrolmentRow[]> {
     return this.repo.listUserEnrolmentsForUser(userId);
   }
+  /**
+   * Một ghi danh cụ thể của user trong khoá học.
+   */
   async getUserEnrolment(instanceId: number, userId: number): Promise<UserEnrolmentRow | undefined> {
     return this.repo.getUserEnrolment(instanceId, userId);
   }
 
   /** Expiry sweep (same logic the worker's enrol-expiry processor runs on its own schema copy). Returns flipped ids. */
+  /**
+   * Xử lý các ghi danh quá hạn (worker enrol-expiry gọi): đình chỉ/rút theo cấu hình instance.
+   */
   async expireEnrolments(now = new Date()): Promise<number[]> {
     const expired = await this.repo.listExpiredActive(now);
     const flipped: number[] = [];
@@ -302,6 +369,9 @@ export class EnrolService implements OnModuleInit {
 
   // --- cohort sync listeners ----------------------------------------------------------
   @OnEvent('cohort_member_added')
+  /**
+   * Sự kiện thành viên cohort mới → ghi danh vào mọi khoá học có instance cohort tương ứng.
+   */
   async onCohortMemberAdded(payload: { cohortId: number; userId: number }): Promise<void> {
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
@@ -311,6 +381,9 @@ export class EnrolService implements OnModuleInit {
   }
 
   @OnEvent('cohort_member_removed')
+  /**
+   * Sự kiện rời cohort → rút/đình chỉ ghi danh cohort tương ứng.
+   */
   async onCohortMemberRemoved(payload: { cohortId: number; userId: number }): Promise<void> {
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {

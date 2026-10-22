@@ -14,4 +14,5 @@ import { GroupsService } from './groups.service';
   providers: [GroupsRepository, GroupsService],
   exports: [GroupsService],
 })
+/** Module nhóm và cohort. */
 export class GroupsModule {}

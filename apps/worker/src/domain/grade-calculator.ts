@@ -34,6 +34,9 @@
  *    overridden category/course grades back through here.
  */
 
+/**
+ * Chiến lược tổng hợp điểm của category (bản worker — cùng semantics với bản ở apps/api, dùng cho tiến trình regrade nền).
+ */
 export type AggregationStrategy =
   | 'natural' | 'mean' | 'weightedmean' | 'simpleweightedmean'
   | 'median' | 'lowest' | 'highest' | 'mode' | 'sum';
@@ -90,6 +93,9 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Apply multiplicator/offset (unless frozen) and clamp into the item range. */
+/**
+ * Chuẩn hoá điểm item về thang 0..1; null khi ẩn/chưa có điểm.
+ */
 export function adjustedGrade(item: CalcItemInput): number | null {
   if (item.grade === null || item.grade === undefined) return null;
   if (item.frozen) return clamp(item.grade, item.grademin, item.grademax);
@@ -112,6 +118,9 @@ interface Prepared {
 }
 
 /** Natural effective weights: overridden items keep their weight; the rest of 100% is split by (max-min). */
+/**
+ * Trọng số tự nhiên theo (grademax - grademin) đã chuẩn hoá; extra credit không tăng mẫu số.
+ */
 export function naturalWeights(items: CalcItemInput[]): Record<number, number> {
   const nonExtra = items.filter((i) => !i.extracredit);
   const weights: Record<number, number> = {};
@@ -156,6 +165,9 @@ function mode(values: number[]): number {
   return best?.value ?? 0;
 }
 
+/**
+ * Tính điểm category theo chiến lược tổng hợp — bản worker dùng khi tính lại điểm hàng loạt (regrade).
+ */
 export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult {
   const droplow = Math.max(0, input.droplow ?? 0);
   const keephigh = Math.max(0, input.keephigh ?? 0);
@@ -272,6 +284,9 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
 }
 
 /** Letter for a grade: percentage of the item range matched against boundaries (highest boundary <= pct wins). */
+/**
+ * Ánh xạ điểm phần trăm sang chữ cái theo bảng grade letters.
+ */
 export function letterForGrade(
   finalgrade: number, grademin: number, grademax: number,
   letters: { letter: string; lowerboundary: number }[],

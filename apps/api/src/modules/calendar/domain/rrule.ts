@@ -4,12 +4,18 @@
  * with COUNT or UNTIL — the subset Moodle's repeat UI exposes
  * (repeat every day/week/month, N times or until a date).
  */
+/**
+ * Đặc tả lặp của sự kiện lịch: tần suất (DAILY/WEEKLY/MONTHLY/YEARLY), số lần (count) hoặc hạn cuối (until).
+ */
 export interface RruleSpec {
   freq: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   count?: number;
   until?: Date;
 }
 
+/**
+ * Phân tích RRULE (dạng chuỗi iCalendar hoặc object) thành RruleSpec.
+ */
 export function parseRrule(input: { freq?: string; count?: number; until?: string } | string): RruleSpec {
   if (typeof input === 'string') {
     const parts = Object.fromEntries(input.split(';').map((p) => {
@@ -33,6 +39,9 @@ export function parseRrule(input: { freq?: string; count?: number; until?: strin
   };
 }
 
+/**
+ * Định dạng RruleSpec trở lại chuỗi RRULE chuẩn.
+ */
 export function formatRrule(spec: RruleSpec): string {
   const parts = [`FREQ=${spec.freq}`];
   if (spec.count !== undefined) parts.push(`COUNT=${spec.count}`);
@@ -40,6 +49,9 @@ export function formatRrule(spec: RruleSpec): string {
   return parts.join(';');
 }
 
+/**
+ * Cộng một bước lặp vào một mốc thời gian theo tần suất.
+ */
 export function addStep(date: Date, freq: RruleSpec['freq']): Date {
   const next = new Date(date);
   if (freq === 'DAILY') next.setUTCDate(next.getUTCDate() + 1);
@@ -49,6 +61,9 @@ export function addStep(date: Date, freq: RruleSpec['freq']): Date {
 }
 
 /** Occurrence start times for a series beginning at `start` (the first occurrence is `start` itself). */
+/**
+ * Sinh danh sách thời điểm bắt đầu của các occurrence trong chuỗi lặp, có hard cap chống lặp vô hạn.
+ */
 export function occurrenceStarts(start: Date, spec: RruleSpec, hardCap = 366): Date[] {
   const out: Date[] = [];
   let current = new Date(start);

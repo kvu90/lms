@@ -25,8 +25,14 @@ type Database = NodePgDatabase<typeof relations>;
 
 /** Backup: dựng archive (format riêng v1) cho job backup đang pending và ghi các bước contributor. */
 @Processor('backup')
+/**
+ * Xử lý job sao lưu khoá học nền.
+ */
 export class BackupProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<{ jobId: number }>): Promise<{ status: string; sections?: number; cms?: number }> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
@@ -48,6 +54,9 @@ export class BackupProcessor extends WorkerHost {
 
 /** Restore: với job restore pending mang archive ở trường archive, sao chép section/cm sang course đích và ghi id mapping. */
 @Processor('restore')
+/**
+ * Xử lý job khôi phục khoá học nền.
+ */
 export class RestoreProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ jobId: number }>): Promise<{ status: string; mapped?: number }> {
@@ -80,6 +89,9 @@ export class RestoreProcessor extends WorkerHost {
 
 /** Search reindex: dựng lại tài liệu courses/users/contentbank/blog từ dữ liệu gốc; user suspended/deleted bị loại. */
 @Processor('search-reindex')
+/**
+ * Xử lý job dựng lại chỉ mục tìm kiếm.
+ */
 export class SearchReindexProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(_job: Job<Record<string, never>>): Promise<{ indexed: number }> {
@@ -126,6 +138,9 @@ export class SearchReindexProcessor extends WorkerHost {
 
 /** Analytics run: model students_at_risk — chỉ ghi prediction/insight, không chạm grades/enrol. */
 @Processor('analytics-run')
+/**
+ * Xử lý job chạy mô hình phân tích (insights).
+ */
 export class AnalyticsRunProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ courseId: number }>): Promise<{ predictions: number; insights: number }> {
@@ -176,6 +191,9 @@ export class AnalyticsRunProcessor extends WorkerHost {
 
 /** Report schedule: chạy báo cáo enrolments dưới danh tính người tạo (đếm dòng enrolment) + notification + lưu lastresult. */
 @Processor('report-schedule')
+/**
+ * Xử lý job báo cáo theo lịch: sinh báo cáo và gửi notification (nội dung từ catalog i18n).
+ */
 export class ReportScheduleProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
   async process(job: Job<{ scheduleId: number }>): Promise<{ rows: number; status: string }> {
@@ -209,6 +227,9 @@ export class ReportScheduleProcessor extends WorkerHost {
 
 /** Privacy: export ghi manifest theo subsystem; delete lan qua các bảng đã khai trong schema worker và ẩn danh user. */
 @Processor('privacy')
+/**
+ * Xử lý job quyền riêng tư (xuất/xoá dữ liệu cá nhân).
+ */
 export class PrivacyProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ requestId: number }>): Promise<{ status: string; subsystems: string[] }> {
@@ -252,6 +273,9 @@ export class PrivacyProcessor extends WorkerHost {
 
 /** Payment reconciliation + webhook twin: đối soát tối giản và xử lý webhook idempotent theo external tx. */
 @Processor('payment-reconciliation')
+/**
+ * Xử lý job đối soát thanh toán.
+ */
 export class PaymentReconciliationProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ paymentId?: number; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {

@@ -23,13 +23,23 @@
  *    Either way the item is NOT accessible — show/showc never grant access.
  */
 
+/**
+ * Toán tử của một nút cây availability: & (AND), | (OR), !& (NAND — phủ định toàn nút), !| (NOR).
+ * Khớp định dạng JSON cây điều kiện của Moodle (availability/classes).
+ */
 export type AvailabilityOp = '&' | '|' | '!&' | '!|';
 
+/**
+ * Điều kiện lá của cây availability: type là loại điều kiện (date, grade, profile, completion, group, grouping…), phần còn lại là tham số của điều kiện.
+ */
 export interface AvailabilityLeaf {
   type: string;
   [key: string]: unknown;
 }
 
+/**
+ * Nút cây availability: toán tử op, cờ show (hiển thị mục dù chưa khả dụng hay ẩn hẳn) và danh sách điều kiện con.
+ */
 export interface AvailabilityNode {
   op: AvailabilityOp;
   c: AvailabilityChild[];
@@ -38,16 +48,25 @@ export interface AvailabilityNode {
 }
 export type AvailabilityChild = AvailabilityNode | AvailabilityLeaf;
 
+/**
+ * Phân biệt nút cây (có op/c) với điều kiện lá.
+ */
 export function isTreeNode(child: AvailabilityChild): child is AvailabilityNode {
   return typeof (child as AvailabilityNode).op === 'string' && Array.isArray((child as AvailabilityNode).c);
 }
 
+/**
+ * Kết quả đánh giá một điều kiện lá: available và description hiển thị cho người học khi chưa đạt.
+ */
 export interface LeafResult {
   available: boolean;
   /** Short human description of the (failed) condition, e.g. for UI display. */
   description?: string;
 }
 
+/**
+ * Kết quả đánh giá toàn cây: available tổng thể, và failedDescriptions — danh sách mô tả các điều kiện lá chưa đạt ở các nút AND có show=true (để giao diện giải thích vì sao bị khoá).
+ */
 export interface TreeEvaluation {
   available: boolean;
   /** True when restriction information must be hidden entirely (a showc=false child failed, or root show=false). */
@@ -61,6 +80,10 @@ export interface TreeEvaluation {
 
 const OPS: AvailabilityOp[] = ['&', '|', '!&', '!|'];
 
+/**
+ * Phân tích JSON cây availability từ chuỗi/object thô; trả null khi rỗng hoặc không hợp lệ để tầng trên coi như không có điều kiện.
+ * Đối chiếu Moodle: availability/classes/tree.php và condition classes tương ứng.
+ */
 export function parseAvailabilityTree(raw: unknown): AvailabilityNode | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== 'object') throw new Error('Availability tree must be an object');
@@ -167,6 +190,9 @@ export async function evaluateTree(
 }
 
 /** Synchronous convenience used by golden tests with in-memory leaf values. */
+/**
+ * Dựng map đánh giá lá từ kết quả từng điều kiện (đủ/không đủ) và mô tả hiển thị tương ứng — đầu vào cho bước gộp cây.
+ */
 export function leafFromMap(values: Record<string, boolean>, descriptions: Record<string, string> = {}) {
   return async (leaf: AvailabilityLeaf): Promise<LeafResult> => {
     const key = String(leaf.id ?? leaf.type);

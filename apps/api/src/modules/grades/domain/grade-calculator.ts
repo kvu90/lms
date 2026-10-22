@@ -31,6 +31,10 @@
  *    overridden category/course grades back through here.
  */
 
+/**
+ * Chiến lược tổng hợp điểm của category: trung bình có trọng số (weightedmean), trung bình đơn giản, tự nhiên (natural — theo grademax), trung vị, điểm cao nhất/thấp nhất, mode, tổng.
+ * Khớp aggregation của Moodle grade category (grade/classes).
+ */
 export type AggregationStrategy =
   | 'natural' | 'mean' | 'weightedmean' | 'simpleweightedmean'
   | 'median' | 'lowest' | 'highest' | 'mode' | 'sum';
@@ -39,6 +43,9 @@ export const AGGREGATIONS: AggregationStrategy[] = [
   'natural', 'mean', 'weightedmean', 'simpleweightedmean', 'median', 'lowest', 'highest', 'mode', 'sum',
 ];
 
+/**
+ * Đầu vào tính điểm của một grade item: điểm thô, grademin/grademax, hệ số (aggregationcoef), extra credit, ẩn.
+ */
 export interface CalcItemInput {
   itemId: number;
   grademin: number;
@@ -58,6 +65,9 @@ export interface CalcItemInput {
   frozen?: boolean;
 }
 
+/**
+ * Đầu vào tính một category: danh sách item con (kèm kết quả category con) và chiến lược tổng hợp.
+ */
 export interface CategoryCalcInput {
   aggregation: AggregationStrategy;
   /** Category range for non-natural strategies (Moodle default 0..100). For natural the max is derived. */
@@ -69,6 +79,9 @@ export interface CategoryCalcInput {
   items: CalcItemInput[];
 }
 
+/**
+ * Kết quả tính category: finalgrade đã chuẩn hoá về thang của category, kèm chi tiết từng item để hiển thị sổ điểm.
+ */
 export interface CategoryCalcResult {
   /** Null when there is nothing to aggregate (no usable grades). */
   finalgrade: number | null;
@@ -87,6 +100,9 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Apply multiplicator/offset (unless frozen) and clamp into the item range. */
+/**
+ * Chuẩn hoá điểm của item về thang 0..1 theo grademin/grademax; item ẩn hoặc chưa có điểm trả null (không tính vào tổng hợp).
+ */
 export function adjustedGrade(item: CalcItemInput): number | null {
   if (item.grade === null || item.grade === undefined) return null;
   if (item.frozen) return clamp(item.grade, item.grademin, item.grademax);
@@ -109,6 +125,9 @@ interface Prepared {
 }
 
 /** Natural effective weights: overridden items keep their weight; the rest of 100% is split by (max-min). */
+/**
+ * Trọng số “tự nhiên” của Moodle: mỗi item đóng góp tỉ lệ theo (grademax - grademin) của nó sau khi chuẩn hoá, extra credit không làm tăng mẫu số.
+ */
 export function naturalWeights(items: CalcItemInput[]): Record<number, number> {
   const nonExtra = items.filter((i) => !i.extracredit);
   const weights: Record<number, number> = {};
@@ -153,6 +172,10 @@ function mode(values: number[]): number {
   return best?.value ?? 0;
 }
 
+/**
+ * Tính điểm category theo chiến lược tổng hợp: chuẩn hoá từng item, áp trọng số/hệ số, xử lý extra credit (chỉ cộng tử số), drop-lowest nếu cấu hình, rồi chiếu về thang điểm của category.
+ * Đối chiếu Moodle: grade/lib.php grade_category::compute và bộ test PHPUnit của gradebook.
+ */
 export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult {
   const droplow = Math.max(0, input.droplow ?? 0);
   const keephigh = Math.max(0, input.keephigh ?? 0);
@@ -269,6 +292,9 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
 }
 
 /** Letter for a grade: percentage of the item range matched against boundaries (highest boundary <= pct wins). */
+/**
+ * Ánh xạ điểm phần trăm sang chữ cái (letter) theo bảng grade letters của khoá học; biên dưới của mỗi khoảng là bao hàm.
+ */
 export function letterForGrade(
   finalgrade: number, grademin: number, grademax: number,
   letters: { letter: string; lowerboundary: number }[],

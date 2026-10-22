@@ -23,4 +23,5 @@ import { TagsService } from './tags.service';
   providers: [SocialRepository, TagsService, CommentsService, RatingsService, BlogService, NotesService],
   exports: [TagsService, CommentsService, RatingsService, BlogService, NotesService],
 })
+/** Module xã hội: tag, bình luận, đánh giá, blog, ghi chú. */
 export class SocialModule {}

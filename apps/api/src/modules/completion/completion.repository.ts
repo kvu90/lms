@@ -10,15 +10,24 @@ export type CourseCompletionRow = typeof courseCompletions.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
+/**
+ * Kho dữ liệu hoàn thành: trạng thái completion của cm theo user, tiêu chí hoàn thành khoá học, cấu hình và bản ghi hoàn thành khoá học.
+ */
 export class CompletionRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
   get dbHandle(): Database { return this.db; }
 
+  /**
+   * Trạng thái hoàn thành một cm của một user.
+   */
   async getCmCompletion(cmid: number, userid: number): Promise<CmCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseModulesCompletion)
       .where(and(eq(courseModulesCompletion.coursemoduleid, cmid), eq(courseModulesCompletion.userid, userid)));
     return row;
   }
+  /**
+   * Ghi/cập nhật trạng thái hoàn thành cm.
+   */
   async upsertCmCompletion(v: typeof courseModulesCompletion.$inferInsert, tx?: DbTx): Promise<CmCompletionRow> {
     const [row] = await (tx ?? this.db).insert(courseModulesCompletion).values(v)
       .onConflictDoUpdate({
@@ -27,46 +36,79 @@ export class CompletionRepository {
       }).returning();
     return row!;
   }
+  /**
+   * Mọi trạng thái hoàn thành cm của user trong khoá học.
+   */
   async listCmCompletionsForUser(userid: number, cmIds: number[]): Promise<CmCompletionRow[]> {
     if (!cmIds.length) return [];
     return this.db.select().from(courseModulesCompletion)
       .where(and(eq(courseModulesCompletion.userid, userid), inArray(courseModulesCompletion.coursemoduleid, cmIds)));
   }
+  /**
+   * Mọi trạng thái hoàn thành của một cm.
+   */
   async listCmCompletionsForCm(cmid: number): Promise<CmCompletionRow[]> {
     return this.db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid));
   }
+  /**
+   * Xoá trạng thái hoàn thành khi cm bị xoá.
+   */
   async deleteCmCompletionsForCm(cmid: number): Promise<number> {
     const deleted = await this.db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid)).returning();
     return deleted.length;
   }
+  /**
+   * Cm đã có bất kỳ bản ghi hoàn thành nào chưa (probe dữ liệu liên quan).
+   */
   async hasAnyCmCompletion(userid: number, cmIds: number[]): Promise<boolean> {
     const rows = await this.listCmCompletionsForUser(userid, cmIds);
     return rows.length > 0;
   }
 
+  /**
+   * Thêm một tiêu chí hoàn thành khoá học.
+   */
   async insertCriteria(v: typeof courseCompletionCriteria.$inferInsert): Promise<CriteriaRow> {
     const [row] = await this.db.insert(courseCompletionCriteria).values(v).returning(); return row!;
   }
+  /**
+   * Tiêu chí của khoá học.
+   */
   async listCriteria(courseId: number): Promise<CriteriaRow[]> {
     return this.db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId)).orderBy(courseCompletionCriteria.sortorder, courseCompletionCriteria.id);
   }
+  /**
+   * Xoá toàn bộ tiêu chí của khoá học (khi đặt lại).
+   */
   async deleteCriteria(id: number): Promise<void> {
     await this.db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.id, id));
   }
+  /**
+   * Cấu hình completion của khoá học.
+   */
   async getSettings(courseId: number): Promise<{ method: number }> {
     const [row] = await this.db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, courseId));
     return row ?? { method: 1 };
   }
+  /**
+   * Ghi cấu hình completion.
+   */
   async setSettings(courseId: number, method: number): Promise<void> {
     await this.db.insert(courseCompletionSettings).values({ course: courseId, method })
       .onConflictDoUpdate({ target: courseCompletionSettings.course, set: { method } });
   }
 
+  /**
+   * Bản ghi hoàn thành khoá học của user.
+   */
   async getCourseCompletion(userid: number, courseId: number): Promise<CourseCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseCompletions)
       .where(and(eq(courseCompletions.userid, userid), eq(courseCompletions.course, courseId)));
     return row;
   }
+  /**
+   * Ghi/cập nhật bản ghi hoàn thành khoá học.
+   */
   async upsertCourseCompletion(v: typeof courseCompletions.$inferInsert): Promise<CourseCompletionRow> {
     const [row] = await this.db.insert(courseCompletions).values(v)
       .onConflictDoUpdate({
@@ -75,6 +117,9 @@ export class CompletionRepository {
       }).returning();
     return row!;
   }
+  /**
+   * Mọi bản ghi hoàn thành của khoá học.
+   */
   async listCourseCompletions(courseId: number): Promise<CourseCompletionRow[]> {
     return this.db.select().from(courseCompletions).where(eq(courseCompletions.course, courseId));
   }

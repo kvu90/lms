@@ -30,6 +30,13 @@ export type LeafEvaluator = (leaf: AvailabilityLeaf, ctx: AvailabilityContext) =
  * never silently grant access).
  */
 @Injectable()
+/**
+ * Đánh giá cây điều kiện availability cho section/course module.
+ * Đối chiếu Moodle: availability/classes (tree + từng condition plugin).
+ * Dịch vụ là registry mở: mỗi loại điều kiện lá (date, grade, profile, completion, group, grouping)
+ * đăng ký một evaluator; mô tả hiển thị của lá lấy từ catalog i18n (namespace availability)
+ * theo locale của request, còn error code giữ nguyên tiếng Anh.
+ */
 export class AvailabilityService {
   private readonly evaluators = new Map<string, LeafEvaluator>();
 
@@ -39,12 +46,21 @@ export class AvailabilityService {
     this.register('profile', async (leaf, ctx) => this.evalProfile(leaf, ctx));
   }
 
+  /**
+   * Đăng ký evaluator cho một loại điều kiện lá (các module sở hữu điều kiện tự đăng ký khi khởi tạo).
+   */
   register(type: string, evaluator: LeafEvaluator): void {
     this.evaluators.set(type, evaluator);
   }
+  /**
+   * Loại điều kiện đã có evaluator hay chưa.
+   */
   hasEvaluator(type: string): boolean { return this.evaluators.has(type); }
 
   /** Validate + parse a stored tree; throws BadRequest on malformed JSON structures. */
+  /**
+   * Phân tích JSON availability thô thành cây điều kiện (ủy quyền cho availability-tree).
+   */
   parse(raw: unknown): AvailabilityNode | null {
     try {
       return parseAvailabilityTree(raw);
@@ -53,6 +69,9 @@ export class AvailabilityService {
     }
   }
 
+  /**
+   * Đánh giá cây cho một user: trả available + failedDescriptions của các lá chưa đạt (chỉ ở nút có show=true).
+   */
   async evaluate(raw: unknown, ctx: AvailabilityContext): Promise<TreeEvaluation> {
     const tree = this.parse(raw);
     if (!tree) {
@@ -66,6 +85,9 @@ export class AvailabilityService {
   }
 
   /** Convenience boolean used by access checks. */
+  /**
+   * Rút gọn của evaluate: chỉ cần biết khả dụng hay không.
+   */
   async isAvailable(raw: unknown, ctx: AvailabilityContext): Promise<boolean> {
     return (await this.evaluate(raw, ctx)).available;
   }

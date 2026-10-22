@@ -9,6 +9,10 @@ import { RolesService } from './roles.service';
 
 @ApiTags('access')
 @Controller({ path: 'access', version: '1' })
+/**
+ * API quản trị phân quyền: context, role, capability, gán role và kiểm tra quyền.
+ * Mọi endpoint đều qua PermissionEvaluator với capability moodle/role:* tại context hệ thống.
+ */
 export class AccessController {
   constructor(
     private readonly contexts: ContextsService,
@@ -18,55 +22,97 @@ export class AccessController {
 
   @Post('contexts')
   @RequireCapability('moodle/site:config')
+  /**
+   * POST /contexts — tạo context mới dưới context cha.
+   */
   async createContext(@Body({ schema: createContextSchema }) dto: CreateContextDto) {
     return this.contexts.createContext(dto.contextlevel, dto.instanceid, dto.parentId);
   }
   @Get('contexts')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /contexts — liệt kê cây context.
+   */
   async listContexts() { return this.contexts.listContexts(); }
   @Get('contexts/:id')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /contexts/:id — chi tiết một context.
+   */
   async getContext(@Param('id', ParseIntPipe) id: number) { return this.contexts.getContext(id); }
 
   @Post('roles')
   @RequireCapability('moodle/role:manage')
+  /**
+   * POST /roles — tạo role mới.
+   */
   async createRole(@Body({ schema: createRoleSchema }) dto: CreateRoleDto) { return this.roles.createRole(dto); }
   @Get('roles')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /roles — liệt kê role.
+   */
   async listRoles() { return this.roles.listRoles(); }
   @Get('roles/:id')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /roles/:id — chi tiết role.
+   */
   async getRole(@Param('id', ParseIntPipe) id: number) { return this.roles.getRole(id); }
   @Patch('roles/:id')
   @RequireCapability('moodle/role:manage')
+  /**
+   * PATCH /roles/:id — cập nhật role.
+   */
   async updateRole(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateRoleSchema }) dto: UpdateRoleDto) { return this.roles.updateRole(id, dto); }
   @Delete('roles/:id')
   @RequireCapability('moodle/role:manage')
+  /**
+   * DELETE /roles/:id — xoá role.
+   */
   async deleteRole(@Param('id', ParseIntPipe) id: number) { await this.roles.deleteRole(id); return { deleted: true }; }
 
   @Get('capabilities')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /capabilities — liệt kê capability đã khai báo.
+   */
   async listCapabilities() { return this.roles.listCapabilities(); }
   @Get('roles/:id/capabilities')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /roles/:id/capabilities — ma trận override đã lưu của role.
+   */
   async listRoleCapabilities(@Param('id', ParseIntPipe) id: number) { return this.roles.listRoleCapabilities(id); }
 
   @Post('assignments')
   @RequireCapability('moodle/role:assign')
+  /**
+   * POST /role-assignments — gán role cho user tại context.
+   */
   async assign(@Body({ schema: assignRoleSchema }) dto: AssignRoleDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.roles.assignRole(dto.userid, dto.roleid, dto.contextid, actor.id);
   }
   @Get('assignments')
   @RequireCapability('moodle/role:assign')
+  /**
+   * GET /role-assignments — liệt kê gán role.
+   */
   async listAssignments(@Query('userid') userid?: string, @Query('contextid') contextid?: string) {
     return this.roles.listAssignments({ userid: userid ? Number(userid) : undefined, contextid: contextid ? Number(contextid) : undefined });
   }
   @Delete('assignments/:id')
   @RequireCapability('moodle/role:assign')
+  /**
+   * DELETE /role-assignments/:id — gỡ gán role.
+   */
   async unassign(@Param('id', ParseIntPipe) id: number) { await this.roles.unassignRole(id); return { deleted: true }; }
 
   @Post('overrides')
   @RequireCapability('moodle/role:override', 'body:contextId')
+  /**
+   * PUT /roles/:id/capabilities/:name — đặt override capability cho role tại context.
+   */
   async override(@Body({ schema: overrideCapabilitySchema }) dto: OverrideCapabilityDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.roles.setCapabilityOverride(dto.roleid, dto.capability, dto.contextid, dto.permission, actor.id);
     return { updated: true };
@@ -75,6 +121,9 @@ export class AccessController {
   /** Debug/admin probe: what does the evaluator say for (user, capability, context)? */
   @Get('has-capability')
   @RequireCapability('moodle/role:manage')
+  /**
+   * GET /permissions/has-capability — kiểm tra capability của một user tại context (dùng cho client và kiểm chứng).
+   */
   async hasCapability(@Query({ schema: hasCapabilityQueryServerSchema }) query: HasCapabilityQueryDto) {
     const allowed = await this.evaluator.hasCapability(Number(query.userid), query.capability, Number(query.contextid));
     return { userid: Number(query.userid), capability: query.capability, contextid: Number(query.contextid), allowed };

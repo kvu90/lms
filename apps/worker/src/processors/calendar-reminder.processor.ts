@@ -20,9 +20,15 @@ export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'sk
  * Idempotent: one reminder notification per (user, event) ever.
  */
 @Processor('calendar-reminders')
+/**
+ * Xử lý job nhắc lịch: gửi notification nhắc sự kiện; nội dung lấy từ catalog i18n (locale mặc định vi cho người nhận — xem recipientLocale).
+ */
 export class CalendarReminderProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<CalendarReminderJobData>): Promise<CalendarReminderResult> {
     const { eventId, userId } = job.data;
     const [event] = await this.db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId));

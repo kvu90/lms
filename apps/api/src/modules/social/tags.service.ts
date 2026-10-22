@@ -37,6 +37,11 @@ export function normalizeTagName(raw: string): string {
  * of tags co-occurring with a tag on the same items, recomputed on write.
  */
 @Injectable()
+/**
+ * Thẻ (tags) và tương quan thẻ.
+ * Đối chiếu Moodle: lib/classes/tag (core_tag). Tag thuộc collection theo area;
+ * correlation được tính từ đồng xuất hiện trên cùng item.
+ */
 export class TagsService {
   constructor(
     private readonly repo: SocialRepository,
@@ -61,7 +66,13 @@ export class TagsService {
     }
   }
 
+  /**
+   * Các tag area đã khai báo.
+   */
   listAreas(): TagAreaDefinition[] { return TAG_AREAS; }
+  /**
+   * Các tag collection.
+   */
   async listCollections() {
     await this.repo.ensureDefaultCollection();
     return this.repo.listCollections();
@@ -85,6 +96,9 @@ export class TagsService {
   }
 
   /** set_item_tags: replace the tag set of one item (oracle: taglib_test test_add_remove_item_tag). */
+  /**
+   * Đặt toàn bộ tag của item (thay thế).
+   */
   async setItemTags(actorId: number, input: {
     component: string; itemtype: string; itemid: number; contextid: number; tags: string[];
   }): Promise<{ tags: (TagRow & { ordering: number })[] }> {
@@ -112,6 +126,9 @@ export class TagsService {
   }
 
   /** add_item_tag: append a single tag (idempotent per item). */
+  /**
+   * Gắn thêm một tag vào item.
+   */
   async addItemTag(actorId: number, input: { component: string; itemtype: string; itemid: number; contextid: number; tag: string }) {
     const current = await this.listItemTags(input.component, input.itemtype, input.itemid);
     const names = current.map((t) => t.name);
@@ -119,6 +136,9 @@ export class TagsService {
     return this.setItemTags(actorId, { ...input, tags: names });
   }
 
+  /**
+   * Tag của item.
+   */
   async listItemTags(component: string, itemtype: string, itemid: number): Promise<(TagRow & { ordering: number })[]> {
     const instances = await this.repo.listInstancesForItem(component, itemtype, itemid);
     const out: (TagRow & { ordering: number })[] = [];
@@ -129,6 +149,9 @@ export class TagsService {
     return out;
   }
 
+  /**
+   * Gỡ một tag khỏi item.
+   */
   async removeItemTag(actorId: number, input: { component: string; itemtype: string; itemid: number; contextid: number; tag: string }) {
     const current = await this.listItemTags(input.component, input.itemtype, input.itemid);
     const remaining = current.filter((t) => t.name !== normalizeTagName(input.tag)).map((t) => t.rawname);
@@ -150,6 +173,9 @@ export class TagsService {
     }
   }
 
+  /**
+   * Tag liên quan (đồng xuất hiện nhiều) với tag cho trước.
+   */
   async getCorrelated(tagId: number): Promise<{ tagid: number; correlatedtags: number[] }> {
     const tagRow = await this.repo.getTag(tagId);
     if (!tagRow) throw new NotFoundException({ message: `Tag ${tagId} not found`, code: 'tags.not_found' });

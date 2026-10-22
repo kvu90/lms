@@ -24,4 +24,5 @@ import { GRADE_REGRADE_QUEUE, GradesService } from './grades.service';
   providers: [GradesRepository, GradesService],
   exports: [GradesService],
 })
+/** Module sổ điểm. */
 export class GradesModule {}

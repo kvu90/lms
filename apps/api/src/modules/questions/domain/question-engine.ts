@@ -22,6 +22,9 @@ export const QUESTION_STATES = [
   'notstarted', 'todo', 'incomplete', 'complete',
   'gradedright', 'gradedpartial', 'gradedwrong', 'gaveup', 'finished',
 ] as const;
+/**
+ * Trạng thái của một question attempt theo máy trạng thái của Moodle question engine: todo, complete, needsgrading, finished, gaveup, gradedright/gradedwrong/gradedpartial…
+ */
 export type QuestionState = (typeof QUESTION_STATES)[number];
 
 export const GRADED_STATES: QuestionState[] = ['gradedright', 'gradedpartial', 'gradedwrong'];
@@ -34,9 +37,15 @@ const TRANSITIONS: Record<string, QuestionState[]> = {
   gradedright: [], gradedpartial: [], gradedwrong: [], gaveup: [], finished: [],
 };
 
+/**
+ * Kiểm tra chuyển trạng thái có hợp lệ trong máy trạng thái question attempt hay không.
+ */
 export function canTransition(from: string, to: QuestionState): boolean {
   return (TRANSITIONS[from] ?? []).includes(to);
 }
+/**
+ * Trạng thái đã kết thúc (không nhận thêm thao tác) hay chưa.
+ */
 export function isFinishedState(state: string): boolean {
   return GRADED_STATES.includes(state as QuestionState) || state === 'gaveup' || state === 'finished';
 }
@@ -54,6 +63,10 @@ export interface GradeOutcome {
 }
 
 /** Grade one response against a version's answer data. Pure and total. */
+/**
+ * Chấm một câu trả lời theo qtype (truefalse, multichoice, shortanswer, numerical, essay…): trả fraction 0..1 và trạng thái graded*; essay và các type cần người chấm trả needsgrading.
+ * Đối chiếu Moodle: question/type/<type>/question.php (grade_response).
+ */
 export function gradeAnswer(qtype: string, answerdata: Record<string, unknown>, response: string | null): GradeOutcome {
   if (qtype === 'truefalse') {
     const correct = answerdata.correct === true || answerdata.correct === 'true';
@@ -83,12 +96,19 @@ export function gradeAnswer(qtype: string, answerdata: Record<string, unknown>, 
  * attempt state and when grading happens. deferredfeedback: submitting only
  * records the response (complete/incomplete); grading happens at finish.
  */
+/**
+ * Hành vi tương tác của lượt làm (deferred feedback, immediate feedback…): quyết định trạng thái sau khi nộp và thời điểm công bố điểm — xem DeferredFeedbackBehaviour.
+ */
 export interface QuestionBehaviour {
   readonly name: string;
   stateAfterSubmit(response: string | null): QuestionState;
   gradeAtFinish(qtype: string, answerdata: Record<string, unknown>, response: string | null): GradeOutcome | null;
 }
 
+/**
+ * Hành vi phản hồi trì hoãn (deferred feedback): nộp bài chỉ ghi nhận đáp án,
+ * điểm và trạng thái graded* chỉ chốt khi kết thúc usage — khớp behaviour mặc định của quiz Moodle.
+ */
 export class DeferredFeedbackBehaviour implements QuestionBehaviour {
   readonly name = 'deferredfeedback';
   stateAfterSubmit(response: string | null): QuestionState {
@@ -105,6 +125,9 @@ export const BEHAVIOURS: Record<string, QuestionBehaviour> = {
 };
 
 /** Usage-level rollup: finished only when every started attempt reached a finished state. */
+/**
+ * Trạng thái tổng của một question usage suy từ các attempt: notstarted / inprogress / finished.
+ */
 export function usageState(attemptStates: string[]): 'notstarted' | 'inprogress' | 'finished' {
   if (attemptStates.length === 0 || attemptStates.every((s) => s === 'notstarted')) return 'notstarted';
   if (attemptStates.every((s) => isFinishedState(s))) return 'finished';

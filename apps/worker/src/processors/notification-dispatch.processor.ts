@@ -31,9 +31,15 @@ export interface NotificationDispatchResult {
  * the job's dedupekey (unique in notification_dispatch_log).
  */
 @Processor('notification-dispatch')
+/**
+ * Xử lý job phân phối notification ra kênh ngoài (email/popup) theo tuỳ chọn người nhận.
+ */
 export class NotificationDispatchProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<NotificationDispatchJobData>): Promise<NotificationDispatchResult> {
     const { userId, provider, channel, subject, dedupekey } = job.data;
     const [existing] = await this.db.select().from(notificationDispatchLog)

@@ -18,6 +18,9 @@ export type CategoryDeleteMode = 'moveup' | 'recursive';
 
 /** Registered by EnrolModule at bootstrap — keeps Courses → Enrol import-free (dependency inversion, cf. Availability registry). */
 export interface EnrolChecker {
+  /**
+   * User có enrolment đang hiệu lực trong khoá học hay không (ủy quyền cho enrol checker đã đăng ký để tránh vòng phụ thuộc module).
+   */
   isEnrolled(courseId: number, userId: number, opts?: { onlyActive?: boolean }): Promise<boolean>;
 }
 
@@ -38,14 +41,26 @@ export interface CourseContentView {
  * under its course — created through the AccessModule facade only.
  */
 @Injectable()
+/**
+ * Nghiệp vụ khoá học: category, course, section và course module, kèm kiểm tra truy cập.
+ * Quy tắc truy cập (đối chiếu Moodle lib/accesslib + course/lib.php): khoá học ẩn chỉ xem được khi có
+ * capability xem khoá ẩn; học viên phải có enrolment đang hiệu lực mới xem được nội dung;
+ * section/cm còn phải qua cây điều kiện availability mới được coi là khả dụng.
+ */
 export class CoursesService {
   private enrolChecker?: EnrolChecker;
   /** Registered by GradesModule: grade percentages (0-100) per user+course for availability 'grade' leaves. */
   private gradeProvider?: (userId: number, courseId: number) => Promise<Record<string, number>>;
 
+  /**
+   * Đăng ký provider điểm cho availability (module grades cắm vào khi khởi tạo).
+   */
   registerGradeProvider(fn: (userId: number, courseId: number) => Promise<Record<string, number>>): void {
     this.gradeProvider = fn;
   }
+  /**
+   * Điểm hiện tại của user phục vụ điều kiện availability theo điểm.
+   */
   async gradesForAvailability(userId: number, courseId: number): Promise<Record<string, number> | undefined> {
     return this.gradeProvider ? this.gradeProvider(userId, courseId) : undefined;
   }
@@ -60,24 +75,39 @@ export class CoursesService {
     private readonly emitter: EventEmitter2,
   ) {}
 
+  /**
+   * Đăng ký hàm kiểm tra enrolment (module enrol cắm vào).
+   */
   registerEnrolChecker(checker: EnrolChecker): void { this.enrolChecker = checker; }
 
   // --- context helpers -----------------------------------------------------
+  /**
+   * Context id của category (tạo context nếu chưa có).
+   */
   async categoryContextId(categoryId: number): Promise<number> {
     const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSECAT, categoryId);
     if (!ctx) throw new NotFoundException({ message: `No context for category ${categoryId}`, code: 'course.category_context_missing' });
     return ctx.id;
   }
+  /**
+   * Context id của khoá học.
+   */
   async courseContextId(courseId: number): Promise<number> {
     const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSE, courseId);
     if (!ctx) throw new NotFoundException({ message: `No context for course ${courseId}`, code: 'course.context_missing' });
     return ctx.id;
   }
+  /**
+   * Context id của course module.
+   */
   async cmContextId(cmId: number): Promise<number | undefined> {
     return (await this.contexts.getByLevelInstance(CONTEXT_LEVELS.MODULE, cmId))?.id;
   }
 
   // --- categories ------------------------------------------------------------
+  /**
+   * Tạo category (kiểm capability tại context cha, tính path).
+   */
   async createCategory(actorId: number, input: { name: string; idnumber?: string; description?: string; parent?: number; visible?: boolean }): Promise<CategoryRow> {
     const parent = input.parent ?? 0;
     let parentCtxId: number;
@@ -102,14 +132,23 @@ export class CoursesService {
     return { ...cat, path, depth };
   }
 
+  /**
+   * Lấy category; ném course.category_not_found khi vắng.
+   */
   async getCategory(id: number): Promise<CategoryRow> {
     const row = await this.repo.getCategory(id);
     if (!row) throw new NotFoundException({ message: `Category ${id} not found`, code: 'course.category_not_found' });
     return row;
   }
+  /**
+   * Liệt kê category.
+   */
   async listCategories(): Promise<CategoryRow[]> { return this.repo.listCategories(); }
 
   /** Category tree for UI: nested children arrays. */
+  /**
+   * Cây category kèm khoá học lồng bên trong.
+   */
   async categoryTree(): Promise<(CategoryRow & { children: unknown[] })[]> {
     const all = await this.repo.listCategories();
     const byId = new Map<number, CategoryRow & { children: unknown[] }>(all.map((c) => [c.id, { ...c, children: [] }]));
@@ -121,6 +160,9 @@ export class CoursesService {
     return roots;
   }
 
+  /**
+   * Cập nhật category; đổi cha sẽ viết lại path cây con.
+   */
   async updateCategory(actorId: number, id: number, input: { name?: string; idnumber?: string; description?: string; visible?: boolean; parent?: number }): Promise<CategoryRow> {
     const cat = await this.getCategory(id);
     await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
@@ -164,6 +206,9 @@ export class CoursesService {
    * courses to the deleted category's parent; 'recursive' deletes them.
    * Refuses (400) when the category is non-empty and no mode is given.
    */
+  /**
+   * Xoá category rỗng (còn khoá học/category con thì từ chối).
+   */
   async deleteCategory(actorId: number, id: number, mode?: CategoryDeleteMode): Promise<{ deleted: true; mode: CategoryDeleteMode | 'empty' }> {
     const cat = await this.getCategory(id);
     await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
@@ -206,6 +251,9 @@ export class CoursesService {
   }
 
   // --- courses ---------------------------------------------------------------
+  /**
+   * Tạo khoá học trong category, kèm context và category điểm gốc được tạo ở tầng grades qua hook.
+   */
   async createCourse(actorId: number, input: {
     fullname: string; shortname: string; category: number; idnumber?: string; summary?: string;
     format?: string; visible?: boolean; startdate?: string; enddate?: string; groupmode?: number;
@@ -248,20 +296,35 @@ export class CoursesService {
     return created;
   }
 
+  /**
+   * Lấy khoá học; ném course.not_found khi vắng.
+   */
   async getCourse(id: number): Promise<CourseRow> {
     const row = await this.repo.getCourse(id);
     if (!row) throw new NotFoundException({ message: `Course ${id} not found`, code: 'course.not_found' });
     return row;
   }
+  /**
+   * Tìm/liệt kê khoá học.
+   */
   async listCourses(categoryId?: number): Promise<CourseRow[]> { return this.repo.listCourses(categoryId); }
+  /**
+   * Tuỳ chọn định dạng của khoá học.
+   */
   async getFormatOptions(courseId: number): Promise<(typeof import('../../db/schema').courseFormatOptions.$inferSelect)[]> {
     return this.repo.listFormatOptions(courseId);
   }
+  /**
+   * Giá trị trường tuỳ biến của khoá học.
+   */
   async getCourseCustomFields(courseId: number): Promise<{ shortname: string; value: string | null }[]> {
     const values = await this.customFields.getValuesForInstance(COURSE_COMPONENT, COURSE_AREA, courseId);
     return values.map((v) => ({ shortname: v.field.shortname, value: v.value }));
   }
 
+  /**
+   * Cập nhật khoá học (shortname giữ duy nhất).
+   */
   async updateCourse(actorId: number, id: number, input: {
     fullname?: string; shortname?: string; category?: number; idnumber?: string; summary?: string;
     format?: string; visible?: boolean; startdate?: string | null; enddate?: string | null; groupmode?: number;
@@ -303,6 +366,9 @@ export class CoursesService {
     return this.getCourse(id);
   }
 
+  /**
+   * Xoá khoá học và dữ liệu phụ thuộc qua sự kiện/hook của các module khác.
+   */
   async deleteCourse(actorId: number, id: number): Promise<void> {
     const courseRow = await this.getCourse(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:delete', await this.courseContextId(id));
@@ -326,6 +392,9 @@ export class CoursesService {
    * A suspended enrolment therefore blocks even a user who holds the student
    * role — the role alone never opens the course.
    */
+  /**
+   * Cổng truy cập khoá học: ẩn + chưa enrol + thiếu capability → course.access_denied.
+   */
   async assertCourseAccess(userId: number, courseId: number): Promise<CourseRow> {
     const courseRow = await this.getCourse(courseId);
     if (await this.evaluator.isSiteAdmin(userId)) return courseRow;
@@ -338,12 +407,18 @@ export class CoursesService {
     throw new ForbiddenException({ message: 'User is not enrolled in this course (or the enrolment is not active)', code: 'course.not_enrolled' });
   }
 
+  /**
+   * User có capability xem hoạt động ẩn trong khoá học hay không.
+   */
   async canViewHiddenActivities(userId: number, courseId: number): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
     return this.evaluator.hasCapability(userId, 'moodle/course:viewhiddenactivities', await this.courseContextId(courseId));
   }
 
   // --- sections & modules ------------------------------------------------------
+  /**
+   * Thêm section vào khoá học.
+   */
   async createSection(actorId: number, courseId: number, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
     await this.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(courseId));
@@ -356,12 +431,21 @@ export class CoursesService {
       availability: (input.availability ?? null) as never,
     });
   }
+  /**
+   * Lấy section; ném course.section_not_found khi vắng.
+   */
   async getSection(id: number): Promise<SectionRow> {
     const row = await this.repo.getSection(id);
     if (!row) throw new NotFoundException({ message: `Section ${id} not found`, code: 'course.section_not_found' });
     return row;
   }
+  /**
+   * Liệt kê section của khoá học.
+   */
   async listSections(courseId: number): Promise<SectionRow[]> { return this.repo.listSections(courseId); }
+  /**
+   * Cập nhật section (gồm cây availability dạng JSON).
+   */
   async updateSection(actorId: number, id: number, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
     const section = await this.getSection(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(section.course));
@@ -374,6 +458,9 @@ export class CoursesService {
     if (Object.keys(patch).length) await this.repo.updateSection(id, patch);
     return this.getSection(id);
   }
+  /**
+   * Xoá section.
+   */
   async deleteSection(actorId: number, id: number): Promise<void> {
     const section = await this.getSection(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(section.course));
@@ -382,6 +469,9 @@ export class CoursesService {
     await this.repo.deleteSection(id);
   }
 
+  /**
+   * Thêm course module (hoạt động/tài nguyên) vào section.
+   */
   async createCm(actorId: number, courseId: number, input: {
     sectionId: number; component: string; instanceid?: number; name?: string; visible?: boolean; groupmode?: number;
     availability?: unknown; completion?: number; completionview?: boolean; completionusegrade?: boolean;
@@ -407,12 +497,21 @@ export class CoursesService {
     void courseRow;
     return cm;
   }
+  /**
+   * Lấy cm; ném course.module_not_found khi vắng.
+   */
   async getCm(id: number): Promise<CmRow> {
     const row = await this.repo.getCm(id);
     if (!row) throw new NotFoundException({ message: `Course module ${id} not found`, code: 'course.cm_not_found' });
     return row;
   }
+  /**
+   * Liệt kê cm của khoá học.
+   */
   async listCms(courseId: number): Promise<CmRow[]> { return this.repo.listCms(courseId); }
+  /**
+   * Cập nhật cm (gồm availability và completion kỳ vọng).
+   */
   async updateCm(actorId: number, id: number, input: {
     name?: string; visible?: boolean; groupmode?: number; availability?: unknown; completion?: number;
     completionview?: boolean; completionusegrade?: boolean; completionmanual?: boolean; completionexpected?: string | null; sectionId?: number;
@@ -456,6 +555,9 @@ export class CoursesService {
     await this.emitCmDeleted(cm);
     await this.repo.deleteCm(cm.id);
   }
+  /**
+   * Xoá cm và phát sự kiện để module liên quan dọn dữ liệu.
+   */
   async deleteCm(actorId: number, id: number): Promise<void> {
     const cm = await this.getCm(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(cm.course));
@@ -466,6 +568,9 @@ export class CoursesService {
    * Record that a user viewed a cm: enqueues the durable `cm_viewed` outbox
    * event AND delivers it in-process so CompletionModule's listener writes
    * the completionview state (handlers are idempotent).
+   */
+  /**
+   * Ghi nhận lượt xem cm — đầu vào của completion theo lượt xem.
    */
   async recordCmView(userId: number, cmId: number): Promise<CmRow> {
     const cm = await this.getCm(cmId);
@@ -478,6 +583,9 @@ export class CoursesService {
   }
 
   /** Server-side availability check for one cm (section availability AND cm availability must both pass). */
+  /**
+   * Đánh giá truy cập một cm: hiển thị (show) tách khỏi khả dụng (available) theo semantics availability của Moodle.
+   */
   async checkCmAccess(userId: number, cm: CmRow, grades?: Record<string, number>): Promise<{ available: boolean; visible: boolean; failedDescriptions: string[] }> {
     const resolvedGrades = grades ?? (this.gradeProvider ? await this.gradesForAvailability(userId, cm.course) : undefined);
     const ctx: AvailabilityContext = { userId, courseId: cm.course, grades: resolvedGrades };
@@ -498,6 +606,9 @@ export class CoursesService {
     return { available: r.available, visible: r.visible, failedDescriptions: r.failedDescriptions };
   }
 
+  /**
+   * Đánh giá truy cập một section theo cây availability của nó.
+   */
   async checkSectionAccess(userId: number, section: SectionRow, grades?: Record<string, number>): Promise<{ available: boolean; visible: boolean; failedDescriptions: string[] }> {
     if (!section.visible && !(await this.canViewHiddenActivities(userId, section.course))) {
       return { available: false, visible: false, failedDescriptions: [] };
@@ -508,6 +619,9 @@ export class CoursesService {
   }
 
   /** Full course-content view with per-item availability evaluated for THIS user; hidden-unavailable items are omitted. */
+  /**
+   * Dựng nội dung khoá học cho người xem: section + cm kèm kết quả availability đã đánh giá theo user.
+   */
   async getCourseContent(userId: number, courseId: number): Promise<CourseContentView> {
     const courseRow = await this.assertCourseAccess(userId, courseId);
     const sections = await this.repo.listSections(courseId);

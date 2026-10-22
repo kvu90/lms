@@ -10,6 +10,9 @@ import { addCommentSchema, addItemTagSchema, associateBlogPostSchema, createBlog
 
 @ApiTags('tags')
 @Controller({ path: 'tags', version: '1' })
+/**
+ * API thẻ: collection, area, gắn/gỡ tag cho item và tag liên quan.
+ */
 export class TagsController {
   constructor(private readonly tags: TagsService) {}
   @Get('areas')
@@ -36,6 +39,9 @@ export class TagsController {
 
 @ApiTags('comments')
 @Controller({ path: 'comments', version: '1' })
+/**
+ * API bình luận theo item/context.
+ */
 export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
   @Post()
@@ -55,6 +61,9 @@ export class CommentsController {
 
 @ApiTags('ratings')
 @Controller({ path: 'ratings', version: '1' })
+/**
+ * API đánh giá sao: chấm, tổng hợp và danh sách.
+ */
 export class RatingsController {
   constructor(private readonly ratings: RatingsService) {}
   @Post()
@@ -75,6 +84,9 @@ export class RatingsController {
 
 @ApiTags('blog')
 @Controller({ path: 'blog', version: '1' })
+/**
+ * API blog: bài viết và liên kết với khoá học/module.
+ */
 export class BlogController {
   constructor(private readonly blog: BlogService) {}
   @Post('posts')
@@ -111,6 +123,9 @@ export class BlogController {
 
 @ApiTags('notes')
 @Controller({ path: 'notes', version: '1' })
+/**
+ * API ghi chú khoá học về học viên.
+ */
 export class NotesController {
   constructor(private readonly notes: NotesService) {}
   @Post()

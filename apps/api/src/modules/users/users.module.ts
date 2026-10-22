@@ -14,4 +14,5 @@ import { UsersService } from './users.service';
   providers: [UsersRepository, UsersService, PasswordService],
   exports: [UsersService, PasswordService],
 })
+/** Module người dùng và mật khẩu. */
 export class UsersModule {}

@@ -12,6 +12,9 @@ import type { Database } from '../../db/database';
  * against the shared contract before it leaves the process.
  */
 @Injectable()
+/**
+ * Kiểm tra sức khoẻ hệ thống: SELECT 1 tới PostgreSQL và PING Redis, trả trạng thái tổng hợp cho /health.
+ */
 export class HealthService implements OnModuleDestroy {
   private readonly redis: Redis;
 
@@ -33,6 +36,9 @@ export class HealthService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Thực thi kiểm tra DB + Redis và dựng kết quả health.
+   */
   async check(): Promise<HealthStatus> {
     const database = await this.probe(async () => {
       await this.db.execute(sql`select 1`);
@@ -46,6 +52,9 @@ export class HealthService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * Đóng kết nối Redis khi module bị huỷ.
+   */
   async onModuleDestroy(): Promise<void> {
     this.redis.disconnect();
   }

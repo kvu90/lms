@@ -44,6 +44,12 @@ export interface CreateEventInput {
  *    provider) at fire time.
  */
 @Injectable()
+/**
+ * Nghiệp vụ lịch: sự kiện theo phạm vi (site/category/course/group/user), chuỗi lặp RRULE và exception từng occurrence.
+ * Đối chiếu Moodle: calendar/classes (calendar_event) và lib.php của calendar.
+ * Nguyên tắc hiển thị: user chỉ thấy sự kiện thuộc các phạm vi mình liên quan (khoá học đã enrol, nhóm của mình, sự kiện cá nhân/site);
+ * exception thay thế occurrence tương ứng của chuỗi thay vì tạo sự kiện độc lập.
+ */
 export class CalendarService {
   constructor(
     private readonly repo: CalendarRepository,
@@ -91,6 +97,9 @@ export class CalendarService {
     await this.evaluator.requireCapability(actorId, capability, await this.manageContextId(input));
   }
 
+  /**
+   * Tạo sự kiện (có thể kèm RRULE) tại một phạm vi.
+   */
   async createEvent(actorId: number, input: CreateEventInput): Promise<{ event: CalendarEventRow; occurrences: CalendarEventRow[] }> {
     if (!EVENT_TYPES.includes(input.eventtype)) {
       throw new BadRequestException({ message: `Unknown event type ${input.eventtype}`, code: 'calendar.bad_type' });
@@ -136,6 +145,9 @@ export class CalendarService {
     return { event: root!, occurrences };
   }
 
+  /**
+   * Lấy sự kiện; ném calendar.event_not_found khi vắng.
+   */
   async getEvent(id: number): Promise<CalendarEventRow> {
     const row = await this.repo.getEvent(id);
     if (!row) throw new NotFoundException({ message: `Calendar event ${id} not found`, code: 'calendar.event_not_found' });
@@ -143,6 +155,9 @@ export class CalendarService {
   }
 
   /** Create an exception: a replacement occurrence for one series instance. */
+  /**
+   * Tạo exception cho một occurrence của chuỗi lặp (đổi giờ/nội dung riêng lần đó).
+   */
   async createException(actorId: number, occurrenceId: number, input: { name?: string; timestart: string; description?: string }): Promise<CalendarEventRow> {
     const occurrence = await this.getEvent(occurrenceId);
     if (!occurrence.repeatid) throw new BadRequestException({ message: 'Only a series occurrence can have an exception', code: 'calendar.not_series' });
@@ -157,6 +172,9 @@ export class CalendarService {
     return exception;
   }
 
+  /**
+   * Xoá sự kiện (hoặc một occurrence qua exception tuỳ chọn).
+   */
   async deleteEvent(actorId: number, id: number): Promise<{ deleted: boolean; seriesDeleted: number }> {
     const event = await this.getEvent(id);
     await this.requireManage(actorId, { eventtype: event.eventtype, courseid: event.courseid || undefined, categoryid: event.categoryid || undefined, userid: event.userid || undefined });
@@ -180,6 +198,9 @@ export class CalendarService {
     return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'moodle/course:view', ctx, { excludeArchetypes: ['student'] });
   }
 
+  /**
+   * User có được thấy sự kiện này theo phạm vi của nó hay không.
+   */
   async isVisibleTo(event: CalendarEventRow, viewerId: number): Promise<boolean> {
     if (!event.visible) {
       // Hidden events are visible only to their managers.
@@ -213,6 +234,9 @@ export class CalendarService {
   }
 
   /** Events visible to the viewer in [from, to]; exception rows replace their occurrence. */
+  /**
+   * Sự kiện hiển thị cho user trong khoảng thời gian, đã mở rộng chuỗi lặp và áp exception.
+   */
   async listEventsForUser(viewerId: number, filter: { from?: string; to?: string; eventtype?: string }): Promise<CalendarEventRow[]> {
     const from = filter.from ? new Date(filter.from) : new Date(Date.now() - 31 * 86400_000);
     const to = filter.to ? new Date(filter.to) : new Date(Date.now() + 62 * 86400_000);
@@ -230,6 +254,9 @@ export class CalendarService {
   // --- reminders -----------------------------------------------------------------
 
   /** Schedule a reminder: a BullMQ delayed job; the worker notifies at fire time. */
+  /**
+   * Lên lịch nhắc trước sự kiện (worker calendar-reminder sẽ gửi notification đã dịch).
+   */
   async scheduleReminder(actorId: number, eventId: number, minutesBefore: number): Promise<{ eventId: number; userId: number; remindAt: string; delayMs: number }> {
     const event = await this.getEvent(eventId);
     if (!(await this.isVisibleTo(event, actorId))) {
@@ -246,6 +273,9 @@ export class CalendarService {
 
   // --- subscriptions ----------------------------------------------------------------
 
+  /**
+   * Đăng ký lịch ngoài theo URL .ics.
+   */
   async createSubscription(actorId: number, input: { name: string; url?: string; icsdata?: string; eventtype?: string; courseid?: number; categoryid?: number; pollinterval?: number }): Promise<CalendarSubscriptionRow> {
     const eventtype = input.eventtype ?? 'site';
     if (eventtype === 'site') {
@@ -264,10 +294,16 @@ export class CalendarService {
     return subscription;
   }
 
+  /**
+   * Subscription của user.
+   */
   async listSubscriptions(): Promise<CalendarSubscriptionRow[]> {
     return this.repo.listSubscriptions();
   }
 
+  /**
+   * Đưa yêu cầu nhập/đồng bộ subscription vào hàng đợi worker.
+   */
   async requestImport(actorId: number, subscriptionId: number): Promise<{ queued: boolean; subscriptionId: number }> {
     const sub = await this.repo.getSubscription(subscriptionId);
     if (!sub) throw new NotFoundException({ message: `Subscription ${subscriptionId} not found`, code: 'calendar.subscription_not_found' });

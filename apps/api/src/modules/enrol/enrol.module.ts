@@ -19,4 +19,5 @@ import { EnrolService } from './enrol.service';
   providers: [EnrolRepository, EnrolService],
   exports: [EnrolService],
 })
+/** Module ghi danh. */
 export class EnrolModule {}

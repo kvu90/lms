@@ -21,9 +21,15 @@ export interface CalendarImportResult { eventsimported: number; eventsskipped: n
  * tests/lib_test test_add_subscription).
  */
 @Processor('calendar-import')
+/**
+ * Xử lý job nhập lịch subscription: tải .ics, phân tích bằng domain/ics và đồng bộ sự kiện (không trùng theo uuid).
+ */
 export class CalendarImportProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
 
+  /**
+   * Xử lý một job của queue tương ứng.
+   */
   async process(job: Job<CalendarImportJobData>): Promise<CalendarImportResult> {
     const { subscriptionId } = job.data;
     const [sub] = await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.id, subscriptionId));

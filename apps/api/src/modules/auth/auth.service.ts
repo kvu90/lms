@@ -22,6 +22,12 @@ function hashToken(token: string): string { return createHash('sha256').update(t
  * every use; replaying a rotated-out token revokes the whole family.
  */
 @Injectable()
+/**
+ * Xác thực và vòng đời token: đăng nhập, refresh xoay vòng, đăng xuất, đổi mật khẩu, login-as.
+ * Đối chiếu Moodle: lib/moodlelib.php (authenticate_user_login, login_attempt_failed) và cơ chế session.
+ * Chính sách: khoá tạm thời sau nhiều lần thất bại liên tiếp (auth.locked_out); suspended/deleted không đăng nhập được;
+ * refresh token xoay theo family — tái sử dụng token cũ sẽ thu hồi cả family.
+ */
 export class AuthService {
   constructor(
     private readonly repo: AuthRepository,
@@ -35,6 +41,9 @@ export class AuthService {
   ) {}
 
   // --- lockout (authlib_test::test_lockout semantics) -----------------------
+  /**
+   * Username có đang bị khoá tạm thời do quá nhiều lần thất bại hay không.
+   */
   async isLockedOut(userId: number): Promise<boolean> {
     const threshold = this.config.get<number>('LOCKOUT_THRESHOLD') ?? 5;
     if (threshold <= 0) return false; // lockout disabled when threshold is 0 (Moodle behaviour)
@@ -50,6 +59,9 @@ export class AuthService {
     return Date.now() < thresholdHitAt + durationMin * 60_000;
   }
 
+  /**
+   * Kiểm tra username/mật khẩu và trạng thái tài khoản; trả user khi hợp lệ.
+   */
   async validateCredentials(username: string, password: string, ip?: string): Promise<UserRow> {
     const user = await this.users.getByUsername(username);
     if (!user || user.deleted) {
@@ -66,6 +78,9 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Đăng nhập bằng mật khẩu: kiểm lockout, ghi attempt, phát hành cặp token.
+   */
   async login(username: string, password: string, ip?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
     const user = await this.validateCredentials(username, password, ip);
     await this.users.recordLogin(user.id);
@@ -74,6 +89,9 @@ export class AuthService {
   }
 
   /** Issue a fresh refresh-token family + access token (used after the local strategy validated credentials). */
+  /**
+   * Phát hành access token (JWT) + refresh token mới trong một family.
+   */
   async issueTokensFor(user: UserRow): Promise<TokenPair> { return this.issueTokens(user); }
 
   private async issueTokens(user: UserRow): Promise<TokenPair> {
@@ -93,6 +111,9 @@ export class AuthService {
   }
 
   /** Rotation: the presented token must be the family's current token. Presenting the previous (rotated-out) token = reuse ⇒ revoke family. */
+  /**
+   * Xoay refresh token: token cũ chỉ dùng được một lần; tái sử dụng → thu hồi family (auth.token_reuse).
+   */
   async refresh(refreshToken: string): Promise<TokenPair> {
     const tokenHash = hashToken(refreshToken);
     const family = await this.repo.getFamilyByHash(tokenHash);
@@ -118,12 +139,18 @@ export class AuthService {
     return { accessToken, refreshToken: newRefresh, expiresIn: accessTtl };
   }
 
+  /**
+   * Đăng xuất: thu hồi family của refresh token hiện tại.
+   */
   async logout(refreshToken: string): Promise<void> {
     const family = await this.repo.getFamilyByHash(hashToken(refreshToken));
     if (family) await this.repo.revokeFamily(family.id);
   }
 
   /** Password change honours the policy; clearing forcePasswordChange is part of the first-login flow. */
+  /**
+   * Đổi mật khẩu: kiểm mật khẩu cũ + chính sách, sau đó thu hồi mọi phiên khác.
+   */
   async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
     const user = await this.users.getUser(userId);
     if (!(await this.users.verifyPassword(user, currentPassword))) {
@@ -140,6 +167,9 @@ export class AuthService {
    * user. The session records who logged in as whom; role assignments of the
    * admin are NOT carried over — evaluation always uses the target identity.
    */
+  /**
+   * Đăng nhập thay (login-as) cho quản trị/giáo viên có capability; phiên mang dấu vết người mạo danh.
+   */
   async loginAs(adminId: number, targetUserId: number): Promise<{ user: UserRow; tokens: TokenPair }> {
     const system = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(adminId, 'moodle/user:loginas', system.id);
@@ -151,12 +181,18 @@ export class AuthService {
   }
 
   // --- web sessions -----------------------------------------------------------
+  /**
+   * Đăng nhập kiểu session-cookie cho các luồng cần cookie (tương đương token login nhưng đặt cookie).
+   */
   async sessionLogin(username: string, password: string, oldSessionId?: string, ip?: string): Promise<{ sessionId: string; user: UserRow }> {
     const user = await this.validateCredentials(username, password, ip);
     await this.users.recordLogin(user.id);
     const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username });
     return { sessionId, user };
   }
+  /**
+   * User của session hiện tại; null nếu session không hợp lệ.
+   */
   async sessionUser(sessionId: string | undefined): Promise<UserRow> {
     if (!sessionId) throw new UnauthorizedException({ message: 'No session', code: 'auth.unauthenticated' });
     const session = await this.sessions.get(sessionId);
@@ -168,5 +204,8 @@ export class AuthService {
     }
     return user;
   }
+  /**
+   * Huỷ session hiện tại.
+   */
   async sessionLogout(sessionId: string | undefined): Promise<void> { if (sessionId) await this.sessions.destroy(sessionId); }
 }

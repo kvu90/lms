@@ -11,6 +11,10 @@ import { UsersService } from '../users/users.service';
  * initial site administrator (from env) with the manager role + siteadmins.
  */
 @Injectable()
+/**
+ * Gieo dữ liệu nền khi ứng dụng khởi động: context hệ thống, capability, role archetype, tài khoản guest và admin site.
+ * Idempotent — chạy lại không tạo trùng; thông tin admin lấy từ biến môi trường ADMIN_*.
+ */
 export class SeedService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeedService.name);
   constructor(
@@ -20,6 +24,9 @@ export class SeedService implements OnApplicationBootstrap {
     private readonly users: UsersService,
     private readonly config: ConfigService,
   ) {}
+  /**
+   * Điểm vào bootstrap: gieo context hệ thống, role mặc định, capability, guest và admin.
+   */
   async onApplicationBootstrap(): Promise<void> {
     await this.roles.seedDefaults();
     await this.users.ensureGuestUser();
