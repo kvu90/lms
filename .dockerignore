@@ -1,0 +1,8 @@
+.git
+.turbo
+**/.turbo
+node_modules
+**/node_modules
+**/dist
+apps/api/data
+*.log
