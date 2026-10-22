@@ -386,4 +386,99 @@ describe('Enrol & groups/cohorts', () => {
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
   });
+
+  // Group visibility modes (separate/visible) — business-gaps round.
+  // Oracles: MoodleDocs "Groups" (separate groups: each group can only see
+  // their own group, others are invisible; visible groups: each group works
+  // in their own group but can also see other groups — read-only) and Behat
+  // mod/assign/tests/behat/assign_group_override.feature ("A teacher without
+  // accessallgroups permission should only be able to add group override for
+  // groups that he/she is a member of, when the activity's group mode is
+  // 'separate groups'" — i.e. the separate-groups restriction is lifted by
+  // the staff capabilities accessallgroups/managegroups).
+  async function setupTwoGroups(groupmode: number) {
+    const { course, instance } = await setupCourse(groupmode);
+    const alice = await createUserViaApi(app, admin);
+    const bob = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, alice.id);
+    await enrolUser(app, admin, course.id, instance.id, bob.id);
+    const gA = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Alpha' });
+    const gB = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Beta' });
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${gA.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: alice.id });
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: bob.id });
+    const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
+    return { course, alice, bob, gA: gA.body, gB: gB.body, aliceLogin };
+  }
+
+  it('VISIBLE GROUPS: a student in group A sees BOTH groups and the members of group B, but write operations stay capability-gated (MoodleDocs Groups — visible groups are read-only for other groups)', async () => {
+    const { course, bob, gA, gB, aliceLogin } = await setupTwoGroups(2); // VISIBLEGROUPS
+    // Group list contains both groups.
+    const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+    // Members of the OTHER group are readable in visible mode.
+    const otherMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect(otherMembers.status).toBe(200);
+    expect((otherMembers.body as { userid: string }[]).map((m) => m.userid)).toContain(bob.id);
+    // The visible-members aggregate spans both groups.
+    const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((visibleMembers.body as { groupId: string }[]).map((r) => r.groupId).sort()).toEqual([gA.id, gB.id].sort());
+    // Read-only means read-only: adding a member to group B is still gated by moodle/course:managegroups.
+    const write = await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ userid: bob.id });
+    expect(write.status).toBe(403);
+    const create = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ name: 'Gamma' });
+    expect(create.status).toBe(403);
+  });
+
+  it('SEPARATE GROUPS applies to groupings too: a student only sees groupings containing her group, and only her group inside a shared grouping', async () => {
+    const { course, gA, gB, aliceLogin } = await setupTwoGroups(1); // SEPARATEGROUPS
+    const shared = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Both teams' });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gA.id });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gB.id });
+    const betaOnly = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Beta only' });
+    await http(app).post(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupid: gB.id });
+
+    // Grouping list: the Beta-only grouping is invisible to Alice.
+    const groupingList = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((groupingList.body as { id: string }[]).map((g) => g.id)).toEqual([shared.body.id]);
+    // Inside the shared grouping she only sees her own group.
+    const inShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect((inShared.body as { id: string }[]).map((g) => g.id)).toEqual([gA.id]);
+    // The Beta-only grouping yields no groups at all for her.
+    const inBetaOnly = await http(app).get(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    expect(inBetaOnly.body).toEqual([]);
+    // Admin sees both groupings and both groups inside the shared one.
+    const adminGroupings = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`);
+    expect((adminGroupings.body as unknown[]).length).toBe(2);
+    const adminInShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
+    expect((adminInShared.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+  });
+
+  it('a teacher with moodle/course:managegroups sees ALL groups and members in BOTH separate and visible mode, without being a group member', async () => {
+    for (const mode of [1, 2]) {
+      const { course, gA, gB } = await setupTwoGroups(mode);
+      const teacher = await createUserViaApi(app, admin);
+      const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
+      const editingTeacherRole = await roleIdByShortname(app, admin, 'editingteacher');
+      await assignRole(app, admin, teacher.id, editingTeacherRole, content.body.contextId);
+      const teacherLogin = await login(app, teacher.username, STRONG_PASSWORD);
+      const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
+      expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+      const membersB = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
+      expect(membersB.status).toBe(200);
+      expect((membersB.body as unknown[]).length).toBe(1);
+    }
+  });
+
+  it('groupmodeforce round-trips through course create/update and the course payload (Moodle course settings: "Force group mode" applies the course mode to every activity)', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id, { groupmode: 1, groupmodeforce: true }) as unknown as { id: string; groupmode: number; groupmodeforce: boolean };
+    expect(course.groupmode).toBe(1);
+    expect(course.groupmodeforce).toBe(true);
+    const patched = await http(app).patch(`/api/v1/courses/${course.id}`).set('Authorization', `Bearer ${admin}`).send({ groupmodeforce: false });
+    expect(patched.status).toBe(200);
+    expect(patched.body.groupmodeforce).toBe(false);
+    // Default stays off when not requested.
+    const plain = await createCourse(app, admin, cat.id) as unknown as { groupmodeforce: boolean };
+    expect(plain.groupmodeforce).toBe(false);
+  });
 });

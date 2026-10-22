@@ -30,7 +30,7 @@ export const courseCategories = pgTable('course_categories', {
   ]);
 
 
-/** Courses (Moodle `course`). groupmode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS. */
+/** Courses (Moodle `course`). groupmode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS; groupmodeforce=true ép chế độ nhóm của khoá lên mọi activity (bỏ qua groupmode riêng của course module). */
 export const course = pgTable('course', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   category: uuid('category').notNull().references(() => courseCategories.id, { onDelete: 'cascade' }),
@@ -43,6 +43,7 @@ export const course = pgTable('course', {
   startdate: timestamp('startdate', { withTimezone: true }),
   enddate: timestamp('enddate', { withTimezone: true }),
   groupmode: integer('groupmode').notNull().default(0),
+  groupmodeforce: boolean('groupmodeforce').notNull().default(false),
   enablecompletion: boolean('enablecompletion').notNull().default(true),
   sortorder: integer('sortorder').notNull().default(0),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),

@@ -14,8 +14,11 @@ import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } fro
  *
  * Separate groups is a DATA law, not a UI filter (report §2#6): when a
  * course (or cm) is in SEPARATEGROUPS mode, a user without
- * `moodle/group:accessallgroups` can only ever see their own groups and
- * their members — enforced here in the service for every read.
+ * `moodle/group:accessallgroups` (or `moodle/course:managegroups`, or site
+ * admin) can only ever see their own groups and their members — enforced
+ * here in the service for every read. VISIBLEGROUPS imposes no read
+ * restriction (writes stay capability-gated). A course with
+ * `groupmodeforce` forces its mode onto every cm surface.
  *
  * Cohort membership changes are published as outbox events
  * (cohort_member_added / cohort_member_removed); EnrolModule listens and
@@ -123,9 +126,36 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
+   * Người xem có đặc quyền thấy mọi nhóm của khoá học ở mọi chế độ hay không:
+   * site admin, hoặc có `moodle/group:accessallgroups`, hoặc có
+   * `moodle/course:managegroups` tại context khoá học (đối chiếu Moodle:
+   * người quản lý nhóm không bị luật separate groups giới hạn).
+   */
+  async canSeeAllGroups(actorId: string, courseId: string): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(actorId)) return true;
+    const ctxId = await this.courses.courseContextId(courseId);
+    if (await this.evaluator.hasCapability(actorId, 'moodle/group:accessallgroups', ctxId)) return true;
+    return this.evaluator.hasCapability(actorId, 'moodle/course:managegroups', ctxId);
+  }
+
+  /**
+   * Chế độ nhóm hiệu lực cho một bề mặt của khoá học: khi khoá bật
+   * `groupmodeforce`, chế độ của khoá thắng tuyệt đối và groupmode riêng
+   * của course module bị bỏ qua; ngược lại groupmode của cm (khác 0 =
+   * "inherit") được ưu tiên, cuối cùng mới tới chế độ của khoá.
+   */
+  effectiveGroupMode(courseRow: { groupmode: number; groupmodeforce: boolean }, cmGroupMode?: number): number {
+    if (courseRow.groupmodeforce) return courseRow.groupmode;
+    return cmGroupMode !== undefined && cmGroupMode !== 0 ? cmGroupMode : courseRow.groupmode;
+  }
+
+  /**
    * The groups visible to an actor in a course under the separate-groups law.
    * Effective mode: the cm's own groupmode when a cm is given and its mode is
-   * not "inherit" (0), otherwise the course groupmode.
+   * not "inherit" (0), otherwise the course groupmode — unless the course
+   * forces its mode (groupmodeforce), which overrides the cm entirely.
+   * VISIBLEGROUPS and NOGROUPS return every group; only SEPARATEGROUPS
+   * restricts a non-privileged actor to their own groups.
    */
   /**
    * Các nhóm user được phép thấy theo chế độ nhóm của khoá học.
@@ -133,11 +163,9 @@ export class GroupsService implements OnModuleInit {
   async visibleGroupsFor(actorId: string, courseId: string, cmGroupMode?: number): Promise<GroupRow[]> {
     const courseRow = await this.courses.getCourse(courseId);
     const all = await this.repo.listGroups(courseId);
-    const effectiveMode = cmGroupMode !== undefined && cmGroupMode !== 0 ? cmGroupMode : courseRow.groupmode;
+    const effectiveMode = this.effectiveGroupMode(courseRow, cmGroupMode);
     if (effectiveMode !== GROUPMODE_SEPARATEGROUPS) return all;
-    if (await this.evaluator.isSiteAdmin(actorId)) return all;
-    const ctxId = await this.courses.courseContextId(courseId);
-    if (await this.evaluator.hasCapability(actorId, 'moodle/group:accessallgroups', ctxId)) return all;
+    if (await this.canSeeAllGroups(actorId, courseId)) return all;
     return this.repo.groupsOfUser(courseId, actorId);
   }
 
@@ -250,9 +278,30 @@ export class GroupsService implements OnModuleInit {
     return row;
   }
   /**
-   * Liệt kê grouping.
+   * Liệt kê grouping của khoá học. Khi có `actorId`, luật separate groups
+   * áp dụng như với danh sách nhóm: người xem thường chỉ thấy các grouping
+   * chứa ít nhất một nhóm mình được phép thấy (grouping không chứa nhóm nào
+   * mình thấy được coi như không tồn tại); ở visible/no-groups hoặc khi có
+   * đặc quyền (xem `canSeeAllGroups`) thì thấy tất cả. Không truyền
+   * `actorId` là đường nội bộ giữa các module, trả về toàn bộ.
    */
-  async listGroupings(courseId: string): Promise<GroupingRow[]> { return this.repo.listGroupings(courseId); }
+  async listGroupings(courseId: string, actorId?: string): Promise<GroupingRow[]> {
+    const all = await this.repo.listGroupings(courseId);
+    if (!actorId || !all.length) return all;
+    await this.courses.assertCourseAccess(actorId, courseId).catch(async () => {
+      // Người quản lý nhóm được liệt kê dù chưa ghi danh (như listGroups).
+      await this.requireManageGroups(actorId, courseId);
+    });
+    const visible = await this.visibleGroupsFor(actorId, courseId);
+    if (visible.length === (await this.repo.listGroups(courseId)).length) return all;
+    const visibleIds = new Set(visible.map((g) => g.id));
+    const kept: GroupingRow[] = [];
+    for (const grouping of all) {
+      const groups = await this.repo.groupsInGrouping(grouping.id);
+      if (groups.some((g) => visibleIds.has(g.id))) kept.push(grouping);
+    }
+    return kept;
+  }
   /**
    * Xoá grouping.
    */
@@ -272,14 +321,21 @@ export class GroupsService implements OnModuleInit {
     await this.repo.addGroupToGrouping(groupingId, groupId);
   }
   /**
-   * Nhóm thuộc grouping; khi có `actorId`, khoá ghi danh bị che trừ khi người
-   * xem có capability quản lý nhóm của khoá chứa grouping.
+   * Nhóm thuộc grouping; khi có `actorId`, danh sách được lọc theo luật hiển
+   * thị nhóm của khoá chứa grouping (separate groups: chỉ còn nhóm người xem
+   * được phép thấy) và khoá ghi danh bị che trừ khi người xem có capability
+   * quản lý nhóm. Không truyền `actorId` là đường nội bộ (availability),
+   * trả về toàn bộ nhóm của grouping.
    */
   async groupsInGrouping(groupingId: string, actorId?: string): Promise<GroupRow[]> {
     const groups = await this.repo.groupsInGrouping(groupingId);
     if (!actorId || !groups.length) return groups;
-    if (await this.canManageGroups(actorId, groups[0]!.courseid)) return groups;
-    return groups.map((g) => this.hideGroupKey(g));
+    const courseId = groups[0]!.courseid;
+    const visible = await this.visibleGroupsFor(actorId, courseId);
+    const visibleIds = new Set(visible.map((g) => g.id));
+    const scoped = groups.filter((g) => visibleIds.has(g.id));
+    if (await this.canManageGroups(actorId, courseId)) return scoped;
+    return scoped.map((g) => this.hideGroupKey(g));
   }
 
   // --- cohorts -------------------------------------------------------------------

@@ -41,6 +41,8 @@ export const courseSchema = z.object({
   startdate: z.string().nullable(),
   enddate: z.string().nullable(),
   groupmode: z.number().int(),
+  /** Ép chế độ nhóm của khoá lên mọi activity (Moodle `groupmodeforce`); mặc định false cho payload cũ chưa mang trường này. */
+  groupmodeforce: z.boolean().default(false),
   enablecompletion: z.boolean(),
 });
 export type Course = z.infer<typeof courseSchema>;
@@ -179,6 +181,7 @@ export const createCourseSchema = z.strictObject({
   startdate: z.string().optional(),
   enddate: z.string().optional(),
   groupmode: z.number().int().optional(),
+  groupmodeforce: z.boolean().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
@@ -196,6 +199,7 @@ export const updateCourseSchema = z.strictObject({
   startdate: z.string().nullable().optional(),
   enddate: z.string().nullable().optional(),
   groupmode: z.number().int().optional(),
+  groupmodeforce: z.boolean().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });

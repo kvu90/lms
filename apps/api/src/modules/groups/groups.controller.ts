@@ -82,10 +82,10 @@ export class CourseGroupsController {
   }
   @Get(':courseId/groupings')
   /**
-   * GET /courses/:id/groupings — liệt kê grouping.
+   * GET /courses/:id/groupings — liệt kê grouping (đã lọc theo quyền nhìn thấy nhóm của người xem ở chế độ separate groups).
    */
-  async listGroupings(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.groups.listGroupings(courseId);
+  async listGroupings(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.groups.listGroupings(courseId, actor.id);
   }
   @Post(':courseId/groupings/:groupingId/groups')
   /**
