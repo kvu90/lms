@@ -11,7 +11,12 @@ import { EventsModule } from './infra/events/events.module';
 import { TasksModule } from './infra/tasks/tasks.module';
 import { AccessModule } from './modules/access/access.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
+import { CompletionModule } from './modules/completion/completion.module';
+import { CoursesModule } from './modules/courses/courses.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
+import { EnrolModule } from './modules/enrol/enrol.module';
+import { GroupsModule } from './modules/groups/groups.module';
 import { FilesModule } from './modules/files/files.module';
 import { HealthModule } from './modules/health/health.module';
 import { SeedModule } from './modules/seed/seed.module';
@@ -49,6 +54,11 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
     UsersModule,
     AuthModule,
     FilesModule,
+    AvailabilityModule,
+    CoursesModule,
+    GroupsModule,
+    EnrolModule,
+    CompletionModule,
     SeedModule,
   ],
   providers: [
