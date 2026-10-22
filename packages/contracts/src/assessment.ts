@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uuidIdSchema } from './ids.js';
 
 /** Assessment contracts — the single shape source between api and web for grades & questions. */
 
@@ -8,9 +9,9 @@ export const AGGREGATIONS = [
 export type Aggregation = (typeof AGGREGATIONS)[number];
 
 export const gradeCategorySchema = z.object({
-  id: z.number().int(),
-  courseid: z.number().int(),
-  parent: z.number().int().nullable(),
+  id: uuidIdSchema,
+  courseid: uuidIdSchema,
+  parent: uuidIdSchema.nullable(),
   fullname: z.string(),
   aggregation: z.string(),
   droplow: z.number().int(),
@@ -23,13 +24,13 @@ export const gradeCategorySchema = z.object({
 export type GradeCategory = z.infer<typeof gradeCategorySchema>;
 
 export const gradeItemSchema = z.object({
-  id: z.number().int(),
-  courseid: z.number().int(),
-  categoryid: z.number().int().nullable(),
+  id: uuidIdSchema,
+  courseid: uuidIdSchema,
+  categoryid: uuidIdSchema.nullable(),
   itemname: z.string(),
   itemtype: z.string(),
   itemmodule: z.string().nullable(),
-  iteminstance: z.number().int(),
+  iteminstance: uuidIdSchema,
   grademax: z.number(),
   grademin: z.number(),
   gradepass: z.number(),
@@ -44,9 +45,9 @@ export const gradeItemSchema = z.object({
 export type GradeItem = z.infer<typeof gradeItemSchema>;
 
 export const gradeGradeSchema = z.object({
-  id: z.number().int(),
-  itemid: z.number().int(),
-  userid: z.number().int(),
+  id: uuidIdSchema,
+  itemid: uuidIdSchema,
+  userid: uuidIdSchema,
   rawgrade: z.number().nullable(),
   finalgrade: z.number().nullable(),
   hidden: z.boolean(),
@@ -79,25 +80,25 @@ export const gradebookCategoryViewSchema: z.ZodType<GradebookCategoryView> = z.o
   children: z.lazy(() => z.array(gradebookCategoryViewSchema)),
 });
 export const gradebookSchema = z.object({
-  courseId: z.number().int(),
-  userId: z.number().int(),
+  courseId: uuidIdSchema,
+  userId: uuidIdSchema,
   categories: z.array(gradebookCategoryViewSchema),
   courseTotal: gradebookItemViewSchema.nullable(),
 });
 export type Gradebook = z.infer<typeof gradebookSchema>;
 
 export const gradeLetterSchema = z.object({
-  id: z.number().int(),
-  contextid: z.number().int(),
+  id: uuidIdSchema,
+  contextid: uuidIdSchema,
   lowerboundary: z.number(),
   letter: z.string(),
 });
 export type GradeLetter = z.infer<typeof gradeLetterSchema>;
 
 export const gradeReportSchema = z.object({
-  courseId: z.number().int(),
+  courseId: uuidIdSchema,
   rows: z.array(z.object({
-    userId: z.number().int(),
+    userId: uuidIdSchema,
     finalgrade: z.number().nullable(),
     letter: z.string().nullable(),
   })),
@@ -107,18 +108,18 @@ export type GradeReport = z.infer<typeof gradeReportSchema>;
 // --- Questions ---------------------------------------------------------------
 
 export const questionCategorySchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   info: z.string(),
-  parent: z.number().int().nullable(),
+  parent: uuidIdSchema.nullable(),
 });
 export type QuestionCategory = z.infer<typeof questionCategorySchema>;
 
 export const questionVersionSchema = z.object({
-  id: z.number().int(),
-  questionbankentryid: z.number().int(),
-  questionid: z.number().int(),
+  id: uuidIdSchema,
+  questionbankentryid: uuidIdSchema,
+  questionid: uuidIdSchema,
   version: z.number().int(),
   questiontext: z.string(),
   defaultmark: z.number(),
@@ -128,15 +129,15 @@ export type QuestionVersion = z.infer<typeof questionVersionSchema>;
 
 export const questionViewSchema = z.object({
   question: z.object({
-    id: z.number().int(),
-    category: z.number().int(),
+    id: uuidIdSchema,
+    category: uuidIdSchema,
     qtype: z.string(),
     name: z.string(),
   }),
   entry: z.object({
-    id: z.number().int(),
-    questioncategoryid: z.number().int(),
-    questionid: z.number().int(),
+    id: uuidIdSchema,
+    questioncategoryid: uuidIdSchema,
+    questionid: uuidIdSchema,
     latestversion: z.number().int(),
   }),
   latestVersion: questionVersionSchema,
@@ -149,17 +150,17 @@ export const QUESTION_STATES = [
 ] as const;
 
 export const questionAttemptSchema = z.object({
-  id: z.number().int(),
-  questionusageid: z.number().int(),
+  id: uuidIdSchema,
+  questionusageid: uuidIdSchema,
   slot: z.number().int(),
   behaviour: z.string(),
-  questionid: z.number().int(),
-  questionversionid: z.number().int().nullable(),
+  questionid: uuidIdSchema,
+  questionversionid: uuidIdSchema.nullable(),
   maxmark: z.number(),
   state: z.string(),
   fraction: z.number().nullable(),
   steps: z.array(z.object({
-    id: z.number().int(),
+    id: uuidIdSchema,
     sequencenumber: z.number().int(),
     state: z.string(),
     fraction: z.number().nullable(),
@@ -170,9 +171,9 @@ export type QuestionAttempt = z.infer<typeof questionAttemptSchema>;
 
 export const questionUsageSchema = z.object({
   usage: z.object({
-    id: z.number().int(),
+    id: uuidIdSchema,
     component: z.string(),
-    instanceid: z.number().int(),
+    instanceid: uuidIdSchema,
     preferredbehaviour: z.string(),
   }),
   state: z.string(),
@@ -185,7 +186,7 @@ export type QuestionUsage = z.infer<typeof questionUsageSchema>;
 /** Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại. */
 export const completionCriterionSchema = z.strictObject({
   criteriatype: z.string(),
-  moduleinstance: z.number().int().optional(),
+  moduleinstance: uuidIdSchema.optional(),
   date: z.string().optional(),
 });
 export type CompletionCriterion = z.infer<typeof completionCriterionSchema>;
@@ -199,7 +200,7 @@ export type SetCompletionCriteria = z.infer<typeof setCompletionCriteriaSchema>;
 
 /** Payload đánh dấu hoàn thành thủ công cho một course module. */
 export const markManualCompletionSchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
   complete: z.boolean(),
 });
 export type MarkManualCompletion = z.infer<typeof markManualCompletionSchema>;
@@ -207,7 +208,7 @@ export type MarkManualCompletion = z.infer<typeof markManualCompletionSchema>;
 /** Payload tạo hạng mục điểm (grade category). */
 export const createGradeCategorySchema = z.strictObject({
   fullname: z.string().min(1),
-  parentId: z.number().int().optional(),
+  parentId: uuidIdSchema.optional(),
   aggregation: z.string().optional(),
   droplow: z.number().int().optional(),
   keephigh: z.number().int().optional(),
@@ -224,7 +225,7 @@ export const updateGradeCategorySchema = z.strictObject({
   keephigh: z.number().int().optional(),
   aggregateonlygraded: z.boolean().optional(),
   hidden: z.boolean().optional(),
-  parentId: z.number().int().nullable().optional(),
+  parentId: uuidIdSchema.nullable().optional(),
 });
 export type UpdateGradeCategory = z.infer<typeof updateGradeCategorySchema>;
 
@@ -232,12 +233,12 @@ export type UpdateGradeCategory = z.infer<typeof updateGradeCategorySchema>;
 export const createGradeItemSchema = z.strictObject({
   itemname: z.string().min(1),
   itemtype: z.string().optional(),
-  categoryId: z.number().int().optional(),
-  cmId: z.number().int().optional(),
+  categoryId: uuidIdSchema.optional(),
+  cmId: uuidIdSchema.optional(),
   grademax: z.number().optional(),
   grademin: z.number().optional(),
   gradepass: z.number().optional(),
-  scaleId: z.number().int().optional(),
+  scaleId: uuidIdSchema.optional(),
   weightoverride: z.boolean().optional(),
   weight: z.number().optional(),
   extracredit: z.boolean().optional(),
@@ -250,7 +251,7 @@ export type CreateGradeItem = z.infer<typeof createGradeItemSchema>;
 /** Payload sửa mục điểm (mọi trường đều tuỳ chọn). */
 export const updateGradeItemSchema = z.strictObject({
   itemname: z.string().optional(),
-  categoryId: z.number().int().optional(),
+  categoryId: uuidIdSchema.optional(),
   grademax: z.number().optional(),
   grademin: z.number().optional(),
   gradepass: z.number().optional(),
@@ -266,7 +267,7 @@ export type UpdateGradeItem = z.infer<typeof updateGradeItemSchema>;
 
 /** Payload chấm điểm thô cho một người dùng; `rawgrade` nhận `null` để xoá điểm. */
 export const setGradeSchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
   rawgrade: z.number().nullable().optional(),
   feedback: z.string().optional(),
 });
@@ -308,15 +309,15 @@ export type CreateGradeScale = z.infer<typeof createGradeScaleSchema>;
 /** Payload tạo danh mục câu hỏi trong ngân hàng câu hỏi. */
 export const createQuestionCategorySchema = z.strictObject({
   name: z.string().min(1),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   info: z.string().optional(),
-  parent: z.number().int().optional(),
+  parent: uuidIdSchema.optional(),
 });
 export type CreateQuestionCategory = z.infer<typeof createQuestionCategorySchema>;
 
 /** Payload tạo câu hỏi; `answer` là dữ liệu đáp án dùng chung theo loại câu hỏi (truefalse: {correct}; shortanswer: {answers, casesensitive?}). */
 export const createQuestionSchema = z.strictObject({
-  categoryId: z.number().int(),
+  categoryId: uuidIdSchema,
   qtype: z.string().min(1),
   name: z.string().min(1),
   questiontext: z.string(),
@@ -336,7 +337,7 @@ export type UpdateQuestion = z.infer<typeof updateQuestionSchema>;
 
 /** Một slot trong một lượt sử dụng câu hỏi (question usage). */
 export const questionUsageSlotSchema = z.strictObject({
-  questionId: z.number().int(),
+  questionId: uuidIdSchema,
   maxmark: z.number().optional(),
 });
 export type QuestionUsageSlot = z.infer<typeof questionUsageSlotSchema>;
@@ -344,8 +345,8 @@ export type QuestionUsageSlot = z.infer<typeof questionUsageSlotSchema>;
 /** Payload tạo một lượt sử dụng câu hỏi (đề/bài làm) với danh sách slot. */
 export const createQuestionUsageSchema = z.strictObject({
   component: z.string().min(1),
-  instanceid: z.number().int().optional(),
-  contextid: z.number().int().optional(),
+  instanceid: uuidIdSchema.optional(),
+  contextid: uuidIdSchema.optional(),
   preferredbehaviour: z.string().optional(),
   slots: z.array(questionUsageSlotSchema),
 });

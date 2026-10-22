@@ -1,13 +1,14 @@
 import { z } from 'zod';
+import { uuidIdSchema } from './ids.js';
 
 /** Communication & Engagement contracts — shared shapes between api, worker-facing payloads and web. */
 
 /* ---- Messaging ---- */
 
 export const messageSchema = z.object({
-  id: z.number().int(),
-  conversationid: z.number().int(),
-  useridfrom: z.number().int(),
+  id: uuidIdSchema,
+  conversationid: uuidIdSchema,
+  useridfrom: uuidIdSchema,
   subject: z.string(),
   fullmessage: z.string(),
   timecreated: z.string(),
@@ -15,16 +16,16 @@ export const messageSchema = z.object({
 export type LmsMessage = z.infer<typeof messageSchema>;
 
 export const conversationSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   type: z.number().int(), // 1 individual, 2 group
   name: z.string().nullable(),
-  members: z.array(z.number().int()),
+  members: z.array(uuidIdSchema),
 });
 export type Conversation = z.infer<typeof conversationSchema>;
 
 export const notificationSchema = z.object({
-  id: z.number().int(),
-  useridto: z.number().int(),
+  id: uuidIdSchema,
+  useridto: uuidIdSchema,
   subject: z.string(),
   fullmessage: z.string(),
   eventtype: z.string(),
@@ -45,12 +46,12 @@ export type MessagePreference = z.infer<typeof messagePreferenceSchema>;
 
 export const CALENDAR_EVENT_TYPES = ['site', 'category', 'course', 'group', 'user'] as const;
 export const calendarEventSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   eventtype: z.enum(CALENDAR_EVENT_TYPES),
   timestart: z.string(),
   timeduration: z.number().int(),
-  repeatid: z.number().int(),
+  repeatid: uuidIdSchema,
   isexception: z.boolean(),
 });
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
@@ -58,7 +59,7 @@ export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 /* ---- Badges ---- */
 
 export const badgeSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   type: z.number().int(), // 1 site, 2 course
   status: z.number().int(), // 0 inactive, 1 active, 2 retired, 3 archived, 4 disabled
@@ -66,9 +67,9 @@ export const badgeSchema = z.object({
 export type Badge = z.infer<typeof badgeSchema>;
 
 export const issuedBadgeSchema = z.object({
-  id: z.number().int(),
-  badgeid: z.number().int(),
-  userid: z.number().int(),
+  id: uuidIdSchema,
+  badgeid: uuidIdSchema,
+  userid: uuidIdSchema,
   uniquehash: z.string(),
   dateissued: z.string(),
   dateexpire: z.string().nullable(),
@@ -80,18 +81,18 @@ export type IssuedBadge = z.infer<typeof issuedBadgeSchema>;
 
 export const PLAN_STATUSES = [0, 1, 2, 3, 4] as const; // draft, active, waitingforreview, inreview, complete
 export const learningPlanSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
-  userid: z.number().int(),
-  templateid: z.number().int().nullable(),
+  userid: uuidIdSchema,
+  templateid: uuidIdSchema.nullable(),
   status: z.number().int(),
 });
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
 
 export const userCompetencySchema = z.object({
-  id: z.number().int(),
-  userid: z.number().int(),
-  competencyid: z.number().int(),
+  id: uuidIdSchema,
+  userid: uuidIdSchema,
+  competencyid: uuidIdSchema,
   grade: z.number().int().nullable(),
   proficiency: z.boolean().nullable(),
   status: z.number().int(), // review: 0 none, 1 waiting, 2 inreview
@@ -101,17 +102,17 @@ export type UserCompetency = z.infer<typeof userCompetencySchema>;
 /* ---- Social ---- */
 
 export const tagSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   ordering: z.number().int(),
 });
 export type Tag = z.infer<typeof tagSchema>;
 
 export const commentSchema = z.object({
-  id: z.number().int(),
-  userid: z.number().int(),
+  id: uuidIdSchema,
+  userid: uuidIdSchema,
   content: z.string(),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
 });
 export type LmsComment = z.infer<typeof commentSchema>;
 
@@ -125,8 +126,8 @@ export const ratingAggregateSchema = z.object({
 export type RatingAggregate = z.infer<typeof ratingAggregateSchema>;
 
 export const blogPostSchema = z.object({
-  id: z.number().int(),
-  userid: z.number().int(),
+  id: uuidIdSchema,
+  userid: uuidIdSchema,
   subject: z.string(),
   content: z.string(),
   publishstate: z.enum(['draft', 'site']),
@@ -134,10 +135,10 @@ export const blogPostSchema = z.object({
 export type BlogPost = z.infer<typeof blogPostSchema>;
 
 export const noteSchema = z.object({
-  id: z.number().int(),
-  userid: z.number().int(), // subject user
-  courseid: z.number().int(),
-  createdby: z.number().int(),
+  id: uuidIdSchema,
+  userid: uuidIdSchema, // subject user
+  courseid: uuidIdSchema,
+  createdby: uuidIdSchema,
   content: z.string(),
   publishstate: z.enum(['draft', 'public', 'site']),
 });
@@ -148,7 +149,7 @@ export type Note = z.infer<typeof noteSchema>;
 /** Payload tạo cuộc hội thoại: type 1 = cá nhân, 2 = nhóm. */
 export const createConversationSchema = z.strictObject({
   type: z.number().int().optional(),
-  memberIds: z.array(z.number().int()),
+  memberIds: z.array(uuidIdSchema),
   name: z.string().optional(),
 });
 export type CreateConversation = z.infer<typeof createConversationSchema>;
@@ -171,7 +172,7 @@ export type SetMessagePreference = z.infer<typeof setMessagePreferenceSchema>;
 
 /** Payload phát thông báo hệ thống tới một người dùng. */
 export const notifyUserSchema = z.strictObject({
-  userId: z.number().int(),
+  userId: uuidIdSchema,
   provider: z.string().min(1),
   subject: z.string().min(1),
   body: z.string().min(1),
@@ -192,9 +193,9 @@ export const createCalendarEventSchema = z.strictObject({
   name: z.string().min(1),
   description: z.string().optional(),
   eventtype: z.enum(['site', 'category', 'course', 'group', 'user']),
-  courseid: z.number().int().optional(),
-  groupid: z.number().int().optional(),
-  categoryid: z.number().int().optional(),
+  courseid: uuidIdSchema.optional(),
+  groupid: uuidIdSchema.optional(),
+  categoryid: uuidIdSchema.optional(),
   timestart: z.string(),
   timeduration: z.number().int().optional(),
   location: z.string().optional(),
@@ -216,8 +217,8 @@ export const createCalendarSubscriptionSchema = z.strictObject({
   url: z.string().optional(),
   icsdata: z.string().optional(),
   eventtype: z.enum(['site', 'category', 'course', 'group', 'user']).optional(),
-  courseid: z.number().int().optional(),
-  categoryid: z.number().int().optional(),
+  courseid: uuidIdSchema.optional(),
+  categoryid: uuidIdSchema.optional(),
   pollinterval: z.number().int().optional(),
 });
 export type CreateCalendarSubscription = z.infer<typeof createCalendarSubscriptionSchema>;
@@ -233,7 +234,7 @@ export const createBadgeSchema = z.strictObject({
   name: z.string().min(1),
   description: z.string().optional(),
   type: z.number().int().optional(),
-  courseid: z.number().int().optional(),
+  courseid: uuidIdSchema.optional(),
   issuername: z.string().optional(),
   issuerurl: z.string().optional(),
   issuercontact: z.string().optional(),
@@ -275,7 +276,7 @@ export type SetBadgeCriteria = z.infer<typeof setBadgeCriteriaSchema>;
 
 /** Payload mang một userId (cấp tay / đánh giá huy hiệu cho một người dùng). */
 export const badgeUserSchema = z.strictObject({
-  userId: z.number().int(),
+  userId: uuidIdSchema,
 });
 export type BadgeUser = z.infer<typeof badgeUserSchema>;
 
@@ -301,13 +302,13 @@ export const createCompetencySchema = z.strictObject({
   shortname: z.string().min(1),
   idnumber: z.string().optional(),
   description: z.string().optional(),
-  parentId: z.number().int().optional(),
+  parentId: uuidIdSchema.optional(),
 });
 export type CreateCompetency = z.infer<typeof createCompetencySchema>;
 
 /** Payload liên kết competency với một course module kèm kết quả áp dụng (rule outcome). */
 export const linkCompetencySchema = z.strictObject({
-  competencyId: z.number().int(),
+  competencyId: uuidIdSchema,
   ruleoutcome: z.string(),
 });
 export type LinkCompetency = z.infer<typeof linkCompetencySchema>;
@@ -322,31 +323,31 @@ export type CreateLearningPlanTemplate = z.infer<typeof createLearningPlanTempla
 
 /** Payload gắn một competency vào template. */
 export const addTemplateCompetencySchema = z.strictObject({
-  competencyId: z.number().int(),
+  competencyId: uuidIdSchema,
 });
 export type AddTemplateCompetency = z.infer<typeof addTemplateCompetencySchema>;
 
 /** Payload gắn một cohort vào template (sinh plan cho cả cohort ở tầng nghiệp vụ). */
 export const addTemplateCohortSchema = z.strictObject({
-  cohortId: z.number().int(),
+  cohortId: uuidIdSchema,
 });
 export type AddTemplateCohort = z.infer<typeof addTemplateCohortSchema>;
 
 /** Payload tạo kế hoạch học tập (từ template hoặc tự do). */
 export const createLearningPlanSchema = z.strictObject({
-  userId: z.number().int().optional(),
+  userId: uuidIdSchema.optional(),
   name: z.string().min(1),
   description: z.string().optional(),
-  templateId: z.number().int().optional(),
+  templateId: uuidIdSchema.optional(),
 });
 export type CreateLearningPlan = z.infer<typeof createLearningPlanSchema>;
 
 /** Payload nộp bằng chứng (evidence) cho một competency. */
 export const addCompetencyEvidenceSchema = z.strictObject({
-  userId: z.number().int(),
-  competencyId: z.number().int(),
-  planId: z.number().int().optional(),
-  courseId: z.number().int().optional(),
+  userId: uuidIdSchema,
+  competencyId: uuidIdSchema,
+  planId: uuidIdSchema.optional(),
+  courseId: uuidIdSchema.optional(),
   description: z.string().min(1),
   url: z.string().optional(),
   grade: z.number().int().optional(),
@@ -357,10 +358,10 @@ export type AddCompetencyEvidence = z.infer<typeof addCompetencyEvidenceSchema>;
 
 /** Payload chấm mức đạt cho competency của một người dùng. */
 export const gradeUserCompetencySchema = z.strictObject({
-  userId: z.number().int(),
-  competencyId: z.number().int(),
-  planId: z.number().int().optional(),
-  courseId: z.number().int().optional(),
+  userId: uuidIdSchema,
+  competencyId: uuidIdSchema,
+  planId: uuidIdSchema.optional(),
+  courseId: uuidIdSchema.optional(),
   grade: z.number().int(),
   note: z.string().optional(),
 });
@@ -389,8 +390,8 @@ export type NumericValue = z.infer<typeof numericValueSchema>;
 export const setItemTagsSchema = z.strictObject({
   component: z.string(),
   itemtype: z.string(),
-  itemid: z.number().int(),
-  contextid: z.number().int(),
+  itemid: uuidIdSchema,
+  contextid: uuidIdSchema,
   tags: z.array(z.string()),
 });
 export type SetItemTags = z.infer<typeof setItemTagsSchema>;
@@ -399,28 +400,28 @@ export type SetItemTags = z.infer<typeof setItemTagsSchema>;
 export const addItemTagSchema = z.strictObject({
   component: z.string(),
   itemtype: z.string(),
-  itemid: z.number().int(),
-  contextid: z.number().int(),
+  itemid: uuidIdSchema,
+  contextid: uuidIdSchema,
   tag: z.string().min(1),
 });
 export type AddItemTag = z.infer<typeof addItemTagSchema>;
 
 /** Payload thêm bình luận vào một item trong một context. */
 export const addCommentSchema = z.strictObject({
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   component: z.string(),
   commentarea: z.string(),
-  itemid: z.number().int(),
+  itemid: uuidIdSchema,
   content: z.string().min(1),
 });
 export type AddComment = z.infer<typeof addCommentSchema>;
 
 /** Payload chấm điểm (rating) cho một item theo một thang (scale). */
 export const rateItemSchema = z.strictObject({
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   component: z.string(),
   ratingarea: z.string(),
-  itemid: z.number().int(),
+  itemid: uuidIdSchema,
   scaleid: z.number().int(),
   rating: z.number().int(),
 });
@@ -447,16 +448,16 @@ export type UpdateBlogPost = z.infer<typeof updateBlogPostSchema>;
 /** Payload liên kết bài blog với một khoá học hoặc course module. */
 export const associateBlogPostSchema = z.strictObject({
   assoctype: z.enum(['course', 'coursemodule']),
-  associd: z.number().int(),
+  associd: uuidIdSchema,
 });
 export type AssociateBlogPost = z.infer<typeof associateBlogPostSchema>;
 
 /** Payload tạo ghi chú (note) về một người dùng: publishstate draft | public | site. */
 export const createNoteSchema = z.strictObject({
-  userid: z.number().int(),
-  courseid: z.number().int().optional(),
+  userid: uuidIdSchema,
+  courseid: uuidIdSchema.optional(),
   content: z.string().min(1),
   publishstate: z.enum(['draft', 'public', 'site']).optional(),
-  groupid: z.number().int().optional(),
+  groupid: uuidIdSchema.optional(),
 });
 export type CreateNote = z.infer<typeof createNoteSchema>;

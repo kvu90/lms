@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uuidIdSchema } from './ids.js';
 
 /** Identity & Access contracts — the single shape source between api and web. */
 
@@ -11,7 +12,7 @@ export type TokenPair = z.infer<typeof tokenPairSchema>;
 
 export const loginResponseSchema = tokenPairSchema.extend({
   user: z.object({
-    id: z.number().int(),
+    id: uuidIdSchema,
     username: z.string().min(1),
     forcePasswordChange: z.boolean(),
   }),
@@ -28,7 +29,7 @@ export type CustomFieldValue = z.infer<typeof customFieldValueSchema>;
 
 /** Profile view: `email` is an identity field — absent unless the viewer holds moodle/site:viewuseridentity (or is the owner/admin). */
 export const userProfileSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   username: z.string(),
   firstname: z.string(),
   lastname: z.string(),
@@ -52,7 +53,7 @@ export const userListResponseSchema = z.object({
 export type UserListResponse = z.infer<typeof userListResponseSchema>;
 
 export const roleSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   shortname: z.string(),
   description: z.string(),
@@ -61,7 +62,7 @@ export const roleSchema = z.object({
 export type Role = z.infer<typeof roleSchema>;
 
 export const capabilitySchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   captype: z.string(),
   contextlevel: z.number().int(),
@@ -78,8 +79,8 @@ export const CAP = { PROHIBIT: -1000, PREVENT: -1, INHERIT: 0, ALLOW: 1 } as con
 /** Payload tạo context truy cập (cây context của hệ thống phân quyền). */
 export const createContextSchema = z.strictObject({
   contextlevel: z.number().int(),
-  instanceid: z.number().int(),
-  parentId: z.number().int().optional(),
+  instanceid: uuidIdSchema,
+  parentId: uuidIdSchema.optional(),
 });
 export type CreateContext = z.infer<typeof createContextSchema>;
 
@@ -101,26 +102,26 @@ export type UpdateRole = z.infer<typeof updateRoleSchema>;
 
 /** Payload gán role cho người dùng trong một context. */
 export const assignRoleSchema = z.strictObject({
-  userid: z.number().int(),
-  roleid: z.number().int(),
-  contextid: z.number().int(),
+  userid: uuidIdSchema,
+  roleid: uuidIdSchema,
+  contextid: uuidIdSchema,
 });
 export type AssignRole = z.infer<typeof assignRoleSchema>;
 
 /** Payload ghi đè quyền (capability override) của một role trong một context. */
 export const overrideCapabilitySchema = z.strictObject({
-  roleid: z.number().int(),
+  roleid: uuidIdSchema,
   capability: z.string(),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   permission: z.number().int(),
 });
 export type OverrideCapability = z.infer<typeof overrideCapabilitySchema>;
 
 /** Query kiểm tra quyền: người dùng có capability trong context hay không (dạng nền — phía server ép kiểu từ query string). */
 export const hasCapabilityQuerySchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
   capability: z.string(),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
 });
 export type HasCapabilityQuery = z.infer<typeof hasCapabilityQuerySchema>;
 
@@ -183,7 +184,7 @@ export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
 /** Payload đăng nhập thay (login-as) — chỉ quản trị viên có quyền mới dùng được. */
 export const loginAsSchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
 });
 export type LoginAs = z.infer<typeof loginAsSchema>;
 
@@ -197,7 +198,7 @@ export type CreateCustomFieldCategory = z.infer<typeof createCustomFieldCategory
 
 /** Payload tạo trường tuỳ chỉnh; `configdata` là cấu hình riêng theo loại trường. */
 export const createCustomFieldSchema = z.strictObject({
-  categoryid: z.number().int(),
+  categoryid: uuidIdSchema,
   shortname: z.string(),
   name: z.string(),
   type: z.string(),

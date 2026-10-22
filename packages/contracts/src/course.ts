@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { uuidIdSchema } from './ids.js';
 
 /** Course & Enrolment contracts — the single shape source between api and web. */
 
@@ -7,11 +8,11 @@ export const ENROL_STATUS = { ACTIVE: 0, SUSPENDED: 1, WITHDRAWN: 2 } as const;
 export const COMPLETION_STATE = { INCOMPLETE: 0, COMPLETE: 1, COMPLETE_PASS: 2, COMPLETE_FAIL: 3 } as const;
 
 export const courseCategorySchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   idnumber: z.string().nullable(),
   description: z.string(),
-  parent: z.number().int(),
+  parent: uuidIdSchema.nullable(),
   sortorder: z.number().int(),
   path: z.string(),
   depth: z.number().int(),
@@ -29,8 +30,8 @@ export const courseCategoryTreeNodeSchema: z.ZodType<CourseCategoryTreeNode> = c
 export const courseCategoryTreeSchema = z.array(courseCategoryTreeNodeSchema);
 
 export const courseSchema = z.object({
-  id: z.number().int(),
-  category: z.number().int(),
+  id: uuidIdSchema,
+  category: uuidIdSchema,
   fullname: z.string(),
   shortname: z.string(),
   idnumber: z.string(),
@@ -52,25 +53,25 @@ export const availabilityResultSchema = z.object({
 export type AvailabilityResult = z.infer<typeof availabilityResultSchema>;
 
 export const courseModuleSchema = z.object({
-  id: z.number().int(),
-  course: z.number().int(),
-  section: z.number().int(),
+  id: uuidIdSchema,
+  course: uuidIdSchema,
+  section: uuidIdSchema,
   component: z.string(),
-  instanceid: z.number().int(),
+  instanceid: uuidIdSchema,
   name: z.string(),
   visible: z.boolean(),
   groupmode: z.number().int(),
   availability: z.unknown().nullable(),
   completion: z.number().int(),
   completionview: z.boolean(),
-  contextId: z.number().int().optional(),
+  contextId: uuidIdSchema.optional(),
   availabilityResult: availabilityResultSchema.optional(),
 });
 export type CourseModule = z.infer<typeof courseModuleSchema>;
 
 export const courseSectionSchema = z.object({
-  id: z.number().int(),
-  course: z.number().int(),
+  id: uuidIdSchema,
+  course: uuidIdSchema,
   section: z.number().int(),
   name: z.string().nullable(),
   summary: z.string(),
@@ -83,15 +84,15 @@ export type CourseSection = z.infer<typeof courseSectionSchema>;
 
 export const courseContentSchema = z.object({
   course: courseSchema,
-  contextId: z.number().int(),
+  contextId: uuidIdSchema,
   customFields: z.array(z.object({ shortname: z.string(), value: z.string().nullable() })),
   sections: z.array(courseSectionSchema),
 });
 export type CourseContent = z.infer<typeof courseContentSchema>;
 
 export const courseGroupSchema = z.object({
-  id: z.number().int(),
-  courseid: z.number().int(),
+  id: uuidIdSchema,
+  courseid: uuidIdSchema,
   name: z.string(),
   idnumber: z.string(),
   description: z.string(),
@@ -99,32 +100,32 @@ export const courseGroupSchema = z.object({
 export type CourseGroup = z.infer<typeof courseGroupSchema>;
 
 export const cohortSchema = z.object({
-  id: z.number().int(),
+  id: uuidIdSchema,
   name: z.string(),
   idnumber: z.string(),
   description: z.string(),
-  contextid: z.number().int(),
+  contextid: uuidIdSchema,
   visible: z.boolean(),
 });
 export type Cohort = z.infer<typeof cohortSchema>;
 
 export const enrolInstanceSchema = z.object({
-  id: z.number().int(),
-  courseid: z.number().int(),
+  id: uuidIdSchema,
+  courseid: uuidIdSchema,
   enrol: z.string(),
   status: z.number().int(),
   name: z.string().nullable(),
-  roleid: z.number().int().nullable(),
-  customint1: z.number().int(),
-  customint2: z.number().int(),
+  roleid: uuidIdSchema.nullable(),
+  customint1: uuidIdSchema,
+  customint2: uuidIdSchema,
   customtext1: z.string(),
 });
 export type EnrolInstance = z.infer<typeof enrolInstanceSchema>;
 
 export const userEnrolmentSchema = z.object({
-  id: z.number().int(),
-  enrolid: z.number().int(),
-  userid: z.number().int(),
+  id: uuidIdSchema,
+  enrolid: uuidIdSchema,
+  userid: uuidIdSchema,
   status: z.number().int(),
   timestart: z.string(),
   timeend: z.string().nullable(),
@@ -133,9 +134,9 @@ export const userEnrolmentSchema = z.object({
 export type UserEnrolment = z.infer<typeof userEnrolmentSchema>;
 
 export const courseCompletionSchema = z.object({
-  id: z.number().int(),
-  userid: z.number().int(),
-  course: z.number().int(),
+  id: uuidIdSchema,
+  userid: uuidIdSchema,
+  course: uuidIdSchema,
   status: z.string(),
   timecompleted: z.string().nullable(),
 });
@@ -151,7 +152,7 @@ export const createCourseCategorySchema = z.strictObject({
   name: z.string().min(1),
   idnumber: z.string().optional(),
   description: z.string().optional(),
-  parent: z.number().int().optional(),
+  parent: uuidIdSchema.optional(),
   visible: z.boolean().optional(),
 });
 export type CreateCourseCategory = z.infer<typeof createCourseCategorySchema>;
@@ -164,7 +165,7 @@ export type UpdateCourseCategory = z.infer<typeof updateCourseCategorySchema>;
 export const createCourseSchema = z.strictObject({
   fullname: z.string().min(1),
   shortname: z.string().min(1),
-  category: z.number().int(),
+  category: uuidIdSchema,
   idnumber: z.string().optional(),
   summary: z.string().optional(),
   format: z.string().optional(),
@@ -181,7 +182,7 @@ export type CreateCourse = z.infer<typeof createCourseSchema>;
 export const updateCourseSchema = z.strictObject({
   fullname: z.string().optional(),
   shortname: z.string().optional(),
-  category: z.number().int().optional(),
+  category: uuidIdSchema.optional(),
   idnumber: z.string().optional(),
   summary: z.string().optional(),
   format: z.string().optional(),
@@ -209,9 +210,9 @@ export type UpdateCourseSection = z.infer<typeof updateCourseSectionSchema>;
 
 /** Payload tạo course module trong một section. */
 export const createCourseModuleSchema = z.strictObject({
-  sectionId: z.number().int(),
+  sectionId: uuidIdSchema,
   component: z.string().min(1),
-  instanceid: z.number().int().optional(),
+  instanceid: uuidIdSchema.optional(),
   name: z.string().optional(),
   visible: z.boolean().optional(),
   groupmode: z.number().int().optional(),
@@ -235,7 +236,7 @@ export const updateCourseModuleSchema = z.strictObject({
   completionusegrade: z.boolean().optional(),
   completionmanual: z.boolean().optional(),
   completionexpected: z.string().nullable().optional(),
-  sectionId: z.number().int().optional(),
+  sectionId: uuidIdSchema.optional(),
 });
 export type UpdateCourseModule = z.infer<typeof updateCourseModuleSchema>;
 
@@ -253,7 +254,7 @@ export type UpdateGroup = z.infer<typeof updateGroupSchema>;
 
 /** Payload thêm thành viên vào nhóm/cohort. */
 export const groupMemberSchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
 });
 export type GroupMember = z.infer<typeof groupMemberSchema>;
 
@@ -267,7 +268,7 @@ export type CreateGrouping = z.infer<typeof createGroupingSchema>;
 
 /** Payload gắn một nhóm vào grouping. */
 export const groupingGroupSchema = z.strictObject({
-  groupid: z.number().int(),
+  groupid: uuidIdSchema,
 });
 export type GroupingGroup = z.infer<typeof groupingGroupSchema>;
 
@@ -276,7 +277,7 @@ export const createCohortSchema = z.strictObject({
   name: z.string().min(1),
   idnumber: z.string().optional(),
   description: z.string().optional(),
-  categoryId: z.number().int().optional(),
+  categoryId: uuidIdSchema.optional(),
   visible: z.boolean().optional(),
 });
 export type CreateCohort = z.infer<typeof createCohortSchema>;
@@ -297,12 +298,12 @@ export const createEnrolInstanceSchema = z.strictObject({
   roleShortname: z.string().optional(),
   status: z.number().int().optional(),
   enrolperiod: z.number().int().optional(),
-  cohortId: z.number().int().optional(),
-  groupId: z.number().int().optional(),
+  cohortId: uuidIdSchema.optional(),
+  groupId: uuidIdSchema.optional(),
   onCohortLeave: z.enum(['suspend', 'unenrol']).optional(),
   cost: z.number().int().optional(),
   currency: z.string().optional(),
-  paymentAccountId: z.number().int().optional(),
+  paymentAccountId: uuidIdSchema.optional(),
 });
 export type CreateEnrolInstance = z.infer<typeof createEnrolInstanceSchema>;
 
@@ -312,13 +313,13 @@ export const updateEnrolInstanceSchema = z.strictObject({
   status: z.number().int().optional(),
   enrolperiod: z.number().int().optional(),
   onCohortLeave: z.enum(['suspend', 'unenrol']).optional(),
-  groupId: z.number().int().optional(),
+  groupId: uuidIdSchema.optional(),
 });
 export type UpdateEnrolInstance = z.infer<typeof updateEnrolInstanceSchema>;
 
 /** Payload ghi danh một người dùng qua enrol instance. */
 export const enrolUserSchema = z.strictObject({
-  userid: z.number().int(),
+  userid: uuidIdSchema,
   timestart: z.string().optional(),
   timeend: z.string().optional(),
 });
