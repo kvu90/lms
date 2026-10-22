@@ -7,7 +7,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
+import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
+import { CompletionRecalculateProcessor } from './processors/completion-recalculate.processor';
+import { EnrolExpiryProcessor } from './processors/enrol-expiry.processor';
 import { FileCleanupProcessor } from './processors/file-cleanup.processor';
 import { SampleProcessor } from './processors/sample.processor';
 
@@ -32,9 +35,11 @@ import { SampleProcessor } from './processors/sample.processor';
     }),
     BullModule.registerQueue({ name: 'sample' }),
     BullModule.registerQueue({ name: 'file-cleanup' }),
+    BullModule.registerQueue({ name: 'enrol-expiry' }),
+    BullModule.registerQueue({ name: 'completion-recalculate' }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, EnrolExpiryScheduler],
 })
 export class WorkerModule {}
