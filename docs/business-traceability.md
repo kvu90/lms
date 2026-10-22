@@ -465,3 +465,27 @@ feature work, outside this cleanup round):
 | Behat oracle | Divergence |
 |---|---|
 | `message/tests/behat` / "Delete a message sent by the user..." scenarios | Moodle lets a sender delete their own message within a time limit; this system deliberately makes sent messages immutable (project decision recorded in the messaging flow test) and the e2e asserts immutability instead |
+
+## Addendum — UUIDv7 primary keys on PostgreSQL 18 (platform verification, 2026-10-22)
+
+This round changes no business behaviour: every entity primary key moved
+from integer identity to UUIDv7 (PostgreSQL 18 native `uuidv7()`), per
+ADR-013. The new tests are **platform verification tests**, not
+translations of a Moodle oracle — their source is the internal research
+report `research_notes/postgresql-18-uuidv7-primary-keys-20261022-1134/
+report.md` §4.6:
+
+| # | Verification | Source | Our test |
+|---|--------------|--------|----------|
+| 1 | Raw SQL inserts without an id get `uuid_extract_version(id) = 7`; the baseline migration carries `DEFAULT uuidv7()`; the live catalog defaults every entity id to `uuidv7()` and pure join tables carry composite (or single-FK) PKs with no surrogate id | report §4.6 (1) | `test/uuidv7-primary-keys-flow.e2e-spec.ts` |
+| 2 | Monotonicity within one session: 2,000 sequential inserts on one connection, `ORDER BY id` matches insertion order | report §4.6 (2) | same file |
+| 3 | No collisions when DB defaults and the app-side `$defaultFn` are mixed (outbox/event); bulk check: 100k ids mixed across DB defaults, app-side values and parallel connections stay unique | report §4.6 (3) | same file |
+| 4 | `uuid_extract_timestamp(id)` agrees with `created_at` within ±2s | report §4.6 (4) | same file |
+| 5 | Keyset pagination on `(created_at, id)`: rows inserted mid-paging cause no duplicates and no loss of rows present from the start | report §4.6 (5) | same file |
+| 6 | FK joins/filters use the explicit FK indexes; index presence asserted in `pg_indexes`; every single-column FK in the catalog is covered by a leading index column | report §4.6 (6) | same file |
+| 7 | IDOR re-asserted after the key change: a valid UUID of another course's resource still yields 404/403 | report §4.6 (7) | same file |
+| 8 | API contract: ids serialize as UUID strings; malformed id → 400; well-formed unknown id → 404 — including the user route, where the capability guard resolves context from the raw `:id` before validation (regression: malformed id must not surface as a 500) | report §4.6 (8) | same file |
+
+All pre-existing flow tests were updated from numeric to string ids as
+part of the same round; their Moodle-oracle mappings above are unchanged
+(the key change does not alter any business scenario).

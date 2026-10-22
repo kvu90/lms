@@ -26,7 +26,7 @@ backend code or DB schema.
 ## Prerequisites
 
 - Node 24 (`.nvmrc`), pnpm 12.14
-- PostgreSQL 16 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`)
+- PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function (ADR-013)
 - Redis at `localhost:6379`
 
 ## Run
@@ -53,7 +53,7 @@ for production.
 
 ```bash
 # 1) Infrastructure (this machine)
-sudo pg_ctlcluster 16 main start          # PostgreSQL on localhost:5432 (or: sudo service postgresql start)
+sudo pg_ctlcluster 18 main start          # PostgreSQL 18.6 on localhost:5432 (or: sudo service postgresql start)
 redis-server --daemonize yes              # Redis on localhost:6379 (or: sudo service redis-server start)
 
 # 2) Install + schema + sample data (first run only; the seed is idempotent)
