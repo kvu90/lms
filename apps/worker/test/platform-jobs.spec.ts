@@ -75,6 +75,55 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(second.status).toBe('duplicate');
   });
 
+  it('backup processor archive contains the new questions/badges/calendar sections (same lms-backup v1 format as the API)', async () => {
+    // Ngân hàng câu hỏi ở context của khoá + badge của khoá + sự kiện/subscription của khoá.
+    const qCatRows = await db.execute(sql`insert into question_categories (name, contextid) values (${`wk5-bank-${suffix}`}, ${courseCtxId}) returning id`);
+    const qCatId = (qCatRows.rows[0] as { id: string }).id;
+    const qRows = await db.execute(sql`insert into question (category, qtype, name) values (${qCatId}, 'truefalse', 'WK5 question') returning id`);
+    const qId = (qRows.rows[0] as { id: string }).id;
+    const entryRows = await db.execute(sql`insert into question_bank_entries (questioncategoryid, questionid, latestversion) values (${qCatId}, ${qId}, 2) returning id`);
+    const entryId = (entryRows.rows[0] as { id: string }).id;
+    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 1, 'v1')`);
+    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 2, 'v2')`);
+    const badgeRows = await db.execute(sql`insert into badge (name, type, courseid, status) values (${`WK5 badge ${suffix}`}, 2, ${courseId}, 0) returning id`);
+    const badgeId = (badgeRows.rows[0] as { id: string }).id;
+    await db.execute(sql`insert into badge_criteria (badgeid, criteriatype, method, params) values (${badgeId}, 'overall', 1, '{}'::jsonb)`);
+    await db.execute(sql`insert into badge_criteria (badgeid, criteriatype, method, params) values (${badgeId}, 'coursecompletion', 1, ${JSON.stringify({ courseId })}::jsonb)`);
+    await db.execute(sql`insert into calendar_events (name, eventtype, courseid, timestart) values (${`WK5 event ${suffix}`}, 'course', ${courseId}, now())`);
+    await db.execute(sql`insert into calendar_subscriptions (name, eventtype, courseid) values (${`WK5 feed ${suffix}`}, 'course', ${courseId})`);
+
+    const [job] = await db.insert(backupJobs).values({ type: 'backup', courseid: courseId, userid: teacherId, status: 'pending' }).returning();
+    const processor = context.get(BackupProcessor);
+    const result = await processor.process({ data: { jobId: job.id } } as never);
+    expect(result.status).toBe('completed');
+    const [row] = await db.select().from(backupJobs).where(eq(backupJobs.id, job.id));
+    expect(row.archive.format).toBe('lms-backup');
+    expect(row.archive.version).toBe(1);
+    expect(row.archive.contributors.questions).toEqual({ categories: 1, questions: 1, entries: 1, versions: 2 });
+    expect(row.archive.contributors.badges).toEqual({ badges: 1, criteria: 2 });
+    expect(row.archive.contributors.calendar).toEqual({ events: 1, subscriptions: 1 });
+    const steps = await db.execute(sql`select name from backup_job_steps where jobid = ${job.id}`);
+    expect((steps.rows as { name: string }[]).map((s) => s.name)).toEqual(
+      expect.arrayContaining(['questions', 'badges', 'calendar']));
+  });
+
+  it('backup processor handles a site-scope job (no course) with only the site-level sections', async () => {
+    const sysRows = await db.execute(sql`select id from context where contextlevel = 10 and instanceid is null limit 1`);
+    const systemCtxId = (sysRows.rows[0] as { id: string }).id;
+    await db.execute(sql`insert into question_categories (name, contextid) values (${`wk5-site-bank-${suffix}`}, ${systemCtxId})`);
+    await db.execute(sql`insert into badge (name, type, courseid, status) values (${`WK5 site badge ${suffix}`}, 1, null, 0)`);
+    const [job] = await db.insert(backupJobs).values({ type: 'backup', scope: 'site', courseid: null, userid: teacherId, status: 'pending' }).returning();
+    const processor = context.get(BackupProcessor);
+    const result = await processor.process({ data: { jobId: job.id } } as never);
+    expect(result.status).toBe('completed');
+    const [row] = await db.select().from(backupJobs).where(eq(backupJobs.id, job.id));
+    expect(row.archive.scope).toBe('site');
+    expect(row.archive.courseId).toBeNull();
+    expect(row.archive.contributors.questions.categories).toBeGreaterThanOrEqual(1);
+    expect(row.archive.contributors.badges.badges).toBeGreaterThanOrEqual(1);
+    expect(row.archive.contributors.courses).toBeUndefined();
+  });
+
   it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
     const catId = (catRows.rows[0] as { category: string }).category;

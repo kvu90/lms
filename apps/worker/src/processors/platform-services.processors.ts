@@ -2,15 +2,17 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
 import { I18nService } from '@nestjs/i18n';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import {
   analyticsModels, analyticsPredictions, backupIdMappings, backupJobSteps, backupJobs,
-  blogPosts, calendarEvents, competencyUsercomp, contentbankContent, contextTable, course,
+  badge, badgeCriteria, blogPosts, calendarEvents, calendarSubscriptions, competencyUsercomp,
+  contentbankContent, contextTable, course,
   courseCompletions, courseModules, courseModulesCompletion, courseSections, enrol,
   gradeGrades, gradeItems, insights, notifications, outboxEvents, payments, privacyExportFiles,
-  privacyRequests, reportbuilderReport, reportbuilderSchedule, role, roleAssignments,
+  privacyRequests, question, questionBankEntries, questionCategories, questionVersions,
+  reportbuilderReport, reportbuilderSchedule, role, roleAssignments,
   searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
 } from '../db/schema';
 
@@ -37,15 +39,55 @@ export class BackupProcessor extends WorkerHost {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
-    const sections = await this.db.select().from(courseSections).where(eq(courseSections.course, row.courseid));
-    const cms = await this.db.select().from(courseModules).where(eq(courseModules.course, row.courseid));
-    const instances = await this.db.select().from(enrol).where(eq(enrol.courseid, row.courseid));
-    for (const name of ['courses', 'enrol', 'groups', 'grades', 'completion', 'files']) {
+    const scope = row.scope ?? 'course';
+    // Question bank bám context: khoá → context của khoá; site → context hệ thống.
+    const contexts = await this.db.select().from(contextTable);
+    const bankCtx = scope === 'site'
+      ? contexts.find((c) => c.contextlevel === 10)
+      : contexts.find((c) => c.contextlevel === 50 && c.instanceid === row.courseid);
+    const qCategories = bankCtx ? await this.db.select().from(questionCategories).where(eq(questionCategories.contextid, bankCtx.id)) : [];
+    const qCatIds = qCategories.map((c) => c.id);
+    const qRows = qCatIds.length ? await this.db.select().from(question).where(inArray(question.category, qCatIds)) : [];
+    const qEntries = qCatIds.length ? await this.db.select().from(questionBankEntries).where(inArray(questionBankEntries.questioncategoryid, qCatIds)) : [];
+    const qEntryIds = qEntries.map((e) => e.id);
+    const qVersions = qEntryIds.length ? await this.db.select().from(questionVersions).where(inArray(questionVersions.questionbankentryid, qEntryIds)) : [];
+    const badges = scope === 'site'
+      ? await this.db.select().from(badge).where(isNull(badge.courseid))
+      : await this.db.select().from(badge).where(eq(badge.courseid, row.courseid!));
+    const criteria = badges.length ? await this.db.select().from(badgeCriteria).where(inArray(badgeCriteria.badgeid, badges.map((b) => b.id))) : [];
+    const calEvents = scope === 'site'
+      ? await this.db.select().from(calendarEvents).where(eq(calendarEvents.eventtype, 'site'))
+      : await this.db.select().from(calendarEvents).where(eq(calendarEvents.courseid, row.courseid!));
+    const calSubs = scope === 'site'
+      ? await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.eventtype, 'site'))
+      : await this.db.select().from(calendarSubscriptions).where(eq(calendarSubscriptions.courseid, row.courseid!));
+    const contributorNames = scope === 'site'
+      ? ['questions', 'badges', 'calendar']
+      : ['courses', 'enrol', 'groups', 'grades', 'completion', 'files', 'questions', 'badges', 'calendar'];
+    for (const name of contributorNames) {
       await this.db.insert(backupJobSteps).values({ jobid: row.id, name, status: 'completed', detail: { worker: true } });
     }
+    // Archive dùng CHUNG định dạng lms-backup v1 với API (ADR-007): bản tóm
+    // tắt của worker mang đủ các section contributor mới (questions/badges/
+    // calendar) bên cạnh các section cũ; attempts/usages của question bank
+    // và assertions của badge KHÔNG bao giờ vào archive (dữ liệu vận hành /
+    // bằng chứng lịch sử của khoá gốc).
+    const extended = {
+      questions: { categories: qCategories.length, questions: qRows.length, entries: qEntries.length, versions: qVersions.length },
+      badges: { badges: badges.length, criteria: criteria.length },
+      calendar: { events: calEvents.length, subscriptions: calSubs.length },
+    };
+    if (scope === 'site') {
+      const archive = { format: 'lms-backup', version: 1, scope, courseId: null, anonymize: row.anonymize, contributors: extended };
+      await this.db.update(backupJobs).set({ status: 'completed', archive, timefinished: new Date() }).where(eq(backupJobs.id, row.id));
+      return { status: 'completed', sections: 0, cms: 0 };
+    }
+    const sections = await this.db.select().from(courseSections).where(eq(courseSections.course, row.courseid!));
+    const cms = await this.db.select().from(courseModules).where(eq(courseModules.course, row.courseid!));
+    const instances = await this.db.select().from(enrol).where(eq(enrol.courseid, row.courseid!));
     const archive = {
-      format: 'lms-backup', version: 1, courseId: row.courseid, anonymize: row.anonymize,
-      contributors: { courses: { sections: sections.length, cms: cms.length }, enrol: { instances: instances.length } },
+      format: 'lms-backup', version: 1, scope, courseId: row.courseid, anonymize: row.anonymize,
+      contributors: { courses: { sections: sections.length, cms: cms.length }, enrol: { instances: instances.length }, ...extended },
     };
     await this.db.update(backupJobs).set({ status: 'completed', archive, timefinished: new Date() }).where(eq(backupJobs.id, row.id));
     return { status: 'completed', sections: sections.length, cms: cms.length };
@@ -64,7 +106,9 @@ export class RestoreProcessor extends WorkerHost {
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
     const targetId = row.targetcourseid;
-    if (!targetId) {
+    if (!targetId || !row.courseid) {
+      // Restore mức site không có khoá nguồn/đích: bản twin này chỉ xử lý
+      // restore mức khoá; restore site chạy đồng bộ ở API (không qua queue).
       await this.db.update(backupJobs).set({ status: 'failed', error: 'restore job has no target course' }).where(eq(backupJobs.id, row.id));
       return { status: 'failed' };
     }

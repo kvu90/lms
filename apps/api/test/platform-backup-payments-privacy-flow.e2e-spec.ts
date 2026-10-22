@@ -5,7 +5,7 @@ import {
 } from './identity-access-helpers';
 import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
-import { createGroupViaApi, markCmComplete } from './engagement-helpers';
+import { courseContextId, createGroupViaApi, markCmComplete } from './engagement-helpers';
 import { EXPECTED_PRIVACY_SUBSYSTEMS } from '../src/modules/privacy/privacy.service';
 import { PrivacyService } from '../src/modules/privacy/privacy.service';
 
@@ -201,5 +201,222 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     // User đã deleted: profile API hoặc trả deleted=true, hoặc username đã bị mangle.
     const deletedFlag = profile.body.deleted === true || String(profile.body.username ?? '').includes('.deleted');
     expect(deletedFlag).toBe(true);
+  });
+
+  it('backup extended contributors: question bank (tree + versions), course badges (criteria params remapped) and calendar (course/group events, series, subscription) restore into the new course with new ids', async () => {
+    const suffix = `${Date.now()}`;
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const section1 = await createSection(app, admin, course.id, { name: 'Week 1' });
+    const cm = await createCm(app, admin, course.id, section1.id, { name: 'Reading BK', completion: 1, completionmanual: true });
+    const group = await createGroupViaApi(app, admin, course.id, 'Group BK');
+    const courseCtx = await courseContextId(app, admin, course.id);
+    // --- Question bank ở context của khoá: cây category 2 cấp + câu hỏi 2 version.
+    const parentCat = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Bank parent ${suffix}`, contextid: courseCtx });
+    expect(parentCat.status).toBeLessThan(300);
+    const childCat = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Bank child ${suffix}`, contextid: courseCtx, parent: parentCat.body.id });
+    expect(childCat.status).toBeLessThan(300);
+    const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
+      .send({ categoryId: childCat.body.id, qtype: 'truefalse', name: 'BK question', questiontext: 'Version one text.', answer: { correct: true } });
+    expect(qRes.status).toBeLessThan(300);
+    const qid = qRes.body.question.id as string;
+    const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
+      .send({ questiontext: 'Version two text.', answer: { correct: false } });
+    expect(edit.body.entry.latestversion).toBe(2);
+    // --- Competency dùng chung mức site (lá competency trỏ vào đây; KHÔNG nằm trong archive).
+    const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
+      .send({ shortname: `BKFW ${suffix}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
+    expect(fw.status).toBe(201);
+    const comp = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
+      .send({ shortname: 'BK teamwork' });
+    expect(comp.status).toBe(201);
+    // --- Hai badge của khoá: B tham chiếu A (badge), khoá (course), cm (activity) và competency.
+    const badgeA = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK Badge A ${suffix}`, type: 2, courseid: course.id, issuername: 'LMS' });
+    expect(badgeA.status).toBeLessThan(300);
+    await http(app).put(`/api/v1/badges/${badgeA.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+    const badgeB = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK Badge B ${suffix}`, type: 2, courseid: course.id, issuername: 'LMS' });
+    expect(badgeB.status).toBeLessThan(300);
+    await http(app).put(`/api/v1/badges/${badgeB.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({
+        method: 1,
+        criteria: [
+          { criteriatype: 'coursecompletion', params: { courseId: course.id } },
+          { criteriatype: 'activitycompletion', params: { cmId: cm.id } },
+          { criteriatype: 'competency', params: { competencyId: comp.body.id } },
+          { criteriatype: 'badge', params: { badgeId: badgeA.body.id } },
+        ],
+      });
+    // --- Calendar: sự kiện khoá, sự kiện nhóm, chuỗi lặp của khoá và subscription của khoá.
+    const soon = new Date(Date.now() + 3600_000).toISOString();
+    const courseEv = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK course lecture ${suffix}`, eventtype: 'course', courseid: course.id, timestart: soon });
+    expect(courseEv.status).toBe(201);
+    const groupEv = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK group standup ${suffix}`, eventtype: 'group', courseid: course.id, groupid: group.id, timestart: soon });
+    expect(groupEv.status).toBe(201);
+    const series = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK weekly ${suffix}`, eventtype: 'course', courseid: course.id, timestart: soon, repeat: { freq: 'WEEKLY', count: 2 } });
+    expect(series.status).toBe(201);
+    const seriesRootId = series.body.event.id as string;
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'UID:bk-feed@lms', 'SUMMARY:BK feed event', 'DTSTART:20270105T090000Z', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    const sub = await http(app).post('/api/v1/calendar/subscriptions').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `BK course feed ${suffix}`, eventtype: 'course', courseid: course.id, icsdata: ics });
+    expect(sub.status).toBe(201);
+
+    const backup = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({ courseId: course.id });
+    expect(backup.body.status).toBe('completed');
+    expect(backup.body.scope).toBe('course');
+    const steps = await http(app).get(`/api/v1/backup/jobs/${backup.body.id}/steps`).set('Authorization', `Bearer ${admin}`);
+    expect((steps.body as { name: string }[]).map((s) => s.name)).toEqual(
+      expect.arrayContaining(['questions', 'badges', 'calendar']));
+    const contributors = backup.body.archive.contributors as Record<string, Record<string, unknown[]>>;
+    expect(contributors.questions!.categories).toHaveLength(2);
+    expect(contributors.questions!.questions).toHaveLength(1);
+    expect(contributors.questions!.versions).toHaveLength(2);
+    // Dữ liệu vận hành KHÔNG vào archive: không usages/attempts, không assertions đã cấp.
+    expect(contributors.questions).not.toHaveProperty('usages');
+    expect(contributors.questions).not.toHaveProperty('attempts');
+    expect(contributors.badges!.badges).toHaveLength(2);
+    expect(contributors.badges).not.toHaveProperty('issued');
+    expect(contributors.calendar!.events!.length).toBeGreaterThanOrEqual(4);
+    expect(contributors.calendar!.subscriptions).toHaveLength(1);
+
+    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+      .send({ backupJobId: backup.body.id, mode: 'new' });
+    expect(restore.body.status).toBe('completed');
+    const newCourseId = restore.body.targetcourseid as string;
+    expect(newCourseId).not.toBe(course.id);
+
+    const checklist = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/checklist`).set('Authorization', `Bearer ${admin}`);
+    for (const key of ['questionCategories', 'questions', 'questionVersions', 'badges', 'badgeCriteria', 'calendarEvents', 'calendarSubscriptions'] as const) {
+      expect(checklist.body[key].target, `checklist ${key}`).toBe(checklist.body[key].source);
+      expect(checklist.body[key].source, `checklist ${key} source`).toBeGreaterThan(0);
+    }
+    const mappings = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/mappings`).set('Authorization', `Bearer ${admin}`);
+    const rows = mappings.body as { itemtype: string; oldid: string; newid: string }[];
+    expect(rows.every((m) => m.newid !== m.oldid)).toBe(true);
+    const mapOf = (itemtype: string, oldid: string) => rows.find((m) => m.itemtype === itemtype && m.oldid === oldid);
+    // Question bank: category cha/con, câu hỏi và cả 2 version đều có id mới.
+    const newParentCatId = mapOf('question_category', parentCat.body.id)?.newid;
+    const newChildCatId = mapOf('question_category', childCat.body.id)?.newid;
+    expect(newParentCatId).toBeTruthy();
+    expect(newChildCatId).toBeTruthy();
+    const newQ = mapOf('question', qid);
+    expect(newQ).toBeTruthy();
+    expect(rows.filter((m) => m.itemtype === 'question_version')).toHaveLength(2);
+    const newCourseCtx = await courseContextId(app, admin, newCourseId);
+    const newCats = await http(app).get('/api/v1/questions/categories').query({ contextid: newCourseCtx }).set('Authorization', `Bearer ${admin}`);
+    const restoredChild = (newCats.body as { id: string; parent: string | null }[]).find((c) => c.id === newChildCatId);
+    expect(restoredChild?.parent).toBe(newParentCatId);
+    const restoredQuestions = await http(app).get(`/api/v1/questions/categories/${newChildCatId}/questions`).set('Authorization', `Bearer ${admin}`);
+    expect(restoredQuestions.body).toHaveLength(1);
+    expect(restoredQuestions.body[0].question.id).toBe(newQ!.newid);
+    const restoredVersions = await http(app).get(`/api/v1/questions/${newQ!.newid}/versions`).set('Authorization', `Bearer ${admin}`);
+    expect(restoredVersions.body).toHaveLength(2);
+    expect(restoredVersions.body[1].questiontext).toBe('Version two text.');
+    // Badges: badge mới thuộc khoá mới; criteria của B trỏ đúng khoá/cm/badge mới, competency giữ nguyên (thực thể site dùng chung).
+    const newBadgeAId = mapOf('badge', badgeA.body.id)?.newid;
+    const newBadgeBId = mapOf('badge', badgeB.body.id)?.newid;
+    expect(newBadgeAId).toBeTruthy();
+    expect(newBadgeBId).toBeTruthy();
+    const newBadgeB = await http(app).get(`/api/v1/badges/${newBadgeBId}`).set('Authorization', `Bearer ${admin}`);
+    expect(newBadgeB.body.courseid).toBe(newCourseId);
+    const newCriteria = await http(app).get(`/api/v1/badges/${newBadgeBId}/criteria`).set('Authorization', `Bearer ${admin}`);
+    const leaves = newCriteria.body.criteria as { criteriatype: string; params: Record<string, string> }[];
+    expect(leaves.find((l) => l.criteriatype === 'coursecompletion')?.params.courseId).toBe(newCourseId);
+    expect(leaves.find((l) => l.criteriatype === 'activitycompletion')?.params.cmId).toBe(mapOf('cm', cm.id)?.newid);
+    expect(leaves.find((l) => l.criteriatype === 'competency')?.params.competencyId).toBe(comp.body.id);
+    expect(leaves.find((l) => l.criteriatype === 'badge')?.params.badgeId).toBe(newBadgeAId);
+    // Calendar: mọi sự kiện khôi phục thuộc khoá mới; sự kiện nhóm trỏ nhóm mới; chuỗi lặp nối lại repeatid mới; subscription có mapping.
+    const newGroupId = mapOf('group', group.id)?.newid;
+    for (const oldEventId of [courseEv.body.event.id, groupEv.body.event.id, seriesRootId]) {
+      const mapping = mapOf('calendar_event', oldEventId);
+      expect(mapping, `calendar_event mapping for ${oldEventId}`).toBeTruthy();
+      const restored = await http(app).get(`/api/v1/calendar/events/${mapping!.newid}`).set('Authorization', `Bearer ${admin}`);
+      expect(restored.body.courseid).toBe(newCourseId);
+    }
+    const restoredGroupEvent = await http(app).get(`/api/v1/calendar/events/${mapOf('calendar_event', groupEv.body.event.id)!.newid}`).set('Authorization', `Bearer ${admin}`);
+    expect(restoredGroupEvent.body.groupid).toBe(newGroupId);
+    const restoredRoot = await http(app).get(`/api/v1/calendar/events/${mapOf('calendar_event', seriesRootId)!.newid}`).set('Authorization', `Bearer ${admin}`);
+    expect(restoredRoot.body.repeatid).toBe(restoredRoot.body.id);
+    expect(mapOf('calendar_subscription', sub.body.id)).toBeTruthy();
+  });
+
+  it('site-level backup: backup without a course captures the site question bank, site badges and site calendar, and restores them as new site-level data', async () => {
+    const suffix = `${Date.now()}-site`;
+    const contextsRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
+    const systemCtx = (contextsRes.body as { id: string; contextlevel: number }[]).find((c) => c.contextlevel === 10)!;
+    const siteCat = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Site bank ${suffix}`, contextid: systemCtx.id });
+    expect(siteCat.status).toBeLessThan(300);
+    const siteQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
+      .send({ categoryId: siteCat.body.id, qtype: 'shortanswer', name: 'Site question', questiontext: 'Capital of France?', answer: { answers: ['Paris'] } });
+    expect(siteQ.status).toBeLessThan(300);
+    const siteBadge = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Site Badge ${suffix}`, type: 1, issuername: 'LMS HQ' });
+    expect(siteBadge.status).toBeLessThan(300);
+    await http(app).put(`/api/v1/badges/${siteBadge.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+    const soon = new Date(Date.now() + 3600_000).toISOString();
+    const siteEvent = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Site day ${suffix}`, eventtype: 'site', timestart: soon });
+    expect(siteEvent.status).toBe(201);
+
+    // Hợp đồng phạm vi: site + courseId bị từ chối; thiếu courseId ở phạm vi course cũng bị từ chối.
+    const cat = await createCategory(app, admin);
+    const someCourse = await createCourse(app, admin, cat.id);
+    const mixed = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({ scope: 'site', courseId: someCourse.id });
+    expect(mixed.status).toBe(400);
+    const missing = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({});
+    expect(missing.status).toBe(400);
+
+    const backup = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({ scope: 'site' });
+    expect(backup.status).toBeLessThan(300);
+    expect(backup.body.status).toBe('completed');
+    expect(backup.body.scope).toBe('site');
+    expect(backup.body.courseid).toBeNull();
+    expect(backup.body.archive.scope).toBe('site');
+    expect(backup.body.archive.course).toBeNull();
+    const siteContributors = backup.body.archive.contributors as Record<string, unknown>;
+    expect(siteContributors.questions).toBeTruthy();
+    expect(siteContributors.badges).toBeTruthy();
+    expect(siteContributors.calendar).toBeTruthy();
+    expect(siteContributors.courses).toBeUndefined();
+
+    // Site backup không nhận khoá đích / chế độ gộp.
+    const badRestore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+      .send({ backupJobId: backup.body.id, mode: 'merge', targetCourseId: someCourse.id });
+    expect(badRestore.status).toBe(400);
+    expect(badRestore.body.code).toBe('backup.site_target_forbidden');
+
+    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+      .send({ backupJobId: backup.body.id, mode: 'new' });
+    expect(restore.body.status).toBe('completed');
+    expect(restore.body.scope).toBe('site');
+    expect(restore.body.targetcourseid).toBeNull();
+    const mappings = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/mappings`).set('Authorization', `Bearer ${admin}`);
+    const rows = mappings.body as { itemtype: string; oldid: string; newid: string }[];
+    expect(rows.every((m) => m.newid !== m.oldid)).toBe(true);
+    const newSiteCatId = rows.find((m) => m.itemtype === 'question_category' && m.oldid === siteCat.body.id)?.newid;
+    expect(newSiteCatId).toBeTruthy();
+    const newSiteQuestions = await http(app).get(`/api/v1/questions/categories/${newSiteCatId}/questions`).set('Authorization', `Bearer ${admin}`);
+    expect(newSiteQuestions.body).toHaveLength(1);
+    expect(newSiteQuestions.body[0].question.id).not.toBe(siteQ.body.question.id);
+    const newSiteBadgeId = rows.find((m) => m.itemtype === 'badge' && m.oldid === siteBadge.body.id)?.newid;
+    expect(newSiteBadgeId).toBeTruthy();
+    const newSiteBadge = await http(app).get(`/api/v1/badges/${newSiteBadgeId}`).set('Authorization', `Bearer ${admin}`);
+    expect(newSiteBadge.body.type).toBe(1);
+    expect(newSiteBadge.body.courseid).toBeNull();
+    const newSiteEventId = rows.find((m) => m.itemtype === 'calendar_event' && m.oldid === siteEvent.body.event.id)?.newid;
+    expect(newSiteEventId).toBeTruthy();
+    const checklist = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/checklist`).set('Authorization', `Bearer ${admin}`);
+    expect(checklist.body.questionCategories.target).toBeGreaterThanOrEqual(1);
+    expect(checklist.body.badges.target).toBeGreaterThanOrEqual(1);
+    expect(checklist.body.calendarEvents.target).toBeGreaterThanOrEqual(1);
   });
 });

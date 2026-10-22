@@ -35,10 +35,13 @@ export type ExternalTokenCreated = z.infer<typeof externalTokenCreatedSchema>;
 
 /* ---- Backup ---- */
 export const BACKUP_FORMAT_VERSION = 1;
+/** Phạm vi sao lưu: `course` gắn với một khoá học; `site` là sao lưu mức hệ thống (không gắn khoá, courseid = null). */
+export const BACKUP_SCOPES = ['course', 'site'] as const;
 export const backupJobSchema = z.object({
   id: uuidIdSchema,
   type: z.enum(['backup', 'restore']),
-  courseid: uuidIdSchema,
+  scope: z.enum(BACKUP_SCOPES),
+  courseid: uuidIdSchema.nullable(),
   targetcourseid: uuidIdSchema.nullable(),
   mode: z.enum(['new', 'merge', 'replace']),
   status: z.enum(['pending', 'running', 'completed', 'failed']),
@@ -152,10 +155,24 @@ export const callExternalFunctionSchema = z.strictObject({
 });
 export type CallExternalFunction = z.infer<typeof callExternalFunctionSchema>;
 
-/** Payload tạo backup job cho một khoá. */
+/**
+ * Payload tạo backup job. Phạm vi mặc định là `course` và bắt buộc có
+ * `courseId`; phạm vi `site` (sao lưu mức hệ thống: category câu hỏi mức
+ * site, ngân hàng câu hỏi mức site, badge mức site, sự kiện/subscription
+ * mức site) thì KHÔNG được gắn khoá học.
+ */
 export const createBackupSchema = z.strictObject({
-  courseId: uuidIdSchema,
+  courseId: uuidIdSchema.optional(),
+  scope: z.enum(BACKUP_SCOPES).optional(),
   anonymize: z.boolean().optional(),
+}).superRefine((v, ctx) => {
+  const scope = v.scope ?? 'course';
+  if (scope === 'course' && !v.courseId) {
+    ctx.addIssue({ code: 'custom', path: ['courseId'], message: 'A course backup requires courseId' });
+  }
+  if (scope === 'site' && v.courseId) {
+    ctx.addIssue({ code: 'custom', path: ['courseId'], message: 'A site backup must not carry a courseId' });
+  }
 });
 export type CreateBackup = z.infer<typeof createBackupSchema>;
 

@@ -484,7 +484,8 @@ export const contextTable = pgTable('context', {
 export const backupJobs = pgTable('backup_jobs', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: text('type').notNull(),
-  courseid: uuid('courseid').notNull(),
+  scope: text('scope').notNull().default('course'),
+  courseid: uuid('courseid'),
   targetcourseid: uuid('targetcourseid'),
   mode: text('mode').notNull().default('new'),
   status: text('status').notNull().default('pending'),
@@ -648,6 +649,35 @@ export const privacyExportFiles = pgTable('privacy_export_files', {
       index('privacy_export_files_fileid_idx').on(table.fileid),
   ]);
 
+
+/** Worker view of the question bank tables (canonical schema in apps/api questions module) — needed by the backup processor to count/export the bank sections of an archive. */
+export const questionCategories = pgTable('question_categories', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  contextid: uuid('contextid').notNull(),
+  parent: uuid('parent'),
+}, (t) => [index('question_categories_contextid_idx').on(t.contextid)]);
+
+export const question = pgTable('question', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  category: uuid('category').notNull(),
+  qtype: text('qtype').notNull(),
+  name: text('name').notNull(),
+}, (t) => [index('question_category_idx').on(t.category)]);
+
+export const questionBankEntries = pgTable('question_bank_entries', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questioncategoryid: uuid('questioncategoryid').notNull(),
+  questionid: uuid('questionid').notNull(),
+  latestversion: integer('latestversion').notNull().default(1),
+}, (t) => [index('question_bank_entries_questioncategoryid_idx').on(t.questioncategoryid)]);
+
+export const questionVersions = pgTable('question_versions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionbankentryid: uuid('questionbankentryid').notNull(),
+  questionid: uuid('questionid').notNull(),
+  version: integer('version').notNull(),
+}, (t) => [index('question_versions_questionid_idx').on(t.questionid)]);
 
 /** Các bảng phụ trợ platform services cho worker: sections, id mappings, roles/assignments. */
 export const courseSections = pgTable('course_sections', {
