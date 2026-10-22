@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import '../i18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,7 @@ interface PrivacyRequestView { id: number; userid: number; type: string; status:
  * tìm tại thời điểm truy vấn — client không tự lọc thêm.
  */
 export function SearchPage() {
+  const { t: t } = useTranslation();
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
@@ -32,14 +35,14 @@ export function SearchPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Global search</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('searchTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void submit(e)} className="flex gap-2">
-            <Label htmlFor="search-q" className="sr-only">Search query</Label>
-            <Input id="search-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search courses, people, content…" />
-            <Button type="submit">Search</Button>
+            <Label htmlFor="search-q" className="sr-only">{t('searchQuery')}</Label>
+            <Input id="search-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchPlaceholder')} />
+            <Button type="submit">{t('searchButton')}</Button>
           </form>
-          <ul aria-label="Search results" className="space-y-2">
+          <ul aria-label={t('searchResults')} className="space-y-2">
             {results.map((d) => (
               <li key={d.id} className="rounded border p-2">
                 <p className="font-medium">{d.title}</p>
@@ -47,7 +50,7 @@ export function SearchPage() {
                 <p className="text-sm">{d.content}</p>
               </li>
             ))}
-            {searched && results.length === 0 ? <li>No results you are allowed to see.</li> : null}
+            {searched && results.length === 0 ? <li>{t('noResults')}</li> : null}
           </ul>
         </CardContent>
       </Card>
@@ -57,6 +60,7 @@ export function SearchPage() {
 
 /** Quản trị integration tokens (platform services): service + token, token thô chỉ hiện một lần khi tạo. */
 export function TokensPage() {
+  const { t: tr } = useTranslation();
   const [services, setServices] = useState<ServiceView[]>([]);
   const [tokens, setTokens] = useState<TokenView[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
@@ -93,28 +97,28 @@ export function TokensPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Integration tokens</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{tr('tokensTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void createService(e)} className="flex gap-2">
-            <Label htmlFor="svc-name" className="sr-only">Service name</Label>
-            <Input id="svc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Service name" />
-            <Button type="submit">Create service</Button>
+            <Label htmlFor="svc-name" className="sr-only">{tr('serviceName')}</Label>
+            <Input id="svc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('serviceName')} />
+            <Button type="submit">{tr('createService')}</Button>
           </form>
-          {createdToken ? <p role="status">New token (shown once): {createdToken}</p> : null}
-          <ul aria-label="Services" className="space-y-2">
+          {createdToken ? <p role="status">{tr('newToken', { token: createdToken })}</p> : null}
+          <ul aria-label={tr('services')} className="space-y-2">
             {services.map((s) => (
               <li key={s.id} className="flex items-center gap-3 rounded border p-2">
                 <span className="font-medium">{s.name}</span>
                 <span className="text-xs">{s.functions.join(', ')}</span>
-                <Button type="button" variant="outline" onClick={() => void createToken(s.id)}>Create token</Button>
+                <Button type="button" variant="outline" onClick={() => void createToken(s.id)}>{tr('createToken')}</Button>
               </li>
             ))}
           </ul>
-          <ul aria-label="Tokens" className="space-y-2">
+          <ul aria-label={tr('tokens')} className="space-y-2">
             {tokens.map((t) => (
               <li key={t.id} className="flex items-center gap-3 rounded border p-2">
                 <span>Token #{t.id} for user {t.userid} {t.revoked ? '(revoked)' : ''}</span>
-                {!t.revoked ? <Button type="button" variant="outline" onClick={() => void revoke(t.id)}>Revoke</Button> : null}
+                {!t.revoked ? <Button type="button" variant="outline" onClick={() => void revoke(t.id)}>{tr('revoke')}</Button> : null}
               </li>
             ))}
           </ul>
@@ -126,6 +130,7 @@ export function TokensPage() {
 
 /** Backup/restore (platform services): tạo job, xem bước, restore sang course mới. */
 export function BackupPage() {
+  const { t: t } = useTranslation();
   const [jobs, setJobs] = useState<BackupJob[]>([]);
   const [steps, setSteps] = useState<BackupStep[]>([]);
   const [courseId, setCourseId] = useState('');
@@ -144,23 +149,23 @@ export function BackupPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Backup and restore</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('backupTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void createBackup(e)} className="flex gap-2">
-            <Label htmlFor="backup-course" className="sr-only">Course id</Label>
-            <Input id="backup-course" value={courseId} onChange={(e) => setCourseId(e.target.value)} placeholder="Course id" />
-            <Button type="submit">Create backup</Button>
+            <Label htmlFor="backup-course" className="sr-only">{t('courseId')}</Label>
+            <Input id="backup-course" value={courseId} onChange={(e) => setCourseId(e.target.value)} placeholder={t('courseId')} />
+            <Button type="submit">{t('createBackup')}</Button>
           </form>
-          <ul aria-label="Backup jobs" className="space-y-2">
+          <ul aria-label={t('backupJobs')} className="space-y-2">
             {jobs.map((j) => (
               <li key={j.id} className="flex items-center gap-3 rounded border p-2">
-                <span>{j.type} job #{j.id} — course {j.courseid} — {j.status}{j.targetcourseid ? ` → ${j.targetcourseid}` : ''}</span>
-                <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>Steps</Button>
-                {j.type === 'backup' && j.status === 'completed' ? <Button type="button" onClick={() => void restore(j.id)}>Restore as new course</Button> : null}
+                <span>{t('jobLine', { type: j.type, id: j.id, courseid: j.courseid, status: j.status })}{j.targetcourseid ? ` → ${j.targetcourseid}` : ''}</span>
+                <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>{t('steps')}</Button>
+                {j.type === 'backup' && j.status === 'completed' ? <Button type="button" onClick={() => void restore(j.id)}>{t('restoreAsNew')}</Button> : null}
               </li>
             ))}
           </ul>
-          <ul aria-label="Job steps" className="space-y-1">
+          <ul aria-label={t('jobSteps')} className="space-y-1">
             {steps.map((s) => <li key={s.id}>{s.name}: {s.status}</li>)}
           </ul>
         </CardContent>
@@ -171,21 +176,22 @@ export function BackupPage() {
 
 /** Insights cho teacher (platform services): chỉ insight mà server đã lọc theo capability mới tới client. */
 export function InsightsPage() {
+  const { t: t } = useTranslation();
   const [insights, setInsights] = useState<InsightView[]>([]);
   useEffect(() => { void apiJson<InsightView[]>('/api/v1/analytics/insights/me').then(setInsights).catch(() => undefined); }, []);
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Insights</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('insightsTitle')}</CardTitle></CardHeader>
         <CardContent>
-          <ul aria-label="Insights" className="space-y-2">
+          <ul aria-label={t('insightsTitle')} className="space-y-2">
             {insights.map((i) => (
               <li key={i.id} className="rounded border p-2">
                 <p className="font-medium">{i.heading}</p>
                 <p className="text-sm">Student {i.userid} · course {i.courseid}</p>
               </li>
             ))}
-            {insights.length === 0 ? <li>No insights for you right now.</li> : null}
+            {insights.length === 0 ? <li>{t('noInsights')}</li> : null}
           </ul>
         </CardContent>
       </Card>
@@ -195,6 +201,7 @@ export function InsightsPage() {
 
 /** Report builder tối thiểu (platform services): chọn datasource/column, xem kết quả, đặt lịch. */
 export function ReportsPage() {
+  const { t: t } = useTranslation();
   const [reports, setReports] = useState<ReportView[]>([]);
   const [name, setName] = useState('');
   const [datasource, setDatasource] = useState('enrolments');
@@ -217,30 +224,30 @@ export function ReportsPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Report builder</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('reportsTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void create(e)} className="flex gap-2">
-            <Label htmlFor="report-name" className="sr-only">Report name</Label>
-            <Input id="report-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Report name" />
-            <Label htmlFor="report-datasource" className="sr-only">Datasource</Label>
+            <Label htmlFor="report-name" className="sr-only">{t('reportName')}</Label>
+            <Input id="report-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('reportName')} />
+            <Label htmlFor="report-datasource" className="sr-only">{t('datasource')}</Label>
             <select id="report-datasource" value={datasource} onChange={(e) => setDatasource(e.target.value)}>
-              <option value="enrolments">enrolments</option>
-              <option value="grades">grades</option>
-              <option value="completion">completion</option>
+              <option value="enrolments">{t('dsEnrolments')}</option>
+              <option value="grades">{t('dsGrades')}</option>
+              <option value="completion">{t('dsCompletion')}</option>
             </select>
-            <Button type="submit">Create report</Button>
+            <Button type="submit">{t('createReport')}</Button>
           </form>
-          <ul aria-label="Reports" className="space-y-2">
+          <ul aria-label={t('reports')} className="space-y-2">
             {reports.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded border p-2">
                 <span>{r.name} ({r.datasource})</span>
-                <Button type="button" variant="outline" onClick={() => void run(r.id)}>Run</Button>
-                <Button type="button" variant="outline" onClick={() => void schedule(r.id)}>Schedule daily</Button>
+                <Button type="button" variant="outline" onClick={() => void run(r.id)}>{t('run')}</Button>
+                <Button type="button" variant="outline" onClick={() => void schedule(r.id)}>{t('scheduleDaily')}</Button>
               </li>
             ))}
           </ul>
-          <p aria-label="Report rows">{rows.length} rows</p>
-          <ul aria-label="Report result" className="space-y-1">
+          <p aria-label={t('reportRows', { count: rows.length })}>{t('reportRows', { count: rows.length })}</p>
+          <ul aria-label={t('reportResult')} className="space-y-1">
             {rows.map((row, i) => <li key={i}>{JSON.stringify(row)}</li>)}
           </ul>
         </CardContent>
@@ -251,6 +258,7 @@ export function ReportsPage() {
 
 /** Content bank (platform services): list theo context và upload file dạng base64 qua envelope JSON. */
 export function ContentBankPage() {
+  const { t: t } = useTranslation();
   const [items, setItems] = useState<ContentView[]>([]);
   const [name, setName] = useState('');
   const [contextId, setContextId] = useState('');
@@ -275,20 +283,20 @@ export function ContentBankPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Content bank</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('contentBankTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void create(e)} className="flex gap-2">
-            <Label htmlFor="cb-name" className="sr-only">Content name</Label>
-            <Input id="cb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Content name" />
-            <Label htmlFor="cb-context" className="sr-only">Context id</Label>
-            <Input id="cb-context" value={contextId} onChange={(e) => setContextId(e.target.value)} placeholder="Context id" />
-            <Button type="submit">Add content</Button>
+            <Label htmlFor="cb-name" className="sr-only">{t('contentName')}</Label>
+            <Input id="cb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contentName')} />
+            <Label htmlFor="cb-context" className="sr-only">{t('contextId')}</Label>
+            <Input id="cb-context" value={contextId} onChange={(e) => setContextId(e.target.value)} placeholder={t('contextId')} />
+            <Button type="submit">{t('addContent')}</Button>
           </form>
-          <ul aria-label="Content bank items" className="space-y-2">
+          <ul aria-label={t('contentItems')} className="space-y-2">
             {items.map((c) => (
               <li key={c.id} className="flex items-center gap-3 rounded border p-2">
                 <span>{c.name} — {c.visibility}</span>
-                <Button type="button" variant="outline" onClick={() => void upload(c.id)}>Upload file</Button>
+                <Button type="button" variant="outline" onClick={() => void upload(c.id)}>{t('uploadFile')}</Button>
               </li>
             ))}
           </ul>
@@ -303,13 +311,14 @@ export function ContentBankPage() {
  * admin thấy mọi yêu cầu và duyệt/từ chối.
  */
 export function PrivacyPage() {
+  const { t: t } = useTranslation();
   const [requests, setRequests] = useState<PrivacyRequestView[]>([]);
   const [sent, setSent] = useState<string | null>(null);
   const reload = useCallback(async () => { setRequests(await apiJson<PrivacyRequestView[]>('/api/v1/privacy/requests')); }, []);
   useEffect(() => { void reload().catch(() => undefined); }, [reload]);
   async function send(type: 'export' | 'delete') {
     const created = await apiJson<PrivacyRequestView>('/api/v1/privacy/requests', { method: 'POST', body: JSON.stringify({ type }) });
-    setSent(`Request #${created.id} (${created.type}) is ${created.status}`);
+    setSent(t('requestSent', { id: created.id, type: created.type, status: created.status }));
     await reload();
   }
   async function decide(id: number, decision: 'approved' | 'rejected') {
@@ -319,21 +328,21 @@ export function PrivacyPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-8">
       <Card>
-        <CardHeader><CardTitle>Privacy requests</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('privacyTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
-            <Button type="button" onClick={() => void send('export')}>Request my data export</Button>
-            <Button type="button" variant="outline" onClick={() => void send('delete')}>Request deletion of my data</Button>
+            <Button type="button" onClick={() => void send('export')}>{t('requestExport')}</Button>
+            <Button type="button" variant="outline" onClick={() => void send('delete')}>{t('requestDelete')}</Button>
           </div>
           {sent ? <p role="status">{sent}</p> : null}
-          <ul aria-label="Privacy requests" className="space-y-2">
+          <ul aria-label={t('privacyRequests')} className="space-y-2">
             {requests.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded border p-2">
-                <span>#{r.id} user {r.userid} — {r.type} — {r.status}</span>
+                <span>{t('requestLine', { id: r.id, userid: r.userid, type: r.type, status: r.status })}</span>
                 {r.status === 'pending' ? (
                   <>
-                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'approved')}>Approve</Button>
-                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'rejected')}>Reject</Button>
+                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'approved')}>{t('approve')}</Button>
+                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'rejected')}>{t('reject')}</Button>
                   </>
                 ) : null}
               </li>

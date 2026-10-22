@@ -26,8 +26,8 @@ describe('Search page (platform)', () => {
       return undefined;
     });
     render(<SearchPage />);
-    await userEvent.type(screen.getByLabelText('Search query'), 'Visible');
-    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await userEvent.type(screen.getByLabelText('Từ khoá tìm kiếm'), 'Visible');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
     expect(await screen.findByText('Visible Course')).toBeInTheDocument();
     expect(screen.queryByText('Hidden Course')).not.toBeInTheDocument();
   });
@@ -47,10 +47,10 @@ describe('Privacy page (platform)', () => {
       return undefined;
     });
     render(<PrivacyPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Request my data export' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yêu cầu xuất dữ liệu của tôi' }));
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0]).toEqual({ type: 'export' });
-    expect(await screen.findByText(/Request #7 \(export\) is pending/)).toBeInTheDocument();
-    expect(screen.getByText(/#7 user 3 — export — pending/)).toBeInTheDocument();
+    expect(await screen.findByText(/Yêu cầu #7 \(export\) đang pending/)).toBeInTheDocument();
+    expect(screen.getByText(/#7 người dùng 3 — export — pending/)).toBeInTheDocument();
   });
 });
