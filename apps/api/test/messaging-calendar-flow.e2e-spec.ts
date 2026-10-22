@@ -17,6 +17,10 @@ import { addGroupMember, createGroupViaApi, suspendUser } from './engagement-hel
  *  - public/calendar/tests/lib_test.php: test_add_subscription (ICS import
  *    counts), test_get_legacy_events_with_overrides (group-scoped
  *    visibility), test_update_subscription; report §2#13 visibility law.
+ *  - public/calendar/tests/behat/export.feature: a user exports their
+ *    calendar as an ICS file and via a secret export URL (calendar key);
+ *    the file/URL carry only the events that user may see, and resetting
+ *    the key kills the old URL.
  */
 describe('Messaging & calendar', () => {
   let app: INestApplication;
@@ -34,6 +38,38 @@ describe('Messaging & calendar', () => {
     const aLogin = await login(app, a.username, STRONG_PASSWORD);
     const bLogin = await login(app, b.username, STRONG_PASSWORD);
     return { a, b, aToken: aLogin.accessToken, bToken: bLogin.accessToken };
+  }
+
+  /**
+   * Bộ phân tích ICS tối thiểu trong test — cùng quy ước với parser phía
+   * worker (apps/worker/src/domain/ics.ts): tách VEVENT, đọc
+   * UID/SUMMARY/DESCRIPTION/DTSTART/DTEND dạng UTC, gỡ escape \, và \n.
+   * Dùng để chứng minh file export parse lại được (round-trip).
+   */
+  function parseExportedIcs(text: string) {
+    const parseDate = (value: string) => new Date(`${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}T${value.slice(9, 11)}:${value.slice(11, 13)}:${value.slice(13, 15)}Z`);
+    const events: { uid: string; summary: string; description: string; start: Date; end?: Date }[] = [];
+    let current: Record<string, string> | null = null;
+    for (const rawLine of text.split(/\r\n|\n|\r/)) {
+      const line = rawLine.trim();
+      if (line === 'BEGIN:VEVENT') { current = {}; continue; }
+      if (line === 'END:VEVENT') {
+        if (current?.DTSTART) {
+          events.push({
+            uid: current.UID ?? '', summary: current.SUMMARY ?? '', description: current.DESCRIPTION ?? '',
+            start: parseDate(current.DTSTART), end: current.DTEND ? parseDate(current.DTEND) : undefined,
+          });
+        }
+        current = null;
+        continue;
+      }
+      if (!current) continue;
+      const colon = line.indexOf(':');
+      if (colon < 0) continue;
+      const key = line.slice(0, colon).split(';')[0]!.toUpperCase();
+      current[key] = line.slice(colon + 1).replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';');
+    }
+    return events;
   }
 
   it('conversations: two users exchange messages; unread counts track conversations and reading clears them (api_test mark_all_read)', async () => {
@@ -283,5 +319,155 @@ describe('Messaging & calendar', () => {
     const forbidden = await http(app).post(`/api/v1/calendar/events/${ev.body.event.id}/remind`).set('Authorization', `Bearer ${strangerToken}`)
       .send({ minutesBefore: 30 });
     expect(forbidden.status).toBe(403);
+  });
+
+  it('calendar export (ICS download): only the events the exporter may see, in a parseable VCALENDAR (behat/export.feature)', async () => {
+    const category = await createCategory(app, admin);
+    const course = await createCourse(app, admin, category.id);
+    const instance = await createEnrolInstance(app, admin, course.id);
+    const member = await createUserViaApi(app, admin);
+    const other = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, member.id);
+    await enrolUser(app, admin, course.id, instance.id, other.id);
+    const group = await createGroupViaApi(app, admin, course.id, 'Export Team');
+    await addGroupMember(app, admin, course.id, group.id, member.id);
+    const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
+    const otherToken = (await login(app, other.username, STRONG_PASSWORD)).accessToken;
+    const soon = new Date(Date.now() + 3600_000);
+    const soonIso = soon.toISOString();
+
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Export site day', eventtype: 'site', timestart: soonIso });
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Export course lecture', eventtype: 'course', courseid: course.id, timestart: soonIso });
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Export alpha standup', eventtype: 'group', courseid: course.id, groupid: group.id, timestart: soonIso });
+    const dentist = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
+      .send({ name: 'Export my dentist', eventtype: 'user', timestart: soonIso, timeduration: 3600, description: 'Checkup, cleaning', location: 'Clinic' });
+    expect(dentist.status).toBe(201);
+    const dentistId = dentist.body.event.id as string;
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${otherToken}`)
+      .send({ name: 'Export B secret plan', eventtype: 'user', timestart: soonIso });
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
+      .send({ name: 'Export later event', eventtype: 'user', timestart: new Date(Date.now() + 30 * 86400_000).toISOString() });
+    const series = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
+      .send({ name: 'Export weekly series', eventtype: 'user', timestart: new Date(Date.now() + 1800_000).toISOString(), repeat: { freq: 'WEEKLY', count: 2 } });
+    expect(series.status).toBe(201);
+
+    // Download requires login.
+    const anonymous = await http(app).get('/api/v1/calendar/export.ics');
+    expect(anonymous.status).toBe(401);
+
+    const download = await http(app).get('/api/v1/calendar/export.ics').set('Authorization', `Bearer ${memberToken}`);
+    expect(download.status).toBe(200);
+    expect(download.headers['content-type']).toContain('text/calendar');
+    expect(download.headers['content-disposition']).toContain('attachment');
+    expect(download.headers['content-disposition']).toContain('.ics');
+    expect(download.text).toContain('BEGIN:VCALENDAR');
+    expect(download.text).toContain('VERSION:2.0');
+    expect(download.text).toContain('END:VCALENDAR');
+
+    // Round-trip through an ICS parser with the worker parser's conventions.
+    const parsed = parseExportedIcs(download.text);
+    const summaries = parsed.map((e) => e.summary);
+    expect(summaries).toContain('Export site day');
+    expect(summaries).toContain('Export course lecture');
+    expect(summaries).toContain('Export alpha standup');
+    expect(summaries).toContain('Export my dentist');
+    expect(summaries).toContain('Export later event');
+    // The other user's private event never leaks into my export.
+    expect(summaries).not.toContain('Export B secret plan');
+    // The series is exported as its materialised occurrences, one VEVENT each.
+    expect(summaries.filter((n) => n === 'Export weekly series')).toHaveLength(2);
+    // UID is stable per event id; DTEND = DTSTART + timeduration.
+    const dentistParsed = parsed.find((e) => e.summary === 'Export my dentist')!;
+    expect(dentistParsed.uid).toBe(`${dentistId}@lms`);
+    expect(dentistParsed.start.getTime()).toBe(Math.floor(soon.getTime() / 1000) * 1000);
+    expect(dentistParsed.end!.getTime() - dentistParsed.start.getTime()).toBe(3600_000);
+    expect(dentistParsed.description).toBe('Checkup, cleaning');
+    expect(download.text).toContain('DTSTAMP:');
+
+    // The other enrolled user: sees site/course + own private event, but
+    // NOT the group event (not a member) and NOT the member's private event.
+    const otherDownload = await http(app).get('/api/v1/calendar/export.ics').set('Authorization', `Bearer ${otherToken}`);
+    const otherSummaries = parseExportedIcs(otherDownload.text).map((e) => e.summary);
+    expect(otherSummaries).toContain('Export site day');
+    expect(otherSummaries).toContain('Export course lecture');
+    expect(otherSummaries).toContain('Export B secret plan');
+    expect(otherSummaries).not.toContain('Export alpha standup');
+    expect(otherSummaries).not.toContain('Export my dentist');
+    expect(otherSummaries).not.toContain('Export later event');
+
+    // A from/to query narrows the export exactly like the listing.
+    const ranged = await http(app).get('/api/v1/calendar/export.ics')
+      .query({ from: new Date(Date.now() - 3600_000).toISOString(), to: new Date(Date.now() + 2 * 3600_000).toISOString() })
+      .set('Authorization', `Bearer ${memberToken}`);
+    const rangedSummaries = parseExportedIcs(ranged.text).map((e) => e.summary);
+    expect(rangedSummaries).toContain('Export my dentist');
+    expect(rangedSummaries).not.toContain('Export later event');
+    expect(rangedSummaries.filter((n) => n === 'Export weekly series')).toHaveLength(1);
+  });
+
+  it('calendar export URL: a secret per-user token downloads without login; rotating or revoking it kills the old URL (behat/export.feature)', async () => {
+    const { aToken, bToken } = await twoUsers();
+    const soon = new Date(Date.now() + 3600_000).toISOString();
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${aToken}`)
+      .send({ name: 'Token export A private', eventtype: 'user', timestart: soon });
+    await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${bToken}`)
+      .send({ name: 'Token export B private', eventtype: 'user', timestart: soon });
+
+    // Creating a token requires login; the status endpoint starts empty.
+    const anonymousCreate = await http(app).post('/api/v1/calendar/export-token').send({});
+    expect(anonymousCreate.status).toBe(401);
+    const before = await http(app).get('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
+    expect(before.body.hasToken).toBe(false);
+
+    const created = await http(app).post('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`).send({});
+    expect(created.status).toBe(201);
+    const token = created.body.token as string;
+    // A long random token — never a UUID, never the user's own id.
+    expect(token).toMatch(/^[a-f0-9]{64}$/);
+    expect(created.body.exportUrl).toBe(`/api/v1/calendar/export/${token}.ics`);
+
+    // The token (or its hash) never appears in any other response.
+    const status = await http(app).get('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
+    expect(status.body.hasToken).toBe(true);
+    expect(JSON.stringify(status.body)).not.toContain(token);
+    const listing = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${aToken}`);
+    expect(JSON.stringify(listing.body)).not.toContain(token);
+
+    // The public URL works with no Authorization header at all and carries
+    // only the token owner's visible events.
+    const viaUrl = await http(app).get(created.body.exportUrl as string);
+    expect(viaUrl.status).toBe(200);
+    expect(viaUrl.headers['content-type']).toContain('text/calendar');
+    const viaSummaries = parseExportedIcs(viaUrl.text).map((e) => e.summary);
+    expect(viaSummaries).toContain('Token export A private');
+    expect(viaSummaries).not.toContain('Token export B private');
+
+    // A well-formed but unknown token is rejected.
+    const unknown = await http(app).get(`/api/v1/calendar/export/${'0'.repeat(64)}.ics`);
+    expect(unknown.status).toBe(401);
+    expect(unknown.body.code).toBe('calendar.export_token_invalid');
+
+    // Rotating the token kills the old URL immediately; the new one works.
+    const rotated = await http(app).post('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`).send({});
+    expect(rotated.status).toBe(201);
+    const newToken = rotated.body.token as string;
+    expect(newToken).not.toBe(token);
+    const oldUrl = await http(app).get(created.body.exportUrl as string);
+    expect(oldUrl.status).toBe(401);
+    expect(oldUrl.body.code).toBe('calendar.export_token_invalid');
+    const newUrl = await http(app).get(rotated.body.exportUrl as string);
+    expect(newUrl.status).toBe(200);
+    expect(parseExportedIcs(newUrl.text).map((e) => e.summary)).toContain('Token export A private');
+
+    // Revoking kills the current URL too, and the status reflects it.
+    const revoked = await http(app).delete('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
+    expect(revoked.body.revoked).toBe(true);
+    const afterRevoke = await http(app).get(rotated.body.exportUrl as string);
+    expect(afterRevoke.status).toBe(401);
+    const afterStatus = await http(app).get('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
+    expect(afterStatus.body.hasToken).toBe(false);
   });
 });

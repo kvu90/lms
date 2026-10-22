@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { calendarEvents, calendarSubscriptions } from '../../db/schema';
+import { calendarEvents, calendarExportTokens, calendarSubscriptions } from '../../db/schema';
 
 export type CalendarEventRow = typeof calendarEvents.$inferSelect;
 export type CalendarSubscriptionRow = typeof calendarSubscriptions.$inferSelect;
+export type CalendarExportTokenRow = typeof calendarExportTokens.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -87,6 +88,46 @@ export class CalendarRepository {
   async listSubscriptions(): Promise<CalendarSubscriptionRow[]> {
     return this.db.select().from(calendarSubscriptions).orderBy(asc(calendarSubscriptions.id));
   }
+  /**
+   * Token xuất lịch đang hiệu lực của một user (chỉ chứa hash), nếu có.
+   */
+  async getExportTokenByUser(userid: string): Promise<CalendarExportTokenRow | undefined> {
+    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.userid, userid)); return row;
+  }
+  /**
+   * Tìm token xuất lịch theo hash của token thô — đường tra cứu duy nhất của
+   * URL xuất công khai; không bao giờ tra theo token thô.
+   */
+  async getExportTokenByHash(tokenhash: string): Promise<CalendarExportTokenRow | undefined> {
+    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.tokenhash, tokenhash)); return row;
+  }
+  /**
+   * Tạo mới hoặc thay thế token xuất lịch của user (một user một token):
+   * ghi đè hash cũ khiến URL xuất cũ chết ngay khi đổi token.
+   */
+  async upsertExportToken(userid: string, tokenhash: string): Promise<CalendarExportTokenRow> {
+    const [row] = await this.db.insert(calendarExportTokens).values({ userid, tokenhash })
+      .onConflictDoUpdate({
+        target: calendarExportTokens.userid,
+        set: { tokenhash, timemodified: new Date(), lastaccess: null },
+      }).returning();
+    return row!;
+  }
+  /**
+   * Thu hồi token xuất lịch của user: xoá hẳn bản ghi hash để URL cũ chết;
+   * trả về true khi thật sự có token đã bị thu hồi.
+   */
+  async deleteExportToken(userid: string): Promise<boolean> {
+    const deleted = await this.db.delete(calendarExportTokens).where(eq(calendarExportTokens.userid, userid)).returning();
+    return deleted.length > 0;
+  }
+  /**
+   * Ghi nhận lần dùng URL xuất công khai gần nhất.
+   */
+  async touchExportToken(id: string): Promise<void> {
+    await this.db.update(calendarExportTokens).set({ lastaccess: new Date() }).where(eq(calendarExportTokens.id, id));
+  }
+
   /**
    * Cập nhật mốc đồng bộ gần nhất của subscription.
    */

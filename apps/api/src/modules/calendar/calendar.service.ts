@@ -1,14 +1,19 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import { createHash, randomBytes } from 'node:crypto';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { GroupsService } from '../groups/groups.service';
-import { CalendarRepository, type CalendarEventRow, type CalendarSubscriptionRow } from './calendar.repository';
+import { CalendarRepository, type CalendarEventRow, type CalendarExportTokenRow, type CalendarSubscriptionRow } from './calendar.repository';
+import { serializeCalendar } from './domain/ics';
 import { formatRrule, occurrenceStarts, parseRrule } from './domain/rrule';
+
+/** Băm token xuất lịch để lưu trữ — token thô chỉ trả về đúng một lần khi tạo/đổi (đúng mẫu webservice tokens). */
+function hashExportToken(raw: string): string { return createHash('sha256').update(raw).digest('hex'); }
 
 export const CALENDAR_REMINDER_QUEUE = 'calendar-reminders';
 export const CALENDAR_IMPORT_QUEUE = 'calendar-import';
@@ -250,6 +255,65 @@ export class CalendarService {
       if (await this.isVisibleTo(row, viewerId)) visible.push(row);
     }
     return visible;
+  }
+
+  // --- export (ICS download + URL xuất bằng token) ------------------------------
+
+  /**
+   * Xuất lịch của một user thành nội dung .ics: dùng lại đúng đường liệt kê
+   * `listEventsForUser` (cùng khoảng thời gian, cùng visibility matrix
+   * site/user/course/category/group, occurrence lặp đã materialise và
+   * exception đã thay thế) nên file xuất không bao giờ chứa sự kiện mà
+   * user không được thấy trên giao diện.
+   */
+  async exportIcsForUser(userId: string, filter: { from?: string; to?: string; eventtype?: string }): Promise<string> {
+    const events = await this.listEventsForUser(userId, filter);
+    return serializeCalendar(events);
+  }
+
+  /**
+   * Tạo hoặc đổi token xuất lịch của chính user: token thô là 32 byte ngẫu
+   * nhiên dạng hex (không dùng UUID làm token), DB chỉ lưu hash SHA-256;
+   * token thô chỉ xuất hiện trong kết quả của lần gọi này. Đổi token ghi đè
+   * hash cũ nên URL xuất cũ chết ngay.
+   */
+  async createOrRotateExportToken(userId: string): Promise<{ token: string; exportUrl: string; timecreated: Date; timemodified: Date }> {
+    const raw = randomBytes(32).toString('hex');
+    const row = await this.repo.upsertExportToken(userId, hashExportToken(raw));
+    return { token: raw, exportUrl: `/api/v1/calendar/export/${raw}.ics`, timecreated: row.timecreated, timemodified: row.timemodified };
+  }
+
+  /**
+   * Trạng thái token xuất lịch của user — không bao giờ chứa token thô hay
+   * hash của token.
+   */
+  async getExportTokenStatus(userId: string): Promise<{ hasToken: boolean; timecreated: Date | null; timemodified: Date | null; lastaccess: Date | null }> {
+    const row = await this.repo.getExportTokenByUser(userId);
+    if (!row) return { hasToken: false, timecreated: null, timemodified: null, lastaccess: null };
+    return { hasToken: true, timecreated: row.timecreated, timemodified: row.timemodified, lastaccess: row.lastaccess };
+  }
+
+  /**
+   * Thu hồi token xuất lịch của user: xoá bản ghi hash khiến URL xuất hiện
+   * tại chết ngay; gọi lại khi không còn token vẫn an toàn (revoked=false).
+   */
+  async revokeExportToken(userId: string): Promise<{ revoked: boolean }> {
+    return { revoked: await this.repo.deleteExportToken(userId) };
+  }
+
+  /**
+   * Xuất lịch qua token thô (đường công khai, không cần JWT): tra hash của
+   * token để tìm chủ sở hữu rồi xuất đúng lịch của chủ đó. Token không tồn
+   * tại/đã đổi/đã thu hồi → 401 `calendar.export_token_invalid`; token thô
+   * không được ghi log ở bất cứ đâu.
+   */
+  async exportIcsByToken(rawToken: string, filter: { from?: string; to?: string; eventtype?: string }): Promise<string> {
+    const row: CalendarExportTokenRow | undefined = await this.repo.getExportTokenByHash(hashExportToken(rawToken));
+    if (!row) {
+      throw new UnauthorizedException({ message: 'Calendar export token is invalid or has been revoked', code: 'calendar.export_token_invalid' });
+    }
+    await this.repo.touchExportToken(row.id);
+    return this.exportIcsForUser(row.userid, filter);
   }
 
   // --- reminders -----------------------------------------------------------------

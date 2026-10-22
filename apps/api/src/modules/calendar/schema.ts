@@ -53,6 +53,25 @@ export const calendarEvents = pgTable('calendar_events', {
   ]);
 
 
+/**
+ * Token xuất lịch cá nhân (Moodle calendar export URL): mỗi user có tối đa
+ * MỘT token đang hiệu lực để tải ICS qua URL công khai không cần đăng nhập.
+ * Chỉ lưu HASH SHA-256 của token (đúng mẫu webservice tokens) — token thô
+ * chỉ tồn tại trong lần trả về khi tạo/đổi; đổi hoặc thu hồi là URL cũ chết.
+ */
+export const calendarExportTokens = pgTable('calendar_export_tokens', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userid: uuid('userid').notNull().unique(),
+  tokenhash: text('tokenhash').notNull().unique(),
+  lastaccess: timestamp('lastaccess', { withTimezone: true }),
+  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('calendar_export_tokens_userid_idx').on(table.userid),
+  ]);
+
+
 /** Calendar subscriptions (Moodle `calendar_subscriptions`): external ICS feeds imported by a worker job. */
 export const calendarSubscriptions = pgTable('calendar_subscriptions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

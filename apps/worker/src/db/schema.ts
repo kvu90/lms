@@ -153,6 +153,11 @@ export const gradeItems = pgTable('grade_items', {
   itemname: text('itemname').notNull().default(''),
   itemtype: text('itemtype').notNull().default('manual'),
   iteminstance: uuid('iteminstance'),
+  gradetype: text('gradetype').notNull().default('value'),
+  scaleid: uuid('scaleid'),
+  outcomeid: uuid('outcomeid'),
+  idnumber: text('idnumber'),
+  calculation: text('calculation'),
   grademax: doublePrecision('grademax').notNull().default(100),
   grademin: doublePrecision('grademin').notNull().default(0),
   gradepass: doublePrecision('gradepass').notNull().default(0),
@@ -378,6 +383,37 @@ export const badgeManualAward = pgTable('badge_manual_award', {
       index('badge_manual_award_recipientid_idx').on(table.recipientid),
       index('badge_manual_award_issuerid_idx').on(table.issuerid),
   ]);
+
+
+/** Worker view of `cohort_members` (canonical schema in apps/api groups module) — needed by the badge `cohort` criteria leaf. */
+export const cohortMembers = pgTable('cohort_members', {
+  cohortid: uuid('cohortid').notNull(),
+  userid: uuid('userid').notNull(),
+  timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('cohort_members_unique_worker').on(t.cohortid, t.userid)]);
+
+/** Worker view of the custom field tables (canonical schema in apps/api custom-fields module) — needed by the badge `profile` criteria leaf. */
+export const customfieldCategory = pgTable('customfield_category', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull().default(''),
+  component: text('component').notNull(),
+  area: text('area').notNull(),
+});
+
+export const customfieldField = pgTable('customfield_field', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  categoryid: uuid('categoryid').notNull(),
+  shortname: text('shortname').notNull(),
+  name: text('name').notNull().default(''),
+  type: text('type').notNull().default('text'),
+});
+
+export const customfieldData = pgTable('customfield_data', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  fieldid: uuid('fieldid').notNull(),
+  instanceid: uuid('instanceid').notNull(),
+  value: text('value'),
+});
 
 
 export const competencyUsercomp = pgTable('competency_usercomp', {
