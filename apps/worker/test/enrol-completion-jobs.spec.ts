@@ -25,6 +25,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
   let db: any;
   const suffix = Date.now();
   const userId = `01900000-0000-7000-8000-${String(900000 + (suffix % 10000)).padStart(12, '0')}`;
+  const userIdB = `01900000-0000-7000-8000-${String(900100 + (suffix % 10000)).padStart(12, '0')}`;
   let instanceId = '';
   let courseId = '';
   let cmId = '';
@@ -52,7 +53,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     const past = new Date(Date.now() - 3600_000);
     const future = new Date(Date.now() + 3600_000);
     const [expired] = await db.insert(userEnrolments).values({ enrolid: instanceId, userid: userId, status: 0, timestart: new Date(Date.now() - 7200_000), timeend: past }).returning();
-    const [alive] = await db.insert(userEnrolments).values({ enrolid: instanceId, userid: userId + 1, status: 0, timestart: new Date(), timeend: future }).returning();
+    const [alive] = await db.insert(userEnrolments).values({ enrolid: instanceId, userid: userIdB, status: 0, timestart: new Date(), timeend: future }).returning();
     const processor = context.get(EnrolExpiryProcessor);
     const result = await processor.process({ data: {} } as never);
     expect(result.suspendedIds).toContain(expired.id);

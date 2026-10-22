@@ -12,7 +12,7 @@ import { NotificationsPage } from './notifications';
  * "my badges" list renders the caller's issued assertions.
  */
 const PROFILE = {
-  id: 7, username: 'learner7', firstname: 'Learner', lastname: 'Seven', suspended: false,
+  id: '01900000-0000-7000-8000-000000000007', username: 'learner7', firstname: 'Learner', lastname: 'Seven', suspended: false,
   deleted: false, isGuest: false, forcePasswordChange: false, lastlogin: null,
   timecreated: '2026-01-01T00:00:00.000Z', customFields: [],
 };
@@ -32,7 +32,7 @@ describe('Notifications page', () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
       if (url === '/api/v1/notifications') return [{
-        id: 1, subject: 'Badge awarded', fullmessage: 'You earned Finisher', eventtype: 'badge_awarded',
+        id: '01900000-0000-7000-8000-000000000001', subject: 'Badge awarded', fullmessage: 'You earned Finisher', eventtype: 'badge_awarded',
         timeread: null, timecreated: '2026-10-22T00:00:00.000Z',
       }];
       if (url === '/api/v1/notifications/preferences' && init?.method === 'PUT') {
@@ -65,12 +65,12 @@ describe('Badges page', () => {
     stubFetch((url) => {
       if (url === '/api/v1/users/me') return PROFILE;
       if (url === '/api/v1/badges') return [
-        { id: 2, name: 'Finisher', description: '', type: 1, courseid: 0, status: 1 },
-        { id: 3, name: 'Old honour', description: '', type: 1, courseid: 0, status: 3 },
+        { id: '01900000-0000-7000-8000-000000000002', name: 'Finisher', description: '', type: 1, courseid: null, status: 1 },
+        { id: '01900000-0000-7000-8000-000000000003', name: 'Old honour', description: '', type: 1, courseid: null, status: 3 },
       ];
-      if (url === '/api/v1/badges/users/7/issued') return [
-        { id: 11, badgeid: 2, uniquehash: 'abcdef0123456789', dateissued: '2026-10-20T00:00:00.000Z', dateexpire: null, revoked: false },
-        { id: 12, badgeid: 3, uniquehash: '0011223344556677', dateissued: '2026-09-01T00:00:00.000Z', dateexpire: null, revoked: true },
+      if (url === '/api/v1/badges/users/01900000-0000-7000-8000-000000000007/issued') return [
+        { id: '01900000-0000-7000-8000-000000000011', badgeid: '01900000-0000-7000-8000-000000000002', uniquehash: 'abcdef0123456789', dateissued: '2026-10-20T00:00:00.000Z', dateexpire: null, revoked: false },
+        { id: '01900000-0000-7000-8000-000000000012', badgeid: '01900000-0000-7000-8000-000000000003', uniquehash: '0011223344556677', dateissued: '2026-09-01T00:00:00.000Z', dateexpire: null, revoked: true },
       ];
       return undefined;
     });

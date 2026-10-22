@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createRoleViaApi, createUserViaApi, http, login,
@@ -62,7 +63,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect((res.body as { itemid: string }[]).some((d) => d.itemid === course.id)).toBe(false);
     // Kể cả khi index còn sót một tài liệu trỏ vào context đó, re-check vẫn chặn.
     const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
-      .send({ area: 'courses', itemid: 999000 + course.id, title: 'StaleSecretCourse', content: 'StaleSecretCourse leaked content', contextid: ctxId });
+      .send({ area: 'courses', itemid: uuidv7(), title: 'StaleSecretCourse', content: 'StaleSecretCourse leaked content', contextid: ctxId });
     expect(stale.status).toBeLessThan(300);
     const res2 = await http(app).get(`/api/v1/search?q=StaleSecretCourse`).set('Authorization', `Bearer ${blockedToken}`);
     expect((res2.body as unknown[]).length).toBe(0);
@@ -134,7 +135,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const up = await http(app).post(`/api/v1/contentbank/${draft.body.id}/file`).set('Authorization', `Bearer ${teacherToken}`)
       .send({ filename: 'notes.txt', contentBase64: Buffer.from('content-bank-file').toString('base64'), mimetype: 'text/plain' });
     expect(up.status).toBeLessThan(300);
-    expect(up.body.fileid).toBeGreaterThan(0);
+    expect(up.body.fileid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const pub = await http(app).patch(`/api/v1/contentbank/${draft.body.id}`).set('Authorization', `Bearer ${teacherToken}`).send({ visibility: 'public' });
     expect(pub.body.visibility).toBe('public');
     const list2 = await http(app).get(`/api/v1/contentbank?contextid=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);

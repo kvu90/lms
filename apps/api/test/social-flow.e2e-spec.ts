@@ -84,7 +84,7 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     expect(corrNames).toContain('fieldwork');
     // Unregistered areas are refused.
     const bad = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'mod_nope', itemtype: 'gadget', itemid: 1, contextid: ctxId, tags: ['x'] });
+      .send({ component: 'mod_nope', itemtype: 'gadget', itemid: '01900000-0000-7000-8000-000000000042', contextid: ctxId, tags: ['x'] });
     expect(bad.status).toBe(400);
     expect(bad.body.code).toBe('tags.area_not_registered');
     // set_item_tags replaces: removing all tags empties the item (test_add_remove_item_tag).

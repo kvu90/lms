@@ -26,7 +26,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     const course = await createCourse(app, admin, child.id);
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
     expect(content.status).toBe(200);
-    expect(content.body.contextId).toBeGreaterThan(0);
+    expect(content.body.contextId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(content.body.sections).toHaveLength(1); // section 0 auto-created
     expect(content.body.sections[0].section).toBe(0);
   });
@@ -141,7 +141,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     const section0 = await getFirstSectionId(app, admin, course.id);
     const section1 = await createSection(app, admin, course.id, { name: 'Week 1' });
     const cm = await createCm(app, admin, course.id, section0, { completion: 2, completionview: true });
-    expect(cm.contextId).toBeGreaterThan(0);
+    expect(cm.contextId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
     // Move the cm to section 1.
     const moved = await http(app).patch(`/api/v1/courses/${course.id}/modules/${cm.id}`).set('Authorization', `Bearer ${admin}`)

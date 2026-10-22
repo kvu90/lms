@@ -7,7 +7,7 @@ import { LoginPage } from './login';
 import { ProfilePage } from './profile';
 
 const PROFILE = {
-  id: 7, username: 'learner', firstname: 'Learn', lastname: 'Er', email: 'learner@example.com',
+  id: '01900000-0000-7000-8000-000000000007', username: 'learner', firstname: 'Learn', lastname: 'Er', email: 'learner@example.com',
   suspended: false, deleted: false, isGuest: false, forcePasswordChange: false,
   lastlogin: null, timecreated: '2026-01-01T00:00:00.000Z',
   customFields: [{ shortname: 'department', name: 'Department', type: 'select', value: 'Sales' }],
@@ -37,7 +37,7 @@ describe('Login flow (real API contract shapes, fetch mocked at the boundary)', 
       if (url === '/api/v1/auth/token') {
         return new Response(JSON.stringify({
           accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 900,
-          user: { id: 7, username: 'learner', forcePasswordChange: false },
+          user: { id: '01900000-0000-7000-8000-000000000007', username: 'learner', forcePasswordChange: false },
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (url === '/api/v1/users/me') {

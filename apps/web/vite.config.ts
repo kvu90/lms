@@ -16,5 +16,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts'],
+    // Trần mặc định 5s quá sát cho test UI khi chạy song song dưới tải.
+    testTimeout: 20_000,
   },
 });

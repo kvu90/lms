@@ -114,7 +114,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const target = await createUserViaApi(app, admin);
     const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userid: target.id });
     expect(as.status).toBe(201);
-    expect(as.body.loginAs.byUserId).toBeGreaterThan(0);
+    expect(as.body.loginAs.byUserId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${as.body.accessToken}`);
     expect(me.body.id).toBe(target.id);
     const plain = await createUserViaApi(app, admin);

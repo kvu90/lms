@@ -183,7 +183,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     for (const s of EXPECTED_PRIVACY_SUBSYSTEMS) expect(expDone.body.result.subsystems).toContain(s);
     const expFiles = await http(app).get(`/api/v1/privacy/requests/${expReq.body.id}/files`).set('Authorization', `Bearer ${admin}`);
     expect(expFiles.body).toHaveLength(1);
-    expect(expFiles.body[0].fileid).toBeGreaterThan(0);
+    expect(expFiles.body[0].fileid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     // Student tự duyệt yêu cầu của mình ⇒ 403 (privacy:manage là của admin).
     const delReq = await http(app).post('/api/v1/privacy/requests').set('Authorization', `Bearer ${userToken}`).send({ type: 'delete' });
     const selfDecide = await http(app).post(`/api/v1/privacy/requests/${delReq.body.id}/decide`).set('Authorization', `Bearer ${userToken}`).send({ decision: 'approved' });

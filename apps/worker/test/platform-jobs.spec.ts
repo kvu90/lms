@@ -37,8 +37,18 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
-    const ctxRows = await db.execute(sql`insert into context (contextlevel, instanceid, path, depth) values (50, ${courseId}, ${'/1/' + courseId}, 2) returning id`);
+    // Chuỗi context phải hợp lệ theo bất biến của cây context: path gồm
+    // các id UUID thật và kết thúc bằng id của chính context — tài liệu
+    // search gắn với context này được PermissionEvaluator ở phía API
+    // duyệt lại theo path, path hư cấu sẽ làm nổ truy vấn đó.
+    await db.execute(sql`insert into context (id, contextlevel, instanceid, path, depth)
+      select '01990000-0000-7000-8000-0000000000a1', 10, null, '/01990000-0000-7000-8000-0000000000a1', 1
+      where not exists (select 1 from context where contextlevel = 10 and instanceid is null)`);
+    const sysRows = await db.execute(sql`select id from context where contextlevel = 10 and instanceid is null limit 1`);
+    const systemCtxId = (sysRows.rows[0] as { id: string }).id;
+    const ctxRows = await db.execute(sql`insert into context (contextlevel, instanceid, path, depth) values (50, ${courseId}, '', 2) returning id`);
     courseCtxId = (ctxRows.rows[0] as { id: string }).id;
+    await db.execute(sql`update context set path = ${`/${systemCtxId}/${courseCtxId}`} where id = ${courseCtxId}`);
     void courseCtxId;
     await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${userId}, ${`wk5-u-${suffix}`}, ${`wk5u${suffix}@x.io`}, 'Risk', 'Student', false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${teacherId}, ${`wk5-t-${suffix}`}, ${`wk5t${suffix}@x.io`}, 'Teach', 'Er', false, false) on conflict (id) do nothing`);

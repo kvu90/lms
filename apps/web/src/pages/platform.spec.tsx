@@ -21,7 +21,7 @@ describe('Search page (platform)', () => {
   it('submits the query and renders only the permission-filtered results returned by the API', async () => {
     stubFetch((url) => {
       if (url.startsWith('/api/v1/search?q=')) return [
-        { id: 1, area: 'courses', itemid: 5, contextid: 9, title: 'Visible Course', content: 'You may see this' },
+        { id: '01900000-0000-7000-8000-000000000001', area: 'courses', itemid: '01900000-0000-7000-8000-000000000005', contextid: '01900000-0000-7000-8000-000000000009', title: 'Visible Course', content: 'You may see this' },
       ];
       return undefined;
     });
@@ -41,16 +41,16 @@ describe('Privacy page (platform)', () => {
     stubFetch((url, init) => {
       if (url === '/api/v1/privacy/requests' && init?.method === 'POST') {
         posts.push(JSON.parse(String(init.body)));
-        return { id: 7, userid: 3, type: 'export', status: 'pending' };
+        return { id: '01900000-0000-7000-8000-000000000007', userid: '01900000-0000-7000-8000-000000000003', type: 'export', status: 'pending' };
       }
-      if (url === '/api/v1/privacy/requests') return [{ id: 7, userid: 3, type: 'export', status: 'pending' }];
+      if (url === '/api/v1/privacy/requests') return [{ id: '01900000-0000-7000-8000-000000000007', userid: '01900000-0000-7000-8000-000000000003', type: 'export', status: 'pending' }];
       return undefined;
     });
     render(<PrivacyPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Yêu cầu xuất dữ liệu của tôi' }));
     await waitFor(() => expect(posts).toHaveLength(1));
     expect(posts[0]).toEqual({ type: 'export' });
-    expect(await screen.findByText(/Yêu cầu #7 \(export\) đang pending/)).toBeInTheDocument();
-    expect(screen.getByText(/#7 người dùng 3 — export — pending/)).toBeInTheDocument();
+    expect(await screen.findByText(/Yêu cầu #01900000-0000-7000-8000-000000000007 \(export\) đang pending/)).toBeInTheDocument();
+    expect(screen.getByText(/#01900000-0000-7000-8000-000000000007 người dùng 01900000-0000-7000-8000-000000000003 — export — pending/)).toBeInTheDocument();
   });
 });

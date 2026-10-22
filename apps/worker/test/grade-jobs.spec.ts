@@ -45,7 +45,7 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     const [courseItem] = await db.insert(gradeItems).values({ courseid: courseId, categoryid: rootCatId, itemname: 'Course total', itemtype: 'course', iteminstance: courseId, grademax: 100 }).returning();
     courseItemId = courseItem.id;
     const mk = async (name: string, max: number, grade: number) => {
-      const [item] = await db.insert(gradeItems).values({ courseid: courseId, categoryid: rootCatId, itemname: name, itemtype: 'manual', iteminstance: 0, grademax: max }).returning();
+      const [item] = await db.insert(gradeItems).values({ courseid: courseId, categoryid: rootCatId, itemname: name, itemtype: 'manual', iteminstance: null, grademax: max }).returning();
       await db.insert(gradeGrades).values({ itemid: item.id, userid: userId, rawgrade: grade, finalgrade: grade });
       return item;
     };

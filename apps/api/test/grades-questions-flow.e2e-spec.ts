@@ -229,7 +229,7 @@ describe('Grades & questions', () => {
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Usage created and STARTED while v1 is latest ⇒ pins v1.
     const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
-      .send({ component: 'mod_quiz', instanceid: 42, slots: [{ questionId: qid }] });
+      .send({ component: 'mod_quiz', instanceid: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
     const usageId = usageRes.body.usage.id as string;
     const attemptId = usageRes.body.attempts[0].id as string;
     expect(usageRes.body.attempts[0].state).toBe('notstarted');
@@ -251,7 +251,7 @@ describe('Grades & questions', () => {
     expect(attempt.steps[1].data.answer).toBe('true');
     // A NEW usage pins v2: the same answer is now wrong.
     const usage2 = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
-      .send({ component: 'mod_quiz', instanceid: 42, slots: [{ questionId: qid }] });
+      .send({ component: 'mod_quiz', instanceid: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
     const usage2Id = usage2.body.usage.id as string;
     const attempt2Id = usage2.body.attempts[0].id as string;
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/start`).set('Authorization', `Bearer ${studentToken}`);

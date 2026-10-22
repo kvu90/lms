@@ -129,7 +129,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
 
   it('standard Moodle roles are seeded and admin endpoints deny non-admins', async () => {
     const studentId = await roleIdByShortname(app, admin, 'student');
-    expect(studentId).toBeGreaterThan(0);
+    expect(studentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const user = await createUserViaApi(app, admin);
     const { login } = await import('./identity-access-helpers');
     const { accessToken } = await login(app, user.username, 'Passw0rd!');

@@ -54,7 +54,7 @@ describe('Platform i18n flow (e2e)', () => {
 
   it('localizes error details of the older modules by stable code (course.not_found) in Vietnamese by default and English on request', async () => {
     const auth = { Authorization: `Bearer ${admin}` };
-    const missingCourseId = 999_999_999;
+    const missingCourseId = '01999999-9999-7000-8000-000000000000';
 
     const vi = await http(app).get(`/api/v1/courses/${missingCourseId}`).set(auth).expect(404);
     expect(vi.body.code).toBe('course.not_found');
