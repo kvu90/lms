@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { CONTEXT_LEVELS } from './domain/capabilities';
 
@@ -43,17 +44,27 @@ export class ContextsService {
   }
 
   /**
-   * Lấy context theo id; ném NotFound khi vắng.
+   * Lấy context theo id; ném NotFound khi vắng. Id không phải UUID thì
+   * chắc chắn không tồn tại context nào mang nó (khoá chính là uuid) —
+   * trả NotFound thay vì để DB ném lỗi cú pháp uuid: các guard chạy
+   * trước pipe validate nên id thô trên URL tới được đây (ADR-013).
    */
   async getContext(id: string): Promise<ContextRow> {
-    const row = await this.repo.getContextById(id);
+    const row = uuidIdSchema.safeParse(id).success ? await this.repo.getContextById(id) : undefined;
     if (!row) throw new NotFoundException({ message: `Context ${id} not found`, code: 'access.context_not_found' });
     return row;
   }
   /**
    * Lấy context theo (level, instance); undefined nếu chưa được tạo.
+   * Cột `instanceid` là uuid nên một giá trị không phải UUID chắc chắn
+   * không khớp context nào — trả undefined thay vì để DB ném lỗi cú pháp
+   * uuid. Điểm này bắt buộc vì CapabilityGuard chạy TRƯỚC pipe validate:
+   * param thô trên URL (vd `:id` của user) tới được đây khi chưa qua
+   * kiểm tra định dạng, và hợp đồng API đòi id sai định dạng → 400 ở
+   * pipe chứ không phải 500 ở guard (ADR-013, nhóm test hợp đồng API).
    */
   async getByLevelInstance(contextlevel: number, instanceid: string): Promise<ContextRow | undefined> {
+    if (!uuidIdSchema.safeParse(instanceid).success) return undefined;
     return this.repo.getContextByLevelInstance(contextlevel, instanceid);
   }
   /**

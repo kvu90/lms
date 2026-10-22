@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { eq, sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -148,9 +148,17 @@ export class SearchService {
       blog: 'moodle/blog:view',
     };
     for (const doc of candidates) {
-      // Lớp 1: quyền tại thời điểm truy vấn ở context của tài liệu.
+      // Lớp 1: quyền tại thời điểm truy vấn ở context của tài liệu. Một
+      // tài liệu sót trong index mà context đã bị xoá (hoặc không còn
+      // phân giải được) thì không ai có quyền trên nó — bỏ qua tài liệu
+      // đó thay vì để cả truy vấn tìm kiếm sập theo.
       const capability = areaCapability[doc.area] ?? 'moodle/course:view';
-      const allowed = await this.evaluator.hasCapability(userId, capability, doc.contextid);
+      let allowed = false;
+      try {
+        allowed = await this.evaluator.hasCapability(userId, capability, doc.contextid);
+      } catch (err) {
+        if (!(err instanceof NotFoundException)) throw err;
+      }
       if (!allowed) continue;
       // Lớp 2 (re-check): bản ghi gốc còn hợp lệ không?
       const provider = this.areas.get(doc.area);
