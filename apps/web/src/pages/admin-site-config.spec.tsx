@@ -2,7 +2,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AdminSiteConfigPage, type SiteSetting } from './admin-site-config';
+import type { SiteSetting } from '@lms/contracts';
+import { AdminSiteConfigPage } from './admin-site-config';
 
 /**
  * Spec trang cấu hình site: render setting từ GET /api/v1/site-config

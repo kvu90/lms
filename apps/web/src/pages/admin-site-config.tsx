@@ -6,39 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
+import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
 import '../i18n';
 import { apiJson, ApiError } from '@/lib/api';
-
-/**
- * Hình dạng một setting hiệu lực như API site-config trả về.
- *
- * Nguồn shape: `packages/contracts/src/site-config.ts` ở branch backend
- * (`siteSettingSchema`) — worktree frontend này chưa có file contracts đó
- * nên khai báo tại chỗ tại đây, không sửa `packages/contracts` (ngoài phạm
- * vi apps/web). `value`/`defaultValue` là JSON theo kiểu đã đăng ký:
- * string | number | boolean tuỳ `type`.
- */
-export interface SiteSetting {
-  component: string;
-  name: string;
-  type: 'string' | 'number' | 'boolean' | 'enum';
-  defaultValue: unknown;
-  value: unknown;
-  source: 'default' | 'database';
-}
-
-/**
- * Một dòng vết thay đổi cấu hình; nguồn shape:
- * `siteSettingAuditEntrySchema` trong cùng file contracts ở branch backend.
- */
-export interface SiteSettingAuditEntry {
-  id: string;
-  settingKey: string;
-  oldValue: unknown;
-  newValue: unknown;
-  changedBy: string | null;
-  createdAt: string;
-}
 
 /**
  * Các miền giá trị enum đã biết, đối chiếu registry phía backend
