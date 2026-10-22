@@ -27,6 +27,27 @@ export const refreshTokenFamily = pgTable('refresh_token_family', {
   ]);
 
 
+/**
+ * MFA TOTP theo user (Moodle tool_mfa factor_totp): mỗi user tối đa một
+ * secret TOTP. Secret KHÔNG bao giờ lưu thô — cột `secret_encrypted` giữ
+ * bản mã AES-256-GCM (xem TotpService). `confirmed=false` là trạng thái
+ * chờ: secret đã cấp ở bước setup nhưng user chưa chứng minh sở hữu
+ * authenticator bằng một mã đúng; chỉ `confirmed=true` mới chặn đăng
+ * nhập ở bước MFA.
+ */
+export const userTotp = pgTable('user_totp', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userid: uuid('userid').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  secretEncrypted: text('secret_encrypted').notNull(),
+  confirmed: boolean('confirmed').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+},
+  (table) => [
+      index('user_totp_userid_idx').on(table.userid),
+  ]);
+
+
 /** Failed-login bookkeeping for lockout (Moodle authlib lockout semantics). */
 export const loginAttempts = pgTable('login_attempts', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

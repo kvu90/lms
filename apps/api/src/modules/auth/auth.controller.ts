@@ -1,12 +1,14 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
+import { RequireCapability } from '../../common/require-capability.decorator';
 import { UsersService } from '../users/users.service';
-import { changePasswordSchema, loginAsSchema, loginSchema, refreshTokenSchema, type ChangePasswordDto, type LoginAsDto, type LoginDto, type RefreshDto } from './dto/auth.dto';
-import { AuthService } from './auth.service';
+import { changePasswordSchema, loginAsSchema, loginSchema, mfaTotpCodeSchema, mfaVerifySchema, refreshTokenSchema, type ChangePasswordDto, type LoginAsDto, type LoginDto, type MfaTotpCodeDto, type MfaVerifyDto, type RefreshDto } from './dto/auth.dto';
+import { AuthService, type PasswordLoginOutcome } from './auth.service';
 
 
 export const SESSION_COOKIE = 'lms_session';
@@ -21,10 +23,19 @@ function sessionCookieOf(req: Request): string | undefined {
   return undefined;
 }
 
+/** Dựng đáp ứng đăng nhập từ kết quả bước mật khẩu: chặn MFA thì chỉ trả challenge, không kèm token nào. */
+function loginResponse(outcome: PasswordLoginOutcome) {
+  const { user } = outcome;
+  if (outcome.mfaRequired) {
+    return { mfaRequired: true as const, challengeToken: outcome.challengeToken, user: { id: user.id, username: user.username } };
+  }
+  return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...outcome.tokens };
+}
+
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
 /**
- * API xác thực: /auth/login, refresh, logout, đổi mật khẩu, login-as và session.
+ * API xác thực: /auth/login, refresh, logout, đổi mật khẩu, login-as, MFA TOTP và session.
  */
 export class AuthController {
   constructor(private readonly auth: AuthService, private readonly users: UsersService) {}
@@ -37,10 +48,9 @@ export class AuthController {
    */
   async login(@Req() req: Request & { user: { id: string; username: string } }, @Body({ schema: loginSchema }) _dto: LoginDto) {
     const user = await this.users.getUser(req.user.id);
-    await this.users.recordLogin(user.id);
-    // validateCredentials already ran inside the local strategy; issue a fresh token family here.
-    const tokens = await this.auth.issueTokensFor(user);
-    return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
+    // validateCredentials already ran inside the local strategy; the shared
+    // completion step issues a fresh token family — or an MFA challenge.
+    return loginResponse(await this.auth.completePasswordLogin(user));
   }
 
   @Public()
@@ -49,8 +59,55 @@ export class AuthController {
    * POST /auth/login — đăng nhập qua chiến lược local (passport), trả cặp token.
    */
   async tokenLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request) {
-    const { user, tokens } = await this.auth.login(dto.username, dto.password, req.ip);
+    return loginResponse(await this.auth.login(dto.username, dto.password, req.ip));
+  }
+
+  // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
+  @Post('mfa/totp/setup')
+  /**
+   * POST /auth/mfa/totp/setup — khởi tạo secret TOTP chờ xác nhận; secret + otpauth URL chỉ trả ở bước này.
+   */
+  async mfaTotpSetup(@CurrentUser() actor: AuthenticatedUser) {
+    const user = await this.users.getUser(actor.id);
+    return this.auth.setupTotp(user);
+  }
+
+  @Post('mfa/totp/confirm')
+  /**
+   * POST /auth/mfa/totp/confirm — mã đúng ⇒ kích hoạt MFA cho chính user.
+   */
+  async mfaTotpConfirm(@Body({ schema: mfaTotpCodeSchema }) dto: MfaTotpCodeDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.auth.confirmTotp(actor.id, dto.code);
+    return { mfaEnabled: true };
+  }
+
+  @Post('mfa/totp/disable')
+  /**
+   * POST /auth/mfa/totp/disable — mã đúng ⇒ tắt MFA và xoá secret của chính user.
+   */
+  async mfaTotpDisable(@Body({ schema: mfaTotpCodeSchema }) dto: MfaTotpCodeDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.auth.disableTotp(actor.id, dto.code);
+    return { mfaEnabled: false };
+  }
+
+  @Public()
+  @Post('mfa/verify')
+  /**
+   * POST /auth/mfa/verify — bước hai của đăng nhập: challenge token + mã TOTP ⇒ cặp token như đăng nhập thường.
+   */
+  async mfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request) {
+    const { user, tokens } = await this.auth.verifyMfa(dto.challengeToken, dto.code, req.ip);
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
+  }
+
+  @Post('mfa/users/:userId/reset')
+  @RequireCapability('moodle/user:update')
+  /**
+   * POST /auth/mfa/users/:userId/reset — quản trị gỡ MFA cho user bị mất authenticator (capability moodle/user:update).
+   */
+  async mfaReset(@Param('userId', { schema: uuidIdSchema }) userId: string) {
+    await this.auth.resetTotp(userId);
+    return { reset: true, userid: userId };
   }
 
   @Public()

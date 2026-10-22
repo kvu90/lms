@@ -9,8 +9,19 @@ import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { AuthRepository } from './auth.repository';
 import { SessionService } from './session.service';
+import { TotpService } from './totp.service';
 
 export interface TokenPair { accessToken: string; refreshToken: string; expiresIn: number }
+
+/**
+ * Kết quả sau bước mật khẩu: hoặc đã đủ điều kiện cấp token, hoặc bị chặn
+ * ở bước MFA với một challenge token ngắn hạn (scope `mfa_challenge` — chỉ
+ * dùng được cho POST /auth/mfa/verify, JwtAuthStrategy từ chối nó ở mọi
+ * route thường).
+ */
+export type PasswordLoginOutcome =
+  | { mfaRequired: false; user: UserRow; tokens: TokenPair }
+  | { mfaRequired: true; user: UserRow; challengeToken: string };
 
 function hashToken(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
@@ -38,6 +49,7 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
+    private readonly totp: TotpService,
   ) {}
 
   // --- lockout (authlib_test::test_lockout semantics) -----------------------
@@ -79,10 +91,95 @@ export class AuthService {
   }
 
   /**
-   * Đăng nhập bằng mật khẩu: kiểm lockout, ghi attempt, phát hành cặp token.
+   * Đăng nhập bằng mật khẩu: kiểm lockout, ghi attempt; nếu user đã bật
+   * MFA thì dừng ở challenge (chưa ghi nhận đăng nhập, chưa cấp token),
+   * ngược lại phát hành cặp token như cũ.
    */
-  async login(username: string, password: string, ip?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async login(username: string, password: string, ip?: string): Promise<PasswordLoginOutcome> {
     const user = await this.validateCredentials(username, password, ip);
+    return this.completePasswordLogin(user);
+  }
+
+  /**
+   * Hoàn tất bước mật khẩu cho một user đã qua `validateCredentials`:
+   * user bật MFA ⇒ trả challenge token; còn lại ghi nhận đăng nhập và
+   * phát hành cặp token. Dùng chung cho cả hai route đăng nhập.
+   */
+  async completePasswordLogin(user: UserRow): Promise<PasswordLoginOutcome> {
+    if (await this.totp.isEnabled(user.id)) {
+      const challengeToken = await this.signMfaChallenge(user);
+      return { mfaRequired: true, user, challengeToken };
+    }
+    await this.users.recordLogin(user.id);
+    const tokens = await this.issueTokens(user);
+    return { mfaRequired: false, user, tokens };
+  }
+
+  /**
+   * Ký challenge token cho bước MFA: JWT ngắn hạn mang `scope:
+   * 'mfa_challenge'` và KHÔNG mang `sid` phiên — JwtAuthStrategy từ chối
+   * nó nên không thể dùng để gọi bất kỳ API thường nào.
+   */
+  private async signMfaChallenge(user: UserRow): Promise<string> {
+    const ttl = this.config.get<number>('MFA_CHALLENGE_TTL_SECONDS') ?? 300;
+    return this.jwt.signAsync(
+      { sub: user.id, username: user.username, scope: 'mfa_challenge' },
+      { expiresIn: ttl },
+    );
+  }
+
+  // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
+  /**
+   * Khởi tạo MFA TOTP cho chính user (chỉ trả secret ở bước này).
+   */
+  async setupTotp(user: UserRow): Promise<{ secret: string; otpauthUrl: string }> {
+    return this.totp.setup(user.id, user.username);
+  }
+
+  /**
+   * Xác nhận setup bằng mã authenticator ⇒ bật MFA cho user.
+   */
+  async confirmTotp(userId: string, code: string): Promise<void> { await this.totp.confirm(userId, code); }
+
+  /**
+   * Tắt MFA bằng mã authenticator hiện tại ⇒ xoá secret.
+   */
+  async disableTotp(userId: string, code: string): Promise<void> { await this.totp.disable(userId, code); }
+
+  /**
+   * Quản trị gỡ MFA cho user bị mất authenticator (route đã chặn bằng
+   * capability quản trị người dùng ở controller).
+   */
+  async resetTotp(userId: string): Promise<void> { await this.totp.resetForUser(userId); }
+
+  /**
+   * Bước hai của đăng nhập: kiểm challenge token (chữ ký, hạn, scope) rồi
+   * kiểm mã TOTP. Mã sai bị ghi như một lần đăng nhập thất bại nên dùng
+   * chung cơ chế lockout sẵn có; mã đúng mới ghi nhận đăng nhập và cấp
+   * cặp token + phiên như đăng nhập thường.
+   */
+  async verifyMfa(challengeToken: string, code: string, ip?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
+    let payload: { sub?: string; scope?: string };
+    try {
+      payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string }>(challengeToken);
+    } catch {
+      throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
+    }
+    if (payload.scope !== 'mfa_challenge' || !payload.sub) {
+      throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
+    }
+    const user = await this.users.getByIdOrUndefined(payload.sub);
+    if (!user || user.deleted || user.suspended) {
+      throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
+    }
+    if (await this.isLockedOut(user.id)) {
+      throw new UnauthorizedException({ message: 'Account is locked out due to failed login attempts', code: 'auth.locked_out' });
+    }
+    const ok = await this.totp.verifyForUser(user.id, code);
+    await this.repo.recordAttempt({ userid: user.id, username: user.username, success: ok, ip });
+    if (!ok) {
+      throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
+    }
     await this.users.recordLogin(user.id);
     const tokens = await this.issueTokens(user);
     return { user, tokens };

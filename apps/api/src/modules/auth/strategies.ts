@@ -17,7 +17,7 @@ export class LocalAuthStrategy extends PassportStrategy(LocalStrategy, 'local') 
   }
 }
 
-export interface JwtPayload { sub: string; username: string; sid: string }
+export interface JwtPayload { sub: string; username: string; sid: string; scope?: string }
 
 @Injectable()
 /** Chiến lược JWT: giải mã access token và dựng principal cho request (id, username, cờ site admin). */
@@ -31,6 +31,12 @@ export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
   }
   /** Identity only — and the account must still be active: suspended/deleted users' tokens die here. */
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+    // Challenge token của bước MFA (scope 'mfa_challenge', không có sid
+    // phiên) chỉ dùng được cho POST /auth/mfa/verify — không phải access
+    // token nên bị từ chối ở mọi route thường.
+    if (payload.scope !== undefined || !payload.sid) {
+      throw new UnauthorizedException({ message: 'Token is not an access token', code: 'auth.unauthenticated' });
+    }
     const user = await this.users.getByIdOrUndefined(payload.sub);
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });

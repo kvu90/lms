@@ -150,6 +150,8 @@ under `public/`):
 | 66 | Course completion 'grade' criterion: course completes only when the course total reaches the course item's gradepass (API + worker recalculation agree) | completionlib_test / `test_get_grade_completion*` family (deferred from P2) | e2e › course grade criterion + p3-jobs › completion grade criterion | P3 | ✅ |
 | 67 | Web: gradebook renders the category/item tree with grades + letters + teacher report + grade entry; question bank shows the version badge (edit bumps v1→v2); usage view shows attempt states/steps/pinned version | report §4 P3 web scope | `apps/web/src/pages/grades.spec.tsx` (3 tests) | P3 | ✅ |
 | 68 | Contracts: gradebook tree (recursive) with letters, question usage with pinned version + steps parse and reject bad shapes | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "assessment contracts (P3)" (2 tests) | P3 | ✅ |
+| 68a | Grade outcomes (addendum, was deferred below): outcomes are qualitative scales at site (courseid=null) or course scope, CRUD under `moodle/grade:manage`; an item linked to an outcome stores its grade as the 1-based scale index, is refused out-of-scale grades (400 `grades.outcome_grade_out_of_scale`), does NOT enter numeric category aggregation (same rule as scale items), and appears in gradebook + teacher report with its scale label (`scaleValue`) | Moodle grade outcomes + `grade/tests/behat/grade_scales.feature` scale semantics | grades-questions-flow › "grade outcomes: …" + `apps/worker/test/grade-jobs.spec.ts` › outcome/scale exclusion in regrade | P3 | ✅ |
+| 68b | Calculated grade items (addendum, was deferred below): itemtype `calculated` with a Moodle formula (`=sum/average/min/max([[idnumber]],…)`, `+ - * /`, parentheses, safe recursive-descent parser — no eval); unknown idnumber ⇒ 400 at save time, circular references ⇒ 400 at save time, unsupported functions ⇒ 400; division by zero ⇒ null; the calculated result (clamped to the item's grademin/grademax) feeds category/course aggregation like a regular grade in BOTH the API regrade and the worker regrade twin | MoodleDocs "Grade calculations" (docs.moodle.org, read online 2026-10-23; worked examples `=average([[1]],[[2]],[[3]])`, `=sum([[1]]*0.3,[[2]]*0.6,[[3]]*0.1)`, `=max([[A]],[[B]],100)` quoted in the spec) | `apps/api/src/modules/grades/domain/grade-formula.spec.ts` (11 golden tests) + grades-questions-flow › calculated flows (course total 210/300, category total 280/400) + grade-jobs › worker calculated regrade | P3 | ✅ |
 
 Skipped / deferred Moodle cases for P3 (with reasons):
 - qtype plugins (multichoice, essay, …) and behaviours other than
@@ -157,11 +159,18 @@ Skipped / deferred Moodle cases for P3 (with reasons):
   by design (report §2#8); the engine ships the behaviour INTERFACE plus the
   one core behaviour, and data-level truefalse/shortanswer so the engine
   runs end-to-end.
-- Grade outcomes, calculated grade items (formulas), and scale-based
-  aggregation — outcomes/formulas are separate Moodle features outside the
-  §4 P3 scope; scales are stored and can back an item's gradetype but scale
-  items do not enter numeric aggregation in this phase (documented in the
-  GradesModule code).
+- Grade outcomes and calculated grade items (formulas) were deferred in
+  the original §4 P3 scope and are NOW IMPLEMENTED as the addendum in rows
+  68a/68b above. Remaining formula gaps, recorded honestly: Moodle's extra
+  functions `power`, `round`, `mod`, `pi` and conditional `if` are NOT
+  supported — using one is refused at save time with 400
+  `grades.calculation_unknown_function` rather than silently miscomputed;
+  only `sum`/`average`/`min`/`max`, `+ - * /`, parentheses and unary minus
+  are supported. A formula referencing a category/course TOTAL item reads
+  that total's currently stored value (totals are recomputed after
+  calculated items in the same pass). Scale-based aggregation remains out
+  of scope: scales back an item's gradetype and scale/outcome items do not
+  enter numeric aggregation.
 - grade/tests PHPUnit files could not be located at the probed 5.3 paths
   (404s recorded above); aggregation arithmetic is oracle-checked against
   MoodleDocs' own worked examples instead, quoted verbatim in the spec.

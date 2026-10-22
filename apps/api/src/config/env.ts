@@ -25,6 +25,14 @@ export const envSchema = z.object({
   LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(30),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // MFA TOTP: khoá mã hoá secret TOTP lúc lưu (AES-256-GCM, khoá suy ra
+  // bằng SHA-256 từ giá trị này). Tuỳ chọn: khi không khai báo, hệ thống
+  // suy ra từ JWT_SECRET (xem TotpService) — môi trường thật NÊN đặt một
+  // khoá riêng để xoay vòng độc lập với khoá ký token.
+  MFA_ENCRYPTION_KEY: z.string().min(16).optional(),
+  // Thời hạn của challenge token sau bước mật khẩu khi user bật MFA:
+  // token này chỉ dùng được cho POST /auth/mfa/verify, không gọi API khác.
+  MFA_CHALLENGE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   // Giới hạn tốc độ theo IP (chống dò mật khẩu/phá hoại ở biên HTTP):
   // hạn mức chung cho mọi route và hạn mức chặt riêng cho các route
   // cấp token. Khoá tài khoản sau LOCKOUT_THRESHOLD lần sai vẫn là lớp
