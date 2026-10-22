@@ -8,3 +8,6 @@ coverage/
 *.log
 .DS_Store
 apps/api/drizzle/meta/*_snapshot.json.tmp
+
+# local content-addressed file storage (dev default)
+data/

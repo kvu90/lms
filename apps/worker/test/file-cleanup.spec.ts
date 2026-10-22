@@ -20,7 +20,10 @@ const STORAGE = '/tmp/lms-worker-test-files';
  */
 describe('Worker: file-cleanup processor removes only unreferenced physical files', () => {
   let context: INestApplicationContext;
-  let db: { insert: Function; delete: Function };
+  let db: {
+    insert: (table: typeof files) => { values: (v: typeof files.$inferInsert) => Promise<unknown> };
+    delete: (table: typeof files) => { where: (cond: unknown) => Promise<unknown> };
+  };
   const content = Buffer.from(`orphan-content-${Date.now()}`);
   const hash = createHash('sha256').update(content).digest('hex');
   const physical = join(STORAGE, hash.slice(0, 2), hash.slice(2, 4), hash);

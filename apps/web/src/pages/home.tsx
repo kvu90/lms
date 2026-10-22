@@ -14,9 +14,14 @@ export function HomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild>
-            <Link to="/health">Check API health</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild>
+              <Link to="/login">Sign in</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/health">Check API health</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </main>
