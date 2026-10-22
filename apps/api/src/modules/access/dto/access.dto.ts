@@ -1,33 +1,36 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MinLength } from 'class-validator';
-export class CreateContextDto {
-  @IsInt() contextlevel!: number;
-  @IsInt() instanceid!: number;
-  @IsOptional() @IsInt() parentId?: number;
-}
-export class CreateRoleDto {
-  @IsString() @MinLength(1) name!: string;
-  @IsString() @MinLength(1) shortname!: string;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsString() archetype?: string;
-}
-export class UpdateRoleDto {
-  @IsOptional() @IsString() name?: string;
-  @IsOptional() @IsString() description?: string;
-}
-export class AssignRoleDto {
-  @IsInt() userid!: number;
-  @IsInt() roleid!: number;
-  @IsInt() contextid!: number;
-}
-export class OverrideCapabilityDto {
-  @IsInt() roleid!: number;
-  @IsString() capability!: string;
-  @IsInt() contextid!: number;
-  @IsInt() permission!: number;
-}
-export class HasCapabilityQueryDto {
-  @Type(() => Number) @IsInt() userid!: number;
-  @IsString() capability!: string;
-  @Type(() => Number) @IsInt() contextid!: number;
-}
+import { z } from 'zod';
+import {
+  assignRoleSchema,
+  createContextSchema,
+  createRoleSchema,
+  hasCapabilityQuerySchema,
+  overrideCapabilitySchema,
+  updateRoleSchema,
+  type AssignRole,
+  type CreateContext,
+  type CreateRole,
+  type OverrideCapability,
+  type UpdateRole,
+} from '@lms/contracts';
+
+/**
+ * Validation của Access (contexts/roles/assignments) dùng Zod qua Standard
+ * Schema — schema nền ở `@lms/contracts` là nguồn sự thật duy nhất.
+ */
+export { assignRoleSchema, createContextSchema, createRoleSchema, overrideCapabilitySchema, updateRoleSchema };
+export type CreateContextDto = CreateContext;
+export type CreateRoleDto = CreateRole;
+export type UpdateRoleDto = UpdateRole;
+export type AssignRoleDto = AssignRole;
+export type OverrideCapabilityDto = OverrideCapability;
+
+/**
+ * Schema phía server cho query kiểm tra quyền — EXTEND từ schema nền ở
+ * contracts: query string luôn là chuỗi nên `userid`/`contextid` ép kiểu bằng
+ * `z.coerce` ở tầng server, schema nền vẫn giữ kiểu số cho bề mặt dùng chung.
+ */
+export const hasCapabilityQueryServerSchema = hasCapabilityQuerySchema.extend({
+  userid: z.coerce.number().int(),
+  contextid: z.coerce.number().int(),
+});
+export type HasCapabilityQueryDto = z.infer<typeof hasCapabilityQueryServerSchema>;

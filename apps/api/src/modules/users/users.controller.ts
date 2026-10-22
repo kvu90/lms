@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Q
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
-import { CreateUserDto, ListUsersQueryDto, SetPreferenceDto, UpdateUserDto } from './dto/users.dto';
+import { createUserSchema, listUsersQueryServerSchema, setUserPreferenceSchema, updateUserSchema, type CreateUserDto, type ListUsersQueryDto, type SetPreferenceDto, type UpdateUserDto } from './dto/users.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -12,14 +12,14 @@ export class UsersController {
 
   @Post()
   @RequireCapability('moodle/user:create')
-  async create(@Body() dto: CreateUserDto) {
+  async create(@Body({ schema: createUserSchema }) dto: CreateUserDto) {
     const user = await this.users.createUser(dto);
     return { id: user.id, username: user.username, email: user.email, firstname: user.firstname, lastname: user.lastname };
   }
 
   @Get()
   @RequireCapability('moodle/user:viewdetails')
-  async list(@Query() query: ListUsersQueryDto, @CurrentUser() viewer: AuthenticatedUser) {
+  async list(@Query({ schema: listUsersQueryServerSchema }) query: ListUsersQueryDto, @CurrentUser() viewer: AuthenticatedUser) {
     const result = await this.users.listUsers(query.search, query.page ?? 1, query.pageSize ?? 20);
     const views = [];
     for (const u of result.users) views.push(await this.users.getProfileView(u.id, viewer.id));
@@ -36,7 +36,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateUserSchema }) dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
     const user = await this.users.updateUser(id, dto);
     return this.users.getProfileView(user.id, actor.id);
@@ -62,7 +62,7 @@ export class UsersController {
   }
 
   @Put(':id/preferences')
-  async setPreference(@Param('id', ParseIntPipe) id: number, @Body() dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setPreference(@Param('id', ParseIntPipe) id: number, @Body({ schema: setUserPreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
     await this.users.setPreference(id, dto.name, dto.value ?? null);
     return { saved: true };

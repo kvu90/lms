@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -11,9 +11,8 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  // Validation toàn cục đi qua APP_PIPE (I18nStandardSchemaValidationPipe) đã
+  // đăng ký trong AppModule — mọi payload đều là schema Zod (ADR-009).
   app.useGlobalFilters(new ProblemDetailsFilter());
   app.enableCors();
   app.enableShutdownHooks();

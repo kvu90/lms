@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { ContextsService } from './contexts.service';
-import { AssignRoleDto, CreateContextDto, CreateRoleDto, HasCapabilityQueryDto, OverrideCapabilityDto, UpdateRoleDto } from './dto/access.dto';
+import { assignRoleSchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, overrideCapabilitySchema, updateRoleSchema, type AssignRoleDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type OverrideCapabilityDto, type UpdateRoleDto } from './dto/access.dto';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { RolesService } from './roles.service';
 
@@ -18,7 +18,7 @@ export class AccessController {
 
   @Post('contexts')
   @RequireCapability('moodle/site:config')
-  async createContext(@Body() dto: CreateContextDto) {
+  async createContext(@Body({ schema: createContextSchema }) dto: CreateContextDto) {
     return this.contexts.createContext(dto.contextlevel, dto.instanceid, dto.parentId);
   }
   @Get('contexts')
@@ -30,7 +30,7 @@ export class AccessController {
 
   @Post('roles')
   @RequireCapability('moodle/role:manage')
-  async createRole(@Body() dto: CreateRoleDto) { return this.roles.createRole(dto); }
+  async createRole(@Body({ schema: createRoleSchema }) dto: CreateRoleDto) { return this.roles.createRole(dto); }
   @Get('roles')
   @RequireCapability('moodle/role:manage')
   async listRoles() { return this.roles.listRoles(); }
@@ -39,7 +39,7 @@ export class AccessController {
   async getRole(@Param('id', ParseIntPipe) id: number) { return this.roles.getRole(id); }
   @Patch('roles/:id')
   @RequireCapability('moodle/role:manage')
-  async updateRole(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) { return this.roles.updateRole(id, dto); }
+  async updateRole(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateRoleSchema }) dto: UpdateRoleDto) { return this.roles.updateRole(id, dto); }
   @Delete('roles/:id')
   @RequireCapability('moodle/role:manage')
   async deleteRole(@Param('id', ParseIntPipe) id: number) { await this.roles.deleteRole(id); return { deleted: true }; }
@@ -53,7 +53,7 @@ export class AccessController {
 
   @Post('assignments')
   @RequireCapability('moodle/role:assign')
-  async assign(@Body() dto: AssignRoleDto, @CurrentUser() actor: AuthenticatedUser) {
+  async assign(@Body({ schema: assignRoleSchema }) dto: AssignRoleDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.roles.assignRole(dto.userid, dto.roleid, dto.contextid, actor.id);
   }
   @Get('assignments')
@@ -67,7 +67,7 @@ export class AccessController {
 
   @Post('overrides')
   @RequireCapability('moodle/role:override', 'body:contextId')
-  async override(@Body() dto: OverrideCapabilityDto, @CurrentUser() actor: AuthenticatedUser) {
+  async override(@Body({ schema: overrideCapabilitySchema }) dto: OverrideCapabilityDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.roles.setCapabilityOverride(dto.roleid, dto.capability, dto.contextid, dto.permission, actor.id);
     return { updated: true };
   }
@@ -75,7 +75,7 @@ export class AccessController {
   /** Debug/admin probe: what does the evaluator say for (user, capability, context)? */
   @Get('has-capability')
   @RequireCapability('moodle/role:manage')
-  async hasCapability(@Query() query: HasCapabilityQueryDto) {
+  async hasCapability(@Query({ schema: hasCapabilityQueryServerSchema }) query: HasCapabilityQueryDto) {
     const allowed = await this.evaluator.hasCapability(Number(query.userid), query.capability, Number(query.contextid));
     return { userid: Number(query.userid), capability: query.capability, contextid: Number(query.contextid), allowed };
   }

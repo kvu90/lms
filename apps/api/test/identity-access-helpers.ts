@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -14,7 +14,7 @@ export async function createTestApp(): Promise<INestApplication> {
   const app = moduleRef.createNestApplication();
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  // Validation qua APP_PIPE của AppModule (Standard Schema + i18n) — khớp main.ts.
   app.useGlobalFilters(new ProblemDetailsFilter());
   await app.init();
   return app;

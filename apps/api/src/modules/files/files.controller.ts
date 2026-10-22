@@ -1,17 +1,12 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
 import { FilesService } from './files.service';
+import { uploadMetaServerSchema, type UploadMetaDto } from './dto/files.dto';
 
-class UploadMetaDto {
-  @Type(() => Number) @IsInt() contextid!: number; @IsString() component!: string; @IsString() filearea!: string;
-  @IsOptional() @Type(() => Number) @IsInt() itemid?: number; @IsOptional() @IsString() filepath?: string;
-}
 
 @ApiTags('files')
 @Controller({ path: 'files', version: '1' })
@@ -22,7 +17,7 @@ export class FilesController {
   // parses the body, so the target context is checked in the handler instead.
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  async upload(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body() meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async upload(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body({ schema: uploadMetaServerSchema }) meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.files.assertCanUpload(Number(meta.contextid), actor);
     const row = await this.files.upload({
       contextid: Number(meta.contextid), component: meta.component, filearea: meta.filearea,
