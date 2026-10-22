@@ -113,6 +113,60 @@ in `public/completion/tests/api_test.php` + `completion_criteria_test.php`).
 | 49 | Web: category tree renders with courses nested; a locked (show=true) module renders shown-but-disabled with its restriction text | report §3.13/§4 P2 (web scope) | `apps/web/src/pages/courses.spec.tsx` (2 tests) | P2 | ✅ |
 | 50 | Contracts: category tree (recursive), course content with availabilityResult, enrol instance shapes parse | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "course contracts (P2)" | P2 | ✅ |
 
+## P3 — Assessment (Grades / Questions / Completion-by-grade)
+
+Oracle sources checked against Moodle `MOODLE_503_STABLE` on 2026-10-22 (tree
+under `public/`):
+- `public/question/engine/tests/questionusagebyactivity_test.php` ✅ VERIFIED
+  live (usage groups attempts, deferredfeedback, steps, pinned questions).
+- `public/lib/tests/completionlib_test.php` ✅ VERIFIED live — grade cases
+  `test_internal_get_state_with_grade_criteria`, `test_inform_grade_changed`
+  (deferred from P2, now implemented).
+- Grade tests: the probed paths `public/grade/tests/grade_category_test.php`
+  and `public/grade/tests/category_test.php` return **404** in the 5.3 tree —
+  recorded honestly; the arithmetic oracle used instead is the **MoodleDocs
+  "Grade aggregation" page** (the source report §2.1 itself cites), whose
+  worked examples were read via the indexed MoodleDocs mirror on 2026-10-22
+  and are quoted verbatim in the GradeCalculator spec.
+
+| # | Behaviour | Moodle oracle (file / case) | Our test | Phase | Status |
+|---|-----------|-----------------------------|----------|-------|--------|
+| 51 | GOLDEN Natural, no weight forcing: (70+20+10)/(100+80+10) = 100/190; category max = sum of item maxes | MoodleDocs Grade_aggregation, Natural worked example (verbatim) | `apps/api/src/modules/grades/domain/grade-calculator.spec.ts` › Natural case + `test/grades-questions-flow.e2e-spec.ts` › GOLDEN via API | P3 | ✅ |
+| 52 | GOLDEN extra credit: item max excluded from denominator, grade counts, total capped at category max (20 extra + 70/75 ⇒ 75/75) | MoodleDocs Grade_aggregation, Natural extra-credit example (verbatim) | grade-calculator.spec › extra credit + e2e GOLDEN extra credit | P3 | ✅ |
+| 53 | GOLDEN Natural weight override: overridden weight kept, remainder redistributed to exactly 100% by relative max (25% kept; 37.5/37.5 split; total 172.5/300) | MoodleDocs Grade_aggregation Natural weighting rule + report §2.1 | grade-calculator.spec › redistribution case | P3 | ✅ |
+| 54 | GOLDEN drop-the-lowest / keep-the-highest over normalised grades | report §2.1 (Moodle aggregate droplow/keephigh semantics) | grade-calculator.spec › drop/keep cases | P3 | ✅ |
+| 55 | GOLDEN exclude empty grades: empty ≠ 0 — excluding empties changes the denominator (50/100 graded-only ⇒ 100/200 structural; counted as zero ⇒ 50/200) | report §2.1 + §3.11(2b) | grade-calculator.spec › exclude-empty case | P3 | ✅ |
+| 56 | GOLDEN freeze with multiplicator: grade produced by a penalty multiplicator is frozen data; later formula changes do not rewrite it; unfrozen + re-entry recomputes | report §2.1/§2#7 (MDL-89497 freeze invariant) | grade-calculator.spec › freeze case + e2e › freeze flow | P3 | ✅ |
+| 57 | Other strategies over the verbatim MoodleDocs set: mean 65, lowest 25, highest 100, median 70, mode 70 (mode(0.7,0.7,0.25,1.0,0.7)); weighted mean 493/6=82.167; simple weighted mean; sum legacy | MoodleDocs Grade_aggregation worked examples (verbatim) | grade-calculator.spec › strategy cases (8 tests) | P3 | ✅ |
+| 58 | Recursive aggregation: subcategory totals feed the parent category and the course total; natural syncs the total item's grademax | grade_category tree semantics (report §2#7) | e2e › nested categories (mean subcat 90; course natural 150/200) | P3 | ✅ |
+| 59 | Overridden grades are never recomputed by regrade; locked item/grade refuses entry; every change lands in grade_grades_history | grade_grades overridden/locked semantics (report §2#7) | e2e › override/lock/history flow | P3 | ✅ |
+| 60 | Grade entry requires moodle/grade:edit at the course context; a student sees only their own book; hidden items/grades are filtered server-side for non-viewall viewers; letters apply at display time | report §2#7 + capability model (P1) | e2e › permissions/privacy + letters flows | P3 | ✅ |
+| 61 | Aggregation change ⇒ bulk regrade: API enqueues the worker job, writes grade_category_aggregation_changed + grade_updated outbox records, and stored totals follow the new strategy | report §3.4/§3.5 (outbox + BullMQ) | e2e › aggregation-change chain + `apps/worker/test/p3-jobs.spec.ts` › grade-regrade (100/190 recomputed, history written, idempotent) | P3 | ✅ |
+| 62 | Question bank versioning: editing creates a NEW version and bumps the entry's latest pointer; previous versions are immutable | question bank versioning (report §2#8) | e2e › bank versioning flow (v1 intact after edit to v2) | P3 | ✅ |
+| 63 | INVARIANT: an attempt started on version X is graded by X after the question is edited to version Y; a new usage pins Y and grades differently; every transition is a step with step_data | `question/engine/tests/questionusagebyactivity_test.php` / usage+attempt lifecycle, deferredfeedback | e2e › INVARIANT flow (steps todo→complete→gradedright; new usage gradedwrong) + `src/modules/questions/domain/question-engine.spec.ts` | P3 | ✅ |
+| 64 | completionusegrade runs for real: grade ≥ gradepass ⇒ COMPLETE_PASS (2), below ⇒ COMPLETE_FAIL (3), no grade ⇒ incomplete; grade changes update it both ways | completionlib_test grade cases (deferred from P2 case 43) | e2e › CHAIN flow (0 → 3 → 2) | P3 | ✅ |
+| 65 | Availability `grade` leaf evaluates against real grade percentages; regrade keeps completion/availability consistent: chain grade → completion → gated cm opens | completionlib_test + availability grade condition (report §2#9/#10) | e2e › CHAIN flow (403 → 403 → 200) | P3 | ✅ |
+| 66 | Course completion 'grade' criterion: course completes only when the course total reaches the course item's gradepass (API + worker recalculation agree) | completionlib_test / `test_get_grade_completion*` family (deferred from P2) | e2e › course grade criterion + p3-jobs › completion grade criterion | P3 | ✅ |
+| 67 | Web: gradebook renders the category/item tree with grades + letters + teacher report + grade entry; question bank shows the version badge (edit bumps v1→v2); usage view shows attempt states/steps/pinned version | report §4 P3 web scope | `apps/web/src/pages/grades.spec.tsx` (3 tests) | P3 | ✅ |
+| 68 | Contracts: gradebook tree (recursive) with letters, question usage with pinned version + steps parse and reject bad shapes | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "assessment contracts (P3)" (2 tests) | P3 | ✅ |
+
+Skipped / deferred Moodle cases for P3 (with reasons):
+- qtype plugins (multichoice, essay, …) and behaviours other than
+  deferredfeedback (interactive, adaptive, CBM) — plugins/extension points
+  by design (report §2#8); the engine ships the behaviour INTERFACE plus the
+  one core behaviour, and data-level truefalse/shortanswer so the engine
+  runs end-to-end.
+- Grade outcomes, calculated grade items (formulas), and scale-based
+  aggregation — outcomes/formulas are separate Moodle features outside the
+  §4 P3 scope; scales are stored and can back an item's gradetype but scale
+  items do not enter numeric aggregation in this phase (documented in the
+  GradesModule code).
+- grade/tests PHPUnit files could not be located at the probed 5.3 paths
+  (404s recorded above); aggregation arithmetic is oracle-checked against
+  MoodleDocs' own worked examples instead, quoted verbatim in the spec.
+
+## P2 skipped / deferred (recorded at P2 time)
+
 Skipped / deferred Moodle cases for P2 (with reasons):
 - courselib_test's backup/restore-coupled deletion cases
   (`test_course_not_deleted_if_backup_process_pending`, async deletion
