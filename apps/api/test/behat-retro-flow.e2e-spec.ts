@@ -51,7 +51,7 @@ describe('Behat retro-audit journeys', () => {
     await http(app).put(`/api/v1/badges/${bId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriatype: 'badge', params: { badgeId: aId } }] });
     await http(app).post(`/api/v1/badges/${bId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Chưa có A ⇒ đánh giá B không đạt, B chưa được cấp.
-    let evaluation = await http(app).post(`/api/v1/badges/${bId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
+    const evaluation = await http(app).post(`/api/v1/badges/${bId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect(evaluation.body.satisfied).toBe(false);
     // Cấp A thủ công ⇒ lần đánh giá toàn cục tiếp theo cấp B.
     await http(app).post(`/api/v1/badges/${aId}/award`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
