@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import type { QuestionCategory, QuestionUsage, QuestionView } from '@lms/contracts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,8 @@ import { apiJson } from '@/lib/api';
  */
 export function QuestionsPage() {
   const { t } = useTranslation('app');
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<string[]>([]);
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [questions, setQuestions] = useState<QuestionView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{ questionId: string; versions: { version: number; questiontext: string }[] } | null>(null);
@@ -80,6 +82,25 @@ export function QuestionsPage() {
     } catch { setMessage(t('questionEditFailed')); }
   }
 
+  /**
+   * Tạo lượt làm bài từ các câu hỏi đã chọn: slot chỉ cần `questionId`
+   * (schema `questionUsageSlotSchema`) — server tự gắn phiên bản mới nhất
+   * khi attempt bắt đầu, nên trang không gửi version id nào. Component
+   * `mod_quiz` khớp cách API/e2e tạo usage cho một hoạt động quiz.
+   */
+  async function startUsageFromSelection() {
+    try {
+      const created = await apiJson<QuestionUsage>('/api/v1/question-usages', {
+        method: 'POST',
+        body: JSON.stringify({
+          component: 'mod_quiz',
+          slots: selected.map((questionId) => ({ questionId })),
+        }),
+      });
+      await navigate(`/question-usages/${created.usage.id}`);
+    } catch { setMessage(t('usageCreateFailed')); }
+  }
+
   async function showVersions(view: QuestionView) {
     const versions = await apiJson<{ version: number; questiontext: string }[]>(`/api/v1/questions/${view.question.id}/versions`);
     setVersionsOf({ questionId: view.question.id, versions });
@@ -105,6 +126,12 @@ export function QuestionsPage() {
           <ul className="space-y-2">
             {questions.map((view) => (
               <li key={view.question.id} data-testid={`question-${view.question.id}`} className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
+                  checked={selected.includes(view.question.id)}
+                  onChange={(e) => setSelected((prev) => (e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id)))}
+                />
                 <span>{view.question.name}</span>
                 <span data-testid={`version-badge-${view.question.id}`} className="rounded bg-secondary px-2 py-0.5 text-xs">
                   v{view.entry.latestversion}
@@ -115,6 +142,9 @@ export function QuestionsPage() {
               </li>
             ))}
           </ul>
+          <Button type="button" disabled={selected.length === 0} onClick={() => void startUsageFromSelection()}>
+            {t('startAttemptFromSelection')}
+          </Button>
           {versionsOf && (
             <div data-testid="version-history">
               <h3 className="font-medium">{t('versionHistory')}</h3>
@@ -170,19 +200,42 @@ export function QuestionsPage() {
   );
 }
 
-/** Minimal attempt view: one usage of a simulated activity, with per-attempt state and pinned version. */
+/**
+ * Lượt làm bài câu hỏi: thao tác theo trạng thái của usage và từng attempt
+ * (bắt đầu usage/attempt, nộp câu trả lời, kết thúc attempt/usage). Sau mỗi
+ * thao tác trang nạp lại usage từ API để hiển thị state/fraction mới nhất.
+ * Behaviour mặc định là deferredfeedback: nộp chỉ ghi đáp án thành step,
+ * điểm (fraction) chỉ chốt khi kết thúc attempt hoặc toàn bộ usage.
+ */
 export function QuestionUsagePage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
   const [usage, setUsage] = useState<QuestionUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    void apiJson<QuestionUsage>(`/api/v1/question-usages/${id}`)
-      .then(setUsage)
-      .catch(() => setError(t('attemptLoadFailed')));
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  /** Nạp (lại) usage hiện tại từ API — nguồn sự thật cho state/fraction. */
+  const reload = useCallback(async () => {
+    const fresh = await apiJson<QuestionUsage>(`/api/v1/question-usages/${id}`);
+    setUsage(fresh);
   }, [id]);
+
+  useEffect(() => { void reload().catch(() => setError(t('attemptLoadFailed'))); }, [reload, t]);
+
+  /** Chạy một thao tác làm bài rồi nạp lại usage; lỗi hiện thân thiện qua i18n. */
+  async function act(run: () => Promise<unknown>) {
+    setActionError(null);
+    try {
+      await run();
+      await reload();
+    } catch { setActionError(t('usageActionFailed')); }
+  }
+
   if (error) return <main className="p-8"><p role="alert">{error}</p></main>;
   if (!usage) return <main className="p-8">{t('attemptLoading')}</main>;
+  const usageId = usage.usage.id;
+  const gradedStates = ['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'];
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-8">
       <Card>
@@ -190,18 +243,74 @@ export function QuestionUsagePage() {
           <CardTitle>{t('questionAttemptTitle', { component: usage.usage.component })}</CardTitle>
           <CardDescription>{t('usageState', { state: usage.state })}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {usage.attempts.map((a) => (
-              <li key={a.id} data-testid={`attempt-${a.id}`}>
-                {t('slotLine', { slot: a.slot })} <strong>{a.state}</strong>
-                {a.fraction !== null ? ` ${t('fractionSuffix', { fraction: a.fraction })}` : ''}
-                {a.questionversionid ? ` ${t('pinnedVersionSuffix', { versionId: a.questionversionid })}` : ''}
-                <span className="block text-sm text-muted-foreground">
-                  {t('stepsLine', { steps: a.steps.map((s) => s.state).join(' → ') || t('stepsNone') })}
-                </span>
-              </li>
-            ))}
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('deferredFeedbackNote')}</p>
+          {actionError ? <p role="alert">{actionError}</p> : null}
+          <div className="flex gap-2">
+            {usage.state === 'notstarted' ? (
+              <Button type="button" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/start`, { method: 'POST', body: '{}' }))}>
+                {t('usageStart')}
+              </Button>
+            ) : null}
+            {usage.state === 'inprogress' ? (
+              <Button type="button" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/finish`, { method: 'POST', body: '{}' }))}>
+                {t('usageFinish')}
+              </Button>
+            ) : null}
+          </div>
+          <ul className="space-y-4">
+            {usage.attempts.map((a) => {
+              const started = a.state !== 'notstarted';
+              const finishedAttempt = gradedStates.includes(a.state);
+              const lastAnswer = [...a.steps].reverse().find((s) => s.data.answer)?.data.answer ?? '';
+              return (
+                <li key={a.id} data-testid={`attempt-${a.id}`} className="space-y-2">
+                  <div>
+                    {t('slotLine', { slot: a.slot })} <strong>{a.state}</strong>
+                    {a.fraction !== null ? ` ${t('fractionSuffix', { fraction: a.fraction })}` : ''}
+                    {a.questionversionid ? ` ${t('pinnedVersionSuffix', { versionId: a.questionversionid })}` : ''}
+                    <span className="block text-sm text-muted-foreground">
+                      {t('stepsLine', { steps: a.steps.map((s) => s.state).join(' → ') || t('stepsNone') })}
+                    </span>
+                  </div>
+                  {!started ? (
+                    <Button type="button" variant="outline" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/start`, { method: 'POST', body: '{}' }))}>
+                      {t('attemptStart')}
+                    </Button>
+                  ) : null}
+                  {started && !finishedAttempt ? (
+                    <div className="space-y-2">
+                      <div>
+                        <Label htmlFor={`answer-${a.id}`}>{t('answerForSlot', { slot: a.slot })}</Label>
+                        <Input
+                          id={`answer-${a.id}`}
+                          value={answers[a.id] ?? lastAnswer}
+                          onChange={(e) => setAnswers((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/submit`, {
+                            method: 'POST',
+                            body: JSON.stringify({ response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null }),
+                          }))}
+                        >
+                          {t('attemptSubmit')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/finish`, { method: 'POST', body: '{}' }))}
+                        >
+                          {t('attemptFinish')}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
           <p className="mt-4 text-sm"><Link to="/questions">{t('backToQuestionBank')}</Link></p>
         </CardContent>
