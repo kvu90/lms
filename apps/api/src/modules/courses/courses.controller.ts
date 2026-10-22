@@ -15,36 +15,36 @@ export class CoursesController {
   // --- categories -----------------------------------------------------------
   @Post('categories')
   /**
-   * POST /course-categories — tạo category.
+   * POST /courses/categories — tạo category.
    */
   async createCategory(@Body({ schema: createCourseCategorySchema }) dto: CreateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.createCategory(actor.id, dto);
   }
   @Get('categories')
   /**
-   * GET /course-categories — liệt kê category.
+   * GET /courses/categories — liệt kê category.
    */
   async listCategories() { return this.courses.listCategories(); }
   @Get('categories/tree')
   /**
-   * GET /course-categories/tree — cây category kèm khoá học.
+   * GET /courses/categories/tree — cây category kèm khoá học.
    */
   async categoryTree() { return this.courses.categoryTree(); }
   @Get('categories/:id')
   /**
-   * GET /course-categories/:id — chi tiết category.
+   * GET /courses/categories/:id — chi tiết category.
    */
   async getCategory(@Param('id', ParseIntPipe) id: number) { return this.courses.getCategory(id); }
   @Patch('categories/:id')
   /**
-   * PATCH /course-categories/:id — cập nhật category.
+   * PATCH /courses/categories/:id — cập nhật category.
    */
   async updateCategory(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateCourseCategorySchema }) dto: UpdateCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateCategory(actor.id, id, dto);
   }
   @Delete('categories/:id')
   /**
-   * DELETE /course-categories/:id — xoá category.
+   * DELETE /courses/categories/:id — xoá category.
    */
   async deleteCategory(@Param('id', ParseIntPipe) id: number, @Query('mode') mode: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     const parsed = mode === undefined ? undefined : (mode as CategoryDeleteMode);
@@ -112,14 +112,14 @@ export class CoursesController {
   }
   @Patch(':id/sections/:sectionId')
   /**
-   * PATCH /sections/:id — cập nhật section.
+   * PATCH /courses/:id/sections/:sectionId — cập nhật section.
    */
   async updateSection(@Param('sectionId', ParseIntPipe) sectionId: number, @Body({ schema: updateCourseSectionSchema }) dto: UpdateSectionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateSection(actor.id, sectionId, dto);
   }
   @Delete(':id/sections/:sectionId')
   /**
-   * DELETE /sections/:id — xoá section.
+   * DELETE /courses/:id/sections/:sectionId — xoá section.
    */
   async deleteSection(@Param('sectionId', ParseIntPipe) sectionId: number, @CurrentUser() actor: AuthenticatedUser) {
     await this.courses.deleteSection(actor.id, sectionId);
@@ -127,7 +127,7 @@ export class CoursesController {
   }
   @Get(':id/sections/:sectionId/access')
   /**
-   * GET /sections/:id/access — kết quả availability của section cho user hiện tại.
+   * GET /courses/:id/sections/:sectionId/access — kết quả availability của section cho user hiện tại.
    */
   async sectionAccess(@Param('id', ParseIntPipe) id: number, @Param('sectionId', ParseIntPipe) sectionId: number, @CurrentUser() viewer: AuthenticatedUser) {
     await this.courses.assertCourseAccess(viewer.id, id);
@@ -140,7 +140,7 @@ export class CoursesController {
   // --- course modules --------------------------------------------------------------
   @Post(':id/modules')
   /**
-   * POST /sections/:id/modules — thêm course module.
+   * POST /courses/:id/modules — thêm course module.
    */
   async createCm(@Param('id', ParseIntPipe) id: number, @Body({ schema: createCourseModuleSchema }) dto: CreateCmDto, @CurrentUser() actor: AuthenticatedUser) {
     const cm = await this.courses.createCm(actor.id, id, dto);
@@ -148,7 +148,7 @@ export class CoursesController {
   }
   @Get(':id/modules/:cmId')
   /**
-   * GET /modules/:id — chi tiết course module.
+   * GET /courses/:id/modules/:cmId — chi tiết course module.
    */
   async getCm(@Param('id', ParseIntPipe) id: number, @Param('cmId', ParseIntPipe) cmId: number, @CurrentUser() viewer: AuthenticatedUser) {
     await this.courses.assertCourseAccess(viewer.id, id);
@@ -158,7 +158,7 @@ export class CoursesController {
   /** Attempt to access the activity content — server-side availability gate (show/showc NEVER grant access). */
   @Get(':id/modules/:cmId/access')
   /**
-   * GET /modules/:id/access — kết quả availability của cm.
+   * GET /courses/:id/modules/:cmId/access — kết quả availability của cm.
    */
   async cmAccess(@Param('id', ParseIntPipe) id: number, @Param('cmId', ParseIntPipe) cmId: number, @CurrentUser() viewer: AuthenticatedUser) {
     await this.courses.assertCourseAccess(viewer.id, id);
@@ -169,7 +169,7 @@ export class CoursesController {
   }
   @Post(':id/modules/:cmId/view')
   /**
-   * POST /modules/:id/view — ghi nhận lượt xem cm (nuôi completion).
+   * POST /courses/:id/modules/:cmId/view — ghi nhận lượt xem cm (nuôi completion).
    */
   async viewCm(@Param('cmId', ParseIntPipe) cmId: number, @CurrentUser() viewer: AuthenticatedUser) {
     const cm = await this.courses.recordCmView(viewer.id, cmId);
@@ -177,14 +177,14 @@ export class CoursesController {
   }
   @Patch(':id/modules/:cmId')
   /**
-   * PATCH /modules/:id — cập nhật cm.
+   * PATCH /courses/:id/modules/:cmId — cập nhật cm.
    */
   async updateCm(@Param('cmId', ParseIntPipe) cmId: number, @Body({ schema: updateCourseModuleSchema }) dto: UpdateCmDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.updateCm(actor.id, cmId, dto);
   }
   @Delete(':id/modules/:cmId')
   /**
-   * DELETE /modules/:id — xoá cm.
+   * DELETE /courses/:id/modules/:cmId — xoá cm.
    */
   async deleteCm(@Param('cmId', ParseIntPipe) cmId: number, @CurrentUser() actor: AuthenticatedUser) {
     await this.courses.deleteCm(actor.id, cmId);

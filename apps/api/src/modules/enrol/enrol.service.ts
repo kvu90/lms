@@ -210,7 +210,8 @@ export class EnrolService implements OnModuleInit {
 
   /** Self-enrolment through a 'self' instance (minimal frame): the user enrols themselves when the instance is enabled. */
   /**
-   * Tự ghi danh: kiểm instance self còn mở, khoá ghi danh (enrol password) và cửa sổ thời gian.
+   * Tự ghi danh: chỉ dành cho instance self đang bật; instance fee bị từ chối (enrol.payment_required) vì phải qua thanh toán đã xác nhận.
+   * Lưu ý: khoá ghi danh (enrolment key) của Moodle enrol_self chưa được cài đặt ở hệ này — xem docs/business-traceability.md.
    */
   async selfEnrol(userId: number, instanceId: number): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);

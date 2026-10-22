@@ -14,35 +14,35 @@ export class QuestionsController {
 
   @Post('categories')
   /**
-   * POST /question-categories — tạo category.
+   * POST /questions/categories — tạo category.
    */
   async createCategory(@Body({ schema: createQuestionCategorySchema }) dto: CreateQuestionCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createCategory(actor.id, dto);
   }
   @Get('categories')
   /**
-   * GET /question-categories — liệt kê category theo context.
+   * GET /questions/categories — liệt kê category theo context.
    */
   async listCategories(@Query('contextid') contextid?: string) {
     return this.questions.listCategories(contextid ? Number(contextid) : undefined);
   }
   @Get('categories/:id/questions')
   /**
-   * GET /question-categories/:id/questions — câu hỏi trong category.
+   * GET /questions/categories/:id/questions — câu hỏi trong category.
    */
   async listQuestions(@Param('id', ParseIntPipe) id: number) {
     return this.questions.listQuestions(id);
   }
   @Post()
   /**
-   * POST /questions hoặc POST /question-usages — tạo câu hỏi / tạo usage (theo controller).
+   * POST /questions — tạo câu hỏi (QuestionUsagesController: POST /question-usages — tạo usage).
    */
   async create(@Body({ schema: createQuestionSchema }) dto: CreateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createQuestion(actor.id, dto);
   }
   @Get(':id')
   /**
-   * GET /questions/:id hoặc /question-usages/:id — chi tiết câu hỏi / usage.
+   * GET /questions/:id — chi tiết câu hỏi (QuestionUsagesController: GET /question-usages/:id — chi tiết usage).
    */
   async get(@Param('id', ParseIntPipe) id: number) {
     return this.questions.getQuestion(id);
@@ -95,21 +95,21 @@ export class QuestionUsagesController {
   }
   @Post(':id/attempts/:attemptId/start')
   /**
-   * POST /question-usages/:id/attempts — bắt đầu attempt cho một slot.
+   * POST /question-usages/:id/attempts/:attemptId/start — bắt đầu attempt.
    */
   async startAttempt(@Param('attemptId', ParseIntPipe) attemptId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.startAttempt(actor.id, attemptId);
   }
   @Post(':id/attempts/:attemptId/submit')
   /**
-   * POST /question-attempts/:id/submit — nộp câu trả lời.
+   * POST /question-usages/:id/attempts/:attemptId/submit — nộp câu trả lời.
    */
   async submit(@Param('attemptId', ParseIntPipe) attemptId: number, @Body({ schema: submitQuestionResponseSchema }) dto: SubmitResponseDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.submitResponse(actor.id, attemptId, dto.response ?? null);
   }
   @Post(':id/attempts/:attemptId/finish')
   /**
-   * POST /question-attempts/:id/finish — kết thúc attempt.
+   * POST /question-usages/:id/attempts/:attemptId/finish — kết thúc attempt.
    */
   async finishAttempt(@Param('attemptId', ParseIntPipe) attemptId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.finishAttempt(actor.id, attemptId);

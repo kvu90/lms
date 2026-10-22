@@ -14,35 +14,35 @@ export class MessagingController {
 
   @Post('conversations')
   /**
-   * POST /conversations — tạo conversation.
+   * POST /messages/conversations — tạo conversation.
    */
   async createConversation(@Body({ schema: createConversationSchema }) dto: CreateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.createConversation(actor.id, dto);
   }
   @Get('conversations')
   /**
-   * GET /conversations — conversation của tôi.
+   * GET /messages/conversations — conversation của tôi.
    */
   async listConversations(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listConversations(actor.id);
   }
   @Get('conversations/:id')
   /**
-   * GET /conversations/:id — chi tiết + tin nhắn.
+   * GET /messages/conversations/:id — chi tiết + tin nhắn.
    */
   async getConversation(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getConversation(actor.id, id);
   }
   @Post('conversations/:id/messages')
   /**
-   * POST /conversations/:id/messages hoặc POST /notifications/send — gửi tin nhắn / gửi notification.
+   * POST /messages/conversations/:id/messages — gửi tin nhắn (handler send của NotificationsController là POST /notifications/send).
    */
   async send(@Param('id', ParseIntPipe) id: number, @Body({ schema: sendMessageSchema }) dto: SendMessageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.sendMessage(actor.id, id, dto);
   }
   @Post('conversations/:id/read')
   /**
-   * POST /conversations/:id/read — đánh dấu đã đọc.
+   * POST /messages/conversations/:id/read — đánh dấu đã đọc.
    */
   async markRead(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markConversationRead(actor.id, id);
@@ -50,53 +50,53 @@ export class MessagingController {
   /** Sent messages are immutable: both verbs exist only to refuse (report §2#12). */
   @Patch('messages/:id')
   /**
-   * PATCH /messages/:id — sửa tin nhắn.
+   * PATCH /messages/messages/:id — sửa tin nhắn.
    */
   async updateMessage() { return this.messaging.updateMessage(); }
   @Delete('messages/:id')
   /**
-   * DELETE /messages/:id — xoá tin nhắn.
+   * DELETE /messages/messages/:id — xoá tin nhắn.
    */
   async deleteMessage() { return this.messaging.deleteMessage(); }
 
   @Get('unread-count')
   /**
-   * GET /conversations/unread-count hoặc /notifications/unread-count — số chưa đọc.
+   * GET /messages/unread-count (và /notifications/unread-count) — số chưa đọc.
    */
   async unread(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unreadCounts(actor.id);
   }
   @Get('preferences')
   /**
-   * GET /notifications/preferences — tuỳ chọn kênh của tôi.
+   * GET /messages/preferences — tuỳ chọn kênh của tôi.
    */
   async preferences(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getPreferences(actor.id);
   }
   @Put('preferences')
   /**
-   * PUT /notifications/preferences — đặt tuỳ chọn kênh.
+   * PUT /messages/preferences — đặt tuỳ chọn kênh.
    */
   async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
   }
   @Get('contacts/blocked')
   /**
-   * GET /contacts/blocked — liên hệ bị chặn.
+   * GET /messages/contacts/blocked — liên hệ bị chặn.
    */
   async blocked(@CurrentUser() actor: AuthenticatedUser) {
     return { blocked: await this.messaging.listBlocked(actor.id) };
   }
   @Post('contacts/:userId/block')
   /**
-   * POST /contacts/:id/block — chặn liên hệ.
+   * POST /messages/contacts/:userId/block — chặn liên hệ.
    */
   async block(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.blockContact(actor.id, userId);
   }
   @Delete('contacts/:userId/block')
   /**
-   * DELETE /contacts/:id/block — bỏ chặn.
+   * DELETE /messages/contacts/:userId/block — bỏ chặn.
    */
   async unblock(@Param('userId', ParseIntPipe) userId: number, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unblockContact(actor.id, userId);
