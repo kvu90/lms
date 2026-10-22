@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r src/i18n dist/i18n",
+    "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test",
     "test": "vitest run",

@@ -33,7 +33,7 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @Post('login')
   /**
-   * POST /auth/login — đăng nhập, trả cặp access/refresh token.
+   * POST /auth/token — đăng nhập, trả cặp access/refresh token.
    */
   async login(@Req() req: Request & { user: { id: number; username: string } }, @Body({ schema: loginSchema }) _dto: LoginDto) {
     const user = await this.users.getUser(req.user.id);
@@ -46,7 +46,7 @@ export class AuthController {
   @Public()
   @Post('token')
   /**
-   * POST /auth/token-login — đăng nhập tương thích luồng token.
+   * POST /auth/login — đăng nhập qua chiến lược local (passport), trả cặp token.
    */
   async tokenLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request) {
     const { user, tokens } = await this.auth.login(dto.username, dto.password, req.ip);
@@ -88,7 +88,7 @@ export class AuthController {
   @Public()
   @Post('session/login')
   /**
-   * POST /auth/session-login — đăng nhập đặt cookie phiên.
+   * POST /auth/session/login — đăng nhập đặt cookie phiên.
    */
   async sessionLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const { sessionId, user } = await this.auth.sessionLogin(dto.username, dto.password, sessionCookieOf(req), req.ip);
@@ -98,7 +98,7 @@ export class AuthController {
   @Public()
   @Get('session/me')
   /**
-   * GET /auth/session-me — user của phiên cookie hiện tại.
+   * GET /auth/session/me — user của phiên cookie hiện tại.
    */
   async sessionMe(@Req() req: Request) {
     const user = await this.auth.sessionUser(sessionCookieOf(req) ?? (req.headers['x-session-id'] as string | undefined));
@@ -107,7 +107,7 @@ export class AuthController {
   @Public()
   @Post('session/logout')
   /**
-   * POST /auth/session-logout — huỷ phiên cookie.
+   * POST /auth/session/logout — huỷ phiên cookie.
    */
   async sessionLogout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.auth.sessionLogout(sessionCookieOf(req) ?? (req.headers['x-session-id'] as string | undefined));

@@ -43,6 +43,61 @@ pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3
 - Health: `GET http://localhost:3000/api/v1/health`
 - OpenAPI: `http://localhost:3000/api/docs`
 
+## Review
+
+Everything below is for the local **development/review environment only** —
+the passwords are sample credentials for the seeded demo accounts, never
+for production.
+
+### Start the full stack (in order)
+
+```bash
+# 1) Infrastructure (this machine)
+sudo pg_ctlcluster 16 main start          # PostgreSQL on localhost:5432 (or: sudo service postgresql start)
+redis-server --daemonize yes              # Redis on localhost:6379 (or: sudo service redis-server start)
+
+# 2) Install + schema + sample data (first run only; the seed is idempotent)
+pnpm install
+cp apps/api/.env.example apps/api/.env    # defaults match the local infra (skip if .env exists)
+pnpm --filter @lms/api db:migrate
+pnpm seed                                 # builds the API, then seeds the demo data below
+
+# 3) Run everything (API :3000, worker, web :5173) with one command
+pnpm dev
+```
+
+- Login page: `http://localhost:5173/login`
+- API health: `http://localhost:3000/api/v1/health` · OpenAPI: `http://localhost:3000/api/docs`
+
+### Demo accounts (seeded by `pnpm seed`)
+
+| Role | Username | Password |
+|------|----------|----------|
+| Site admin | `admin` | `Admin123!` |
+| Teacher (editing teacher of the demo course) | `teacher1` | `Teacher123!` |
+| Student | `student1` | `Student123!` |
+| Student | `student2` | `Student123!` |
+
+The admin account is created by the API bootstrap itself from
+`ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults above; override via
+`apps/api/.env`). The seed adds: the course **DEMO101 — "Khoá học mẫu: Làm
+quen với LMS"** with 3 sections and 3 modules, both students enrolled,
+sample grades (student1 = 8.5, student2 = 6.5 on "Bài kiểm tra 1"), the
+badge "Huy hiệu khởi đầu" already awarded to student1, and a course
+calendar event for tomorrow 09:00.
+
+### Main flows to review
+
+Log in → open the demo course → gradebook (teacher sees the class report)
+→ question bank → messages & notifications → calendar → badges → learning
+plans → search → backup / privacy (platform pages, admin).
+
+### Language
+
+The UI defaults to **Vietnamese**. Switch to English with the
+"Ngôn ngữ / Language" selector in the top bar; the API likewise answers in
+Vietnamese by default and honours `Accept-Language: en`.
+
 ## Verify (definition of green)
 
 ```bash

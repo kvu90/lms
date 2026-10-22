@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r src/i18n dist/i18n",
+    "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "start": "node dist/main.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "seed:review": "node dist/review-seed.js"
   },
   "dependencies": {
     "@keyv/redis": "^6.1.0",
