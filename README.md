@@ -64,8 +64,10 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
 
 ## Known simplifications
 
-- The worker keeps a minimal copy of the shared DB schema (only
-  `outbox_events`); extracting a shared backend-schema package is a future chore.
+- The worker keeps a subset view of the shared DB schema in
+  `apps/worker/src/db/schema.ts` (only the tables its processors touch,
+  with only the columns they use); the canonical schema lives in the API,
+  split per bounded context (see Conventions).
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 
@@ -85,6 +87,12 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
   public API and for non-obvious business logic.
+- **Database schema is split by bounded context** (ADR-010): each module
+  owns its Drizzle tables in `apps/api/src/modules/<module>/schema.ts`;
+  platform-infrastructure tables live in `apps/api/src/db/infrastructure.schema.ts`;
+  `apps/api/src/db/schema.ts` is only a barrel re-exporting everything for
+  `drizzle.config.ts` and the Drizzle module. Table/column names never
+  change when a schema file moves.
 - **Naming & repo hygiene** (ADR-010): everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
