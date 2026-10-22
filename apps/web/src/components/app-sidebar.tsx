@@ -76,6 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ? [
         { title: t("app:navUsers"), url: "/admin/users", icon: IconUsers },
         { title: t("app:navRoles"), url: "/admin/roles", icon: IconShieldLock },
+        { title: t("app:navSiteConfig"), url: "/admin/site-config", icon: IconSettings },
         { title: t("app:navTokens"), url: "/tokens", icon: IconSettings },
         { title: t("app:navBackup"), url: "/backup", icon: IconDatabase },
         { title: t("app:navReports"), url: "/reports", icon: IconReport },
