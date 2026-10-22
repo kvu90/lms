@@ -276,3 +276,73 @@ Skipped / deferred Moodle cases for P2 (with reasons):
   our evaluator is a registered-leaf async evaluator, tested by truth table.
 - info_test's display-string cases — presentation; our API returns
   structured `failedDescriptions`, asserted in cases 42/49 instead.
+
+## P5 — Platform Services (Search / Web Services / Backup / Analytics / Report Builder / Content Bank / Payment / Privacy)
+
+Oracle sources checked against Moodle `MOODLE_503_STABLE` on 2026-10-22 (tree
+under `public/`), verified live via raw.githubusercontent.com / GitHub API:
+- `public/search/tests/manager_test.php` ✅, `public/search/tests/base_test.php` ✅
+  (area registry + document/access semantics).
+- `public/webservice/tests/externallib_test.php` ✅ (service/token model);
+  `public/lib/tests/externallib_test.php` ✅.
+- Backup: `public/backup/tests/backup_test.php` and `restore_test.php` return
+  **404** in the 5.3 tree — recorded honestly; the backup oracle used instead is
+  `public/backup/tests/backup_restore_permission_test.php` ✅,
+  `backup_restore_base_testcase.php` ✅, `async_backup_test.php` /
+  `async_restore_test.php` ✅ (plan steps + restore id mapping family).
+- `public/analytics/tests/model_test.php` ✅, `prediction_test.php` ✅,
+  `indicator_test.php` ✅ (`insights_test.php` **404** — recorded).
+- `public/reportbuilder/tests/manager_test.php` ✅, `permission_test.php` ✅,
+  `datasource_test.php` ✅.
+- `public/contentbank/tests/contentbank_test.php` ✅, `content_test.php` ✅.
+- Payment: `public/payment/tests/helper_test.php` ✅, `generator_test.php` ✅
+  (the probed `payment/tests/privacy/provider_test.php` is **404** — recorded).
+- Privacy: `public/privacy/tests/manager_test.php` ✅ (request lifecycle +
+  approval), `collection_test.php` ✅, `contextlist_test.php` ✅
+  (`privacy/tests/provider_test.php` **404** at that exact path — recorded;
+  provider behaviour follows report §2#28 + the manager/collection files).
+
+| # | Behaviour | Moodle oracle (file / case) | Our test | Phase | Status |
+|---|-----------|-----------------------------|----------|-------|--------|
+| 94 | Search: areas register into a registry (courses, users, contentbank, blog); results are filtered by the searcher's capability AT QUERY TIME via PermissionEvaluator, with a re-check against the live record — a user with PROHIBIT at the document context finds nothing even when a stale index entry points at that context | `search/tests/manager_test.php` + `base_test.php` (area/access family) + report §2#17 | `apps/api/test/platform-search-webservice-flow.e2e-spec.ts` › search DoD (PROHIBIT + stale index + enrolled-found) | P5 | ✅ |
+| 95 | Search: documents of a suspended/deleted user leave the index (area fetch returns null after suspension; purge by owner) | report §2#17 (deleted/suspended documents exit the index via events) | platform-search-webservice-flow › suspended user document leaves the index; `apps/worker/test/p5-jobs.spec.ts` › search reindex (idempotent, no duplicates) | P5 | ✅ |
+| 96 | Web Services: a service is a set of registered functions, each declaring a required capability + context resolver; a token is bound to user+service, stored only as a hash, with expiry/IP restriction/revocation — and a token NEVER bypasses its owner's capability (student token calling a teacher-capability function ⇒ 403) | `webservice/tests/externallib_test.php` + report §2#21 | platform-search-webservice-flow › webservice DoD (view ok, grade:edit 403, revoked 401, raw token never listed, manage capability gates admin API) | P5 | ✅ |
+| 97 | Backup→Restore DoD: backup plan runs contributor steps (courses, enrol, groups, grades, completion, files) into a versioned own-format archive (`lms-backup` v1, ADR-007, NOT .mbz); restore as a new course matches the equivalence checklist (sections/cms/enrol instances/enrolments/grades/cm completion), every id is remapped through backup_id_mappings (newid ≠ oldid), and a restored file downloads via a signed URL in the new course; merge mode also works | `backup/tests/backup_restore_permission_test.php` + `backup_restore_base_testcase.php` (plan + id mapping family) + report §2#22/§5 | platform-backup-payments-privacy-flow › backup DoD (checklist + mappings + signed download + merge) | P5 | ✅ |
+| 98 | Backup anonymize option scrubs user identities from exported enrol/grades/completion data (userid → 0 in the archive; restore skips anonymized rows) | report §2#22 (anonymize setting) | platform-backup-payments-privacy-flow › backup anonymize | P5 | ✅ |
+| 99 | Worker backup builds the same versioned archive with contributor steps idempotently, and the worker restore copies sections to a target course writing id mappings | report §3.5/§4 P5 (multi-step BullMQ jobs) | p5-jobs › backup processor + restore processor | P5 | ✅ |
+| 100 | Analytics: models/indicators are code-registered providers; the minimal real "students at risk" model (no recent access + low grade from grades/event read models) creates predictions and insights ONLY for recipients with `moodle/analytics:viewinsights` at the course context; a run changes neither grades nor enrolments | `analytics/tests/model_test.php` + `prediction_test.php` + report §2#23 | platform-search-webservice-flow › analytics (teacher insight, student sees none, no side-effects); p5-jobs › analytics run (prediction + insight, grade untouched) | P5 | ✅ |
+| 101 | Report Builder DoD: permission to view = audience ∩ per-row context rights — a report whose audience includes user A never leaks rows of a course A has no rights in, even with an empty filter (A sees only their own rows); non-audience users get 403 | `reportbuilder/tests/permission_test.php` + `manager_test.php` + report §2#24 | platform-search-webservice-flow › reports DoD | P5 | ✅ |
+| 102 | Report schedules run in the worker/API twin under the CREATOR's identity with rights at run time, store the result on the schedule, and notify the creator through MessagingModule | report §2#24 (scheduled reports run as their creator) | platform-search-webservice-flow › schedule part; p5-jobs › report schedule processor (ranAs = creator, notification stored) | P5 | ✅ |
+| 103 | Content Bank: content belongs to a context with an author and draft/public state, its file goes through FilesModule, and view/edit use the DEDICATED contentbank capabilities — a draft is author-only, a public item needs `moodle/contentbank:viewcontent`, and publishing syncs the search index | `contentbank/tests/contentbank_test.php` + `content_test.php` + report §2#25 | platform-search-webservice-flow › content bank (draft hidden, upload, public + signed URL, search finds it) | P5 | ✅ |
+| 104 | Payments DoD: amounts are integers in the smallest currency unit + currency code; a succeeded payment is immutable and a refund is a separate compensating row; the gateway webhook is idempotent by external transaction id — a replay is flagged duplicate, emits no second PaymentSucceeded and does NOT activate a fee enrolment twice (exactly one enrolment) | `payment/tests/helper_test.php` + report §2#27 | platform-backup-payments-privacy-flow › payments DoD (fee enrol blocked before payment, active after, replay duplicate, refund row, amount unchanged); p5-jobs › payment webhook twin (one outbox event on replay) | P5 | ✅ |
+| 105 | Fee enrol: an enrol instance with cost + currency + payment account only activates after a verified PaymentSucceeded; direct self-enrol into a fee instance is refused (400 `enrol.payment_required`) | report §2#27 (benefiting business activates only via verified payment event) | platform-backup-payments-privacy-flow › payments DoD (early self-enrol 400, enrolments/me inactive → active) | P5 | ✅ |
+| 106 | Privacy completeness GATE: every existing business subsystem has a registered PrivacyProvider (metadata + export + delete) in the inverted registry; the completeness check lists any missing subsystem and fails the flow | `privacy/tests/manager_test.php` + `collection_test.php` + report §2#28/§3.12 | platform-backup-payments-privacy-flow › privacy completeness (EXPECTED_PRIVACY_SUBSYSTEMS ⊆ registry, `/privacy/completeness` complete=true) | P5 | ✅ |
+| 107 | Privacy DoD: an approved export bundles data per subsystem with a manifest stored through FilesModule; an approved delete propagates to EVERY registered subsystem (enrolments, grades and completion of the user are gone, the user is anonymized/soft-deleted); only an admin with the privacy manage capability may approve — the requester cannot approve their own request (403) | `privacy/tests/manager_test.php` (request lifecycle + approval) + report §2#28 | platform-backup-payments-privacy-flow › privacy DoD (export subsystems + file, self-approve 403, delete propagation); p5-jobs › privacy processor (export manifest + delete anonymizes) | P5 | ✅ |
+| 108 | Web: global search (permission-filtered results), integration token admin, backup/restore (create job, steps, restore), teacher insights, report builder (datasource/column, run, schedule), content bank (list by context, upload), privacy requests (self-service export/delete + admin approval) | report §4 P5 web scope | `apps/web/src/pages/platform.spec.tsx` (2 tests: search renders only returned results; privacy export request posts and shows pending) + pages in `apps/web/src/pages/platform.tsx` | P5 | ✅ |
+| 109 | Contracts: platform schemas (search document, external token creation, backup job + id mapping that rejects keeping the original id, insight, report, content bank, integer-amount payment, privacy request) parse and reject impossible shapes | — (contract shape source, §3.13) | `packages/contracts/src/contracts.spec.ts` › "platform contracts (P5)" (3 tests) | P5 | ✅ |
+
+Skipped / deferred Moodle cases for P5 (with reasons):
+- Real payment gateways (Stripe/PayPal/etc.) — gateway-specific plugins by
+  design (report §2#27); the framework ships the gateway PORT plus the
+  manual/fake adapter used by tests, exactly the frame Moodle itself ships.
+- A separate search engine (Solr/Elasticsearch) — engine-specific backends
+  are replaceable by design (§2#17); the shipped adapter is Postgres
+  tsvector over `search_documents`, behind the `SEARCH_ENGINE` port.
+- Restore of question bank / badges / calendar content and site-level
+  (non-course) backup — the contributor registry is the extension point;
+  P5 contributors cover the DoD checklist subsystems (courses/sections/cm,
+  enrol, groups, grades, completion, files). Restore into an existing
+  course supports the three explicit modes (new/merge/replace); replace
+  clears the target's sections/enrol/grades/completion/groups first.
+- Analytics model training/evaluation lifecycle (train/evaluate/deploy) —
+  §2#23 lifecycle beyond the minimal real model: P5 ships the registered
+  model + indicators + prediction/insight generation; no prediction ever
+  mutates grades or enrolments (asserted in cases 100).
+- Privacy export file is a single JSON bundle per request (manifest +
+  per-subsystem data) stored via FilesModule; per-subsystem separate files
+  in a zip archive are a packaging extra over the same provider data.
+- The 404 oracle files recorded above (`backup/tests/{backup,restore}_test.php`,
+  `analytics/tests/insights_test.php`, `payment/tests/privacy/provider_test.php`,
+  `privacy/tests/provider_test.php`) — behaviour was taken from the verified
+  sibling files + report §2 rows, and that substitution is recorded here
+  rather than silently assumed.
