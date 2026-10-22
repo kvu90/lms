@@ -1,0 +1,15 @@
+{
+  "invalid_type": "{property} là trường bắt buộc và phải đúng kiểu dữ liệu",
+  "invalid_value": "{property} có giá trị không thuộc danh sách cho phép",
+  "invalid_format": "{property} không đúng định dạng",
+  "too_small": {
+    "string": "{property} quá ngắn (tối thiểu {minimum} ký tự)",
+    "number": "{property} phải lớn hơn hoặc bằng {minimum}",
+    "array": "{property} phải có ít nhất {minimum} phần tử"
+  },
+  "too_big": {
+    "string": "{property} quá dài (tối đa {maximum} ký tự)",
+    "number": "{property} phải nhỏ hơn hoặc bằng {maximum}"
+  },
+  "unrecognized_keys": "Payload chứa trường không được phép: {keys}"
+}

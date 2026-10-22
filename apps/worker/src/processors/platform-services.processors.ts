@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
+import { I18nService } from '@nestjs/i18n';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
@@ -176,7 +177,7 @@ export class AnalyticsRunProcessor extends WorkerHost {
 /** Report schedule: chạy báo cáo enrolments dưới danh tính người tạo (đếm dòng enrolment) + notification + lưu lastresult. */
 @Processor('report-schedule')
 export class ReportScheduleProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
   async process(job: Job<{ scheduleId: number }>): Promise<{ rows: number; status: string }> {
     const [schedule] = await this.db.select().from(reportbuilderSchedule).where(eq(reportbuilderSchedule.id, job.data.scheduleId));
     if (!schedule || !schedule.enabled) return { rows: 0, status: 'missing-or-disabled' };
@@ -187,9 +188,19 @@ export class ReportScheduleProcessor extends WorkerHost {
     else if (report?.datasource === 'completion') rows = (await this.db.select().from(courseCompletions)).length;
     await this.db.update(reportbuilderSchedule).set({ lastrun: new Date(), lastresult: { rows, ranAs: schedule.createdby, worker: true } })
       .where(eq(reportbuilderSchedule.id, schedule.id));
+    /**
+     * Text thông báo tra trong catalog i18n theo ngôn ngữ của người nhận:
+     * worker chạy ngoài request context nên truyền `locale` tường minh vào
+     * `I18nService.t()` (mẫu dịch ngoài request của docs @nestjs/i18n). Hệ
+     * thống chưa lưu locale riêng cho từng user nên dùng locale mặc định 'vi';
+     * khi có user preference về ngôn ngữ, chỉ cần thay hằng số này.
+     */
+    const recipientLocale = 'vi';
+    const subject = this.i18n.t('platform.reportReadySubject', { locale: recipientLocale });
     await this.db.insert(notifications).values({
-      useridfrom: null, useridto: schedule.createdby, subject: 'Scheduled report finished',
-      fullmessage: `Report ${schedule.reportid} finished with ${rows} rows.`, smallmessage: 'Scheduled report finished',
+      useridfrom: null, useridto: schedule.createdby, subject,
+      fullmessage: this.i18n.t('platform.reportReadyBody', { locale: recipientLocale, args: { name: report?.name ?? String(schedule.reportid) } }),
+      smallmessage: subject,
       component: 'core_reportbuilder', eventtype: 'report_scheduled', contexturl: `/reports/${schedule.reportid}`,
     });
     return { rows, status: 'completed' };

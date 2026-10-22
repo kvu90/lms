@@ -36,13 +36,16 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SearchModule } from './modules/search/search.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
+import { I18nFoundationModule } from './i18n/i18n.config';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    I18nFoundationModule,
     DrizzleModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -94,6 +97,13 @@ import { JwtAuthGuard } from './common/jwt-auth.guard';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
+    /**
+     * Pipe validation Standard Schema có dịch thông điệp theo catalog i18n
+     * (chương Validation của docs Nest + trang i18n chính thức): thay cho
+     * `StandardSchemaValidationPipe` thuần; KHÔNG dùng `I18nValidationPipe`
+     * (đường class-validator) vì dự án validate 100% bằng Zod.
+     */
+    { provide: APP_PIPE, useValue: new I18nStandardSchemaValidationPipe() },
   ],
 })
 export class AppModule {}

@@ -1,0 +1,75 @@
+{
+  "analytics": {
+    "model_not_found": "Không tìm thấy model phân tích",
+    "provider_not_found": "Không tìm thấy provider phân tích đã đăng ký"
+  },
+  "backup": {
+    "job_not_found": "Không tìm thấy backup job",
+    "not_completed": "Backup job chưa hoàn thành nên chưa thể restore",
+    "target_forbidden": "Không có quyền trên khoá đích để restore",
+    "target_required": "Chế độ restore này yêu cầu khoá đích",
+    "unsupported_format": "Định dạng bản sao lưu không được hỗ trợ"
+  },
+  "contentbank": {
+    "no_file": "Nội dung chưa gắn file nào",
+    "not_found": "Không tìm thấy nội dung Content Bank",
+    "view_denied": "Không có quyền xem nội dung này"
+  },
+  "enrol": {
+    "cohort_required": "Phương thức ghi danh này yêu cầu cohort",
+    "fee_config_required": "Instance ghi danh có phí yêu cầu cost, currency và payment account",
+    "instance_disabled": "Instance ghi danh đang tắt",
+    "instance_not_found": "Không tìm thấy instance ghi danh",
+    "not_fee": "Instance này không phải ghi danh có phí",
+    "not_self": "Instance này không cho tự ghi danh",
+    "payment_required": "Khoá học yêu cầu thanh toán trước khi ghi danh",
+    "role_not_found": "Không tìm thấy role để gán khi ghi danh",
+    "unknown_method": "Phương thức ghi danh không được hỗ trợ",
+    "user_not_enrolled": "Người dùng chưa ghi danh khoá này"
+  },
+  "file": {
+    "invalid_filename": "Tên file không hợp lệ",
+    "not_found": "Không tìm thấy file",
+    "signature_invalid": "Chữ ký truy cập file không hợp lệ hoặc đã hết hạn",
+    "signature_missing": "Thiếu chữ ký truy cập file"
+  },
+  "payment": {
+    "account_disabled": "Tài khoản thanh toán đang tắt",
+    "account_not_found": "Không tìm thấy tài khoản thanh toán",
+    "amount_not_integer": "Số tiền phải là số nguyên đơn vị nhỏ nhất",
+    "bad_refund_amount": "Số tiền hoàn vượt quá số tiền đã thanh toán",
+    "no_account": "Chưa cấu hình tài khoản thanh toán",
+    "no_fee": "Không có khoản phí để thanh toán",
+    "not_found": "Không tìm thấy giao dịch thanh toán",
+    "not_succeeded": "Giao dịch chưa thành công"
+  },
+  "privacy": {
+    "bad_type": "Loại yêu cầu quyền riêng tư không hợp lệ",
+    "not_approved": "Yêu cầu chưa được phê duyệt",
+    "not_pending": "Yêu cầu không còn ở trạng thái chờ duyệt",
+    "request_not_found": "Không tìm thấy yêu cầu quyền riêng tư",
+    "user_not_found": "Không tìm thấy người dùng của yêu cầu"
+  },
+  "report": {
+    "datasource_missing": "Báo cáo chưa chọn nguồn dữ liệu",
+    "not_found": "Không tìm thấy báo cáo",
+    "not_in_audience": "Bạn không thuộc đối tượng được xem báo cáo này",
+    "schedule_not_found": "Không tìm thấy lịch chạy báo cáo",
+    "unknown_column": "Cột không thuộc nguồn dữ liệu của báo cáo",
+    "unknown_datasource": "Nguồn dữ liệu không được hỗ trợ"
+  },
+  "search": {
+    "unknown_area": "Khu vực tìm kiếm không được hỗ trợ"
+  },
+  "webservice": {
+    "capability_denied": "Chủ sở hữu token không có quyền thực hiện chức năng này",
+    "function_not_in_service": "Chức năng không thuộc service của token",
+    "invalid_token": "Token không hợp lệ hoặc đã bị thu hồi",
+    "ip_denied": "Địa chỉ IP không được phép dùng token này",
+    "service_disabled": "Service đang tắt",
+    "service_not_found": "Không tìm thấy external service",
+    "token_expired": "Token đã hết hạn",
+    "token_not_found": "Không tìm thấy token",
+    "unknown_function": "Chức năng không tồn tại"
+  }
+}

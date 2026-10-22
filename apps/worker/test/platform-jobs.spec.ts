@@ -153,3 +153,17 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(recon.succeeded).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('worker i18n catalogs', () => {
+  it('keeps the vi and en catalogs in key parity so no locale silently falls back', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const flatten = (obj: Record<string, unknown>, prefix = ''): string[] =>
+      Object.entries(obj).flatMap(([k, v]) =>
+        v && typeof v === 'object' ? flatten(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`]);
+    const vi = JSON.parse(await readFile(join(__dirname, '..', 'src', 'i18n', 'vi', 'platform.json'), 'utf8')) as Record<string, unknown>;
+    const en = JSON.parse(await readFile(join(__dirname, '..', 'src', 'i18n', 'en', 'platform.json'), 'utf8')) as Record<string, unknown>;
+    expect(flatten(vi).sort()).toEqual(flatten(en).sort());
+    expect(flatten(vi)).toContain('reportReadySubject');
+  });
+});

@@ -1,0 +1,15 @@
+{
+  "invalid_type": "{property} is required and must have the correct data type",
+  "invalid_value": "{property} has a value that is not in the allowed list",
+  "invalid_format": "{property} has an invalid format",
+  "too_small": {
+    "string": "{property} is too short (at least {minimum} characters)",
+    "number": "{property} must be at least {minimum}",
+    "array": "{property} must contain at least {minimum} items"
+  },
+  "too_big": {
+    "string": "{property} is too long (at most {maximum} characters)",
+    "number": "{property} must be at most {maximum}"
+  },
+  "unrecognized_keys": "The payload contains fields that are not allowed: {keys}"
+}

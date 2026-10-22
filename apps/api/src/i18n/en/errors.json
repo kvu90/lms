@@ -1,0 +1,75 @@
+{
+  "analytics": {
+    "model_not_found": "Analytics model not found",
+    "provider_not_found": "Registered analytics provider not found"
+  },
+  "backup": {
+    "job_not_found": "Backup job not found",
+    "not_completed": "The backup job has not completed yet, so it cannot be restored",
+    "target_forbidden": "You do not have permission on the target course to restore into it",
+    "target_required": "This restore mode requires a target course",
+    "unsupported_format": "Unsupported backup format"
+  },
+  "contentbank": {
+    "no_file": "The content has no attached file",
+    "not_found": "Content Bank content not found",
+    "view_denied": "You do not have permission to view this content"
+  },
+  "enrol": {
+    "cohort_required": "This enrolment method requires a cohort",
+    "fee_config_required": "A fee enrolment instance requires cost, currency and a payment account",
+    "instance_disabled": "The enrolment instance is disabled",
+    "instance_not_found": "Enrolment instance not found",
+    "not_fee": "This instance is not a fee enrolment",
+    "not_self": "This instance does not allow self enrolment",
+    "payment_required": "This course requires payment before enrolment",
+    "role_not_found": "Role to assign on enrolment not found",
+    "unknown_method": "Unsupported enrolment method",
+    "user_not_enrolled": "The user is not enrolled in this course"
+  },
+  "file": {
+    "invalid_filename": "Invalid file name",
+    "not_found": "File not found",
+    "signature_invalid": "The file access signature is invalid or has expired",
+    "signature_missing": "Missing file access signature"
+  },
+  "payment": {
+    "account_disabled": "The payment account is disabled",
+    "account_not_found": "Payment account not found",
+    "amount_not_integer": "The amount must be an integer in the smallest currency unit",
+    "bad_refund_amount": "The refund amount exceeds the paid amount",
+    "no_account": "No payment account is configured",
+    "no_fee": "There is no fee to pay",
+    "not_found": "Payment not found",
+    "not_succeeded": "The payment has not succeeded"
+  },
+  "privacy": {
+    "bad_type": "Invalid privacy request type",
+    "not_approved": "The request has not been approved",
+    "not_pending": "The request is no longer pending",
+    "request_not_found": "Privacy request not found",
+    "user_not_found": "The user of this request was not found"
+  },
+  "report": {
+    "datasource_missing": "The report has no data source selected",
+    "not_found": "Report not found",
+    "not_in_audience": "You are not in the audience of this report",
+    "schedule_not_found": "Report schedule not found",
+    "unknown_column": "The column does not belong to the report data source",
+    "unknown_datasource": "Unsupported data source"
+  },
+  "search": {
+    "unknown_area": "Unsupported search area"
+  },
+  "webservice": {
+    "capability_denied": "The token owner lacks the capability to perform this function",
+    "function_not_in_service": "The function is not part of the token service",
+    "invalid_token": "The token is invalid or has been revoked",
+    "ip_denied": "This IP address is not allowed to use the token",
+    "service_disabled": "The service is disabled",
+    "service_not_found": "External service not found",
+    "token_expired": "The token has expired",
+    "token_not_found": "Token not found",
+    "unknown_function": "The function does not exist"
+  }
+}

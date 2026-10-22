@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { ProblemDetails } from '@lms/contracts';
+import { t } from '@nestjs/i18n';
 import type { Response } from 'express';
 
 /**
@@ -69,6 +70,22 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         exception instanceof Error ? exception.stack : String(exception),
       );
       detail = 'An unexpected error occurred';
+    }
+
+    /**
+     * Text hiển thị (detail) tra theo `code` ổn định trong catalog i18n
+     * (`errors.<code>`) theo ngôn ngữ của request hiện tại — exception nội bộ
+     * chỉ mang mã tiếng Anh, không mang chuỗi hiển thị. Mã nào chưa có trong
+     * catalog (module cũ chưa nối i18n) thì giữ nguyên detail gốc; ngoài
+     * request context, `t()` trả lại chính khoá nên phép so sánh dưới đây tự
+     * vô hiệu hoá.
+     */
+    try {
+      const key = `errors.${code}`;
+      const translated = t(key as never);
+      if (typeof translated === 'string' && translated !== key) detail = translated;
+    } catch {
+      /* missingKey='throw' ngoài production: thiếu khoá thì giữ detail gốc. */
     }
 
     const problem: ProblemDetails = {

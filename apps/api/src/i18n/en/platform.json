@@ -1,0 +1,23 @@
+{
+  "reportReadySubject": "Your scheduled report has finished",
+  "reportReadyBody": "The report \"{name}\" has finished its scheduled run. Open the report to see the latest results.",
+  "backupMode": {
+    "new": "Create a new course",
+    "merge": "Merge into the target course",
+    "replace": "Replace the target course content"
+  },
+  "privacyRequestType": {
+    "export": "Export personal data",
+    "delete": "Delete personal data"
+  },
+  "contentVisibility": {
+    "draft": "Draft",
+    "public": "Public"
+  },
+  "paymentStatus": {
+    "pending": "Pending",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "refunded": "Refunded"
+  }
+}
