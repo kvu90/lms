@@ -197,6 +197,9 @@ importers:
       '@keyv/redis':
         specifier: ^6.1.0
         version: 6.1.0(keyv@6.1.0)
+      '@lms/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@lms/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -291,9 +294,6 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.13.0(jiti@2.7.0))
-      '@lms/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@nestjs/testing':
         specifier: ^12.2.0
         version: 12.2.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(@nestjs/platform-express@12.2.0)
