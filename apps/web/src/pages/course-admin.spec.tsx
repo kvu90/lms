@@ -168,3 +168,133 @@ describe('Course builder (teacher)', () => {
     await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && c.method === 'DELETE')).toBe(true));
   });
 });
+
+const GROUP_ID = '01900000-0000-7000-8000-000000002001';
+const GROUPING_ID = '01900000-0000-7000-8000-000000002010';
+const COHORT_ID = '01900000-0000-7000-8000-000000002020';
+const MEMBER_ID = '01900000-0000-7000-8000-000000000007';
+const NEW_MEMBER_ID = '01900000-0000-7000-8000-000000000008';
+
+const GROUP_ROW = { id: GROUP_ID, courseid: COURSE_ID, name: 'Nhóm 1', idnumber: '', description: '' };
+const COHORT_ROW = { id: COHORT_ID, name: 'K2026', idnumber: 'K26', description: '', contextid: '01900000-0000-7000-8000-0000000000e1', visible: true };
+
+/**
+ * Stub cho giáo viên có thêm `moodle/course:managegroups` tại context khoá
+ * và `moodle/cohort:manage` — đúng hai capability backend đòi cho khu
+ * grouping và thành viên cohort. Trạng thái grouping/thành viên giữ trong
+ * closure để các thao tác POST/DELETE phản ánh lại ở lần GET sau.
+ */
+function stubFetchGroups(calls: RecordedCall[]) {
+  let groupingList: { id: string; courseid: string; name: string; idnumber: string; description: string }[] = [];
+  let groupingGroupList: typeof GROUP_ROW[] = [];
+  let memberList: { userid: string; timeadded: string }[] = [{ userid: MEMBER_ID, timeadded: '2026-01-02T00:00:00.000Z' }];
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const respond = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    if (url === '/api/v1/users/me') return respond(PROFILE);
+    if (url === '/api/v1/users/me/capabilities') {
+      return respond({
+        userId: TEACHER_ID, isSiteAdmin: false,
+        assignments: [{
+          id: '01900000-0000-7000-8000-0000000000f1', roleId: '01900000-0000-7000-8000-0000000000b9',
+          roleShortname: 'editingteacher', roleName: 'Teacher',
+          contextId: CONTENT.contextId, contextLevel: 50, contextPath: '/1/9/10', instanceId: COURSE_ID,
+        }],
+        contexts: [
+          { contextId: '01900000-0000-7000-8000-0000000000e1', contextLevel: 10, contextPath: '/1', capabilities: [] },
+          { contextId: CONTENT.contextId, contextLevel: 50, contextPath: '/1/9/10', capabilities: ['moodle/grade:viewall', 'moodle/course:update', 'moodle/course:managegroups', 'moodle/cohort:manage'] },
+        ],
+      });
+    }
+    if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
+    if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`) return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
+    if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
+    if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return respond({ courseId: COURSE_ID, userId: TEACHER_ID, categories: [], courseTotal: null });
+    if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET') return respond({ ...COURSE, contextId: CONTENT.contextId, customFields: [], formatOptions: {} });
+    if (url === `/api/v1/courses/${COURSE_ID}/content`) return respond(CONTENT);
+    if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([GROUP_ROW]);
+    if (url === `/api/v1/courses/${COURSE_ID}/groupings` && method === 'GET') return respond(groupingList);
+    if (url === `/api/v1/courses/${COURSE_ID}/groupings` && method === 'POST') {
+      const body = JSON.parse(String(init?.body)) as { name: string; idnumber?: string; description?: string };
+      const created = { id: GROUPING_ID, courseid: COURSE_ID, name: body.name, idnumber: body.idnumber ?? '', description: body.description ?? '' };
+      groupingList = [created];
+      return respond(created);
+    }
+    if (url === `/api/v1/courses/${COURSE_ID}/groupings/${GROUPING_ID}/groups` && method === 'GET') return respond(groupingGroupList);
+    if (url === `/api/v1/courses/${COURSE_ID}/groupings/${GROUPING_ID}/groups` && method === 'POST') {
+      groupingGroupList = [GROUP_ROW];
+      return respond({ added: true });
+    }
+    if (url === '/api/v1/cohorts') return respond([COHORT_ROW]);
+    if (url === `/api/v1/cohorts/${COHORT_ID}/members` && method === 'GET') return respond(memberList);
+    if (url === `/api/v1/cohorts/${COHORT_ID}/members` && method === 'POST') {
+      memberList = [...memberList, { userid: NEW_MEMBER_ID, timeadded: '2026-01-03T00:00:00.000Z' }];
+      return respond({ added: true });
+    }
+    if (url === `/api/v1/cohorts/${COHORT_ID}/members/${MEMBER_ID}` && method === 'DELETE') {
+      memberList = memberList.filter((m) => m.userid !== MEMBER_ID);
+      return respond({ removed: true });
+    }
+    if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
+    if (url === `/api/v1/courses/${COURSE_ID}/enrolments`) return respond([]);
+    if (url === `/api/v1/courses/${COURSE_ID}/completion`) return respond([]);
+    if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+    return respond({}, 404);
+  }));
+}
+
+describe('Groupings & cohort members (teacher with manage capabilities)', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  it('creates a grouping via POST /courses/:id/groupings', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroups(calls);
+    renderCourseAdmin();
+
+    await userEvent.type(await screen.findByLabelText('Tên grouping'), 'Tập A');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo grouping' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/groupings` && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/groupings` && c.method === 'POST');
+    expect(createCall?.body).toEqual({ name: 'Tập A' });
+    expect(await screen.findByTestId(`grouping-${GROUPING_ID}`)).toBeTruthy();
+  });
+
+  it('adds a course group into a grouping via POST groupings/:id/groups', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroups(calls);
+    renderCourseAdmin();
+
+    await userEvent.type(await screen.findByLabelText('Tên grouping'), 'Tập A');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo grouping' }));
+    const groupingRow = await screen.findByTestId(`grouping-${GROUPING_ID}`);
+    await userEvent.click(within(groupingRow).getByRole('button', { name: 'Xem nhóm trong grouping' }));
+    await userEvent.selectOptions(within(groupingRow).getByLabelText('Nhóm cần thêm vào grouping'), GROUP_ID);
+    await userEvent.click(within(groupingRow).getByRole('button', { name: 'Thêm vào grouping' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/groupings/${GROUPING_ID}/groups` && c.method === 'POST')).toBe(true));
+    const addCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/groupings/${GROUPING_ID}/groups` && c.method === 'POST');
+    expect(addCall?.body).toEqual({ groupid: GROUP_ID });
+    await waitFor(() => expect(within(groupingRow).getByText('Nhóm 1')).toBeTruthy());
+  });
+
+  it('lists, adds and removes cohort members through /cohorts/:id/members', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroups(calls);
+    renderCourseAdmin();
+
+    const cohortRow = await screen.findByTestId(`cohort-${COHORT_ID}`);
+    await userEvent.click(within(cohortRow).getByRole('button', { name: 'Xem thành viên' }));
+    await waitFor(() => expect(within(cohortRow).getByText(new RegExp(MEMBER_ID))).toBeTruthy());
+
+    await userEvent.type(within(cohortRow).getByLabelText('ID người dùng thêm vào cohort'), NEW_MEMBER_ID);
+    await userEvent.click(within(cohortRow).getByRole('button', { name: 'Thêm thành viên' }));
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/cohorts/${COHORT_ID}/members` && c.method === 'POST' && (c.body as { userid?: string })?.userid === NEW_MEMBER_ID)).toBe(true));
+    await waitFor(() => expect(within(cohortRow).getByText(new RegExp(NEW_MEMBER_ID))).toBeTruthy());
+
+    const memberLine = within(cohortRow).getByText(new RegExp(MEMBER_ID)).closest('li');
+    await userEvent.click(within(memberLine as HTMLElement).getByRole('button', { name: 'Gỡ khỏi cohort' }));
+    await waitFor(() => expect(calls.some((c) => c.url === `/api/v1/cohorts/${COHORT_ID}/members/${MEMBER_ID}` && c.method === 'DELETE')).toBe(true));
+  });
+});

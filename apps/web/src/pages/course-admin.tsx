@@ -34,10 +34,21 @@ export function CourseAdminPage() {
   const [completions, setCompletions] = useState<CourseCompletion[]>([]);
   const [enrolUserId, setEnrolUserId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [groupingDraft, setGroupingDraft] = useState({ name: '', idnumber: '', description: '' });
+  const [expandedGroupingId, setExpandedGroupingId] = useState('');
+  const [groupingGroups, setGroupingGroups] = useState<Record<string, CourseGroup[]>>({});
+  const [groupingAddSelection, setGroupingAddSelection] = useState<Record<string, string>>({});
+  const [expandedCohortId, setExpandedCohortId] = useState('');
+  const [cohortMembers, setCohortMembers] = useState<Record<string, { userid: string; timeadded: string }[]>>({});
+  const [cohortMemberInputs, setCohortMemberInputs] = useState<Record<string, string>>({});
 
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
   const canBuild = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
+  /** Quản lý grouping cần `moodle/course:managegroups` tại context khoá (đúng capability backend đòi ở groups service) hoặc quyền quản trị hệ thống. */
+  const canManageGroups = perms.canAdminister || (courseAccess?.capabilities.includes('moodle/course:managegroups') ?? false);
+  /** Quản lý thành viên cohort cần `moodle/cohort:manage` ở context của cohort; giao diện hiện thao tác khi capability này xuất hiện trong ảnh chụp quyền ở bất kỳ context nào hoặc là quản trị hệ thống — API vẫn thực thi theo đúng context của từng cohort. */
+  const canManageCohorts = perms.canAdminister || (perms.access?.contexts.some((c) => c.capabilities.includes('moodle/cohort:manage')) ?? false);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);
@@ -119,6 +130,96 @@ export function CourseAdminPage() {
       await reload();
       setMessage(t('groupCreated'));
     } catch { setMessage(t('groupCreateFailed')); }
+  }
+
+  /** Tạo grouping qua POST /courses/:id/groupings (`createGroupingSchema`: name bắt buộc, idnumber/description tuỳ chọn). */
+  async function createGrouping(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groupings`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: groupingDraft.name,
+          ...(groupingDraft.idnumber.trim() ? { idnumber: groupingDraft.idnumber.trim() } : {}),
+          ...(groupingDraft.description.trim() ? { description: groupingDraft.description.trim() } : {}),
+        }),
+      });
+      setGroupingDraft({ name: '', idnumber: '', description: '' });
+      await reload();
+      setMessage(t('groupingCreated'));
+    } catch { setMessage(t('groupingCreateFailed')); }
+  }
+
+  /** Xoá grouping qua DELETE /courses/:id/groupings/:groupingId — hỏi xác nhận trước; các nhóm trong khoá không bị xoá theo. */
+  async function deleteGrouping(grouping: CourseGrouping) {
+    if (!window.confirm(t('confirmDeleteGrouping', { name: grouping.name }))) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groupings/${grouping.id}`, { method: 'DELETE' });
+      if (expandedGroupingId === grouping.id) setExpandedGroupingId('');
+      await reload();
+      setMessage(t('groupingDeleted'));
+    } catch { setMessage(t('groupingDeleteFailed')); }
+  }
+
+  /** Mở/thu danh sách nhóm của một grouping: GET /courses/:id/groupings/:groupingId/groups khi mở lần đầu. */
+  async function toggleGroupingGroups(groupingId: string) {
+    if (expandedGroupingId === groupingId) { setExpandedGroupingId(''); return; }
+    setExpandedGroupingId(groupingId);
+    if (!groupingGroups[groupingId]) {
+      try {
+        const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`);
+        setGroupingGroups((prev) => ({ ...prev, [groupingId]: rows }));
+      } catch { setMessage(t('groupingGroupsLoadFailed')); }
+    }
+  }
+
+  /** Gắn một nhóm vào grouping qua POST groupings/:groupingId/groups với `{ groupid }` (`groupingGroupSchema`). */
+  async function addGroupToGrouping(groupingId: string) {
+    const groupid = groupingAddSelection[groupingId];
+    if (!groupid) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`, {
+        method: 'POST', body: JSON.stringify({ groupid }),
+      });
+      const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`).catch(() => groupingGroups[groupingId] ?? []);
+      setGroupingGroups((prev) => ({ ...prev, [groupingId]: rows }));
+      setMessage(t('groupingGroupAdded'));
+    } catch { setMessage(t('groupingGroupAddFailed')); }
+  }
+
+  /** Mở/thu danh sách thành viên của một cohort: GET /cohorts/:id/members (mảng `{ userid, timeadded }`). */
+  async function toggleCohortMembers(cohortId: string) {
+    if (expandedCohortId === cohortId) { setExpandedCohortId(''); return; }
+    setExpandedCohortId(cohortId);
+    if (!cohortMembers[cohortId]) {
+      try {
+        const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`);
+        setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
+      } catch { setMessage(t('cohortMembersLoadFailed')); }
+    }
+  }
+
+  /** Thêm thành viên vào cohort qua POST /cohorts/:id/members (`groupMemberSchema`); backend kích hoạt đồng bộ ghi danh theo cohort. */
+  async function addCohortMember(cohortId: string) {
+    const userid = (cohortMemberInputs[cohortId] ?? '').trim();
+    if (!userid) return;
+    try {
+      await apiJson(`/api/v1/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ userid }) });
+      setCohortMemberInputs((prev) => ({ ...prev, [cohortId]: '' }));
+      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(() => cohortMembers[cohortId] ?? []);
+      setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
+      setMessage(t('cohortMemberAdded'));
+    } catch { setMessage(t('cohortMemberAddFailed')); }
+  }
+
+  /** Gỡ thành viên khỏi cohort qua DELETE /cohorts/:id/members/:userId. */
+  async function removeCohortMember(cohortId: string, userId: string) {
+    try {
+      await apiJson(`/api/v1/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' });
+      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(() => (cohortMembers[cohortId] ?? []).filter((m) => m.userid !== userId));
+      setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
+      setMessage(t('cohortMemberRemoved'));
+    } catch { setMessage(t('cohortMemberRemoveFailed')); }
   }
 
   async function ensureManualAndEnrol(event: FormEvent) {
@@ -469,10 +570,115 @@ export function CourseAdminPage() {
         </CardContent>
       </Card>
 
+      {canManageGroups && (
+        <Card>
+          <CardHeader><CardTitle>{t('groupings')}</CardTitle><CardDescription>{t('groupingsDescription')}</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-3">
+              {groupings.map((g) => {
+                const inGrouping = groupingGroups[g.id] ?? [];
+                const candidates = groups.filter((gr) => !inGrouping.some((x) => x.id === gr.id));
+                return (
+                  <li key={g.id} data-testid={`grouping-${g.id}`} className="space-y-2 rounded border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{g.name}</span>
+                      {g.idnumber ? <span className="text-sm text-muted-foreground">({g.idnumber})</span> : null}
+                      <Button type="button" variant="outline" size="sm" onClick={() => void toggleGroupingGroups(g.id)}>{t('groupingViewGroups')}</Button>
+                      <Button type="button" variant="destructive" size="sm" onClick={() => void deleteGrouping(g)}>{t('deleteGrouping')}</Button>
+                    </div>
+                    {expandedGroupingId === g.id && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">{t('groupingGroupsTitle', { name: g.name })}</p>
+                        <ul className="space-y-1">
+                          {inGrouping.map((gr) => <li key={gr.id} className="text-sm">{gr.name}</li>)}
+                          {inGrouping.length === 0 && <li className="text-sm text-muted-foreground">{t('groupingNoGroups')}</li>}
+                        </ul>
+                        {candidates.length > 0 && (
+                          <div className="flex flex-wrap items-end gap-2">
+                            <div className="space-y-1">
+                              <Label htmlFor={`grouping-add-${g.id}`}>{t('groupingAddGroupLabel')}</Label>
+                              <select
+                                id={`grouping-add-${g.id}`}
+                                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                                value={groupingAddSelection[g.id] ?? ''}
+                                onChange={(e) => setGroupingAddSelection((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                              >
+                                <option value="">—</option>
+                                {candidates.map((gr) => <option key={gr.id} value={gr.id}>{gr.name}</option>)}
+                              </select>
+                            </div>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void addGroupToGrouping(g.id)}>{t('groupingAddGroup')}</Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {groupings.length === 0 && <li className="text-sm">{t('noGroupings')}</li>}
+            </ul>
+            <form onSubmit={(e) => void createGrouping(e)} className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="grouping-name">{t('groupingName')}</Label>
+                <Input id="grouping-name" value={groupingDraft.name} onChange={(e) => setGroupingDraft({ ...groupingDraft, name: e.target.value })} required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="grouping-idnumber">{t('groupingIdnumber')}</Label>
+                <Input id="grouping-idnumber" value={groupingDraft.idnumber} onChange={(e) => setGroupingDraft({ ...groupingDraft, idnumber: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="grouping-description">{t('groupingDescriptionField')}</Label>
+                <Input id="grouping-description" value={groupingDraft.description} onChange={(e) => setGroupingDraft({ ...groupingDraft, description: e.target.value })} />
+              </div>
+              <Button type="submit">{t('createGrouping')}</Button>
+            </form>
+            <p className="text-sm text-muted-foreground">{t('groupingApiNote')}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle>{t('cohorts')}</CardTitle><CardDescription>{t('cohortsDescription')}</CardDescription></CardHeader>
         <CardContent>
-          <ul>{cohorts.map((c) => <li key={c.id}>{c.name} ({c.idnumber || t('noIdnumber')})</li>)}</ul>
+          <ul className="space-y-3">
+            {cohorts.map((c) => (
+              <li key={c.id} data-testid={`cohort-${c.id}`} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>{c.name} ({c.idnumber || t('noIdnumber')})</span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void toggleCohortMembers(c.id)}>{t('cohortViewMembers')}</Button>
+                </div>
+                {expandedCohortId === c.id && (
+                  <div className="space-y-2 rounded border p-3">
+                    <p className="text-sm font-medium">{t('cohortMembersTitle', { name: c.name })}</p>
+                    <ul className="space-y-1">
+                      {(cohortMembers[c.id] ?? []).map((m) => (
+                        <li key={m.userid} className="flex items-center gap-2 text-sm">
+                          <span>{t('cohortMemberLine', { userId: m.userid, time: m.timeadded })}</span>
+                          {canManageCohorts && (
+                            <Button type="button" variant="outline" size="sm" onClick={() => void removeCohortMember(c.id, m.userid)}>{t('cohortRemoveMember')}</Button>
+                          )}
+                        </li>
+                      ))}
+                      {(cohortMembers[c.id] ?? []).length === 0 && <li className="text-sm text-muted-foreground">{t('cohortNoMembers')}</li>}
+                    </ul>
+                    {canManageCohorts && (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor={`cohort-member-${c.id}`}>{t('cohortMemberUserId')}</Label>
+                          <Input
+                            id={`cohort-member-${c.id}`}
+                            value={cohortMemberInputs[c.id] ?? ''}
+                            onChange={(e) => setCohortMemberInputs((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                          />
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void addCohortMember(c.id)}>{t('cohortAddMember')}</Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
           {cohorts.length === 0 && <p>{t('noCohorts')}</p>}
         </CardContent>
       </Card>
