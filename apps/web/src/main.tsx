@@ -8,7 +8,9 @@ import { AdminUsersPage } from './pages/admin-users';
 import { CoursePage } from './pages/course';
 import { CourseAdminPage } from './pages/course-admin';
 import { CoursesPage } from './pages/courses';
+import { GradebookPage } from './pages/grades';
 import { HealthPage } from './pages/health';
+import { QuestionsPage, QuestionUsagePage } from './pages/questions';
 import { HomePage } from './pages/home';
 import { LoginPage } from './pages/login';
 import { ProfilePage } from './pages/profile';
@@ -23,6 +25,7 @@ function Shell() {
         <nav className="flex gap-3 text-sm">
           <Link to="/profile">Profile</Link>
           <Link to="/courses">Courses</Link>
+          <Link to="/questions">Questions</Link>
           <Link to="/admin/users">Users</Link>
           <Link to="/admin/roles">Roles</Link>
           <Link to="/health">Health</Link>
@@ -56,6 +59,9 @@ const router = createBrowserRouter([
       { path: '/courses', element: <CoursesPage /> },
       { path: '/courses/:id', element: <CoursePage /> },
       { path: '/courses/:id/admin', element: <CourseAdminPage /> },
+      { path: '/courses/:id/grades', element: <GradebookPage /> },
+      { path: '/questions', element: <QuestionsPage /> },
+      { path: '/question-usages/:id', element: <QuestionUsagePage /> },
     ],
   },
 ]);

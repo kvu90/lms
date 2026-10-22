@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   courseCategoryTreeSchema, courseContentSchema, enrolInstanceSchema,
-  healthStatusSchema, loginResponseSchema, problemDetailsSchema, userProfileSchema,
+  gradebookSchema, healthStatusSchema, loginResponseSchema, problemDetailsSchema,
+  questionUsageSchema, userProfileSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -53,6 +54,62 @@ describe('course contracts (P2)', () => {
     expect(enrolInstanceSchema.parse({
       id: 1, courseid: 10, enrol: 'cohort', status: 0, name: null, roleid: 5, customint1: 3, customint2: 0, customtext1: 'suspend',
     }).enrol).toBe('cohort');
+  });
+});
+
+describe('assessment contracts (P3)', () => {
+  const item = {
+    id: 5, courseid: 10, categoryid: 1, itemname: 'Quiz 1', itemtype: 'manual', itemmodule: null,
+    iteminstance: 0, grademax: 100, grademin: 0, gradepass: 50, weightoverride: false,
+    aggregationcoef: 0, extracredit: false, multiplicator: 1, plusfactor: 0, hidden: false, locked: false,
+  };
+  it('parses a gradebook tree with letters on grades and a course total', () => {
+    const book = gradebookSchema.parse({
+      courseId: 10, userId: 7,
+      categories: [{
+        category: {
+          id: 1, courseid: 10, parent: null, fullname: '', aggregation: 'natural', droplow: 0,
+          keephigh: 0, aggregateonlygraded: false, depth: 1, path: '/1', hidden: false,
+        },
+        total: {
+          item: { ...item, id: 9, itemname: 'Course total', itemtype: 'course', iteminstance: 10 },
+          grade: {
+            id: 3, itemid: 9, userid: 7, rawgrade: null, finalgrade: 100, hidden: false, locked: false,
+            overridden: false, excluded: false, frozen: false, feedback: null, aggregationweight: null, letter: 'B',
+          },
+        },
+        items: [{
+          item,
+          grade: {
+            id: 2, itemid: 5, userid: 7, rawgrade: 70, finalgrade: 70, hidden: false, locked: false,
+            overridden: false, excluded: false, frozen: false, feedback: 'ok', aggregationweight: 52.6, letter: null,
+          },
+        }],
+        children: [],
+      }],
+      courseTotal: null,
+    });
+    expect(book.categories[0]?.total?.grade?.letter).toBe('B');
+    expect(book.categories[0]?.items[0]?.grade?.finalgrade).toBe(70);
+    expect(() => gradebookSchema.parse({ courseId: 'x' })).toThrow();
+  });
+
+  it('parses a question usage with attempts, pinned versions and steps', () => {
+    const usage = questionUsageSchema.parse({
+      usage: { id: 1, component: 'mod_quiz', instanceid: 3, preferredbehaviour: 'deferredfeedback' },
+      state: 'finished',
+      attempts: [{
+        id: 11, questionusageid: 1, slot: 1, behaviour: 'deferredfeedback', questionid: 4,
+        questionversionid: 8, maxmark: 1, state: 'gradedright', fraction: 1,
+        steps: [
+          { id: 1, sequencenumber: 0, state: 'todo', fraction: null, data: {} },
+          { id: 2, sequencenumber: 1, state: 'complete', fraction: null, data: { answer: 'true' } },
+          { id: 3, sequencenumber: 2, state: 'gradedright', fraction: 1, data: {} },
+        ],
+      }],
+    });
+    expect(usage.attempts[0]?.questionversionid).toBe(8);
+    expect(usage.attempts[0]?.steps).toHaveLength(3);
   });
 });
 
