@@ -82,3 +82,34 @@ thử gói Key-Value Store cao hơn (tầng dữ liệu khác, chi phí cao hơn
 Các chức năng không phụ thuộc Redis (đăng nhập, dữ liệu khoá học, giao
 diện) hoạt động bình thường; cache, hàng đợi BullMQ và khoá phân tán
 chưa dùng được trên bản review này.
+
+## Phụ lục (23/10/2026): triển khai lại sau đợt bổ sung nghiệp vụ
+
+Sau khi hai nhánh `backend-business-gaps` và `frontend-business-gaps`
+được tích hợp vào `main` (kèm việc nối frontend sang
+`GET /users/me/capabilities`), baseline migration được sinh lại thành
+MỘT baseline duy nhất mới (99 khoá `DEFAULT uuidv7()`), nên DB review
+phải dựng mới thay vì migrate chồng:
+
+- Addon Postgres cũ bị huỷ và tạo lại `heroku-postgresql:essential-0`.
+  Kiểm chứng bên trong one-off dyno: `PostgreSQL 18.4` (bản minor do
+  Heroku ghim cho gói này), `uuidv7()` chạy được, seed review nạp đủ
+  5 tài khoản. `DATABASE_URL` được Heroku cấp lại; `DATABASE_SSL=true`
+  được giữ nguyên và vẫn khớp cơ chế nối TLS của API/worker/drizzle-kit.
+- Deploy bằng đúng luồng Sources như đợt đầu (git archive của HEAD →
+  POST sources → PUT → POST builds → poll). Web dyno phục vụ asset mới
+  của frontend; đăng nhập admin/teacher/student đều 201;
+  `GET /users/me/capabilities` trả đúng dữ liệu từng vai trò (admin
+  `isSiteAdmin=true`; teacher có `moodle/grade:viewall` tại context
+  khoá; student không có); `GET /site-config` trả 200 cho admin.
+- Một lần gọi capabilities của student trả 500 thoáng qua ngay sau khi
+  đổi DB (giai đoạn dyno khởi động lại + Redis chập chờn); gọi lặp lại
+  nhiều lần sau đó đều 200 (~1 giây/lần — endpoint phân giải toàn bộ
+  capability theo từng context nên không rẻ, chấp nhận được cho review).
+- Redis: tại các lần kiểm chứng cuối, health trả `redis: up` trở lại,
+  nhưng log worker vẫn ghi nhận các đợt ioredis bị đóng kết nối TLS
+  (`Client network socket disconnected before secure TLS connection
+  was established`) và tiến trình seed trong one-off dyno bị treo ở
+  vòng retry Redis sau khi đã ghi xong dữ liệu. Kết luận ở mục trên
+  giữ nguyên: tầng dữ liệu gói Key-Value Store mini không ổn định;
+  hướng xử lý (ticket Heroku hoặc nâng gói) chờ Lão gia quyết.

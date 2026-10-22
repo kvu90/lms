@@ -1,4 +1,4 @@
-# ADR-015: Site Config — bounded context cho cấu hình site và cấu hình theo plugin
+# ADR-016: Site Config — bounded context cho cấu hình site và cấu hình theo plugin
 
 ## Trạng thái
 Accepted (23/10/2026).
