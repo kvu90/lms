@@ -1,20 +1,24 @@
 import {
   createGradeCategorySchema,
   createGradeItemSchema,
+  createGradeOutcomeSchema,
   createGradeScaleSchema,
   setGradeLettersSchema,
   setGradeSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
+  updateGradeOutcomeSchema,
   updateGradeSchema,
   type CreateGradeCategory,
   type CreateGradeItem,
+  type CreateGradeOutcome,
   type CreateGradeScale,
   type SetGrade,
   type SetGradeLetters,
   type UpdateGrade,
   type UpdateGradeCategory,
   type UpdateGradeItem,
+  type UpdateGradeOutcome,
 } from '@lms/contracts';
 
 /**
@@ -24,11 +28,13 @@ import {
 export {
   createGradeCategorySchema,
   createGradeItemSchema,
+  createGradeOutcomeSchema,
   createGradeScaleSchema,
   setGradeLettersSchema,
   setGradeSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
+  updateGradeOutcomeSchema,
   updateGradeSchema,
 };
 export type CreateGradeCategoryDto = CreateGradeCategory;
@@ -39,3 +45,5 @@ export type SetGradeDto = SetGrade;
 export type UpdateGradeDto = UpdateGrade;
 export type SetLettersDto = SetGradeLetters;
 export type CreateScaleDto = CreateGradeScale;
+export type CreateGradeOutcomeDto = CreateGradeOutcome;
+export type UpdateGradeOutcomeDto = UpdateGradeOutcome;

@@ -309,4 +309,140 @@ describe('Grades & questions', () => {
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
   });
+
+  it('grade outcomes: tạo outcome (course + site), gắn item, cho điểm theo scale và outcome không tham gia tổng hợp số', async () => {
+    const { course, student, studentToken } = await setupCourse();
+    const scaleRes = await http(app).post(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Outcome scale', scale: 'Not yet,Partially,Fully' });
+    expect(scaleRes.status).toBe(201);
+    const scaleId = scaleRes.body.id as string;
+    // Học viên không có moodle/grade:manage ⇒ không tạo được outcome.
+    const denied = await http(app).post(`/api/v1/courses/${course.id}/grades/outcomes`).set('Authorization', `Bearer ${studentToken}`)
+      .send({ name: 'Nope', scaleId });
+    expect(denied.status).toBe(403);
+    const outcomeRes = await http(app).post(`/api/v1/courses/${course.id}/grades/outcomes`).set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Teamwork', scaleId, description: 'Works in a team' });
+    expect(outcomeRes.status).toBe(201);
+    expect(outcomeRes.body.courseid).toBe(course.id);
+    expect(outcomeRes.body.scaleid).toBe(scaleId);
+    const outcomeId = outcomeRes.body.id as string;
+    const listed = await http(app).get(`/api/v1/courses/${course.id}/grades/outcomes`).set('Authorization', `Bearer ${admin}`);
+    expect((listed.body as { id: string }[]).some((o) => o.id === outcomeId)).toBe(true);
+    // Outcome mức site: scale site + outcome site, và outcome site cũng liệt kê được trong khoá học.
+    const siteScaleRes = await http(app).post('/api/v1/grades/scales').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Site outcome scale', scale: 'No,Yes' });
+    expect(siteScaleRes.status).toBe(201);
+    const siteOutcomeRes = await http(app).post('/api/v1/grades/outcomes').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Site citizenship', scaleId: siteScaleRes.body.id });
+    expect(siteOutcomeRes.status).toBe(201);
+    expect(siteOutcomeRes.body.courseid).toBeNull();
+    const listed2 = await http(app).get(`/api/v1/courses/${course.id}/grades/outcomes`).set('Authorization', `Bearer ${admin}`);
+    expect((listed2.body as { id: string }[]).some((o) => o.id === siteOutcomeRes.body.id)).toBe(true);
+    // Item gắn outcome: gradetype scale, khoảng điểm là chỉ số scale 1..3.
+    const itemRes = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Teamwork outcome', outcomeId });
+    expect(itemRes.status).toBe(201);
+    expect(itemRes.body.gradetype).toBe('scale');
+    expect(itemRes.body.scaleid).toBe(scaleId);
+    expect(itemRes.body.outcomeid).toBe(outcomeId);
+    expect(itemRes.body.grademin).toBe(1);
+    expect(itemRes.body.grademax).toBe(3);
+    const outcomeItemId = itemRes.body.id as string;
+    const normal = await createGradeItem(app, admin, course.id, { itemname: 'Exam', grademax: 100 });
+    await setGrade(app, admin, normal.id, student.id, 80);
+    // Điểm outcome ngoài thang (4 > 3 mức) hoặc không nguyên bị từ chối 400.
+    const outOfScale = await http(app).post(`/api/v1/courses/grades/items/${outcomeItemId}/grades`).set('Authorization', `Bearer ${admin}`)
+      .send({ userid: student.id, rawgrade: 4 });
+    expect(outOfScale.status).toBe(400);
+    expect(outOfScale.body.code).toBe('grades.outcome_grade_out_of_scale');
+    const grade = await setGrade(app, admin, outcomeItemId, student.id, 2);
+    expect(grade.finalgrade).toBe(2);
+    // Gradebook: outcome item hiển thị nhãn scale tương ứng; tổng khoá học chỉ gồm item số (80/100).
+    const book = await getGradebook(app, admin, course.id, student.id);
+    const row = book.categories[0]?.items.find((i) => i.item.id === outcomeItemId) as unknown as { grade: { scaleValue: string | null; outcomeName: string | null } | null };
+    expect(row?.grade?.scaleValue).toBe('Partially');
+    expect(row?.grade?.outcomeName).toBe('Teamwork');
+    expect(book.courseTotal?.grade?.finalgrade).toBeCloseTo(80, 6);
+    expect(book.categories[0]?.total?.item.grademax).toBeCloseTo(100, 6);
+    // Report: outcome xuất hiện kèm nhãn scale cho từng user.
+    const report = await http(app).get(`/api/v1/courses/${course.id}/grades/report`).set('Authorization', `Bearer ${admin}`);
+    const reportRow = (report.body.rows as { userId: string; outcomes: { outcomeId: string; scaleValue: string | null }[] }[])
+      .find((r) => r.userId === student.id);
+    expect(reportRow?.outcomes.find((o) => o.outcomeId === outcomeId)?.scaleValue).toBe('Partially');
+  });
+
+  it('calculated grade items: công thức average từ 2 item thường khớp tính tay ở course total; validate idnumber lạ/vòng/hàm lạ lúc lưu', async () => {
+    const { course, student } = await setupCourse();
+    const a = await createGradeItem(app, admin, course.id, { itemname: 'Quiz 1', idnumber: 'quiz1', grademax: 100 });
+    const b = await createGradeItem(app, admin, course.id, { itemname: 'Quiz 2', idnumber: 'quiz2', grademax: 100 });
+    // idnumber không tồn tại ⇒ 400 ngay lúc tạo.
+    const unknown = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Bad ref', itemtype: 'calculated', calculation: '=sum([[nope]])' });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.code).toBe('grades.calculation_unknown_idnumber');
+    // Cú pháp sai ⇒ 400; hàm chưa hỗ trợ (power của Moodle) ⇒ 400 với mã riêng.
+    const syntax = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Bad syntax', itemtype: 'calculated', calculation: '=sum([[quiz1]],)' });
+    expect(syntax.status).toBe(400);
+    expect(syntax.body.code).toBe('grades.calculation_invalid');
+    const fn = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Bad fn', itemtype: 'calculated', calculation: '=power([[quiz1]],2)' });
+    expect(fn.status).toBe(400);
+    expect(fn.body.code).toBe('grades.calculation_unknown_function');
+    // Tự tham chiếu ⇒ vòng ⇒ 400.
+    const selfCycle = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Self cycle', itemtype: 'calculated', idnumber: 'selfx', calculation: '=sum([[selfx]])' });
+    expect(selfCycle.status).toBe(400);
+    expect(selfCycle.body.code).toBe('grades.calculation_cycle');
+    // Calculated hợp lệ: average(quiz1, quiz2).
+    const calcRes = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Quiz average', itemtype: 'calculated', idnumber: 'avg', calculation: '=average([[quiz1]],[[quiz2]])', grademax: 100 });
+    expect(calcRes.status).toBe(201);
+    const calcId = calcRes.body.id as string;
+    // Vòng gián tiếp qua calculated khác bị chặn lúc CẬP NHẬT: c1 → avg, rồi sửa avg → c1.
+    const c1Res = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'Chain', itemtype: 'calculated', idnumber: 'chain', calculation: '=sum([[avg]])' });
+    expect(c1Res.status).toBe(201);
+    const indirect = await http(app).patch(`/api/v1/courses/grades/items/${calcId}`).set('Authorization', `Bearer ${admin}`)
+      .send({ calculation: '=sum([[chain]])' });
+    expect(indirect.status).toBe(400);
+    expect(indirect.body.code).toBe('grades.calculation_cycle');
+    await http(app).delete(`/api/v1/courses/grades/items/${c1Res.body.id}`).set('Authorization', `Bearer ${admin}`);
+    // Không nhập điểm trực tiếp vào calculated item.
+    const entered = await http(app).post(`/api/v1/courses/grades/items/${calcId}/grades`).set('Authorization', `Bearer ${admin}`)
+      .send({ userid: student.id, rawgrade: 10 });
+    expect(entered.status).toBe(400);
+    expect(entered.body.code).toBe('grades.calculated_item');
+    await setGrade(app, admin, a.id, student.id, 80);
+    await setGrade(app, admin, b.id, student.id, 60);
+    // average = 70; course total natural = (80 + 60 + 70) trên thang cấu trúc 300 ⇒ 210.
+    let book = await getGradebook(app, admin, course.id, student.id);
+    expect(book.categories[0]?.items.find((i) => i.item.id === calcId)?.grade?.finalgrade).toBeCloseTo(70, 6);
+    expect(book.courseTotal?.grade?.finalgrade).toBeCloseTo(210, 6);
+    expect(book.categories[0]?.total?.item.grademax).toBeCloseTo(300, 6);
+    // Đổi điểm nguồn ⇒ calculated và tổng được tính lại: average(100, 60) = 80; tổng = 100 + 60 + 80 = 240.
+    await setGrade(app, admin, a.id, student.id, 100);
+    book = await getGradebook(app, admin, course.id, student.id);
+    expect(book.categories[0]?.items.find((i) => i.item.id === calcId)?.grade?.finalgrade).toBeCloseTo(80, 6);
+    expect(book.courseTotal?.grade?.finalgrade).toBeCloseTo(240, 6);
+  });
+
+  it('calculated item trong category con: category total khớp tính tay (sum của 2 item + chính calculated item)', async () => {
+    const { course, student } = await setupCourse();
+    const sub = await createGradeCategory(app, admin, course.id, { fullname: 'CalcCat', aggregation: 'natural' });
+    const x = await createGradeItem(app, admin, course.id, { itemname: 'X', categoryId: sub.id, idnumber: 'cx', grademax: 100 });
+    const y = await createGradeItem(app, admin, course.id, { itemname: 'Y', categoryId: sub.id, idnumber: 'cy', grademax: 100 });
+    const calcRes = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemname: 'X+Y', itemtype: 'calculated', categoryId: sub.id, calculation: '=sum([[cx]],[[cy]])', grademax: 200 });
+    expect(calcRes.status).toBe(201);
+    await setGrade(app, admin, x.id, student.id, 80);
+    await setGrade(app, admin, y.id, student.id, 60);
+    // calculated = 140/200; category natural: (80 + 60 + 140) trên thang 100+100+200=400 ⇒ 280; course total = 280/400.
+    const book = await getGradebook(app, admin, course.id, student.id);
+    const subView = (book.categories[0]?.children as unknown as { total: { grade: { finalgrade: number | null } | null; item: { grademax: number } } | null }[])[0];
+    expect(subView?.total?.grade?.finalgrade).toBeCloseTo(280, 6);
+    expect(subView?.total?.item.grademax).toBeCloseTo(400, 6);
+    expect(book.courseTotal?.grade?.finalgrade).toBeCloseTo(280, 6);
+  });
+
 });

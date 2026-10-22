@@ -2,12 +2,14 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { AGGREGATIONS, calculateCategory, letterForGrade, adjustedGrade, type AggregationStrategy, type CalcItemInput } from './domain/grade-calculator';
-import { GradesRepository, type CategoryRow, type GradeRow, type ItemRow, type LetterRow, type ScaleRow } from './grades.repository';
+import { GradeFormulaError, evaluateGradeFormula, findFormulaCycle, formulaReferences, parseGradeFormula } from './domain/grade-formula';
+import { GradesRepository, type CategoryRow, type GradeRow, type ItemRow, type LetterRow, type OutcomeRow, type ScaleRow } from './grades.repository';
 
 export const GRADE_REGRADE_QUEUE = 'grade-regrade';
 export const COMPLETION_PASS = 2;
@@ -16,7 +18,7 @@ export const COMPLETION_DONE = 1;
 
 export interface GradebookItemView {
   item: ItemRow;
-  grade: (GradeRow & { letter: string | null }) | null;
+  grade: (GradeRow & { letter: string | null; scaleValue: string | null; outcomeName: string | null }) | null;
 }
 export interface GradebookCategoryView {
   category: CategoryRow;
@@ -55,6 +57,7 @@ export class GradesService implements OnModuleInit {
     private readonly evaluator: PermissionEvaluator,
     private readonly completion: CompletionService,
     private readonly outbox: OutboxService,
+    private readonly contexts: ContextsService,
     @InjectQueue(GRADE_REGRADE_QUEUE) private readonly regradeQueue: Queue,
   ) {}
 
@@ -73,6 +76,107 @@ export class GradesService implements OnModuleInit {
 
   private async requireCap(actorId: string, capability: string, courseId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, capability, await this.courses.courseContextId(courseId));
+  }
+
+  /** Kiểm capability tại context hệ thống (dùng cho outcome/scale mức site). */
+  private async requireSiteCap(actorId: string, capability: string): Promise<void> {
+    const system = await this.contexts.ensureSystemContext();
+    await this.evaluator.requireCapability(actorId, capability, system.id);
+  }
+
+  /** Các mức của một scale: chuỗi phân tách bằng dấu phẩy, mức thấp nhất trước (chỉ số điểm 1-based khớp thứ tự này). */
+  private scaleValues(scale: ScaleRow): string[] {
+    return scale.scale.split(',').map((v) => v.trim()).filter((v) => v.length > 0);
+  }
+
+  /**
+   * Lấy scale và kiểm tra phạm vi dùng được: outcome mức khoá học dùng scale của site hoặc của chính khoá học;
+   * outcome mức site chỉ dùng scale mức site.
+   */
+  private async scaleForOutcome(scaleId: string, courseId: string | null): Promise<ScaleRow> {
+    const scale = await this.repo.getScale(scaleId);
+    if (!scale) throw new NotFoundException({ message: `Grade scale ${scaleId} not found`, code: 'grades.scale_not_found' });
+    if (scale.courseid !== null && scale.courseid !== courseId) {
+      throw new BadRequestException({ message: 'Scale belongs to another course', code: 'grades.outcome_scale_mismatch' });
+    }
+    return scale;
+  }
+
+  /** Lấy outcome; ném grades.outcome_not_found khi vắng. */
+  async getOutcome(id: string): Promise<OutcomeRow> {
+    const row = await this.repo.getOutcome(id);
+    if (!row) throw new NotFoundException({ message: `Grade outcome ${id} not found`, code: 'grades.outcome_not_found' });
+    return row;
+  }
+
+  /**
+   * Kiểm tra outcome dùng được cho một khoá học (outcome của site hoặc của chính khoá học đó)
+   * và trả về scale của outcome.
+   */
+  private async outcomeForCourse(outcomeId: string, courseId: string): Promise<{ outcome: OutcomeRow; scale: ScaleRow }> {
+    const outcome = await this.getOutcome(outcomeId);
+    if (outcome.courseid !== null && outcome.courseid !== courseId) {
+      throw new BadRequestException({ message: 'Outcome belongs to another course', code: 'grades.outcome_course_mismatch' });
+    }
+    const scale = await this.repo.getScale(outcome.scaleid);
+    if (!scale) throw new NotFoundException({ message: `Grade scale ${outcome.scaleid} not found`, code: 'grades.scale_not_found' });
+    return { outcome, scale };
+  }
+
+  /**
+   * Kiểm tra idnumber không trùng với item khác trong cùng khoá học (idnumber là khoá tham chiếu của công thức).
+   */
+  private async assertIdnumberFree(courseId: string, idnumber: string | null | undefined, selfItemId?: string): Promise<void> {
+    if (!idnumber) return;
+    const existing = await this.repo.findItemByIdnumber(courseId, idnumber);
+    if (existing && existing.id !== selfItemId) {
+      throw new BadRequestException({ message: `idnumber ${idnumber} is already used in this course`, code: 'grades.idnumber_taken' });
+    }
+  }
+
+  /**
+   * Kiểm tra công thức của item calculated NGAY khi lưu (không đợi tới lúc tính điểm):
+   * cú pháp sai/hàm lạ → 400 grades.calculation_invalid / grades.calculation_unknown_function;
+   * idnumber tham chiếu không tồn tại → 400 grades.calculation_unknown_idnumber;
+   * tham chiếu vòng (trực tiếp hoặc qua chuỗi calculated khác) → 400 grades.calculation_cycle.
+   */
+  private async assertCalculationValid(
+    courseId: string,
+    calculation: string,
+    self: { itemId?: string; idnumber?: string | null },
+  ): Promise<void> {
+    let ast;
+    try {
+      ast = parseGradeFormula(calculation);
+    } catch (e) {
+      if (e instanceof GradeFormulaError && e.reason === 'unknown_function') {
+        throw new BadRequestException({ message: e.message, code: 'grades.calculation_unknown_function' });
+      }
+      throw new BadRequestException({ message: e instanceof Error ? e.message : 'Invalid grade calculation', code: 'grades.calculation_invalid' });
+    }
+    const refs = formulaReferences(ast);
+    const items = await this.repo.listItems(courseId);
+    const byIdnumber = new Map(items.filter((i) => i.idnumber).map((i) => [i.idnumber!, i]));
+    for (const ref of refs) {
+      if (!byIdnumber.has(ref) && ref !== self.idnumber) {
+        throw new BadRequestException({ message: `Grade calculation references unknown idnumber [[${ref}]]`, code: 'grades.calculation_unknown_idnumber' });
+      }
+    }
+    // Đồ thị tham chiếu giữa các calculated item của khoá học để phát hiện vòng.
+    const graph = new Map<string, string[]>();
+    for (const item of items) {
+      if (!item.idnumber || !item.calculation) continue;
+      if (item.id === self.itemId && item.idnumber !== self.idnumber) continue; // item tự đổi idnumber: cạnh cũ không còn
+      try { graph.set(item.idnumber, formulaReferences(parseGradeFormula(item.calculation))); } catch { /* công thức cũ lỗi không tạo cạnh */ }
+    }
+    if (self.idnumber) graph.set(self.idnumber, refs);
+    const starts = self.idnumber ? [self.idnumber, ...refs] : refs;
+    for (const start of starts) {
+      const cycle = findFormulaCycle(graph, start);
+      if (cycle) {
+        throw new BadRequestException({ message: `Grade calculation has a circular reference: ${cycle.join(' -> ')}`, code: 'grades.calculation_cycle' });
+      }
+    }
   }
 
   // --- structure -----------------------------------------------------------
@@ -213,17 +317,28 @@ export class GradesService implements OnModuleInit {
   async createItem(actorId: string, courseId: string, input: {
     itemname: string; itemtype?: string; categoryId?: string; cmId?: string;
     grademax?: number; grademin?: number; gradepass?: number; scaleId?: string;
+    outcomeId?: string; idnumber?: string; calculation?: string;
     weightoverride?: boolean; weight?: number; extracredit?: boolean;
     multiplicator?: number; plusfactor?: number; hidden?: boolean;
   }): Promise<ItemRow> {
     await this.courses.getCourse(courseId);
     await this.requireCap(actorId, 'moodle/grade:manage', courseId);
     const itemtype = input.itemtype ?? 'manual';
-    if (!['manual', 'mod'].includes(itemtype)) {
+    if (!['manual', 'mod', 'calculated'].includes(itemtype)) {
       throw new BadRequestException({ message: `grade item type ${itemtype} is created by the system`, code: 'grades.bad_itemtype' });
     }
     if (itemtype === 'mod' && !input.cmId) {
       throw new BadRequestException({ message: 'A mod item requires cmId', code: 'grades.cm_required' });
+    }
+    if (itemtype === 'calculated' && !input.calculation) {
+      throw new BadRequestException({ message: 'A calculated item requires a calculation formula', code: 'grades.calculation_required' });
+    }
+    if (itemtype !== 'calculated' && input.calculation) {
+      throw new BadRequestException({ message: 'Only calculated items carry a calculation formula', code: 'grades.calculation_only_calculated' });
+    }
+    await this.assertIdnumberFree(courseId, input.idnumber ?? null);
+    if (itemtype === 'calculated') {
+      await this.assertCalculationValid(courseId, input.calculation!, { idnumber: input.idnumber ?? null });
     }
     const { category: root } = await this.ensureCourseCategory(courseId);
     const category = input.categoryId ? await this.getCategory(input.categoryId) : root;
@@ -236,13 +351,28 @@ export class GradesService implements OnModuleInit {
       const existing = await this.repo.findItemForCm(courseId, input.cmId!);
       if (existing) throw new BadRequestException({ message: 'This activity already has a grade item', code: 'grades.item_exists_for_cm' });
     }
-    const grademin = input.grademin ?? 0;
-    const grademax = input.grademax ?? 100;
-    if (grademax <= grademin) throw new BadRequestException({ message: 'grademax must be greater than grademin', code: 'grades.bad_range' });
+    // Outcome: item gắn outcome dùng scale của outcome, điểm lưu theo chỉ số 1..số mức của scale.
+    let outcomeScale: ScaleRow | null = null;
+    if (input.outcomeId) {
+      const resolved = await this.outcomeForCourse(input.outcomeId, courseId);
+      outcomeScale = resolved.scale;
+      if (input.scaleId && input.scaleId !== outcomeScale.id) {
+        throw new BadRequestException({ message: 'scaleId must match the outcome scale', code: 'grades.outcome_scale_mismatch' });
+      }
+    } else if (input.scaleId) {
+      await this.scaleForOutcome(input.scaleId, courseId);
+    }
+    const grademin = outcomeScale ? 1 : (input.grademin ?? 0);
+    const grademax = outcomeScale ? Math.max(1, this.scaleValues(outcomeScale).length) : (input.grademax ?? 100);
+    if (grademax <= grademin && !outcomeScale) throw new BadRequestException({ message: 'grademax must be greater than grademin', code: 'grades.bad_range' });
     const item = await this.repo.insertItem({
       courseid: courseId, categoryid: category.id, itemname: input.itemname, itemtype,
       itemmodule, iteminstance: itemtype === 'mod' ? input.cmId! : null,
-      gradetype: input.scaleId ? 'scale' : 'value', scaleid: input.scaleId ?? null,
+      gradetype: (outcomeScale || input.scaleId) ? 'scale' : 'value',
+      scaleid: outcomeScale ? outcomeScale.id : (input.scaleId ?? null),
+      outcomeid: input.outcomeId ?? null,
+      idnumber: input.idnumber ?? null,
+      calculation: itemtype === 'calculated' ? input.calculation! : null,
       grademax, grademin, gradepass: input.gradepass ?? 0,
       weightoverride: input.weightoverride ?? false, aggregationcoef: input.weight ?? 0,
       extracredit: input.extracredit ?? false, multiplicator: input.multiplicator ?? 1,
@@ -273,12 +403,54 @@ export class GradesService implements OnModuleInit {
    */
   async updateItem(actorId: string, itemId: string, input: {
     itemname?: string; categoryId?: string; grademax?: number; grademin?: number; gradepass?: number;
+    scaleId?: string | null; outcomeId?: string | null; idnumber?: string | null; calculation?: string | null;
     weightoverride?: boolean; weight?: number; extracredit?: boolean;
     multiplicator?: number; plusfactor?: number; hidden?: boolean; locked?: boolean;
   }): Promise<ItemRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'moodle/grade:manage', item.courseid);
+    // Công thức/idnumber/outcome được kiểm tra lại đầy đủ mỗi lần sửa, giống lúc tạo.
+    const nextIdnumber = input.idnumber !== undefined ? input.idnumber : item.idnumber;
+    if (input.idnumber !== undefined) await this.assertIdnumberFree(item.courseid, input.idnumber, itemId);
+    if (input.idnumber !== undefined && item.idnumber && input.idnumber !== item.idnumber) {
+      const referenced = (await this.repo.listItems(item.courseid))
+        .some((i) => i.id !== itemId && !!i.calculation && i.calculation.includes(`[[${item.idnumber}]]`));
+      if (referenced) {
+        throw new BadRequestException({ message: `idnumber ${item.idnumber} is referenced by a grade calculation`, code: 'grades.idnumber_in_use' });
+      }
+    }
+    const nextCalculation = input.calculation !== undefined ? input.calculation : item.calculation;
+    if (item.itemtype === 'calculated') {
+      if (!nextCalculation) {
+        throw new BadRequestException({ message: 'A calculated item requires a calculation formula', code: 'grades.calculation_required' });
+      }
+      await this.assertCalculationValid(item.courseid, nextCalculation, { itemId, idnumber: nextIdnumber });
+    } else if (input.calculation !== undefined && input.calculation !== null) {
+      throw new BadRequestException({ message: 'Only calculated items carry a calculation formula', code: 'grades.calculation_only_calculated' });
+    }
     const patch: Partial<ItemRow> = {};
+    if (input.idnumber !== undefined) patch.idnumber = input.idnumber;
+    if (input.calculation !== undefined && item.itemtype === 'calculated') patch.calculation = input.calculation;
+    if (input.outcomeId !== undefined) {
+      if (input.outcomeId === null) {
+        patch.outcomeid = null;
+        // Gỡ outcome: scale của outcome cũng được gỡ theo, item quay về thang số thường.
+        patch.scaleid = null;
+        patch.gradetype = 'value';
+      } else {
+        const { scale } = await this.outcomeForCourse(input.outcomeId, item.courseid);
+        patch.outcomeid = input.outcomeId;
+        patch.scaleid = scale.id;
+        patch.gradetype = 'scale';
+        patch.grademin = 1;
+        patch.grademax = Math.max(1, this.scaleValues(scale).length);
+      }
+    }
+    if (input.scaleId !== undefined && input.outcomeId === undefined) {
+      if (input.scaleId !== null) await this.scaleForOutcome(input.scaleId, item.courseid);
+      patch.scaleid = input.scaleId;
+      patch.gradetype = input.scaleId ? 'scale' : 'value';
+    }
     if (input.itemname !== undefined) patch.itemname = input.itemname;
     if (input.categoryId !== undefined) {
       const cat = await this.getCategory(input.categoryId);
@@ -334,10 +506,18 @@ export class GradesService implements OnModuleInit {
   async setGrade(actorId: string, itemId: string, userId: string, input: { rawgrade?: number | null; feedback?: string }): Promise<GradeRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'moodle/grade:edit', item.courseid);
-    if (item.itemtype === 'course' || item.itemtype === 'category') {
-      throw new BadRequestException({ message: 'Category/course totals are calculated, not entered', code: 'grades.calculated_item' });
+    if (item.itemtype === 'course' || item.itemtype === 'category' || item.itemtype === 'calculated') {
+      throw new BadRequestException({ message: 'Category/course totals and calculated items are calculated, not entered', code: 'grades.calculated_item' });
     }
     if (item.locked) throw new ForbiddenException({ message: 'This grade item is locked', code: 'grades.item_locked' });
+    if (item.outcomeid && input.rawgrade !== undefined && input.rawgrade !== null) {
+      // Điểm outcome là chỉ số nguyên 1-based trong scale của outcome (scale item id trong Moodle) — ngoài khoảng là lỗi, không kẹp âm thầm.
+      const { scale } = await this.outcomeForCourse(item.outcomeid, item.courseid);
+      const count = this.scaleValues(scale).length;
+      if (!Number.isInteger(input.rawgrade) || input.rawgrade < 1 || input.rawgrade > count) {
+        throw new BadRequestException({ message: `Outcome grade must be an integer scale index between 1 and ${count}`, code: 'grades.outcome_grade_out_of_scale' });
+      }
+    }
     const existing = await this.repo.getGrade(itemId, userId);
     if (existing?.locked) throw new ForbiddenException({ message: 'This grade is locked', code: 'grades.grade_locked' });
     if (existing?.overridden) throw new ForbiddenException({ message: 'This grade is overridden; clear the override before entering a grade', code: 'grades.grade_overridden' });
@@ -431,6 +611,65 @@ export class GradesService implements OnModuleInit {
     const gradeByItem = new Map<string, GradeRow>(grades.map((g) => [g.itemid, g]));
     const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
 
+    // Calculated items: đánh giá công thức theo idnumber trước khi tổng hợp category.
+    // Tham chiếu tới item thường dùng finalgrade đã lưu; tham chiếu tới calculated khác được
+    // giải quyết đệ quy (vòng đã bị chặn lúc lưu công thức, ở đây chỉ là phòng thủ → null).
+    // Kết quả được kẹp vào [grademin, grademax] của chính calculated item và lưu như điểm của nó.
+    const byIdnumber = new Map(items.filter((i) => i.idnumber).map((i) => [i.idnumber!, i]));
+    const computedCalc = new Map<string, number | null>();
+    const resolving = new Set<string>();
+    const resolveFinal = (it: ItemRow): number | null => {
+      if (it.itemtype !== 'calculated') return finalByItem.get(it.id) ?? null;
+      if (computedCalc.has(it.id)) return computedCalc.get(it.id)!;
+      if (resolving.has(it.id)) return null;
+      resolving.add(it.id);
+      let value: number | null = null;
+      const existingCalc = gradeByItem.get(it.id);
+      if (existingCalc?.overridden) {
+        value = existingCalc.finalgrade;
+      } else if (it.calculation) {
+        try {
+          value = evaluateGradeFormula(parseGradeFormula(it.calculation), (idnumber) => {
+            const ref = byIdnumber.get(idnumber);
+            if (!ref || ref.id === it.id) return null;
+            if (gradeByItem.get(ref.id)?.excluded) return null;
+            return resolveFinal(ref);
+          });
+        } catch { value = null; }
+        if (value !== null) value = Math.min(it.grademax, Math.max(it.grademin, value));
+      }
+      resolving.delete(it.id);
+      computedCalc.set(it.id, value);
+      return value;
+    };
+    for (const calcItem of items.filter((i) => i.itemtype === 'calculated')) {
+      const existingCalc = gradeByItem.get(calcItem.id);
+      if (existingCalc?.overridden) { finalByItem.set(calcItem.id, existingCalc.finalgrade); continue; }
+      const value = resolveFinal(calcItem);
+      finalByItem.set(calcItem.id, value);
+      const changed = !existingCalc || existingCalc.finalgrade !== value;
+      const savedCalc = await this.repo.upsertGrade({
+        itemid: calcItem.id, userid: userId, rawgrade: existingCalc?.rawgrade ?? null,
+        rawgrademin: calcItem.grademin, rawgrademax: calcItem.grademax,
+        finalgrade: value, hidden: existingCalc?.hidden ?? false, locked: existingCalc?.locked ?? false,
+        overridden: false, excluded: existingCalc?.excluded ?? false, frozen: existingCalc?.frozen ?? false,
+        feedback: existingCalc?.feedback ?? null, aggregationstatus: value === null ? 'novalue' : 'used',
+        aggregationweight: existingCalc?.aggregationweight ?? null,
+      });
+      gradeByItem.set(calcItem.id, savedCalc);
+      if (changed && value !== null) {
+        await this.repo.insertHistory({
+          action: existingCalc ? 2 : 1, oldid: existingCalc?.id ?? null, itemid: calcItem.id, userid: userId,
+          rawgrade: null, finalgrade: value, overridden: false,
+          excluded: existingCalc?.excluded ?? false, frozen: existingCalc?.frozen ?? false, source: 'calculation',
+        });
+        await this.outbox.enqueueStandalone({
+          aggregate: 'grades', type: 'grade_updated',
+          payload: { courseId, itemId: calcItem.id, userId, finalgrade: value, calculated: true },
+        });
+      }
+    }
+
     const byDepthDesc = [...categories].sort((a, b) => b.depth - a.depth);
     for (const cat of byDepthDesc) {
       const totalItem = items.find((i) => (i.itemtype === 'category' && i.iteminstance === cat.id)
@@ -440,18 +679,22 @@ export class GradesService implements OnModuleInit {
       if (existing?.overridden) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
       if (existing?.frozen && existing.finalgrade !== null) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
 
-      const childItems = items.filter((i) => i.categoryid === cat.id && i.id !== totalItem.id);
+      // Item thang định tính (gradetype='scale', gồm cả item gắn outcome) KHÔNG tham gia
+      // tổng hợp số của category — cùng luật đã ghi cho scale; chúng chỉ hiển thị trong sổ điểm.
+      const childItems = items.filter((i) => i.categoryid === cat.id && i.id !== totalItem.id
+        && !i.outcomeid && i.gradetype !== 'scale');
       const calcItems: CalcItemInput[] = childItems.map((ci) => {
         const g = gradeByItem.get(ci.id);
         const isSubTotal = ci.itemtype === 'category' || ci.itemtype === 'course';
+        const isCalculated = ci.itemtype === 'calculated';
         return {
           itemId: ci.id, grademin: ci.grademin, grademax: ci.grademax,
           grade: finalByItem.get(ci.id) ?? null,
           excluded: g?.excluded ?? false, extracredit: ci.extracredit,
           weightOverride: ci.weightoverride, weight: ci.aggregationcoef,
           aggregationcoef: ci.aggregationcoef,
-          // Multiplicator/offset apply to leaf grades at entry time, not to totals.
-          multiplicator: isSubTotal ? 1 : ci.multiplicator, offset: isSubTotal ? 0 : ci.plusfactor,
+          // Multiplicator/offset apply to leaf grades at entry time, not to totals or calculated items.
+          multiplicator: (isSubTotal || isCalculated) ? 1 : ci.multiplicator, offset: (isSubTotal || isCalculated) ? 0 : ci.plusfactor,
           frozen: g?.frozen ?? false,
         };
       });
@@ -557,6 +800,7 @@ export class GradesService implements OnModuleInit {
     for (const item of items) {
       const g = grades.find((x) => x.itemid === item.id);
       if (!g || g.finalgrade === null || item.grademax <= item.grademin) continue;
+      if (item.outcomeid || item.gradetype === 'scale') continue; // điểm định tính không có phần trăm số
       const pct = ((g.finalgrade - item.grademin) / (item.grademax - item.grademin)) * 100;
       out[String(item.id)] = pct;
       if (item.itemtype === 'mod') out[String(item.iteminstance)] = pct;
@@ -622,13 +866,114 @@ export class GradesService implements OnModuleInit {
     return this.repo.insertScale({ courseid: courseId, name: input.name, scale: input.scale, description: input.description ?? '' });
   }
   /**
+   * Tạo scale mức site (courseid = null) — dùng được cho outcome mức site và mọi khoá học.
+   */
+  async createSiteScale(actorId: string, input: { name: string; scale: string; description?: string }): Promise<ScaleRow> {
+    await this.requireSiteCap(actorId, 'moodle/grade:manage');
+    return this.repo.insertScale({ courseid: null, name: input.name, scale: input.scale, description: input.description ?? '' });
+  }
+  /**
    * Liệt kê scales.
    */
   async listScales(courseId: string): Promise<ScaleRow[]> { return this.repo.listScales(courseId); }
 
-  private withLetter(grade: GradeRow | undefined, item: ItemRow, letters: LetterRow[]): (GradeRow & { letter: string | null }) | null {
+  // --- outcomes --------------------------------------------------------------
+
+  /**
+   * Tạo grade outcome: mức khoá học khi có courseId, mức site khi courseId = null.
+   * Capability dùng chung của grades: moodle/grade:manage tại context khoá học (hoặc hệ thống với outcome site).
+   */
+  async createOutcome(actorId: string, courseId: string | null, input: { name: string; scaleId: string; description?: string }): Promise<OutcomeRow> {
+    if (courseId !== null) {
+      await this.courses.getCourse(courseId);
+      await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    } else {
+      await this.requireSiteCap(actorId, 'moodle/grade:manage');
+    }
+    await this.scaleForOutcome(input.scaleId, courseId);
+    const row = await this.repo.insertOutcome({
+      courseid: courseId, scaleid: input.scaleId, name: input.name, description: input.description ?? '',
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'grades', type: 'grade_outcome_created', payload: { courseId, outcomeId: row.id } });
+    return row;
+  }
+
+  /**
+   * Liệt kê outcome: của một khoá học (kèm outcome site) hoặc chỉ outcome site khi không truyền courseId.
+   */
+  async listOutcomes(courseId?: string): Promise<OutcomeRow[]> {
+    return this.repo.listOutcomes(courseId);
+  }
+
+  /** Kiểm capability phù hợp phạm vi của outcome (site → context hệ thống, khoá học → context khoá học). */
+  private async requireOutcomeCap(actorId: string, outcome: OutcomeRow): Promise<void> {
+    if (outcome.courseid === null) await this.requireSiteCap(actorId, 'moodle/grade:manage');
+    else await this.requireCap(actorId, 'moodle/grade:manage', outcome.courseid);
+  }
+
+  /**
+   * Cập nhật grade outcome; đổi scale thì các item đang gắn outcome được đồng bộ scaleid/grademax theo scale mới và tính lại.
+   */
+  async updateOutcome(actorId: string, outcomeId: string, input: { name?: string; scaleId?: string; description?: string }): Promise<OutcomeRow> {
+    const outcome = await this.getOutcome(outcomeId);
+    await this.requireOutcomeCap(actorId, outcome);
+    const patch: Partial<OutcomeRow> = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.description !== undefined) patch.description = input.description;
+    if (input.scaleId !== undefined) {
+      await this.scaleForOutcome(input.scaleId, outcome.courseid);
+      patch.scaleid = input.scaleId;
+    }
+    if (Object.keys(patch).length) await this.repo.updateOutcome(outcomeId, patch);
+    if (input.scaleId !== undefined && input.scaleId !== outcome.scaleid) {
+      // Đổi scale của outcome ⇒ đồng bộ scaleid và khoảng điểm (1..số mức) cho mọi item đang gắn outcome này.
+      const scale = (await this.repo.getScale(input.scaleId))!;
+      const count = this.scaleValues(scale).length;
+      for (const item of await this.repo.listItemsForOutcome(outcomeId)) {
+        await this.repo.updateItem(item.id, { scaleid: input.scaleId, grademin: 1, grademax: Math.max(1, count) });
+      }
+    }
+    return this.getOutcome(outcomeId);
+  }
+
+  /**
+   * Xoá grade outcome; item đang gắn outcome được gỡ liên kết (khoá ngoại set null) nhưng giữ nguyên điểm đã lưu.
+   */
+  async deleteOutcome(actorId: string, outcomeId: string): Promise<void> {
+    const outcome = await this.getOutcome(outcomeId);
+    await this.requireOutcomeCap(actorId, outcome);
+    await this.repo.deleteOutcome(outcomeId);
+  }
+
+  /**
+   * Giá trị scale hiển thị cho một điểm: với item gắn outcome (hoặc item scale thường),
+   * finalgrade là chỉ số 1-based và scaleValue là nhãn mức tương ứng trong scale.
+   */
+  private scaleValueFor(
+    grade: GradeRow, item: ItemRow,
+    outcomesById: Map<string, OutcomeRow>, scalesById: Map<string, ScaleRow>,
+  ): { scaleValue: string | null; outcomeName: string | null } {
+    if (grade.finalgrade === null) return { scaleValue: null, outcomeName: null };
+    const outcome = item.outcomeid ? outcomesById.get(item.outcomeid) : undefined;
+    const scaleId = outcome?.scaleid ?? item.scaleid;
+    if (!scaleId) return { scaleValue: null, outcomeName: outcome?.name ?? null };
+    const scale = scalesById.get(scaleId);
+    if (!scale) return { scaleValue: null, outcomeName: outcome?.name ?? null };
+    const values = this.scaleValues(scale);
+    const idx = Math.round(grade.finalgrade) - 1;
+    return { scaleValue: idx >= 0 && idx < values.length ? values[idx]! : null, outcomeName: outcome?.name ?? null };
+  }
+
+  private withLetter(
+    grade: GradeRow | undefined, item: ItemRow, letters: LetterRow[],
+    outcomesById: Map<string, OutcomeRow> = new Map(), scalesById: Map<string, ScaleRow> = new Map(),
+  ): (GradeRow & { letter: string | null; scaleValue: string | null; outcomeName: string | null }) | null {
     if (!grade) return null;
-    return { ...grade, letter: grade.finalgrade === null ? null : letterForGrade(grade.finalgrade, item.grademin, item.grademax, letters) };
+    const { scaleValue, outcomeName } = this.scaleValueFor(grade, item, outcomesById, scalesById);
+    return {
+      ...grade, scaleValue, outcomeName,
+      letter: grade.finalgrade === null ? null : letterForGrade(grade.finalgrade, item.grademin, item.grademax, letters),
+    };
   }
 
   /**
@@ -659,11 +1004,20 @@ export class GradesService implements OnModuleInit {
     const grades = await this.repo.listGradesForCourse(courseId, targetUserId);
     const letters = await this.getLetters(courseId);
     const gradeByItem = new Map(grades.map((g) => [g.itemid, g]));
+    const outcomesById = new Map((await this.repo.listOutcomes(courseId)).map((o) => [o.id, o]));
+    const scalesById = new Map((await this.repo.listScales(courseId)).map((s) => [s.id, s]));
+    // Item có thể gắn outcome/scale mức site không nằm trong listScales(courseId) khi courseId là của khoá khác? listScales đã gồm site + khoá này.
+    for (const item of items) {
+      if (item.scaleid && !scalesById.has(item.scaleid)) {
+        const s = await this.repo.getScale(item.scaleid);
+        if (s) scalesById.set(s.id, s);
+      }
+    }
 
     const viewForItem = (item: ItemRow): GradebookItemView => {
       const g = gradeByItem.get(item.id);
       const visibleGrade = g && (seeHidden || !g.hidden) ? g : undefined;
-      return { item, grade: this.withLetter(visibleGrade, item, letters) };
+      return { item, grade: this.withLetter(visibleGrade, item, letters, outcomesById, scalesById) };
     };
     const build = (cat: CategoryRow): GradebookCategoryView => {
       const totalItem = items.find((i) => (i.itemtype === 'category' && i.iteminstance === cat.id)
@@ -686,21 +1040,39 @@ export class GradesService implements OnModuleInit {
    * Báo cáo điểm toàn lớp cho giáo viên.
    */
   async getReport(viewerId: string, courseId: string): Promise<{
-    courseId: string; rows: { userId: string; finalgrade: number | null; letter: string | null }[];
+    courseId: string; rows: {
+      userId: string; finalgrade: number | null; letter: string | null;
+      outcomes: { itemId: string; outcomeId: string; outcomeName: string; scaleValue: string | null; finalgrade: number | null }[];
+    }[];
   }> {
     await this.requireCap(viewerId, 'moodle/grade:viewall', courseId);
     const { courseItem } = await this.ensureCourseCategory(courseId);
     const letters = await this.getLetters(courseId);
+    const items = await this.repo.listItems(courseId);
+    const outcomeItems = items.filter((i) => i.outcomeid);
+    const outcomesById = new Map((await this.repo.listOutcomes(courseId)).map((o) => [o.id, o]));
+    const scalesById = new Map((await this.repo.listScales(courseId)).map((s) => [s.id, s]));
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
     const userIds = [...new Set(enrolments.map((e) => e.userid))];
     const rows = [];
     for (const userId of userIds) {
       const g = await this.repo.getGrade(courseItem.id, userId);
+      const outcomes = [];
+      for (const item of outcomeItems) {
+        const og = await this.repo.getGrade(item.id, userId);
+        const outcome = outcomesById.get(item.outcomeid!);
+        const view = og ? this.scaleValueFor(og, item, outcomesById, scalesById) : { scaleValue: null, outcomeName: null };
+        outcomes.push({
+          itemId: item.id, outcomeId: item.outcomeid!, outcomeName: outcome?.name ?? view.outcomeName ?? '',
+          scaleValue: view.scaleValue, finalgrade: og?.finalgrade ?? null,
+        });
+      }
       rows.push({
         userId,
         finalgrade: g?.finalgrade ?? null,
         letter: g?.finalgrade !== null && g?.finalgrade !== undefined
           ? letterForGrade(g.finalgrade, courseItem.grademin, courseItem.grademax, letters) : null,
+        outcomes,
       });
     }
     return { courseId, rows };

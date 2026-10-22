@@ -73,6 +73,38 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     expect(second.updatedTotals).toBe(0);
   });
 
+
+  it('grade-regrade computes calculated items from idnumber formulas and excludes outcome/scale items from numeric aggregation', async () => {
+    // Khoá học riêng để không lẫn với total của test trước.
+    const sfx = `${suffix}c`;
+    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat3c-${sfx}`}, '') returning id`);
+    const catId2 = (catRows.rows[0] as { id: string }).id;
+    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId2}, 'Worker calc course', ${`wk3c${suffix}`}) returning id`);
+    const course2 = (courseRows.rows[0] as { id: string }).id;
+    const [root2] = await db.insert(gradeCategories).values({ courseid: course2, parent: null, fullname: '', aggregation: 'natural', depth: 1 }).returning();
+    const [courseItem2] = await db.insert(gradeItems).values({ courseid: course2, categoryid: root2.id, itemname: 'Course total', itemtype: 'course', iteminstance: course2, grademax: 100 }).returning();
+    const mk2 = async (values: Record<string, unknown>, grade?: number) => {
+      const [item] = await db.insert(gradeItems).values({ courseid: course2, categoryid: root2.id, itemname: 'I', itemtype: 'manual', iteminstance: null, grademax: 100, ...values }).returning();
+      if (grade !== undefined) await db.insert(gradeGrades).values({ itemid: item.id, userid: userId, rawgrade: grade, finalgrade: grade });
+      return item;
+    };
+    await mk2({ itemname: 'Q1', idnumber: 'wq1' }, 80);
+    await mk2({ itemname: 'Q2', idnumber: 'wq2' }, 60);
+    const calc = await mk2({ itemname: 'Avg', itemtype: 'calculated', idnumber: 'wavg', calculation: '=average([[wq1]],[[wq2]])' });
+    // Item outcome (gradetype scale + outcomeid): điểm 3/3 KHÔNG được cộng vào tổng số.
+    await mk2({ itemname: 'Outcome item', gradetype: 'scale', outcomeid: '01910000-0000-7000-8000-0000000000aa', grademax: 3, grademin: 1 }, 3);
+    const processor = context.get(GradeRegradeProcessor);
+    const result = await processor.process({ data: { courseId: course2 } } as never);
+    expect(result.users).toBe(1);
+    const [calcGrade] = await db.select().from(gradeGrades).where(and(eq(gradeGrades.itemid, calc.id), eq(gradeGrades.userid, userId)));
+    expect(calcGrade.finalgrade).toBeCloseTo(70, 6);
+    // Natural: (80 + 60 + 70) trên thang 300 ⇒ 210; nếu outcome item lọt vào tổng hợp thì kết quả sẽ khác.
+    const [total2] = await db.select().from(gradeGrades).where(and(eq(gradeGrades.itemid, courseItem2.id), eq(gradeGrades.userid, userId)));
+    expect(total2.finalgrade).toBeCloseTo(210, 6);
+    const [totalItem2] = await db.select().from(gradeItems).where(eq(gradeItems.id, courseItem2.id));
+    expect(totalItem2.grademax).toBeCloseTo(300, 6);
+  });
+
   it('completion-recalculate evaluates a grade criterion against the course total and its gradepass', async () => {
     // Course total is 100/190 ≈ 52.6% — set gradepass 120 (absolute, of 190) ⇒ not met; then lower to 90 ⇒ met.
     await db.update(gradeItems).set({ gradepass: 120 }).where(eq(gradeItems.id, courseItemId));
