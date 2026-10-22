@@ -105,6 +105,20 @@ pnpm install
 turbo run build typecheck lint test
 ```
 
+## Operations
+
+See `docs/operations-runbook.md` for the operator runbook: JWT secret
+rotation, outbox replay, orphan file cleanup, audit-trail queries,
+backup/restore, PostgreSQL upgrades, and the hot-path performance
+baseline (`apps/api/scripts/benchmark-hot-paths.mjs`).
+
+HTTP edge protection (ADR-014): standard security headers on every
+response, CORS restricted to `CORS_ORIGINS`, and two-layer per-IP rate
+limiting via the official `@nestjs/throttler` — a global
+`RATE_LIMIT_PER_MINUTE` plus a stricter `RATE_LIMIT_AUTH_PER_MINUTE`
+for credential-checking auth routes. Tune them with the school-NAT
+warning in the runbook before tightening.
+
 ## Version policy
 
 Always the latest release of every dependency, except where a documented

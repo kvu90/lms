@@ -489,3 +489,13 @@ report.md` §4.6:
 All pre-existing flow tests were updated from numeric to string ids as
 part of the same round; their Moodle-oracle mappings above are unchanged
 (the key change does not alter any business scenario).
+
+## Addendum — HTTP edge hardening (platform verification, 2026-10-22)
+
+Also platform verification, not a Moodle oracle translation; the design
+record is ADR-014 and operations live in `docs/operations-runbook.md`:
+
+| Verification | Our test |
+|---|---|
+| Every response carries the standard security headers; versioned API routes also carry the strict CSP | `test/platform-hardening.e2e-spec.ts` |
+| Credential routes are throttled per IP: with the auth limit lowered to 3/minute, the 4th login attempt from one IP is a 429 Problem Details while other routes stay 200 | same file |
