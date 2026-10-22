@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import type { Gradebook, GradebookCategoryView, GradeReport } from '@lms/contracts';
+import type { Gradebook, GradebookCategoryView, GradeCategory, GradeItem, GradeLetter, GradeReport } from '@lms/contracts';
+import { AGGREGATIONS } from '@lms/contracts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,17 +9,64 @@ import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
+import { usePermissions } from '@/lib/permissions';
+
+/**
+ * Thang điểm tuỳ biến như API trả về (bảng `scales` phía grades service —
+ * contracts chưa có schema response cho scale nên trang khai báo tại chỗ):
+ * `scale` là danh sách mức phân tách bằng dấu phẩy, từ thấp đến cao.
+ */
+interface GradeScaleView {
+  id: string;
+  courseid: string | null;
+  name: string;
+  scale: string;
+  description: string;
+}
+
+/**
+ * Một dòng lịch sử thay đổi điểm như API trả về (bảng
+ * `grade_grades_history` phía grades service): `action` 1 = tạo mới,
+ * 2 = cập nhật, 3 = xoá theo quy ước của Moodle.
+ */
+interface GradeHistoryView {
+  id: string;
+  action: number;
+  itemid: string;
+  userid: string;
+  rawgrade: number | null;
+  finalgrade: number | null;
+  source: string | null;
+  timemodified: string;
+  loggeduser: string | null;
+}
+
+/** Một mốc chữ cái đang sửa trong form letters: giữ dạng chuỗi để nhập liệu trung thực, chỉ đổi sang số khi lưu. */
+interface LetterDraft {
+  letter: string;
+  lowerboundary: string;
+}
 
 /**
  * Gradebook: category/item tree with the student's grades, letters at
  * display time, the teacher report (course totals per student) and a grade
  * entry form. All permission/hidden rules are enforced by the API; this page
  * only renders what it is given.
+ *
+ * Khu quản trị sổ điểm (hạng mục, mục điểm, letters, scales, regrade, lịch
+ * sử điểm) chỉ render cho staff của khoá: người dùng thuộc `teaching` của
+ * chính khoá này theo `usePermissions()` (có grade:viewall tại context
+ * khoá) hoặc có quyền quản trị cấp hệ thống (`canAdminister`). Dữ liệu quản
+ * trị chỉ được tải khi đã xác nhận là staff. Lưu ý các endpoint sửa/xoá
+ * category và item KHÔNG mang tiền tố courseId (PATCH/DELETE
+ * /courses/grades/categories/:id, /courses/grades/items/:id) — đúng
+ * controller phía API.
  */
 export function GradebookPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
   const courseId = id ?? '';
+  const perms = usePermissions();
   const [book, setBook] = useState<Gradebook | null>(null);
   const [report, setReport] = useState<GradeReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +74,30 @@ export function GradebookPage() {
   const [gradeItemId, setGradeItemId] = useState('');
   const [gradeUserId, setGradeUserId] = useState('');
   const [gradeValue, setGradeValue] = useState('');
+
+  /** Staff của khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
+  const courseAccess = perms.courses.find((c) => c.course.id === courseId);
+  const isStaff = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || courseAccess?.report != null;
+
+  const [adminCategories, setAdminCategories] = useState<GradeCategory[]>([]);
+  const [adminItems, setAdminItems] = useState<GradeItem[]>([]);
+  const [adminScales, setAdminScales] = useState<GradeScaleView[]>([]);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatAggregation, setNewCatAggregation] = useState<string>('natural');
+  const [catEdits, setCatEdits] = useState<Record<string, string>>({});
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemMax, setNewItemMax] = useState('100');
+  const [newItemCategoryId, setNewItemCategoryId] = useState('');
+  const [itemEdits, setItemEdits] = useState<Record<string, { itemname: string; grademax: string }>>({});
+  const [letterDrafts, setLetterDrafts] = useState<LetterDraft[]>([]);
+  const [scaleName, setScaleName] = useState('');
+  const [scaleValues, setScaleValues] = useState('');
+  const [scaleDescription, setScaleDescription] = useState('');
+  const [historyItemId, setHistoryItemId] = useState('');
+  const [historyUserId, setHistoryUserId] = useState('');
+  const [historyRows, setHistoryRows] = useState<GradeHistoryView[] | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const mine = await apiJson<Gradebook>(`/api/v1/courses/${courseId}/gradebook`);
@@ -37,6 +109,28 @@ export function GradebookPage() {
   useEffect(() => {
     void reload().catch(() => setError(t('gradebookLoadFailed')));
   }, [reload]);
+
+  /**
+   * Nạp dữ liệu quản trị sổ điểm (chỉ gọi khi đã xác nhận staff): category
+   * và item của khoá, bộ letters hiện tại (đổ thẳng vào form sửa) và scales.
+   * Mỗi endpoint lỗi độc lập thì phần đó để rỗng, không sập cả trang.
+   */
+  const reloadAdmin = useCallback(async () => {
+    const [cats, items, letters, scales] = await Promise.all([
+      apiJson<GradeCategory[]>(`/api/v1/courses/${courseId}/grades/categories`).catch(() => []),
+      apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
+      apiJson<GradeLetter[]>(`/api/v1/courses/${courseId}/grades/letters`).catch(() => []),
+      apiJson<GradeScaleView[]>(`/api/v1/courses/${courseId}/grades/scales`).catch(() => []),
+    ]);
+    setAdminCategories(cats);
+    setCatEdits(Object.fromEntries(cats.map((c) => [c.id, c.fullname])));
+    setAdminItems(items);
+    setItemEdits(Object.fromEntries(items.map((i) => [i.id, { itemname: i.itemname, grademax: String(i.grademax) }])));
+    setLetterDrafts(letters.map((l) => ({ letter: l.letter, lowerboundary: String(l.lowerboundary) })));
+    setAdminScales(scales);
+  }, [courseId]);
+
+  useEffect(() => { if (isStaff) void reloadAdmin(); }, [isStaff, reloadAdmin]);
 
   async function enterGrade(event: FormEvent) {
     event.preventDefault();
@@ -51,6 +145,158 @@ export function GradebookPage() {
     } catch {
       setMessage(t('gradeSaveFailed'));
     }
+  }
+
+  /** Tạo hạng mục điểm qua POST /courses/:courseId/grades/categories (`createGradeCategorySchema`). */
+  async function createGradeCategory(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/categories`, {
+        method: 'POST',
+        body: JSON.stringify({ fullname: newCatName, aggregation: newCatAggregation }),
+      });
+      setNewCatName('');
+      setAdminMessage(t('gradeCategoryCreated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeCategoryCreateFailed')); }
+  }
+
+  /** Đổi tên hạng mục qua PATCH /courses/grades/categories/:categoryId (`updateGradeCategorySchema`). */
+  async function saveGradeCategory(cat: GradeCategory) {
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/categories/${cat.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ fullname: catEdits[cat.id] ?? cat.fullname }),
+      });
+      setAdminMessage(t('gradeCategoryUpdated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeCategoryUpdateFailed')); }
+  }
+
+  /** Xoá hạng mục qua DELETE /courses/grades/categories/:categoryId sau khi xác nhận. */
+  async function deleteGradeCategory(cat: GradeCategory) {
+    if (!window.confirm(t('confirmDeleteGradeCategory', { name: cat.fullname }))) return;
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/categories/${cat.id}`, { method: 'DELETE' });
+      setAdminMessage(t('gradeCategoryDeleted'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeCategoryDeleteFailed')); }
+  }
+
+  /**
+   * Tạo mục điểm thủ công qua POST /courses/:courseId/grades/items với
+   * đúng `createGradeItemSchema`: `itemname`, `grademax` dạng số và
+   * `categoryId` chỉ khi đã chọn hạng mục (`itemtype` bỏ qua — phía server
+   * mặc định là manual).
+   */
+  async function createGradeItem(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/items`, {
+        method: 'POST',
+        body: JSON.stringify({
+          itemname: newItemName,
+          grademax: Number(newItemMax),
+          ...(newItemCategoryId ? { categoryId: newItemCategoryId } : {}),
+        }),
+      });
+      setNewItemName('');
+      setAdminMessage(t('gradeItemCreated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeItemCreateFailedAdmin')); }
+  }
+
+  /** Sửa tên/điểm tối đa của mục điểm qua PATCH /courses/grades/items/:itemId (`updateGradeItemSchema`). */
+  async function saveGradeItem(item: GradeItem) {
+    const edit = itemEdits[item.id] ?? { itemname: item.itemname, grademax: String(item.grademax) };
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/items/${item.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ itemname: edit.itemname, grademax: Number(edit.grademax) }),
+      });
+      setAdminMessage(t('gradeItemUpdated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeItemUpdateFailed')); }
+  }
+
+  /** Xoá mục điểm qua DELETE /courses/grades/items/:itemId sau khi xác nhận. */
+  async function deleteGradeItem(item: GradeItem) {
+    if (!window.confirm(t('confirmDeleteGradeItem', { name: item.itemname }))) return;
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/grades/items/${item.id}`, { method: 'DELETE' });
+      setAdminMessage(t('gradeItemDeleted'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('gradeItemDeleteFailed')); }
+  }
+
+  /**
+   * Lưu toàn bộ thang điểm chữ qua PUT /courses/:courseId/grades/letters
+   * với đúng `setGradeLettersSchema`: `{ letters: [{ letter, lowerboundary }] }`
+   * — mốc dưới đổi sang số tại lúc gửi.
+   */
+  async function saveLetters(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/letters`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          letters: letterDrafts.map((d) => ({ letter: d.letter, lowerboundary: Number(d.lowerboundary) })),
+        }),
+      });
+      setAdminMessage(t('lettersSaved'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('lettersSaveFailed')); }
+  }
+
+  /** Tạo scale qua POST /courses/:courseId/grades/scales (`createGradeScaleSchema`: name, scale, description tuỳ chọn). */
+  async function createScale(event: FormEvent) {
+    event.preventDefault();
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/scales`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: scaleName,
+          scale: scaleValues,
+          ...(scaleDescription.trim() ? { description: scaleDescription.trim() } : {}),
+        }),
+      });
+      setScaleName(''); setScaleValues(''); setScaleDescription('');
+      setAdminMessage(t('scaleCreated'));
+      await reloadAdmin();
+    } catch { setAdminMessage(t('scaleCreateFailed')); }
+  }
+
+  /** Tính lại điểm toàn khoá qua POST /courses/:courseId/grades/regrade (không body). */
+  async function regradeCourse() {
+    setAdminMessage(null);
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/grades/regrade`, { method: 'POST' });
+      setAdminMessage(t('regradeDone'));
+      await reload();
+    } catch { setAdminMessage(t('regradeFailed')); }
+  }
+
+  /**
+   * Xem lịch sử điểm của một học viên trên một mục điểm qua
+   * GET /courses/grades/items/:itemId/users/:userId/history (endpoint này
+   * cũng không mang tiền tố courseId).
+   */
+  async function loadHistory(event: FormEvent) {
+    event.preventDefault();
+    setHistoryError(null);
+    setHistoryRows(null);
+    try {
+      const rows = await apiJson<GradeHistoryView[]>(`/api/v1/courses/grades/items/${historyItemId}/users/${historyUserId}/history`);
+      setHistoryRows(rows);
+    } catch { setHistoryError(t('historyLoadFailed')); }
   }
 
   function renderCategory(view: GradebookCategoryView, depth: number) {
@@ -136,6 +382,220 @@ export function GradebookPage() {
           </form>
         </CardContent>
       </Card>
+
+      {isStaff && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('gradeAdminTitle')}</CardTitle>
+              <CardDescription>{t('gradeAdminDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button type="button" variant="outline" onClick={() => void regradeCourse()}>{t('regrade')}</Button>
+              {adminMessage ? <p role="status">{adminMessage}</p> : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>{t('gradeCategoriesAdminTitle')}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-3">
+                {adminCategories.map((cat) => (
+                  <li key={cat.id} data-testid={`grade-category-admin-${cat.id}`} className="space-y-2 rounded border p-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`grade-cat-edit-${cat.id}`}>{t('gradeCategoryName')}</Label>
+                      <Input
+                        id={`grade-cat-edit-${cat.id}`}
+                        value={catEdits[cat.id] ?? cat.fullname}
+                        onChange={(e) => setCatEdits((prev) => ({ ...prev, [cat.id]: e.target.value }))}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">{t('gradeCategoryAggregation')}: {cat.aggregation}</p>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" onClick={() => void saveGradeCategory(cat)}>{t('saveGradeCategory')}</Button>
+                      <Button type="button" variant="destructive" onClick={() => void deleteGradeCategory(cat)}>{t('deleteGradeCategory')}</Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <form onSubmit={(e) => void createGradeCategory(e)} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="grade-cat-name">{t('gradeCategoryName')}</Label>
+                  <Input id="grade-cat-name" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade-cat-aggregation">{t('gradeCategoryAggregation')}</Label>
+                  <select id="grade-cat-aggregation" value={newCatAggregation} onChange={(e) => setNewCatAggregation(e.target.value)} className="border px-2 py-1">
+                    {AGGREGATIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <Button type="submit">{t('createGradeCategory')}</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>{t('gradeItemsAdminTitle')}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-3">
+                {adminItems.map((item) => {
+                  const edit = itemEdits[item.id] ?? { itemname: item.itemname, grademax: String(item.grademax) };
+                  return (
+                    <li key={item.id} data-testid={`grade-item-admin-${item.id}`} className="space-y-2 rounded border p-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`grade-item-edit-name-${item.id}`}>{t('gradeItemName')}</Label>
+                        <Input
+                          id={`grade-item-edit-name-${item.id}`}
+                          value={edit.itemname}
+                          onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemname: e.target.value } }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`grade-item-edit-max-${item.id}`}>{t('gradeItemMax')}</Label>
+                        <Input
+                          id={`grade-item-edit-max-${item.id}`}
+                          value={edit.grademax}
+                          onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, grademax: e.target.value } }))}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" onClick={() => void saveGradeItem(item)}>{t('saveGradeItem')}</Button>
+                        <Button type="button" variant="destructive" onClick={() => void deleteGradeItem(item)}>{t('deleteGradeItem')}</Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <form onSubmit={(e) => void createGradeItem(e)} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="grade-item-name">{t('gradeItemName')}</Label>
+                  <Input id="grade-item-name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade-item-max">{t('gradeItemMax')}</Label>
+                  <Input id="grade-item-max" value={newItemMax} onChange={(e) => setNewItemMax(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade-item-category">{t('gradeItemCategory')}</Label>
+                  <select id="grade-item-category" value={newItemCategoryId} onChange={(e) => setNewItemCategoryId(e.target.value)} className="border px-2 py-1">
+                    <option value="">{t('gradeItemNoCategory')}</option>
+                    {adminCategories.map((c) => <option key={c.id} value={c.id}>{c.fullname || t('gradeCourseFallback')}</option>)}
+                  </select>
+                </div>
+                <Button type="submit">{t('createGradeItem')}</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('gradeLettersTitle')}</CardTitle>
+              <CardDescription>{t('gradeLettersDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={(e) => void saveLetters(e)} className="space-y-3">
+                {letterDrafts.map((draft, index) => (
+                  <div key={index} className="flex flex-wrap items-end gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor={`letter-symbol-${index}`}>{t('letterSymbol')}</Label>
+                      <Input
+                        id={`letter-symbol-${index}`}
+                        value={draft.letter}
+                        onChange={(e) => setLetterDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, letter: e.target.value } : d)))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`letter-boundary-${index}`}>{t('letterLowerBoundary')}</Label>
+                      <Input
+                        id={`letter-boundary-${index}`}
+                        value={draft.lowerboundary}
+                        onChange={(e) => setLetterDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, lowerboundary: e.target.value } : d)))}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setLetterDrafts((prev) => prev.filter((_, i) => i !== index))}
+                    >
+                      {t('removeLetter')}
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setLetterDrafts((prev) => [...prev, { letter: '', lowerboundary: '' }])}>{t('addLetter')}</Button>
+                  <Button type="submit">{t('saveLetters')}</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>{t('gradeScalesTitle')}</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="space-y-1">
+                {adminScales.map((s) => (
+                  <li key={s.id} className="text-sm"><span className="font-medium">{s.name}</span>: {s.scale}</li>
+                ))}
+                {adminScales.length === 0 ? <li className="text-sm text-muted-foreground">{t('noScales')}</li> : null}
+              </ul>
+              <form onSubmit={(e) => void createScale(e)} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="scale-name">{t('scaleName')}</Label>
+                  <Input id="scale-name" value={scaleName} onChange={(e) => setScaleName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="scale-values">{t('scaleValues')}</Label>
+                  <Input id="scale-values" value={scaleValues} onChange={(e) => setScaleValues(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="scale-description">{t('scaleDescriptionLabel')}</Label>
+                  <Input id="scale-description" value={scaleDescription} onChange={(e) => setScaleDescription(e.target.value)} />
+                </div>
+                <Button type="submit">{t('createScale')}</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('gradeHistoryTitle')}</CardTitle>
+              <CardDescription>{t('gradeHistoryDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <form onSubmit={(e) => void loadHistory(e)} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="history-item">{t('gradeItem')}</Label>
+                  <select id="history-item" value={historyItemId} onChange={(e) => setHistoryItemId(e.target.value)} className="border px-2 py-1">
+                    <option value="">{t('gradeItem')}</option>
+                    {adminItems.map((i) => <option key={i.id} value={i.id}>{i.itemname}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="history-user">{t('studentUserId')}</Label>
+                  <Input id="history-user" value={historyUserId} onChange={(e) => setHistoryUserId(e.target.value)} />
+                </div>
+                <Button type="submit">{t('viewHistory')}</Button>
+              </form>
+              {historyError ? <p role="alert">{historyError}</p> : null}
+              {historyRows !== null && historyRows.length === 0 ? <p>{t('historyEmpty')}</p> : null}
+              {historyRows !== null && historyRows.length > 0 ? (
+                <ul className="space-y-1 text-sm">
+                  {historyRows.map((row) => (
+                    <li key={row.id}>
+                      {t('historyLine', {
+                        time: row.timemodified,
+                        raw: row.rawgrade ?? '—',
+                        final: row.finalgrade ?? '—',
+                        action: row.action === 1 ? t('historyActionInsert') : row.action === 3 ? t('historyActionDelete') : t('historyActionUpdate'),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </main>
   );
 }

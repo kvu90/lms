@@ -348,7 +348,7 @@ function StudentSection() {
     if (!user) return;
     void (async () => {
       try {
-        const issued = await apiJson<unknown[]>(`/api/v1/badges/users/${user.id}/issued`);
+        const issued = await apiJson<unknown[]>('/api/v1/badges/mine');
         setBadgeCount(issued.length);
       } catch {
         setBadgeCount(null);

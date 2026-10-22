@@ -10,6 +10,7 @@ import { AppSidebar } from './components/app-sidebar';
 import { SiteHeader } from './components/site-header';
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar';
 import { AdminRolesPage } from './pages/admin-roles';
+import { AdminSiteConfigPage } from './pages/admin-site-config';
 import { AdminUsersPage } from './pages/admin-users';
 import { BadgesPage } from './pages/badges';
 import { BlogPage } from './pages/blog';
@@ -114,6 +115,7 @@ const router = createBrowserRouter([
       { path: '/profile', element: <ProfilePage /> },
       { path: '/admin/users', element: <AdminUsersPage /> },
       { path: '/admin/roles', element: <AdminRolesPage /> },
+      { path: '/admin/site-config', element: <AdminSiteConfigPage /> },
       { path: '/courses', element: <CoursesPage /> },
       { path: '/courses/:id', element: <CoursePage /> },
       { path: '/courses/:id/admin', element: <CourseAdminPage /> },
