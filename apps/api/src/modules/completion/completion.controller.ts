@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService } from '../courses/courses.service';
 import { CompletionService } from './completion.service';
-import { MarkManualDto, SetCriteriaDto } from './dto/completion.dto';
+import { markManualCompletionSchema, setCompletionCriteriaSchema, type MarkManualDto, type SetCriteriaDto } from './dto/completion.dto';
 
 @ApiTags('completion')
 @Controller({ path: 'courses', version: '1' })
@@ -36,7 +36,7 @@ export class CompletionController {
   }
 
   @Post(':courseId/modules/:cmId/completion/manual')
-  async markManual(@Param('cmId', ParseIntPipe) cmId: number, @Body() dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
+  async markManual(@Param('cmId', ParseIntPipe) cmId: number, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.markManual(actor.id, cmId, dto.userid, dto.complete);
   }
 
@@ -45,7 +45,7 @@ export class CompletionController {
     return this.completion.getCriteria(courseId);
   }
   @Put(':courseId/completion/criteria')
-  async setCriteria(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setCriteria(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: setCompletionCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.setCriteria(actor.id, courseId, dto);
   }
   @Post(':courseId/completion/recalculate')

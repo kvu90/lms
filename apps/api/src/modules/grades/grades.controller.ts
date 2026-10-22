@@ -2,10 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Q
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
-import {
-  CreateGradeCategoryDto, CreateGradeItemDto, CreateScaleDto, SetGradeDto, SetLettersDto,
-  UpdateGradeCategoryDto, UpdateGradeDto, UpdateGradeItemDto,
-} from './dto/grades.dto';
+import { createGradeCategorySchema, createGradeItemSchema, createGradeScaleSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateScaleDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -13,7 +10,7 @@ export class GradesController {
   constructor(private readonly grades: GradesService) {}
 
   @Post(':courseId/grades/categories')
-  async createCategory(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateGradeCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createCategory(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGradeCategorySchema }) dto: CreateGradeCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.createCategory(actor.id, courseId, dto);
   }
   @Get(':courseId/grades/categories')
@@ -21,7 +18,7 @@ export class GradesController {
     return this.grades.listCategories(courseId);
   }
   @Patch('grades/categories/:categoryId')
-  async updateCategory(@Param('categoryId', ParseIntPipe) categoryId: number, @Body() dto: UpdateGradeCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateCategory(@Param('categoryId', ParseIntPipe) categoryId: number, @Body({ schema: updateGradeCategorySchema }) dto: UpdateGradeCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.updateCategory(actor.id, categoryId, dto);
   }
   @Delete('grades/categories/:categoryId')
@@ -31,7 +28,7 @@ export class GradesController {
   }
 
   @Post(':courseId/grades/items')
-  async createItem(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateGradeItemDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createItem(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGradeItemSchema }) dto: CreateGradeItemDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.createItem(actor.id, courseId, dto);
   }
   @Get(':courseId/grades/items')
@@ -39,7 +36,7 @@ export class GradesController {
     return this.grades.listItems(courseId);
   }
   @Patch('grades/items/:itemId')
-  async updateItem(@Param('itemId', ParseIntPipe) itemId: number, @Body() dto: UpdateGradeItemDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateItem(@Param('itemId', ParseIntPipe) itemId: number, @Body({ schema: updateGradeItemSchema }) dto: UpdateGradeItemDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.updateItem(actor.id, itemId, dto);
   }
   @Delete('grades/items/:itemId')
@@ -49,11 +46,11 @@ export class GradesController {
   }
 
   @Post('grades/items/:itemId/grades')
-  async setGrade(@Param('itemId', ParseIntPipe) itemId: number, @Body() dto: SetGradeDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setGrade(@Param('itemId', ParseIntPipe) itemId: number, @Body({ schema: setGradeSchema }) dto: SetGradeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.setGrade(actor.id, itemId, dto.userid, dto);
   }
   @Patch('grades/grades/:gradeId')
-  async updateGrade(@Param('gradeId', ParseIntPipe) gradeId: number, @Body() dto: UpdateGradeDto, @CurrentUser() actor: AuthenticatedUser) {
+  async updateGrade(@Param('gradeId', ParseIntPipe) gradeId: number, @Body({ schema: updateGradeSchema }) dto: UpdateGradeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.updateGrade(actor.id, gradeId, dto);
   }
   @Get('grades/items/:itemId/users/:userId/history')
@@ -85,12 +82,12 @@ export class GradesController {
     return this.grades.getLetters(courseId);
   }
   @Put(':courseId/grades/letters')
-  async setLetters(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: SetLettersDto, @CurrentUser() actor: AuthenticatedUser) {
+  async setLetters(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: setGradeLettersSchema }) dto: SetLettersDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.setLetters(actor.id, courseId, dto.letters);
   }
 
   @Post(':courseId/grades/scales')
-  async createScale(@Param('courseId', ParseIntPipe) courseId: number, @Body() dto: CreateScaleDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createScale(@Param('courseId', ParseIntPipe) courseId: number, @Body({ schema: createGradeScaleSchema }) dto: CreateScaleDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.createScale(actor.id, courseId, dto);
   }
   @Get(':courseId/grades/scales')

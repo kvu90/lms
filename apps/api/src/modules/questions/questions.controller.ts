@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionsService } from './questions.service';
-import { CreateQuestionCategoryDto, CreateQuestionDto, CreateUsageDto, SubmitResponseDto, UpdateQuestionDto } from './dto/questions.dto';
+import { createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, submitQuestionResponseSchema, updateQuestionSchema, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto } from './dto/questions.dto';
 
 @ApiTags('questions')
 @Controller({ path: 'questions', version: '1' })
@@ -10,7 +10,7 @@ export class QuestionsController {
   constructor(private readonly questions: QuestionsService) {}
 
   @Post('categories')
-  async createCategory(@Body() dto: CreateQuestionCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
+  async createCategory(@Body({ schema: createQuestionCategorySchema }) dto: CreateQuestionCategoryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createCategory(actor.id, dto);
   }
   @Get('categories')
@@ -22,7 +22,7 @@ export class QuestionsController {
     return this.questions.listQuestions(id);
   }
   @Post()
-  async create(@Body() dto: CreateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createQuestionSchema }) dto: CreateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createQuestion(actor.id, dto);
   }
   @Get(':id')
@@ -30,7 +30,7 @@ export class QuestionsController {
     return this.questions.getQuestion(id);
   }
   @Patch(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body({ schema: updateQuestionSchema }) dto: UpdateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.updateQuestion(actor.id, id, dto);
   }
   @Get(':id/versions')
@@ -45,7 +45,7 @@ export class QuestionUsagesController {
   constructor(private readonly questions: QuestionsService) {}
 
   @Post()
-  async create(@Body() dto: CreateUsageDto, @CurrentUser() actor: AuthenticatedUser) {
+  async create(@Body({ schema: createQuestionUsageSchema }) dto: CreateUsageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createUsage(actor.id, dto);
   }
   @Get(':id')
@@ -65,7 +65,7 @@ export class QuestionUsagesController {
     return this.questions.startAttempt(actor.id, attemptId);
   }
   @Post(':id/attempts/:attemptId/submit')
-  async submit(@Param('attemptId', ParseIntPipe) attemptId: number, @Body() dto: SubmitResponseDto, @CurrentUser() actor: AuthenticatedUser) {
+  async submit(@Param('attemptId', ParseIntPipe) attemptId: number, @Body({ schema: submitQuestionResponseSchema }) dto: SubmitResponseDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.submitResponse(actor.id, attemptId, dto.response ?? null);
   }
   @Post(':id/attempts/:attemptId/finish')
