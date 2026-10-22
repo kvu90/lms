@@ -49,7 +49,7 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   }));
 }
 
-describe('Gradebook page (P3)', () => {
+describe('Gradebook page', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   it('renders the category/item tree with grades, letters and the course total', async () => {
@@ -70,7 +70,7 @@ describe('Gradebook page (P3)', () => {
   });
 });
 
-describe('Question bank page (P3)', () => {
+describe('Question bank page', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   it('renders the version badge, and editing bumps the badge to the new version', async () => {

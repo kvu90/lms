@@ -6,7 +6,7 @@ import { SocialRepository, type NoteRow } from './social.repository';
 
 /**
  * NotesModule (Moodle core_notes): notes ABOUT a user, in three states
- * (report §2#16 + task P4): 'draft' = personal note (only its creator),
+ * (report §2#16): 'draft' = personal note (only its creator),
  * 'public' = course note (courseid set; readable only with
  * moodle/notes:view at the COURSE context — in practice the course's
  * teachers, NOT other students and NOT the subject), 'site' = site note

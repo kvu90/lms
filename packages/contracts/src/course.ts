@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** P2 Course & Enrolment contracts — the single shape source between api and web. */
+/** Course & Enrolment contracts — the single shape source between api and web. */
 
 export const GROUPMODE = { NOGROUPS: 0, SEPARATEGROUPS: 1, VISIBLEGROUPS: 2 } as const;
 export const ENROL_STATUS = { ACTIVE: 0, SUSPENDED: 1, WITHDRAWN: 2 } as const;

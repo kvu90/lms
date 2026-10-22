@@ -18,11 +18,11 @@ export const AGGREGATION_ALL = 1;
 export const AGGREGATION_ANY = 2;
 
 /**
- * CompletionModule facade (Moodle core_completion), activity part (P2):
+ * CompletionModule facade (Moodle core_completion), activity part:
  *  - Completion state is STORED data (course_modules_completion) driven by
  *    criteria declared up-front on the cm: completionview, completionmanual,
  *    completionexpected, completionusegrade (declared; grade evaluation is
- *    the P3 hook — a cm requiring a grade cannot complete in P2).
+ *    the Grades hook — a cm requiring a grade cannot complete without one).
  *  - `cm_viewed` events (from CoursesService) drive completionview.
  *  - Course completion aggregates criteria (module completions + date)
  *    with the course method ALL(AND)/ANY(OR) into course_completions.
@@ -33,9 +33,9 @@ export const AGGREGATION_ANY = 2;
 @Injectable()
 export class CompletionService implements OnModuleInit {
   private readonly logger = new Logger(CompletionService.name);
-  /** Registered by GradesModule (P3): cm grade state (0 incomplete / 1 complete / 2 pass / 3 fail), null = no grade yet. */
+  /** Registered by GradesModule: cm grade state (0 incomplete / 1 complete / 2 pass / 3 fail), null = no grade yet. */
   private gradeEvaluator?: (cmId: number, userId: number) => Promise<number | null>;
-  /** Registered by GradesModule (P3): course 'grade' criterion check. */
+  /** Registered by GradesModule: course 'grade' criterion check. */
   private courseGradeChecker?: (courseId: number, userId: number) => Promise<boolean>;
 
   registerGradeEvaluator(fn: (cmId: number, userId: number) => Promise<number | null>): void {
@@ -43,7 +43,7 @@ export class CompletionService implements OnModuleInit {
   }
 
   /**
-   * P4 hooks: downstream modules (Badges, Competencies) register interest in
+   * Downstream hooks: modules (Badges, Competencies) register interest in
    * completion CHANGES instead of polling or reading this module's tables
    * (report §2#9: completion is an INPUT to badges/competency — consumers
    * subscribe, they never re-derive completion themselves).
@@ -78,7 +78,7 @@ export class CompletionService implements OnModuleInit {
 
   onModuleInit(): void {
     // Availability 'completion' leaf: complete when the referenced cm's
-    // stored state for this user is COMPLETE (or pass/fail in P3).
+    // stored state for this user is COMPLETE (or pass/fail once graded).
     this.availability.register('completion', async (leaf, ctx) => {
       const cmId = Number(leaf.id ?? leaf.cmid ?? leaf.cm ?? 0);
       if (!cmId) return { available: false, description: 'Completion condition without cm id' };
@@ -96,7 +96,7 @@ export class CompletionService implements OnModuleInit {
 
   // --- activity completion ---------------------------------------------------
 
-  /** Internal state computation from the cm's declared criteria (Moodle completionlib internal_get_state, P2 subset). */
+  /** Internal state computation from the cm's declared criteria (Moodle completionlib internal_get_state, activity subset). */
   async computeCmState(cmId: number, userId: number): Promise<number> {
     const cm = await this.courses.getCm(cmId);
     const row = await this.repo.getCmCompletion(cmId, userId);
@@ -107,7 +107,7 @@ export class CompletionService implements OnModuleInit {
     // Automatic (completion=2): every declared criterion must hold.
     let gradeState: number | null = null;
     if (cm.completionusegrade) {
-      // P3: real grade evaluation through the GradesModule-registered evaluator.
+      // Grades: real grade evaluation through the GradesModule-registered evaluator.
       gradeState = this.gradeEvaluator ? await this.gradeEvaluator(cmId, userId) : null;
       if (gradeState === null) return COMPLETION_INCOMPLETE; // no grade yet
       if (gradeState === COMPLETION_COMPLETE_FAIL) return COMPLETION_COMPLETE_FAIL;
@@ -291,7 +291,7 @@ export class CompletionService implements OnModuleInit {
       } else if (c.criteriatype === 'date' && c.date) {
         results.push(now >= c.date);
       } else if (c.criteriatype === 'grade') {
-        // P3: course grade criterion via the GradesModule-registered checker.
+        // Grades: course grade criterion via the GradesModule-registered checker.
         results.push(this.courseGradeChecker ? await this.courseGradeChecker(courseId, userId) : false);
       } else {
         results.push(false);

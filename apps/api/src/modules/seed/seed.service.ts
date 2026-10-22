@@ -6,7 +6,7 @@ import { RolesService } from '../access/roles.service';
 import { UsersService } from '../users/users.service';
 
 /**
- * Idempotent P1 bootstrap seed: system context, capability registry, standard
+ * Idempotent bootstrap seed: system context, capability registry, standard
  * Moodle core roles + archetype defaults, the special guest account, and the
  * initial site administrator (from env) with the manager role + siteadmins.
  */

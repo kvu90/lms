@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { http } from './p1-helpers';
+import { http } from './identity-access-helpers';
 
 export async function createGradeCategory(app: INestApplication, token: string, courseId: number, overrides: Record<string, unknown> = {}): Promise<{ id: number; fullname: string; aggregation: string }> {
   const res = await http(app).post(`/api/v1/courses/${courseId}/grades/categories`).set('Authorization', `Bearer ${token}`)

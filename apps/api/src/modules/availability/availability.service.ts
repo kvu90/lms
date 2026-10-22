@@ -9,7 +9,7 @@ export interface AvailabilityContext {
   userId: number;
   courseId?: number;
   now?: Date;
-  /** Grade PERCENTAGES (0-100, Moodle availability_grade semantics) keyed by grade-item id / cm id — supplied by the GradesModule-registered provider via CoursesService (P3). Absent ⇒ grade conditions are unmet. */
+  /** Grade PERCENTAGES (0-100, Moodle availability_grade semantics) keyed by grade-item id / cm id — supplied by the GradesModule-registered provider via CoursesService. Absent ⇒ grade conditions are unmet. */
   grades?: Record<string, number>;
 }
 
@@ -23,7 +23,7 @@ export type LeafEvaluator = (leaf: AvailabilityLeaf, ctx: AvailabilityContext) =
  * dependency direction stays Availability ← owners (report §3.12 inverted
  * via registration, like Moodle availability condition plugins).
  *
- * Built-in leaves: date, grade (hook for P3), profile (user fields).
+ * Built-in leaves: date, grade (hook for Grades), profile (user fields).
  * Unknown leaf types evaluate as NOT available (Moodle ignores missing
  * plugins at construct time but a condition that cannot be checked must
  * never silently grant access).
@@ -84,7 +84,7 @@ export class AvailabilityService {
 
   /**
    * grade leaf: {type:'grade', id, min, max} — min/max are PERCENTAGES of the
-   * referenced grade item (Moodle availability_grade). P3: ctx.grades carries
+   * referenced grade item (Moodle availability_grade). Grades: ctx.grades carries
    * real percentages from GradesModule; when no grade exists for the id, the
    * condition is unmet (never auto-pass).
    */

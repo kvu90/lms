@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiJson } from '@/lib/api';
 
-/** Course administration (P2): groups, cohorts, manual enrolment with suspend/reactivate, and learner completion progress. */
+/** Course administration: groups, cohorts, manual enrolment with suspend/reactivate, and learner completion progress. */
 export function CourseAdminPage() {
   const { id } = useParams();
   const courseId = Number(id);

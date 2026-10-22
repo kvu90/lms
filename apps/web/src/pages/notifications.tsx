@@ -7,7 +7,7 @@ interface NotificationView { id: number; subject: string; fullmessage: string; e
 interface PreferenceView { provider: string; channel: string; loggedin: boolean; loggedoff: boolean }
 
 /**
- * Notification centre + preferences (P4). A notification only exists when
+ * Notification centre + preferences. A notification only exists when
  * the (provider × channel × login-state) preference allowed the popup
  * channel; the toggles below write straight through to the API and take
  * effect on the very next dispatch.

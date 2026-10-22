@@ -1,9 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createP1TestApp, createUserViaApi, http, roleIdByShortname, systemContextId, uniqueName,
-} from './p1-helpers';
-import { createCategory, createCourse } from './p2-helpers';
+  adminToken, assignRole, createTestApp, createUserViaApi, http, roleIdByShortname, systemContextId, uniqueName,
+} from './identity-access-helpers';
+import { createCategory, createCourse } from './course-enrolment-helpers';
 
 /**
  * Luồng i18n của các dịch vụ nền tảng: API trả text hiển thị tiếng Việt khi
@@ -22,7 +22,7 @@ describe('Platform i18n flow (e2e)', () => {
   let courseId: number;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
     const auth = { Authorization: `Bearer ${admin}` };
     const student = await createUserViaApi(app, admin, { username: uniqueName('i18nstudent') });

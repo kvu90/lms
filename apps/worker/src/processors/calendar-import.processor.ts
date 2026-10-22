@@ -13,7 +13,7 @@ export interface CalendarImportJobData { subscriptionId: number }
 export interface CalendarImportResult { eventsimported: number; eventsskipped: number; eventsupdated: 0; eventsdeleted: 0 }
 
 /**
- * Calendar subscription import (P4): parses the subscription's ICS payload
+ * Calendar subscription import: parses the subscription's ICS payload
  * at a basic level and materialises its VEVENTs as calendar_events bound to
  * the subscription. Re-running is idempotent — an event whose
  * (subscriptionid, UID) already exists is skipped, mirroring the counts

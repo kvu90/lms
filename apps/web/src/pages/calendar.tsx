@@ -11,7 +11,7 @@ interface EventView {
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
 
 /**
- * Calendar (P4): current-month view with an event-type filter. The API
+ * Calendar: current-month view with an event-type filter. The API
  * already applies the visibility law (site for all, course for enrolled,
  * group for members, user for the owner), so the page only groups what it
  * receives by day.

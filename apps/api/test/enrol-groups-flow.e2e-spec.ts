@@ -1,10 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createP1TestApp, createUserViaApi, http, login,
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD,
-} from './p1-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from './p2-helpers';
+} from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 
 /**
  * Enrol + Groups/Cohort flow.
@@ -15,11 +15,11 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
  * groups membership), cohort sync behaviour from enrol_cohort plugin
  * semantics as described in report §2#6.
  */
-describe('P2 enrol & groups/cohorts', () => {
+describe('Enrol & groups/cohorts', () => {
   let app: INestApplication;
   let admin: string;
 
-  beforeAll(async () => { app = await createP1TestApp(); admin = await adminToken(app); });
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
   async function setupCourse(groupmode = 0) {

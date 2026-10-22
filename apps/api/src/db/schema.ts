@@ -79,7 +79,7 @@ export const taskLog = pgTable('task_log', {
 });
 
 // ---------------------------------------------------------------------------
-// P1 — Identity & Access (Access / Users / Auth / CustomFields / Files)
+// Identity & Access (Access / Users / Auth / CustomFields / Files)
 // Table names follow the research report §3.2/§4 (Moodle names, no `mdl_`).
 // ---------------------------------------------------------------------------
 
@@ -243,7 +243,7 @@ export const customfieldData = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// P2 — Course & Enrolment (Courses / Groups+Cohort / Enrol / Availability /
+// Course & Enrolment (Courses / Groups+Cohort / Enrol / Availability /
 // Completion). Availability is a JSONB column, not a table (report §4).
 // ---------------------------------------------------------------------------
 
@@ -298,8 +298,8 @@ export const courseSections = pgTable(
 
 /**
  * Course modules (Moodle `course_modules`) — the generic container joining a
- * section to an activity instance via (component, instanceid). P2 ships the
- * container only; activity content arrives in later phases.
+ * section to an activity instance via (component, instanceid). This ships the
+ * container only; activity content lives in its owning modules.
  * completion: 0=none, 1=manual, 2=automatic. groupmode 0 inherits course mode.
  */
 export const courseModules = pgTable('course_modules', {
@@ -468,7 +468,7 @@ export const userEnrolments = pgTable(
 /**
  * Per-activity completion state (Moodle `course_modules_completion`).
  * completionstate: 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
- * (pass/fail arrive with grades in P3; P2 writes 0/1 and `viewed`).
+ * (pass/fail arrive with grades; this writes 0/1 and `viewed`).
  */
 export const courseModulesCompletion = pgTable(
   'course_modules_completion',
@@ -484,7 +484,7 @@ export const courseModulesCompletion = pgTable(
   (table) => [unique('course_modules_completion_unique').on(table.coursemoduleid, table.userid)],
 );
 
-/** Course-level completion criteria (Moodle `course_completion_criteria`). criteriatype: 'module' | 'date' | 'grade' (grade wired in P3). */
+/** Course-level completion criteria (Moodle `course_completion_criteria`). criteriatype: 'module' | 'date' | 'grade' (grade wired through the grades module). */
 export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   course: integer('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
@@ -537,7 +537,7 @@ export const files = pgTable('files', {
 });
 
 // ---------------------------------------------------------------------------
-// P3 — Assessment (Grades / Questions). Table names follow Moodle (no mdl_).
+// Assessment (Grades / Questions). Table names follow Moodle (no mdl_).
 // ---------------------------------------------------------------------------
 
 /** Scales (Moodle `scale`): courseid 0 = site scale. `scale` is a comma-separated list of values, lowest first. */
@@ -796,7 +796,7 @@ export const questionAttemptSteps = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// P4 — Communication & Engagement (Messaging / Calendar / Badges /
+// Communication & Engagement (Messaging / Calendar / Badges /
 // Competencies / Social: Tag, Comment, Rating, Blog, Notes).
 // Social tables are POLYMORPHIC (component + itemtype/area + itemid +
 // contextid) with NO hard FK to any business table (report §2#16).

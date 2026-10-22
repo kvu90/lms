@@ -134,7 +134,7 @@ export class AccessRepository {
     return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleid, roleid));
   }
 
-  // --- site config (siteadmins lives in the P0 `config` table, like Moodle $CFG->siteadmins) ---
+  // --- site config (siteadmins lives in the `config` table, like Moodle $CFG->siteadmins) ---
   async getConfigValue(key: string): Promise<unknown> {
     const [row] = await this.db.select().from(config).where(eq(config.key, key));
     return row?.value;

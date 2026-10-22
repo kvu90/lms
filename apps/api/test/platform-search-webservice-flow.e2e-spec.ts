@@ -1,12 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createP1TestApp, createRoleViaApi, createUserViaApi, http, login,
+  adminToken, assignRole, createTestApp, createRoleViaApi, createUserViaApi, http, login,
   roleIdByShortname, setOverride, STRONG_PASSWORD,
-} from './p1-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from './p2-helpers';
-import { courseContextId } from './p4-helpers';
-import { createGradeItem, setGrade } from './p3-helpers';
+} from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
+import { courseContextId } from './engagement-helpers';
+import { createGradeItem, setGrade } from './assessment-helpers';
 
 const PROHIBIT = -1000;
 
@@ -24,7 +24,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });

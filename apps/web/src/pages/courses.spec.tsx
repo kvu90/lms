@@ -56,7 +56,7 @@ function stubFetch(handler: (url: string) => unknown) {
   }));
 }
 
-describe('Courses pages (P2)', () => {
+describe('Courses pages', () => {
   afterEach(() => { vi.unstubAllGlobals(); });
 
   it('renders the category tree with its courses nested under the right category', async () => {

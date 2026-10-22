@@ -40,7 +40,7 @@ export interface CourseContentView {
 @Injectable()
 export class CoursesService {
   private enrolChecker?: EnrolChecker;
-  /** Registered by GradesModule (P3): grade percentages (0-100) per user+course for availability 'grade' leaves. */
+  /** Registered by GradesModule: grade percentages (0-100) per user+course for availability 'grade' leaves. */
   private gradeProvider?: (userId: number, courseId: number) => Promise<Record<string, number>>;
 
   registerGradeProvider(fn: (userId: number, courseId: number) => Promise<Record<string, number>>): void {

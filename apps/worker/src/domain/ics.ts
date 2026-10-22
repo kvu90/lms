@@ -1,6 +1,6 @@
 /**
  * Basic ICS (RFC 5545) parsing for calendar subscription imports — the
- * "parse cơ bản" level of P4: unfold continuation lines, read VEVENT
+ * "parse cơ bản" level: unfold continuation lines, read VEVENT
  * blocks, extract UID/SUMMARY/DESCRIPTION/DTSTART/DTEND. Dates support the
  * UTC form (…Z) and the floating/date forms Moodle's own test fixtures use
  * (oracle: calendar/tests/lib_test test_add_subscription, whose fixtures —

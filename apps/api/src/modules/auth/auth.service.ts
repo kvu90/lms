@@ -17,7 +17,7 @@ function hashToken(token: string): string { return createHash('sha256').update(t
 /**
  * AuthModule facade (report §3.7). Authentication is NOT enrolment and NOT a
  * role assignment: a successful login only proves identity; what the user may
- * do is decided by PermissionEvaluator, and course access by Enrol (P2).
+ * do is decided by PermissionEvaluator, and course access by Enrol.
  * Refresh tokens are opaque, stored hashed, grouped in families, rotated on
  * every use; replaying a rotated-out token revokes the whole family.
  */

@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './p1-helpers';
-import { createCategory, createCm, createCourse, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './p2-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
+import { createCategory, createCm, createCourse, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
  * Courses flow.
@@ -10,11 +10,11 @@ import { createCategory, createCm, createCourse, createEnrolInstance, createSect
  * (test_create_course, test_create_course_sections, test_create_module,
  * test_course_module_deleted_event_exceptions / cm lifecycle events).
  */
-describe('P2 courses: categories, courses, sections, course modules', () => {
+describe('Courses: categories, courses, sections, course modules', () => {
   let app: INestApplication;
   let admin: string;
 
-  beforeAll(async () => { app = await createP1TestApp(); admin = await adminToken(app); });
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
   it('creates a category tree with path/depth/sortorder and a course context per node', async () => {
@@ -100,7 +100,7 @@ describe('P2 courses: categories, courses, sections, course modules', () => {
   });
 
   it('supports course custom fields (customfield category for core_course/course) and format options', async () => {
-    // Create a custom field category + field for courses through the P1 API.
+    // Create a custom field category + field for courses through the identity API.
     const catRes = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Course fields', component: 'core_course', area: 'course' });
     expect([200, 201]).toContain(catRes.status);

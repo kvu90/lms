@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './p1-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
 
 /**
  * Users & profile flow tests.
@@ -11,7 +11,7 @@ import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASS
 describe('Users: identity rules, soft delete, preferences, outbox events', () => {
   let app: INestApplication;
   let admin: string;
-  beforeAll(async () => { app = await createP1TestApp(); admin = await adminToken(app); });
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
   it('normalizes username/email to lowercase and enforces uniqueness case-insensitively', async () => {

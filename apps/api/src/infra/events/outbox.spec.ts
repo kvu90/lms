@@ -54,11 +54,11 @@ describe('Transactional outbox (real DB, lms_test)', () => {
 
   it('publishes the event after the transaction commits', async () => {
     const received: unknown[] = [];
-    emitter.on('P0.Committed', (payload) => received.push(payload));
+    emitter.on('Test.Committed', (payload) => received.push(payload));
 
     await db.transaction(async (tx) => {
       await outbox.enqueue(tx, {
-        aggregate: 'p0', type: 'P0.Committed', payload: { n: 1 },
+        aggregate: 'test', type: 'Test.Committed', payload: { n: 1 },
       });
     });
 
@@ -73,12 +73,12 @@ describe('Transactional outbox (real DB, lms_test)', () => {
 
   it('publishes NOTHING when the transaction rolls back', async () => {
     const received: unknown[] = [];
-    emitter.on('P0.RolledBack', (payload) => received.push(payload));
+    emitter.on('Test.RolledBack', (payload) => received.push(payload));
 
     await expect(
       db.transaction(async (tx) => {
         await outbox.enqueue(tx, {
-          aggregate: 'p0', type: 'P0.RolledBack', payload: { n: 2 },
+          aggregate: 'test', type: 'Test.RolledBack', payload: { n: 2 },
         });
         throw new Error('business failure — roll back');
       }),
@@ -87,7 +87,7 @@ describe('Transactional outbox (real DB, lms_test)', () => {
     const rows = await db
       .select()
       .from(outboxEvents)
-      .where(eq(outboxEvents.type, 'P0.RolledBack'));
+      .where(eq(outboxEvents.type, 'Test.RolledBack'));
     expect(rows).toHaveLength(0);
 
     const published = await relay.publishPending();

@@ -11,7 +11,7 @@ const PLAN_STATUS: Record<number, string> = { 0: 'draft', 1: 'active', 2: 'waiti
 const REVIEW_STATUS: Record<number, string> = { 0: 'no review', 1: 'waiting for review', 2: 'in review' };
 
 /**
- * Learning plans (P4): the learner sees their plans, each competency's
+ * Learning plans: the learner sees their plans, each competency's
  * proficiency (decided by the framework scale, never inferred from grades)
  * and review state, and can request a review of a competency — the action
  * that starts the reviewer workflow.

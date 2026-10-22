@@ -1,9 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName,
-} from './p1-helpers';
-import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser } from './p2-helpers';
+  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName,
+} from './identity-access-helpers';
+import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser } from './course-enrolment-helpers';
 
 /**
  * Hành trình người dùng (user journeys) dịch từ oracle Behat của Moodle 5.3
@@ -32,7 +32,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });

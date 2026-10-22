@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { http, uniqueName } from './p1-helpers';
+import { http, uniqueName } from './identity-access-helpers';
 
 export async function createCategory(app: INestApplication, token: string, overrides: Record<string, unknown> = {}): Promise<{ id: number; name: string; parent: number; path: string; depth: number }> {
   const name = uniqueName('cat');

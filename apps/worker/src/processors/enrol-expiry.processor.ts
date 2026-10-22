@@ -11,7 +11,7 @@ type Database = NodePgDatabase<typeof relations>;
 export interface EnrolExpiryResult { checkedAt: string; suspendedIds: number[] }
 
 /**
- * Enrolment expiry (P2): ACTIVE user_enrolments whose timeend has passed
+ * Enrolment expiry: ACTIVE user_enrolments whose timeend has passed
  * are flipped to SUSPENDED and a user_enrolment_suspended outbox event is
  * written in the same transaction per row. Access is ALSO denied at read
  * time by the API's isEnrolled(onlyActive) time-window check, so a delayed

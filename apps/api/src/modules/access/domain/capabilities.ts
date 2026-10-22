@@ -26,7 +26,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'lms/files:view', captype: 'read', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/files:upload', captype: 'write', contextlevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'lms/customfield:manage', captype: 'write', contextlevel: 10, component: 'core_customfield', archetypes: { manager: CAP_ALLOW } },
-  // P2 — Course & Enrolment
+  // Course & Enrolment
   { name: 'moodle/category:manage', captype: 'write', contextlevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW } },
   { name: 'moodle/course:create', captype: 'write', contextlevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW } },
   { name: 'moodle/course:update', captype: 'write', contextlevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
@@ -41,7 +41,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'lms/enrol:manage', captype: 'write', contextlevel: 50, component: 'core_enrol', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'lms/completion:manage', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'lms/completion:markothers', captype: 'write', contextlevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  // P3 — Assessment (Grades / Questions)
+  // Assessment (Grades / Questions)
   { name: 'moodle/grade:manage', captype: 'write', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'moodle/grade:edit', captype: 'write', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'moodle/grade:viewall', captype: 'read', contextlevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
@@ -49,7 +49,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'moodle/question:add', captype: 'write', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'moodle/question:editall', captype: 'write', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'moodle/question:useall', captype: 'read', contextlevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  // P4 — Communication & Engagement
+  // Communication & Engagement
   { name: 'moodle/site:sendmessage', captype: 'write', contextlevel: 30, component: 'core_message', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   { name: 'moodle/calendar:manageentries', captype: 'write', contextlevel: 50, component: 'core_calendar', archetypes: { ...ALL_STAFF } },
   { name: 'moodle/calendar:managegroupentries', captype: 'write', contextlevel: 50, component: 'core_calendar', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },

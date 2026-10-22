@@ -1,12 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './p1-helpers';
-import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './p2-helpers';
-import { courseTotalOf, createGradeCategory, createGradeItem, getGradebook, setGrade } from './p3-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { courseTotalOf, createGradeCategory, createGradeItem, getGradebook, setGrade } from './assessment-helpers';
 
 /**
- * P3 Assessment flows.
+ * Assessment flows.
  * Oracles: MoodleDocs Grade aggregation (verbatim arithmetic, see the
  * GradeCalculator spec) + Moodle 5.3 PHPUnit:
  *  - grade aggregation/category behaviour (grade/tests in the 5.3 tree —
@@ -20,13 +20,13 @@ import { courseTotalOf, createGradeCategory, createGradeItem, getGradebook, setG
  *    (test_internal_get_state_with_grade_criteria, test_inform_grade_changed)
  *    — VERIFIED in 5.3: completion follows the grade.
  */
-describe('P3 grades & questions', () => {
+describe('Grades & questions', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
     pg = new Client({ connectionString: 'postgresql://postgres:postgres@localhost:5432/lms_test' });
     await pg.connect();

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** P1 Identity & Access contracts — the single shape source between api and web. */
+/** Identity & Access contracts — the single shape source between api and web. */
 
 export const tokenPairSchema = z.object({
   accessToken: z.string().min(1),

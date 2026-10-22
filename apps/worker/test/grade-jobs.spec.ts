@@ -12,13 +12,13 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * P3 worker jobs. Oracle: MoodleDocs Grade aggregation arithmetic (the same
+ * Grade worker jobs. Oracle: MoodleDocs Grade aggregation arithmetic (the same
  * golden numbers as the API GradeCalculator spec) + completionlib grade
  * criteria (lib/tests/completionlib_test.php). The regrade processor must
  * recompute totals with the worker's own copy of the calculator, write
  * history, and emit the grade_updated outbox chain.
  */
-describe('Worker P3: grade-regrade + completion grade criterion', () => {
+describe('Worker grades: grade-regrade + completion grade criterion', () => {
   let context: INestApplicationContext;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
@@ -34,7 +34,7 @@ describe('Worker P3: grade-regrade + completion grade criterion', () => {
     db = context.get(getDrizzleToken());
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat3-${suffix}`}, '') returning id`);
     const catId = (catRows.rows[0] as { id: number }).id;
-    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker P3 course', ${`wk3${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker grades course', ${`wk3${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: number }).id;
   });
   afterAll(async () => { await context.close(); });
@@ -82,7 +82,7 @@ describe('Worker P3: grade-regrade + completion grade criterion', () => {
     let [cc] = await db.select().from(courseCompletions).where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userid, userId)));
     // The user may have no course_completions row yet if never enrolled/started: grade criterion
     // candidates come from enrolments/completions; insert the row path via a module criterion is
-    // covered in p2-jobs — here assert the criterion does NOT complete when a row exists.
+    // covered in enrol-completion-jobs — here assert the criterion does NOT complete when a row exists.
     if (cc) expect(cc.status).not.toBe('complete');
     await db.update(gradeItems).set({ gradepass: 90 }).where(eq(gradeItems.id, courseItemId));
     await db.insert(courseCompletions).values({ userid: userId, course: courseId, status: 'in_progress', timestarted: new Date() }).onConflictDoNothing();

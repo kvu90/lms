@@ -16,7 +16,7 @@ export interface CompletionRecalculateJobData { courseId: number }
 export interface CompletionRecalculateResult { courseId: number; users: number; completedUsers: number[] }
 
 /**
- * Completion recalculation (P2, report §2#9): when course criteria change
+ * Completion recalculation (report §2#9): when course criteria change
  * after completion data exists, the API flags reaggregation and enqueues
  * this job; the job recomputes every enrolled user's course_completions
  * from the CURRENT criteria (module completions AND/OR per method, date
@@ -60,7 +60,7 @@ export class CompletionRecalculateProcessor extends WorkerHost {
         } else if (c.criteriatype === 'date' && c.date) {
           results.push(now >= c.date);
         } else if (c.criteriatype === 'grade') {
-          // P3: course grade criterion — the course total meets the course item's gradepass.
+          // Grades: course grade criterion — the course total meets the course item's gradepass.
           const [courseItem] = await this.db.select().from(gradeItems)
             .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.itemtype, 'course')));
           if (!courseItem) { results.push(false); continue; }

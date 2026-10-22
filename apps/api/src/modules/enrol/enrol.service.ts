@@ -24,7 +24,7 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  *    isEnrolled(onlyActive)) even though their role assignment remains.
  *  - Unenrol keeps contribution data: when the user has completion records
  *    in the course (checked via a registered probe from CompletionModule) or
- *    always at P2 scope, the user_enrolments row is kept as WITHDRAWN
+ *    always under the current enrol rules, the user_enrolments row is kept as WITHDRAWN
  *    (soft state) instead of being hard-deleted, and `user_unenrolled` is
  *    emitted. The role assignment granted BY this enrolment is removed.
  *  - Expired enrolments (timeend in the past) are not active; the worker
@@ -33,7 +33,7 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
 @Injectable()
 export class EnrolService implements OnModuleInit {
   /** Probe registered by CompletionModule: does this user have completion data in this course? */
-  /** Related-data probes (Completion P2, Grades P3, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
+  /** Related-data probes (Completion, Grades, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
   private relatedDataProbes: ((courseId: number, userId: number) => Promise<boolean>)[] = [];
 
   constructor(
@@ -171,7 +171,7 @@ export class EnrolService implements OnModuleInit {
     });
   }
 
-  /** Self-enrolment through a 'self' instance (minimal P2 frame): the user enrols themselves when the instance is enabled. */
+  /** Self-enrolment through a 'self' instance (minimal frame): the user enrols themselves when the instance is enabled. */
   async selfEnrol(userId: number, instanceId: number): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol === 'fee') {
@@ -209,7 +209,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Unenrol: removes the enrolment-granted role assignment and emits
    * user_unenrolled. The UE row is SOFT-withdrawn (status=2) when the user
-   * has related data (completion etc.) in the course — at P2 the probe is
+   * has related data (completion etc.) in the course — the probe is
    * registered by CompletionModule; when no probe/data exists the row is
    * hard-deleted, exactly Moodle's split between visible participation data
    * (kept) and invisible participation (purged).

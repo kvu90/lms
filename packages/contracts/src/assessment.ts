@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** P3 Assessment contracts — the single shape source between api and web for grades & questions. */
+/** Assessment contracts — the single shape source between api and web for grades & questions. */
 
 export const AGGREGATIONS = [
   'natural', 'mean', 'weightedmean', 'simpleweightedmean', 'median', 'lowest', 'highest', 'mode', 'sum',

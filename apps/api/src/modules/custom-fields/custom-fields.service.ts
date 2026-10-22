@@ -8,7 +8,7 @@ export const FIELD_TYPES: CustomFieldType[] = ['text', 'textarea', 'select', 'ch
 /**
  * CustomFields facade (Moodle core_customfield). Definitions are metadata —
  * business tables are never altered. Values are validated against the field
- * declaration whenever the owning entity (user profile in P1) is saved.
+ * declaration whenever the owning entity (user profile) is saved.
  */
 @Injectable()
 export class CustomFieldsService {

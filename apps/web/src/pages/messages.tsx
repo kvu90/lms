@@ -9,7 +9,7 @@ interface ConversationView { id: number; type: number; name: string | null; memb
 interface MessageView { id: number; useridfrom: number; fullmessage: string; timecreated: string }
 
 /**
- * Messages (P4): conversation list with unread count, message thread and
+ * Messages: conversation list with unread count, message thread and
  * sending. Messages are immutable once sent — the API rejects edits, and
  * this UI offers no edit affordance at all.
  */

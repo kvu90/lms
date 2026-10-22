@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD,
-} from './p1-helpers';
-import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './p2-helpers';
-import { createGradeItem, setGrade } from './p3-helpers';
-import { createGroupViaApi, markCmComplete } from './p4-helpers';
+  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
+} from './identity-access-helpers';
+import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { createGradeItem, setGrade } from './assessment-helpers';
+import { createGroupViaApi, markCmComplete } from './engagement-helpers';
 import { EXPECTED_PRIVACY_SUBSYSTEMS } from '../src/modules/privacy/privacy.service';
 import { PrivacyService } from '../src/modules/privacy/privacy.service';
 
@@ -22,7 +22,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });

@@ -13,7 +13,7 @@ export interface GradeRegradeJobData { courseId: number; categoryId?: number }
 export interface GradeRegradeResult { courseId: number; users: number; updatedTotals: number }
 
 /**
- * Bulk regrade (P3): enqueued by the API when a category's aggregation
+ * Bulk regrade: enqueued by the API when a category's aggregation
  * semantics change (or for large gradebooks generally). Recomputes every
  * user's category totals bottom-up and the course total with the same pure
  * GradeCalculator the API uses, writes grade_grades_history for changed

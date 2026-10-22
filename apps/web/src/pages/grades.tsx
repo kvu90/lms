@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { apiJson } from '@/lib/api';
 
 /**
- * Gradebook (P3): category/item tree with the student's grades, letters at
+ * Gradebook: category/item tree with the student's grades, letters at
  * display time, the teacher report (course totals per student) and a grade
  * entry form. All permission/hidden rules are enforced by the API; this page
  * only renders what it is given.

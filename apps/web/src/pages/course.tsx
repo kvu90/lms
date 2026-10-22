@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { apiJson } from '@/lib/api';
 
 /**
- * Course page (P2): sections + modules with availability state rendered
+ * Course page: sections + modules with availability state rendered
  * faithfully — an unavailable-but-shown module appears greyed with its
  * restriction descriptions; a hidden one is simply absent (the API has
  * already filtered it). The API, not this page, is the access gate.

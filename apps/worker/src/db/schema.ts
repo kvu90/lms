@@ -1,9 +1,9 @@
 import { boolean, doublePrecision, integer, jsonb, pgTable, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
 /**
- * Worker's view of the shared schema. P0 only needs `outbox_events` (the full
- * canonical schema lives in apps/api/src/db/schema.ts; extracting a shared
- * backend-schema package is a P1 chore, noted in the root README).
+ * Worker's view of the shared schema. The worker needs `outbox_events` plus
+ * the subset its processors touch (the full canonical schema lives in
+ * apps/api/src/db/schema.ts; the worker keeps its own subset view of it).
  */
 export const outboxEvents = pgTable('outbox_events', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
@@ -33,7 +33,7 @@ export const files = pgTable('files', {
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Worker's view of P2 enrol tables (canonical schema in apps/api) — needed by the enrol-expiry processor. */
+/** Worker's view of enrol tables (canonical schema in apps/api) — needed by the enrol-expiry processor. */
 export const enrol = pgTable('enrol', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   courseid: integer('courseid').notNull(),
@@ -55,7 +55,7 @@ export const userEnrolments = pgTable('user_enrolments', {
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Worker's view of P2 completion tables — needed by the completion-recalculate processor. */
+/** Worker's view of completion tables — needed by the completion-recalculate processor. */
 export const courseModules = pgTable('course_modules', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   course: integer('course').notNull(),
@@ -95,7 +95,7 @@ export const courseCompletions = pgTable('course_completions', {
   reaggregate: timestamp('reaggregate', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [unique('cc_unique_worker').on(t.userid, t.course)]);
 
-/** Worker's view of P3 grade tables (canonical schema in apps/api) — needed by the grade-regrade processor. */
+/** Worker's view of grade tables (canonical schema in apps/api) — needed by the grade-regrade processor. */
 export const gradeCategories = pgTable('grade_categories', {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   courseid: integer('courseid').notNull(),
@@ -159,7 +159,7 @@ export const gradeGradesHistory = pgTable('grade_grades_history', {
 });
 
 // ---------------------------------------------------------------------------
-// P4 — worker views of the communication & engagement tables (canonical
+// Worker views of the communication & engagement tables (canonical
 // schema in apps/api). Only the columns the processors touch.
 // ---------------------------------------------------------------------------
 

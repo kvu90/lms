@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './p1-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from './p2-helpers';
-import { contextIdByLevelInstance, courseContextId } from './p4-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
+import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
 
 /**
- * P4 Social (Tag / Comment / Rating / Blog / Notes) flow tests — every
+ * Social (Tag / Comment / Rating / Blog / Notes) flow tests — every
  * sub-system is POLYMORPHIC (component + itemtype/area + itemid +
  * contextid, no hard FK), proven by running the SAME API over two
  * different item kinds, with capability checks at the item's context.
@@ -20,15 +20,15 @@ import { contextIdByLevelInstance, courseContextId } from './p4-helpers';
  *    filters). blog/tests/bloglib_test.php, blog_test.php, external_test.php
  *    404 in the 5.3 tree — recorded here honestly.
  *  - notes/tests/lib_test.php covers only profile navigation in 5.3; the
- *    note visibility law follows report §2#16 + the P4 spec (course notes
+ *    note visibility law follows report §2#16 + the social spec (course notes
  *    are for the course's teachers).
  */
-describe('P4 social: tags, comments, ratings, blog, notes', () => {
+describe('Social: tags, comments, ratings, blog, notes', () => {
   let app: INestApplication;
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });
@@ -209,7 +209,7 @@ describe('P4 social: tags, comments, ratings, blog, notes', () => {
   it('notes: draft is creator-only, course notes are visible to the course teacher (not fellow students, not the subject), site notes to system-level viewers', async () => {
     const { course, student } = await courseWithStudent();
     // A teacher of the course (real teacher assignment at the course context).
-    const { assignRole, roleIdByShortname } = await import('./p1-helpers');
+    const { assignRole, roleIdByShortname } = await import('./identity-access-helpers');
     const teacher = await createUserViaApi(app, admin);
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
     const ctxId = await courseContextId(app, admin, course.id);

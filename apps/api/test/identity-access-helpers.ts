@@ -9,7 +9,7 @@ process.env.FILE_STORAGE_DIR = process.env.FILE_STORAGE_DIR ?? '/tmp/lms-test-fi
 export const ADMIN = { username: 'admin', password: 'Admin123!' };
 export const STRONG_PASSWORD = 'Passw0rd!';
 
-export async function createP1TestApp(): Promise<INestApplication> {
+export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
   app.setGlobalPrefix('api');

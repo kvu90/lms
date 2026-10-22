@@ -34,7 +34,7 @@ backend code or DB schema.
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env       # defaults already match local infra
-pnpm --filter @lms/api db:migrate            # create the P0 infra tables
+pnpm --filter @lms/api db:migrate            # create the infrastructure tables
 pnpm --filter @lms/api build && pnpm --filter @lms/api start   # API on :3000
 pnpm --filter @lms/worker build && pnpm --filter @lms/worker start
 pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3000)
@@ -43,7 +43,7 @@ pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3
 - Health: `GET http://localhost:3000/api/v1/health`
 - OpenAPI: `http://localhost:3000/api/docs`
 
-## Verify (definition of green for P0)
+## Verify (definition of green)
 
 ```bash
 pnpm install
@@ -62,10 +62,10 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
   chapter (ADR-002).
 - Test runner: Vitest everywhere — no Jest (ADR-005).
 
-## Known P0 simplifications
+## Known simplifications
 
 - The worker keeps a minimal copy of the shared DB schema (only
-  `outbox_events`); extracting a shared backend-schema package is a P1 chore.
+  `outbox_events`); extracting a shared backend-schema package is a future chore.
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 

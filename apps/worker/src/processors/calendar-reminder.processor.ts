@@ -12,7 +12,7 @@ export interface CalendarReminderJobData { eventId: number; userId: number; minu
 export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'event-missing'; notificationId?: number }
 
 /**
- * Calendar reminders (P4): the API schedules these as BullMQ DELAYED jobs;
+ * Calendar reminders: the API schedules these as BullMQ DELAYED jobs;
  * at fire time the worker creates the reminder as a Messaging notification
  * via the 'calendar_reminder' provider — honouring the same delivery law
  * (no suspended recipients; popup preference off ⇒ nothing stored).

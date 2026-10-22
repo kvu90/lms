@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './p1-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
 
 /**
  * Custom field flow tests (user profile scope).
@@ -13,7 +13,7 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
   let admin: string;
   let categoryId: number;
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
     const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Profile extras', component: 'core_user', area: 'user' });

@@ -1,15 +1,15 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createP1TestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
-} from './p1-helpers';
-import { createCategory, createCourse, createEnrolInstance, createCm, enrolUser, getFirstSectionId } from './p2-helpers';
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
+} from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, createCm, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import {
   addCohortMember, courseContextId, createCohortViaApi, markCmComplete, setCourseCompletionCriteria,
-} from './p4-helpers';
+} from './engagement-helpers';
 
 /**
- * P4 Badges + Competencies flow tests.
+ * Badges + Competencies flow tests.
  * Oracles (Moodle MOODLE_503_STABLE, read 2026-10-22):
  *  - public/badges/tests/badgeslib_test.php: test_create_badge_criteria,
  *    test_badge_awards, test_clone_badge (duplicate = the way to edit),
@@ -26,12 +26,12 @@ import {
  *    test_observe_course_completed. Report §2#15: proficiency comes from
  *    the framework SCALE, never from grades.
  */
-describe('P4 badges & competencies', () => {
+describe('Badges & competencies', () => {
   let app: INestApplication;
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });

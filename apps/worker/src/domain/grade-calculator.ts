@@ -1,7 +1,7 @@
 /**
  * GradeCalculator — PURE domain (no Nest, no DB), report §2.1/§3.11(2b).
  * WORKER COPY of apps/api/src/modules/grades/domain/grade-calculator.ts —
- * the worker is a separate process with its own schema subset (P2 pattern);
+ * the worker is a separate process with its own schema subset;
  * keep the two copies in sync. Golden arithmetic tests live in the api copy.
  *
  * Semantics ported from Moodle's gradebook (Grade aggregation, MoodleDocs):

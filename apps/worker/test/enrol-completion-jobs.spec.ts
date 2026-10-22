@@ -12,14 +12,14 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * P2 worker jobs. Business oracles: enrol expiry semantics from
+ * Enrol & completion worker jobs. Business oracles: enrol expiry semantics from
  * enrol/tests/enrollib_test.php + report §2#5 (expired ⇒ not active), and
  * completion reaggregation from lib/tests/completionlib_test.php
  * ::test_aggregate_completions (criteria change ⇒ controlled recalculation).
  * Rows are inserted directly because the canonical API schema owns creation;
  * the processors under test operate on the worker's view of the same tables.
  */
-describe('Worker P2: enrol-expiry + completion-recalculate processors', () => {
+describe('Worker enrol & completion: enrol-expiry + completion-recalculate processors', () => {
   let context: INestApplicationContext;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;

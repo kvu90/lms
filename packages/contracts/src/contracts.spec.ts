@@ -28,7 +28,7 @@ describe('contracts', () => {
   });
 });
 
-describe('engagement contracts (P4)', () => {
+describe('engagement contracts', () => {
   it('parses a conversation, a notification and a preference row', () => {
     const conv = conversationSchema.parse({ id: 1, type: 2, name: 'Study group', members: [2, 3, 4] });
     expect(conv.members).toHaveLength(3);
@@ -69,7 +69,7 @@ describe('engagement contracts (P4)', () => {
   });
 });
 
-describe('course contracts (P2)', () => {
+describe('course contracts', () => {
   it('parses a nested category tree and a course content payload with a locked module', () => {
     const tree = courseCategoryTreeSchema.parse([
       {
@@ -100,7 +100,7 @@ describe('course contracts (P2)', () => {
   });
 });
 
-describe('assessment contracts (P3)', () => {
+describe('assessment contracts', () => {
   const item = {
     id: 5, courseid: 10, categoryid: 1, itemname: 'Quiz 1', itemtype: 'manual', itemmodule: null,
     iteminstance: 0, grademax: 100, grademin: 0, gradepass: 50, weightoverride: false,
@@ -156,7 +156,7 @@ describe('assessment contracts (P3)', () => {
   });
 });
 
-describe('identity contracts (P1)', () => {
+describe('identity contracts', () => {
   it('parses a login response and a profile without email (identity field hidden)', () => {
     expect(loginResponseSchema.parse({
       accessToken: 'a', refreshToken: 'r', expiresIn: 900,

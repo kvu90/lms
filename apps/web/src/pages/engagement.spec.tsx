@@ -7,7 +7,7 @@ import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
 
 /**
- * P4 web tests (Testing Library): the two DoD-adjacent behaviours —
+ * Engagement web tests (Testing Library): the two DoD-adjacent behaviours —
  * a notification preference toggle writes through to the API, and the
  * "my badges" list renders the caller's issued assertions.
  */
@@ -25,7 +25,7 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   }));
 }
 
-describe('Notifications page (P4)', () => {
+describe('Notifications page', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('toggling a preference sends a PUT with the flipped logged-in preference', async () => {
@@ -57,7 +57,7 @@ describe('Notifications page (P4)', () => {
   });
 });
 
-describe('Badges page (P4)', () => {
+describe('Badges page', () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('renders my issued badges with their assertion hashes, including revoked ones', async () => {

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { apiJson } from '@/lib/api';
 
 /**
- * Question bank (P3): categories, questions with their CURRENT version
+ * Question bank: categories, questions with their CURRENT version
  * badge, create/edit. Editing creates a new version server-side — the badge
  * increments and the version history shows every version (attempts already
  * started keep the version they pinned; that invariant is API-side).

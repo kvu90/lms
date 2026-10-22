@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** P4 Communication & Engagement contracts — shared shapes between api, worker-facing payloads and web. */
+/** Communication & Engagement contracts — shared shapes between api, worker-facing payloads and web. */
 
 /* ---- Messaging ---- */
 

@@ -12,7 +12,7 @@ interface IssuedView { id: number; badgeid: number; uniquehash: string; dateissu
 const STATUS_LABEL: Record<number, string> = { 0: 'inactive', 1: 'active', 2: 'retired', 3: 'archived', 4: 'disabled' };
 
 /**
- * Badges (P4): "my badges" (immutable assertions, revoked ones stay
+ * Badges: "my badges" (immutable assertions, revoked ones stay
  * visible) plus a staff panel to create site badges, attach a
  * course-completion criterion and activate them. Criteria of an active
  * badge are frozen server-side; the panel surfaces that refusal.

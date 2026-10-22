@@ -49,18 +49,18 @@ describe('CacheInfraModule (3 MUC modes, real Redis)', () => {
   });
 
   it('application cache stores and reads values', async () => {
-    await appCache.set('p0:app-key', 'app-value');
-    await expect(appCache.get('p0:app-key')).resolves.toBe('app-value');
+    await appCache.set('infra:app-key', 'app-value');
+    await expect(appCache.get('infra:app-key')).resolves.toBe('app-value');
   });
 
   it('session cache is namespace-isolated from the application cache', async () => {
-    await appCache.set('p0:shared-key', 'from-app');
-    await sessionCache.set('p0:shared-key', 'from-session');
-    await expect(appCache.get('p0:shared-key')).resolves.toBe('from-app');
-    await expect(sessionCache.get('p0:shared-key')).resolves.toBe('from-session');
-    await sessionCache.delete('p0:shared-key');
-    await expect(sessionCache.get('p0:shared-key')).resolves.toBeUndefined();
-    await expect(appCache.get('p0:shared-key')).resolves.toBe('from-app');
+    await appCache.set('infra:shared-key', 'from-app');
+    await sessionCache.set('infra:shared-key', 'from-session');
+    await expect(appCache.get('infra:shared-key')).resolves.toBe('from-app');
+    await expect(sessionCache.get('infra:shared-key')).resolves.toBe('from-session');
+    await sessionCache.delete('infra:shared-key');
+    await expect(sessionCache.get('infra:shared-key')).resolves.toBeUndefined();
+    await expect(appCache.get('infra:shared-key')).resolves.toBe('from-app');
   });
 
   it('request cache does not leak across requests', async () => {

@@ -62,11 +62,11 @@ describe('TasksModule (BullMQ dedup + lock, real Redis)', () => {
   });
 
   it('lock: a second acquire fails until the owner releases', async () => {
-    const token = await lock.acquire('p0-test-lock', 5_000);
+    const token = await lock.acquire('infra-test-lock', 5_000);
     expect(token).not.toBeNull();
-    await expect(lock.acquire('p0-test-lock', 5_000)).resolves.toBeNull();
-    await lock.release('p0-test-lock', token!);
-    await expect(lock.acquire('p0-test-lock', 5_000)).resolves.not.toBeNull();
+    await expect(lock.acquire('infra-test-lock', 5_000)).resolves.toBeNull();
+    await lock.release('infra-test-lock', token!);
+    await expect(lock.acquire('infra-test-lock', 5_000)).resolves.not.toBeNull();
   });
 
   it('scheduled job body runs exactly once under concurrency', async () => {

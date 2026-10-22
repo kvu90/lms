@@ -23,7 +23,7 @@ export interface NotificationDispatchResult {
 }
 
 /**
- * Notification dispatch (P4): the worker end of the channel PORTS. Email and
+ * Notification dispatch: the worker end of the channel PORTS. Email and
  * push are never actually sent — the dispatch is LOGGED (that log is the
  * deliverable of the port). Delivery law is re-checked here, at dispatch
  * time, against live data: a suspended user gets nothing, and a preference

@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './p1-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from './p2-helpers';
-import { addGroupMember, createGroupViaApi, suspendUser } from './p4-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
+import { addGroupMember, createGroupViaApi, suspendUser } from './engagement-helpers';
 
 /**
- * P4 Messaging + Calendar flow tests.
+ * Messaging + Calendar flow tests.
  * Oracles (Moodle MOODLE_503_STABLE, read 2026-10-22):
  *  - public/message/tests/api_test.php: test_count_blocked_users,
  *    test_mark_all_read_for_user_touser(_with_fromuser), create_conversation
@@ -18,12 +18,12 @@ import { addGroupMember, createGroupViaApi, suspendUser } from './p4-helpers';
  *    counts), test_get_legacy_events_with_overrides (group-scoped
  *    visibility), test_update_subscription; report §2#13 visibility law.
  */
-describe('P4 messaging & calendar', () => {
+describe('Messaging & calendar', () => {
   let app: INestApplication;
   let admin: string;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
   });
   afterAll(async () => { await app.close(); });
@@ -100,7 +100,7 @@ describe('P4 messaging & calendar', () => {
     expect(ok.status).toBe(201);
   });
 
-  it('a suspended recipient receives neither messages nor notifications (§2#12 + P4 DoD)', async () => {
+  it('a suspended recipient receives neither messages nor notifications (§2#12 DoD)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     void bToken;
     await suspendUser(app, admin, b.id);
@@ -122,7 +122,7 @@ describe('P4 messaging & calendar', () => {
     void listAsAdmin;
   });
 
-  it('notifications: provider dispatch honours (provider × channel × loggedin) preferences; disabling popup stores nothing (P4 DoD)', async () => {
+  it('notifications: provider dispatch honours (provider × channel × loggedin) preferences; disabling popup stores nothing (DoD)', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     // Baseline: default preferences deliver the in-app notification.
@@ -206,7 +206,7 @@ describe('P4 messaging & calendar', () => {
     expect(outsiderNames).not.toContain('My dentist');
   });
 
-  it('calendar group events are visible only to group members (and staff) of the course (P4 DoD)', async () => {
+  it('calendar group events are visible only to group members (and staff) of the course (DoD)', async () => {
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);

@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createP1TestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './p1-helpers';
-import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './p2-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
  * Availability + Completion flow.
@@ -11,11 +11,11 @@ import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser,
  * (test_update_state, test_set_module_viewed, test_aggregate_completions in
  * completion/tests + criteria tests in completion/tests/api_test.php).
  */
-describe('P2 availability & completion', () => {
+describe('Availability & completion', () => {
   let app: INestApplication;
   let admin: string;
 
-  beforeAll(async () => { app = await createP1TestApp(); admin = await adminToken(app); });
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
   async function setup() {
@@ -93,7 +93,7 @@ describe('P2 availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('grade leaf is declared but unmet without grade data (P3 hook): access stays blocked', async () => {
+  it('grade leaf is declared but unmet without grade data (Grades hook): access stays blocked', async () => {
     const { course, sectionId, studentToken } = await setup();
     const cm = await createCm(app, admin, course.id, sectionId, {
       name: 'Needs grade',

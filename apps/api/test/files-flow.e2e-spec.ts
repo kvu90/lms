@@ -3,9 +3,9 @@ import { existsSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FilesService } from '../src/modules/files/files.service';
 import {
-  adminToken, assignRole, createContextViaApi, createP1TestApp, createUserViaApi, http, login,
+  adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
-} from './p1-helpers';
+} from './identity-access-helpers';
 
 /**
  * File flow tests (report §3.11 golden file case).
@@ -20,7 +20,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
   let courseCtx: number;
   let uploaderToken: string;
   let uploaderId: number;
-  const CONTENT = `hello-p1-dedup-content-${Date.now()}`;
+  const CONTENT = `hello-dedup-content-${Date.now()}`;
 
   async function upload(token: string, filename: string, content: string): Promise<{ id: number; contenthash: string }> {
     const res = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${token}`)
@@ -31,7 +31,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
   }
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
     const systemId = await systemContextId(app, admin);
     courseCtx = (await createContextViaApi(app, admin, 50, Date.now() % 100000, systemId)).id;

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiJson } from '@/lib/api';
 
-/** Category tree + course list (P2). Creation forms are shown to everyone but the API enforces the capabilities server-side. */
+/** Category tree + course list. Creation forms are shown to everyone but the API enforces the capabilities server-side. */
 export function CoursesPage() {
   const [tree, setTree] = useState<CourseCategoryTreeNode[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);

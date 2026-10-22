@@ -14,14 +14,14 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * P4 worker jobs. Oracles: report §2#12 (preference + suspended delivery
+ * Engagement worker jobs. Oracles: report §2#12 (preference + suspended delivery
  * law, re-checked at dispatch time), §2#13/#14 (reminders become
  * notifications; badge auto-award is idempotent), calendar/tests/lib_test
  * test_add_subscription (ICS import result counts shape).
  * Users are raw-inserted with unique high ids to stay independent of the
  * API test suites sharing lms_test.
  */
-describe('Worker P4: notification dispatch, calendar reminder/import, badge auto-award', () => {
+describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
   let context: INestApplicationContext;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
@@ -111,7 +111,7 @@ describe('Worker P4: notification dispatch, calendar reminder/import, badge auto
   it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk-cat4-${suffix}`}, '') returning id`);
     const catId = (catRows.rows[0] as { id: number }).id;
-    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker P4 course', ${`wk4c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker engagement course', ${`wk4c${suffix}`}) returning id`);
     const courseId = (courseRows.rows[0] as { id: number }).id;
     await db.insert(courseCompletions).values({ userid: userA, course: courseId, status: 'complete', timestarted: new Date(), timecompleted: new Date() });
 

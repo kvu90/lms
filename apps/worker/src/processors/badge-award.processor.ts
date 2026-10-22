@@ -16,7 +16,7 @@ export interface BadgeAwardJobData { userId: number; trigger?: string }
 export interface BadgeAwardResult { evaluated: number; issued: number[] }
 
 /**
- * Badge auto-award evaluation (P4): the worker twin of the API evaluator,
+ * Badge auto-award evaluation: the worker twin of the API evaluator,
  * fed by completion/competency events through the 'badge-award' queue.
  * It re-derives each ACTIVE badge's criteria tree (overall ALL/ANY over
  * course-completion / activity-completion / competency-proficiency /

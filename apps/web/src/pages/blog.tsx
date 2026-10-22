@@ -11,7 +11,7 @@ interface TagView { id: number; name: string; ordering: number }
 interface AggregateView { count: number; average: number }
 
 /**
- * Blog (P4) with the polymorphic social layer integrated: every post can
+ * Blog with the polymorphic social layer integrated: every post can
  * be tagged, commented on and rated through the SAME tag/comment/rating
  * APIs used for courses — the item is addressed by
  * (component, itemtype, itemid, contextid), never by a blog-specific API.

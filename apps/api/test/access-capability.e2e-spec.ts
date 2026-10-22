@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PermissionEvaluator } from '../src/modules/access/permission-evaluator.service';
 import { UsersService } from '../src/modules/users/users.service';
 import {
-  adminToken, assignRole, createContextViaApi, createP1TestApp, createRoleViaApi, createUserViaApi,
+  adminToken, assignRole, createContextViaApi, createTestApp, createRoleViaApi, createUserViaApi,
   hasCapability, http, roleIdByShortname, setOverride, systemContextId, uniqueName,
-} from './p1-helpers';
+} from './identity-access-helpers';
 
 const CAP = 'moodle/course:update';
 const ALLOW = 1, PREVENT = -1, PROHIBIT = -1000;
@@ -22,7 +22,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
   let systemId: number, catId: number, courseId: number, modId: number;
 
   beforeAll(async () => {
-    app = await createP1TestApp();
+    app = await createTestApp();
     admin = await adminToken(app);
     systemId = await systemContextId(app, admin);
     const inst = Date.now() % 100000;
@@ -130,7 +130,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     const studentId = await roleIdByShortname(app, admin, 'student');
     expect(studentId).toBeGreaterThan(0);
     const user = await createUserViaApi(app, admin);
-    const { login } = await import('./p1-helpers');
+    const { login } = await import('./identity-access-helpers');
     const { accessToken } = await login(app, user.username, 'Passw0rd!');
     const res = await http(app).get('/api/v1/access/roles').set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(403);
