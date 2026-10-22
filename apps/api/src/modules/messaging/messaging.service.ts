@@ -30,6 +30,7 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   { name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'] },
   { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'] },
   { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'] },
+  { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'] },
   { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'] },
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'] },
   { name: 'course_completed', component: 'core_completion', channels: ['popup'] },

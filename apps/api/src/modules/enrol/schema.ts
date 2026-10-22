@@ -1,5 +1,6 @@
 /** Các bảng của bounded context Enrol — định nghĩa Drizzle do module enrol sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -34,6 +35,20 @@ export const enrol = pgTable('enrol', {
   cost: integer('cost').notNull().default(0),
   currency: text('currency').notNull().default(''),
   paymentaccountid: uuid('paymentaccountid'),
+  /**
+   * Khoá ghi danh (enrolment key) của instance self (Moodle `enrol.password`):
+   * null/rỗng = không yêu cầu khoá. Giá trị này là bí mật — service chỉ trả về
+   * cho người có capability quản lý enrol.
+   */
+  enrolmentkey: text('enrolmentkey'),
+  /**
+   * Có gửi tin nhắn chào mừng khi ghi danh thành công hay không. Mặc định lúc
+   * tạo instance do service quyết theo phương thức (self = bật, manual = tắt —
+   * đúng mặc định của Moodle); cột này lưu lựa chọn đã chốt của instance.
+   */
+  sendwelcomemessage: boolean('sendwelcomemessage').notNull().default(false),
+  /** Nội dung tin nhắn chào mừng tuỳ biến; null = dùng mẫu mặc định theo i18n (`platform.enrolWelcomeBody`). */
+  welcomemessage: text('welcomemessage'),
   timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
   timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
 },

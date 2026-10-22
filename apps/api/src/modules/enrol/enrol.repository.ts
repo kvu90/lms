@@ -101,6 +101,12 @@ export class EnrolRepository {
     return this.db.select().from(userEnrolments).where(eq(userEnrolments.userid, userid));
   }
   /**
+   * Mọi ghi danh qua một instance — đầu vào của việc gán lại role khi instance đổi role.
+   */
+  async listUserEnrolmentsForInstance(enrolid: string): Promise<UserEnrolmentRow[]> {
+    return this.db.select().from(userEnrolments).where(eq(userEnrolments.enrolid, enrolid));
+  }
+  /**
    * Các ghi danh đang hiệu lực nhưng đã quá hạn — đầu vào của tiến trình hết hạn.
    */
   async listExpiredActive(now: Date): Promise<UserEnrolmentRow[]> {

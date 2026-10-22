@@ -96,6 +96,8 @@ export const courseGroupSchema = z.object({
   name: z.string(),
   idnumber: z.string(),
   description: z.string(),
+  /** Khoá ghi danh của nhóm (group enrolment key) — chỉ người có quyền quản lý nhóm mới thấy giá trị thật; người khác nhận `null`. */
+  enrolmentkey: z.string().nullable().optional(),
 });
 export type CourseGroup = z.infer<typeof courseGroupSchema>;
 
@@ -119,6 +121,10 @@ export const enrolInstanceSchema = z.object({
   customint1: uuidIdSchema.nullable(),
   customint2: uuidIdSchema.nullable(),
   customtext1: z.string(),
+  /** Khoá ghi danh (enrolment key) của instance self — chỉ staff có capability quản lý enrol mới thấy giá trị thật; người khác nhận `null`. */
+  enrolmentkey: z.string().nullable().optional(),
+  sendwelcomemessage: z.boolean().optional(),
+  welcomemessage: z.string().nullable().optional(),
 });
 export type EnrolInstance = z.infer<typeof enrolInstanceSchema>;
 
@@ -240,16 +246,22 @@ export const updateCourseModuleSchema = z.strictObject({
 });
 export type UpdateCourseModule = z.infer<typeof updateCourseModuleSchema>;
 
-/** Payload tạo nhóm (group) trong khoá học. */
+/** Payload tạo nhóm (group) trong khoá học; `enrolmentKey` là khoá ghi danh riêng của nhóm (group enrolment key của enrol_self). */
 export const createGroupSchema = z.strictObject({
   name: z.string().min(1),
   idnumber: z.string().optional(),
   description: z.string().optional(),
+  enrolmentKey: z.string().min(1).optional(),
 });
 export type CreateGroup = z.infer<typeof createGroupSchema>;
 
-/** Payload sửa nhóm (mọi trường đều tuỳ chọn). */
-export const updateGroupSchema = createGroupSchema.partial();
+/** Payload sửa nhóm (mọi trường đều tuỳ chọn); `enrolmentKey: null` để xoá khoá ghi danh của nhóm. */
+export const updateGroupSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  idnumber: z.string().optional(),
+  description: z.string().optional(),
+  enrolmentKey: z.string().min(1).nullable().optional(),
+});
 export type UpdateGroup = z.infer<typeof updateGroupSchema>;
 
 /** Payload thêm thành viên vào nhóm/cohort. */
@@ -291,7 +303,7 @@ export const updateCohortSchema = z.strictObject({
 });
 export type UpdateCohort = z.infer<typeof updateCohortSchema>;
 
-/** Payload tạo enrol instance; với ghi danh có phí, `cost` là số nguyên đơn vị tiền nhỏ nhất kèm `currency` và `paymentAccountId`. */
+/** Payload tạo enrol instance; với ghi danh có phí, `cost` là số nguyên đơn vị tiền nhỏ nhất kèm `currency` và `paymentAccountId`. `enrolmentKey` là khoá ghi danh của instance self; `sendWelcomeMessage`/`welcomeMessage` cấu hình tin nhắn chào mừng (mặc định theo phương thức: self bật, manual tắt). */
 export const createEnrolInstanceSchema = z.strictObject({
   method: z.string(),
   name: z.string().optional(),
@@ -304,18 +316,31 @@ export const createEnrolInstanceSchema = z.strictObject({
   cost: z.number().int().optional(),
   currency: z.string().optional(),
   paymentAccountId: uuidIdSchema.optional(),
+  enrolmentKey: z.string().min(1).optional(),
+  sendWelcomeMessage: z.boolean().optional(),
+  welcomeMessage: z.string().optional(),
 });
 export type CreateEnrolInstance = z.infer<typeof createEnrolInstanceSchema>;
 
-/** Payload sửa enrol instance (mọi trường đều tuỳ chọn). */
+/** Payload sửa enrol instance (mọi trường đều tuỳ chọn); `enrolmentKey: null`/`welcomeMessage: null` để xoá giá trị đã đặt, `roleShortname` đổi role sẽ gán lại role cho người đã ghi danh qua instance. */
 export const updateEnrolInstanceSchema = z.strictObject({
   name: z.string().optional(),
   status: z.number().int().optional(),
   enrolperiod: z.number().int().optional(),
   onCohortLeave: z.enum(['suspend', 'unenrol']).optional(),
   groupId: uuidIdSchema.optional(),
+  roleShortname: z.string().optional(),
+  enrolmentKey: z.string().min(1).nullable().optional(),
+  sendWelcomeMessage: z.boolean().optional(),
+  welcomeMessage: z.string().nullable().optional(),
 });
 export type UpdateEnrolInstance = z.infer<typeof updateEnrolInstanceSchema>;
+
+/** Payload tự ghi danh qua instance self; `enrolmentKey` bắt buộc khi instance (hoặc một nhóm của khoá) có đặt khoá. */
+export const selfEnrolSchema = z.strictObject({
+  enrolmentKey: z.string().optional(),
+});
+export type SelfEnrol = z.infer<typeof selfEnrolSchema>;
 
 /** Payload ghi danh một người dùng qua enrol instance. */
 export const enrolUserSchema = z.strictObject({

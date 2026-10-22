@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { I18nService } from '@nestjs/i18n';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { GroupsService } from '../groups/groups.service';
+import { MessagingService } from '../messaging/messaging.service';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.repository';
 
 export const ENROL_ACTIVE = 0;
@@ -50,6 +52,8 @@ export class EnrolService implements OnModuleInit {
     private readonly evaluator: PermissionEvaluator,
     private readonly groups: GroupsService,
     private readonly outbox: OutboxService,
+    private readonly messaging: MessagingService,
+    private readonly i18n: I18nService,
   ) {}
 
   /**
@@ -87,12 +91,34 @@ export class EnrolService implements OnModuleInit {
 
   // --- instances ----------------------------------------------------------------
   /**
-   * Tạo enrol instance cho khoá học (manual/self/cohort/paypal).
+   * Người xem có capability quản lý enrol tại khoá học hay không (site admin
+   * được tính là có — xem PermissionEvaluator.hasCapability).
+   */
+  private async canManageEnrol(viewerId: string, courseId: string): Promise<boolean> {
+    return this.evaluator.hasCapability(viewerId, 'lms/enrol:manage', await this.courses.courseContextId(courseId));
+  }
+
+  /**
+   * Che khoá ghi danh của instance đối với người không có quyền quản lý enrol:
+   * khoá không bao giờ rời server cho học viên/người ngoài (response mang
+   * `enrolmentkey: null`, đúng hình dạng bản ghi). Dùng cho mọi đường đọc
+   * instance phơi qua API; đường nội bộ vẫn dùng bản ghi gốc.
+   */
+  private hideInstanceKey(instance: EnrolRow): EnrolRow {
+    return instance.enrolmentkey ? { ...instance, enrolmentkey: null } : instance;
+  }
+
+  /**
+   * Tạo enrol instance cho khoá học (manual/self/cohort/fee).
+   * `enrolmentKey` là khoá ghi danh của instance self; tin nhắn chào mừng mặc
+   * định bật cho self và tắt cho manual (đúng mặc định Moodle) trừ khi
+   * `sendWelcomeMessage` được chỉ định rõ.
    */
   async createInstance(actorId: string, courseId: string, input: {
     method: string; name?: string; roleShortname?: string; status?: number; enrolperiod?: number;
     cohortId?: string; groupId?: string; onCohortLeave?: 'suspend' | 'unenrol';
     cost?: number; currency?: string; paymentAccountId?: string;
+    enrolmentKey?: string; sendWelcomeMessage?: boolean; welcomeMessage?: string;
   }): Promise<EnrolRow> {
     await this.courses.getCourse(courseId);
     await this.requireManage(actorId, courseId);
@@ -120,6 +146,9 @@ export class EnrolService implements OnModuleInit {
       customint2: input.groupId ?? null,
       customtext1: input.onCohortLeave ?? 'suspend',
       cost: input.cost ?? 0, currency: input.currency ?? '', paymentaccountid: input.paymentAccountId ?? null,
+      enrolmentkey: input.enrolmentKey ?? null,
+      sendwelcomemessage: input.sendWelcomeMessage ?? (input.method === 'self'),
+      welcomemessage: input.welcomeMessage ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'enrol', type: 'enrol_instance_created', payload: { instanceId: instance.id, courseId, method: input.method } });
     // Cohort sync: enrol everyone already in the cohort.
@@ -138,13 +167,28 @@ export class EnrolService implements OnModuleInit {
     return row;
   }
   /**
-   * Liệt kê instance của khoá học.
+   * Liệt kê instance của khoá học cho một người xem: khoá ghi danh chỉ hiện
+   * với người có capability quản lý enrol tại khoá (staff); khi không truyền
+   * `viewerId` (đường nội bộ tin cậy) bản ghi được trả nguyên vẹn.
    */
-  async listInstances(courseId: string): Promise<EnrolRow[]> { return this.repo.listInstances(courseId); }
+  async listInstances(courseId: string, viewerId?: string): Promise<EnrolRow[]> {
+    const rows = await this.repo.listInstances(courseId);
+    if (!viewerId) return rows;
+    if (await this.canManageEnrol(viewerId, courseId)) return rows;
+    return rows.map((row) => this.hideInstanceKey(row));
+  }
   /**
-   * Cập nhật instance.
+   * Cập nhật instance. Đổi role (`roleShortname`) trên instance — oracle
+   * Behat enrol/cohort "Editing a cohort enrolment method's role should
+   * change participants' role": role của mọi thành viên ĐÃ ghi danh qua
+   * instance này (trừ ghi danh đã rút) được gán lại — gỡ assignment role cũ
+   * do instance cấp tại context khoá học, cấp role mới; enrolment và trạng
+   * thái ghi danh giữ nguyên. `enrolmentKey: null` xoá khoá ghi danh.
    */
-  async updateInstance(actorId: string, id: string, input: { name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: string }): Promise<EnrolRow> {
+  async updateInstance(actorId: string, id: string, input: {
+    name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: string;
+    roleShortname?: string; enrolmentKey?: string | null; sendWelcomeMessage?: boolean; welcomeMessage?: string | null;
+  }): Promise<EnrolRow> {
     const instance = await this.getInstance(id);
     await this.requireManage(actorId, instance.courseid);
     const patch: Partial<EnrolRow> = {};
@@ -153,8 +197,41 @@ export class EnrolService implements OnModuleInit {
     if (input.enrolperiod !== undefined) patch.enrolperiod = input.enrolperiod;
     if (input.onCohortLeave !== undefined) patch.customtext1 = input.onCohortLeave;
     if (input.groupId !== undefined) patch.customint2 = input.groupId;
+    if (input.enrolmentKey !== undefined) patch.enrolmentkey = input.enrolmentKey;
+    if (input.sendWelcomeMessage !== undefined) patch.sendwelcomemessage = input.sendWelcomeMessage;
+    if (input.welcomeMessage !== undefined) patch.welcomemessage = input.welcomeMessage;
+    let newRoleId: string | undefined;
+    if (input.roleShortname !== undefined) {
+      const roleRow = await this.roles.getRoleByShortname(input.roleShortname);
+      if (!roleRow) throw new BadRequestException({ message: `Role ${input.roleShortname} not found`, code: 'enrol.role_not_found' });
+      newRoleId = roleRow.id;
+      patch.roleid = newRoleId;
+    }
     if (Object.keys(patch).length) await this.repo.updateInstance(id, patch);
+    if (newRoleId && newRoleId !== instance.roleid) {
+      await this.reassignEnrolledRoles(instance, newRoleId, actorId);
+    }
     return this.getInstance(id);
+  }
+
+  /**
+   * Gán lại role cho các thành viên đã ghi danh qua instance sau khi instance
+   * đổi role: gỡ assignment role cũ (đúng role instance từng cấp, tại context
+   * khoá học) rồi cấp role mới cho từng người; không đụng tới bản ghi ghi danh.
+   */
+  private async reassignEnrolledRoles(instance: EnrolRow, newRoleId: string, modifierId: string): Promise<void> {
+    const courseCtxId = await this.courses.courseContextId(instance.courseid);
+    const enrolments = await this.repo.listUserEnrolmentsForInstance(instance.id);
+    for (const ue of enrolments) {
+      if (ue.status === ENROL_WITHDRAWN) continue;
+      if (instance.roleid) {
+        const assignments = await this.roles.listAssignments({ userid: ue.userid, contextid: courseCtxId });
+        for (const a of assignments as { id: string; roleid: string }[]) {
+          if (a.roleid === instance.roleid) await this.roles.unassignRole(a.id);
+        }
+      }
+      await this.roles.assignRole(ue.userid, newRoleId, courseCtxId, modifierId);
+    }
   }
   /**
    * Xoá instance.
@@ -176,10 +253,12 @@ export class EnrolService implements OnModuleInit {
     const timeend = opts?.timeend ?? (instance.enrolperiod > 0 ? new Date(timestart.getTime() + instance.enrolperiod * 1000) : null);
     const existing = await this.repo.getUserEnrolment(instance.id, userId);
     let ue: UserEnrolmentRow;
+    let isNewEnrolment = false;
     if (existing) {
       await this.repo.updateUserEnrolment(existing.id, { status: ENROL_ACTIVE, timestart, timeend, modifierid: modifierId });
       ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
     } else {
+      isNewEnrolment = true;
       ue = await this.repo.dbHandle.transaction(async (tx) => {
         const row = await this.repo.insertUserEnrolment({ enrolid: instance.id, userid: userId, status: ENROL_ACTIVE, timestart, timeend, modifierid: modifierId }, tx as never);
         await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseid, userId, instanceId: instance.id, method: instance.enrol } });
@@ -193,7 +272,40 @@ export class EnrolService implements OnModuleInit {
     if (instance.customint2) {
       await this.groups.addMemberInternal(instance.customint2, userId, 'enrol_cohort', instance.id).catch(() => undefined);
     }
+    if (isNewEnrolment) await this.maybeSendWelcomeMessage(instance, userId);
     return ue;
+  }
+
+  /**
+   * Gửi tin nhắn chào mừng qua MessagingModule (provider `enrol_welcome`)
+   * khi một ghi danh MỚI thành công — chỉ cho self + manual và chỉ khi
+   * instance bật `sendwelcomemessage` (mặc định lúc tạo: self bật, manual
+   * tắt, đúng mặc định Moodle). Nội dung tuỳ biến của instance được dùng
+   * nguyên văn (token `{coursename}`/`{course}` được thay bằng tên khoá);
+   * không có nội dung tuỳ biến thì dùng mẫu i18n `platform.enrolWelcome*`.
+   * Gửi chào mừng là hiệu ứng phụ: lỗi gửi không bao giờ làm hỏng ghi danh,
+   * và việc kích hoạt lại một ghi danh đã có không gửi lại tin nhắn.
+   * Quyết định kiến trúc: EnrolModule import trực tiếp MessagingModule —
+   * không có vòng phụ thuộc (Messaging chỉ phụ thuộc Access/Users/Events,
+   * giống hệt cách BadgesModule và ReportsModule đã dùng), nên không cần
+   * vòng qua outbox event cho riêng tính năng này.
+   */
+  private async maybeSendWelcomeMessage(instance: EnrolRow, userId: string): Promise<void> {
+    if (instance.enrol !== 'self' && instance.enrol !== 'manual') return;
+    if (!instance.sendwelcomemessage) return;
+    try {
+      const course = await this.courses.getCourse(instance.courseid);
+      const custom = instance.welcomemessage?.trim();
+      const body = custom
+        ? custom.replaceAll('{coursename}', course.fullname).replaceAll('{course}', course.fullname)
+        : String(this.i18n.t('platform.enrolWelcomeBody', { args: { course: course.fullname } }));
+      const subject = String(this.i18n.t('platform.enrolWelcomeSubject', { args: { course: course.fullname } }));
+      await this.messaging.notify(userId, 'enrol_welcome', {
+        subject, body, contextUrl: `/courses/${instance.courseid}`,
+      });
+    } catch {
+      /* Tin nhắn chào mừng không được phép làm hỏng ghi danh đã thành công. */
+    }
   }
 
   /**
@@ -208,19 +320,67 @@ export class EnrolService implements OnModuleInit {
     });
   }
 
-  /** Self-enrolment through a 'self' instance (minimal frame): the user enrols themselves when the instance is enabled. */
   /**
-   * Tự ghi danh: chỉ dành cho instance self đang bật; instance fee bị từ chối (enrol.payment_required) vì phải qua thanh toán đã xác nhận.
-   * Lưu ý: khoá ghi danh (enrolment key) của Moodle enrol_self chưa được cài đặt ở hệ này — xem docs/business-traceability.md.
+   * Tự ghi danh qua instance self đang bật; instance fee bị từ chối
+   * (enrol.payment_required) vì phải qua thanh toán đã xác nhận.
+   *
+   * Khoá ghi danh (oracle Behat enrol/self/self_enrolment.feature —
+   * "Self-enrolment enabled requiring an enrolment key" và "...requiring a
+   * group enrolment key"): khi instance có đặt khoá, người học phải nộp
+   * đúng khoá của instance HOẶC khoá của một nhóm trong khoá (group
+   * enrolment key) — thiếu khoá ⇒ 400 `enrol.enrolment_key_required`, sai
+   * khoá ⇒ 400 `enrol.invalid_enrolment_key`, và không ghi danh nào được
+   * tạo trong cả hai trường hợp. Khoá khớp một nhóm thì người học đồng thời
+   * được xếp vào nhóm đó. Instance không đặt khoá thì hành vi như trước
+   * (khoá nhóm nộp kèm vẫn xếp nhóm, khoá lạ bị bỏ qua).
    */
-  async selfEnrol(userId: string, instanceId: string): Promise<UserEnrolmentRow> {
+  async selfEnrol(userId: string, instanceId: string, enrolmentKey?: string): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     if (instance.enrol === 'fee') {
       // Enrol có phí chỉ kích hoạt qua PaymentSucceeded đã xác thực (§2#27) — không tự ghi danh trực tiếp.
       throw new BadRequestException({ message: 'Fee enrol instance requires a succeeded payment before enrolment is activated', code: 'enrol.payment_required' });
     }
     if (instance.enrol !== 'self') throw new BadRequestException({ message: 'Instance is not a self-enrol instance', code: 'enrol.not_self' });
-    return this.enrolUserInternal(instance, userId, userId);
+    const providedKey = enrolmentKey ? enrolmentKey : undefined;
+    const courseGroups = await this.groups.groupsForCourseInternal(instance.courseid);
+    const matchedGroup = providedKey
+      ? courseGroups.find((g) => g.enrolmentkey !== null && g.enrolmentkey !== '' && g.enrolmentkey === providedKey)
+      : undefined;
+    const instanceKey = instance.enrolmentkey ? instance.enrolmentkey : null;
+    if (instanceKey) {
+      if (!providedKey) {
+        throw new BadRequestException({ message: 'This course requires an enrolment key', code: 'enrol.enrolment_key_required' });
+      }
+      if (providedKey !== instanceKey && !matchedGroup) {
+        throw new BadRequestException({ message: 'Invalid enrolment key', code: 'enrol.invalid_enrolment_key' });
+      }
+    }
+    const ue = await this.enrolUserInternal(instance, userId, userId);
+    if (matchedGroup) {
+      await this.groups.addMemberInternal(matchedGroup.id, userId, 'enrol_self', instance.id).catch(() => undefined);
+    }
+    return ue;
+  }
+
+  /**
+   * Tự huỷ ghi danh của CHÍNH người gọi khỏi một instance self (oracle Behat
+   * enrol/self/self_enrolment.feature — "Self unenrol as a self-enrolled
+   * student"). Endpoint không nhận userId nên về cấu trúc không thể huỷ ghi
+   * danh của người khác; ghi danh do phương thức khác tạo (manual/cohort/fee)
+   * bị từ chối 400 `enrol.self_unenrol_not_allowed`. Việc huỷ đi qua cùng
+   * đường `unenrolInternal` như huỷ quản trị: gỡ role do instance cấp, phát
+   * `user_unenrolled`, và tôn trọng withdrawn/data retention.
+   */
+  async selfUnenrol(userId: string, instanceId: string): Promise<{ withdrawn: boolean }> {
+    const instance = await this.getInstance(instanceId);
+    if (instance.enrol !== 'self') {
+      throw new BadRequestException({ message: 'You can only unenrol yourself from a self-enrolment instance', code: 'enrol.self_unenrol_not_allowed' });
+    }
+    const ue = await this.repo.getUserEnrolment(instanceId, userId);
+    if (!ue || ue.status === ENROL_WITHDRAWN) {
+      throw new NotFoundException({ message: 'User enrolment not found', code: 'enrol.user_not_enrolled' });
+    }
+    return this.unenrolInternal(instance, userId, userId);
   }
 
   /** Kích hoạt ghi danh sau thanh toán thành công — chỉ PaymentsModule gọi sau webhook đã xác thực/idempotent. */

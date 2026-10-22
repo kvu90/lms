@@ -99,8 +99,8 @@ export class CourseGroupsController {
   /**
    * GET /groupings/:id/groups — nhóm thuộc grouping.
    */
-  async groupingGroups(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string) {
-    return this.groups.groupsInGrouping(groupingId);
+  async groupingGroups(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.groups.groupsInGrouping(groupingId, actor.id);
   }
   @Delete(':courseId/groupings/:groupingId')
   /**

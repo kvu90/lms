@@ -13,6 +13,8 @@
     "draft": "Draft",
     "public": "Public"
   },
+  "enrolWelcomeBody": "Welcome! You have been enrolled in the course \"{course}\". Happy learning!",
+  "enrolWelcomeSubject": "Welcome to the course \"{course}\"",
   "paymentStatus": {
     "pending": "Pending",
     "succeeded": "Succeeded",

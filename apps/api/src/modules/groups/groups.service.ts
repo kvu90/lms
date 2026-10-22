@@ -67,12 +67,30 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
-   * Tạo nhóm trong khoá học.
+   * Người xem có capability quản lý nhóm tại khoá học hay không (site admin
+   * được tính là có — xem PermissionEvaluator.hasCapability).
    */
-  async createGroup(actorId: string, courseId: string, input: { name: string; idnumber?: string; description?: string }): Promise<GroupRow> {
+  async canManageGroups(actorId: string, courseId: string): Promise<boolean> {
+    return this.evaluator.hasCapability(actorId, 'moodle/course:managegroups', await this.courses.courseContextId(courseId));
+  }
+
+  /**
+   * Che khoá ghi danh của nhóm đối với người không có quyền quản lý nhóm:
+   * khoá là bí mật, response chỉ mang `enrolmentkey: null` (vẫn giữ nguyên
+   * hình dạng bản ghi để client không phải đoán trường có tồn tại hay không).
+   */
+  private hideGroupKey(group: GroupRow): GroupRow {
+    return group.enrolmentkey ? { ...group, enrolmentkey: null } : group;
+  }
+
+  /**
+   * Tạo nhóm trong khoá học; `enrolmentKey` đặt khoá ghi danh riêng của nhóm
+   * (người tạo là staff quản lý nhóm nên bản ghi trả về giữ nguyên khoá).
+   */
+  async createGroup(actorId: string, courseId: string, input: { name: string; idnumber?: string; description?: string; enrolmentKey?: string }): Promise<GroupRow> {
     await this.courses.getCourse(courseId);
     await this.requireManageGroups(actorId, courseId);
-    const row = await this.repo.insertGroup({ courseid: courseId, name: input.name, idnumber: input.idnumber ?? '', description: input.description ?? '' });
+    const row = await this.repo.insertGroup({ courseid: courseId, name: input.name, idnumber: input.idnumber ?? '', description: input.description ?? '', enrolmentkey: input.enrolmentKey ?? null });
     await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_created', payload: { groupId: row.id, courseId } });
     return row;
   }
@@ -85,12 +103,13 @@ export class GroupsService implements OnModuleInit {
     return row;
   }
   /**
-   * Cập nhật nhóm.
+   * Cập nhật nhóm; `enrolmentKey: null` xoá khoá ghi danh của nhóm.
    */
-  async updateGroup(actorId: string, id: string, input: { name?: string; idnumber?: string; description?: string }): Promise<GroupRow> {
+  async updateGroup(actorId: string, id: string, input: { name?: string; idnumber?: string; description?: string; enrolmentKey?: string | null }): Promise<GroupRow> {
     const group = await this.getGroup(id);
     await this.requireManageGroups(actorId, group.courseid);
-    await this.repo.updateGroup(id, input);
+    const { enrolmentKey, ...rest } = input;
+    await this.repo.updateGroup(id, { ...rest, ...(enrolmentKey !== undefined ? { enrolmentkey: enrolmentKey } : {}) });
     return this.getGroup(id);
   }
   /**
@@ -123,14 +142,25 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
-   * Liệt kê nhóm của khoá học.
+   * Liệt kê nhóm của khoá học. Khoá ghi danh của nhóm chỉ hiện với người có
+   * capability quản lý nhóm; học viên thường nhận `enrolmentkey: null`.
    */
   async listGroups(actorId: string, courseId: string): Promise<GroupRow[]> {
     await this.courses.assertCourseAccess(actorId, courseId).catch(async () => {
       // Users with managegroups may list even without enrolment (teachers).
       await this.requireManageGroups(actorId, courseId);
     });
-    return this.visibleGroupsFor(actorId, courseId);
+    const groups = await this.visibleGroupsFor(actorId, courseId);
+    if (await this.canManageGroups(actorId, courseId)) return groups;
+    return groups.map((g) => this.hideGroupKey(g));
+  }
+
+  /**
+   * Mọi nhóm của khoá học kèm khoá ghi danh thật — đường nội bộ cho module
+   * khác (enrol_self đối chiếu group enrolment key), KHÔNG phơi qua API.
+   */
+  async groupsForCourseInternal(courseId: string): Promise<GroupRow[]> {
+    return this.repo.listGroups(courseId);
   }
 
   /**
@@ -242,9 +272,15 @@ export class GroupsService implements OnModuleInit {
     await this.repo.addGroupToGrouping(groupingId, groupId);
   }
   /**
-   * Nhóm thuộc grouping.
+   * Nhóm thuộc grouping; khi có `actorId`, khoá ghi danh bị che trừ khi người
+   * xem có capability quản lý nhóm của khoá chứa grouping.
    */
-  async groupsInGrouping(groupingId: string): Promise<GroupRow[]> { return this.repo.groupsInGrouping(groupingId); }
+  async groupsInGrouping(groupingId: string, actorId?: string): Promise<GroupRow[]> {
+    const groups = await this.repo.groupsInGrouping(groupingId);
+    if (!actorId || !groups.length) return groups;
+    if (await this.canManageGroups(actorId, groups[0]!.courseid)) return groups;
+    return groups.map((g) => this.hideGroupKey(g));
+  }
 
   // --- cohorts -------------------------------------------------------------------
   private async cohortContextId(input: { contextlevel?: number; categoryId?: string }): Promise<string> {
