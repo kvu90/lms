@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "21368644-2a24-4f03-9b7f-2d106a4958ac",
+  "id": "70f1639c-7b37-4408-ba49-598b72f68700",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -896,6 +896,66 @@
       "statementTarget": [
         "table",
         "public",
+        "qtype_essay_options"
+      ],
+      "writes": [
+        "s|tbl|public.qtype_essay_options",
+        "n|tbl|public.qtype_essay_options",
+        "e|tbl|public.qtype_essay_options",
+        "n|rel|public.qtype_essay_options",
+        "n|type|public.qtype_essay_options",
+        "n|rel|public.qtype_essay_options_pkey",
+        "n|rel|public.qtype_essay_options_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "qtype_multichoice_options"
+      ],
+      "writes": [
+        "s|tbl|public.qtype_multichoice_options",
+        "n|tbl|public.qtype_multichoice_options",
+        "e|tbl|public.qtype_multichoice_options",
+        "n|rel|public.qtype_multichoice_options",
+        "n|type|public.qtype_multichoice_options",
+        "n|rel|public.qtype_multichoice_options_pkey",
+        "n|rel|public.qtype_multichoice_options_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "qtype_shortanswer_options"
+      ],
+      "writes": [
+        "s|tbl|public.qtype_shortanswer_options",
+        "n|tbl|public.qtype_shortanswer_options",
+        "e|tbl|public.qtype_shortanswer_options",
+        "n|rel|public.qtype_shortanswer_options",
+        "n|type|public.qtype_shortanswer_options",
+        "n|rel|public.qtype_shortanswer_options_pkey",
+        "n|rel|public.qtype_shortanswer_options_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "question"
       ],
       "writes": [
@@ -905,6 +965,25 @@
         "n|rel|public.question",
         "n|type|public.question",
         "n|rel|public.question_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_answers"
+      ],
+      "writes": [
+        "s|tbl|public.question_answers",
+        "n|tbl|public.question_answers",
+        "e|tbl|public.question_answers",
+        "n|rel|public.question_answers",
+        "n|type|public.question_answers",
+        "n|rel|public.question_answers_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -1014,6 +1093,26 @@
       "statementTarget": [
         "table",
         "public",
+        "question_truefalse"
+      ],
+      "writes": [
+        "s|tbl|public.question_truefalse",
+        "n|tbl|public.question_truefalse",
+        "e|tbl|public.question_truefalse",
+        "n|rel|public.question_truefalse",
+        "n|type|public.question_truefalse",
+        "n|rel|public.question_truefalse_pkey",
+        "n|rel|public.question_truefalse_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "question_usages"
       ],
       "writes": [
@@ -1043,6 +1142,25 @@
         "n|type|public.question_versions",
         "n|rel|public.question_versions_pkey",
         "n|rel|public.question_versions_entry_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "stimuli"
+      ],
+      "writes": [
+        "s|tbl|public.stimuli",
+        "n|tbl|public.stimuli",
+        "e|tbl|public.stimuli",
+        "n|rel|public.stimuli",
+        "n|type|public.stimuli",
+        "n|rel|public.stimuli_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -3223,6 +3341,26 @@
       "statementTarget": [
         "index",
         "public",
+        "question_answers",
+        "question_answers_questionversionid_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_answers_questionversionid_idx",
+        "n|idx|public.question_answers_questionversionid_idx",
+        "e|idx|public.question_answers_questionversionid_idx",
+        "n|rel|public.question_answers_questionversionid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_answers",
+        "n|sch|public",
+        "n|col|public.question_answers.questionversionid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "question_attempt_steps",
         "question_attempt_steps_userid_idx"
       ],
@@ -3363,6 +3501,46 @@
       "statementTarget": [
         "index",
         "public",
+        "question_truefalse",
+        "question_truefalse_trueanswer_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_truefalse_trueanswer_idx",
+        "n|idx|public.question_truefalse_trueanswer_idx",
+        "e|idx|public.question_truefalse_trueanswer_idx",
+        "n|rel|public.question_truefalse_trueanswer_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_truefalse",
+        "n|sch|public",
+        "n|col|public.question_truefalse.trueanswer"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "question_truefalse",
+        "question_truefalse_falseanswer_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_truefalse_falseanswer_idx",
+        "n|idx|public.question_truefalse_falseanswer_idx",
+        "e|idx|public.question_truefalse_falseanswer_idx",
+        "n|rel|public.question_truefalse_falseanswer_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_truefalse",
+        "n|sch|public",
+        "n|col|public.question_truefalse.falseanswer"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "question_usages",
         "question_usages_instanceid_idx"
       ],
@@ -3436,6 +3614,66 @@
         "n|tbl|public.question_versions",
         "n|sch|public",
         "n|col|public.question_versions.questionid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "question_versions",
+        "question_versions_stimulusid_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_versions_stimulusid_idx",
+        "n|idx|public.question_versions_stimulusid_idx",
+        "e|idx|public.question_versions_stimulusid_idx",
+        "n|rel|public.question_versions_stimulusid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.question_versions.stimulusid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "stimuli",
+        "stimuli_categoryid_idx"
+      ],
+      "writes": [
+        "s|idx|public.stimuli_categoryid_idx",
+        "n|idx|public.stimuli_categoryid_idx",
+        "e|idx|public.stimuli_categoryid_idx",
+        "n|rel|public.stimuli_categoryid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.stimuli",
+        "n|sch|public",
+        "n|col|public.stimuli.categoryid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "stimuli",
+        "stimuli_createdby_idx"
+      ],
+      "writes": [
+        "s|idx|public.stimuli_createdby_idx",
+        "n|idx|public.stimuli_createdby_idx",
+        "e|idx|public.stimuli_createdby_idx",
+        "n|rel|public.stimuli_createdby_idx"
+      ],
+      "reads": [
+        "n|tbl|public.stimuli",
+        "n|sch|public",
+        "n|col|public.stimuli.createdby"
       ]
     },
     {
@@ -6388,6 +6626,75 @@
       "statementTarget": [
         "table",
         "public",
+        "qtype_essay_options"
+      ],
+      "writes": [
+        "s|fk|public.qtype_essay_options.qtype_essay_options_questionversionid_question_versions_id_fkey",
+        "n|fk|public.qtype_essay_options.qtype_essay_options_questionversionid_question_versions_id_fkey",
+        "e|fk|public.qtype_essay_options.qtype_essay_options_questionversionid_question_versions_id_fkey",
+        "n|con|public.qtype_essay_options.qtype_essay_options_questionversionid_question_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.qtype_essay_options",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.qtype_essay_options.questionversionid",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "qtype_multichoice_options"
+      ],
+      "writes": [
+        "s|fk|public.qtype_multichoice_options.qtype_multichoice_options_5ILBIK5w9ssS_fkey",
+        "n|fk|public.qtype_multichoice_options.qtype_multichoice_options_5ILBIK5w9ssS_fkey",
+        "e|fk|public.qtype_multichoice_options.qtype_multichoice_options_5ILBIK5w9ssS_fkey",
+        "n|con|public.qtype_multichoice_options.qtype_multichoice_options_5ILBIK5w9ssS_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.qtype_multichoice_options",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.qtype_multichoice_options.questionversionid",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "qtype_shortanswer_options"
+      ],
+      "writes": [
+        "s|fk|public.qtype_shortanswer_options.qtype_shortanswer_options_r5Ff3LJya3l2_fkey",
+        "n|fk|public.qtype_shortanswer_options.qtype_shortanswer_options_r5Ff3LJya3l2_fkey",
+        "e|fk|public.qtype_shortanswer_options.qtype_shortanswer_options_r5Ff3LJya3l2_fkey",
+        "n|con|public.qtype_shortanswer_options.qtype_shortanswer_options_r5Ff3LJya3l2_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.qtype_shortanswer_options",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.qtype_shortanswer_options.questionversionid",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "question"
       ],
       "writes": [
@@ -6404,6 +6711,29 @@
         "n|col|public.question.category",
         "n|col|public.question_categories.id",
         "e|uniqueness|public.question_categories.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_answers"
+      ],
+      "writes": [
+        "s|fk|public.question_answers.question_answers_questionversionid_question_versions_id_fkey",
+        "n|fk|public.question_answers.question_answers_questionversionid_question_versions_id_fkey",
+        "e|fk|public.question_answers.question_answers_questionversionid_question_versions_id_fkey",
+        "n|con|public.question_answers.question_answers_questionversionid_question_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_answers",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.question_answers.questionversionid",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
       ]
     },
     {
@@ -6572,6 +6902,75 @@
       "statementTarget": [
         "table",
         "public",
+        "question_truefalse"
+      ],
+      "writes": [
+        "s|fk|public.question_truefalse.question_truefalse_questionversionid_question_versions_id_fkey",
+        "n|fk|public.question_truefalse.question_truefalse_questionversionid_question_versions_id_fkey",
+        "e|fk|public.question_truefalse.question_truefalse_questionversionid_question_versions_id_fkey",
+        "n|con|public.question_truefalse.question_truefalse_questionversionid_question_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_truefalse",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.question_truefalse.questionversionid",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_truefalse"
+      ],
+      "writes": [
+        "s|fk|public.question_truefalse.question_truefalse_trueanswer_question_answers_id_fkey",
+        "n|fk|public.question_truefalse.question_truefalse_trueanswer_question_answers_id_fkey",
+        "e|fk|public.question_truefalse.question_truefalse_trueanswer_question_answers_id_fkey",
+        "n|con|public.question_truefalse.question_truefalse_trueanswer_question_answers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_truefalse",
+        "n|sch|public",
+        "n|tbl|public.question_answers",
+        "n|sch|public",
+        "n|col|public.question_truefalse.trueanswer",
+        "n|col|public.question_answers.id",
+        "e|uniqueness|public.question_answers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_truefalse"
+      ],
+      "writes": [
+        "s|fk|public.question_truefalse.question_truefalse_falseanswer_question_answers_id_fkey",
+        "n|fk|public.question_truefalse.question_truefalse_falseanswer_question_answers_id_fkey",
+        "e|fk|public.question_truefalse.question_truefalse_falseanswer_question_answers_id_fkey",
+        "n|con|public.question_truefalse.question_truefalse_falseanswer_question_answers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_truefalse",
+        "n|sch|public",
+        "n|tbl|public.question_answers",
+        "n|sch|public",
+        "n|col|public.question_truefalse.falseanswer",
+        "n|col|public.question_answers.id",
+        "e|uniqueness|public.question_answers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "question_versions"
       ],
       "writes": [
@@ -6611,6 +7010,52 @@
         "n|col|public.question_versions.questionid",
         "n|col|public.question.id",
         "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_versions"
+      ],
+      "writes": [
+        "s|fk|public.question_versions.question_versions_stimulusid_stimuli_id_fkey",
+        "n|fk|public.question_versions.question_versions_stimulusid_stimuli_id_fkey",
+        "e|fk|public.question_versions.question_versions_stimulusid_stimuli_id_fkey",
+        "n|con|public.question_versions.question_versions_stimulusid_stimuli_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|tbl|public.stimuli",
+        "n|sch|public",
+        "n|col|public.question_versions.stimulusid",
+        "n|col|public.stimuli.id",
+        "e|uniqueness|public.stimuli.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "stimuli"
+      ],
+      "writes": [
+        "s|fk|public.stimuli.stimuli_categoryid_question_categories_id_fkey",
+        "n|fk|public.stimuli.stimuli_categoryid_question_categories_id_fkey",
+        "e|fk|public.stimuli.stimuli_categoryid_question_categories_id_fkey",
+        "n|con|public.stimuli.stimuli_categoryid_question_categories_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.stimuli",
+        "n|sch|public",
+        "n|tbl|public.question_categories",
+        "n|sch|public",
+        "n|col|public.stimuli.categoryid",
+        "n|col|public.question_categories.id",
+        "e|uniqueness|public.question_categories.id"
       ]
     },
     {
@@ -7554,7 +7999,31 @@
     },
     {
       "schema": "public",
+      "name": "qtype_essay_options",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "qtype_multichoice_options",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "qtype_shortanswer_options",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "question",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "question_answers",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -7590,6 +8059,12 @@
     },
     {
       "schema": "public",
+      "name": "question_truefalse",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "question_usages",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -7597,6 +8072,12 @@
     {
       "schema": "public",
       "name": "question_versions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "stimuli",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -12878,6 +13359,292 @@
     },
     {
       "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "questionversionid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "responseformat",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'editor'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "responserequired",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "responsefieldlines",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "15",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "minwordlimit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "maxwordlimit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "graderinfo",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "responsetemplate",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "questionversionid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "single",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "shuffleanswers",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "answernumbering",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'abc'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "correctfeedback",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "partiallycorrectfeedback",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "incorrectfeedback",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "shownumcorrect",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "showstandardinstruction",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "questionversionid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "usecase",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "question",
       "name": "id",
       "type": "uuid",
@@ -12976,6 +13743,84 @@
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "questionversionid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "answer",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "fraction",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "feedback",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "sortorder",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -13580,6 +14425,71 @@
     },
     {
       "schema": "public",
+      "table": "question_truefalse",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "questionversionid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "trueanswer",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "falseanswer",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "showstandardinstruction",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "question_usages",
       "name": "id",
       "type": "uuid",
@@ -13751,11 +14661,37 @@
       "schema": "public",
       "table": "question_versions",
       "name": "questiontext",
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "''",
+      "default": "'{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\"}]}'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_versions",
+      "name": "generalfeedback",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_versions",
+      "name": "guidance",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -13776,12 +14712,25 @@
     {
       "schema": "public",
       "table": "question_versions",
-      "name": "answerdata",
-      "type": "jsonb",
+      "name": "penalty",
+      "type": "double precision",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "'{}'",
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_versions",
+      "name": "stimulusid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -13790,6 +14739,84 @@
       "schema": "public",
       "table": "question_versions",
       "name": "timecreated",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "categoryid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "createdby",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "content",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "timecreated",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "timemodified",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -20692,6 +21719,27 @@
     },
     {
       "schema": "public",
+      "table": "question_answers",
+      "name": "question_answers_questionversionid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "questionversionid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "question_attempt_steps",
       "name": "question_attempt_steps_userid_idx",
       "nameExplicit": true,
@@ -20839,6 +21887,48 @@
     },
     {
       "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_trueanswer_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "trueanswer",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_falseanswer_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "falseanswer",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "question_usages",
       "name": "question_usages_instanceid_idx",
       "nameExplicit": true,
@@ -20908,6 +21998,69 @@
       "columns": [
         {
           "value": "questionid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "question_versions",
+      "name": "question_versions_stimulusid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "stimulusid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "stimuli_categoryid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "categoryid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "stimuli_createdby_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "createdby",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -23765,6 +24918,57 @@
     },
     {
       "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "qtype_essay_options_questionversionid_question_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "questionversionid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "qtype_multichoice_options_5ILBIK5w9ssS_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "questionversionid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "qtype_shortanswer_options_r5Ff3LJya3l2_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "questionversionid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "question",
       "name": "question_category_question_categories_id_fkey",
       "nameExplicit": false,
@@ -23773,6 +24977,23 @@
       ],
       "schemaTo": "public",
       "tableTo": "question_categories",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "question_answers_questionversionid_question_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "questionversionid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
       "columnsTo": [
         "id"
       ],
@@ -23901,6 +25122,57 @@
     },
     {
       "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_questionversionid_question_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "questionversionid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_trueanswer_question_answers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "trueanswer"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_answers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_falseanswer_question_answers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "falseanswer"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_answers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "question_versions",
       "name": "question_versions_F7JXlRlHryBB_fkey",
       "nameExplicit": false,
@@ -23926,6 +25198,40 @@
       ],
       "schemaTo": "public",
       "tableTo": "question",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "question_versions",
+      "name": "question_versions_stimulusid_stimuli_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "stimulusid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "stimuli",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "stimuli_categoryid_question_categories_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "categoryid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_categories",
       "columnsTo": [
         "id"
       ],
@@ -24913,8 +26219,48 @@
     },
     {
       "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "qtype_essay_options_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "qtype_multichoice_options_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "qtype_shortanswer_options_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "question",
       "name": "question_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "question_answers",
+      "name": "question_answers_pkey",
       "columns": [
         "id"
       ],
@@ -24973,6 +26319,16 @@
     },
     {
       "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "question_usages",
       "name": "question_usages_pkey",
       "columns": [
@@ -24985,6 +26341,16 @@
       "schema": "public",
       "table": "question_versions",
       "name": "question_versions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "stimuli",
+      "name": "stimuli_pkey",
       "columns": [
         "id"
       ],
@@ -25719,6 +27085,39 @@
     },
     {
       "schema": "public",
+      "table": "qtype_essay_options",
+      "name": "qtype_essay_options_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "questionversionid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_multichoice_options",
+      "name": "qtype_multichoice_options_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "questionversionid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "qtype_shortanswer_options_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "questionversionid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "question_attempt_step_data",
       "name": "question_attempt_step_data_step_name_unique",
       "nameExplicit": true,
@@ -25760,6 +27159,17 @@
       "nameExplicit": true,
       "columns": [
         "questionid"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "question_truefalse",
+      "name": "question_truefalse_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "questionversionid"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

@@ -170,6 +170,8 @@ export const questionTruefalse = pgTable('question_truefalse', {
   showstandardinstruction: boolean('showstandardinstruction').notNull().default(true),
 },
   (table) => [
+      index('question_truefalse_trueanswer_idx').on(table.trueanswer),
+      index('question_truefalse_falseanswer_idx').on(table.falseanswer),
       unique('question_truefalse_version_unique').on(table.questionversionid),
   ]);
 
