@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
@@ -7,7 +7,9 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CompletionService } from '../completion/completion.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
+import { UsersService } from '../users/users.service';
 import { AGGREGATIONS, calculateCategory, letterForGrade, adjustedGrade, type AggregationStrategy, type CalcItemInput } from './domain/grade-calculator';
+import { parseCsv, serializeCsv } from './domain/grade-csv';
 import { GradeFormulaError, evaluateGradeFormula, findFormulaCycle, formulaReferences, parseGradeFormula } from './domain/grade-formula';
 import { GradesRepository, type CategoryRow, type GradeRow, type ItemRow, type LetterRow, type OutcomeRow, type ScaleRow } from './grades.repository';
 
@@ -26,6 +28,24 @@ export interface GradebookCategoryView {
   items: GradebookItemView[];
   children: GradebookCategoryView[];
 }
+
+/** Một lỗi import CSV: `row` là số dòng trên bảng tính (dòng tiêu đề là 1), `column` là tiêu đề cột gây lỗi (null khi lỗi ở mức cả dòng). */
+export interface GradeImportError {
+  row: number;
+  column: string | null;
+  code: string;
+  message: string;
+}
+/** Kết quả import điểm CSV: số ô đã nhập, số ô bỏ qua (để trống), lỗi theo từng ô/dòng và các cột bị bỏ qua ở mức tệp. */
+export interface GradeImportResult {
+  imported: number;
+  skipped: number;
+  errors: GradeImportError[];
+  ignoredColumns: string[];
+}
+/** Trường định danh người học mà import dùng để khớp một dòng CSV với một user. */
+export type GradeImportUserIdentifier = 'username' | 'email' | 'userId';
+export const GRADE_IMPORT_USER_IDENTIFIERS: readonly GradeImportUserIdentifier[] = ['username', 'email', 'userId'];
 
 /**
  * GradesModule facade (Moodle core_grades) — the highest-risk subsystem
@@ -58,6 +78,7 @@ export class GradesService implements OnModuleInit {
     private readonly completion: CompletionService,
     private readonly outbox: OutboxService,
     private readonly contexts: ContextsService,
+    private readonly users: UsersService,
     @InjectQueue(GRADE_REGRADE_QUEUE) private readonly regradeQueue: Queue,
   ) {}
 
@@ -1076,5 +1097,159 @@ export class GradesService implements OnModuleInit {
       });
     }
     return { courseId, rows };
+  }
+
+  // --- export / import CSV ---------------------------------------------------
+
+  /**
+   * Tên cột CSV của một grade item: tên hiển thị, kèm `[idNumber]` khi item có
+   * idNumber — chính hậu tố này là khoá ánh xạ ưu tiên khi import đọc lại file.
+   */
+  private itemCsvColumn(item: ItemRow): string {
+    return item.idNumber ? `${item.itemName} [${item.idNumber}]` : item.itemName;
+  }
+
+  /** Số điểm trong CSV: làm tròn 6 chữ số thập phân để khử nhiễu dấu phẩy động của điểm tổng đã tính. */
+  private csvNumber(value: number): string {
+    return String(Math.round(value * 1e6) / 1e6);
+  }
+
+  /**
+   * Export điểm của một khoá học ra CSV (issue #24, theo mẫu grade export của Moodle):
+   * một dòng cho mỗi người học đã ghi danh; cột định danh userId/username/firstName/
+   * lastName/email, sau đó một cột cho mỗi grade item (điểm tổng khoá học ở cột cuối)
+   * mang finalGrade hiện tại, ô trống khi chưa có điểm. Quyền: moodle/grade:viewall
+   * tại context khoá học — cùng quyền với báo cáo lớp.
+   */
+  async exportGradesCsv(actorId: string, courseId: string): Promise<{ filename: string; csv: string }> {
+    await this.courses.getCourse(courseId);
+    await this.requireCap(actorId, 'moodle/grade:viewall', courseId);
+    await this.ensureCourseCategory(courseId);
+    const items = await this.repo.listItems(courseId);
+    // Course total xuống cột cuối như Moodle; các item còn lại giữ thứ tự sổ điểm.
+    const orderedItems = [...items.filter((i) => i.itemType !== 'course'), ...items.filter((i) => i.itemType === 'course')];
+    const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
+    const userIds = [...new Set(enrolments.map((e) => e.userId))];
+    const usersById = new Map((await this.users.getUsersByIds(userIds)).map((u) => [u.id, u]));
+    const grades = await this.repo.listGradesForCourse(courseId);
+    const gradeByUserItem = new Map(grades.map((g) => [`${g.userId}:${g.itemId}`, g]));
+    const header = ['userId', 'username', 'firstName', 'lastName', 'email', ...orderedItems.map((i) => this.itemCsvColumn(i))];
+    const sortedIds = [...userIds].sort((a, b) => (usersById.get(a)?.username ?? a).localeCompare(usersById.get(b)?.username ?? b));
+    const rows: string[][] = [header];
+    for (const userId of sortedIds) {
+      const user = usersById.get(userId);
+      const row = [userId, user?.username ?? '', user?.firstName ?? '', user?.lastName ?? '', user?.email ?? ''];
+      for (const item of orderedItems) {
+        const g = gradeByUserItem.get(`${userId}:${item.id}`);
+        row.push(g?.finalGrade !== null && g?.finalGrade !== undefined ? this.csvNumber(g.finalGrade) : '');
+      }
+      rows.push(row);
+    }
+    return { filename: `grades-${courseId}.csv`, csv: serializeCsv(rows) };
+  }
+
+  /**
+   * Import điểm từ CSV (issue #24, theo mẫu grade import của Moodle): hàng đầu là
+   * tiêu đề; người học được khớp bằng cột định danh (`userIdentifier`, mặc định
+   * username); mỗi cột còn lại được ánh xạ tới một grade item theo thứ tự ưu tiên:
+   * hậu tố `[idNumber]` trong tiêu đề → idNumber trần → id của item → tên item.
+   * Cột tổng/calculated/không khớp được liệt kê vào ignoredColumns thay vì nhập.
+   * Từng ô điểm đi qua ĐÚNG đường setGrade như nhập tay (kiểm capability, tôn
+   * trọng overridden/locked, ghi lịch sử, regrade) — ô lỗi (user không tồn tại,
+   * điểm không phải số, điểm đang overridden/locked…) thành một mục trong errors
+   * và các ô đúng của cùng dòng vẫn được nhập; ô để trống bị bỏ qua.
+   */
+  async importGradesCsv(
+    actorId: string,
+    courseId: string,
+    csvText: string,
+    opts: { userIdentifier?: string } = {},
+  ): Promise<GradeImportResult> {
+    await this.courses.getCourse(courseId);
+    await this.requireCap(actorId, 'moodle/grade:edit', courseId);
+    const identifier = (opts.userIdentifier ?? 'username') as GradeImportUserIdentifier;
+    if (!GRADE_IMPORT_USER_IDENTIFIERS.includes(identifier)) {
+      throw new BadRequestException({ message: `Unknown user identifier '${opts.userIdentifier}' (expected one of ${GRADE_IMPORT_USER_IDENTIFIERS.join(', ')})`, code: 'grades.import_bad_user_identifier' });
+    }
+    const table = parseCsv(csvText);
+    if (!table.length) throw new BadRequestException({ message: 'The CSV file is empty', code: 'grades.import_empty' });
+    const headers = table[0]!.map((h) => h.trim());
+    const norm = (h: string): string => h.trim().toLowerCase();
+    const idColumn = headers.findIndex((h) => norm(h) === identifier.toLowerCase());
+    if (idColumn === -1) {
+      throw new BadRequestException({ message: `The CSV file has no '${identifier}' column to identify users`, code: 'grades.import_missing_identifier_column' });
+    }
+    const items = await this.repo.listItems(courseId);
+    const byIdnumber = new Map(items.filter((i) => i.idNumber).map((i) => [i.idNumber!, i]));
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const byName = new Map<string, ItemRow>();
+    for (const i of items) if (!byName.has(i.itemName)) byName.set(i.itemName, i);
+    const byNameFolded = new Map<string, ItemRow>();
+    for (const i of items) { const k = i.itemName.toLowerCase(); if (!byNameFolded.has(k)) byNameFolded.set(k, i); }
+    const userInfoColumns = new Set(['userid', 'username', 'firstname', 'lastname', 'email']);
+    const resolveColumnItem = (header: string): ItemRow | null => {
+      const bracket = /^(.+) \[([^\]]+)\]$/.exec(header);
+      if (bracket) { const byBracket = byIdnumber.get(bracket[2]!); if (byBracket) return byBracket; }
+      return byIdnumber.get(header) ?? byId.get(header) ?? byName.get(header) ?? byNameFolded.get(header.toLowerCase()) ?? null;
+    };
+    const gradeColumns: { index: number; header: string; item: ItemRow }[] = [];
+    const ignoredColumns: string[] = [];
+    headers.forEach((header, index) => {
+      if (index === idColumn || userInfoColumns.has(norm(header))) return;
+      const item = resolveColumnItem(header);
+      // Chỉ item nhập tay/mod mới nhận điểm nhập; tổng category/course và calculated do hệ thống tính.
+      if (!item || item.itemType === 'course' || item.itemType === 'category' || item.itemType === 'calculated') {
+        ignoredColumns.push(header);
+        return;
+      }
+      gradeColumns.push({ index, header, item });
+    });
+    if (!gradeColumns.length) {
+      throw new BadRequestException({ message: 'The CSV file has no column that maps to an enterable grade item', code: 'grades.import_no_grade_columns' });
+    }
+    const result: GradeImportResult = { imported: 0, skipped: 0, errors: [], ignoredColumns };
+    const resolveUser = async (key: string) => {
+      if (identifier === 'username') return this.users.getByUsername(key);
+      if (identifier === 'email') return this.users.getByEmail(key);
+      return this.users.getByIdOrUndefined(key);
+    };
+    for (let r = 1; r < table.length; r += 1) {
+      const row = table[r]!;
+      const rowNumber = r + 1; // dòng trên bảng tính: tiêu đề là dòng 1
+      if (row.every((c) => c.trim() === '')) continue;
+      const key = (row[idColumn] ?? '').trim();
+      if (!key) {
+        result.errors.push({ row: rowNumber, column: headers[idColumn]!, code: 'grades.import_missing_identifier', message: `Row has no ${identifier} value` });
+        continue;
+      }
+      const user = await resolveUser(key);
+      if (!user) {
+        result.errors.push({ row: rowNumber, column: headers[idColumn]!, code: 'grades.import_user_not_found', message: `No user with ${identifier} '${key}'` });
+        continue;
+      }
+      for (const col of gradeColumns) {
+        const cell = (row[col.index] ?? '').trim();
+        if (cell === '') { result.skipped += 1; continue; }
+        const value = Number(cell);
+        if (!Number.isFinite(value)) {
+          result.errors.push({ row: rowNumber, column: col.header, code: 'grades.import_not_a_number', message: `'${cell}' is not a number` });
+          continue;
+        }
+        try {
+          await this.setGrade(actorId, col.item.id, user.id, { rawGrade: value });
+          result.imported += 1;
+        } catch (e) {
+          // Lỗi nghiệp vụ của từng ô (overridden/locked/khoảng outcome…) không chặn các ô còn lại.
+          const resp = e instanceof HttpException ? e.getResponse() : null;
+          const body = typeof resp === 'object' && resp !== null ? (resp as { code?: string; message?: string }) : null;
+          result.errors.push({
+            row: rowNumber, column: col.header,
+            code: body?.code ?? 'grades.import_row_failed',
+            message: body?.message ?? (e instanceof Error ? e.message : 'Could not import this grade'),
+          });
+        }
+      }
+    }
+    return result;
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { userPreferences, users } from '../../db/schema';
 
@@ -31,6 +31,13 @@ export class UsersRepository {
    */
   async getById(id: string): Promise<UserRow | undefined> {
     const [row] = await this.db.select().from(users).where(eq(users.id, id)); return row;
+  }
+  /**
+   * Lấy nhiều user theo danh sách id trong một truy vấn (phục vụ báo cáo/export cần thông tin người học hàng loạt).
+   */
+  async getByIds(ids: string[]): Promise<UserRow[]> {
+    if (!ids.length) return [];
+    return this.db.select().from(users).where(inArray(users.id, ids));
   }
   /**
    * Lấy user theo username duy nhất.
