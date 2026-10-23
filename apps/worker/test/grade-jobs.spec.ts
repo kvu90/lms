@@ -20,7 +20,6 @@ import { WorkerModule } from '../src/worker.module';
  */
 describe('Worker grades: grade-regrade + completion grade criterion', () => {
   let context: INestApplicationContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now();
   const userId = `01910000-0000-7000-8000-${String(910000 + (suffix % 10000)).padStart(12, '0')}`;

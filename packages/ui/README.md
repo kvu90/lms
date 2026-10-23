@@ -42,7 +42,7 @@ tsconfig ở cả package lẫn app:
 Chạy CLI ngay trong thư mục này (`components.json` đã trỏ alias và
 file CSS theo package; `shadcn info` tại thư mục này nhận diện được
 cấu hình và resolve đủ alias mà không cần dấu hiệu framework nào).
-Sau khi đồng bộ: chạy `turbo run typecheck lint --filter=@lms/ui` và
+Sau khi đồng bộ: chạy `turbo run typecheck --filter=@lms/ui` và
 build + test của `@lms/web`, đối chiếu diff của `components.json` và
 `src/styles/globals.css` trước khi commit.
 

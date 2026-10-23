@@ -13,7 +13,7 @@ apps/
   web/      React + Vite + React Router SPA (TypeScript 7), shadcn/ui + Tailwind
 packages/
   contracts/  Shared zod schemas (Problem Details, health, …) — the only api↔web contract
-  config/     Shared tsconfig bases + ESLint flat config
+  config/     Shared tsconfig bases
 docs/
   adr/                Architecture decision records
   business-traceability.md  Moodle test-suite → our-test mapping (per phase)
@@ -123,7 +123,7 @@ Vietnamese by default and honours `Accept-Language: en`.
 
 ```bash
 pnpm install
-turbo run build typecheck lint test
+turbo run build typecheck test
 ```
 
 ## Operations

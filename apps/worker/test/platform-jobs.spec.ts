@@ -21,7 +21,6 @@ import { WorkerModule } from '../src/worker.module';
  */
 describe('Worker platform services: backup, search reindex, analytics, report schedule, privacy, payment', () => {
   let context: INestApplicationContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now() % 100000;
   const userId = `01950000-0000-7000-8000-${String(950000 + suffix).padStart(12, '0')}`;
