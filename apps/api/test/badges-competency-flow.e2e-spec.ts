@@ -223,9 +223,10 @@ describe('Badges & competencies', () => {
     const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: cat.body.id, shortName, name: 'Badge department', type: 'text', configData: {} });
     expect(field.status).toBe(201);
-    // lms_test is shared across suites: other suites may have declared
-    // REQUIRED core_user fields (e.g. a select `department`), and user
-    // creation validates every required field — satisfy them generically.
+    // The api test DB persists across runs and is shared by this suite's
+    // specs: another spec may have declared REQUIRED core_user fields
+    // (e.g. a select `department`), and user creation validates every
+    // required field — satisfy them generically.
     const fieldsRes = await http(app).get('/api/v1/custom-fields/fields?component=core_user&area=user').set('Authorization', `Bearer ${admin}`);
     expect(fieldsRes.status).toBe(200);
     const requiredValues: Record<string, string> = {};

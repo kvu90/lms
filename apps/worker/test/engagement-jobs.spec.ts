@@ -22,8 +22,8 @@ import { WorkerModule } from '../src/worker.module';
  * badges/tests/behat criteria_cohort.feature, criteria_profile.feature,
  * award_badge.feature), calendar/tests/lib_test
  * test_add_subscription (ICS import result counts shape).
- * Users are raw-inserted with unique high ids to stay independent of the
- * API test suites sharing lms_test.
+ * Users are raw-inserted with unique high ids to stay independent of
+ * leftovers from previous runs of this suite in lms_test_worker.
  */
 describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
   let context: INestApplicationContext;

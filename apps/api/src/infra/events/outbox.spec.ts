@@ -15,7 +15,7 @@ import { EventsModule } from './events.module';
 import { OutboxRelayService } from './outbox-relay.service';
 import { OutboxService } from './outbox.service';
 
-describe('Transactional outbox (real DB, lms_test)', () => {
+describe('Transactional outbox (real DB, lms_test_api)', () => {
   let moduleRef: TestingModule;
   let db: Database;
   let outbox: OutboxService;
