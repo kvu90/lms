@@ -193,14 +193,14 @@ export function CoursePage() {
     }
   }
 
-  if (!loaded) return <main className="p-8">{t('courseLoading')}</main>;
+  if (!loaded) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('courseLoading')}</main>;
 
   const isEnrolledActive = enrolment?.enrolled === true && enrolment?.active === true;
 
   if (content) {
     const completionByCm = new Map((completion?.activities ?? []).map((a) => [a.cmId, a]));
     return (
-      <main className="mx-auto max-w-3xl space-y-6 p-8">
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
           <CardHeader>
             <CardTitle>{content.course.fullname}</CardTitle>
@@ -265,7 +265,7 @@ export function CoursePage() {
   const enrolOptions = instances.filter((i) => i.status === 0 && (i.enrol === 'self' || i.enrol === 'fee'));
   const headerCourse = course;
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
           <CardTitle>{headerCourse ? headerCourse.fullname : t('enrolPanelTitle')}</CardTitle>

@@ -33,7 +33,7 @@ export function SearchPage() {
     setSearched(true);
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('searchTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -95,7 +95,7 @@ export function TokensPage() {
     await reload();
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{tr('tokensTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -147,7 +147,7 @@ export function BackupPage() {
     await reload();
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('backupTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -180,7 +180,7 @@ export function InsightsPage() {
   const [insights, setInsights] = useState<InsightView[]>([]);
   useEffect(() => { void apiJson<InsightView[]>('/api/v1/analytics/insights/me').then(setInsights).catch(() => undefined); }, []);
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('insightsTitle')}</CardTitle></CardHeader>
         <CardContent>
@@ -222,7 +222,7 @@ export function ReportsPage() {
     await apiJson(`/api/v1/reports/${id}/schedules`, { method: 'POST', body: JSON.stringify({ cron: 'daily' }) });
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('reportsTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -281,7 +281,7 @@ export function ContentBankPage() {
     await reload();
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('contentBankTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -326,7 +326,7 @@ export function PrivacyPage() {
     await reload();
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-8">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader><CardTitle>{t('privacyTitle')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">

@@ -24,7 +24,7 @@ export function ProfilePage() {
     }
   }, [user]);
 
-  if (!user || !form) return <main className="p-8">{t('profileLoading')}</main>;
+  if (!user || !form) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('profileLoading')}</main>;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -43,7 +43,7 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <main className="@container/main flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
           <CardTitle>{t('profileTitle', { username: user.username })}</CardTitle>

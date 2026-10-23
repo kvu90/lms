@@ -93,7 +93,7 @@ export function MessagesPage() {
   }
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-6 p-8 md:grid-cols-3">
+    <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
           <CardTitle>{t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}</CardTitle>
