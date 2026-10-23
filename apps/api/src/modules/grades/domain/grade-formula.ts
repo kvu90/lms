@@ -12,8 +12,20 @@
  *  - Chia cho 0 cho kết quả null (không có điểm) thay vì lỗi/Infinity — khớp yêu cầu nghiệp vụ.
  *  - Điểm trống (null) truyền qua phép toán hai ngôi thành null; riêng các hàm
  *    sum/average/min/max BỎ QUA đối số trống, và chỉ cho null khi mọi đối số đều trống.
- *  - Hàm chưa hỗ trợ (power, round, mod, pi, if… của Moodle) bị từ chối ngay lúc phân tích
- *    cú pháp bằng lỗi rõ ràng — không âm thầm tính sai.
+ *  - power/mod/round truyền null như phép toán hai ngôi: một đối số trống là cả hàm cho null.
+ *    mod có mẫu số 0 cho null (cùng luật chia cho 0); mod giữ phần dư theo dấu của số bị chia
+ *    (ngữ nghĩa fmod — giữ phần thập phân, ví dụ mod(10.5, 3) = 1.5). power cho kết quả NaN
+ *    (cơ số âm, số mũ phân số) thì cho null thay vì lan truyền NaN.
+ *  - round dùng ngữ nghĩa PHP của Moodle: làm tròn nửa ra xa số 0 (round(2.5) = 3,
+ *    round(-2.5) = -3), tham số thứ hai là số chữ số thập phân (mặc định 0).
+ *  - if(điều kiện, đúng, sai) đánh giá LƯỜI: điều kiện trống → null; điều kiện khác 0 → nhánh
+ *    thứ hai, bằng 0 → nhánh thứ ba; nhánh không được chọn không được đánh giá.
+ *  - Toán tử so sánh (>, <, >=, <=, ==, !=) cho 1/0, là tầng ưu tiên thấp nhất và không
+ *    chuỗi được (a > b > c là lỗi cú pháp); một vế trống → null. Đây là cách viết điều kiện
+ *    chuẩn cho if theo ví dụ của MoodleDocs: `=if([[midtermexam]]>=5, [[midtermexam]]+[[lab]], 0)`.
+ *  - Các hàm Moodle ngoài tập lõi của sổ điểm (sin/cos/sqrt/ceil/floor/ln/log/exp… theo
+ *    MoodleDocs là "many other mathematical functions" của engine tính toán dùng chung)
+ *    vẫn bị từ chối ngay lúc phân tích cú pháp bằng lỗi rõ ràng — không âm thầm tính sai.
  */
 
 /** Lỗi công thức: `reason` phân biệt cú pháp sai, hàm lạ và tham chiếu vòng để tầng service ánh xạ sang mã lỗi i18n. */
@@ -28,8 +40,25 @@ export class GradeFormulaError extends Error {
 }
 
 /** Các hàm được hỗ trợ trong công thức tính điểm (đúng tập hàm lõi của tài liệu Moodle được yêu cầu). */
-export const FORMULA_FUNCTIONS = ['sum', 'average', 'min', 'max'] as const;
+export const FORMULA_FUNCTIONS = ['sum', 'average', 'min', 'max', 'power', 'round', 'mod', 'pi', 'if'] as const;
 export type FormulaFunction = (typeof FORMULA_FUNCTIONS)[number];
+
+/** Số đối số tối thiểu/tối đa của từng hàm — kiểm ngay lúc phân tích cú pháp (lỗi 'syntax' khi sai). */
+const FUNCTION_ARITY: Record<FormulaFunction, readonly [number, number]> = {
+  sum: [1, Number.POSITIVE_INFINITY],
+  average: [1, Number.POSITIVE_INFINITY],
+  min: [1, Number.POSITIVE_INFINITY],
+  max: [1, Number.POSITIVE_INFINITY],
+  power: [2, 2],
+  round: [1, 2],
+  mod: [2, 2],
+  pi: [0, 0],
+  if: [3, 3],
+};
+
+/** Toán tử so sánh được hỗ trợ (cho ra 1/0; viết điều kiện cho hàm if như ví dụ MoodleDocs). */
+export type ComparisonOp = '>' | '<' | '>=' | '<=' | '==' | '!=';
+const COMPARISON_OPS: readonly string[] = ['>', '<', '>=', '<=', '==', '!='];
 
 /** Nút cây cú pháp của công thức điểm. */
 export type FormulaNode =
@@ -37,6 +66,7 @@ export type FormulaNode =
   | { kind: 'reference'; idNumber: string }
   | { kind: 'negate'; operand: FormulaNode }
   | { kind: 'binary'; op: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
+  | { kind: 'comparison'; op: ComparisonOp; left: FormulaNode; right: FormulaNode }
   | { kind: 'call'; fn: FormulaFunction; args: FormulaNode[] };
 
 type Token =
@@ -76,6 +106,23 @@ function tokenize(input: string): Token[] {
       i += match[0].length;
       continue;
     }
+    if (ch === '>' || ch === '<' || ch === '=' || ch === '!') {
+      const two = input.slice(i, i + 2);
+      if (two === '>=' || two === '<=' || two === '==' || two === '!=') {
+        tokens.push({ type: 'op', value: two });
+        i += 2;
+        continue;
+      }
+      if (two === '<>') { // Moodle/EvalMath chấp nhận <> như !=.
+        tokens.push({ type: 'op', value: '!=' });
+        i += 2;
+        continue;
+      }
+      if (ch === '!') throw new GradeFormulaError('syntax', `Unexpected character '!' in grade calculation (did you mean '!='?)`);
+      tokens.push({ type: 'op', value: ch === '=' ? '==' : ch });
+      i += 1;
+      continue;
+    }
     if ('+-*/(),'.includes(ch)) {
       tokens.push({ type: 'op', value: ch });
       i += 1;
@@ -88,7 +135,9 @@ function tokenize(input: string): Token[] {
 
 /**
  * Phân tích công thức (có hoặc không có dấu `=` ở đầu) thành cây cú pháp bằng parser đệ quy:
- * expression → term ((+|-) term)* → factor ((*|/) factor)* → unary → primary.
+ * comparison → additive (comparisonOp additive)? → term ((+|-) term)* → factor ((*|/) factor)*
+ * → unary → primary. So sánh không chuỗi được: sau một phép so sánh, token so sánh thứ hai
+ * sẽ thành token thừa và bị từ chối.
  * Hàm lạ ném GradeFormulaError('unknown_function'); cú pháp sai ném ('syntax').
  */
 export function parseGradeFormula(formula: string): FormulaNode {
@@ -107,6 +156,15 @@ export function parseGradeFormula(formula: string): FormulaNode {
   };
 
   function parseExpression(): FormulaNode {
+    const left = parseAdditive();
+    const t = peek();
+    if (t?.type === 'op' && COMPARISON_OPS.includes(t.value)) {
+      next();
+      return { kind: 'comparison', op: t.value as ComparisonOp, left, right: parseAdditive() };
+    }
+    return left;
+  }
+  function parseAdditive(): FormulaNode {
     let left = parseTerm();
     while (isOp(peek(), '+', '-')) {
       const op = (next() as { type: 'op'; value: '+' | '-' }).value;
@@ -142,6 +200,9 @@ export function parseGradeFormula(formula: string): FormulaNode {
       if (!(FORMULA_FUNCTIONS as readonly string[]).includes(t.name)) {
         throw new GradeFormulaError('unknown_function', `Unsupported function '${t.name}' in grade calculation`);
       }
+      const fn = t.name as FormulaFunction;
+      // pi là hằng số của EvalMath: viết pi() hoặc pi trần đều cho cùng giá trị.
+      if (fn === 'pi' && !isOp(peek(), '(')) return { kind: 'number', value: Math.PI };
       expectOp('(');
       const args: FormulaNode[] = [];
       const closing = peek();
@@ -153,8 +214,12 @@ export function parseGradeFormula(formula: string): FormulaNode {
         }
       }
       expectOp(')');
-      if (!args.length) throw new GradeFormulaError('syntax', `Function '${t.name}' needs at least one argument`);
-      return { kind: 'call', fn: t.name as FormulaFunction, args };
+      const [minArgs, maxArgs] = FUNCTION_ARITY[fn];
+      if (args.length < minArgs || args.length > maxArgs) {
+        const want = minArgs === maxArgs ? `exactly ${minArgs}` : maxArgs === Number.POSITIVE_INFINITY ? `at least ${minArgs}` : `between ${minArgs} and ${maxArgs}`;
+        throw new GradeFormulaError('syntax', `Function '${fn}' takes ${want} argument(s), got ${args.length}`);
+      }
+      return { kind: 'call', fn, args };
     }
     throw new GradeFormulaError('syntax', 'Unexpected token in grade calculation');
   }
@@ -174,7 +239,7 @@ export function formulaReferences(node: FormulaNode): string[] {
     if (n.kind === 'reference') {
       if (!seen.has(n.idNumber)) { seen.add(n.idNumber); out.push(n.idNumber); }
     } else if (n.kind === 'negate') walk(n.operand);
-    else if (n.kind === 'binary') { walk(n.left); walk(n.right); }
+    else if (n.kind === 'binary' || n.kind === 'comparison') { walk(n.left); walk(n.right); }
     else if (n.kind === 'call') n.args.forEach(walk);
   };
   walk(node);
@@ -182,8 +247,20 @@ export function formulaReferences(node: FormulaNode): string[] {
 }
 
 /**
+ * Làm tròn theo ngữ nghĩa PHP (nửa ra xa số 0) như Moodle: round(2.5) = 3, round(-2.5) = -3.
+ * toPrecision(15) khử nhiễu nhị phân kiểu 2.675 * 100 = 267.49999… trước khi làm tròn,
+ * giống cách PHP tự sửa ở độ chính xác hiển thị của nó.
+ */
+function roundHalfAwayFromZero(value: number, digits: number): number {
+  const factor = 10 ** digits;
+  const scaled = Number((Math.abs(value) * factor).toPrecision(15));
+  return (Math.sign(value) * Math.round(scaled)) / factor;
+}
+
+/**
  * Đánh giá cây cú pháp với hàm tra điểm theo idNumber (null = chưa có điểm).
- * Chia cho 0 → null; phép toán hai ngôi có toán hạng null → null; hàm bỏ qua đối số null.
+ * Chia cho 0 → null; phép toán hai ngôi/so sánh có toán hạng null → null;
+ * hàm tổng hợp bỏ qua đối số null; power/mod/round truyền null; if đánh giá lười.
  */
 export function evaluateGradeFormula(node: FormulaNode, resolve: (idNumber: string) => number | null): number | null {
   switch (node.kind) {
@@ -202,10 +279,41 @@ export function evaluateGradeFormula(node: FormulaNode, resolve: (idNumber: stri
       if (node.op === '*') return l * r;
       return r === 0 ? null : l / r;
     }
+    case 'comparison': {
+      const l = evaluateGradeFormula(node.left, resolve);
+      const r = evaluateGradeFormula(node.right, resolve);
+      if (l === null || r === null) return null;
+      if (node.op === '>') return l > r ? 1 : 0;
+      if (node.op === '<') return l < r ? 1 : 0;
+      if (node.op === '>=') return l >= r ? 1 : 0;
+      if (node.op === '<=') return l <= r ? 1 : 0;
+      if (node.op === '==') return l === r ? 1 : 0;
+      return l !== r ? 1 : 0;
+    }
     case 'call': {
-      const values = node.args
-        .map((a) => evaluateGradeFormula(a, resolve))
-        .filter((v): v is number => v !== null);
+      if (node.fn === 'pi') return Math.PI;
+      if (node.fn === 'if') {
+        // LƯỜI như EvalMath của Moodle: chỉ đánh giá điều kiện và nhánh được chọn.
+        const cond = evaluateGradeFormula(node.args[0]!, resolve);
+        if (cond === null) return null;
+        return evaluateGradeFormula(cond !== 0 ? node.args[1]! : node.args[2]!, resolve);
+      }
+      const raw = node.args.map((a) => evaluateGradeFormula(a, resolve));
+      if (node.fn === 'power' || node.fn === 'mod' || node.fn === 'round') {
+        // Hàm vô hướng: truyền null như phép toán hai ngôi (không bỏ qua đối số trống).
+        if (raw.some((v) => v === null)) return null;
+        const [x, y] = raw as number[];
+        if (node.fn === 'power') {
+          const r = Math.pow(x!, y!);
+          return Number.isNaN(r) ? null : r;
+        }
+        if (node.fn === 'mod') {
+          if (y === 0) return null; // cùng luật chia cho 0
+          return x! % y!; // phần dư theo dấu số bị chia (fmod) — mod(10.5, 3) = 1.5
+        }
+        return roundHalfAwayFromZero(x!, raw.length > 1 ? Math.trunc(y!) : 0);
+      }
+      const values = raw.filter((v): v is number => v !== null);
       if (!values.length) return null;
       if (node.fn === 'sum') return values.reduce((s, v) => s + v, 0);
       if (node.fn === 'average') return values.reduce((s, v) => s + v, 0) / values.length;

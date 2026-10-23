@@ -396,13 +396,14 @@ describe('Grades & questions', () => {
       .send({ itemName: 'Bad ref', itemType: 'calculated', calculation: '=sum([[nope]])' });
     expect(unknown.status).toBe(400);
     expect(unknown.body.code).toBe('grades.calculation_unknown_idnumber');
-    // Cú pháp sai ⇒ 400; hàm chưa hỗ trợ (power của Moodle) ⇒ 400 với mã riêng.
+    // Cú pháp sai ⇒ 400; hàm không thuộc tập hỗ trợ ⇒ 400 với mã riêng.
+    // (power/round/mod/pi/if đã được hỗ trợ từ issue #24 — xem grades-export-import-flow.)
     const syntax = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Bad syntax', itemType: 'calculated', calculation: '=sum([[quiz1]],)' });
     expect(syntax.status).toBe(400);
     expect(syntax.body.code).toBe('grades.calculation_invalid');
     const fn = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
-      .send({ itemName: 'Bad fn', itemType: 'calculated', calculation: '=power([[quiz1]],2)' });
+      .send({ itemName: 'Bad fn', itemType: 'calculated', calculation: '=foo([[quiz1]],2)' });
     expect(fn.status).toBe(400);
     expect(fn.body.code).toBe('grades.calculation_unknown_function');
     // Tự tham chiếu ⇒ vòng ⇒ 400.
