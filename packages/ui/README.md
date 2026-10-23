@@ -47,4 +47,15 @@ của `components.json` và `src/styles/globals.css` trước khi commit.
   vì file CSS không còn nằm trong cây của app.
 - Các component dùng `import { cn } from "cn"` (package `cn`) thay
   cho `@/lib/utils` như bản gốc — hiện trạng có từ trước khi tách
-  package, giữ nguyên để không lẫn thay đổi vào đợt tách.
+  package, giữ nguyên để không lẫn thay đổi vào đợt tách. File
+  `src/lib/utils.ts` chỉ là shim `export { cn } from "cn"` do CLI tự
+  sinh khi áp preset, không chứa logic.
+- `vite.config.ts` rỗng + devDependency `vite`: shadcn CLI chỉ chạy
+  `init`/`apply` khi nhận diện được framework trong package.json —
+  hai dấu hiệu này giúp CLI làm việc ngay tại package thay vì phải
+  chạy từ app. Không ảnh hưởng bản build (app tự biên dịch package
+  qua exports).
+- `src/styles/globals.css`: khối `body { font-family: ui-sans-system
+  ... }` của CSS thời tiền-package (không phải hàng shadcn) đã bị xoá
+  khi áp preset Base Vega — khối đó không nằm trong layer nên thắng
+  cả `@apply font-sans` của preset và chặn font Inter.
