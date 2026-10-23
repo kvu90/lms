@@ -16,7 +16,7 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import { apiFetch, apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 
 /**
@@ -70,6 +70,25 @@ interface LetterDraft {
 }
 
 /**
+ * Một lỗi import CSV như API trả về (báo cáo của POST grades/import):
+ * dòng trên bảng tính (tiêu đề là dòng 1), cột gây lỗi và mã lỗi nghiệp vụ.
+ */
+interface GradeImportErrorView {
+  row: number;
+  column: string | null;
+  code: string;
+  message: string;
+}
+
+/** Báo cáo import CSV như API trả về: số ô đã nhập/bỏ qua, lỗi theo ô và các cột bị bỏ qua. */
+interface GradeImportResultView {
+  imported: number;
+  skipped: number;
+  errors: GradeImportErrorView[];
+  ignoredColumns: string[];
+}
+
+/**
  * Gradebook: category/item tree with the student's grades, letters at
  * display time, the teacher report (course totals per student) and a grade
  * entry form. All permission/hidden rules are enforced by the API; this page
@@ -108,6 +127,9 @@ export function GradebookPage() {
   const [adminItems, setAdminItems] = useState<GradeItem[]>([]);
   const [adminScales, setAdminScales] = useState<GradeScaleView[]>([]);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
+  const [importErrors, setImportErrors] = useState<GradeImportErrorView[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAggregation, setNewCatAggregation] = useState<string>('natural');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
@@ -377,6 +399,59 @@ export function GradebookPage() {
     }
   }
 
+  /**
+   * Tải bảng điểm CSV của khoá qua GET /courses/:courseId/grades/export
+   * (endpoint đòi đăng nhập nên fetch kèm token rồi tải blob như xuất lịch).
+   */
+  async function downloadGradesCsv() {
+    setAdminMessage(null);
+    try {
+      const response = await apiFetch(`/api/v1/courses/${courseId}/grades/export`);
+      if (!response.ok) throw new Error('export failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `grades-${courseId}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+      setAdminMessage(t('gradesExported'));
+    } catch {
+      setAdminMessage(t('gradesExportFailed'));
+    }
+  }
+
+  /**
+   * Nhập điểm từ tệp CSV đã chọn qua POST /courses/:courseId/grades/import
+   * (multipart, trường `file`); hiển thị bản tóm tắt của báo cáo import và
+   * từng lỗi theo dòng/cột, rồi tải lại sổ điểm và báo cáo lớp.
+   */
+  async function importGradesCsv(event: FormEvent) {
+    event.preventDefault();
+    if (!importFile) return;
+    setImportSummary(null);
+    setImportErrors([]);
+    try {
+      const form = new FormData();
+      form.append('file', importFile);
+      const response = await apiFetch(`/api/v1/courses/${courseId}/grades/import`, { method: 'POST', body: form });
+      if (!response.ok) throw new Error('import failed');
+      const result = (await response.json()) as GradeImportResultView;
+      setImportSummary(
+        t('gradesImportSummary', {
+          imported: result.imported,
+          skipped: result.skipped,
+          errors: result.errors.length,
+          ignored: result.ignoredColumns.length,
+        }),
+      );
+      setImportErrors(result.errors);
+      await reload().catch(() => undefined);
+    } catch {
+      setImportSummary(t('gradesImportFailed'));
+    }
+  }
+
   /** Tính lại điểm toàn khoá qua POST /courses/:courseId/grades/regrade (không body). */
   async function regradeCourse() {
     setAdminMessage(null);
@@ -558,6 +633,39 @@ export function GradebookPage() {
               <Button type="button" variant="outline" onClick={() => void regradeCourse()}>
                 {t('regrade')}
               </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => void downloadGradesCsv()}>
+                  {t('exportGradesCsv')}
+                </Button>
+              </div>
+              <form onSubmit={(e) => void importGradesCsv(e)} className="space-y-2">
+                <div>
+                  <Label htmlFor="grades-import-file">{t('importGradesCsvFile')}</Label>
+                  <Input
+                    id="grades-import-file"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                  />
+                </div>
+                <Button type="submit" variant="outline" disabled={!importFile}>
+                  {t('importGradesCsv')}
+                </Button>
+                {importSummary ? <p role="status">{importSummary}</p> : null}
+                {importErrors.length ? (
+                  <ul className="space-y-1 text-sm">
+                    {importErrors.map((err) => (
+                      <li key={`${err.row}-${err.column ?? ''}-${err.code}`}>
+                        {t('gradesImportErrorLine', {
+                          row: err.row,
+                          column: err.column ?? '—',
+                          message: err.message,
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </form>
               {adminMessage ? <p role="status">{adminMessage}</p> : null}
             </CardContent>
           </Card>

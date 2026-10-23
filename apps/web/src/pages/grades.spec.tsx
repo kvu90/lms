@@ -431,7 +431,11 @@ describe('Gradebook administration (teacher of the course)', () => {
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         const method = init?.method ?? 'GET';
-        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        calls.push({
+          url,
+          method,
+          body: typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body,
+        });
         const respond = (body: unknown, status = 200) =>
           new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
         if (url === '/api/v1/users/me') return respond(PROFILE);
@@ -508,6 +512,30 @@ describe('Gradebook administration (teacher of the course)', () => {
               description: '',
             });
           return respond([]);
+        }
+        if (url === `/api/v1/courses/${COURSE_ID}/grades/export`) {
+          return new Response('userId,username,Quiz 1\r\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/csv' },
+          });
+        }
+        if (url === `/api/v1/courses/${COURSE_ID}/grades/import` && method === 'POST') {
+          return respond(
+            {
+              imported: 3,
+              skipped: 1,
+              errors: [
+                {
+                  row: 4,
+                  column: 'username',
+                  code: 'grades.import_user_not_found',
+                  message: "No user with username 'ghost'",
+                },
+              ],
+              ignoredColumns: ['Course total'],
+            },
+            201,
+          );
         }
         if (url === HISTORY_URL) {
           return respond([
@@ -628,5 +656,49 @@ describe('Gradebook administration (teacher of the course)', () => {
 
     await waitFor(() => expect(calls.some((c) => c.url === HISTORY_URL && c.method === 'GET')).toBe(true));
     expect(await screen.findByText(/điểm cuối: 85/)).toBeInTheDocument();
+  });
+
+  it('downloads the course grades CSV via GET /courses/:courseId/grades/export', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    // jsdom không có URL.createObjectURL và click vào anchor blob sẽ đòi điều hướng — thay cả hai bằng bản ghi.
+    const createObjectURL = vi.fn(() => 'blob:grades');
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    renderAsTeacher();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Xuất điểm ra CSV' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/export` && c.method === 'GET')).toBe(true),
+    );
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalled();
+    expect(await screen.findByText('Đã tải tệp điểm CSV.')).toBeInTheDocument();
+    anchorClick.mockRestore();
+    Reflect.deleteProperty(URL, 'createObjectURL');
+    Reflect.deleteProperty(URL, 'revokeObjectURL');
+  });
+
+  it('imports grades from a chosen CSV file and shows the report (counts + per-row errors)', async () => {
+    const calls: RecordedCall[] = [];
+    stubTeacherFetch(calls);
+    renderAsTeacher();
+
+    const fileInput = await screen.findByLabelText(/Tệp CSV điểm/);
+    await userEvent.upload(fileInput, new File(['username,Quiz 1\nsv1,90\n'], 'grades.csv', { type: 'text/csv' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Nhập điểm từ CSV' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/import` && c.method === 'POST')).toBe(
+        true,
+      ),
+    );
+    const importCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/import` && c.method === 'POST');
+    // Tải lên là multipart: body phải là FormData mang trường file, không phải JSON.
+    expect(importCall?.body).toBeInstanceOf(FormData);
+    expect((importCall?.body as FormData).get('file')).toBeInstanceOf(File);
+    expect(await screen.findByText('Đã nhập 3 điểm, bỏ qua 1 ô trống, 1 lỗi, 1 cột bị bỏ qua.')).toBeInTheDocument();
+    expect(await screen.findByText("Dòng 4, cột username: No user with username 'ghost'")).toBeInTheDocument();
   });
 });
