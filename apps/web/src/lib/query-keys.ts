@@ -22,6 +22,8 @@ export const queryKeys = {
   myBadges: ['badges', 'mine'] as const,
   /** Thông báo của chính người dùng. */
   notifications: ['notifications'] as const,
+  /** Số thông báo chưa đọc của chính người dùng (huy hiệu trên chuông ở header). */
+  notificationUnreadCount: ['notifications', 'unread-count'] as const,
   /** Sự kiện lịch trong một khoảng ngày (ISO string đầu/cuối khoảng). */
   calendarEvents: (from: string, to: string) => ['calendar', 'events', from, to] as const,
 };

@@ -147,7 +147,7 @@ export const appResources = {
       navHealth: 'Trạng thái hệ thống',
       logout: 'Đăng xuất',
       signIn: 'Đăng nhập',
-      language: 'Ngôn ngữ',
+
       homeDescription:
         'LMS viết bằng TypeScript — tương đương nghiệp vụ lõi của Moodle. Frontend dùng backend REST/OpenAPI qua gói dùng chung @lms/contracts.',
       checkApiHealth: 'Kiểm tra trạng thái API',
@@ -619,6 +619,8 @@ export const appResources = {
       notificationsLoadFailed: 'Không tải được thông báo',
       notifications: 'Thông báo',
       markAllRead: 'Đánh dấu đã đọc tất cả',
+      viewAllNotifications: 'Xem tất cả thông báo',
+      notificationsLoading: 'Đang tải thông báo…',
       notificationsListLabel: 'Thông báo',
       readSuffix: 'đã đọc',
       unreadStateSuffix: 'chưa đọc',
@@ -881,7 +883,7 @@ export const appResources = {
       navHealth: 'Health',
       logout: 'Log out',
       signIn: 'Sign in',
-      language: 'Language',
+
       homeDescription:
         'TypeScript LMS — Moodle core business equivalent. Frontend consumes the REST/OpenAPI backend via the shared @lms/contracts package.',
       checkApiHealth: 'Check API health',
@@ -1355,6 +1357,8 @@ export const appResources = {
       notificationsLoadFailed: 'Could not load notifications',
       notifications: 'Notifications',
       markAllRead: 'Mark all read',
+      viewAllNotifications: 'View all notifications',
+      notificationsLoading: 'Loading notifications…',
       notificationsListLabel: 'Notifications',
       readSuffix: 'read',
       unreadStateSuffix: 'unread',
