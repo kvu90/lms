@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import compression from 'compression';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
@@ -29,6 +30,12 @@ async function bootstrap(): Promise<void> {
   });
   app.enableShutdownHooks();
 
+  // Nén gzip cho MỌI phản hồi (API JSON lẫn file tĩnh của web app) —
+  // đăng ký trước tầng file tĩnh để asset cũng được nén. Audit hiệu
+  // năng đo được bundle JS 1,7MB đi trên dây nguyên vẹn vì thiếu tầng
+  // này (gzip còn ~0,44MB).
+  app.use(compression());
+
   // Triển khai gộp một tiến trình (Heroku): khi WEB_DIST_DIR trỏ tới bản
   // build của web app, API phục vụ luôn các file tĩnh đó, và mọi GET
   // không thuộc /api được trả index.html để React Router tự điều hướng
@@ -36,9 +43,22 @@ async function bootstrap(): Promise<void> {
   // cũ, chỉ phục vụ /api.
   const webDistDir = config.get<string>('WEB_DIST_DIR');
   if (webDistDir && existsSync(join(webDistDir, 'index.html'))) {
-    app.useStaticAssets(webDistDir);
+    app.useStaticAssets(webDistDir, {
+      setHeaders: (res: Response, filePath: string) => {
+        // Tên file trong assets/ đã chứa hash nội dung: cache vĩnh viễn
+        // (immutable) để F5 không phải hỏi lại server từng asset. Vỏ
+        // index.html thì ngược lại — luôn kiểm tra lại (no-cache) để
+        // bản build mới có hiệu lực ngay.
+        if (filePath.includes(`${sep}assets${sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    });
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(join(webDistDir, 'index.html'), (err) => (err ? next(err) : undefined));
     });
   }
