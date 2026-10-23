@@ -26,7 +26,10 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms
+      # Both test suites (api and worker) run against lms_test — their
+      # vitest configs pin that database name — so every step in this
+      # job, the migration included, targets lms_test and nothing else.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms_test
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-secret-at-least-16-chars
     steps:
@@ -38,11 +41,15 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Create the lms database (lms_test comes from the service)
-        run: |
-          pnpm --filter @lms/api exec node -e "const {Client}=require('pg');(async()=>{const c=new Client({connectionString:'postgres://postgres:postgres@localhost:5432/postgres'});await c.connect();await c.query('CREATE DATABASE lms');await c.end();})()"
-      - name: Migrate from an empty database
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Migrate the test database from empty
         run: pnpm --filter @lms/api db:migrate
-      - name: Build, typecheck, lint, test
-        run: pnpm exec turbo run build typecheck lint test
+      - name: Build
+        run: pnpm exec turbo run build
+      - name: Typecheck
+        run: pnpm exec turbo run typecheck
+      - name: Lint
+        run: pnpm exec turbo run lint
+      - name: Test
+        run: pnpm exec turbo run test
