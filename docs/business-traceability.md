@@ -550,3 +550,36 @@ record is ADR-014 and operations live in `docs/operations-runbook.md`:
 |---|---|
 | Every response carries the standard security headers; versioned API routes also carry the strict CSP | `test/platform-hardening.e2e-spec.ts` |
 | Credential routes are throttled per IP: with the auth limit lowered to 3/minute, the 4th login attempt from one IP is a 429 Problem Details while other routes stay 200 | same file |
+
+## Addendum — Standard question types & shared stimulus (2026-10-23)
+
+Storage and grading follow the standard Moodle qtypes; the stimulus model
+(shared reading material referenced by question versions) is ported from
+the giaokhoa question bank design and has no Moodle counterpart.
+Oracle sources were read from Moodle main on 2026-10-23 (tree under
+`public/`): `question/type/<qtype>/question.php` + the PHPUnit suites
+below, and `question/engine/states.php` for graded-state thresholds.
+
+| # | Behaviour | Oracle (file / case) | Our test | Status |
+|---|-----------|----------------------|----------|--------|
+| Q1 | Multichoice single: grade = the chosen answer's fraction; state from fraction thresholds | `question/type/multichoice/question.php::grade_response` (single) + `tests/question_single_test.php`; `question/engine/states.php::graded_state_for_fraction` | `src/modules/questions/domain/question-engine.spec.ts` › multichoice single + `test/question-types-stimulus-flow.e2e-spec.ts` › multichoice single flow | ✅ |
+| Q2 | Multichoice multiple: fractions of selected answers sum, clamped to [0, 1]; fixture A 0.5 / B -1 / C 0.5 / D -1: A+C ⇒ 1 right, A ⇒ 0.5 partial, A+B+C ⇒ 0 wrong, B ⇒ 0 wrong | `question/type/multichoice/tests/question_multi_test.php::test_grade_response` + fixture `test_question_maker::make_a_multichoice_multi_question` (question/engine/tests/helpers.php) | question-engine.spec › multichoice multiple + e2e › multichoice multiple flow (same fixture) | ✅ |
+| Q3 | Multichoice creation rule: positive fractions must add up to 100%; fewer than two choices refused | multichoice edit-form validation semantics (`qtype_multichoice` form: total positive grade = 100%) | e2e › multichoice validation | ✅ |
+| Q4 | Truefalse: fraction 1 iff the response matches the correct side (the answer row carrying fraction 1 via question_truefalse) | `question/type/truefalse/question.php::grade_response` + `tests/question_test.php` | question-engine.spec › truefalse + e2e › stimulus cluster + INVARIANT flow (grades-questions-flow) | ✅ |
+| Q5 | Shortanswer wildcard compare: `*` matches any run, `\*` is a literal star, surrounding whitespace is trimmed, case follows usecase | `question/type/shortanswer/tests/question_test.php::test_compare_string_with_wildcard` (verbatim cases) | question-engine.spec › wildcard compare + grading | ✅ |
+| Q6 | Shortanswer grading: the FIRST matching answer in stored order decides the fraction (not the best one) | `question_first_matching_answer_grading_strategy` (question/type/questionbase.php) + `question/type/tests/question_first_matching_answer_grading_strategy_test.php` | question-engine.spec › first matching wins + e2e › shortanswer flow (frog 0.5 before frog 1) | ✅ |
+| Q7 | Shortanswer usecase option: case-sensitive when on; legacy payload {answers, casesensitive} maps onto answers + usecase | `question/type/shortanswer/question.php` (usecase) + `qtype_shortanswer_options` (install.xml) | e2e › shortanswer usecase flow | ✅ |
+| Q8 | Essay: no automatic grading — a finished attempt lands in needsgrading with a null fraction; graderinfo/responsetemplate live in qtype_essay_options | `question/type/essay/question.php` (no grade_response; manual grading) + `qtype_essay_options` (install.xml) | question-engine.spec › essay + e2e › essay flow | ✅ |
+| Q9 | Absolute mark is fixed when the question is placed: slot maxmark wins, defaultmark is the fallback; fraction is only the in-question ratio | `question/engine/questionattempt.php` (maxmark / get_mark semantics) | e2e › multichoice single flow (maxmark 5 vs fallback 1) | ✅ |
+| Q10 | Answers/options are stored per version in question_answers + per-type option tables; editing clones or replaces them on the NEW version only, so a pinned attempt keeps grading by its own version | Moodle storage layout: `lib/db/install.xml` + `question/type/*/db/install.xml` (question_answers, qtype_*_options) + bank versioning rows 62/63 above | e2e › clone-on-edit flow + grades-questions-flow › versioning (v1 rows intact in DB) + INVARIANT | ✅ |
+| Q11 | Stimulus: independent entity scoped to a question category; a version references it via stimulusid; once referenced it is immutable (edit/delete refused with `stimulus_in_use`); attaching across categories refused | giaokhoa model (packages/database questions schema + repositories: stimulus_in_use, owned/shared stimulus, snapshot at exam level) — LMS form: sharing by category/context per the question bank, immutability replaces snapshotting because attempts pin version → stimulus | e2e › stimulus lifecycle + category-scope flows | ✅ |
+| Q12 | A giaokhoa-style true/false cluster is expressed the standard way: ONE stimulus + several single truefalse questions sharing it, each graded independently | Design record (question-forms-and-stimulus-port-direction.md §1/§3): the bundle form yields to standard qtypes | e2e › stimulus cluster flow | ✅ |
+| Q13 | Rich text content is a Tiptap document (text-only slice at this stage); plain strings normalise to a one-paragraph document; documents with nodes outside the slice (image) are refused by the contract | giaokhoa content contract (packages/shared questions content.ts) + the LMS rich-text design record §4c | `packages/contracts/src/contracts.spec.ts` › rich text + e2e › rich text flow | ✅ |
+
+Not yet mapped (recorded, not silently dropped): essay word-limit
+response validation at submit time (Moodle treats an under-limit response
+as incomplete — our deferred behaviour currently marks any non-empty
+response complete; the limits are stored and validated for consistency at
+question creation), multichoice combined-feedback display and answer
+statistics (display-layer concerns), and question_hints (not part of the
+four standard types' storage in this round).
