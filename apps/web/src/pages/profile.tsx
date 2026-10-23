@@ -84,3 +84,6 @@ export function ProfilePage() {
     </main>
   );
 }
+
+/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
+export default ProfilePage;

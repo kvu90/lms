@@ -339,3 +339,6 @@ export function CoursePage() {
     </main>
   );
 }
+
+/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
+export default CoursePage;

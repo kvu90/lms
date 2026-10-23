@@ -71,3 +71,6 @@ export function HealthPage() {
     </main>
   );
 }
+
+/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
+export default HealthPage;
