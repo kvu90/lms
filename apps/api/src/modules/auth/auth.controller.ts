@@ -63,6 +63,14 @@ export class AuthController {
   }
 
   // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
+  @Get('mfa/status')
+  /**
+   * GET /auth/mfa/status — trạng thái MFA TOTP của chính user (đã bật hay chưa) để giao diện hồ sơ hiển thị đúng; không lộ secret.
+   */
+  async mfaStatus(@CurrentUser() actor: AuthenticatedUser) {
+    return { enabled: await this.auth.isMfaEnabled(actor.id) };
+  }
+
   @Post('mfa/totp/setup')
   /**
    * POST /auth/mfa/totp/setup — khởi tạo secret TOTP chờ xác nhận; secret + otpauth URL chỉ trả ở bước này.

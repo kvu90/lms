@@ -156,6 +156,12 @@ export class AuthService {
 
   // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
   /**
+   * User đã bật MFA TOTP hay chưa (đã có secret được confirm) — trạng
+   * thái duy nhất giao diện hồ sơ cần để hiện mục xác thực hai lớp.
+   */
+  async isMfaEnabled(userId: string): Promise<boolean> { return this.totp.isEnabled(userId); }
+
+  /**
    * Khởi tạo MFA TOTP cho chính user (chỉ trả secret ở bước này).
    */
   async setupTotp(user: UserRow): Promise<{ secret: string; otpauthUrl: string }> {
