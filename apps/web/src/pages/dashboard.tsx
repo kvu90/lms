@@ -192,7 +192,7 @@ function AdminSection() {
       <SectionHeading title={t('dashboard:adminSection')} />
       <SectionCards cards={cards} />
       {usersQuery.isPending ? (
-        <Skeleton className="mx-4 h-[388px] lg:mx-6" />
+        <Skeleton className="mx-4 h-97 lg:mx-6" />
       ) : (
         <ChartAreaInteractive
           title={t('dashboard:chartAdminTitle')}
@@ -203,7 +203,7 @@ function AdminSection() {
         />
       )}
       {usersQuery.isPending ? (
-        <Skeleton className="mx-4 h-[300px] lg:mx-6" />
+        <Skeleton className="mx-4 h-75 lg:mx-6" />
       ) : users ? (
         <DataTable
           title={t('dashboard:tableUsersTitle')}
@@ -303,11 +303,11 @@ function TeacherSection() {
       header: t('colActions'),
       cell: (c) => (
         <span className="flex gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/courses/${c.course.id}/grades`}>{t('viewGradebook')}</Link>
+          <Button size="sm" variant="outline" render={<Link to={`/courses/${c.course.id}/grades`} />}>
+            {t('viewGradebook')}
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/courses/${c.course.id}/admin`}>{t('manageCourse')}</Link>
+          <Button size="sm" variant="outline" render={<Link to={`/courses/${c.course.id}/admin`} />}>
+            {t('manageCourse')}
           </Button>
         </span>
       ),
@@ -468,11 +468,11 @@ function StudentSection() {
       header: t('colActions'),
       cell: (c) => (
         <span className="flex gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/courses/${c.course.id}`}>{t('openCourse')}</Link>
+          <Button size="sm" variant="outline" render={<Link to={`/courses/${c.course.id}`} />}>
+            {t('openCourse')}
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/courses/${c.course.id}/grades`}>{t('viewGradebook')}</Link>
+          <Button size="sm" variant="outline" render={<Link to={`/courses/${c.course.id}/grades`} />}>
+            {t('viewGradebook')}
           </Button>
         </span>
       ),
@@ -552,9 +552,7 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-4">
               <p className="text-muted-foreground text-sm">{t('dashboard:noBlocksBody')}</p>
-              <Button asChild>
-                <Link to="/courses">{t('dashboard:browseCourses')}</Link>
-              </Button>
+              <Button render={<Link to="/courses" />}>{t('dashboard:browseCourses')}</Button>
             </CardContent>
           </Card>
         </div>

@@ -50,7 +50,7 @@ export function AdminUsersPage() {
             <Input aria-label={t('searchUsers')} placeholder={t('searchUsersPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
             <Button type="button" onClick={() => void load()}>{t('search')}</Button>
           </div>
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <ul className="divide-y">
             {data?.users.map((u) => (
               <li key={u.id} className="flex items-center justify-between py-2">

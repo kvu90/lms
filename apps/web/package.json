@@ -37,6 +37,7 @@
     "@eslint/js": "^10.0.1",
     "@lms/config": "workspace:*",
     "@react-router/dev": "^8.5.0",
+    "@shadcn/lint": "^0.2.3",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",

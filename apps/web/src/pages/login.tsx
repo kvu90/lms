@@ -49,7 +49,7 @@ export function LoginPage() {
               <Label htmlFor="password">{t('password')}</Label>
               <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
-            {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={busy} className="w-full">{busy ? t('signingIn') : t('signIn')}</Button>
           </form>
         </CardContent>

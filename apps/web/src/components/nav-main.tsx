@@ -44,11 +44,9 @@ export function NavMain({
                 : pathname === item.url || pathname.startsWith(`${item.url}/`)
             return (
               <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
-                  <Link to={item.url}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                  </Link>
+                <SidebarMenuButton render={<Link to={item.url} />} tooltip={item.title} isActive={isActive}>
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )

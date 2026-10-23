@@ -70,9 +70,9 @@ export function ChartAreaInteractive({
           {ranges && ranges.length > 1 ? (
             <CardAction>
               <ToggleGroup
-                type="single"
-                value={activeRange?.value}
-                onValueChange={(v) => {
+                value={activeRange ? [activeRange.value] : []}
+                onValueChange={(values) => {
+                  const v = values[values.length - 1]
                   if (v) setRange(v)
                 }}
                 variant="outline"
@@ -91,7 +91,7 @@ export function ChartAreaInteractive({
           {visible.length === 0 ? (
             <p className="text-muted-foreground py-10 text-center text-sm">{emptyText}</p>
           ) : (
-            <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
+            <ChartContainer config={config} className="aspect-auto h-62.5 w-full">
               <AreaChart data={visible}>
                 <defs>
                   <linearGradient id="dashboardChartFill" x1="0" y1="0" x2="0" y2="1">

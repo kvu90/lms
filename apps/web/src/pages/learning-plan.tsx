@@ -366,7 +366,7 @@ function CompetencyAdmin() {
               <>
                 <ul className="space-y-1" aria-label={t('compCompetenciesTitle')}>
                   {competencies.map((c) => (
-                    <li key={c.id} className="text-sm" style={{ paddingLeft: `${Math.max(0, (c.depth ?? 1) - 1) * 16}px` }}>
+                    <li key={c.id} className={`text-sm ${COMPETENCY_INDENT[Math.min(Math.max(0, (c.depth ?? 1) - 1), 5)]}`}>
                       <span className="font-medium">{c.shortname}</span>{c.description ? <span> — {c.description}</span> : null}
                     </li>
                   ))}
@@ -594,4 +594,7 @@ export function LearningPlanPage() {
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default LearningPlanPage;
+export default LearningPlanPage;/** Thụt lề theo độ sâu cây năng lực: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
+const COMPETENCY_INDENT = ['pl-0', 'pl-4', 'pl-8', 'pl-12', 'pl-16', 'pl-20'];
+
+

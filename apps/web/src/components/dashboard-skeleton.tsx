@@ -14,13 +14,13 @@ export function DashboardSkeleton() {
       <Skeleton className="mx-4 h-8 w-72 lg:mx-6" />
       <Skeleton className="mx-4 h-7 w-48 lg:mx-6" />
       <div className="grid grid-cols-1 gap-4 px-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 lg:px-6">
-        <Skeleton className="h-[158px]" />
-        <Skeleton className="h-[158px]" />
-        <Skeleton className="h-[158px]" />
-        <Skeleton className="h-[158px]" />
+        <Skeleton className="h-39.5" />
+        <Skeleton className="h-39.5" />
+        <Skeleton className="h-39.5" />
+        <Skeleton className="h-39.5" />
       </div>
-      <Skeleton className="mx-4 h-[388px] lg:mx-6" />
-      <Skeleton className="mx-4 h-[300px] lg:mx-6" />
+      <Skeleton className="mx-4 h-97 lg:mx-6" />
+      <Skeleton className="mx-4 h-75 lg:mx-6" />
     </main>
   );
 }

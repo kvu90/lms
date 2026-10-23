@@ -93,7 +93,7 @@ export function MessagesPage() {
   }
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-6 p-8 md:grid-cols-[1fr_2fr]">
+    <main className="mx-auto grid max-w-5xl gap-6 p-8 md:grid-cols-3">
       <Card>
         <CardHeader>
           <CardTitle>{t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}</CardTitle>
@@ -129,7 +129,7 @@ export function MessagesPage() {
           </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="md:col-span-2">
         <CardHeader><CardTitle>{active ? (active.name ?? t('conversationFallback')) : t('selectConversation')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {active ? (

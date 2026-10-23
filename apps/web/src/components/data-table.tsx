@@ -148,12 +148,10 @@ export function DataTable<T extends Record<string, any>>({
       <div className="flex items-center justify-between">
         {title ? <h3 className="text-base font-semibold">{title}</h3> : <span />}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <IconLayoutColumns />
-              <span className="hidden lg:inline">{labels.columns}</span>
-              <IconChevronDown />
-            </Button>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+            <IconLayoutColumns />
+            <span className="hidden lg:inline">{labels.columns}</span>
+            <IconChevronDown />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {table

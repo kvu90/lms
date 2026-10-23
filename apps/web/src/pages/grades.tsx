@@ -366,7 +366,7 @@ export function GradebookPage() {
 
   function renderCategory(view: GradebookCategoryView, depth: number) {
     return (
-      <div key={view.category.id} style={{ marginLeft: depth * 16 }}>
+      <div key={view.category.id} className={CATEGORY_INDENT[Math.min(depth, 5)]}>
         <h3 className="font-medium">
           {view.category.fullname || t('gradeCourseFallback')} <span className="text-sm text-muted-foreground">({view.category.aggregation})</span>
           {view.total?.grade?.finalgrade !== null && view.total?.grade
@@ -701,4 +701,7 @@ export function GradebookPage() {
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default GradebookPage;
+export default GradebookPage;/** Thụt lề theo độ sâu cây hạng mục điểm: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
+const CATEGORY_INDENT = ['ml-0', 'ml-4', 'ml-8', 'ml-12', 'ml-16', 'ml-20'];
+
+
