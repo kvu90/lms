@@ -165,8 +165,11 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
 
   it('MFA TOTP: setup → confirm → login stops at MFA → verify admits; disable returns to direct login (tool_mfa factor_totp)', async () => {
     const user = await createUserViaApi(app, admin);
-    // Chưa bật MFA: đăng nhập thẳng như cũ.
+    // Chưa bật MFA: đăng nhập thẳng như cũ, và trạng thái MFA báo chưa bật.
     const plain = await login(app, user.username, STRONG_PASSWORD);
+    const statusOff = await http(app).get('/api/v1/auth/mfa/status').set('Authorization', `Bearer ${plain.accessToken}`);
+    expect(statusOff.status).toBe(200);
+    expect(statusOff.body).toEqual({ enabled: false });
 
     // Setup: secret + otpauth URL chỉ lộ ở bước này.
     const setup = await http(app).post('/api/v1/auth/mfa/totp/setup').set('Authorization', `Bearer ${plain.accessToken}`);
@@ -181,10 +184,15 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
       .set('Authorization', `Bearer ${plain.accessToken}`).send({ code: await wrongTotpCode(secret) });
     expect(badConfirm.status).toBe(401);
     expect(badConfirm.body.code).toBe('auth.mfa_invalid_code');
+    // Setup chưa confirm thì trạng thái vẫn là chưa bật.
+    const statusPending = await http(app).get('/api/v1/auth/mfa/status').set('Authorization', `Bearer ${plain.accessToken}`);
+    expect(statusPending.body).toEqual({ enabled: false });
     const confirm = await http(app).post('/api/v1/auth/mfa/totp/confirm')
       .set('Authorization', `Bearer ${plain.accessToken}`).send({ code: await currentTotpCode(secret) });
     expect(confirm.status).toBe(201);
     expect(confirm.body.mfaEnabled).toBe(true);
+    const statusOn = await http(app).get('/api/v1/auth/mfa/status').set('Authorization', `Bearer ${plain.accessToken}`);
+    expect(statusOn.body).toEqual({ enabled: true });
 
     // Đăng nhập đúng mật khẩu nhưng bị chặn ở bước MFA: không có cặp token.
     const blocked = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
@@ -218,6 +226,8 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
       .set('Authorization', `Bearer ${verified.body.accessToken}`).send({ code: await currentTotpCode(secret) });
     expect(disable.status).toBe(201);
     expect(disable.body.mfaEnabled).toBe(false);
+    const statusAfterDisable = await http(app).get('/api/v1/auth/mfa/status').set('Authorization', `Bearer ${verified.body.accessToken}`);
+    expect(statusAfterDisable.body).toEqual({ enabled: false });
     const direct = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
     expect(direct.status).toBe(201);
     expect(direct.body.mfaRequired).toBeUndefined();
