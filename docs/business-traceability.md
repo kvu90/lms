@@ -583,3 +583,39 @@ response complete; the limits are stored and validated for consistency at
 question creation), multichoice combined-feedback display and answer
 statistics (display-layer concerns), and question_hints (not part of the
 four standard types' storage in this round).
+
+## Addendum — Social login (auth_oauth2), MFA on the session flow, my sessions (report_usersessions) (2026-10-23)
+
+Oracle sources were read from Moodle main on 2026-10-23 (tree under
+`public/`): `auth/oauth2/tests/auth_test.php`,
+`auth/oauth2/classes/api.php` (linked_login records,
+`create_new_confirmed_account`, `match_username_to_user`),
+`admin/tool/mfa` factor_totp semantics, and
+`report/usersessions/locallib.php` + `tests/lib_test.php`. The provider
+side of OAuth is mocked at its HTTP boundary in tests (a local server
+stands in for the token/userinfo endpoints via the `OAUTH_*_URL` env
+overrides); every step inside this system runs for real. Two recorded
+divergences from Moodle, both deliberate: (1) account matching on
+callback is direct on a provider-verified email — Moodle additionally
+routes first-time links to an existing account through a confirmation
+email; the provider-verified email is treated as the ownership proof
+here. (2) Client id/secret live only in environment variables, never in
+site settings, because the site-config API returns stored values to
+admins.
+
+| # | Behaviour | Oracle (file / case) | Our test | Status |
+|---|-----------|----------------------|----------|--------|
+| A1 | Only configured+enabled issuers are offered for sign-in; an unconfigured issuer reports disabled and its authorize endpoint refuses | `auth/oauth2` issuer model (`core\oauth2\api::get_all_issuers`, issuer `enabled` + login-only flags) + settings behaviour "issuer shows on the login page only when enabled" | `test/auth-social-sessions-flow.e2e-spec.ts` › providers enabled + "with no OAuth env configured, providers report disabled and authorize is refused" | ✅ |
+| A2 | Authorization-code callback with a new verified email creates a confirmed account with no usable password, records the linked login, and completes sign-in through the existing session/token mechanisms | `auth/oauth2/tests/auth_test.php::test_oauth2_complete_login` + `auth_oauth2\api::create_new_confirmed_account` | e2e › google login creates account/link/session; handoff code is single-use (`auth.oauth_handoff_invalid` on replay); repeat login follows the existing link | ✅ |
+| A3 | Callback matching an existing account by verified email links the provider account to it instead of creating a duplicate | `auth_oauth2\api::match_username_to_user` + linked_login uniqueness (one link per issuer per user, one user per provider subject) | e2e › google login matches an existing account by verified email | ✅ |
+| A4 | A provider profile without a verified email is refused and creates nothing | auth_oauth2 field mapping + verified-email requirement for account matching/creation | e2e › unverified google email refused (`auth.oauth_email_unverified`), user search stays empty | ✅ |
+| A5 | A signed-in user can link an additional provider account and unlink it; unlinking is refused when it is the only sign-in method of a password-less account; other users' links are invisible (404) | `auth/oauth2/linkedlogins.php` + `auth_oauth2\api::get_linked_logins/delete_linked_login` (page "Linked logins") | e2e › facebook link/unlink + `auth.last_login_method` guard + foreign link 404 | ✅ |
+| A6 | A confirmed TOTP factor blocks the session-cookie login exactly like the token login: no session and no cookie until the session-flow challenge is verified; challenges are not interchangeable between flows | `tool_mfa` factor_totp semantics (the factor must be satisfied before login completes) — the session route previously bypassed MFA entirely | e2e › MFA session-cookie challenge (no cookie/session at step one, cross-flow challenge rejected both ways, wrong code feeds the shared lockout path via the common challenge core) | ✅ |
+| A7 | A user lists their own active sessions (web sessions + API token families) with device/IP/last-activity and the current session marked; they can revoke one other session or all other sessions, never the current one through this route, and never another user's session | `report/usersessions` (locallib.php session table + delete actions; `tests/lib_test.php` my-profile navigation cases) | e2e › my sessions list/current marking, single web + API revocation (refresh dies with its family), `auth.cannot_revoke_current_session`, foreign session 404, bulk revoke keeps only the current session | ✅ |
+
+Not yet mapped (recorded, not silently dropped): MFA challenge on the
+OAuth completion path (Moodle's tool_mfa also intercepts external-auth
+logins; the handoff currently completes sign-in directly — flagged as a
+follow-up decision), provider account-linking via confirmation email for
+first-time links to existing accounts (see divergence 1 above), and
+admin-side issuer CRUD UI (issuers are env-configured by design here).
