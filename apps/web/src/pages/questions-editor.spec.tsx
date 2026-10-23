@@ -226,6 +226,9 @@ describe('Question editor — four qtypes', () => {
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Bài luận');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Hãy phân tích bài thơ.');
     await userEvent.selectOptions(questionForm().getByLabelText('Định dạng trả lời'), 'plain');
+    await userEvent.click(questionForm().getByLabelText('Bài trả lời bắt buộc'));
+    await userEvent.clear(questionForm().getByLabelText('Số dòng của trường trả lời'));
+    await userEvent.type(questionForm().getByLabelText('Số dòng của trường trả lời'), '12');
     await userEvent.type(questionForm().getByLabelText('Số từ tối thiểu'), '50');
     await userEvent.type(questionForm().getByLabelText('Số từ tối đa'), '500');
     await userEvent.type(questionForm().getByLabelText('Thông tin cho người chấm (grader info)'), 'Chấm theo thang 10.');
@@ -241,6 +244,8 @@ describe('Question editor — four qtypes', () => {
       questionText: 'Hãy phân tích bài thơ.',
       options: {
         responseFormat: 'plain',
+        responseRequired: false,
+        responseFieldLines: 12,
         minWordLimit: 50,
         maxWordLimit: 500,
         graderInfo: 'Chấm theo thang 10.',
@@ -277,10 +282,113 @@ describe('Question editor — four qtypes', () => {
         { text: 'Hà Nội (thủ đô)', fraction: 1 },
         { text: 'Huế', fraction: 0 },
       ],
-      options: { single: true },
+      options: {
+        single: true,
+        shuffleAnswers: false,
+        answerNumbering: 'abc',
+        showNumCorrect: false,
+        showStandardInstruction: true,
+      },
       stimulusId: null,
     });
     expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu thành phiên bản 2');
+  });
+
+  it('preserves non-default multichoice options and feedback documents when editing', async () => {
+    const calls: RecordedCall[] = [];
+    const correctFeedback = doc('Phản hồi khi đúng hoàn toàn');
+    const partiallyCorrectFeedback = doc('Phản hồi khi đúng một phần');
+    const incorrectFeedback = doc('Phản hồi khi sai');
+    stubFetch(calls, [
+      multichoiceView({
+        options: {
+          single: false,
+          shuffleAnswers: true,
+          answerNumbering: '123',
+          showNumCorrect: true,
+          showStandardInstruction: false,
+          correctFeedback,
+          partiallyCorrectFeedback,
+          incorrectFeedback,
+        },
+      }),
+    ]);
+    renderBank();
+
+    const row = await screen.findByTestId(`question-${QUESTION_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH')).toBe(true),
+    );
+    const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
+    expect(patchCall?.body).toEqual({
+      name: 'Thủ đô',
+      questionText: 'Thủ đô của Việt Nam là gì?',
+      answers: [
+        { text: 'Hà Nội', fraction: 1 },
+        { text: 'Huế', fraction: 0 },
+      ],
+      options: {
+        single: false,
+        shuffleAnswers: true,
+        answerNumbering: '123',
+        showNumCorrect: true,
+        showStandardInstruction: false,
+        correctFeedback,
+        partiallyCorrectFeedback,
+        incorrectFeedback,
+      },
+      stimulusId: null,
+    });
+  });
+
+  it('preserves non-default essay response options when editing', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, [
+      multichoiceView({
+        question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'essay', name: 'Bài luận' },
+        answers: [],
+        options: {
+          responseFormat: 'editor',
+          responseRequired: false,
+          responseFieldLines: 7,
+          minWordLimit: 20,
+          maxWordLimit: 200,
+          graderInfo: doc('Chấm theo rubric.'),
+          responseTemplate: doc('Mở bài mẫu.'),
+        },
+      }),
+    ]);
+    renderBank();
+
+    const row = await screen.findByTestId(`question-${QUESTION_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
+
+    const editForm = questionForm('Lưu thành phiên bản mới');
+    expect(editForm.getByLabelText('Bài trả lời bắt buộc')).not.toBeChecked();
+    expect(editForm.getByLabelText('Số dòng của trường trả lời')).toHaveValue(7);
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH')).toBe(true),
+    );
+    const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
+    expect(patchCall?.body).toEqual({
+      name: 'Bài luận',
+      questionText: 'Thủ đô của Việt Nam là gì?',
+      options: {
+        responseFormat: 'editor',
+        responseRequired: false,
+        responseFieldLines: 7,
+        minWordLimit: 20,
+        maxWordLimit: 200,
+        graderInfo: 'Chấm theo rubric.',
+        responseTemplate: 'Mở bài mẫu.',
+      },
+      stimulusId: null,
+    });
   });
 });
 

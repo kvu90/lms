@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
@@ -46,11 +46,21 @@ interface QuestionFormState {
   questionText: string;
   stimulusId: string;
   mcSingle: boolean;
+  mcShuffleAnswers: boolean;
+  mcAnswerNumbering: string;
+  mcShowNumCorrect: boolean;
+  mcShowStandardInstruction: boolean;
+  mcCorrectFeedback: RichTextDocument | undefined;
+  mcPartiallyCorrectFeedback: RichTextDocument | undefined;
+  mcIncorrectFeedback: RichTextDocument | undefined;
   mcChoices: AnswerDraft[];
   tfCorrect: boolean;
+  tfShowStandardInstruction: boolean;
   saUseCase: boolean;
   saAnswers: AnswerDraft[];
   essayResponseFormat: string;
+  essayResponseRequired: boolean;
+  essayResponseFieldLines: string;
   essayMinWords: string;
   essayMaxWords: string;
   essayGraderInfo: string;
@@ -68,14 +78,24 @@ function emptyForm(qtype: Qtype): QuestionFormState {
     questionText: '',
     stimulusId: '',
     mcSingle: true,
+    mcShuffleAnswers: false,
+    mcAnswerNumbering: 'abc',
+    mcShowNumCorrect: false,
+    mcShowStandardInstruction: true,
+    mcCorrectFeedback: undefined,
+    mcPartiallyCorrectFeedback: undefined,
+    mcIncorrectFeedback: undefined,
     mcChoices: [
       { text: '', fraction: '1' },
       { text: '', fraction: '0' },
     ],
     tfCorrect: true,
+    tfShowStandardInstruction: true,
     saUseCase: false,
     saAnswers: [{ text: '', fraction: '1' }],
     essayResponseFormat: 'editor',
+    essayResponseRequired: true,
+    essayResponseFieldLines: '15',
     essayMinWords: '',
     essayMaxWords: '',
     essayGraderInfo: '',
@@ -83,13 +103,54 @@ function emptyForm(qtype: Qtype): QuestionFormState {
   };
 }
 
+type OptionsRecord = Record<string, unknown>;
+
+/** Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form sẽ tìm thêm ở endpoint versions. */
+const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
+  multichoice: [
+    'single',
+    'shuffleAnswers',
+    'answerNumbering',
+    'showNumCorrect',
+    'showStandardInstruction',
+    'correctFeedback',
+    'partiallyCorrectFeedback',
+    'incorrectFeedback',
+  ],
+  truefalse: ['showStandardInstruction'],
+  shortanswer: ['useCase'],
+  essay: [
+    'responseFormat',
+    'responseRequired',
+    'responseFieldLines',
+    'minWordLimit',
+    'maxWordLimit',
+    'graderInfo',
+    'responseTemplate',
+  ],
+};
+
+function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | undefined): boolean {
+  if (!options) return false;
+  return OPTION_KEYS_BY_QTYPE[qtype].every(
+    (key) => Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined,
+  );
+}
+
+function richTextDocument(value: unknown): RichTextDocument | undefined {
+  return value !== null && typeof value === 'object' ? (value as RichTextDocument) : undefined;
+}
+
 /** Nạp một câu hỏi có sẵn vào editor: đáp án/options lấy từ view của phiên bản mới nhất. */
-function formFromView(view: QuestionView): QuestionFormState {
+function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null): QuestionFormState {
   const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
     ? (view.question.qtype as Qtype)
     : 'truefalse';
   const base = emptyForm(qtype);
-  const options = (view.options ?? {}) as Record<string, unknown>;
+  const options: OptionsRecord = { ...(fallbackOptions ?? {}) };
+  for (const [key, value] of Object.entries((view.options ?? {}) as OptionsRecord)) {
+    if (value !== undefined) options[key] = value;
+  }
   const answers = (view.answers ?? []).map((a) => ({ text: plainText(a.answer), fraction: String(a.fraction) }));
   const trueAnswer = (view.answers ?? []).find((a) => plainText(a.answer) === 'True');
   return {
@@ -98,11 +159,24 @@ function formFromView(view: QuestionView): QuestionFormState {
     questionText: plainText(view.latestVersion.questionText),
     stimulusId: view.latestVersion.stimulusId ?? '',
     mcSingle: typeof options.single === 'boolean' ? options.single : true,
+    mcShuffleAnswers: typeof options.shuffleAnswers === 'boolean' ? options.shuffleAnswers : false,
+    mcAnswerNumbering: typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc',
+    mcShowNumCorrect: typeof options.showNumCorrect === 'boolean' ? options.showNumCorrect : false,
+    mcShowStandardInstruction:
+      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
+    mcCorrectFeedback: richTextDocument(options.correctFeedback),
+    mcPartiallyCorrectFeedback: richTextDocument(options.partiallyCorrectFeedback),
+    mcIncorrectFeedback: richTextDocument(options.incorrectFeedback),
     mcChoices: qtype === 'multichoice' && answers.length > 0 ? answers : base.mcChoices,
     tfCorrect: trueAnswer ? trueAnswer.fraction >= 1 : true,
+    tfShowStandardInstruction:
+      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
     saUseCase: options.useCase === true,
     saAnswers: qtype === 'shortanswer' && answers.length > 0 ? answers : base.saAnswers,
     essayResponseFormat: typeof options.responseFormat === 'string' ? options.responseFormat : 'editor',
+    essayResponseRequired: typeof options.responseRequired === 'boolean' ? options.responseRequired : true,
+    essayResponseFieldLines:
+      typeof options.responseFieldLines === 'number' ? String(options.responseFieldLines) : '15',
     essayMinWords: typeof options.minWordLimit === 'number' ? String(options.minWordLimit) : '',
     essayMaxWords: typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '',
     essayGraderInfo: plainText(options.graderInfo as RichTextDocument | null | undefined),
@@ -115,17 +189,33 @@ function formFromView(view: QuestionView): QuestionFormState {
  * ở mức văn bản thuần (chuỗi) như lát hiện tại — hợp đồng API nhận chuỗi
  * và tự chuẩn hoá thành tài liệu Tiptap.
  */
-function formContent(form: QuestionFormState): Record<string, unknown> {
+function formContent(form: QuestionFormState, preserveExistingOptions = false): Record<string, unknown> {
   const common = { name: form.name, questionText: form.questionText };
   switch (form.qtype) {
-    case 'multichoice':
+    case 'multichoice': {
+      const options: Record<string, unknown> = { single: form.mcSingle };
+      if (preserveExistingOptions) {
+        options.shuffleAnswers = form.mcShuffleAnswers;
+        options.answerNumbering = form.mcAnswerNumbering;
+        options.showNumCorrect = form.mcShowNumCorrect;
+        options.showStandardInstruction = form.mcShowStandardInstruction;
+        // Feedback là rich text: gửi lại nguyên tài liệu đã nạp, không ép về text thuần.
+        if (form.mcCorrectFeedback) options.correctFeedback = form.mcCorrectFeedback;
+        if (form.mcPartiallyCorrectFeedback) options.partiallyCorrectFeedback = form.mcPartiallyCorrectFeedback;
+        if (form.mcIncorrectFeedback) options.incorrectFeedback = form.mcIncorrectFeedback;
+      }
       return {
         ...common,
         answers: form.mcChoices.map((c) => ({ text: c.text, fraction: Number(c.fraction) || 0 })),
-        options: { single: form.mcSingle },
+        options,
       };
+    }
     case 'truefalse':
-      return { ...common, answer: { correct: form.tfCorrect } };
+      return {
+        ...common,
+        answer: { correct: form.tfCorrect },
+        ...(preserveExistingOptions ? { options: { showStandardInstruction: form.tfShowStandardInstruction } } : {}),
+      };
     case 'shortanswer':
       return {
         ...common,
@@ -137,6 +227,9 @@ function formContent(form: QuestionFormState): Record<string, unknown> {
         ...common,
         options: {
           responseFormat: form.essayResponseFormat,
+          responseRequired: form.essayResponseRequired,
+          responseFieldLines:
+            form.essayResponseFieldLines.trim() === '' ? 15 : Number(form.essayResponseFieldLines) || 15,
           minWordLimit: form.essayMinWords.trim() === '' ? null : Number(form.essayMinWords),
           maxWordLimit: form.essayMaxWords.trim() === '' ? null : Number(form.essayMaxWords),
           graderInfo: form.essayGraderInfo,
@@ -171,6 +264,7 @@ export function QuestionsPage() {
   const [editing, setEditing] = useState<QuestionView | null>(null);
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
+  const editOptionsRequestRef = useRef(0);
 
   const patchForm = useCallback((patch: Partial<QuestionFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -220,7 +314,7 @@ export function QuestionsPage() {
         const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            ...formContent(form),
+            ...formContent(form, true),
             stimulusId: form.stimulusId === '' ? null : form.stimulusId,
           }),
         });
@@ -250,12 +344,34 @@ export function QuestionsPage() {
     }
   }
 
-  function startEdit(view: QuestionView) {
+  async function startEdit(view: QuestionView) {
+    const requestId = ++editOptionsRequestRef.current;
     setEditing(view);
     setForm(formFromView(view));
+
+    const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
+      ? (view.question.qtype as Qtype)
+      : 'truefalse';
+    if (hasAllOptions(qtype, view.options)) return;
+
+    try {
+      // Endpoint versions hiện chỉ trả metadata của version; nếu bản ghi của
+      // version mới nhất có kèm options thì dùng nó để lấp trường view còn thiếu.
+      const versions = await apiJson<
+        { id: string; version: number; options?: OptionsRecord | null }[]
+      >(`/api/v1/questions/${view.question.id}/versions`);
+      const latest = versions.find((version) => version.id === view.latestVersion.id)
+        ?? versions.find((version) => version.version === view.entry.latestVersion);
+      if (latest?.options && editOptionsRequestRef.current === requestId) {
+        setForm(formFromView(view, latest.options));
+      }
+    } catch {
+      // Không tải được options bổ sung thì giữ nguyên phần đã nạp từ view.
+    }
   }
 
   function cancelEdit() {
+    editOptionsRequestRef.current += 1;
     setEditing(null);
     setForm(emptyForm('multichoice'));
   }
@@ -407,7 +523,7 @@ export function QuestionsPage() {
       header: t('actions'),
       cell: (view) => (
         <span className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => startEdit(view)}>
+          <Button type="button" variant="outline" onClick={() => void startEdit(view)}>
             {t('editNewVersion')}
           </Button>
           <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
@@ -433,6 +549,7 @@ export function QuestionsPage() {
                   type="button"
                   onClick={() => {
                     setQCategory(String(cat.id));
+                    editOptionsRequestRef.current += 1;
                     setEditing(null);
                     void loadQuestions(cat.id);
                     void loadStimuli(cat.id).catch(() => setMessage(t('stimulusLoadFailed')));
@@ -729,6 +846,25 @@ export function QuestionsPage() {
                     <option value="editor">{t('responseFormatEditor')}</option>
                     <option value="plain">{t('responseFormatPlain')}</option>
                   </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="q-essay-response-required"
+                    type="checkbox"
+                    checked={form.essayResponseRequired}
+                    onChange={(e) => patchForm({ essayResponseRequired: e.target.checked })}
+                  />
+                  <Label htmlFor="q-essay-response-required">{t('responseRequired')}</Label>
+                </div>
+                <div>
+                  <Label htmlFor="q-essay-response-field-lines">{t('responseFieldLines')}</Label>
+                  <Input
+                    id="q-essay-response-field-lines"
+                    type="number"
+                    min="1"
+                    value={form.essayResponseFieldLines}
+                    onChange={(e) => patchForm({ essayResponseFieldLines: e.target.value })}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="q-essay-minwords">{t('minWordLimit')}</Label>
