@@ -8,7 +8,7 @@ import { FilesService } from '../files/files.service';
 import { BackupRepository, type JobRow } from './backup.repository';
 import {
   badge, badgeCriteria, calendarEvents, calendarSubscriptions,
-  course, courseCompletions, courseCompletionCriteria, courseCompletionSettings,
+  course, courseCompletions, courseCompletionCriteria, courseCompletionCritCompl, courseCompletionSettings,
   courseGroups, courseModules, courseModulesCompletion, courseSections, enrol, files as filesTable,
   gradeCategories, gradeGrades, gradeItems, groupings, groupingsGroups, groupsMembers,
   question, questionAnswers, questionBankEntries, questionCategories, questionTruefalse, questionVersions,
@@ -264,30 +264,47 @@ export class BackupService {
     this.registerContributor({
       name: 'completion',
       export: async (courseId, anonymize) => {
-        if (!courseId) return { cmCompletion: [], courseCompletions: [], criteria: [], settings: null };
+        if (!courseId) return { cmCompletion: [], courseCompletions: [], criteria: [], critCompl: [], settings: null };
         const cms = await db.select().from(courseModules).where(eq(courseModules.course, courseId));
         const cmComp = cms.length ? await db.select().from(courseModulesCompletion).where(inArray(courseModulesCompletion.courseModuleId, cms.map((c) => c.id))) : [];
         const courseComp = await db.select().from(courseCompletions).where(eq(courseCompletions.course, courseId));
         const criteria = await db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
+        // Manual-mark evidence (self/role crit_compl) travels with the
+        // criteria it belongs to, like Moodle's backup of crit_compl rows.
+        const critCompl = criteria.length ? await db.select().from(courseCompletionCritCompl).where(inArray(courseCompletionCritCompl.criteriaId, criteria.map((c) => c.id))) : [];
         const [settings] = await db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, courseId));
         const scrub = <T extends { userId: string }>(rows: T[]): T[] => anonymize ? rows.map((r) => ({ ...r, userId: 0 })) : rows;
-        return { cmCompletion: scrub(cmComp), courseCompletions: scrub(courseComp), criteria, settings: settings ?? null };
+        return { cmCompletion: scrub(cmComp), courseCompletions: scrub(courseComp), criteria, critCompl: scrub(critCompl), settings: settings ?? null };
       },
       import: async (targetCourseId, data, mapping) => {
         if (!targetCourseId) return;
         const d = data as {
           cmCompletion: (typeof courseModulesCompletion.$inferSelect)[]; courseCompletions: (typeof courseCompletions.$inferSelect)[];
-          criteria: (typeof courseCompletionCriteria.$inferSelect)[]; settings: (typeof courseCompletionSettings.$inferSelect) | null;
+          criteria: (typeof courseCompletionCriteria.$inferSelect)[]; critCompl?: (typeof courseCompletionCritCompl.$inferSelect)[];
+          settings: (typeof courseCompletionSettings.$inferSelect) | null;
         };
         if (d.settings) {
           await db.insert(courseCompletionSettings).values({ course: targetCourseId, method: d.settings.method })
             .onConflictDoUpdate({ target: courseCompletionSettings.course, set: { method: d.settings.method } });
         }
+        const criteriaIdMap = new Map<string, string>();
         for (const crit of d.criteria) {
           const moduleInstance = crit.moduleInstance ? mapping.get('cm', crit.moduleInstance) ?? null : null;
-          await db.insert(courseCompletionCriteria).values({
-            course: targetCourseId, criteriaType: crit.criteriaType, moduleInstance, date: crit.date, sortOrder: crit.sortOrder,
-          });
+          const [inserted] = await db.insert(courseCompletionCriteria).values({
+            course: targetCourseId, criteriaType: crit.criteriaType, moduleInstance, date: crit.date,
+            // courseInstance/roleId reference objects OUTSIDE this course's
+            // backup (prerequisite course, system role) and are kept as-is.
+            courseInstance: crit.courseInstance ?? null, enrolPeriodDays: crit.enrolPeriodDays ?? null, roleId: crit.roleId ?? null,
+            sortOrder: crit.sortOrder,
+          }).returning();
+          if (inserted) criteriaIdMap.set(crit.id, inserted.id);
+        }
+        for (const mark of d.critCompl ?? []) {
+          if (!mark.userId) continue;
+          const newCriteriaId = criteriaIdMap.get(mark.criteriaId); if (!newCriteriaId) continue;
+          await db.insert(courseCompletionCritCompl).values({
+            criteriaId: newCriteriaId, userId: mark.userId, markedBy: mark.markedBy, timeCompleted: mark.timeCompleted,
+          }).onConflictDoNothing();
         }
         for (const row of d.cmCompletion) {
           if (!row.userId) continue;
