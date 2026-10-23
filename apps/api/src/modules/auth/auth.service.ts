@@ -15,9 +15,11 @@ export interface TokenPair { accessToken: string; refreshToken: string; expiresI
 
 /**
  * Thông tin máy khách của request đang cấp phiên/token: địa chỉ IP và
- * chuỗi User-Agent lấy từ request ở controller (`req.ip`,
- * `req.headers['user-agent']`). Được ghi một lần lên họ refresh token lúc
- * tạo họ để danh sách phiên hiển thị đúng máy khách của phiên.
+ * chuỗi User-Agent lấy từ request ở controller (`clientIpOf(req)` —
+ * điểm lấy IP khách duy nhất ở common/client-ip, đã gồm cấu hình
+ * proxy tin cậy và chuẩn hoá địa chỉ; `req.headers['user-agent']`).
+ * Được ghi một lần lên họ refresh token lúc tạo họ để danh sách
+ * phiên hiển thị đúng máy khách của phiên.
  */
 export interface SessionClientInfo { ip?: string; userAgent?: string }
 

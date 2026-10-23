@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
 import { SESSION_COOKIE } from './auth.controller';
@@ -76,7 +77,7 @@ export class OAuthController {
     }
     try {
       const { sessionId, handoffCode } = await this.oauth.handleCallback(issuer, code, state, {
-        ip: req.ip, userAgent: req.headers['user-agent'],
+        ip: clientIpOf(req), userAgent: req.headers['user-agent'],
       });
       res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
       return res.redirect(this.webUrl(`/oauth/callback?handoff=${encodeURIComponent(handoffCode)}`));
@@ -92,7 +93,7 @@ export class OAuthController {
    * POST /auth/oauth/handoff — SPA đổi mã bàn giao một lần lấy cặp token như đáp ứng đăng nhập thường.
    */
   async handoff(@Body({ schema: oauthHandoffSchema }) dto: OAuthHandoffDto, @Req() req: Request) {
-    const { user, tokens } = await this.oauth.exchangeHandoff(dto.code, { ip: req.ip, userAgent: req.headers['user-agent'] });
+    const { user, tokens } = await this.oauth.exchangeHandoff(dto.code, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
   }
 

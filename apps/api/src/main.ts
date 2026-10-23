@@ -8,10 +8,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
+import { enableTrustedProxy } from './common/client-ip';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Tin đúng một chặng proxy (router Heroku) để req.ip là IP khách
+  // thật — xem common/client-ip.ts.
+  enableTrustedProxy(app);
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
