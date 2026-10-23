@@ -143,8 +143,15 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   });
 
   it('badge auto-award honours the cohort + profile leaves and the coursecompletion by-date (worker twin of the API evaluator)', async () => {
-    // Cohort + membership for userA only.
-    const cohortRows = await db.execute(sql`insert into cohort (name, contextid) values (${`wk-cohort-${suffix}`}, (select id from context limit 1)) returning id`);
+    // Cohort và tư cách thành viên chỉ dành cho userA. Test tự tạo context
+    // hệ thống theo cùng mẫu idempotent của platform-jobs, thay vì mượn
+    // context do suite khác để lại — trên database mới bảng context rỗng.
+    await db.execute(sql`insert into context (id, contextlevel, instanceid, path, depth)
+      select '01990000-0000-7000-8000-0000000000a1', 10, null, '/01990000-0000-7000-8000-0000000000a1', 1
+      where not exists (select 1 from context where contextlevel = 10 and instanceid is null)`);
+    const sysRows = await db.execute(sql`select id from context where contextlevel = 10 and instanceid is null limit 1`);
+    const systemCtxId = (sysRows.rows[0] as { id: string }).id;
+    const cohortRows = await db.execute(sql`insert into cohort (name, contextid) values (${`wk-cohort-${suffix}`}, ${systemCtxId}) returning id`);
     const cohortId = (cohortRows.rows[0] as { id: string }).id;
     await db.insert(cohortMembers).values({ cohortid: cohortId, userid: userA });
     // Profile custom field (core_user/user) with a value for userA only.
