@@ -26,6 +26,7 @@
     "i18next": "^26.5.4",
     "isbot": "^5",
     "lucide-react": "^1.61.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-i18next": "^17.1.0",
