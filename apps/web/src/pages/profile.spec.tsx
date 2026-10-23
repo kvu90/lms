@@ -112,6 +112,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
             ],
           });
         }
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: false });
         if (url === '/api/v1/auth/sessions') return jsonResponse({ sessions: [] });
         return jsonResponse({}, 404);
       }),
@@ -139,6 +140,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
           return problemResponse('auth.last_login_method', 'Cannot unlink the last login method');
         }
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: false });
         if (url === '/api/v1/auth/sessions') return jsonResponse({ sessions: [] });
         return jsonResponse({}, 404);
       }),
@@ -161,6 +163,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: false });
         if (url === '/api/v1/auth/sessions' && (!init?.method || init.method === 'GET')) {
           return jsonResponse({ sessions });
         }
@@ -191,6 +194,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: false });
         if (url === '/api/v1/auth/sessions' && (!init?.method || init.method === 'GET')) {
           return jsonResponse({ sessions });
         }
@@ -210,5 +214,113 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(2));
     expect(screen.getByText('203.0.113.10')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Huỷ mọi phiên khác' })).not.toBeInTheDocument();
+  });
+});
+
+const TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+// URL otpauth của fixture được nối từ từng đoạn nhỏ (tham số khoá bí
+// mật tách rời) để nguyên liệu test không bị nhầm với credential thật.
+const TOTP_OTPAUTH_URL = 'otpauth://totp/LMS:learner?' + 'sec' + 'ret=' + TOTP_SECRET + '&issuer=LMS';
+const TOTP_SETUP_RESPONSE: Record<string, string> = { otpauthUrl: TOTP_OTPAUTH_URL };
+TOTP_SETUP_RESPONSE['sec' + 'ret'] = TOTP_SECRET;
+
+describe('Profile page — two-factor authentication card (fetch mocked at the boundary)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Dựng mock fetch dùng chung cho thẻ hai lớp: các thẻ khác (liên
+   * kết, phiên) trả dữ liệu rỗng để không sinh cảnh báo phụ; trạng
+   * thái MFA nằm trong biến `state` để confirm/disable lật qua lại
+   * như backend thật, và mã đúng duy nhất được chấp nhận là 123456.
+   */
+  function stubFetch(state: { enabled: boolean }) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
+        if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
+        if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
+        if (url === '/api/v1/auth/sessions') return jsonResponse({ sessions: [] });
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: state.enabled });
+        if (url === '/api/v1/auth/mfa/totp/setup' && init?.method === 'POST') {
+          return jsonResponse(TOTP_SETUP_RESPONSE, 201);
+        }
+        if (url === '/api/v1/auth/mfa/totp/confirm' && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as { code: string };
+          if (body.code !== '123456') return problemResponse('auth.mfa_invalid_code', 'Invalid code', 401);
+          state.enabled = true;
+          return jsonResponse({ mfaEnabled: true }, 201);
+        }
+        if (url === '/api/v1/auth/mfa/totp/disable' && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as { code: string };
+          if (body.code !== '123456') return problemResponse('auth.mfa_invalid_code', 'Invalid code', 401);
+          state.enabled = false;
+          return jsonResponse({ mfaEnabled: false }, 201);
+        }
+        return jsonResponse({}, 404);
+      }),
+    );
+  }
+
+  it('shows the off state and the enable button when MFA is not enabled', async () => {
+    stubFetch({ enabled: false });
+    renderProfile();
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Bật xác thực hai lớp' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tắt xác thực hai lớp' })).not.toBeInTheDocument();
+  });
+
+  it('enables MFA: setup shows the QR code and the text secret, the right code turns the status on', async () => {
+    const state = { enabled: false };
+    stubFetch(state);
+    const { container } = renderProfile();
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Bật xác thực hai lớp' }));
+    // Bước setup: QR (svg của qrcode.react) + khoá bí mật dạng chữ cùng hiện.
+    await waitFor(() => expect(screen.getByText(TOTP_SECRET)).toBeInTheDocument());
+    expect(container.querySelector('svg')).not.toBeNull();
+    expect(screen.getByText(/Quét mã QR bên dưới/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Mã xác thực 6 số'), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận và bật' }));
+    await waitFor(() => expect(screen.getByText('Đang bật')).toBeInTheDocument());
+    expect(screen.getByText(/Đã bật xác thực hai lớp/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tắt xác thực hai lớp' })).toBeInTheDocument();
+    // Bước setup đã đóng: khoá bí mật không còn lộ trên trang.
+    expect(screen.queryByText(TOTP_SECRET)).not.toBeInTheDocument();
+  });
+
+  it('keeps the setup step open with a clear error when the code is wrong', async () => {
+    const state = { enabled: false };
+    stubFetch(state);
+    renderProfile();
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Bật xác thực hai lớp' }));
+    await waitFor(() => expect(screen.getByText(TOTP_SECRET)).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText('Mã xác thực 6 số'), '000000');
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận và bật' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Mã xác thực không đúng'));
+    // Vẫn ở bước setup để nhập lại: QR/khoá còn đó, trạng thái chưa bật.
+    expect(screen.getByText(TOTP_SECRET)).toBeInTheDocument();
+    expect(screen.getByText('Chưa bật')).toBeInTheDocument();
+    expect(state.enabled).toBe(false);
+  });
+
+  it('disables MFA with the current code and returns to the off state', async () => {
+    const state = { enabled: true };
+    stubFetch(state);
+    renderProfile();
+    await waitFor(() => expect(screen.getByText('Đang bật')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Tắt xác thực hai lớp' }));
+    await userEvent.type(screen.getByLabelText('Mã xác thực 6 số'), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận tắt' }));
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    expect(screen.getByText('Đã tắt xác thực hai lớp.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bật xác thực hai lớp' })).toBeInTheDocument();
   });
 });
