@@ -6,7 +6,7 @@ package này, không đụng vào mã ứng dụng.
 
 ## Bất biến
 
-- `src/components/ui/**` và `src/styles/globals.css` là hàng do shadcn
+- `src/components/**` và `src/styles/globals.css` là hàng do shadcn
   CLI sinh ra: **chỉ** thay đổi bằng CLI (`shadcn add --overwrite`,
   `shadcn init --preset ...` chạy tại thư mục package này) hoặc bằng
   quy trình chuyển nền/chuyển preset có ghi chép; không sửa tay lắt
@@ -18,7 +18,7 @@ package này, không đụng vào mã ứng dụng.
 ## Cách các ứng dụng dùng
 
 ```tsx
-import { Button } from '@lms/ui/components/ui/button';
+import { Button } from '@lms/ui/components/button';
 import { useIsMobile } from '@lms/ui/hooks/use-mobile';
 import '@lms/ui/globals.css'; // chỉ import một lần ở root của app
 ```

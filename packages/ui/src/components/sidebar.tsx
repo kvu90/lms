@@ -7,22 +7,22 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "#lib/utils"
 
 import { useIsMobile } from "#hooks/use-mobile"
-import { Button } from "#components/ui/button"
-import { Input } from "#components/ui/input"
-import { Separator } from "#components/ui/separator"
+import { Button } from "#components/button"
+import { Input } from "#components/input"
+import { Separator } from "#components/separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "#components/ui/sheet"
-import { Skeleton } from "#components/ui/skeleton"
+} from "#components/sheet"
+import { Skeleton } from "#components/skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "#components/ui/tooltip"
+} from "#components/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
