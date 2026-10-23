@@ -13,29 +13,46 @@ interface NotificationView {
   timeRead: string | null;
   createdAt: string;
 }
-interface PreferenceView {
+
+type PreferenceChannel = 'popup' | 'email' | 'push';
+type PreferenceState = 'loggedin' | 'loggedoff';
+
+/**
+ * Một dòng tuỳ chọn đúng như API trả: mỗi (provider × channel × state)
+ * là một bản ghi độc lập kèm cờ `enabled` của chính nó. PUT cũng chỉ
+ * nhận đúng một dòng như vậy (`setMessagePreferenceSchema`), không có
+ * khái niệm lưu cả cục.
+ */
+interface PreferenceRow {
   provider: string;
-  channel: string;
-  loggedin: boolean;
-  loggedoff: boolean;
+  component: string;
+  channel: PreferenceChannel;
+  state: PreferenceState;
+  enabled: boolean;
+}
+
+function preferenceKey(row: Pick<PreferenceRow, 'provider' | 'channel' | 'state'>): string {
+  return `${row.provider}|${row.channel}|${row.state}`;
 }
 
 /**
  * Notification centre + preferences. A notification only exists when
  * the (provider × channel × login-state) preference allowed the popup
- * channel; the toggles below write straight through to the API and take
- * effect on the very next dispatch.
+ * channel; each toggle PUTs exactly that one preference row through to
+ * the API and takes effect on the very next dispatch.
  */
 export function NotificationsPage() {
   const { t } = useTranslation('app');
   const [items, setItems] = useState<NotificationView[]>([]);
-  const [prefs, setPrefs] = useState<PreferenceView[]>([]);
+  const [prefs, setPrefs] = useState<PreferenceRow[]>([]);
+  const [savingPrefs, setSavingPrefs] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [prefError, setPrefError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [list, p] = await Promise.all([
       apiJson<NotificationView[]>('/api/v1/notifications'),
-      apiJson<PreferenceView[]>('/api/v1/messages/preferences'),
+      apiJson<PreferenceRow[]>('/api/v1/messages/preferences'),
     ]);
     setItems(list);
     setPrefs(p);
@@ -45,20 +62,51 @@ export function NotificationsPage() {
     void reload().catch(() => setError(t('notificationsLoadFailed')));
   }, [reload]);
 
-  async function toggle(pref: PreferenceView, field: 'loggedin' | 'loggedoff') {
-    const next = { ...pref, [field]: !pref[field] };
-    await apiJson('/api/v1/messages/preferences', {
-      method: 'PUT',
-      body: JSON.stringify({
-        preferences: prefs.map((p) => (p.provider === pref.provider && p.channel === pref.channel ? next : p)),
-      }),
-    });
-    await reload();
+  async function toggle(row: PreferenceRow) {
+    const key = preferenceKey(row);
+    if (savingPrefs.has(key)) return;
+    const enabled = !row.enabled;
+    setPrefError(null);
+    setSavingPrefs((prev) => new Set(prev).add(key));
+    // Cập nhật lạc quan đúng một dòng; PUT lỗi thì hoàn lại dòng đó và
+    // báo lỗi riêng của khu vực tuỳ chọn, các dòng khác không bị đụng.
+    setPrefs((prev) => prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled } : p)));
+    try {
+      const saved = await apiJson<PreferenceRow>('/api/v1/messages/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ provider: row.provider, channel: row.channel, state: row.state, enabled }),
+      });
+      setPrefs((prev) =>
+        prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled: saved.enabled } : p)),
+      );
+    } catch {
+      setPrefs((prev) => prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled: row.enabled } : p)));
+      setPrefError(t('preferenceSaveFailed'));
+    } finally {
+      setSavingPrefs((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   }
 
   async function markAllRead() {
     await apiJson('/api/v1/notifications/read-all', { method: 'POST', body: '{}' });
     await reload();
+  }
+
+  // Gộp các dòng phẳng của API thành từng cặp (provider × channel) để
+  // dựng hai cột đã đăng nhập / chưa đăng nhập như trước; mỗi ô vẫn là
+  // một dòng preference độc lập khi ghi.
+  const pairs: { provider: string; channel: PreferenceChannel; byState: Partial<Record<PreferenceState, PreferenceRow>> }[] = [];
+  for (const row of prefs) {
+    let pair = pairs.find((p) => p.provider === row.provider && p.channel === row.channel);
+    if (!pair) {
+      pair = { provider: row.provider, channel: row.channel, byState: {} };
+      pairs.push(pair);
+    }
+    pair.byState[row.state] = row;
   }
 
   return (
@@ -92,6 +140,7 @@ export function NotificationsPage() {
           <CardTitle>{t('notificationPreferences')}</CardTitle>
         </CardHeader>
         <CardContent>
+          {prefError ? <p role="alert">{prefError}</p> : null}
           <table className="w-full text-sm">
             <thead>
               <tr>
@@ -102,26 +151,26 @@ export function NotificationsPage() {
               </tr>
             </thead>
             <tbody>
-              {prefs.map((p) => (
-                <tr key={`${p.provider}-${p.channel}`}>
-                  <td>{p.provider}</td>
-                  <td>{p.channel}</td>
-                  <td>
-                    <input
-                      aria-label={`${p.provider} ${p.channel} ${t('prefLoggedIn')}`}
-                      type="checkbox"
-                      checked={p.loggedin}
-                      onChange={() => void toggle(p, 'loggedin')}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      aria-label={`${p.provider} ${p.channel} ${t('prefLoggedOff')}`}
-                      type="checkbox"
-                      checked={p.loggedoff}
-                      onChange={() => void toggle(p, 'loggedoff')}
-                    />
-                  </td>
+              {pairs.map((pair) => (
+                <tr key={`${pair.provider}-${pair.channel}`}>
+                  <td>{pair.provider}</td>
+                  <td>{pair.channel}</td>
+                  {(['loggedin', 'loggedoff'] as PreferenceState[]).map((state) => {
+                    const row = pair.byState[state];
+                    return (
+                      <td key={state}>
+                        {row ? (
+                          <input
+                            aria-label={`${pair.provider} ${pair.channel} ${state === 'loggedin' ? t('prefLoggedIn') : t('prefLoggedOff')}`}
+                            type="checkbox"
+                            checked={row.enabled}
+                            disabled={savingPrefs.has(preferenceKey(row))}
+                            onChange={() => void toggle(row)}
+                          />
+                        ) : null}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
