@@ -303,6 +303,7 @@ export class OAuthService {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
     const tokens = await this.auth.issueTokensFor(user, client);
+    await this.auth.recordLoginEvent(user, 'oauth', client);
     return { user, tokens };
   }
 

@@ -750,3 +750,28 @@ export const contentBankContent = pgTable('content_bank_content', {
       index('content_bank_content_file_id_idx').on(table.fileId),
   ]);
 
+
+/** Immutable domain event log (worker's view — canonical schema in apps/api): the relay mirrors published outbox rows here (logstore). */
+export const eventLog = pgTable('event_log', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`).$defaultFn(() => uuidv7()),
+  seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity().unique(),
+  eventType: text('event_type').notNull(),
+  contextId: uuid('context_id'),
+  userId: uuid('user_id'),
+  payload: jsonb('payload'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('event_log_context_id_idx').on(table.contextId),
+      index('event_log_user_id_idx').on(table.userId),
+  ]);
+
+/** Execution log of scheduled/adhoc tasks (worker's view — canonical schema in apps/api). */
+export const taskLog = pgTable('task_log', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  taskName: text('task_name').notNull(),
+  status: text('status').notNull(),
+  message: text('message'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+});

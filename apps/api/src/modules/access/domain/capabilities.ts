@@ -86,6 +86,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'lms/backup:restorecourse', capType: 'write', contextLevel: 50, component: 'core_backup', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'moodle/analytics:viewinsights', capType: 'read', contextLevel: 50, component: 'core_analytics', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'lms/analytics:manage', capType: 'write', contextLevel: 10, component: 'core_analytics', archetypes: { manager: CAP_ALLOW } },
+  { name: 'report/log:view', capType: 'read', contextLevel: 50, component: 'report_log', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'lms/reportbuilder:manage', capType: 'write', contextLevel: 10, component: 'core_reportbuilder', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'lms/reportbuilder:view', capType: 'read', contextLevel: 10, component: 'core_reportbuilder', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   { name: 'moodle/contentbank:viewcontent', capType: 'read', contextLevel: 50, component: 'core_contentbank', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },

@@ -151,6 +151,13 @@ export class AccessRepository {
     await this.db.delete(roleAssignments).where(eq(roleAssignments.id, id));
   }
   /**
+   * Lấy một gán role theo id (phục vụ gỡ gán cần biết user/role/context của dòng sắp xoá).
+   */
+  async getAssignment(id: string): Promise<typeof roleAssignments.$inferSelect | undefined> {
+    const [row] = await this.db.select().from(roleAssignments).where(eq(roleAssignments.id, id));
+    return row;
+  }
+  /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
   async listAssignments(filter: { userId?: string; contextId?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {

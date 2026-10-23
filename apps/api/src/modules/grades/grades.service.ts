@@ -543,7 +543,7 @@ export class GradesService implements OnModuleInit {
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'grades', type: 'grade_updated',
-        payload: { courseId: item.courseId, itemId, userId, rawGrade: clampedRaw, finalGrade },
+        payload: { courseId: item.courseId, itemId, userId, rawGrade: clampedRaw, finalGrade, actorId },
       });
     });
     await this.regradeUser(item.courseId, userId);
@@ -585,7 +585,7 @@ export class GradesService implements OnModuleInit {
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'grades', type: 'grade_updated',
-        payload: { courseId: item.courseId, itemId: grade.itemId, userId: grade.userId, finalGrade: patch.finalGrade ?? grade.finalGrade, overridden: patch.overridden ?? grade.overridden },
+        payload: { courseId: item.courseId, itemId: grade.itemId, userId: grade.userId, finalGrade: patch.finalGrade ?? grade.finalGrade, overridden: patch.overridden ?? grade.overridden, actorId },
       });
     });
     await this.regradeUser(item.courseId, grade.userId);

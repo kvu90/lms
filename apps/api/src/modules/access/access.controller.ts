@@ -107,7 +107,7 @@ export class AccessController {
   /**
    * DELETE /access/assignments/:id — gỡ gán role.
    */
-  async unassign(@Param('id', { schema: uuidIdSchema }) id: string) { await this.roles.unassignRole(id); return { deleted: true }; }
+  async unassign(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { await this.roles.unassignRole(id, actor.id); return { deleted: true }; }
 
   @Post('overrides')
   @RequireCapability('moodle/role:override', 'body:contextId')

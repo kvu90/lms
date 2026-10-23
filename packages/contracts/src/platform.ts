@@ -203,6 +203,27 @@ export type CreateReport = z.infer<typeof createReportSchema>;
 export const createReportScheduleSchema = z.strictObject({ cron: z.string().optional() });
 export type CreateReportSchedule = z.infer<typeof createReportScheduleSchema>;
 
+/* ---- Event log (logstore) ---- */
+
+/**
+ * Bộ lọc truy vấn nhật ký sự kiện (báo cáo "ai đã làm gì"): `userId` là
+ * người thực hiện (actor), `relatedUserId` là người bị tác động; `from`/`to`
+ * là mốc thời gian ISO của sự kiện. Phân trang theo chuẩn chung của repo.
+ */
+export const listEventLogsQuerySchema = z.strictObject({
+  userId: uuidIdSchema.optional(),
+  relatedUserId: uuidIdSchema.optional(),
+  courseId: uuidIdSchema.optional(),
+  contextId: uuidIdSchema.optional(),
+  component: z.string().min(1).optional(),
+  eventType: z.string().min(1).optional(),
+  from: z.string().min(1).optional(),
+  to: z.string().min(1).optional(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(200).optional(),
+});
+export type ListEventLogsQuery = z.infer<typeof listEventLogsQuerySchema>;
+
 /** Payload tạo nội dung Content Bank (loại nội dung là extension point, mặc định file-based). */
 export const createContentBankContentSchema = z.strictObject({
   name: z.string().min(1),
