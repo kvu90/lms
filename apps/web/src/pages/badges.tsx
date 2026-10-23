@@ -223,20 +223,30 @@ export function BadgesPage() {
                 </ul>
               </div>
             ) : null}
-            <form onSubmit={(e) => void createBadge(e)} className="flex gap-2">
-              <Label htmlFor="badge-name">{t('badgeName')}</Label>
-              <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <form onSubmit={(e) => void createBadge(e)} className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="badge-name">{t('badgeName')}</Label>
+                <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
               <Button type="submit">{t('createBadge')}</Button>
             </form>
-            <form onSubmit={(e) => void setCriteria(e)} className="flex flex-wrap gap-2">
-              <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
-              <Input id="criteria-badge" value={criteriaBadgeId} onChange={(e) => setCriteriaBadgeId(e.target.value)} />
-              <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
-              <Input
-                id="criteria-course"
-                value={criteriaCourseId}
-                onChange={(e) => setCriteriaCourseId(e.target.value)}
-              />
+            <form onSubmit={(e) => void setCriteria(e)} className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
+                <Input
+                  id="criteria-badge"
+                  value={criteriaBadgeId}
+                  onChange={(e) => setCriteriaBadgeId(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
+                <Input
+                  id="criteria-course"
+                  value={criteriaCourseId}
+                  onChange={(e) => setCriteriaCourseId(e.target.value)}
+                />
+              </div>
               <Button type="submit">{t('setCriteriaAll')}</Button>
             </form>
           </CardContent>
