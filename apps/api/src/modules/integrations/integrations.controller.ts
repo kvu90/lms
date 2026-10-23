@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
 import { callExternalFunctionSchema, createExternalServiceSchema, createExternalTokenSchema, setExternalServiceEnabledSchema, type CallFunctionDto, type CreateServiceDto, type CreateTokenDto, type SetEnabledDto } from './dto/integrations.dto';
@@ -39,8 +40,10 @@ export class IntegrationsController {
   @Public()
   @Post('call')
   async call(@Body({ schema: callExternalFunctionSchema }) dto: CallFunctionDto, @Req() req: Request) {
-    const ip = (req.headers['x-forwarded-for'] as string) ?? req.ip ?? '';
-    const result = await this.integrations.callFunction({ token: dto.token, functionName: dto.functionName, args: dto.args, ip: String(ip).split(',')[0]!.trim() });
+    // IP khách thật qua cơ chế chung (common/client-ip) để đối chiếu
+    // allowlist của dịch vụ — không đọc tay X-Forwarded-For ở đây.
+    const ip = clientIpOf(req) ?? '';
+    const result = await this.integrations.callFunction({ token: dto.token, functionName: dto.functionName, args: dto.args, ip });
     return { result };
   }
 }

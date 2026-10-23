@@ -3,6 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
@@ -50,7 +51,7 @@ export class AuthController {
     const user = await this.users.getUser(req.user.id);
     // validateCredentials already ran inside the local strategy; the shared
     // completion step issues a fresh token family — or an MFA challenge.
-    return loginResponse(await this.auth.completePasswordLogin(user, { ip: req.ip, userAgent: req.headers['user-agent'] }));
+    return loginResponse(await this.auth.completePasswordLogin(user, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] }));
   }
 
   @Public()
@@ -59,7 +60,7 @@ export class AuthController {
    * POST /auth/login — đăng nhập qua chiến lược local (passport), trả cặp token.
    */
   async tokenLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request) {
-    return loginResponse(await this.auth.login(dto.username, dto.password, req.ip, req.headers['user-agent']));
+    return loginResponse(await this.auth.login(dto.username, dto.password, clientIpOf(req), req.headers['user-agent']));
   }
 
   // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
@@ -104,7 +105,7 @@ export class AuthController {
    * POST /auth/mfa/verify — bước hai của đăng nhập: challenge token + mã TOTP ⇒ cặp token như đăng nhập thường.
    */
   async mfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request) {
-    const { user, tokens } = await this.auth.verifyMfa(dto.challengeToken, dto.code, req.ip, req.headers['user-agent']);
+    const { user, tokens } = await this.auth.verifyMfa(dto.challengeToken, dto.code, clientIpOf(req), req.headers['user-agent']);
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
   }
 
@@ -145,7 +146,7 @@ export class AuthController {
    * POST /auth/login-as/:id — đăng nhập thay user khác (cần capability).
    */
   async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
-    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userid, { ip: req.ip, userAgent: req.headers['user-agent'] });
+    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userid, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
     return { user: { id: user.id, username: user.username }, ...tokens, loginAs: { byUserId: actor.id } };
   }
 
@@ -159,7 +160,7 @@ export class AuthController {
    * tool_mfa — trước đây route này đi thẳng, bỏ qua MFA).
    */
   async sessionLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const outcome = await this.auth.sessionLogin(dto.username, dto.password, sessionCookieOf(req), req.ip, req.headers['user-agent']);
+    const outcome = await this.auth.sessionLogin(dto.username, dto.password, sessionCookieOf(req), clientIpOf(req), req.headers['user-agent']);
     if (outcome.mfaRequired) {
       return { mfaRequired: true as const, challengeToken: outcome.challengeToken, user: { id: outcome.user.id, username: outcome.user.username } };
     }
@@ -173,7 +174,7 @@ export class AuthController {
    * challenge của luồng session + mã TOTP ⇒ tạo phiên và đặt cookie.
    */
   async sessionMfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const { sessionId, user } = await this.auth.verifyMfaSession(dto.challengeToken, dto.code, sessionCookieOf(req), req.ip, req.headers['user-agent']);
+    const { sessionId, user } = await this.auth.verifyMfaSession(dto.challengeToken, dto.code, sessionCookieOf(req), clientIpOf(req), req.headers['user-agent']);
     res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, sessionId };
   }

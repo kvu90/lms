@@ -1,7 +1,9 @@
 import { INestApplication, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { enableTrustedProxy } from '../src/common/client-ip';
 import { ProblemDetailsFilter } from '../src/common/problem-details.filter';
 
 process.env.FILE_STORAGE_DIR = process.env.FILE_STORAGE_DIR ?? '/tmp/lms-test-files';
@@ -12,6 +14,9 @@ export const STRONG_PASSWORD = 'Passw0rd!';
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
+  // Khớp main.ts: tin đúng một chặng proxy để req.ip là IP khách thật
+  // trong test như trên production — xem common/client-ip.ts.
+  enableTrustedProxy(app as NestExpressApplication);
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   // Validation qua APP_PIPE của AppModule (Standard Schema + i18n) — khớp main.ts.
