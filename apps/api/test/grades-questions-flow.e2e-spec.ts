@@ -28,7 +28,7 @@ describe('Grades & questions', () => {
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
-    pg = new Client({ connectionString: 'postgresql://postgres:postgres@localhost:5432/lms_test' });
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   });
   afterAll(async () => { await pg.end(); await app.close(); });

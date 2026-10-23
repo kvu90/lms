@@ -13,7 +13,7 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  * kiểm chứng nền tảng, KHÔNG phải oracle Moodle.
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const CONN = 'postgresql://postgres:postgres@localhost:5432/lms_test';
+const CONN = process.env.DATABASE_URL;
 
 describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
   let app: INestApplication;
