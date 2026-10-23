@@ -77,7 +77,9 @@ export function ChartAreaInteractive({
             <p className="py-10 text-center text-sm text-muted-foreground">{emptyText}</p>
           ) : (
             <ChartContainer config={config} className="aspect-auto h-62.5 w-full">
-              <AreaChart data={visible}>
+              {/* Lề trái/phải 12 theo mẫu biểu đồ của shadcn: thiếu lề
+                  phải, nhãn trục hoành ở điểm cuối bị cắt ở mép thẻ. */}
+              <AreaChart data={visible} margin={{ left: 12, right: 12 }}>
                 <defs>
                   <linearGradient id="dashboardChartFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-value)" stopOpacity={0.8} />
