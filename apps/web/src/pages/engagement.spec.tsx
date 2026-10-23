@@ -58,11 +58,11 @@ describe('Notifications page', () => {
             timecreated: '2026-10-22T00:00:00.000Z',
           },
         ];
-      if (url === '/api/v1/notifications/preferences' && init?.method === 'PUT') {
+      if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
         puts.push(JSON.parse(String(init.body)));
         return { saved: true };
       }
-      if (url === '/api/v1/notifications/preferences')
+      if (url === '/api/v1/messages/preferences')
         return [
           { provider: 'badge_awarded', channel: 'popup', loggedin: true, loggedoff: true },
           { provider: 'badge_awarded', channel: 'email', loggedin: true, loggedoff: false },

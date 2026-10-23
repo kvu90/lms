@@ -35,7 +35,7 @@ export function NotificationsPage() {
   const reload = useCallback(async () => {
     const [list, p] = await Promise.all([
       apiJson<NotificationView[]>('/api/v1/notifications'),
-      apiJson<PreferenceView[]>('/api/v1/notifications/preferences'),
+      apiJson<PreferenceView[]>('/api/v1/messages/preferences'),
     ]);
     setItems(list);
     setPrefs(p);
@@ -47,7 +47,7 @@ export function NotificationsPage() {
 
   async function toggle(pref: PreferenceView, field: 'loggedin' | 'loggedoff') {
     const next = { ...pref, [field]: !pref[field] };
-    await apiJson('/api/v1/notifications/preferences', {
+    await apiJson('/api/v1/messages/preferences', {
       method: 'PUT',
       body: JSON.stringify({
         preferences: prefs.map((p) => (p.provider === pref.provider && p.channel === pref.channel ? next : p)),
