@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "70f1639c-7b37-4408-ba49-598b72f68700",
+  "id": "67756994-37d0-43b4-8c12-6ae58771c96b",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -320,6 +320,27 @@
         "n|type|public.refresh_token_family",
         "n|rel|public.refresh_token_family_pkey",
         "n|rel|public.refresh_token_family_family_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_oauth_links"
+      ],
+      "writes": [
+        "s|tbl|public.user_oauth_links",
+        "n|tbl|public.user_oauth_links",
+        "e|tbl|public.user_oauth_links",
+        "n|rel|public.user_oauth_links",
+        "n|type|public.user_oauth_links",
+        "n|rel|public.user_oauth_links_pkey",
+        "n|rel|public.user_oauth_links_issuer_subject_unique",
+        "n|rel|public.user_oauth_links_user_issuer_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -2414,6 +2435,26 @@
         "n|tbl|public.refresh_token_family",
         "n|sch|public",
         "n|col|public.refresh_token_family.userid"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_oauth_links",
+        "user_oauth_links_userid_idx"
+      ],
+      "writes": [
+        "s|idx|public.user_oauth_links_userid_idx",
+        "n|idx|public.user_oauth_links_userid_idx",
+        "e|idx|public.user_oauth_links_userid_idx",
+        "n|rel|public.user_oauth_links_userid_idx"
+      ],
+      "reads": [
+        "n|tbl|public.user_oauth_links",
+        "n|sch|public",
+        "n|col|public.user_oauth_links.userid"
       ]
     },
     {
@@ -5982,6 +6023,29 @@
       "statementTarget": [
         "table",
         "public",
+        "user_oauth_links"
+      ],
+      "writes": [
+        "s|fk|public.user_oauth_links.user_oauth_links_userid_users_id_fkey",
+        "n|fk|public.user_oauth_links.user_oauth_links_userid_users_id_fkey",
+        "e|fk|public.user_oauth_links.user_oauth_links_userid_users_id_fkey",
+        "n|con|public.user_oauth_links.user_oauth_links_userid_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_oauth_links",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.user_oauth_links.userid",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "user_totp"
       ],
       "writes": [
@@ -7820,6 +7884,12 @@
     {
       "schema": "public",
       "name": "refresh_token_family",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "user_oauth_links",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -9773,6 +9843,84 @@
       "schema": "public",
       "table": "refresh_token_family",
       "name": "rotated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "userid",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "issuer",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "issuer_user_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "email",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -20753,6 +20901,27 @@
     },
     {
       "schema": "public",
+      "table": "user_oauth_links",
+      "name": "user_oauth_links_userid_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "userid",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "user_totp",
       "name": "user_totp_userid_idx",
       "nameExplicit": true,
@@ -24442,6 +24611,23 @@
     },
     {
       "schema": "public",
+      "table": "user_oauth_links",
+      "name": "user_oauth_links_userid_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "userid"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "user_totp",
       "name": "user_totp_userid_users_id_fkey",
       "nameExplicit": false,
@@ -25949,6 +26135,16 @@
     },
     {
       "schema": "public",
+      "table": "user_oauth_links",
+      "name": "user_oauth_links_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "user_totp",
       "name": "user_totp_pkey",
       "columns": [
@@ -26917,6 +27113,30 @@
       "columns": [
         "userid",
         "name"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "user_oauth_links_issuer_subject_unique",
+      "nameExplicit": true,
+      "columns": [
+        "issuer",
+        "issuer_user_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "user_oauth_links",
+      "name": "user_oauth_links_user_issuer_unique",
+      "nameExplicit": true,
+      "columns": [
+        "userid",
+        "issuer"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

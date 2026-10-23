@@ -156,6 +156,17 @@ CREATE TABLE "refresh_token_family" (
 	"rotated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "user_oauth_links" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"userid" uuid NOT NULL,
+	"issuer" text NOT NULL,
+	"issuer_user_id" text NOT NULL,
+	"email" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "user_oauth_links_issuer_subject_unique" UNIQUE("issuer","issuer_user_id"),
+	CONSTRAINT "user_oauth_links_user_issuer_unique" UNIQUE("userid","issuer")
+);
+--> statement-breakpoint
 CREATE TABLE "user_totp" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"userid" uuid NOT NULL UNIQUE,
@@ -1318,6 +1329,7 @@ CREATE INDEX "role_capabilities_roleid_idx" ON "role_capabilities" ("roleid");--
 CREATE INDEX "role_capabilities_modifierid_idx" ON "role_capabilities" ("modifierid");--> statement-breakpoint
 CREATE INDEX "login_attempts_userid_idx" ON "login_attempts" ("userid");--> statement-breakpoint
 CREATE INDEX "refresh_token_family_userid_idx" ON "refresh_token_family" ("userid");--> statement-breakpoint
+CREATE INDEX "user_oauth_links_userid_idx" ON "user_oauth_links" ("userid");--> statement-breakpoint
 CREATE INDEX "user_totp_userid_idx" ON "user_totp" ("userid");--> statement-breakpoint
 CREATE INDEX "customfield_category_itemid_idx" ON "customfield_category" ("itemid");--> statement-breakpoint
 CREATE INDEX "customfield_data_instanceid_idx" ON "customfield_data" ("instanceid");--> statement-breakpoint
@@ -1495,6 +1507,7 @@ ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_roleid_role_id
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "login_attempts" ADD CONSTRAINT "login_attempts_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "refresh_token_family" ADD CONSTRAINT "refresh_token_family_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "user_oauth_links" ADD CONSTRAINT "user_oauth_links_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_totp" ADD CONSTRAINT "user_totp_userid_users_id_fkey" FOREIGN KEY ("userid") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "customfield_data" ADD CONSTRAINT "customfield_data_fieldid_customfield_field_id_fkey" FOREIGN KEY ("fieldid") REFERENCES "customfield_field"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "customfield_field" ADD CONSTRAINT "customfield_field_categoryid_customfield_category_id_fkey" FOREIGN KEY ("categoryid") REFERENCES "customfield_category"("id") ON DELETE CASCADE;--> statement-breakpoint
