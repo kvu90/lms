@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@lms/ui/components/ui/chart';
-import { ToggleGroup, ToggleGroupItem } from '@lms/ui/components/ui/toggle-group';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@lms/ui/components/chart';
+import { ToggleGroup, ToggleGroupItem } from '@lms/ui/components/toggle-group';
 
 /** Một điểm dữ liệu của biểu đồ: trục hoành là nhãn, giá trị nằm ở khoá `value`. */
 export interface ChartPoint {

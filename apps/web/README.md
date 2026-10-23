@@ -25,7 +25,7 @@ pnpm dev   # http://localhost:5173
 Toàn bộ component shadcn/ui sống trong package riêng **`@lms/ui`**
 (`packages/ui`), KHÔNG còn nằm trong `apps/web`:
 
-- `apps/web` chỉ *dùng* qua import `@lms/ui/components/ui/<tên>`,
+- `apps/web` chỉ *dùng* qua import `@lms/ui/components/<tên>`,
   `@lms/ui/hooks/<tên>` và `@lms/ui/globals.css`. Cấm sao chép một
   component của package vào `src/components/` để sửa riêng — sửa lén
   như vậy sẽ bị ghi đè mất ở lần đồng bộ shadcn kế tiếp.

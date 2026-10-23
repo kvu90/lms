@@ -2,7 +2,7 @@ import { IconDotsVertical, IconLogout, IconUserCircle } from '@tabler/icons-reac
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
-import { Avatar, AvatarFallback } from '@lms/ui/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +11,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@lms/ui/components/ui/dropdown-menu';
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@lms/ui/components/ui/sidebar';
+} from '@lms/ui/components/dropdown-menu';
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@lms/ui/components/sidebar';
 import { useAuth } from '@/lib/auth';
 import '../i18n';
 

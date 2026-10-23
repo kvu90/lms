@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { usePermissions } from '@/lib/permissions';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
