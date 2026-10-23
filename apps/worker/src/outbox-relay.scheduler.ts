@@ -6,6 +6,8 @@ import { asc, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
 import { outboxEvents } from './db/schema';
+import { EventLogWriter } from './event-log-writer.service';
+import { TaskLogService } from './task-log.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -27,14 +29,26 @@ export class OutboxRelayScheduler {
   constructor(
     @InjectDrizzle() private readonly db: Database,
     @Inject(EventEmitter2) private readonly emitter: EventEmitter2,
+    private readonly eventLog: EventLogWriter,
+    private readonly taskLog: TaskLogService,
   ) {}
 
   @Interval(5000)
   /**
-   * Một nhịp relay: lấy lô sự kiện chờ và phát hành.
+   * Một nhịp relay: lấy lô sự kiện chờ và phát hành. Nhịp có phát hành (hoặc
+   * lỗi) được ghi vào task_log; nhịp rỗng không ghi để tránh nhiễu 5 giây.
    */
   async relayTick(): Promise<void> {
-    await this.publishPending();
+    const startedAt = new Date();
+    try {
+      const published = await this.publishPending();
+      if (published > 0) {
+        await this.taskLog.recordRun('outbox-relay', startedAt, 'success', `relayed ${published} event(s)`);
+      }
+    } catch (err) {
+      await this.taskLog.recordRun('outbox-relay', startedAt, 'failed', err instanceof Error ? err.message : String(err));
+      throw err;
+    }
   }
 
   /**
@@ -55,6 +69,12 @@ export class OutboxRelayScheduler {
         .update(outboxEvents)
         .set({ publishedAt: new Date() })
         .where(eq(outboxEvents.id, row.id));
+      // Logstore: phản chiếu sang event_log qua observer duy nhất; việc này
+      // không đổi ngữ nghĩa phát hành của relay (writer nuốt lỗi của nó).
+      await this.eventLog.record({
+        id: row.id, seq: row.seq, aggregate: row.aggregate, type: row.type,
+        payload: row.payload as Record<string, unknown> | null, occurredAt: row.occurredAt,
+      });
       published += 1;
     }
     if (published > 0) {
