@@ -211,6 +211,86 @@ export const mfaTotpSetupResponseSchema = z.object({
 });
 export type MfaTotpSetupResponse = z.infer<typeof mfaTotpSetupResponseSchema>;
 
+/** Nhà cung cấp danh tính ngoài được hỗ trợ (plugin lõi auth_oauth2 của Moodle: issuer dựng sẵn Google và Facebook). */
+export const oauthIssuerSchema = z.enum(['google', 'facebook']);
+export type OAuthIssuer = z.infer<typeof oauthIssuerSchema>;
+
+/** Một issuer trong đáp ứng cấu hình công khai: `enabled=false` nghĩa là quản trị chưa cấu hình client id/secret nên giao diện không hiện nút đăng nhập (đúng hành vi Moodle — issuer chưa bật thì không xuất hiện ở trang login). */
+export const oauthProviderSchema = z.object({
+  issuer: oauthIssuerSchema,
+  enabled: z.boolean(),
+});
+export type OAuthProvider = z.infer<typeof oauthProviderSchema>;
+
+/** Đáp ứng GET /auth/oauth/providers — dữ liệu công khai tối thiểu để trang login quyết định hiện nút nào. */
+export const oauthProvidersResponseSchema = z.object({
+  providers: z.array(oauthProviderSchema),
+});
+export type OAuthProvidersResponse = z.infer<typeof oauthProvidersResponseSchema>;
+
+/** Đáp ứng bước khởi tạo OAuth: URL authorize của nhà cung cấp để trình duyệt chuyển hướng tới (kèm state đã ký). */
+export const oauthAuthorizeResponseSchema = z.object({
+  authorizeUrl: z.string().min(1),
+});
+export type OAuthAuthorizeResponse = z.infer<typeof oauthAuthorizeResponseSchema>;
+
+/** Payload đổi mã bàn giao một lần (handoff) sau callback OAuth lấy cặp token như đăng nhập thường. */
+export const oauthHandoffSchema = z.strictObject({
+  code: z.string().min(1),
+});
+export type OAuthHandoff = z.infer<typeof oauthHandoffSchema>;
+
+/** Một liên kết đăng nhập ngoài của chính user (trang Linked logins của Moodle, auth_oauth2). */
+export const oauthLinkSchema = z.object({
+  id: uuidIdSchema,
+  issuer: oauthIssuerSchema,
+  email: z.string(),
+  createdAt: z.string(),
+});
+export type OAuthLink = z.infer<typeof oauthLinkSchema>;
+
+/** Đáp ứng GET /auth/oauth/links: danh sách liên kết + `hasPassword` để giao diện giải thích được ràng buộc không gỡ liên kết cuối cùng khi user chưa có mật khẩu. */
+export const oauthLinksResponseSchema = z.object({
+  links: z.array(oauthLinkSchema),
+  hasPassword: z.boolean(),
+});
+export type OAuthLinksResponse = z.infer<typeof oauthLinksResponseSchema>;
+
+/** Đáp ứng đăng nhập phiên cookie thành công (session id cũng được đặt qua cookie HttpOnly; body mang theo để client không phụ thuộc cookie đọc được). */
+export const sessionLoginResponseSchema = z.object({
+  user: z.object({
+    id: uuidIdSchema,
+    username: z.string().min(1),
+    forcePasswordChange: z.boolean(),
+  }),
+  sessionId: uuidIdSchema,
+});
+export type SessionLoginResponse = z.infer<typeof sessionLoginResponseSchema>;
+
+/** Một phiên đang hoạt động của chính user trong trang quản lý phiên (report_usersessions của Moodle): `web` là phiên cookie phía server, `api` là một họ refresh token. */
+export const mySessionSchema = z.object({
+  id: uuidIdSchema,
+  kind: z.enum(['web', 'api']),
+  createdAt: z.string(),
+  lastActivityAt: z.string(),
+  ip: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  current: z.boolean(),
+});
+export type MySession = z.infer<typeof mySessionSchema>;
+
+/** Đáp ứng GET /auth/sessions — mọi phiên đang hoạt động của chính người gọi. */
+export const mySessionsResponseSchema = z.object({
+  sessions: z.array(mySessionSchema),
+});
+export type MySessionsResponse = z.infer<typeof mySessionsResponseSchema>;
+
+/** Đáp ứng các thao tác thu hồi phiên: số phiên đã thu hồi. */
+export const revokeSessionsResponseSchema = z.object({
+  revoked: z.number().int().min(0),
+});
+export type RevokeSessionsResponse = z.infer<typeof revokeSessionsResponseSchema>;
+
 /** Đáp ứng đăng nhập khi user đã bật MFA: chưa có token phiên, phải verify tiếp. */
 export const mfaChallengeResponseSchema = z.object({
   mfaRequired: z.literal(true),
