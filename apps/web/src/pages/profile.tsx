@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OAuthIssuer, UserProfile } from '@lms/contracts';
+import type { MfaTotpSetupResponse, OAuthIssuer, UserProfile } from '@lms/contracts';
 import {
+  mfaStatusResponseSchema,
+  mfaTotpSetupResponseSchema,
   mySessionsResponseSchema,
   oauthAuthorizeResponseSchema,
   oauthLinksResponseSchema,
@@ -13,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/componen
 import { Input } from '@lms/ui/components/ui/input';
 import { Label } from '@lms/ui/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/ui/table';
+import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { ApiError, apiJson, redirectToExternalUrl } from '@/lib/api';
@@ -130,6 +133,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
       <LinkedAccountsCard />
+      <TwoFactorCard />
       <SessionsCard />
     </main>
   );
@@ -243,6 +247,234 @@ function LinkedAccountsCard() {
             {t('linkAccountWith', { provider: issuerLabel(t, issuer) })}
           </Button>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Thẻ "Xác thực hai lớp" (factor TOTP của tool_mfa trong Moodle): MFA
+ * mặc định TẮT và chỉ bật khi chính người dùng đi hết luồng tại đây —
+ * gọi setup lấy secret + otpauth URL (chỉ lộ ở bước này), vẽ QR cho
+ * ứng dụng xác thực quét (hoặc nhập tay khoá bí mật), rồi confirm bằng
+ * mã 6 số hiện tại. Trạng thái hiển thị đọc từ GET /auth/mfa/status
+ * nên setup chưa confirm vẫn hiện là chưa bật. Tắt cũng phải có mã
+ * hiện tại; mã sai trả `auth.mfa_invalid_code` và được dịch sang
+ * thông báo riêng, giữ nguyên bước để người dùng nhập lại.
+ */
+function TwoFactorCard() {
+  const { t } = useTranslation('app');
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<'idle' | 'setup' | 'disable'>('idle');
+  const [setupData, setSetupData] = useState<MfaTotpSetupResponse | null>(null);
+  const [code, setCode] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const statusQuery = useQuery({
+    queryKey: queryKeys.mfaStatus,
+    queryFn: async () => mfaStatusResponseSchema.parse(await apiJson('/api/v1/auth/mfa/status')),
+  });
+  const enabled = statusQuery.data?.enabled ?? false;
+
+  /** Kết thúc một luồng con (bật hoặc tắt): dọn mã đã nhập và nạp lại trạng thái thật từ API. */
+  function finishFlow(successMessage: string) {
+    setStep('idle');
+    setSetupData(null);
+    setCode('');
+    setActionError(null);
+    setFeedback(successMessage);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.mfaStatus });
+  }
+
+  /** Map lỗi API sang thông báo: mã sai có thông báo riêng để người dùng nhập lại, còn lại dùng thông báo chung. */
+  function showActionError(err: unknown) {
+    setActionError(
+      err instanceof ApiError && err.problem.code === 'auth.mfa_invalid_code'
+        ? t('twoFactorInvalidCode')
+        : t('twoFactorActionFailed'),
+    );
+  }
+
+  const setupMutation = useMutation({
+    mutationFn: async () =>
+      mfaTotpSetupResponseSchema.parse(await apiJson('/api/v1/auth/mfa/totp/setup', { method: 'POST' })),
+    onSuccess: (data) => {
+      setSetupData(data);
+      setStep('setup');
+      setCode('');
+      setCopied(false);
+      setActionError(null);
+      setFeedback(null);
+    },
+    onError: () => setActionError(t('twoFactorSetupFailed')),
+  });
+  const confirmMutation = useMutation({
+    mutationFn: (value: string) =>
+      apiJson('/api/v1/auth/mfa/totp/confirm', { method: 'POST', body: JSON.stringify({ code: value }) }),
+    onSuccess: () => finishFlow(t('twoFactorEnabledSuccess')),
+    onError: showActionError,
+  });
+  const disableMutation = useMutation({
+    mutationFn: (value: string) =>
+      apiJson('/api/v1/auth/mfa/totp/disable', { method: 'POST', body: JSON.stringify({ code: value }) }),
+    onSuccess: () => finishFlow(t('twoFactorDisabledSuccess')),
+    onError: showActionError,
+  });
+
+  /** Sao chép khoá bí mật cho người dùng không quét được QR; clipboard không khả dụng thì bỏ qua lặng lẽ (khoá vẫn hiện dạng chữ). */
+  async function copySecret() {
+    if (!setupData) return;
+    try {
+      await navigator.clipboard.writeText(setupData.secret);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-base leading-normal font-medium">{t('twoFactorTitle')}</h2>
+        <CardDescription>{t('twoFactorDescription')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Huy hiệu trạng thái chỉ hiện khi đã có dữ liệu thật: lúc
+            đang tải mà hiện "Chưa bật" là khẳng định sai về tài khoản. */}
+        {statusQuery.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t('twoFactorLoadFailed')}
+          </p>
+        ) : statusQuery.data ? (
+          <p>
+            <Badge variant={enabled ? 'default' : 'outline'}>
+              {enabled ? t('twoFactorEnabledStatus') : t('twoFactorDisabledStatus')}
+            </Badge>
+          </p>
+        ) : null}
+        {feedback && (
+          <p role="status" className="text-sm">
+            {feedback}
+          </p>
+        )}
+        {actionError && (
+          <p role="alert" className="text-sm text-destructive">
+            {actionError}
+          </p>
+        )}
+        {step === 'idle' &&
+          statusQuery.data &&
+          (enabled ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setStep('disable');
+                setCode('');
+                setActionError(null);
+                setFeedback(null);
+              }}
+            >
+              {t('disableTwoFactor')}
+            </Button>
+          ) : (
+            <Button type="button" disabled={setupMutation.isPending} onClick={() => setupMutation.mutate()}>
+              {t('enableTwoFactor')}
+            </Button>
+          ))}
+        {step === 'setup' && setupData && (
+          <div className="space-y-4">
+            <p className="text-sm">{t('twoFactorSetupInstruction')}</p>
+            <div className="bg-white p-3 w-fit">
+              <QRCodeSVG value={setupData.otpauthUrl} size={192} role="img" aria-label={t('twoFactorTitle')} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('twoFactorSecretLabel')}</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="text-sm break-all">{setupData.secret}</code>
+                <Button type="button" variant="outline" size="sm" onClick={() => void copySecret()}>
+                  {t('copySecret')}
+                </Button>
+              </div>
+              {copied && (
+                <p role="status" className="text-sm">
+                  {t('secretCopied')}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mfa-setup-code">{t('twoFactorCodeLabel')}</Label>
+              <Input
+                id="mfa-setup-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                disabled={code.length !== 6 || confirmMutation.isPending}
+                onClick={() => confirmMutation.mutate(code)}
+              >
+                {t('confirmEnableTwoFactor')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStep('idle');
+                  setSetupData(null);
+                  setCode('');
+                  setActionError(null);
+                }}
+              >
+                {t('cancelTwoFactorSetup')}
+              </Button>
+            </div>
+          </div>
+        )}
+        {step === 'disable' && (
+          <div className="space-y-4">
+            <p className="text-sm">{t('twoFactorDisableInstruction')}</p>
+            <div className="space-y-2">
+              <Label htmlFor="mfa-disable-code">{t('twoFactorCodeLabel')}</Label>
+              <Input
+                id="mfa-disable-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={code.length !== 6 || disableMutation.isPending}
+                onClick={() => disableMutation.mutate(code)}
+              >
+                {t('confirmDisableTwoFactor')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setStep('idle');
+                  setCode('');
+                  setActionError(null);
+                }}
+              >
+                {t('cancelTwoFactorSetup')}
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

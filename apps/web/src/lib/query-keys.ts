@@ -32,4 +32,6 @@ export const queryKeys = {
   oauthLinks: ['auth', 'oauth', 'links'] as const,
   /** Các phiên đang hoạt động của chính người dùng (GET /auth/sessions). */
   mySessions: ['auth', 'sessions'] as const,
+  /** Trạng thái MFA TOTP của chính người dùng (GET /auth/mfa/status). */
+  mfaStatus: ['auth', 'mfa', 'status'] as const,
 };
