@@ -152,23 +152,47 @@ export function DataTable<T extends Record<string, any>>({
   const pagination = paginationProp ?? internalPagination;
   const handlePaginationChange: OnChangeFn<PaginationState> = onPaginationChange ?? setInternalPagination;
 
+  /**
+   * Định nghĩa cột phải ỔN ĐỊNH danh tính giữa các lần render. Trang
+   * gọi thường khai cột ngay trong thân component nên mảng cột là một
+   * object mới sau mỗi lần render; nếu dựng lại cột theo nó, TanStack
+   * dựng lại toàn bộ ô và phần tử tương tác trong ô (checkbox chọn câu
+   * hỏi, nút thao tác) bị thay node giữa chừng — sự kiện click/change
+   * rơi vào node đã rời cây khiến handler của trang không bao giờ chạy
+   * (đã gặp thật ở ngân hàng câu hỏi). Vì vậy bảng chỉ dựng lại cột khi
+   * tập (id + tiêu đề) thay đổi, còn nội dung ô và hàm tính giá trị
+   * luôn đọc bản cột mới nhất qua ref.
+   */
+  const columnsRef = React.useRef(columns);
+  columnsRef.current = columns;
+  const columnSignature = columns.map((col) => `${col.id}:${col.header}`).join('|');
   const tableColumns = React.useMemo(() => {
     const helper = createColumnHelper<typeof features, AnyRow>();
     return helper.columns(
       columns.map((col) =>
         helper.accessor(
-          (row: AnyRow): string | number =>
-            col.filterValue ? col.filterValue(row as T) : col.sortValue ? col.sortValue(row as T) : '',
+          (row: AnyRow): string | number => {
+            const latest = columnsRef.current.find((c) => c.id === col.id);
+            return latest?.filterValue
+              ? latest.filterValue(row as T)
+              : latest?.sortValue
+                ? latest.sortValue(row as T)
+                : '';
+          },
           {
             id: col.id,
             header: col.header,
             enableSorting: Boolean(col.sortValue),
-            cell: (info) => col.cell(info.row.original as T),
+            cell: (info) => {
+              const latest = columnsRef.current.find((c) => c.id === col.id);
+              return latest ? latest.cell(info.row.original as T) : null;
+            },
           },
         ),
       ),
     );
-  }, [columns]);
+    // Phụ thuộc có chủ đích vào chữ ký cột — xem ghi chú phía trên.
+  }, [columnSignature]);
 
   const table = useTable({
     features,

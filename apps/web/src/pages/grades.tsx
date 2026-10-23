@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Input } from '@lms/ui/components/ui/input';
 import { Label } from '@lms/ui/components/ui/label';
 import { useTranslation } from 'react-i18next';
+import { DataTable, type DataColumn } from '@/components/data-table';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions';
@@ -423,6 +424,13 @@ export function GradebookPage() {
             </span>
           ) : null}
         </h3>
+        {/*
+          NGOẠI LỆ không dùng DataTable/TanStack Table: bảng điểm của
+          học viên render ĐỆ QUY theo cây danh mục điểm, mỗi danh mục
+          một bảng con kèm dòng tổng của chính danh mục đó — cấu trúc
+          cây lồng nhau có tổng hợp theo tầng, san phẳng thành một mô
+          hình hàng duy nhất sẽ phá vỡ ngữ nghĩa hiển thị của sổ điểm.
+        */}
         <table className="w-full text-sm">
           <thead>
             <tr>
@@ -459,6 +467,24 @@ export function GradebookPage() {
     );
   if (!book) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('loading')}</main>;
 
+  /** Cột của bảng báo cáo điểm toàn lớp trên DataTable dùng chung: sắp xếp theo học viên và điểm tổng, lọc theo mã học viên. */
+  const reportColumns: DataColumn<GradeReport['rows'][number]>[] = [
+    {
+      id: 'student',
+      header: t('studentUserId'),
+      cell: (row) => row.userId,
+      sortValue: (row) => row.userId,
+      filterValue: (row) => row.userId,
+    },
+    {
+      id: 'total',
+      header: t('courseTotal'),
+      cell: (row) => row.finalgrade ?? '—',
+      sortValue: (row) => row.finalgrade ?? -1,
+    },
+    { id: 'letter', header: t('letter'), cell: (row) => row.letter ?? '' },
+  ];
+
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
@@ -481,26 +507,19 @@ export function GradebookPage() {
           <CardHeader>
             <CardTitle>{t('classReport')}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="text-left">{t('studentUserId')}</th>
-                  <th className="text-left">{t('courseTotal')}</th>
-                  <th className="text-left">{t('letter')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.rows.map((row) => (
-                  <tr key={row.userId}>
-                    <td>{row.userId}</td>
-                    <td>{row.finalgrade ?? '—'}</td>
-                    <td>{row.letter ?? ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
+          <DataTable
+            data={report.rows}
+            columns={reportColumns}
+            labels={{
+              columns: t('dashboard:tableColumns'),
+              previous: t('dashboard:tablePrevious'),
+              next: t('dashboard:tableNext'),
+              empty: t('dashboard:emptyTable'),
+              filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
+              pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+            }}
+            getRowId={(row) => row.userId}
+          />
         </Card>
       )}
 

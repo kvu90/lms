@@ -7,6 +7,7 @@ import { Label } from '@lms/ui/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { usePermissions } from '@/lib/permissions';
 import { useTranslation } from 'react-i18next';
+import { DataTable, type DataColumn } from '@/components/data-table';
 import '../i18n';
 import { apiJson, ApiError } from '@/lib/api';
 
@@ -815,6 +816,42 @@ export function LearningPlanPage() {
   const perms = usePermissions();
   const [plans, setPlans] = useState<PlanView[]>([]);
   const [detail, setDetail] = useState<PlanDetail | null>(null);
+  /** Cột của bảng năng lực trong một kế hoạch trên DataTable dùng chung: sắp xếp/lọc theo tên năng lực và mức thành thạo, thao tác gửi duyệt giữ nguyên ở cột cuối. */
+  const planCompetencyColumns: DataColumn<PlanDetail['competencies'][number]>[] = [
+    {
+      id: 'competency',
+      header: t('competency'),
+      cell: (row) => row.competency.shortname,
+      sortValue: (row) => row.competency.shortname,
+      filterValue: (row) => row.competency.shortname,
+    },
+    {
+      id: 'proficiency',
+      header: t('proficiency'),
+      cell: (row) =>
+        row.usercomp?.proficiency == null
+          ? t('proficiencyNotYet')
+          : row.usercomp.proficiency
+            ? t('proficiencyYes')
+            : t('proficiencyNo'),
+      sortValue: (row) => (row.usercomp?.proficiency == null ? -1 : row.usercomp.proficiency ? 1 : 0),
+    },
+    {
+      id: 'review',
+      header: t('review'),
+      cell: (row) => (row.usercomp ? (REVIEW_STATUS[row.usercomp.status] ?? row.usercomp.status) : '—'),
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: (row) =>
+        row.usercomp && row.usercomp.status === 0 ? (
+          <Button type="button" variant="outline" onClick={() => void requestCompetencyReview(row.usercomp!.id)}>
+            {t('sendForReview')}
+          </Button>
+        ) : null,
+    },
+  ];
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -881,44 +918,19 @@ export function LearningPlanPage() {
           <CardHeader>
             <CardTitle>{t('planCompetenciesTitle', { name: detail.plan.name })}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="text-left">{t('competency')}</th>
-                  <th className="text-left">{t('proficiency')}</th>
-                  <th className="text-left">{t('review')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {detail.competencies.map((row) => (
-                  <tr key={row.competency.id}>
-                    <td>{row.competency.shortname}</td>
-                    <td>
-                      {row.usercomp?.proficiency == null
-                        ? t('proficiencyNotYet')
-                        : row.usercomp.proficiency
-                          ? t('proficiencyYes')
-                          : t('proficiencyNo')}
-                    </td>
-                    <td>{row.usercomp ? (REVIEW_STATUS[row.usercomp.status] ?? row.usercomp.status) : '—'}</td>
-                    <td>
-                      {row.usercomp && row.usercomp.status === 0 ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void requestCompetencyReview(row.usercomp!.id)}
-                        >
-                          {t('sendForReview')}
-                        </Button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
+          <DataTable
+            data={detail.competencies}
+            columns={planCompetencyColumns}
+            labels={{
+              columns: t('dashboard:tableColumns'),
+              previous: t('dashboard:tablePrevious'),
+              next: t('dashboard:tableNext'),
+              empty: t('dashboard:emptyTable'),
+              filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
+              pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+            }}
+            getRowId={(row) => row.competency.id}
+          />
         </Card>
       ) : null}
       {perms.canAdminister ? <CompetencyAdmin /> : null}

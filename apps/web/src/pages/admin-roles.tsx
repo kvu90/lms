@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Input } from '@lms/ui/components/ui/input';
 import { Label } from '@lms/ui/components/ui/label';
 import { useTranslation } from 'react-i18next';
+import { DataTable, type DataColumn } from '@/components/data-table';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
@@ -31,6 +32,23 @@ export function AdminRolesPage() {
     [CAP.PREVENT]: t('permPrevent'),
     [CAP.PROHIBIT]: t('permProhibit'),
   };
+  /** Cột của ma trận capability trên DataTable dùng chung: lọc/sắp xếp theo tên capability (danh mục capability rất dài nên lọc là nhu cầu thật), phân trang thay cho bảng thô trước đây. */
+  const matrixColumns: DataColumn<{ name: string; contextid: string; permission: string }>[] = [
+    {
+      id: 'capability',
+      header: t('capability'),
+      cell: (row) => <code>{row.name}</code>,
+      sortValue: (row) => row.name,
+      filterValue: (row) => row.name,
+    },
+    { id: 'context', header: t('context'), cell: (row) => row.contextid },
+    {
+      id: 'permission',
+      header: t('permission'),
+      cell: (row) => row.permission,
+      filterValue: (row) => row.permission,
+    },
+  ];
   const [roles, setRoles] = useState<Role[]>([]);
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
   const [contexts, setContexts] = useState<ContextRow[]>([]);
@@ -161,31 +179,26 @@ export function AdminRolesPage() {
             <CardTitle>{t('matrixTitle', { shortname: matrixRole.shortname })}</CardTitle>
             <CardDescription>{t('matrixDescription')}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left">
-                  <th>{t('capability')}</th>
-                  <th>{t('context')}</th>
-                  <th>{t('permission')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {capabilities.map((cap) => {
-                  const row = matrix.find((m) => m.capability === cap.name);
-                  return (
-                    <tr key={cap.name} className="border-t">
-                      <td>
-                        <code>{cap.name}</code>
-                      </td>
-                      <td>{row ? row.contextid : '—'}</td>
-                      <td>{row ? (PERMISSION_LABEL[row.permission] ?? row.permission) : t('permInherit')}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </CardContent>
+          <DataTable
+            data={capabilities.map((cap) => {
+              const row = matrix.find((m) => m.capability === cap.name);
+              return {
+                name: cap.name,
+                contextid: row ? row.contextid : '—',
+                permission: row ? (PERMISSION_LABEL[row.permission] ?? String(row.permission)) : t('permInherit'),
+              };
+            })}
+            columns={matrixColumns}
+            labels={{
+              columns: t('dashboard:tableColumns'),
+              previous: t('dashboard:tablePrevious'),
+              next: t('dashboard:tableNext'),
+              empty: t('dashboard:emptyTable'),
+              filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
+              pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+            }}
+            getRowId={(row) => row.name}
+          />
         </Card>
       )}
     </main>

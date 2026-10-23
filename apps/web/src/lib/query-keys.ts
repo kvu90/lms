@@ -12,8 +12,8 @@ export const queryKeys = {
   courses: ['courses'] as const,
   /** Dữ liệu hiển thị theo từng khoá: ghi danh của tôi + báo cáo điểm + sổ điểm của tôi. */
   courseAccess: (courseId: string) => ['course-access', courseId] as const,
-  /** Danh sách người dùng cho khối quản trị. */
-  adminUsers: (page: number, pageSize: number) => ['admin', 'users', page, pageSize] as const,
+  /** Danh sách người dùng cho khối quản trị (phân trang + tìm kiếm phía server). */
+  adminUsers: (page: number, pageSize: number, search = '') => ['admin', 'users', page, pageSize, search] as const,
   /** Cây danh mục khoá học cho khối quản trị. */
   categoryTree: ['courses', 'categories', 'tree'] as const,
   /** Danh sách vai trò cho khối quản trị. */

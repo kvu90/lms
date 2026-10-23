@@ -8,6 +8,7 @@ import { Label } from '@lms/ui/components/ui/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
+import { DataTable, type DataColumn } from '@/components/data-table';
 
 /**
  * Question bank: categories, questions with their CURRENT version
@@ -127,6 +128,69 @@ export function QuestionsPage() {
     setVersionsOf({ questionId: view.question.id, versions });
   }
 
+  /**
+   * Cột của bảng ngân hàng câu hỏi trên DataTable dùng chung (TanStack
+   * Table): chọn câu hỏi để làm bài vẫn là state của trang (checkbox ở
+   * cột đầu ghi vào `selected`), tên/phiên bản sắp xếp được, ô lọc toàn
+   * bảng quét theo tên và nội dung câu hỏi. Trước đây danh sách này là
+   * một <ul> tự chế không sắp xếp/lọc/phân trang.
+   */
+  const questionColumns: DataColumn<QuestionView>[] = [
+    {
+      id: 'select',
+      header: '',
+      cell: (view) => (
+        <input
+          type="checkbox"
+          aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
+          checked={selected.includes(view.question.id)}
+          onChange={(e) =>
+            setSelected((prev) =>
+              e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
+            )
+          }
+        />
+      ),
+    },
+    {
+      id: 'name',
+      header: t('name'),
+      cell: (view) => view.question.name,
+      sortValue: (view) => view.question.name,
+      filterValue: (view) => view.question.name,
+    },
+    {
+      id: 'version',
+      header: t('version'),
+      cell: (view) => (
+        <span data-testid={`version-badge-${view.question.id}`} className="rounded bg-secondary px-2 py-0.5 text-xs">
+          v{view.entry.latestversion}
+        </span>
+      ),
+      sortValue: (view) => view.entry.latestversion,
+    },
+    {
+      id: 'text',
+      header: t('questionText'),
+      cell: (view) => <span className="text-sm text-muted-foreground">{view.latestVersion.questiontext}</span>,
+      filterValue: (view) => view.latestVersion.questiontext,
+    },
+    {
+      id: 'actions',
+      header: t('actions'),
+      cell: (view) => (
+        <span className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>
+            {t('editNewVersion')}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
+            {t('history')}
+          </Button>
+        </span>
+      ),
+    },
+  ];
+
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
@@ -150,40 +214,22 @@ export function QuestionsPage() {
               </li>
             ))}
           </ul>
-          <ul className="space-y-2">
-            {questions.map((view) => (
-              <li
-                key={view.question.id}
-                data-testid={`question-${view.question.id}`}
-                className="flex items-center gap-3"
-              >
-                <input
-                  type="checkbox"
-                  aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
-                  checked={selected.includes(view.question.id)}
-                  onChange={(e) =>
-                    setSelected((prev) =>
-                      e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
-                    )
-                  }
-                />
-                <span>{view.question.name}</span>
-                <span
-                  data-testid={`version-badge-${view.question.id}`}
-                  className="rounded bg-secondary px-2 py-0.5 text-xs"
-                >
-                  v{view.entry.latestversion}
-                </span>
-                <span className="text-sm text-muted-foreground">{view.latestVersion.questiontext}</span>
-                <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>
-                  {t('editNewVersion')}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
-                  {t('history')}
-                </Button>
-              </li>
-            ))}
-          </ul>
+        </CardContent>
+        <DataTable
+          data={questions}
+          columns={questionColumns}
+          labels={{
+            columns: t('dashboard:tableColumns'),
+            previous: t('dashboard:tablePrevious'),
+            next: t('dashboard:tableNext'),
+            empty: t('dashboard:emptyTable'),
+            filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
+            pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+          }}
+          getRowId={(view) => view.question.id}
+          rowTestId={(view) => `question-${view.question.id}`}
+        />
+        <CardContent className="space-y-4">
           <Button type="button" disabled={selected.length === 0} onClick={() => void startUsageFromSelection()}>
             {t('startAttemptFromSelection')}
           </Button>
