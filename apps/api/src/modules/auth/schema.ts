@@ -22,7 +22,7 @@ import { users } from '../users/schema';
 export const refreshTokenFamily = pgTable('refresh_token_family', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   familyId: text('family_id').notNull().unique(),
-  userid: uuid('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   ip: text('ip'),
   userAgent: text('user_agent'),
   currentTokenHash: text('current_token_hash').notNull(),
@@ -33,7 +33,7 @@ export const refreshTokenFamily = pgTable('refresh_token_family', {
   rotatedAt: timestamp('rotated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('refresh_token_family_userid_idx').on(table.userid),
+      index('refresh_token_family_user_id_idx').on(table.userId),
   ]);
 
 
@@ -47,14 +47,14 @@ export const refreshTokenFamily = pgTable('refresh_token_family', {
  */
 export const userTotp = pgTable('user_totp', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
   secretEncrypted: text('secret_encrypted').notNull(),
   confirmed: boolean('confirmed').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
 },
   (table) => [
-      index('user_totp_userid_idx').on(table.userid),
+      index('user_totp_user_id_idx').on(table.userId),
   ]);
 
 
@@ -69,7 +69,7 @@ export const userTotp = pgTable('user_totp', {
  */
 export const userOauthLinks = pgTable('user_oauth_links', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   issuer: text('issuer').notNull(),
   issuerUserId: text('issuer_user_id').notNull(),
   email: text('email').notNull(),
@@ -77,21 +77,21 @@ export const userOauthLinks = pgTable('user_oauth_links', {
 },
   (table) => [
       unique('user_oauth_links_issuer_subject_unique').on(table.issuer, table.issuerUserId),
-      unique('user_oauth_links_user_issuer_unique').on(table.userid, table.issuer),
-      index('user_oauth_links_userid_idx').on(table.userid),
+      unique('user_oauth_links_user_issuer_unique').on(table.userId, table.issuer),
+      index('user_oauth_links_user_id_idx').on(table.userId),
   ]);
 
 
 /** Failed-login bookkeeping for lockout (Moodle authlib lockout semantics). */
 export const loginAttempts = pgTable('login_attempts', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   username: text('username').notNull(),
   success: boolean('success').notNull(),
   ip: text('ip'),
   attemptedAt: timestamp('attempted_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('login_attempts_userid_idx').on(table.userid),
+      index('login_attempts_user_id_idx').on(table.userId),
   ]);
 

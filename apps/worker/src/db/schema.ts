@@ -20,58 +20,58 @@ export const outboxEvents = pgTable('outbox_events', {
 /** Worker's view of `files` (canonical schema in apps/api) — needed for refcount checks during orphan cleanup. */
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  contenthash: text('contenthash').notNull(),
-  contextid: uuid('contextid').notNull(),
+  contentHash: text('content_hash').notNull(),
+  contextId: uuid('context_id').notNull(),
   component: text('component').notNull(),
-  filearea: text('filearea').notNull(),
-  itemid: uuid('itemid'),
-  filepath: text('filepath').notNull().default('/'),
-  filename: text('filename').notNull(),
-  userid: uuid('userid'),
-  filesize: integer('filesize').notNull(),
-  mimetype: text('mimetype'),
+  fileArea: text('file_area').notNull(),
+  itemId: uuid('item_id'),
+  filePath: text('file_path').notNull().default('/'),
+  fileName: text('file_name').notNull(),
+  userId: uuid('user_id'),
+  fileSize: integer('file_size').notNull(),
+  mimeType: text('mime_type'),
   status: integer('status').notNull().default(0),
   source: text('source'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('files_contextid_idx').on(table.contextid),
-      index('files_itemid_idx').on(table.itemid),
-      index('files_userid_idx').on(table.userid),
+      index('files_context_id_idx').on(table.contextId),
+      index('files_item_id_idx').on(table.itemId),
+      index('files_user_id_idx').on(table.userId),
   ]);
 
 
 /** Worker's view of enrol tables (canonical schema in apps/api) — needed by the enrol-expiry processor. */
 export const enrol = pgTable('enrol', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  courseid: uuid('courseid').notNull(),
+  courseId: uuid('course_id').notNull(),
   enrol: text('enrol').notNull(),
   status: integer('status').notNull().default(0),
-  roleid: uuid('roleid'),
-  customint1: uuid('customint1'),
-  customtext1: text('customtext1').notNull().default('suspend'),
+  roleId: uuid('role_id'),
+  customInt1: uuid('custom_int1'),
+  customText1: text('custom_text1').notNull().default('suspend'),
 },
   (table) => [
-      index('enrol_courseid_idx').on(table.courseid),
-      index('enrol_roleid_idx').on(table.roleid),
-      index('enrol_customint1_idx').on(table.customint1),
+      index('enrol_course_id_idx').on(table.courseId),
+      index('enrol_role_id_idx').on(table.roleId),
+      index('enrol_custom_int1_idx').on(table.customInt1),
   ]);
 
 
 /** status: 0=ACTIVE, 1=SUSPENDED, 2=WITHDRAWN. */
 export const userEnrolments = pgTable('user_enrolments', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  enrolid: uuid('enrolid').notNull(),
-  userid: uuid('userid').notNull(),
+  enrolId: uuid('enrol_id').notNull(),
+  userId: uuid('user_id').notNull(),
   status: integer('status').notNull().default(0),
-  timestart: timestamp('timestart', { withTimezone: true }).notNull().defaultNow(),
-  timeend: timestamp('timeend', { withTimezone: true }),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  timeStart: timestamp('time_start', { withTimezone: true }).notNull().defaultNow(),
+  timeEnd: timestamp('time_end', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('user_enrolments_enrolid_idx').on(table.enrolid),
-      index('user_enrolments_userid_idx').on(table.userid),
+      index('user_enrolments_enrol_id_idx').on(table.enrolId),
+      index('user_enrolments_user_id_idx').on(table.userId),
   ]);
 
 
@@ -87,26 +87,26 @@ export const courseModules = pgTable('course_modules', {
 
 export const courseModulesCompletion = pgTable('course_modules_completion', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  coursemoduleid: uuid('coursemoduleid').notNull(),
-  userid: uuid('userid').notNull(),
-  completionstate: integer('completionstate').notNull().default(0),
+  courseModuleId: uuid('course_module_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  completionState: integer('completion_state').notNull().default(0),
   viewed: boolean('viewed').notNull().default(false),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('course_modules_completion_coursemoduleid_idx').on(t.coursemoduleid),
-      index('course_modules_completion_userid_idx').on(t.userid),unique('cmc_unique_worker').on(t.coursemoduleid, t.userid)]);
+      index('course_modules_completion_course_module_id_idx').on(t.courseModuleId),
+      index('course_modules_completion_user_id_idx').on(t.userId),unique('cmc_unique_worker').on(t.courseModuleId, t.userId)]);
 
 export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   course: uuid('course').notNull(),
-  criteriatype: text('criteriatype').notNull(),
-  moduleinstance: uuid('moduleinstance'),
+  criteriaType: text('criteria_type').notNull(),
+  moduleInstance: uuid('module_instance'),
   date: timestamp('date', { withTimezone: true }),
-  sortorder: integer('sortorder').notNull().default(0),
+  sortOrder: integer('sort_order').notNull().default(0),
 },
   (table) => [
       index('course_completion_criteria_course_idx').on(table.course),
-      index('course_completion_criteria_moduleinstance_idx').on(table.moduleinstance),
+      index('course_completion_criteria_module_instance_idx').on(table.moduleInstance),
   ]);
 
 
@@ -117,102 +117,102 @@ export const courseCompletionSettings = pgTable('course_completion_settings', {
 
 export const courseCompletions = pgTable('course_completions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   course: uuid('course').notNull(),
   status: text('status').notNull().default('not_started'),
-  timeenrolled: timestamp('timeenrolled', { withTimezone: true }).notNull().defaultNow(),
-  timestarted: timestamp('timestarted', { withTimezone: true }),
-  timecompleted: timestamp('timecompleted', { withTimezone: true }),
-  reaggregate: timestamp('reaggregate', { withTimezone: true }).notNull().defaultNow(),
+  timeEnrolled: timestamp('time_enrolled', { withTimezone: true }).notNull().defaultNow(),
+  timeStarted: timestamp('time_started', { withTimezone: true }),
+  timeCompleted: timestamp('time_completed', { withTimezone: true }),
+  reAggregate: timestamp('re_aggregate', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('course_completions_userid_idx').on(t.userid),
-      index('course_completions_course_idx').on(t.course),unique('cc_unique_worker').on(t.userid, t.course)]);
+      index('course_completions_user_id_idx').on(t.userId),
+      index('course_completions_course_idx').on(t.course),unique('cc_unique_worker').on(t.userId, t.course)]);
 
 /** Worker's view of grade tables (canonical schema in apps/api) — needed by the grade-regrade processor. */
 export const gradeCategories = pgTable('grade_categories', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  courseid: uuid('courseid').notNull(),
+  courseId: uuid('course_id').notNull(),
   parent: uuid('parent'),
-  fullname: text('fullname').notNull().default(''),
+  fullName: text('full_name').notNull().default(''),
   aggregation: text('aggregation').notNull().default('natural'),
-  droplow: integer('droplow').notNull().default(0),
-  keephigh: integer('keephigh').notNull().default(0),
-  aggregateonlygraded: boolean('aggregateonlygraded').notNull().default(false),
+  dropLow: integer('drop_low').notNull().default(0),
+  keepHigh: integer('keep_high').notNull().default(0),
+  aggregateOnlyGraded: boolean('aggregate_only_graded').notNull().default(false),
   depth: integer('depth').notNull().default(1),
 },
   (table) => [
-      index('grade_categories_courseid_idx').on(table.courseid),
+      index('grade_categories_course_id_idx').on(table.courseId),
       index('grade_categories_parent_idx').on(table.parent),
   ]);
 
 
 export const gradeItems = pgTable('grade_items', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  courseid: uuid('courseid').notNull(),
-  categoryid: uuid('categoryid'),
-  itemname: text('itemname').notNull().default(''),
-  itemtype: text('itemtype').notNull().default('manual'),
-  iteminstance: uuid('iteminstance'),
-  gradetype: text('gradetype').notNull().default('value'),
-  scaleid: uuid('scaleid'),
-  outcomeid: uuid('outcomeid'),
-  idnumber: text('idnumber'),
+  courseId: uuid('course_id').notNull(),
+  categoryId: uuid('category_id'),
+  itemName: text('item_name').notNull().default(''),
+  itemType: text('item_type').notNull().default('manual'),
+  itemInstance: uuid('item_instance'),
+  gradeType: text('grade_type').notNull().default('value'),
+  scaleId: uuid('scale_id'),
+  outcomeId: uuid('outcome_id'),
+  idNumber: text('id_number'),
   calculation: text('calculation'),
-  grademax: doublePrecision('grademax').notNull().default(100),
-  grademin: doublePrecision('grademin').notNull().default(0),
-  gradepass: doublePrecision('gradepass').notNull().default(0),
-  weightoverride: boolean('weightoverride').notNull().default(false),
-  aggregationcoef: doublePrecision('aggregationcoef').notNull().default(0),
-  extracredit: boolean('extracredit').notNull().default(false),
+  gradeMax: doublePrecision('grade_max').notNull().default(100),
+  gradeMin: doublePrecision('grade_min').notNull().default(0),
+  gradePass: doublePrecision('grade_pass').notNull().default(0),
+  weightOverride: boolean('weight_override').notNull().default(false),
+  aggregationCoef: doublePrecision('aggregation_coef').notNull().default(0),
+  extraCredit: boolean('extra_credit').notNull().default(false),
   multiplicator: doublePrecision('multiplicator').notNull().default(1),
-  plusfactor: doublePrecision('plusfactor').notNull().default(0),
+  plusFactor: doublePrecision('plus_factor').notNull().default(0),
 },
   (table) => [
-      index('grade_items_courseid_idx').on(table.courseid),
-      index('grade_items_categoryid_idx').on(table.categoryid),
-      index('grade_items_iteminstance_idx').on(table.iteminstance),
+      index('grade_items_course_id_idx').on(table.courseId),
+      index('grade_items_category_id_idx').on(table.categoryId),
+      index('grade_items_item_instance_idx').on(table.itemInstance),
   ]);
 
 
 export const gradeGrades = pgTable('grade_grades', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  itemid: uuid('itemid').notNull(),
-  userid: uuid('userid').notNull(),
-  rawgrade: doublePrecision('rawgrade'),
-  finalgrade: doublePrecision('finalgrade'),
+  itemId: uuid('item_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  rawGrade: doublePrecision('raw_grade'),
+  finalGrade: doublePrecision('final_grade'),
   hidden: boolean('hidden').notNull().default(false),
   locked: boolean('locked').notNull().default(false),
   overridden: boolean('overridden').notNull().default(false),
   excluded: boolean('excluded').notNull().default(false),
   frozen: boolean('frozen').notNull().default(false),
   feedback: text('feedback'),
-  aggregationstatus: text('aggregationstatus').notNull().default('unknown'),
-  aggregationweight: doublePrecision('aggregationweight'),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  aggregationStatus: text('aggregation_status').notNull().default('unknown'),
+  aggregationWeight: doublePrecision('aggregation_weight'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('grade_grades_itemid_idx').on(t.itemid),
-      index('grade_grades_userid_idx').on(t.userid),unique('gg_unique_worker').on(t.itemid, t.userid)]);
+      index('grade_grades_item_id_idx').on(t.itemId),
+      index('grade_grades_user_id_idx').on(t.userId),unique('gg_unique_worker').on(t.itemId, t.userId)]);
 
 export const gradeGradesHistory = pgTable('grade_grades_history', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   action: integer('action').notNull().default(2),
-  oldid: uuid('oldid'),
-  itemid: uuid('itemid').notNull(),
-  userid: uuid('userid').notNull(),
-  rawgrade: doublePrecision('rawgrade'),
-  finalgrade: doublePrecision('finalgrade'),
+  oldId: uuid('old_id'),
+  itemId: uuid('item_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  rawGrade: doublePrecision('raw_grade'),
+  finalGrade: doublePrecision('final_grade'),
   overridden: boolean('overridden').notNull().default(false),
   excluded: boolean('excluded').notNull().default(false),
   frozen: boolean('frozen').notNull().default(false),
   source: text('source'),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-  loggeduser: uuid('loggeduser'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  loggedUser: uuid('logged_user'),
 },
   (table) => [
-      index('grade_grades_history_oldid_idx').on(table.oldid),
-      index('grade_grades_history_itemid_idx').on(table.itemid),
-      index('grade_grades_history_userid_idx').on(table.userid),
-      index('grade_grades_history_loggeduser_idx').on(table.loggeduser),
+      index('grade_grades_history_old_id_idx').on(table.oldId),
+      index('grade_grades_history_item_id_idx').on(table.itemId),
+      index('grade_grades_history_user_id_idx').on(table.userId),
+      index('grade_grades_history_logged_user_idx').on(table.loggedUser),
   ]);
 
 
@@ -225,82 +225,82 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   username: text('username').notNull(),
   email: text('email').notNull().default(''),
-  firstname: text('firstname').notNull().default(''),
-  lastname: text('lastname').notNull().default(''),
+  firstName: text('first_name').notNull().default(''),
+  lastName: text('last_name').notNull().default(''),
   suspended: boolean('suspended').notNull().default(false),
   deleted: boolean('deleted').notNull().default(false),
-  lastlogin: timestamp('lastlogin', { withTimezone: true }),
+  lastLogin: timestamp('last_login', { withTimezone: true }),
 });
 
 export const userPreferences = pgTable('user_preferences', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   name: text('name').notNull(),
   value: text('value'),
 }, (t) => [
-      index('user_preferences_userid_idx').on(t.userid),unique('user_preferences_unique_worker').on(t.userid, t.name)]);
+      index('user_preferences_user_id_idx').on(t.userId),unique('user_preferences_unique_worker').on(t.userId, t.name)]);
 
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  useridfrom: uuid('useridfrom'),
-  useridto: uuid('useridto').notNull(),
+  userIdFrom: uuid('user_id_from'),
+  userIdTo: uuid('user_id_to').notNull(),
   subject: text('subject').notNull().default(''),
-  fullmessage: text('fullmessage').notNull().default(''),
-  smallmessage: text('smallmessage').notNull().default(''),
+  fullMessage: text('full_message').notNull().default(''),
+  smallMessage: text('small_message').notNull().default(''),
   component: text('component').notNull().default(''),
-  eventtype: text('eventtype').notNull().default(''),
-  contexturl: text('contexturl'),
-  contexturlname: text('contexturlname'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timeread: timestamp('timeread', { withTimezone: true }),
+  eventType: text('event_type').notNull().default(''),
+  contextUrl: text('context_url'),
+  contextUrlName: text('context_url_name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  timeRead: timestamp('time_read', { withTimezone: true }),
 },
   (table) => [
-      index('notifications_useridfrom_idx').on(table.useridfrom),
-      index('notifications_useridto_idx').on(table.useridto),
+      index('notifications_user_id_from_idx').on(table.userIdFrom),
+      index('notifications_user_id_to_idx').on(table.userIdTo),
   ]);
 
 
 export const notificationDispatchLog = pgTable('notification_dispatch_log', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  notificationid: uuid('notificationid'),
-  userid: uuid('userid').notNull(),
+  notificationId: uuid('notification_id'),
+  userId: uuid('user_id').notNull(),
   provider: text('provider').notNull(),
   channel: text('channel').notNull(),
   status: text('status').notNull(),
   subject: text('subject').notNull().default(''),
-  dedupekey: text('dedupekey'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  dedupeKey: text('dedupe_key'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('notification_dispatch_log_notificationid_idx').on(t.notificationid),
-      index('notification_dispatch_log_userid_idx').on(t.userid),unique('notification_dispatch_log_dedupe_worker').on(t.dedupekey)]);
+      index('notification_dispatch_log_notification_id_idx').on(t.notificationId),
+      index('notification_dispatch_log_user_id_idx').on(t.userId),unique('notification_dispatch_log_dedupe_worker').on(t.dedupeKey)]);
 
 export const calendarEvents = pgTable('calendar_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
-  eventtype: text('eventtype').notNull().default('user'),
-  courseid: uuid('courseid'),
-  groupid: uuid('groupid'),
-  categoryid: uuid('categoryid'),
-  userid: uuid('userid'),
-  contextid: uuid('contextid'),
-  subscriptionid: uuid('subscriptionid'),
+  eventType: text('event_type').notNull().default('user'),
+  courseId: uuid('course_id'),
+  groupId: uuid('group_id'),
+  categoryId: uuid('category_id'),
+  userId: uuid('user_id'),
+  contextId: uuid('context_id'),
+  subscriptionId: uuid('subscription_id'),
   uuid: text('uuid'),
-  repeatid: uuid('repeatid'),
-  timestart: timestamp('timestart', { withTimezone: true }).notNull(),
-  timeduration: integer('timeduration').notNull().default(0),
+  repeatId: uuid('repeat_id'),
+  timeStart: timestamp('time_start', { withTimezone: true }).notNull(),
+  timeDuration: integer('time_duration').notNull().default(0),
   visible: boolean('visible').notNull().default(true),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('calendar_events_courseid_idx').on(table.courseid),
-      index('calendar_events_groupid_idx').on(table.groupid),
-      index('calendar_events_categoryid_idx').on(table.categoryid),
-      index('calendar_events_userid_idx').on(table.userid),
-      index('calendar_events_contextid_idx').on(table.contextid),
-      index('calendar_events_subscriptionid_idx').on(table.subscriptionid),
-      index('calendar_events_repeatid_idx').on(table.repeatid),
+      index('calendar_events_course_id_idx').on(table.courseId),
+      index('calendar_events_group_id_idx').on(table.groupId),
+      index('calendar_events_category_id_idx').on(table.categoryId),
+      index('calendar_events_user_id_idx').on(table.userId),
+      index('calendar_events_context_id_idx').on(table.contextId),
+      index('calendar_events_subscription_id_idx').on(table.subscriptionId),
+      index('calendar_events_repeat_id_idx').on(table.repeatId),
   ]);
 
 
@@ -308,19 +308,19 @@ export const calendarSubscriptions = pgTable('calendar_subscriptions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   url: text('url'),
-  icsdata: text('icsdata'),
-  eventtype: text('eventtype').notNull().default('site'),
-  courseid: uuid('courseid'),
-  categoryid: uuid('categoryid'),
-  userid: uuid('userid'),
-  pollinterval: integer('pollinterval').notNull().default(604800),
-  lastupdated: timestamp('lastupdated', { withTimezone: true }),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  icsData: text('ics_data'),
+  eventType: text('event_type').notNull().default('site'),
+  courseId: uuid('course_id'),
+  categoryId: uuid('category_id'),
+  userId: uuid('user_id'),
+  pollInterval: integer('poll_interval').notNull().default(604800),
+  lastUpdated: timestamp('last_updated', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('calendar_subscriptions_courseid_idx').on(table.courseid),
-      index('calendar_subscriptions_categoryid_idx').on(table.categoryid),
-      index('calendar_subscriptions_userid_idx').on(table.userid),
+      index('calendar_subscriptions_course_id_idx').on(table.courseId),
+      index('calendar_subscriptions_category_id_idx').on(table.categoryId),
+      index('calendar_subscriptions_user_id_idx').on(table.userId),
   ]);
 
 
@@ -329,108 +329,108 @@ export const badge = pgTable('badge', {
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   type: integer('type').notNull().default(1),
-  courseid: uuid('courseid'),
-  issuername: text('issuername').notNull().default(''),
+  courseId: uuid('course_id'),
+  issuerName: text('issuer_name').notNull().default(''),
   status: integer('status').notNull().default(0),
-  expiredate: timestamp('expiredate', { withTimezone: true }),
-  expireperiod: integer('expireperiod'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  expireDate: timestamp('expire_date', { withTimezone: true }),
+  expirePeriod: integer('expire_period'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('badge_courseid_idx').on(table.courseid),
+      index('badge_course_id_idx').on(table.courseId),
   ]);
 
 
 export const badgeCriteria = pgTable('badge_criteria', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  badgeid: uuid('badgeid').notNull(),
-  criteriatype: text('criteriatype').notNull(),
+  badgeId: uuid('badge_id').notNull(),
+  criteriaType: text('criteria_type').notNull(),
   method: integer('method').notNull().default(1),
   params: jsonb('params').notNull().default({}),
   description: text('description').notNull().default(''),
 },
   (table) => [
-      index('badge_criteria_badgeid_idx').on(table.badgeid),
+      index('badge_criteria_badge_id_idx').on(table.badgeId),
   ]);
 
 
 export const badgeIssued = pgTable('badge_issued', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  badgeid: uuid('badgeid').notNull(),
-  userid: uuid('userid').notNull(),
-  uniquehash: text('uniquehash').notNull(),
+  badgeId: uuid('badge_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  uniqueHash: text('unique_hash').notNull(),
   snapshot: jsonb('snapshot').notNull().default({}),
   evidence: jsonb('evidence').notNull().default({}),
-  dateissued: timestamp('dateissued', { withTimezone: true }).notNull().defaultNow(),
-  dateexpire: timestamp('dateexpire', { withTimezone: true }),
+  dateIssued: timestamp('date_issued', { withTimezone: true }).notNull().defaultNow(),
+  dateExpire: timestamp('date_expire', { withTimezone: true }),
   visible: boolean('visible').notNull().default(true),
   revoked: boolean('revoked').notNull().default(false),
-  issuernotified: boolean('issuernotified').notNull().default(false),
+  issuerNotified: boolean('issuer_notified').notNull().default(false),
 }, (t) => [
-      index('badge_issued_badgeid_idx').on(t.badgeid),
-      index('badge_issued_userid_idx').on(t.userid),unique('badge_issued_badge_user_worker').on(t.badgeid, t.userid)]);
+      index('badge_issued_badge_id_idx').on(t.badgeId),
+      index('badge_issued_user_id_idx').on(t.userId),unique('badge_issued_badge_user_worker').on(t.badgeId, t.userId)]);
 
 export const badgeManualAward = pgTable('badge_manual_award', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  badgeid: uuid('badgeid').notNull(),
-  recipientid: uuid('recipientid').notNull(),
-  issuerid: uuid('issuerid').notNull(),
-  datemet: timestamp('datemet', { withTimezone: true }).notNull().defaultNow(),
+  badgeId: uuid('badge_id').notNull(),
+  recipientId: uuid('recipient_id').notNull(),
+  issuerId: uuid('issuer_id').notNull(),
+  dateMet: timestamp('date_met', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('badge_manual_award_badgeid_idx').on(table.badgeid),
-      index('badge_manual_award_recipientid_idx').on(table.recipientid),
-      index('badge_manual_award_issuerid_idx').on(table.issuerid),
+      index('badge_manual_award_badge_id_idx').on(table.badgeId),
+      index('badge_manual_award_recipient_id_idx').on(table.recipientId),
+      index('badge_manual_award_issuer_id_idx').on(table.issuerId),
   ]);
 
 
 /** Worker view of `cohort_members` (canonical schema in apps/api groups module) — needed by the badge `cohort` criteria leaf. */
 export const cohortMembers = pgTable('cohort_members', {
-  cohortid: uuid('cohortid').notNull(),
-  userid: uuid('userid').notNull(),
-  timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [unique('cohort_members_unique_worker').on(t.cohortid, t.userid)]);
+  cohortId: uuid('cohort_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  timeAdded: timestamp('time_added', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique('cohort_members_unique_worker').on(t.cohortId, t.userId)]);
 
 /** Worker view of the custom field tables (canonical schema in apps/api custom-fields module) — needed by the badge `profile` criteria leaf. */
-export const customfieldCategory = pgTable('customfield_category', {
+export const customFieldCategory = pgTable('custom_field_category', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull().default(''),
   component: text('component').notNull(),
   area: text('area').notNull(),
 });
 
-export const customfieldField = pgTable('customfield_field', {
+export const customFieldField = pgTable('custom_field_field', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  categoryid: uuid('categoryid').notNull(),
-  shortname: text('shortname').notNull(),
+  categoryId: uuid('category_id').notNull(),
+  shortName: text('short_name').notNull(),
   name: text('name').notNull().default(''),
   type: text('type').notNull().default('text'),
 });
 
-export const customfieldData = pgTable('customfield_data', {
+export const customFieldData = pgTable('custom_field_data', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  fieldid: uuid('fieldid').notNull(),
-  instanceid: uuid('instanceid').notNull(),
+  fieldId: uuid('field_id').notNull(),
+  instanceId: uuid('instance_id').notNull(),
   value: text('value'),
 });
 
 
-export const competencyUsercomp = pgTable('competency_usercomp', {
+export const competencyUserComp = pgTable('competency_user_comp', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
-  competencyid: uuid('competencyid').notNull(),
-  planid: uuid('planid'),
-  courseid: uuid('courseid'),
+  userId: uuid('user_id').notNull(),
+  competencyId: uuid('competency_id').notNull(),
+  planId: uuid('plan_id'),
+  courseId: uuid('course_id'),
   status: integer('status').notNull().default(0),
   proficiency: boolean('proficiency'),
   grade: integer('grade'),
 },
   (table) => [
-      index('competency_usercomp_userid_idx').on(table.userid),
-      index('competency_usercomp_competencyid_idx').on(table.competencyid),
-      index('competency_usercomp_planid_idx').on(table.planid),
-      index('competency_usercomp_courseid_idx').on(table.courseid),
+      index('competency_user_comp_user_id_idx').on(table.userId),
+      index('competency_user_comp_competency_id_idx').on(table.competencyId),
+      index('competency_user_comp_plan_id_idx').on(table.planId),
+      index('competency_user_comp_course_id_idx').on(table.courseId),
   ]);
 
 
@@ -442,23 +442,23 @@ export const competencyUsercomp = pgTable('competency_usercomp', {
 export const searchDocuments = pgTable('search_documents', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   area: text('area').notNull(),
-  itemid: uuid('itemid').notNull(),
-  contextid: uuid('contextid').notNull(),
+  itemId: uuid('item_id').notNull(),
+  contextId: uuid('context_id').notNull(),
   title: text('title').notNull().default(''),
   content: text('content').notNull().default(''),
-  ownerid: uuid('ownerid'),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  ownerId: uuid('owner_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('search_documents_itemid_idx').on(t.itemid),
-      index('search_documents_contextid_idx').on(t.contextid),
-      index('search_documents_ownerid_idx').on(t.ownerid),unique('search_documents_area_item_unique').on(t.area, t.itemid)]);
+      index('search_documents_item_id_idx').on(t.itemId),
+      index('search_documents_context_id_idx').on(t.contextId),
+      index('search_documents_owner_id_idx').on(t.ownerId),unique('search_documents_area_item_unique').on(t.area, t.itemId)]);
 
 /** Các khoá học (worker backup/analytics cần đọc tiêu đề). */
 export const course = pgTable('course', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   category: uuid('category').notNull(),
-  fullname: text('fullname').notNull(),
-  shortname: text('shortname').notNull().unique(),
+  fullName: text('full_name').notNull(),
+  shortName: text('short_name').notNull().unique(),
   summary: text('summary').notNull().default(''),
   visible: boolean('visible').notNull().default(true),
 },
@@ -470,13 +470,13 @@ export const course = pgTable('course', {
 /** Context (worker cần course context cho search/analytics). */
 export const contextTable = pgTable('context', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  contextlevel: integer('contextlevel').notNull(),
-  instanceid: uuid('instanceid'),
+  contextLevel: integer('context_level').notNull(),
+  instanceId: uuid('instance_id'),
   path: text('path').notNull(),
   depth: integer('depth').notNull(),
 },
   (table) => [
-      index('context_instanceid_idx').on(table.instanceid),
+      index('context_instance_id_idx').on(table.instanceId),
   ]);
 
 
@@ -485,33 +485,33 @@ export const backupJobs = pgTable('backup_jobs', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: text('type').notNull(),
   scope: text('scope').notNull().default('course'),
-  courseid: uuid('courseid'),
-  targetcourseid: uuid('targetcourseid'),
+  courseId: uuid('course_id'),
+  targetCourseId: uuid('target_course_id'),
   mode: text('mode').notNull().default('new'),
   status: text('status').notNull().default('pending'),
   anonymize: boolean('anonymize').notNull().default(false),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   archive: jsonb('archive'),
   error: text('error'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timefinished: timestamp('timefinished', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  timeFinished: timestamp('time_finished', { withTimezone: true }),
 },
   (table) => [
-      index('backup_jobs_courseid_idx').on(table.courseid),
-      index('backup_jobs_targetcourseid_idx').on(table.targetcourseid),
-      index('backup_jobs_userid_idx').on(table.userid),
+      index('backup_jobs_course_id_idx').on(table.courseId),
+      index('backup_jobs_target_course_id_idx').on(table.targetCourseId),
+      index('backup_jobs_user_id_idx').on(table.userId),
   ]);
 
 export const backupJobSteps = pgTable('backup_job_steps', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  jobid: uuid('jobid').notNull(),
+  jobId: uuid('job_id').notNull(),
   name: text('name').notNull(),
   status: text('status').notNull().default('pending'),
   detail: jsonb('detail'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('backup_job_steps_jobid_idx').on(table.jobid),
+      index('backup_job_steps_job_id_idx').on(table.jobId),
   ]);
 
 
@@ -522,131 +522,131 @@ export const analyticsModels = pgTable('analytics_models', {
   target: text('target').notNull(),
   indicators: jsonb('indicators').notNull().default([]),
   enabled: boolean('enabled').notNull().default(true),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 export const analyticsPredictions = pgTable('analytics_predictions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  modelid: uuid('modelid').notNull(),
-  userid: uuid('userid').notNull(),
-  contextid: uuid('contextid').notNull(),
-  courseid: uuid('courseid'),
+  modelId: uuid('model_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  courseId: uuid('course_id'),
   score: doublePrecision('score').notNull().default(0),
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('analytics_predictions_modelid_idx').on(table.modelid),
-      index('analytics_predictions_userid_idx').on(table.userid),
-      index('analytics_predictions_contextid_idx').on(table.contextid),
-      index('analytics_predictions_courseid_idx').on(table.courseid),
+      index('analytics_predictions_model_id_idx').on(table.modelId),
+      index('analytics_predictions_user_id_idx').on(table.userId),
+      index('analytics_predictions_context_id_idx').on(table.contextId),
+      index('analytics_predictions_course_id_idx').on(table.courseId),
   ]);
 
 export const insights = pgTable('insights', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  modelid: uuid('modelid').notNull(),
-  predictionid: uuid('predictionid'),
-  userid: uuid('userid').notNull(),
-  recipientid: uuid('recipientid').notNull(),
-  contextid: uuid('contextid').notNull(),
-  courseid: uuid('courseid'),
+  modelId: uuid('model_id').notNull(),
+  predictionId: uuid('prediction_id'),
+  userId: uuid('user_id').notNull(),
+  recipientId: uuid('recipient_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  courseId: uuid('course_id'),
   heading: text('heading').notNull().default(''),
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('insights_modelid_idx').on(table.modelid),
-      index('insights_predictionid_idx').on(table.predictionid),
-      index('insights_userid_idx').on(table.userid),
-      index('insights_recipientid_idx').on(table.recipientid),
-      index('insights_contextid_idx').on(table.contextid),
-      index('insights_courseid_idx').on(table.courseid),
+      index('insights_model_id_idx').on(table.modelId),
+      index('insights_prediction_id_idx').on(table.predictionId),
+      index('insights_user_id_idx').on(table.userId),
+      index('insights_recipient_id_idx').on(table.recipientId),
+      index('insights_context_id_idx').on(table.contextId),
+      index('insights_course_id_idx').on(table.courseId),
   ]);
 
 
 /** Báo cáo + lịch (worker report schedule). */
-export const reportbuilderReport = pgTable('reportbuilder_report', {
+export const reportBuilderReport = pgTable('report_builder_report', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
-  datasource: text('datasource').notNull(),
+  dataSource: text('data_source').notNull(),
   columns: jsonb('columns').notNull().default([]),
   filters: jsonb('filters').notNull().default({}),
-  createdby: uuid('createdby').notNull(),
-  contextid: uuid('contextid'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdBy: uuid('created_by').notNull(),
+  contextId: uuid('context_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('reportbuilder_report_createdby_idx').on(table.createdby),
-      index('reportbuilder_report_contextid_idx').on(table.contextid),
+      index('report_builder_report_created_by_idx').on(table.createdBy),
+      index('report_builder_report_context_id_idx').on(table.contextId),
   ]);
 
-export const reportbuilderSchedule = pgTable('reportbuilder_schedule', {
+export const reportBuilderSchedule = pgTable('report_builder_schedule', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  reportid: uuid('reportid').notNull(),
-  createdby: uuid('createdby').notNull(),
+  reportId: uuid('report_id').notNull(),
+  createdBy: uuid('created_by').notNull(),
   cron: text('cron').notNull().default('daily'),
   enabled: boolean('enabled').notNull().default(true),
-  lastrun: timestamp('lastrun', { withTimezone: true }),
-  lastresult: jsonb('lastresult'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  lastRun: timestamp('last_run', { withTimezone: true }),
+  lastResult: jsonb('last_result'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('reportbuilder_schedule_reportid_idx').on(table.reportid),
-      index('reportbuilder_schedule_createdby_idx').on(table.createdby),
+      index('report_builder_schedule_report_id_idx').on(table.reportId),
+      index('report_builder_schedule_created_by_idx').on(table.createdBy),
   ]);
 
 
 /** Thanh toán (worker reconciliation + webhook twin). */
 export const payments = pgTable('payments', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  accountid: uuid('accountid').notNull(),
-  userid: uuid('userid').notNull(),
+  accountId: uuid('account_id').notNull(),
+  userId: uuid('user_id').notNull(),
   amount: integer('amount').notNull(),
   currency: text('currency').notNull(),
   status: text('status').notNull().default('pending'),
   gateway: text('gateway').notNull().default('manual'),
-  externaltransactionid: text('externaltransactionid'),
+  externalTransactionId: text('external_transaction_id'),
   component: text('component').notNull().default(''),
-  itemid: uuid('itemid'),
+  itemId: uuid('item_id'),
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('payments_accountid_idx').on(table.accountid),
-      index('payments_userid_idx').on(table.userid),
-      index('payments_itemid_idx').on(table.itemid),
+      index('payments_account_id_idx').on(table.accountId),
+      index('payments_user_id_idx').on(table.userId),
+      index('payments_item_id_idx').on(table.itemId),
   ]);
 
 
 /** Yêu cầu privacy (worker export/delete processors). */
 export const privacyRequests = pgTable('privacy_requests', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   type: text('type').notNull(),
   status: text('status').notNull().default('pending'),
-  requestedby: uuid('requestedby').notNull(),
-  approvedby: uuid('approvedby'),
+  requestedBy: uuid('requested_by').notNull(),
+  approvedBy: uuid('approved_by'),
   result: jsonb('result'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('privacy_requests_userid_idx').on(table.userid),
-      index('privacy_requests_requestedby_idx').on(table.requestedby),
-      index('privacy_requests_approvedby_idx').on(table.approvedby),
+      index('privacy_requests_user_id_idx').on(table.userId),
+      index('privacy_requests_requested_by_idx').on(table.requestedBy),
+      index('privacy_requests_approved_by_idx').on(table.approvedBy),
   ]);
 
 export const privacyExportFiles = pgTable('privacy_export_files', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  requestid: uuid('requestid').notNull(),
-  fileid: uuid('fileid'),
+  requestId: uuid('request_id').notNull(),
+  fileId: uuid('file_id'),
   subsystem: text('subsystem').notNull().default(''),
   manifest: jsonb('manifest'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('privacy_export_files_requestid_idx').on(table.requestid),
-      index('privacy_export_files_fileid_idx').on(table.fileid),
+      index('privacy_export_files_request_id_idx').on(table.requestId),
+      index('privacy_export_files_file_id_idx').on(table.fileId),
   ]);
 
 
@@ -654,9 +654,9 @@ export const privacyExportFiles = pgTable('privacy_export_files', {
 export const questionCategories = pgTable('question_categories', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
-  contextid: uuid('contextid').notNull(),
+  contextId: uuid('context_id').notNull(),
   parent: uuid('parent'),
-}, (t) => [index('question_categories_contextid_idx').on(t.contextid)]);
+}, (t) => [index('question_categories_context_id_idx').on(t.contextId)]);
 
 export const question = pgTable('question', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -667,17 +667,17 @@ export const question = pgTable('question', {
 
 export const questionBankEntries = pgTable('question_bank_entries', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  questioncategoryid: uuid('questioncategoryid').notNull(),
-  questionid: uuid('questionid').notNull(),
-  latestversion: integer('latestversion').notNull().default(1),
-}, (t) => [index('question_bank_entries_questioncategoryid_idx').on(t.questioncategoryid)]);
+  questionCategoryId: uuid('question_category_id').notNull(),
+  questionId: uuid('question_id').notNull(),
+  latestVersion: integer('latest_version').notNull().default(1),
+}, (t) => [index('question_bank_entries_question_category_id_idx').on(t.questionCategoryId)]);
 
 export const questionVersions = pgTable('question_versions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  questionbankentryid: uuid('questionbankentryid').notNull(),
-  questionid: uuid('questionid').notNull(),
+  questionBankEntryId: uuid('question_bank_entry_id').notNull(),
+  questionId: uuid('question_id').notNull(),
   version: integer('version').notNull(),
-}, (t) => [index('question_versions_questionid_idx').on(t.questionid)]);
+}, (t) => [index('question_versions_question_id_idx').on(t.questionId)]);
 
 /** Các bảng phụ trợ platform services cho worker: sections, id mappings, roles/assignments. */
 export const courseSections = pgTable('course_sections', {
@@ -694,59 +694,59 @@ export const courseSections = pgTable('course_sections', {
 
 export const backupIdMappings = pgTable('backup_id_mappings', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  jobid: uuid('jobid').notNull(),
-  itemtype: text('itemtype').notNull(),
-  oldid: uuid('oldid').notNull(),
-  newid: uuid('newid').notNull(),
+  jobId: uuid('job_id').notNull(),
+  itemType: text('item_type').notNull(),
+  oldId: uuid('old_id').notNull(),
+  newId: uuid('new_id').notNull(),
 },
   (table) => [
-      index('backup_id_mappings_jobid_idx').on(table.jobid),
-      index('backup_id_mappings_oldid_idx').on(table.oldid),
-      index('backup_id_mappings_newid_idx').on(table.newid),
+      index('backup_id_mappings_job_id_idx').on(table.jobId),
+      index('backup_id_mappings_old_id_idx').on(table.oldId),
+      index('backup_id_mappings_new_id_idx').on(table.newId),
   ]);
 
 export const role = pgTable('role', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull().default(''),
-  shortname: text('shortname').notNull().unique(),
+  shortName: text('short_name').notNull().unique(),
   archetype: text('archetype'),
 });
 export const roleAssignments = pgTable('role_assignments', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  roleid: uuid('roleid').notNull(),
-  userid: uuid('userid').notNull(),
-  contextid: uuid('contextid').notNull(),
+  roleId: uuid('role_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  contextId: uuid('context_id').notNull(),
 },
   (table) => [
-      index('role_assignments_roleid_idx').on(table.roleid),
-      index('role_assignments_userid_idx').on(table.userid),
-      index('role_assignments_contextid_idx').on(table.contextid),
+      index('role_assignments_role_id_idx').on(table.roleId),
+      index('role_assignments_user_id_idx').on(table.userId),
+      index('role_assignments_context_id_idx').on(table.contextId),
   ]);
 
 export const blogPosts = pgTable('blog_posts', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   subject: text('subject').notNull().default(''),
   summary: text('summary').notNull().default(''),
   content: text('content').notNull().default(''),
-  publishstate: text('publishstate').notNull().default('draft'),
+  publishState: text('publish_state').notNull().default('draft'),
 },
   (table) => [
-      index('blog_posts_userid_idx').on(table.userid),
+      index('blog_posts_user_id_idx').on(table.userId),
   ]);
 
-export const contentbankContent = pgTable('contentbank_content', {
+export const contentBankContent = pgTable('content_bank_content', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
-  contenttype: text('contenttype').notNull().default('file-based'),
-  contextid: uuid('contextid').notNull(),
-  creatorid: uuid('creatorid').notNull(),
+  contentType: text('content_type').notNull().default('file-based'),
+  contextId: uuid('context_id').notNull(),
+  creatorId: uuid('creator_id').notNull(),
   visibility: text('visibility').notNull().default('draft'),
-  fileid: uuid('fileid'),
+  fileId: uuid('file_id'),
 },
   (table) => [
-      index('contentbank_content_contextid_idx').on(table.contextid),
-      index('contentbank_content_creatorid_idx').on(table.creatorid),
-      index('contentbank_content_fileid_idx').on(table.fileid),
+      index('content_bank_content_context_id_idx').on(table.contextId),
+      index('content_bank_content_creator_id_idx').on(table.creatorId),
+      index('content_bank_content_file_id_idx').on(table.fileId),
   ]);
 

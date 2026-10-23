@@ -14,50 +14,50 @@ import { course } from '../courses/schema';
 
 /**
  * Enrol instances per course (Moodle `enrol`). method: manual|cohort|self|guest.
- * status: 0=enabled, 1=disabled. For cohort instances customint1 = cohort id,
- * customint2 = group id to add members to (0=none), customtext1 = sync mode
+ * status: 0=enabled, 1=disabled. For cohort instances custom_int1 = cohort id,
+ * custom_int2 = group id to add members to (0=none), custom_text1 = sync mode
  * ('suspend'|'unenrol') applied when a user leaves the cohort.
  */
 export const enrol = pgTable('enrol', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
   enrol: text('enrol').notNull(),
   status: integer('status').notNull().default(0),
   name: text('name'),
-  roleid: uuid('roleid'),
-  enrolperiod: integer('enrolperiod').notNull().default(0),
-  timestart: timestamp('timestart', { withTimezone: true }),
-  timeend: timestamp('timeend', { withTimezone: true }),
-  customint1: uuid('customint1'),
-  customint2: uuid('customint2'),
-  customtext1: text('customtext1').notNull().default('suspend'),
+  roleId: uuid('role_id'),
+  enrolPeriod: integer('enrol_period').notNull().default(0),
+  timeStart: timestamp('time_start', { withTimezone: true }),
+  timeEnd: timestamp('time_end', { withTimezone: true }),
+  customInt1: uuid('custom_int1'),
+  customInt2: uuid('custom_int2'),
+  customText1: text('custom_text1').notNull().default('suspend'),
   /** Fee enrol: cost in smallest currency unit (0 = free), currency ISO code, payment account id. */
   cost: integer('cost').notNull().default(0),
   currency: text('currency').notNull().default(''),
-  paymentaccountid: uuid('paymentaccountid'),
+  paymentAccountId: uuid('payment_account_id'),
   /**
    * Khoá ghi danh (enrolment key) của instance self (Moodle `enrol.password`):
    * null/rỗng = không yêu cầu khoá. Giá trị này là bí mật — service chỉ trả về
    * cho người có capability quản lý enrol.
    */
-  enrolmentkey: text('enrolmentkey'),
+  enrolmentKey: text('enrolment_key'),
   /**
    * Có gửi tin nhắn chào mừng khi ghi danh thành công hay không. Mặc định lúc
    * tạo instance do service quyết theo phương thức (self = bật, manual = tắt —
    * đúng mặc định của Moodle); cột này lưu lựa chọn đã chốt của instance.
    */
-  sendwelcomemessage: boolean('sendwelcomemessage').notNull().default(false),
+  sendWelcomeMessage: boolean('send_welcome_message').notNull().default(false),
   /** Nội dung tin nhắn chào mừng tuỳ biến; null = dùng mẫu mặc định theo i18n (`platform.enrolWelcomeBody`). */
-  welcomemessage: text('welcomemessage'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  welcomeMessage: text('welcome_message'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('enrol_courseid_idx').on(table.courseid),
-      index('enrol_roleid_idx').on(table.roleid),
-      index('enrol_customint1_idx').on(table.customint1),
-      index('enrol_customint2_idx').on(table.customint2),
-      index('enrol_paymentaccountid_idx').on(table.paymentaccountid),
+      index('enrol_course_id_idx').on(table.courseId),
+      index('enrol_role_id_idx').on(table.roleId),
+      index('enrol_custom_int1_idx').on(table.customInt1),
+      index('enrol_custom_int2_idx').on(table.customInt2),
+      index('enrol_payment_account_id_idx').on(table.paymentAccountId),
   ]);
 
 
@@ -71,16 +71,16 @@ export const userEnrolments = pgTable(
   'user_enrolments',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    enrolid: uuid('enrolid').notNull().references(() => enrol.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
+    enrolId: uuid('enrol_id').notNull().references(() => enrol.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
     status: integer('status').notNull().default(0),
-    timestart: timestamp('timestart', { withTimezone: true }).notNull().defaultNow(),
-    timeend: timestamp('timeend', { withTimezone: true }),
-    modifierid: uuid('modifierid'),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+    timeStart: timestamp('time_start', { withTimezone: true }).notNull().defaultNow(),
+    timeEnd: timestamp('time_end', { withTimezone: true }),
+    modifierId: uuid('modifier_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('user_enrolments_userid_idx').on(table.userid),
-      index('user_enrolments_modifierid_idx').on(table.modifierid),unique('user_enrolments_unique').on(table.enrolid, table.userid)],
+      index('user_enrolments_user_id_idx').on(table.userId),
+      index('user_enrolments_modifier_id_idx').on(table.modifierId),unique('user_enrolments_unique').on(table.enrolId, table.userId)],
 );

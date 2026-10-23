@@ -19,40 +19,40 @@ export const paymentAccounts = pgTable('payment_accounts', {
   gateway: text('gateway').notNull().default('manual'),
   enabled: boolean('enabled').notNull().default(true),
   config: jsonb('config'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Thanh toán: amount là số nguyên đơn vị nhỏ nhất + currency; bản ghi thành công là bất biến. */
 export const payments = pgTable('payments', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  accountid: uuid('accountid').notNull().references(() => paymentAccounts.id),
-  userid: uuid('userid').notNull(),
+  accountId: uuid('account_id').notNull().references(() => paymentAccounts.id),
+  userId: uuid('user_id').notNull(),
   amount: integer('amount').notNull(),
   currency: text('currency').notNull(),
   status: text('status').notNull().default('pending'), // pending | succeeded | failed | refunded
   gateway: text('gateway').notNull().default('manual'),
-  externaltransactionid: text('externaltransactionid'),
+  externalTransactionId: text('external_transaction_id'),
   component: text('component').notNull().default(''),
-  itemid: uuid('itemid'), // e.g. enrol instance id
+  itemId: uuid('item_id'), // e.g. enrol instance id
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('payments_accountid_idx').on(t.accountid),
-      index('payments_userid_idx').on(t.userid),
-      index('payments_itemid_idx').on(t.itemid),unique('payments_external_tx_unique').on(t.gateway, t.externaltransactionid)]);
+      index('payments_account_id_idx').on(t.accountId),
+      index('payments_user_id_idx').on(t.userId),
+      index('payments_item_id_idx').on(t.itemId),unique('payments_external_tx_unique').on(t.gateway, t.externalTransactionId)]);
 
 /** Hoàn tiền là giao dịch bù trừ riêng — payment gốc không bị sửa. */
 export const paymentRefunds = pgTable('payment_refunds', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paymentid: uuid('paymentid').notNull().references(() => payments.id),
+  paymentId: uuid('payment_id').notNull().references(() => payments.id),
   amount: integer('amount').notNull(),
   currency: text('currency').notNull(),
   reason: text('reason').notNull().default(''),
-  externaltransactionid: text('externaltransactionid'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  externalTransactionId: text('external_transaction_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('payment_refunds_paymentid_idx').on(table.paymentid),
+      index('payment_refunds_payment_id_idx').on(table.paymentId),
   ]);
 

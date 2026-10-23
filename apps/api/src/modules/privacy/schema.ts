@@ -12,33 +12,33 @@ import { sql } from 'drizzle-orm';
 /** Yêu cầu Privacy: export/delete có phê duyệt, chạy nền, có trạng thái. */
 export const privacyRequests = pgTable('privacy_requests', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull(),
+  userId: uuid('user_id').notNull(),
   type: text('type').notNull(), // export | delete
   status: text('status').notNull().default('pending'), // pending | approved | rejected | completed | failed
-  requestedby: uuid('requestedby').notNull(),
-  approvedby: uuid('approvedby'),
+  requestedBy: uuid('requested_by').notNull(),
+  approvedBy: uuid('approved_by'),
   result: jsonb('result'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('privacy_requests_userid_idx').on(table.userid),
-      index('privacy_requests_requestedby_idx').on(table.requestedby),
-      index('privacy_requests_approvedby_idx').on(table.approvedby),
+      index('privacy_requests_user_id_idx').on(table.userId),
+      index('privacy_requests_requested_by_idx').on(table.requestedBy),
+      index('privacy_requests_approved_by_idx').on(table.approvedBy),
   ]);
 
 
 /** File export của Privacy được lưu qua FilesModule. */
 export const privacyExportFiles = pgTable('privacy_export_files', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  requestid: uuid('requestid').notNull().references(() => privacyRequests.id, { onDelete: 'cascade' }),
-  fileid: uuid('fileid'),
+  requestId: uuid('request_id').notNull().references(() => privacyRequests.id, { onDelete: 'cascade' }),
+  fileId: uuid('file_id'),
   subsystem: text('subsystem').notNull().default(''),
   manifest: jsonb('manifest'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('privacy_export_files_requestid_idx').on(table.requestid),
-      index('privacy_export_files_fileid_idx').on(table.fileid),
+      index('privacy_export_files_request_id_idx').on(table.requestId),
+      index('privacy_export_files_file_id_idx').on(table.fileId),
   ]);
 

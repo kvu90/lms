@@ -16,8 +16,8 @@ export const context = pgTable(
   'context',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    contextlevel: integer('contextlevel').notNull(),
-    instanceid: uuid('instanceid'),
+    contextLevel: integer('context_level').notNull(),
+    instanceId: uuid('instance_id'),
     path: text('path').notNull(),
     depth: integer('depth').notNull(),
     locked: boolean('locked').notNull().default(false),
@@ -25,26 +25,26 @@ export const context = pgTable(
     version: integer('version').notNull().default(1),
   },
   (table) => [
-      index('context_instanceid_idx').on(table.instanceid),unique('context_level_instance_unique').on(table.contextlevel, table.instanceid)],
+      index('context_instance_id_idx').on(table.instanceId),unique('context_level_instance_unique').on(table.contextLevel, table.instanceId)],
 );
 
 /** Registered capabilities (Moodle `capabilities`). Definitions live in code; rows are synced at boot/seed. */
 export const capabilities = pgTable('capabilities', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull().unique(),
-  captype: text('captype').notNull().default('write'),
-  contextlevel: integer('contextlevel').notNull().default(10),
+  capType: text('cap_type').notNull().default('write'),
+  contextLevel: integer('context_level').notNull().default(10),
   component: text('component').notNull().default('core'),
-  riskbitmask: integer('riskbitmask').notNull().default(0),
+  riskBitmask: integer('risk_bitmask').notNull().default(0),
 });
 
 /** Roles (Moodle `role`). */
 export const role = pgTable('role', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull().default(''),
-  shortname: text('shortname').notNull().unique(),
+  shortName: text('short_name').notNull().unique(),
   description: text('description').notNull().default(''),
-  sortorder: integer('sortorder').notNull().default(0),
+  sortOrder: integer('sort_order').notNull().default(0),
   archetype: text('archetype'),
 });
 
@@ -53,19 +53,19 @@ export const roleAssignments = pgTable(
   'role_assignments',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    roleid: uuid('roleid').notNull().references(() => role.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
-    contextid: uuid('contextid').notNull().references(() => context.id, { onDelete: 'cascade' }),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-    modifierid: uuid('modifierid'),
+    roleId: uuid('role_id').notNull().references(() => role.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    contextId: uuid('context_id').notNull().references(() => context.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    modifierId: uuid('modifier_id'),
     component: text('component').notNull().default(''),
-    itemid: uuid('itemid'),
+    itemId: uuid('item_id'),
   },
   (table) => [
-      index('role_assignments_userid_idx').on(table.userid),
-      index('role_assignments_contextid_idx').on(table.contextid),
-      index('role_assignments_modifierid_idx').on(table.modifierid),
-      index('role_assignments_itemid_idx').on(table.itemid),unique('role_assignments_unique').on(table.roleid, table.userid, table.contextid, table.component, table.itemid)],
+      index('role_assignments_user_id_idx').on(table.userId),
+      index('role_assignments_context_id_idx').on(table.contextId),
+      index('role_assignments_modifier_id_idx').on(table.modifierId),
+      index('role_assignments_item_id_idx').on(table.itemId),unique('role_assignments_unique').on(table.roleId, table.userId, table.contextId, table.component, table.itemId)],
 );
 
 /** Capability overrides per role+context (Moodle `role_capabilities`). permission: -1000 PROHIBIT, -1 PREVENT, 0 INHERIT, 1 ALLOW. */
@@ -73,14 +73,14 @@ export const roleCapabilities = pgTable(
   'role_capabilities',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    contextid: uuid('contextid').notNull().references(() => context.id, { onDelete: 'cascade' }),
-    roleid: uuid('roleid').notNull().references(() => role.id, { onDelete: 'cascade' }),
+    contextId: uuid('context_id').notNull().references(() => context.id, { onDelete: 'cascade' }),
+    roleId: uuid('role_id').notNull().references(() => role.id, { onDelete: 'cascade' }),
     capability: text('capability').notNull(),
     permission: integer('permission').notNull(),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
-    modifierid: uuid('modifierid'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    modifierId: uuid('modifier_id'),
   },
   (table) => [
-      index('role_capabilities_roleid_idx').on(table.roleid),
-      index('role_capabilities_modifierid_idx').on(table.modifierid),unique('role_capabilities_unique').on(table.contextid, table.roleid, table.capability)],
+      index('role_capabilities_role_id_idx').on(table.roleId),
+      index('role_capabilities_modifier_id_idx').on(table.modifierId),unique('role_capabilities_unique').on(table.contextId, table.roleId, table.capability)],
 );

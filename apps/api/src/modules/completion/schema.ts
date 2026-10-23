@@ -14,37 +14,37 @@ import { course, courseModules } from '../courses/schema';
 
 /**
  * Per-activity completion state (Moodle `course_modules_completion`).
- * completionstate: 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
+ * completion_state: 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
  * (pass/fail arrive with grades; this writes 0/1 and `viewed`).
  */
 export const courseModulesCompletion = pgTable(
   'course_modules_completion',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    coursemoduleid: uuid('coursemoduleid').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
-    completionstate: integer('completionstate').notNull().default(0),
+    courseModuleId: uuid('course_module_id').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    completionState: integer('completion_state').notNull().default(0),
     viewed: boolean('viewed').notNull().default(false),
-    overrideby: uuid('overrideby'),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+    overrideBy: uuid('override_by'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('course_modules_completion_userid_idx').on(table.userid),unique('course_modules_completion_unique').on(table.coursemoduleid, table.userid)],
+      index('course_modules_completion_user_id_idx').on(table.userId),unique('course_modules_completion_unique').on(table.courseModuleId, table.userId)],
 );
 
-/** Course-level completion criteria (Moodle `course_completion_criteria`). criteriatype: 'module' | 'date' | 'grade' (grade wired through the grades module). */
+/** Course-level completion criteria (Moodle `course_completion_criteria`). criteria_type: 'module' | 'date' | 'grade' (grade wired through the grades module). */
 export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   course: uuid('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
-  criteriatype: text('criteriatype').notNull(),
-  moduleinstance: uuid('moduleinstance'),
+  criteriaType: text('criteria_type').notNull(),
+  moduleInstance: uuid('module_instance'),
   date: timestamp('date', { withTimezone: true }),
-  sortorder: integer('sortorder').notNull().default(0),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('course_completion_criteria_course_idx').on(table.course),
-      index('course_completion_criteria_moduleinstance_idx').on(table.moduleinstance),
+      index('course_completion_criteria_module_instance_idx').on(table.moduleInstance),
   ]);
 
 
@@ -59,14 +59,14 @@ export const courseCompletions = pgTable(
   'course_completions',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    userid: uuid('userid').notNull(),
+    userId: uuid('user_id').notNull(),
     course: uuid('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
     status: text('status').notNull().default('not_started'),
-    timeenrolled: timestamp('timeenrolled', { withTimezone: true }).notNull().defaultNow(),
-    timestarted: timestamp('timestarted', { withTimezone: true }),
-    timecompleted: timestamp('timecompleted', { withTimezone: true }),
-    reaggregate: timestamp('reaggregate', { withTimezone: true }).notNull().defaultNow(),
+    timeEnrolled: timestamp('time_enrolled', { withTimezone: true }).notNull().defaultNow(),
+    timeStarted: timestamp('time_started', { withTimezone: true }),
+    timeCompleted: timestamp('time_completed', { withTimezone: true }),
+    reAggregate: timestamp('re_aggregate', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('course_completions_course_idx').on(table.course),unique('course_completions_unique').on(table.userid, table.course)],
+      index('course_completions_course_idx').on(table.course),unique('course_completions_unique').on(table.userId, table.course)],
 );

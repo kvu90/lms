@@ -9,17 +9,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Tài liệu tìm kiếm (Search): một hàng cho mỗi (area, item) — chứa contextid để re-check quyền tại thời điểm truy vấn. */
+/** Tài liệu tìm kiếm (Search): một hàng cho mỗi (area, item) — chứa context_id để re-check quyền tại thời điểm truy vấn. */
 export const searchDocuments = pgTable('search_documents', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   area: text('area').notNull(),
-  itemid: uuid('itemid').notNull(),
-  contextid: uuid('contextid').notNull(),
+  itemId: uuid('item_id').notNull(),
+  contextId: uuid('context_id').notNull(),
   title: text('title').notNull().default(''),
   content: text('content').notNull().default(''),
-  ownerid: uuid('ownerid'),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  ownerId: uuid('owner_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-      index('search_documents_itemid_idx').on(t.itemid),
-      index('search_documents_contextid_idx').on(t.contextid),
-      index('search_documents_ownerid_idx').on(t.ownerid),unique('search_documents_area_item_unique').on(t.area, t.itemid)]);
+      index('search_documents_item_id_idx').on(t.itemId),
+      index('search_documents_context_id_idx').on(t.contextId),
+      index('search_documents_owner_id_idx').on(t.ownerId),unique('search_documents_area_item_unique').on(t.area, t.itemId)]);

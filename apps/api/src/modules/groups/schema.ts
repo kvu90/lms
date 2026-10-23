@@ -17,20 +17,20 @@ export const courseGroups = pgTable(
   'course_groups',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    idnumber: text('idnumber').notNull().default(''),
+    idNumber: text('id_number').notNull().default(''),
     description: text('description').notNull().default(''),
     /**
      * Khoá ghi danh riêng của nhóm (group enrolment key của enrol_self, Moodle
-     * `groups.enrolmentkey`): học viên tự ghi danh bằng khoá này sẽ được xếp
+     * `groups.enrolment_key`): học viên tự ghi danh bằng khoá này sẽ được xếp
      * vào nhóm. Bí mật — chỉ người có capability quản lý nhóm mới thấy giá trị thật.
      */
-    enrolmentkey: text('enrolmentkey'),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+    enrolmentKey: text('enrolment_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('course_groups_course_name_unique').on(table.courseid, table.name)],
+  (table) => [unique('course_groups_course_name_unique').on(table.courseId, table.name)],
 );
 
 /** Group membership (Moodle `groups_members`). */
@@ -38,15 +38,15 @@ export const groupsMembers = pgTable(
   'groups_members',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    groupid: uuid('groupid').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
-    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+    groupId: uuid('group_id').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    timeAdded: timestamp('time_added', { withTimezone: true }).notNull().defaultNow(),
     component: text('component').notNull().default(''),
-    itemid: uuid('itemid'),
+    itemId: uuid('item_id'),
   },
   (table) => [
-      index('groups_members_userid_idx').on(table.userid),
-      index('groups_members_itemid_idx').on(table.itemid),unique('groups_members_unique').on(table.groupid, table.userid, table.component, table.itemid)],
+      index('groups_members_user_id_idx').on(table.userId),
+      index('groups_members_item_id_idx').on(table.itemId),unique('groups_members_unique').on(table.groupId, table.userId, table.component, table.itemId)],
 );
 
 /** Groupings: groups-of-groups inside one course (Moodle `groupings`). */
@@ -54,42 +54,42 @@ export const groupings = pgTable(
   'groupings',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    courseid: uuid('courseid').notNull().references(() => course.id, { onDelete: 'cascade' }),
+    courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    idnumber: text('idnumber').notNull().default(''),
+    idNumber: text('id_number').notNull().default(''),
     description: text('description').notNull().default(''),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-    timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [unique('groupings_course_name_unique').on(table.courseid, table.name)],
+  (table) => [unique('groupings_course_name_unique').on(table.courseId, table.name)],
 );
 
 /** Grouping ↔ group links (Moodle `groupings_groups`). */
 export const groupingsGroups = pgTable(
   'groupings_groups',
   {
-    groupingid: uuid('groupingid').notNull().references(() => groupings.id, { onDelete: 'cascade' }),
-    groupid: uuid('groupid').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
-    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+    groupingId: uuid('grouping_id').notNull().references(() => groupings.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id').notNull().references(() => courseGroups.id, { onDelete: 'cascade' }),
+    timeAdded: timestamp('time_added', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('groupings_groups_groupid_idx').on(table.groupid),primaryKey({ columns: [table.groupingid, table.groupid] })],
+      index('groupings_groups_group_id_idx').on(table.groupId),primaryKey({ columns: [table.groupingId, table.groupId] })],
 );
 
-/** Cohorts live at system or course-category context (Moodle `cohort`). contextid references `context`. */
+/** Cohorts live at system or course-category context (Moodle `cohort`). context_id references `context`. */
 export const cohort = pgTable('cohort', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
-  idnumber: text('idnumber').notNull().default(''),
+  idNumber: text('id_number').notNull().default(''),
   description: text('description').notNull().default(''),
-  contextid: uuid('contextid').notNull(),
+  contextId: uuid('context_id').notNull(),
   component: text('component').notNull().default(''),
   visible: boolean('visible').notNull().default(true),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('cohort_contextid_idx').on(table.contextid),
+      index('cohort_context_id_idx').on(table.contextId),
   ]);
 
 
@@ -97,10 +97,10 @@ export const cohort = pgTable('cohort', {
 export const cohortMembers = pgTable(
   'cohort_members',
   {
-    cohortid: uuid('cohortid').notNull().references(() => cohort.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
-    timeadded: timestamp('timeadded', { withTimezone: true }).notNull().defaultNow(),
+    cohortId: uuid('cohort_id').notNull().references(() => cohort.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    timeAdded: timestamp('time_added', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('cohort_members_userid_idx').on(table.userid),primaryKey({ columns: [table.cohortid, table.userid] })],
+      index('cohort_members_user_id_idx').on(table.userId),primaryKey({ columns: [table.cohortId, table.userId] })],
 );
