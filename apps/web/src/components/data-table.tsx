@@ -213,9 +213,12 @@ export function DataTable<T extends Record<string, any>>({
 
   return (
     <div className="flex w-full flex-col gap-4 px-4 lg:px-6">
+      {/* Tiêu đề bảng đứng một hàng riêng như mẫu data-table của block:
+          trước đây nó chen cùng hàng với ô lọc và nút Cột nên bị ép
+          xuống hai dòng trong cột hẹp. */}
+      {title ? <h3 className="text-base font-semibold">{title}</h3> : null}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {title ? <h3 className="text-base font-semibold">{title}</h3> : null}
           {labels.filterPlaceholder ? (
             <Input
               aria-label={labels.filterPlaceholder}
@@ -299,48 +302,53 @@ export function DataTable<T extends Record<string, any>>({
         <div className="text-sm font-medium">
           {labels.pageInfo(table.state.pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="hidden size-8 lg:flex"
-            size="icon"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">{labels.previous}</span>
-            <IconChevronsLeft />
-          </Button>
-          <Button
-            variant="outline"
-            className="size-8"
-            size="icon"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">{labels.previous}</span>
-            <IconChevronLeft />
-          </Button>
-          <Button
-            variant="outline"
-            className="size-8"
-            size="icon"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">{labels.next}</span>
-            <IconChevronRight />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden size-8 lg:flex"
-            size="icon"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">{labels.next}</span>
-            <IconChevronsRight />
-          </Button>
-        </div>
+        {/* Cụm nút chuyển trang chỉ hiện khi có từ hai trang: bảng một
+            trang mà vẫn bày bốn nút vô hiệu (đầu/trước/sau/cuối) chỉ gây
+            nhiễu — đúng cách rút gọn của mẫu data-table chuẩn. */}
+        {table.getPageCount() > 1 ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="hidden size-8 lg:flex"
+              size="icon"
+              onClick={() => table.setPageIndex(0)}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <span className="sr-only">{labels.previous}</span>
+              <IconChevronsLeft />
+            </Button>
+            <Button
+              variant="outline"
+              className="size-8"
+              size="icon"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <span className="sr-only">{labels.previous}</span>
+              <IconChevronLeft />
+            </Button>
+            <Button
+              variant="outline"
+              className="size-8"
+              size="icon"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <span className="sr-only">{labels.next}</span>
+              <IconChevronRight />
+            </Button>
+            <Button
+              variant="outline"
+              className="hidden size-8 lg:flex"
+              size="icon"
+              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+              disabled={!table.getCanNextPage()}
+            >
+              <span className="sr-only">{labels.next}</span>
+              <IconChevronsRight />
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

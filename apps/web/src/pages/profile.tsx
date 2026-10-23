@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { UserProfile } from '@lms/contracts';
 import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/ui/card';
 import { Input } from '@lms/ui/components/ui/input';
 import { Label } from '@lms/ui/components/ui/label';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +31,7 @@ export function ProfilePage() {
     }
   }, [user]);
 
-  if (!user || !form) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('profileLoading')}</main>;
+  if (!user || !form) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('profileLoading')}</main>;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -55,14 +55,14 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="@container/main flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('profileTitle', { username: user.username })}</CardTitle>
-          <CardDescription>
-            {user.email ? t('profileEmail', { email: user.email }) : t('profileEmailHidden')}
-            {user.forcePasswordChange ? t('profileMustChangePassword') : ''}
-          </CardDescription>
+          {/* Tiêu đề thẻ là heading h2 thật như các trang khác, không
+              phải chữ thường trong CardTitle; email không lặp lại ở đây
+              vì form bên dưới đã có field Email để xem và sửa. */}
+          <h2 className="text-base leading-normal font-medium">{t('profileTitle', { username: user.username })}</h2>
+          {user.forcePasswordChange ? <CardDescription>{t('profileMustChangePassword')}</CardDescription> : null}
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">

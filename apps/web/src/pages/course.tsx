@@ -195,7 +195,7 @@ export function CoursePage() {
     }
   }
 
-  if (!loaded) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('courseLoading')}</main>;
+  if (!loaded) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('courseLoading')}</main>;
 
   const isEnrolledActive = enrolment?.enrolled === true && enrolment?.active === true;
 

@@ -97,6 +97,10 @@ describe('DataTable (TanStack Table)', () => {
     expect(rows).toHaveLength(6);
     expect(screen.getByText('Trang 1 / 1')).toBeInTheDocument();
     expect(screen.getByText('Học viên 25')).toBeInTheDocument();
+    // Chỉ một trang thì cụm nút chuyển trang ẩn hẳn, không bày các nút
+    // Trước/Sau vô hiệu như trước.
+    expect(screen.queryAllByRole('button', { name: 'Sau' })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: 'Trước' })).toHaveLength(0);
   });
 
   it('ẩn/hiện cột: bỏ chọn một cột trong menu Cột thì cột biến mất khỏi bảng', async () => {

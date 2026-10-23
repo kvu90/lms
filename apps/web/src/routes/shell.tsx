@@ -58,26 +58,16 @@ function AuthenticatedShell() {
  */
 function PublicShell() {
   const { user, logout } = useAuth();
-  const { t, i18n } = useTranslation('app');
+  const { t } = useTranslation('app');
   return (
     <div>
       <header className="flex items-center gap-4 border-b px-8 py-3">
         <Link to="/" className="font-semibold">
           LMS
         </Link>
-        <label className="ml-auto flex items-center gap-2 text-sm">
-          {t('language')}
-          <select
-            aria-label={t('language')}
-            value={i18n.language}
-            onChange={(e) => void i18n.changeLanguage(e.target.value)}
-            className="border px-1 py-0.5"
-          >
-            <option value="vi">Tiếng Việt</option>
-            <option value="en">English</option>
-          </select>
-        </label>
-        <span className="flex items-center gap-3 text-sm">
+        {/* Không có bộ chọn ngôn ngữ: site chỉ dành cho người Việt,
+            i18n chỉ quản lý chuỗi tập trung với locale cố định vi. */}
+        <span className="ml-auto flex items-center gap-3 text-sm">
           {user ? (
             <>
               <span>{user.username}</span>

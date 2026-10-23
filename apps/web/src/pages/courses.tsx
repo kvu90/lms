@@ -54,27 +54,35 @@ export function CoursesPage() {
   };
   walk(tree);
 
-  function renderTree(nodes: CourseCategoryTreeNode[]) {
+  /**
+   * Vẽ cây danh mục: mọi cấp con — cả danh mục con lẫn khoá học trong
+   * danh mục — thụt vào cùng một mức `ml-4` để các mục con thẳng hàng
+   * theo cấp, thay vì mỗi loại danh sách một mức thụt khác nhau.
+   */
+  function renderTree(nodes: CourseCategoryTreeNode[], nested = false) {
     return (
-      <ul className="ml-4 list-disc">
-        {nodes.map((node) => (
-          <li key={node.id}>
-            <span>{node.name}</span>
-            <ul className="ml-3">
-              {courses
-                .filter((c) => c.category === node.id)
-                .map((c) => (
-                  <li key={c.id}>
-                    <Link to={`/courses/${c.id}`}>
-                      {c.fullname} ({c.shortname})
-                    </Link>
-                    {!c.visible && <span> {t('hiddenSuffix')}</span>}
-                  </li>
-                ))}
-            </ul>
-            {node.children.length > 0 && renderTree(node.children)}
-          </li>
-        ))}
+      <ul className={nested ? 'ml-4 list-disc' : 'list-disc'}>
+        {nodes.map((node) => {
+          const nodeCourses = courses.filter((c) => c.category === node.id);
+          return (
+            <li key={node.id}>
+              <span>{node.name}</span>
+              {nodeCourses.length > 0 ? (
+                <ul className="ml-4 list-disc">
+                  {nodeCourses.map((c) => (
+                    <li key={c.id}>
+                      <Link to={`/courses/${c.id}`}>
+                        {c.fullname} ({c.shortname})
+                      </Link>
+                      {!c.visible && <span> {t('hiddenSuffix')}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {node.children.length > 0 && renderTree(node.children, true)}
+            </li>
+          );
+        })}
       </ul>
     );
   }
@@ -179,7 +187,7 @@ export function CoursesPage() {
               <CardDescription>{t('categoryAdminDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3">
+              <ul className="flex flex-col gap-4">
                 {flatCategories.map((cat) => (
                   <li key={cat.id} data-testid={`category-admin-${cat.id}`} className="space-y-2 rounded border p-3">
                     <p className="font-medium">{cat.name}</p>
@@ -221,7 +229,7 @@ export function CoursesPage() {
                     id="cat-parent"
                     value={catParent}
                     onChange={(e) => setCatParent(e.target.value)}
-                    className="border px-2 py-1"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                   >
                     <option value="0">{t('topLevel')}</option>
                     {flatCategories.map((c) => (
@@ -256,7 +264,7 @@ export function CoursesPage() {
                     id="course-category"
                     value={courseCategory}
                     onChange={(e) => setCourseCategory(e.target.value)}
-                    className="border px-2 py-1"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                   >
                     {flatCategories.map((c) => (
                       <option key={c.id} value={c.id}>

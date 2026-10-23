@@ -135,7 +135,7 @@ export function BlogPage() {
   }
 
   return (
-    <main className="@container/main flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       {error ? <p role="alert">{error}</p> : null}
       <Card>
         <CardHeader>

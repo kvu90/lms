@@ -39,7 +39,7 @@ const EVENT_TYPES = ['user', 'site', 'category', 'course', 'group'] as const;
  * với mọi sự kiện người dùng nhìn thấy được.
  */
 export function CalendarPage() {
-  const { t } = useTranslation('app');
+  const { t, i18n } = useTranslation('app');
   const [events, setEvents] = useState<EventView[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionView[]>([]);
   const [typeFilter, setTypeFilter] = useState<(typeof TYPES)[number]>('all');
@@ -214,18 +214,28 @@ export function CalendarPage() {
   }
 
   const visible = events.filter((e) => typeFilter === 'all' || e.eventtype === typeFilter);
-  const byDay = new Map<string, EventView[]>();
+  // Gom sự kiện theo ngày địa phương; tiêu đề ngày và giờ sự kiện luôn
+  // định dạng theo ngôn ngữ giao diện (i18n.language) thay vì mặc định
+  // trình duyệt, để trang không lẫn định dạng tiếng Anh khi locale là vi.
+  const byDay = new Map<string, { date: Date; events: EventView[] }>();
   for (const e of visible) {
-    const day = new Date(e.timestart).toDateString();
-    byDay.set(day, [...(byDay.get(day) ?? []), e]);
+    const start = new Date(e.timestart);
+    const key = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
+    const group = byDay.get(key) ?? { date: start, events: [] };
+    group.events.push(e);
+    byDay.set(key, group);
   }
+  const dayLabel = (date: Date) =>
+    date.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeLabel = (iso: string) =>
+    new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
           <CardTitle>
-            {t('calendarTitle', { month: now.toLocaleString(undefined, { month: 'long', year: 'numeric' }) })}
+            {t('calendarTitle', { month: now.toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) })}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -235,6 +245,7 @@ export function CalendarPage() {
             <Label htmlFor="type-filter">{t('eventType')}</Label>
             <select
               id="type-filter"
+              className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as (typeof TYPES)[number])}
             >
@@ -245,16 +256,16 @@ export function CalendarPage() {
               ))}
             </select>
           </div>
-          {[...byDay.entries()].map(([day, dayEvents]) => (
-            <section key={day} aria-label={day}>
-              <h3 className="font-medium">{day}</h3>
+          {[...byDay.entries()].map(([key, group]) => (
+            <section key={key} aria-label={dayLabel(group.date)}>
+              <h3 className="font-medium">{dayLabel(group.date)}</h3>
               <ul className="space-y-1">
-                {dayEvents.map((e) => (
+                {group.events.map((e) => (
                   <li key={e.id} className="flex items-center gap-2 rounded border p-2 text-sm">
                     <span className="font-medium">{e.name}</span>
                     <span className="text-muted-foreground">
                       {' '}
-                      · {e.eventtype} · {new Date(e.timestart).toLocaleTimeString()}
+                      · {e.eventtype} · {timeLabel(e.timestart)}
                     </span>
                     {e.isexception ? <span> {t('adjustedOccurrence')}</span> : null}
                     <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
@@ -280,18 +291,19 @@ export function CalendarPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createEvent(e)} className="space-y-3">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-name">{t('eventName')}</Label>
               <Input id="ev-name" value={evName} onChange={(e) => setEvName(e.target.value)} />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-description">{t('eventDescription')}</Label>
               <Input id="ev-description" value={evDescription} onChange={(e) => setEvDescription(e.target.value)} />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-type">{t('eventType')}</Label>
               <select
                 id="ev-type"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                 value={evType}
                 onChange={(e) => setEvType(e.target.value as (typeof EVENT_TYPES)[number])}
               >
@@ -302,11 +314,11 @@ export function CalendarPage() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-start">{t('eventStart')}</Label>
               <Input id="ev-start" type="datetime-local" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-duration">{t('eventDurationSeconds')}</Label>
               <Input
                 id="ev-duration"
@@ -315,24 +327,24 @@ export function CalendarPage() {
                 onChange={(e) => setEvDuration(e.target.value)}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="ev-location">{t('eventLocation')}</Label>
               <Input id="ev-location" value={evLocation} onChange={(e) => setEvLocation(e.target.value)} />
             </div>
             {evType === 'course' || evType === 'group' ? (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="ev-course">{t('eventCourseId')}</Label>
                 <Input id="ev-course" value={evCourseId} onChange={(e) => setEvCourseId(e.target.value)} />
               </div>
             ) : null}
             {evType === 'group' ? (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="ev-group">{t('eventGroupId')}</Label>
                 <Input id="ev-group" value={evGroupId} onChange={(e) => setEvGroupId(e.target.value)} />
               </div>
             ) : null}
             {evType === 'category' ? (
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="ev-category">{t('eventCategoryId')}</Label>
                 <Input id="ev-category" value={evCategoryId} onChange={(e) => setEvCategoryId(e.target.value)} />
               </div>
@@ -356,14 +368,14 @@ export function CalendarPage() {
             {exportToken ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Input id="export-token-url" readOnly value={exportToken.url} className="max-w-xl" />
-                <Button type="button" variant="destructive" size="sm" onClick={() => void revokeExportToken()}>
+                <Button type="button" variant="destructive" onClick={() => void revokeExportToken()}>
                   {t('revokeExportToken')}
                 </Button>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm text-muted-foreground">{t('noExportToken')}</p>
-                <Button type="button" size="sm" onClick={() => void createExportToken()}>
+                <Button type="button" onClick={() => void createExportToken()}>
                   {t('createExportToken')}
                 </Button>
               </div>
@@ -390,11 +402,11 @@ export function CalendarPage() {
           </ul>
           {subscriptions.length === 0 ? <p>{t('noSubscriptions')}</p> : null}
           <form onSubmit={(e) => void createSubscription(e)} className="space-y-3">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="sub-name">{t('subscriptionName')}</Label>
               <Input id="sub-name" value={subName} onChange={(e) => setSubName(e.target.value)} />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="sub-url">{t('subscriptionUrl')}</Label>
               <Input id="sub-url" value={subUrl} onChange={(e) => setSubUrl(e.target.value)} />
             </div>

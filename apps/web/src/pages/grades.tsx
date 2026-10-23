@@ -461,11 +461,11 @@ export function GradebookPage() {
 
   if (error)
     return (
-      <main className="px-4 py-4 md:py-6 lg:px-6">
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <p role="alert">{error}</p>
       </main>
     );
-  if (!book) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('loading')}</main>;
+  if (!book) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('loading')}</main>;
 
   /** Cột của bảng báo cáo điểm toàn lớp trên DataTable dùng chung: sắp xếp theo học viên và điểm tổng, lọc theo mã học viên. */
   const reportColumns: DataColumn<GradeReport['rows'][number]>[] = [
