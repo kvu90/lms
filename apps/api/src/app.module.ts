@@ -43,8 +43,10 @@ import { SiteConfigModule } from './modules/site-config/site-config.module';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
+import { BetterAuthSessionGuard } from './common/better-auth-session.guard';
 import { CapabilityGuard } from './common/capability.guard';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
+import { BetterAuthModule } from './modules/auth/better-auth/better-auth.module';
 import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
 
 /**
@@ -112,6 +114,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     CustomFieldsModule,
     UsersModule,
     AuthModule,
+    BetterAuthModule,
     FilesModule,
     AvailabilityModule,
     CoursesModule,
@@ -142,6 +145,10 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     // ThrottlerGuard chạy đầu tiên: từ chối sớm request vượt hạn mức
     // trước mọi guard tốn kém hơn (xác thực JWT, đánh giá capability).
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Guard mỏng của Better Auth chạy ngay trước JwtAuthGuard: chỉ dịch
+    // cookie phiên Better Auth (khi cờ bật và cookie có mặt) thành danh
+    // tính cho JwtAuthGuard bỏ qua; mọi request còn lại nó không chạm.
+    { provide: APP_GUARD, useClass: BetterAuthSessionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
     /**

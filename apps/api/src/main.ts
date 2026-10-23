@@ -10,12 +10,24 @@ import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { enableTrustedProxy } from './common/client-ip';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
+import { mountBetterAuth } from './modules/auth/better-auth/better-auth.mount';
+import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Tin đúng một chặng proxy (router Heroku) để req.ip là IP khách
   // thật — xem common/client-ip.ts.
   enableTrustedProxy(app);
+
+  // Better Auth (issue #7): chỉ khi cờ BETTER_AUTH_ENABLED bật (mặc định
+  // tắt — hành vi live không đổi) mới mount handler của nó tại
+  // /api/v1/auth/*, lên express instance TRƯỚC khi Nest đăng ký route và
+  // body parser của nó (xem better-auth.mount.ts). Cờ tắt thì nhánh này
+  // không chạy và đường auth hiện tại xử lý mọi request như trước.
+  const betterAuth = app.get(BetterAuthService);
+  if (betterAuth.enabled) {
+    mountBetterAuth(app, betterAuth.requireAuth());
+  }
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
