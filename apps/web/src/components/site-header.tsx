@@ -3,7 +3,6 @@ import { useLocation } from 'react-router';
 
 import { Separator } from '@lms/ui/components/ui/separator';
 import { SidebarTrigger } from '@lms/ui/components/ui/sidebar';
-import { NotificationBell } from './notification-bell';
 import '../i18n';
 
 /** Ánh xạ tiền tố đường dẫn → khoá i18n của tiêu đề trang, cho header trên cùng. */
@@ -33,10 +32,11 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
 
 /**
  * Header trên cùng của khu vực đã đăng nhập (khung block dashboard-01):
- * nút thu/mở sidebar, tiêu đề trang hiện tại (tra catalog i18n theo route)
- * và chuông thông báo ở góc phải. Site chỉ dành cho người Việt nên
- * không có bộ chọn ngôn ngữ trên giao diện — i18n chỉ quản lý chuỗi
- * tập trung, locale cố định tiếng Việt.
+ * nút thu/mở sidebar và tiêu đề trang hiện tại (tra catalog i18n theo
+ * route); góc phải để trống — thông báo sống ở mục Thông báo trên
+ * sidebar kèm số chưa đọc, không còn chuông ở header. Site chỉ dành
+ * cho người Việt nên không có bộ chọn ngôn ngữ trên giao diện — i18n
+ * chỉ quản lý chuỗi tập trung, locale cố định tiếng Việt.
  */
 export function SiteHeader() {
   const { t } = useTranslation(['app', 'dashboard']);
@@ -51,9 +51,6 @@ export function SiteHeader() {
         <SidebarTrigger />
         <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
         <h1 className="text-base font-medium">{match ? t(`${match.ns}:${match.key}`) : 'LMS'}</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <NotificationBell />
-        </div>
       </div>
     </header>
   );
