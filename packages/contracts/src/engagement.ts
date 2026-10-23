@@ -34,11 +34,16 @@ export const notificationSchema = z.object({
 });
 export type LmsNotification = z.infer<typeof notificationSchema>;
 
+/**
+ * Một dòng tuỳ chọn notification mà API trả về (MessagingService.getPreferences):
+ * một dòng cho mỗi (provider × channel × state), `enabled` là trạng thái của dòng đó.
+ */
 export const messagePreferenceSchema = z.object({
   provider: z.string(),
-  channel: z.string(),
-  loggedin: z.boolean(),
-  loggedoff: z.boolean(),
+  component: z.string(),
+  channel: z.enum(['popup', 'email', 'push']),
+  state: z.enum(['loggedin', 'loggedoff']),
+  enabled: z.boolean(),
 });
 export type MessagePreference = z.infer<typeof messagePreferenceSchema>;
 
