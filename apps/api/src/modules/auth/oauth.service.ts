@@ -7,7 +7,7 @@ import { SessionCacheService } from '../../infra/cache/session-cache.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { AuthRepository, type UserOauthLinkRow } from './auth.repository';
-import { AuthService } from './auth.service';
+import { AuthService, type SessionClientInfo } from './auth.service';
 import { SessionService } from './session.service';
 
 /**
@@ -291,7 +291,7 @@ export class OAuthService {
    * xoá ngay khi đổi (dù thành công hay tài khoản đã mất hiệu lực) nên
    * không dùng lại được lần hai.
    */
-  async exchangeHandoff(code: string): Promise<{ user: UserRow; tokens: Awaited<ReturnType<AuthService['issueTokensFor']>> }> {
+  async exchangeHandoff(code: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: Awaited<ReturnType<AuthService['issueTokensFor']>> }> {
     const key = `oauthhandoff:${code}`;
     const userId = await this.store.get<string>(key);
     if (!userId) {
@@ -302,7 +302,7 @@ export class OAuthService {
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
-    const tokens = await this.auth.issueTokensFor(user);
+    const tokens = await this.auth.issueTokensFor(user, client);
     return { user, tokens };
   }
 

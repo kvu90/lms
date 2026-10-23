@@ -11,11 +11,20 @@ import {
 import { sql } from 'drizzle-orm';
 import { users } from '../users/schema';
 
-/** Refresh token families for rotation + reuse detection (self-built per report §3.7). Only hashes are stored. */
+/**
+ * Họ refresh token cho xoay vòng + phát hiện tái sử dụng. Chỉ hash của
+ * token được lưu. `ip` + `user_agent` là thông tin máy khách của request
+ * lúc cấp họ, ghi MỘT LẦN khi tạo họ và không cập nhật khi xoay vòng —
+ * đối chiếu trường `ipAddress`/`userAgent` trên phiên của Better Auth và
+ * cột `firstip`/`lastip` trên bảng `sessions` của Moodle — để danh sách
+ * phiên của chính user hiển thị đúng thiết bị/địa chỉ của phiên API.
+ */
 export const refreshTokenFamily = pgTable('refresh_token_family', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   familyId: text('family_id').notNull().unique(),
   userid: uuid('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
   currentTokenHash: text('current_token_hash').notNull(),
   previousTokenHash: text('previous_token_hash'),
   revoked: boolean('revoked').notNull().default(false),

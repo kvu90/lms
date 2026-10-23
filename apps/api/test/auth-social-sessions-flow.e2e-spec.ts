@@ -312,8 +312,20 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
 
   it('my sessions: list marks the current session, other sessions can be revoked one by one and in bulk (report_usersessions)', async () => {
     const user = await createUserViaApi(app, admin);
-    const first = await login(app, user.username, STRONG_PASSWORD);
-    const second = await login(app, user.username, STRONG_PASSWORD);
+    // Đăng nhập token qua /auth/token kèm User-Agent biết trước: họ token
+    // của lần đăng nhập này phải mang đúng thông tin máy khách đó.
+    const firstRes = await http(app).post('/api/v1/auth/token')
+      .set('User-Agent', 'Mozilla/5.0 (Token Browser)')
+      .send({ username: user.username, password: STRONG_PASSWORD });
+    expect(firstRes.status).toBe(201);
+    const first = { accessToken: firstRes.body.accessToken as string, refreshToken: firstRes.body.refreshToken as string, userId: firstRes.body.user.id as string };
+    // Lần đăng nhập token thứ hai đi qua đường passport /auth/login để phủ
+    // cả hai đường cấp họ token.
+    const secondRes = await http(app).post('/api/v1/auth/login')
+      .set('User-Agent', 'Mozilla/5.0 (Passport Browser)')
+      .send({ username: user.username, password: STRONG_PASSWORD });
+    expect(secondRes.status).toBe(201);
+    const second = { accessToken: secondRes.body.accessToken as string, refreshToken: secondRes.body.refreshToken as string, userId: secondRes.body.user.id as string };
     const web = await http(app).post('/api/v1/auth/session/login')
       .set('User-Agent', 'Mozilla/5.0 (Test Browser)')
       .send({ username: user.username, password: STRONG_PASSWORD });
@@ -325,6 +337,12 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     const apiSessions = sessions.filter((s) => s.kind === 'api');
     const webSessions = sessions.filter((s) => s.kind === 'web');
     expect(apiSessions).toHaveLength(2);
+    expect(apiSessions.some((s) => s.userAgent?.includes('Token Browser'))).toBe(true);
+    expect(apiSessions.some((s) => s.userAgent?.includes('Passport Browser'))).toBe(true);
+    for (const s of apiSessions) {
+      expect(s.ip).toBeTruthy();
+      expect(s.ip).toContain('127.0.0.1');
+    }
     expect(apiSessions.filter((s) => s.current)).toHaveLength(1);
     expect(webSessions).toHaveLength(1);
     expect(webSessions[0]!.id).toBe(webSessionId);

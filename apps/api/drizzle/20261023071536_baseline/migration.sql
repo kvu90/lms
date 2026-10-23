@@ -148,6 +148,8 @@ CREATE TABLE "refresh_token_family" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"family_id" text NOT NULL UNIQUE,
 	"userid" uuid NOT NULL,
+	"ip" text,
+	"user_agent" text,
 	"current_token_hash" text NOT NULL,
 	"previous_token_hash" text,
 	"revoked" boolean DEFAULT false NOT NULL,

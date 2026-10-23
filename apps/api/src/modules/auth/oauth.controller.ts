@@ -91,8 +91,8 @@ export class OAuthController {
   /**
    * POST /auth/oauth/handoff — SPA đổi mã bàn giao một lần lấy cặp token như đáp ứng đăng nhập thường.
    */
-  async handoff(@Body({ schema: oauthHandoffSchema }) dto: OAuthHandoffDto) {
-    const { user, tokens } = await this.oauth.exchangeHandoff(dto.code);
+  async handoff(@Body({ schema: oauthHandoffSchema }) dto: OAuthHandoffDto, @Req() req: Request) {
+    const { user, tokens } = await this.oauth.exchangeHandoff(dto.code, { ip: req.ip, userAgent: req.headers['user-agent'] });
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
   }
 

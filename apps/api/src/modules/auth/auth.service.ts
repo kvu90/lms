@@ -14,6 +14,14 @@ import { TotpService } from './totp.service';
 export interface TokenPair { accessToken: string; refreshToken: string; expiresIn: number }
 
 /**
+ * Thông tin máy khách của request đang cấp phiên/token: địa chỉ IP và
+ * chuỗi User-Agent lấy từ request ở controller (`req.ip`,
+ * `req.headers['user-agent']`). Được ghi một lần lên họ refresh token lúc
+ * tạo họ để danh sách phiên hiển thị đúng máy khách của phiên.
+ */
+export interface SessionClientInfo { ip?: string; userAgent?: string }
+
+/**
  * Kết quả sau bước mật khẩu: hoặc đã đủ điều kiện cấp token, hoặc bị chặn
  * ở bước MFA với một challenge token ngắn hạn (scope `mfa_challenge` — chỉ
  * dùng được cho POST /auth/mfa/verify, JwtAuthStrategy từ chối nó ở mọi
@@ -117,9 +125,9 @@ export class AuthService {
    * MFA thì dừng ở challenge (chưa ghi nhận đăng nhập, chưa cấp token),
    * ngược lại phát hành cặp token như cũ.
    */
-  async login(username: string, password: string, ip?: string): Promise<PasswordLoginOutcome> {
+  async login(username: string, password: string, ip?: string, userAgent?: string): Promise<PasswordLoginOutcome> {
     const user = await this.validateCredentials(username, password, ip);
-    return this.completePasswordLogin(user);
+    return this.completePasswordLogin(user, { ip, userAgent });
   }
 
   /**
@@ -127,13 +135,13 @@ export class AuthService {
    * user bật MFA ⇒ trả challenge token; còn lại ghi nhận đăng nhập và
    * phát hành cặp token. Dùng chung cho cả hai route đăng nhập.
    */
-  async completePasswordLogin(user: UserRow): Promise<PasswordLoginOutcome> {
+  async completePasswordLogin(user: UserRow, client?: SessionClientInfo): Promise<PasswordLoginOutcome> {
     if (await this.totp.isEnabled(user.id)) {
       const challengeToken = await this.signMfaChallenge(user, 'token');
       return { mfaRequired: true, user, challengeToken };
     }
     await this.users.recordLogin(user.id);
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, client);
     return { mfaRequired: false, user, tokens };
   }
 
@@ -190,10 +198,10 @@ export class AuthService {
    * chung cơ chế lockout sẵn có; mã đúng mới ghi nhận đăng nhập và cấp
    * cặp token + phiên như đăng nhập thường.
    */
-  async verifyMfa(challengeToken: string, code: string, ip?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async verifyMfa(challengeToken: string, code: string, ip?: string, userAgent?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
     const user = await this.passMfaChallenge(challengeToken, code, ip, 'token');
     await this.users.recordLogin(user.id);
-    const tokens = await this.issueTokens(user);
+    const tokens = await this.issueTokens(user, { ip, userAgent });
     return { user, tokens };
   }
 
@@ -236,14 +244,15 @@ export class AuthService {
   /**
    * Phát hành access token (JWT) + refresh token mới trong một family.
    */
-  async issueTokensFor(user: UserRow): Promise<TokenPair> { return this.issueTokens(user); }
+  async issueTokensFor(user: UserRow, client?: SessionClientInfo): Promise<TokenPair> { return this.issueTokens(user, client); }
 
-  private async issueTokens(user: UserRow): Promise<TokenPair> {
+  private async issueTokens(user: UserRow, client?: SessionClientInfo): Promise<TokenPair> {
     const familyId = randomUUID();
     const refreshToken = randomBytes(48).toString('base64url');
     const ttlDays = this.config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30;
     await this.repo.createFamily({
       familyId, userid: user.id, currentTokenHash: hashToken(refreshToken),
+      ip: client?.ip ?? null, userAgent: client?.userAgent ?? null,
       expiresAt: new Date(Date.now() + ttlDays * 86_400_000),
     });
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
@@ -314,13 +323,13 @@ export class AuthService {
   /**
    * Đăng nhập thay (login-as) cho quản trị/giáo viên có capability; phiên mang dấu vết người mạo danh.
    */
-  async loginAs(adminId: string, targetUserId: string): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async loginAs(adminId: string, targetUserId: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: TokenPair }> {
     const system = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(adminId, 'moodle/user:loginas', system.id);
     const target = await this.users.getUser(targetUserId);
     if (target.deleted || target.suspended) throw new ForbiddenException({ message: 'Target account is not active', code: 'auth.account_inactive' });
     if (await this.evaluator.isSiteAdmin(target.id)) throw new ForbiddenException({ message: 'Cannot log in as a site administrator', code: 'auth.loginas_admin_denied' });
-    const tokens = await this.issueTokens(target);
+    const tokens = await this.issueTokens(target, client);
     return { user: target, tokens };
   }
 
@@ -393,7 +402,7 @@ export class AuthService {
       ...families.map((family): MySessionView => ({
         id: family.familyId, kind: 'api',
         createdAt: family.createdAt.toISOString(), lastActivityAt: family.rotatedAt.toISOString(),
-        ip: null, userAgent: null,
+        ip: family.ip ?? null, userAgent: family.userAgent ?? null,
         current: current.familyId !== undefined && family.familyId === current.familyId,
       })),
     ];

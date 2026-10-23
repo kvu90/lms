@@ -50,7 +50,7 @@ export class AuthController {
     const user = await this.users.getUser(req.user.id);
     // validateCredentials already ran inside the local strategy; the shared
     // completion step issues a fresh token family — or an MFA challenge.
-    return loginResponse(await this.auth.completePasswordLogin(user));
+    return loginResponse(await this.auth.completePasswordLogin(user, { ip: req.ip, userAgent: req.headers['user-agent'] }));
   }
 
   @Public()
@@ -59,7 +59,7 @@ export class AuthController {
    * POST /auth/login — đăng nhập qua chiến lược local (passport), trả cặp token.
    */
   async tokenLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request) {
-    return loginResponse(await this.auth.login(dto.username, dto.password, req.ip));
+    return loginResponse(await this.auth.login(dto.username, dto.password, req.ip, req.headers['user-agent']));
   }
 
   // --- MFA TOTP (tool_mfa factor_totp) ---------------------------------------
@@ -104,7 +104,7 @@ export class AuthController {
    * POST /auth/mfa/verify — bước hai của đăng nhập: challenge token + mã TOTP ⇒ cặp token như đăng nhập thường.
    */
   async mfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request) {
-    const { user, tokens } = await this.auth.verifyMfa(dto.challengeToken, dto.code, req.ip);
+    const { user, tokens } = await this.auth.verifyMfa(dto.challengeToken, dto.code, req.ip, req.headers['user-agent']);
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, ...tokens };
   }
 
@@ -144,8 +144,8 @@ export class AuthController {
   /**
    * POST /auth/login-as/:id — đăng nhập thay user khác (cần capability).
    */
-  async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser) {
-    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userid);
+  async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userid, { ip: req.ip, userAgent: req.headers['user-agent'] });
     return { user: { id: user.id, username: user.username }, ...tokens, loginAs: { byUserId: actor.id } };
   }
 
