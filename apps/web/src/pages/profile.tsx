@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { ApiError, apiJson, redirectToExternalUrl } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { describeUserAgent } from '@/lib/user-agent';
 import { queryKeys } from '@/lib/query-keys';
 
 export function ProfilePage() {
@@ -481,16 +482,6 @@ function TwoFactorCard() {
 }
 
 /**
- * Rút gọn user-agent cho cột thiết bị: chuỗi gốc rất dài và phần hữu
- * ích cho người dùng nhận diện phiên nằm ở đầu chuỗi, nên bảng chỉ
- * hiện tối đa 48 ký tự đầu kèm dấu ba chấm khi bị cắt.
- */
-function shortenUserAgent(userAgent: string | null, unknownLabel: string): string {
-  if (!userAgent) return unknownLabel;
-  return userAgent.length > 48 ? `${userAgent.slice(0, 48)}…` : userAgent;
-}
-
-/**
  * Thẻ "Phiên đăng nhập" (trang quản lý phiên của chính người dùng,
  * report_usersessions của Moodle): bảng mọi phiên đang hoạt động —
  * phiên web (cookie) và phiên API (họ refresh token) — kèm IP và
@@ -547,7 +538,6 @@ function SessionsCard() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('sessionKind')}</TableHead>
                 <TableHead>{t('sessionCreatedAt')}</TableHead>
                 <TableHead>{t('sessionLastActivityAt')}</TableHead>
                 <TableHead>{t('sessionIp')}</TableHead>
@@ -558,11 +548,14 @@ function SessionsCard() {
             <TableBody>
               {sessions.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell>{session.kind === 'web' ? t('sessionKindWeb') : t('sessionKindApi')}</TableCell>
                   <TableCell>{formatDateTime(session.createdAt)}</TableCell>
                   <TableCell>{formatDateTime(session.lastActivityAt)}</TableCell>
                   <TableCell>{session.ip ?? t('sessionUnknown')}</TableCell>
-                  <TableCell>{shortenUserAgent(session.userAgent, t('sessionUnknown'))}</TableCell>
+                  <TableCell>
+                    {describeUserAgent(session.userAgent, t('sessionUnknown'), (browser, os) =>
+                      t('sessionDeviceDescription', { browser, os }),
+                    )}
+                  </TableCell>
                   <TableCell>
                     {session.current ? (
                       <Badge>{t('sessionCurrent')}</Badge>

@@ -178,6 +178,18 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     await waitFor(() => expect(screen.getByText('Hiện tại')).toBeInTheDocument());
     expect(screen.getByText('203.0.113.10')).toBeInTheDocument();
     expect(screen.getByText('198.51.100.7')).toBeInTheDocument();
+    // Cột loại phiên đã bỏ: không còn header "Loại phiên" và không còn
+    // ô nhãn loại "Web"/"API" trong phạm vi bảng phiên.
+    const sessionsTable = screen.getByRole('table');
+    expect(within(sessionsTable).queryByRole('columnheader', { name: 'Loại phiên' })).not.toBeInTheDocument();
+    expect(within(sessionsTable).queryByText('Loại phiên')).not.toBeInTheDocument();
+    expect(within(sessionsTable).queryByText('Web')).not.toBeInTheDocument();
+    expect(within(sessionsTable).queryByText('API')).not.toBeInTheDocument();
+    // Thiết bị hiện mô tả dễ hiểu phân tích từ user-agent thay vì chuỗi thô:
+    // Chrome/Linux đọc thành "Chrome trên Linux"; user-agent lạ không
+    // phân tích được thì hiện nguyên chuỗi gốc.
+    expect(within(sessionsTable).getByText('Chrome trên Linux')).toBeInTheDocument();
+    expect(within(sessionsTable).getByText('LMS mobile app')).toBeInTheDocument();
     // Chỉ phiên khác mới có nút huỷ (phiên hiện tại dùng huy hiệu thay thế).
     const revokeButtons = screen.getAllByRole('button', { name: 'Huỷ phiên' });
     expect(revokeButtons).toHaveLength(1);
@@ -210,6 +222,17 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     await waitFor(() => expect(screen.getByText('Hiện tại')).toBeInTheDocument());
     const table = screen.getByRole('table');
     expect(within(table).getAllByRole('row')).toHaveLength(4); // header + 3 phiên
+    // Không còn cột loại phiên trong bảng này.
+    expect(within(table).queryByText('Loại phiên')).not.toBeInTheDocument();
+    expect(within(table).queryByText('Web')).not.toBeInTheDocument();
+    expect(within(table).queryByText('API')).not.toBeInTheDocument();
+    // Phiên thứ ba có user-agent null và IP null: cả hai ô đều hiện nhãn không rõ.
+    const thirdRow = within(table).getAllByRole('row')[3];
+    expect(within(thirdRow).getAllByText('Không rõ').length).toBeGreaterThanOrEqual(1);
+    expect(within(thirdRow).queryByText('Chrome trên Linux')).not.toBeInTheDocument();
+    // Phiên hiện tại vẫn hiện mô tả thiết bị đã phân tích và IP của nó.
+    expect(within(table).getByText('Chrome trên Linux')).toBeInTheDocument();
+    expect(within(table).getByText('LMS mobile app')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Huỷ mọi phiên khác' }));
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(2));
     expect(screen.getByText('203.0.113.10')).toBeInTheDocument();
