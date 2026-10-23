@@ -10,7 +10,7 @@ import {
   courseCompletions, courseModulesCompletion, courseModules, enrol, gradeGrades, gradeItems, userEnrolments, users,
 } from '../../db/schema';
 
-/** Một datasource đăng ký: read model theo entity, mỗi dòng kèm courseId để lọc quyền theo context. */
+/** Một dataSource đăng ký: read model theo entity, mỗi dòng kèm courseId để lọc quyền theo context. */
 export interface ReportDatasource {
   name: string;
   columns: string[];
@@ -55,13 +55,13 @@ export class ReportsService {
         const byInstance = new Map(instances.map((i) => [i.id, i]));
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
         return ues.map((ue) => ({
-          userId: ue.userid, username: byUser.get(ue.userid)?.username ?? '',
-          courseId: byInstance.get(ue.enrolid)?.courseid ?? 0, status: ue.status,
+          userId: ue.userId, username: byUser.get(ue.userId)?.username ?? '',
+          courseId: byInstance.get(ue.enrolId)?.courseId ?? 0, status: ue.status,
         }));
       },
     });
     this.datasources.set('grades', {
-      name: 'grades', columns: ['userId', 'username', 'courseId', 'itemId', 'finalgrade'],
+      name: 'grades', columns: ['userId', 'username', 'courseId', 'itemId', 'finalGrade'],
       fetchRows: async () => {
         const items = await db.select().from(gradeItems);
         const grades = await db.select().from(gradeGrades);
@@ -69,13 +69,13 @@ export class ReportsService {
         const byItem = new Map(items.map((i) => [i.id, i]));
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
         return grades.map((g) => ({
-          userId: g.userid, username: byUser.get(g.userid)?.username ?? '',
-          courseId: byItem.get(g.itemid)?.courseid ?? 0, itemId: g.itemid, finalgrade: g.finalgrade,
+          userId: g.userId, username: byUser.get(g.userId)?.username ?? '',
+          courseId: byItem.get(g.itemId)?.courseId ?? 0, itemId: g.itemId, finalGrade: g.finalGrade,
         }));
       },
     });
     this.datasources.set('completion', {
-      name: 'completion', columns: ['userId', 'username', 'courseId', 'status', 'cmId', 'completionstate'],
+      name: 'completion', columns: ['userId', 'username', 'courseId', 'status', 'cmId', 'completionState'],
       fetchRows: async () => {
         const allUsers = await db.select().from(users);
         const byUser = new Map(allUsers.map((u) => [u.id, u]));
@@ -84,30 +84,30 @@ export class ReportsService {
         const cms = await db.select().from(courseModules);
         const byCm = new Map(cms.map((c) => [c.id, c]));
         return [
-          ...courseRows.map((r) => ({ userId: r.userid, username: byUser.get(r.userid)?.username ?? '', courseId: r.course, status: r.status, cmId: 0, completionstate: -1 })),
-          ...cmRows.map((r) => ({ userId: r.userid, username: byUser.get(r.userid)?.username ?? '', courseId: byCm.get(r.coursemoduleid)?.course ?? 0, status: '', cmId: r.coursemoduleid, completionstate: r.completionstate })),
+          ...courseRows.map((r) => ({ userId: r.userId, username: byUser.get(r.userId)?.username ?? '', courseId: r.course, status: r.status, cmId: 0, completionState: -1 })),
+          ...cmRows.map((r) => ({ userId: r.userId, username: byUser.get(r.userId)?.username ?? '', courseId: byCm.get(r.courseModuleId)?.course ?? 0, status: '', cmId: r.courseModuleId, completionState: r.completionState })),
         ];
       },
     });
   }
 
   async createReport(actorId: string, input: {
-    name: string; datasource: string; columns?: string[]; filters?: Record<string, unknown>;
+    name: string; dataSource: string; columns?: string[]; filters?: Record<string, unknown>;
     audienceUserIds?: string[]; audienceRoles?: string[];
   }): Promise<ReportRow> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
-    const ds = this.datasources.get(input.datasource);
-    if (!ds) throw new BadRequestException({ message: `Unknown datasource ${input.datasource}`, code: 'report.unknown_datasource' });
+    const ds = this.datasources.get(input.dataSource);
+    if (!ds) throw new BadRequestException({ message: `Unknown dataSource ${input.dataSource}`, code: 'report.unknown_datasource' });
     const columns = input.columns?.length ? input.columns : ds.columns;
     for (const c of columns) if (!ds.columns.includes(c)) throw new BadRequestException({ message: `Unknown column ${c}`, code: 'report.unknown_column' });
     const report = await this.repo.insertReport({
-      name: input.name, datasource: input.datasource, columns, filters: input.filters ?? {}, createdby: actorId, contextid: sys.id,
+      name: input.name, dataSource: input.dataSource, columns, filters: input.filters ?? {}, createdBy: actorId, contextId: sys.id,
     });
-    for (const uid of input.audienceUserIds ?? []) await this.repo.insertAudience({ reportid: report.id, userid: uid });
-    for (const role of input.audienceRoles ?? []) await this.repo.insertAudience({ reportid: report.id, role });
+    for (const uid of input.audienceUserIds ?? []) await this.repo.insertAudience({ reportId: report.id, userId: uid });
+    for (const role of input.audienceRoles ?? []) await this.repo.insertAudience({ reportId: report.id, role });
     // Người tạo luôn thuộc audience của báo cáo của mình.
-    if (!(input.audienceUserIds ?? []).includes(actorId)) await this.repo.insertAudience({ reportid: report.id, userid: actorId });
+    if (!(input.audienceUserIds ?? []).includes(actorId)) await this.repo.insertAudience({ reportId: report.id, userId: actorId });
     return report;
   }
 
@@ -118,19 +118,19 @@ export class ReportsService {
   }
   async listReports(): Promise<ReportRow[]> { return this.repo.listReports(); }
 
-  /** Kiểm tra audience: user có trong audience trực tiếp hoặc qua role shortname tại system context. */
+  /** Kiểm tra audience: user có trong audience trực tiếp hoặc qua role shortName tại system context. */
   async isInAudience(userId: string, report: ReportRow): Promise<boolean> {
-    if (report.createdby === userId) return true;
+    if (report.createdBy === userId) return true;
     if (await this.evaluator.isSiteAdmin(userId)) return true;
     const audience = await this.repo.listAudience(report.id);
-    if (audience.some((a) => a.userid === userId)) return true;
-    // Audience theo role: resolve bằng bảng role_assignments (role shortname).
+    if (audience.some((a) => a.userId === userId)) return true;
+    // Audience theo role: resolve bằng bảng role_assignments (role shortName).
     const roleNames = audience.filter((a) => a.role).map((a) => a.role!);
     if (!roleNames.length) return false;
     const db = this.repo.dbHandle;
     const res = (await db.execute(sql`
-      select 1 as ok from role_assignments ra join role r on r.id = ra.roleid
-      where ra.userid = ${userId} and r.shortname in (${sql.join(roleNames.map((n) => sql`${n}`), sql`, `)}) limit 1`)) as unknown as { rows: unknown[] };
+      select 1 as ok from role_assignments ra join role r on r.id = ra.role_id
+      where ra.user_id = ${userId} and r.short_name in (${sql.join(roleNames.map((n) => sql`${n}`), sql`, `)}) limit 1`)) as unknown as { rows: unknown[] };
     return res.rows.length > 0;
   }
 
@@ -145,7 +145,7 @@ export class ReportsService {
     if (!(await this.isInAudience(viewerId, report))) {
       throw new ForbiddenException({ message: 'You are not in the audience of this report', code: 'report.not_in_audience' });
     }
-    const ds = this.datasources.get(report.datasource);
+    const ds = this.datasources.get(report.dataSource);
     if (!ds) throw new BadRequestException({ message: 'Datasource no longer registered', code: 'report.datasource_missing' });
     const allRows = await ds.fetchRows();
     const filters = (report.filters ?? {}) as Record<string, unknown>;
@@ -184,7 +184,7 @@ export class ReportsService {
     const report = await this.getReport(reportId);
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
-    return this.repo.insertSchedule({ reportid: report.id, createdby: actorId, cron, enabled: true });
+    return this.repo.insertSchedule({ reportId: report.id, createdBy: actorId, cron, enabled: true });
   }
   async listSchedules(): Promise<ScheduleRow[]> { return this.repo.listSchedules(); }
 
@@ -198,14 +198,14 @@ export class ReportsService {
     if (!schedule) throw new NotFoundException({ message: `Schedule ${scheduleId} not found`, code: 'report.schedule_not_found' });
     let rowCount = 0;
     try {
-      const { rows } = await this.runReport(schedule.createdby, schedule.reportid);
+      const { rows } = await this.runReport(schedule.createdBy, schedule.reportId);
       rowCount = rows.length;
-      await this.repo.updateSchedule(scheduleId, { lastrun: new Date(), lastresult: { rows: rowCount, ranAs: schedule.createdby } });
+      await this.repo.updateSchedule(scheduleId, { lastRun: new Date(), lastResult: { rows: rowCount, ranAs: schedule.createdBy } });
     } catch {
-      await this.repo.updateSchedule(scheduleId, { lastrun: new Date(), lastresult: { rows: 0, ranAs: schedule.createdby, error: 'forbidden_at_run_time' } });
+      await this.repo.updateSchedule(scheduleId, { lastRun: new Date(), lastResult: { rows: 0, ranAs: schedule.createdBy, error: 'forbidden_at_run_time' } });
     }
-    await this.messaging.notify(schedule.createdby, 'report_scheduled', {
-      subject: this.i18n.t('platform.reportFinishedSubject'), body: this.i18n.t('platform.reportFinishedBody', { args: { reportId: schedule.reportid, rows: rowCount } }), contextUrl: `/reports/${schedule.reportid}`,
+    await this.messaging.notify(schedule.createdBy, 'report_scheduled', {
+      subject: this.i18n.t('platform.reportFinishedSubject'), body: this.i18n.t('platform.reportFinishedBody', { args: { reportId: schedule.reportId, rows: rowCount } }), contextUrl: `/reports/${schedule.reportId}`,
     }).catch(() => undefined);
     return { scheduleId, rows: rowCount };
   }

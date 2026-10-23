@@ -19,16 +19,16 @@ export class PrivacyRepository {
     const [row] = await this.db.select().from(privacyRequests).where(eq(privacyRequests.id, id)); return row;
   }
   async listRequests(): Promise<PrivacyRequestRow[]> { return this.db.select().from(privacyRequests); }
-  async listRequestsForUser(userid: string): Promise<PrivacyRequestRow[]> {
-    return this.db.select().from(privacyRequests).where(eq(privacyRequests.userid, userid));
+  async listRequestsForUser(userId: string): Promise<PrivacyRequestRow[]> {
+    return this.db.select().from(privacyRequests).where(eq(privacyRequests.userId, userId));
   }
   async updateRequest(id: string, v: Partial<typeof privacyRequests.$inferInsert>): Promise<void> {
-    await this.db.update(privacyRequests).set({ ...v, timemodified: new Date() }).where(eq(privacyRequests.id, id));
+    await this.db.update(privacyRequests).set({ ...v, updatedAt: new Date() }).where(eq(privacyRequests.id, id));
   }
   async insertExportFile(v: typeof privacyExportFiles.$inferInsert): Promise<ExportFileRow> {
     const [row] = await this.db.insert(privacyExportFiles).values(v).returning(); return row!;
   }
-  async listExportFiles(requestid: string): Promise<ExportFileRow[]> {
-    return this.db.select().from(privacyExportFiles).where(eq(privacyExportFiles.requestid, requestid));
+  async listExportFiles(requestId: string): Promise<ExportFileRow[]> {
+    return this.db.select().from(privacyExportFiles).where(eq(privacyExportFiles.requestId, requestId));
   }
 }

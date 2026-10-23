@@ -22,28 +22,28 @@ export class RolesService {
     const system = await this.contexts.ensureSystemContext();
     for (const def of CAPABILITY_DEFINITIONS) await this.repo.upsertCapability(def);
     for (const def of DEFAULT_ROLES) {
-      let roleRow = await this.repo.getRoleByShortname(def.shortname);
+      let roleRow = await this.repo.getRoleByShortname(def.shortName);
       if (!roleRow) roleRow = await this.repo.insertRole({ ...def, description: '' });
       await this.repo.deleteRoleCapabilitiesAtContext(roleRow.id, system.id, CAPABILITY_DEFINITIONS.map((c) => c.name));
       for (const capDef of CAPABILITY_DEFINITIONS) {
         const perm = capDef.archetypes[def.archetype];
         if (perm !== undefined) {
-          await this.repo.upsertRoleCapability({ contextid: system.id, roleid: roleRow.id, capability: capDef.name, permission: perm });
+          await this.repo.upsertRoleCapability({ contextId: system.id, roleId: roleRow.id, capability: capDef.name, permission: perm });
         }
       }
     }
   }
 
   /**
-   * Tạo role mới (shortname duy nhất).
+   * Tạo role mới (shortName duy nhất).
    */
-  async createRole(input: { name: string; shortname: string; description?: string; archetype?: string }): Promise<RoleRow> {
-    const shortname = input.shortname.trim().toLowerCase();
-    if (await this.repo.getRoleByShortname(shortname)) {
-      throw new BadRequestException({ message: `Role shortname ${shortname} already exists`, code: 'access.role_shortname_taken' });
+  async createRole(input: { name: string; shortName: string; description?: string; archetype?: string }): Promise<RoleRow> {
+    const shortName = input.shortName.trim().toLowerCase();
+    if (await this.repo.getRoleByShortname(shortName)) {
+      throw new BadRequestException({ message: `Role shortName ${shortName} already exists`, code: 'access.role_shortname_taken' });
     }
     const roles = await this.repo.listRoles();
-    return this.repo.insertRole({ name: input.name, shortname, description: input.description ?? '', archetype: input.archetype, sortorder: roles.length + 1 });
+    return this.repo.insertRole({ name: input.name, shortName, description: input.description ?? '', archetype: input.archetype, sortOrder: roles.length + 1 });
   }
   /**
    * Liệt kê mọi role.
@@ -58,9 +58,9 @@ export class RolesService {
     return row;
   }
   /**
-   * Lấy role theo shortname; undefined nếu không có.
+   * Lấy role theo shortName; undefined nếu không có.
    */
-  async getRoleByShortname(shortname: string): Promise<RoleRow | undefined> { return this.repo.getRoleByShortname(shortname); }
+  async getRoleByShortname(shortName: string): Promise<RoleRow | undefined> { return this.repo.getRoleByShortname(shortName); }
   /**
    * Cập nhật tên/mô tả/archetype của role.
    */
@@ -83,7 +83,7 @@ export class RolesService {
   async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string): Promise<unknown> {
     await this.getRole(roleId);
     await this.contexts.getContext(contextId);
-    const row = await this.repo.insertAssignment({ roleid: roleId, userid: userId, contextid: contextId, modifierid: modifierId });
+    const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId });
     await this.contexts.markContextDirty(contextId);
     return row;
   }
@@ -96,7 +96,7 @@ export class RolesService {
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userid?: string; contextid?: string }): Promise<unknown[]> {
+  async listAssignments(filter: { userId?: string; contextId?: string }): Promise<unknown[]> {
     return this.repo.listAssignments(filter);
   }
 
@@ -113,7 +113,7 @@ export class RolesService {
     if (permission === CAP_INHERIT) {
       await this.repo.deleteRoleCapability(contextId, roleId, capability);
     } else {
-      await this.repo.upsertRoleCapability({ contextid: contextId, roleid: roleId, capability, permission, modifierid: modifierId });
+      await this.repo.upsertRoleCapability({ contextId: contextId, roleId: roleId, capability, permission, modifierId: modifierId });
     }
     await this.contexts.markContextDirty(contextId);
   }

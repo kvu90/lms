@@ -16,9 +16,9 @@ interface ConversationView {
 }
 interface MessageView {
   id: string;
-  useridfrom: string;
-  fullmessage: string;
-  timecreated: string;
+  userIdFrom: string;
+  fullMessage: string;
+  createdAt: string;
 }
 
 /**
@@ -100,7 +100,7 @@ export function MessagesPage() {
     if (!active || !draft.trim()) return;
     await apiJson(`/api/v1/messages/conversations/${active.id}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ fullmessage: draft }),
+      body: JSON.stringify({ fullMessage: draft }),
     });
     setDraft('');
     await open(active);
@@ -196,9 +196,9 @@ export function MessagesPage() {
                 {messages.map((m) => (
                   <li key={m.id} className="rounded border p-2">
                     <p className="text-xs text-muted-foreground">
-                      {t('messageFromUser', { userId: m.useridfrom, time: new Date(m.timecreated).toLocaleString() })}
+                      {t('messageFromUser', { userId: m.userIdFrom, time: new Date(m.createdAt).toLocaleString() })}
                     </p>
-                    <p>{m.fullmessage}</p>
+                    <p>{m.fullMessage}</p>
                   </li>
                 ))}
               </ul>

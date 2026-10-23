@@ -38,22 +38,22 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     // the worker's schema view intentionally only carries the tables its processors touch).
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat-${suffix}`}, '') returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, 'Worker course', ${`wk${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, 'Worker course', ${`wk${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     const sectionRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
     const sectionId = (sectionRows.rows[0] as { id: string }).id;
-    const [inst] = await db.insert(enrol).values({ courseid: courseId, enrol: 'manual', status: 0 }).returning();
+    const [inst] = await db.insert(enrol).values({ courseId: courseId, enrol: 'manual', status: 0 }).returning();
     instanceId = inst.id;
     const cmRows = await db.execute(sql`insert into course_modules (course, section, component) values (${courseId}, ${sectionId}, 'mod_page') returning id`);
     cmId = (cmRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await context.close(); });
 
-  it('enrol-expiry flips ACTIVE enrolments whose timeend passed to SUSPENDED and writes the outbox event; future enrolments untouched', async () => {
+  it('enrol-expiry flips ACTIVE enrolments whose timeEnd passed to SUSPENDED and writes the outbox event; future enrolments untouched', async () => {
     const past = new Date(Date.now() - 3600_000);
     const future = new Date(Date.now() + 3600_000);
-    const [expired] = await db.insert(userEnrolments).values({ enrolid: instanceId, userid: userId, status: 0, timestart: new Date(Date.now() - 7200_000), timeend: past }).returning();
-    const [alive] = await db.insert(userEnrolments).values({ enrolid: instanceId, userid: userIdB, status: 0, timestart: new Date(), timeend: future }).returning();
+    const [expired] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userId, status: 0, timeStart: new Date(Date.now() - 7200_000), timeEnd: past }).returning();
+    const [alive] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdB, status: 0, timeStart: new Date(), timeEnd: future }).returning();
     const processor = context.get(EnrolExpiryProcessor);
     const result = await processor.process({ data: {} } as never);
     expect(result.suspendedIds).toContain(expired.id);
@@ -69,22 +69,22 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
 
   it('completion-recalculate recomputes course completion from current criteria (AND), and reopens it when criteria tighten', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
-    await db.insert(courseModulesCompletion).values({ coursemoduleid: cmId, userid: userId, completionstate: 1, viewed: true });
+    await db.insert(courseModulesCompletion).values({ courseModuleId: cmId, userId: userId, completionState: 1, viewed: true });
     await db.insert(courseCompletionSettings).values({ course: courseId, method: 1 }).onConflictDoNothing();
-    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriatype: 'module', moduleinstance: cmId, sortorder: 0 });
+    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriaType: 'module', moduleInstance: cmId, sortOrder: 0 });
     const result = await processor.process({ data: { courseId } } as never);
     expect(result.users).toBeGreaterThan(0);
     let [cc] = await db.select().from(courseCompletions)
-      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userid, userId)));
+      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
     expect(cc.status).toBe('complete');
-    expect(cc.timecompleted).toBeTruthy();
+    expect(cc.timeCompleted).toBeTruthy();
 
     // Add a date criterion in the future ⇒ recalculation reopens the completion.
-    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriatype: 'date', date: new Date('2100-01-01'), sortorder: 1 });
+    await db.insert(courseCompletionCriteria).values({ course: courseId, criteriaType: 'date', date: new Date('2100-01-01'), sortOrder: 1 });
     await processor.process({ data: { courseId } } as never);
     [cc] = await db.select().from(courseCompletions)
-      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userid, userId)));
+      .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
     expect(cc.status).not.toBe('complete');
-    expect(cc.timecompleted).toBeNull();
+    expect(cc.timeCompleted).toBeNull();
   });
 });

@@ -27,7 +27,7 @@ export class AccessController {
    * POST /access/contexts — tạo context mới dưới context cha.
    */
   async createContext(@Body({ schema: createContextSchema }) dto: CreateContextDto) {
-    return this.contexts.createContext(dto.contextlevel, dto.instanceid, dto.parentId);
+    return this.contexts.createContext(dto.contextLevel, dto.instanceId, dto.parentId);
   }
   @Get('contexts')
   @RequireCapability('moodle/role:manage')
@@ -92,15 +92,15 @@ export class AccessController {
    * POST /access/assignments — gán role cho user tại context.
    */
   async assign(@Body({ schema: assignRoleSchema }) dto: AssignRoleDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.roles.assignRole(dto.userid, dto.roleid, dto.contextid, actor.id);
+    return this.roles.assignRole(dto.userId, dto.roleId, dto.contextId, actor.id);
   }
   @Get('assignments')
   @RequireCapability('moodle/role:assign')
   /**
    * GET /access/assignments — liệt kê gán role.
    */
-  async listAssignments(@Query('userid') userid?: string, @Query('contextid') contextid?: string) {
-    return this.roles.listAssignments({ userid: userid || undefined, contextid: contextid || undefined });
+  async listAssignments(@Query('userId') userId?: string, @Query('contextId') contextId?: string) {
+    return this.roles.listAssignments({ userId: userId || undefined, contextId: contextId || undefined });
   }
   @Delete('assignments/:id')
   @RequireCapability('moodle/role:assign')
@@ -115,7 +115,7 @@ export class AccessController {
    * POST /access/overrides — đặt override capability cho role tại context.
    */
   async override(@Body({ schema: overrideCapabilitySchema }) dto: OverrideCapabilityDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.roles.setCapabilityOverride(dto.roleid, dto.capability, dto.contextid, dto.permission, actor.id);
+    await this.roles.setCapabilityOverride(dto.roleId, dto.capability, dto.contextId, dto.permission, actor.id);
     return { updated: true };
   }
 
@@ -126,7 +126,7 @@ export class AccessController {
    * GET /access/has-capability — kiểm tra capability của một user tại context (dùng cho client và kiểm chứng).
    */
   async hasCapability(@Query({ schema: hasCapabilityQueryServerSchema }) query: HasCapabilityQueryDto) {
-    const allowed = await this.evaluator.hasCapability(query.userid, query.capability, query.contextid);
-    return { userid: query.userid, capability: query.capability, contextid: query.contextid, allowed };
+    const allowed = await this.evaluator.hasCapability(query.userId, query.capability, query.contextId);
+    return { userId: query.userId, capability: query.capability, contextId: query.contextId, allowed };
   }
 }

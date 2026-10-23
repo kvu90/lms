@@ -11,45 +11,45 @@ import {
 import { sql } from 'drizzle-orm';
 
 /**
- * Calendar events (Moodle `event` → `calendar_events`). eventtype:
+ * Calendar events (Moodle `event` → `calendar_events`). event_type:
  * site|category|course|group|user decides visibility by the context tree +
  * group membership (report §2#13). A series is a set of rows sharing
- * `repeatid` (= id of the first event); the root carries the `rrule`
+ * `repeat_id` (= id of the first event); the root carries the `rrule`
  * (FREQ=DAILY|WEEKLY|MONTHLY;COUNT=n|UNTIL=...). An exception is a row with
- * isexception=true and exceptionof = id of the occurrence it replaces.
+ * is_exception=true and exception_of = id of the occurrence it replaces.
  */
 export const calendarEvents = pgTable('calendar_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
-  eventtype: text('eventtype').notNull().default('user'),
-  courseid: uuid('courseid'),
-  groupid: uuid('groupid'),
-  categoryid: uuid('categoryid'),
-  userid: uuid('userid'),
-  contextid: uuid('contextid'),
-  subscriptionid: uuid('subscriptionid'),
+  eventType: text('event_type').notNull().default('user'),
+  courseId: uuid('course_id'),
+  groupId: uuid('group_id'),
+  categoryId: uuid('category_id'),
+  userId: uuid('user_id'),
+  contextId: uuid('context_id'),
+  subscriptionId: uuid('subscription_id'),
   uuid: text('uuid'),
-  repeatid: uuid('repeatid'),
+  repeatId: uuid('repeat_id'),
   rrule: text('rrule'),
-  isexception: boolean('isexception').notNull().default(false),
-  exceptionof: uuid('exceptionof'),
-  timestart: timestamp('timestart', { withTimezone: true }).notNull(),
-  timeduration: integer('timeduration').notNull().default(0),
+  isException: boolean('is_exception').notNull().default(false),
+  exceptionOf: uuid('exception_of'),
+  timeStart: timestamp('time_start', { withTimezone: true }).notNull(),
+  timeDuration: integer('time_duration').notNull().default(0),
   visible: boolean('visible').notNull().default(true),
   location: text('location').notNull().default(''),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('calendar_events_courseid_idx').on(table.courseid),
-      index('calendar_events_groupid_idx').on(table.groupid),
-      index('calendar_events_categoryid_idx').on(table.categoryid),
-      index('calendar_events_userid_idx').on(table.userid),
-      index('calendar_events_contextid_idx').on(table.contextid),
-      index('calendar_events_subscriptionid_idx').on(table.subscriptionid),
-      index('calendar_events_repeatid_idx').on(table.repeatid),
-      index('calendar_events_exceptionof_idx').on(table.exceptionof),
+      index('calendar_events_course_id_idx').on(table.courseId),
+      index('calendar_events_group_id_idx').on(table.groupId),
+      index('calendar_events_category_id_idx').on(table.categoryId),
+      index('calendar_events_user_id_idx').on(table.userId),
+      index('calendar_events_context_id_idx').on(table.contextId),
+      index('calendar_events_subscription_id_idx').on(table.subscriptionId),
+      index('calendar_events_repeat_id_idx').on(table.repeatId),
+      index('calendar_events_exception_of_idx').on(table.exceptionOf),
   ]);
 
 
@@ -61,14 +61,14 @@ export const calendarEvents = pgTable('calendar_events', {
  */
 export const calendarExportTokens = pgTable('calendar_export_tokens', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  userid: uuid('userid').notNull().unique(),
-  tokenhash: text('tokenhash').notNull().unique(),
-  lastaccess: timestamp('lastaccess', { withTimezone: true }),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  userId: uuid('user_id').notNull().unique(),
+  tokenHash: text('token_hash').notNull().unique(),
+  lastAccess: timestamp('last_access', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('calendar_export_tokens_userid_idx').on(table.userid),
+      index('calendar_export_tokens_user_id_idx').on(table.userId),
   ]);
 
 
@@ -77,18 +77,18 @@ export const calendarSubscriptions = pgTable('calendar_subscriptions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   url: text('url'),
-  icsdata: text('icsdata'),
-  eventtype: text('eventtype').notNull().default('site'),
-  courseid: uuid('courseid'),
-  categoryid: uuid('categoryid'),
-  userid: uuid('userid'),
-  pollinterval: integer('pollinterval').notNull().default(604800),
-  lastupdated: timestamp('lastupdated', { withTimezone: true }),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  icsData: text('ics_data'),
+  eventType: text('event_type').notNull().default('site'),
+  courseId: uuid('course_id'),
+  categoryId: uuid('category_id'),
+  userId: uuid('user_id'),
+  pollInterval: integer('poll_interval').notNull().default(604800),
+  lastUpdated: timestamp('last_updated', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('calendar_subscriptions_courseid_idx').on(table.courseid),
-      index('calendar_subscriptions_categoryid_idx').on(table.categoryid),
-      index('calendar_subscriptions_userid_idx').on(table.userid),
+      index('calendar_subscriptions_course_id_idx').on(table.courseId),
+      index('calendar_subscriptions_category_id_idx').on(table.categoryId),
+      index('calendar_subscriptions_user_id_idx').on(table.userId),
   ]);
 

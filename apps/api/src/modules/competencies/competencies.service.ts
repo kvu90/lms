@@ -22,7 +22,7 @@ export type RuleOutcome = (typeof RULE_OUTCOMES)[number];
 export interface ScaleConfiguration { values: string[]; proficient: number[] }
 
 export function parseScale(framework: FrameworkRow): ScaleConfiguration {
-  const raw = (framework.scaleconfiguration ?? {}) as { values?: unknown; proficient?: unknown };
+  const raw = (framework.scaleConfiguration ?? {}) as { values?: unknown; proficient?: unknown };
   const values = Array.isArray(raw.values) ? raw.values.map(String) : [];
   const proficient = Array.isArray(raw.proficient) ? raw.proficient.map(Number) : [];
   return { values, proficient };
@@ -40,7 +40,7 @@ export interface CompetencyRulePointsEntry { competencyId: string; points: numbe
 /** Cấu hình rule points đã chuẩn hoá (Moodle `competency_rule_points`: base points + danh sách con). */
 export interface CompetencyRulePointsConfig { pointsRequired: number; entries: CompetencyRulePointsEntry[] }
 
-/** Đọc cấu hình rule points từ `competency.ruleconfig` (jsonb); trả null khi không đúng hình dạng. */
+/** Đọc cấu hình rule points từ `competency.ruleConfig` (jsonb); trả null khi không đúng hình dạng. */
 export function parseRuleConfig(raw: unknown): CompetencyRulePointsConfig | null {
   const cfg = (raw ?? {}) as { pointsRequired?: unknown; entries?: unknown };
   if (!Number.isInteger(cfg.pointsRequired) || !Array.isArray(cfg.entries)) return null;
@@ -56,10 +56,10 @@ export function parseRuleConfig(raw: unknown): CompetencyRulePointsConfig | null
 export interface FrameworkExportDoc {
   format: 'lms-competency-framework';
   version: 1;
-  framework: { shortname: string; idnumber: string; description: string; visible: boolean; taxonomies: string; scale: ScaleConfiguration };
+  framework: { shortName: string; idNumber: string; description: string; visible: boolean; taxonomies: string; scale: ScaleConfiguration };
   competencies: {
-    key: string; shortname: string; idnumber: string; description: string;
-    parentKey: string | null; sortorder: number;
+    key: string; shortName: string; idNumber: string; description: string;
+    parentKey: string | null; sortOrder: number;
     rule: { outcome: string; pointsRequired: number; entries: { competencyKey: string; points: number; required: boolean }[] } | null;
   }[];
 }
@@ -68,9 +68,9 @@ export interface FrameworkExportDoc {
  * CompetenciesModule facade (Moodle core_competency / tool_lp):
  *  - Frameworks own a competency TREE (path/depth) and a SCALE; proficiency
  *    is read off the scale configuration — NEVER inferred from grades. A
- *    grade can only become EVIDENCE when a link's ruleoutcome says
+ *    grade can only become EVIDENCE when a link's ruleOutcome says
  *    'attach-evidence' (and even then it does not set proficiency).
- *  - Course/cm links carry an explicit ruleoutcome applied by THIS module
+ *  - Course/cm links carry an explicit ruleOutcome applied by THIS module
  *    when CompletionModule reports a completion (registered hooks — this
  *    module never reads completion tables).
  *  - Learning plans: template → cohort plans; lifecycle
@@ -128,7 +128,7 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Tạo framework năng lực.
    */
-  async createFramework(actorId: string, input: { shortname: string; idnumber?: string; description?: string; scale: ScaleConfiguration; visible?: boolean }): Promise<FrameworkRow> {
+  async createFramework(actorId: string, input: { shortName: string; idNumber?: string; description?: string; scale: ScaleConfiguration; visible?: boolean }): Promise<FrameworkRow> {
     await this.requireManage(actorId);
     if (!input.scale.values.length) throw new BadRequestException({ message: 'A framework scale needs at least one value', code: 'competency.scale_empty' });
     for (const idx of input.scale.proficient) {
@@ -137,8 +137,8 @@ export class CompetenciesService implements OnModuleInit {
       }
     }
     return this.repo.insertFramework({
-      shortname: input.shortname, idnumber: input.idnumber ?? '', description: input.description ?? '',
-      contextid: await this.systemCtx(), scaleconfiguration: input.scale, visible: input.visible ?? true,
+      shortName: input.shortName, idNumber: input.idNumber ?? '', description: input.description ?? '',
+      contextId: await this.systemCtx(), scaleConfiguration: input.scale, visible: input.visible ?? true,
     });
   }
   /**
@@ -157,18 +157,18 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Thêm competency vào framework (có thể lồng nhau theo parent).
    */
-  async createCompetency(actorId: string, frameworkId: string, input: { shortname: string; idnumber?: string; description?: string; parentId?: string }): Promise<CompetencyRow> {
+  async createCompetency(actorId: string, frameworkId: string, input: { shortName: string; idNumber?: string; description?: string; parentId?: string }): Promise<CompetencyRow> {
     await this.requireManage(actorId);
     const framework = await this.getFramework(frameworkId);
     void framework;
     let parent: CompetencyRow | undefined;
     if (input.parentId) {
       parent = await this.getCompetency(input.parentId);
-      if (parent.frameworkid !== frameworkId) throw new BadRequestException({ message: 'Parent competency belongs to another framework', code: 'competency.parent_framework_mismatch' });
+      if (parent.frameworkId !== frameworkId) throw new BadRequestException({ message: 'Parent competency belongs to another framework', code: 'competency.parent_framework_mismatch' });
     }
     const created = await this.repo.insertCompetency({
-      frameworkid: frameworkId, shortname: input.shortname, idnumber: input.idnumber ?? '',
-      description: input.description ?? '', parentid: parent?.id ?? null,
+      frameworkId: frameworkId, shortName: input.shortName, idNumber: input.idNumber ?? '',
+      description: input.description ?? '', parentId: parent?.id ?? null,
       path: '', depth: parent ? parent.depth + 1 : 1,
     });
     const path = parent ? `${parent.path}/${created.id}` : `/${created.id}`;
@@ -200,9 +200,9 @@ export class CompetenciesService implements OnModuleInit {
     const row = await this.getCompetency(competencyId);
     return {
       competencyId: row.id,
-      type: row.ruletype,
-      outcome: row.ruleoutcome,
-      config: row.ruletype === 'points' ? parseRuleConfig(row.ruleconfig) : null,
+      type: row.ruleType,
+      outcome: row.ruleOutcome,
+      config: row.ruleType === 'points' ? parseRuleConfig(row.ruleConfig) : null,
     };
   }
 
@@ -234,7 +234,7 @@ export class CompetenciesService implements OnModuleInit {
     if (!seen.size) invalid('A points rule needs at least one child competency');
     if (input.pointsRequired > total) invalid('The points required exceed the total points the children can contribute');
     const config: CompetencyRulePointsConfig = { pointsRequired: input.pointsRequired, entries: input.entries };
-    await this.repo.updateCompetency(competencyId, { ruletype: 'points', ruleconfig: config, ruleoutcome: outcome });
+    await this.repo.updateCompetency(competencyId, { ruleType: 'points', ruleConfig: config, ruleOutcome: outcome });
     return this.getCompetencyRule(competencyId);
   }
 
@@ -248,16 +248,16 @@ export class CompetenciesService implements OnModuleInit {
    */
   private async evaluateParentRule(userId: string, childCompetencyId: string, scope: { planId?: string; courseId?: string }): Promise<void> {
     const child = await this.repo.getCompetency(childCompetencyId);
-    if (!child?.parentid) return;
-    const parent = await this.repo.getCompetency(child.parentid);
-    if (!parent || parent.ruletype !== 'points' || parent.ruleoutcome === 'nothing') return;
-    const config = parseRuleConfig(parent.ruleconfig);
+    if (!child?.parentId) return;
+    const parent = await this.repo.getCompetency(child.parentId);
+    if (!parent || parent.ruleType !== 'points' || parent.ruleOutcome === 'nothing') return;
+    const config = parseRuleConfig(parent.ruleConfig);
     if (!config) return;
-    const planid = scope.planId ?? null;
-    const courseid = scope.courseId ?? null;
+    const planId = scope.planId ?? null;
+    const courseId = scope.courseId ?? null;
     const scoped = (await this.repo.listUsercompsForUser(userId))
-      .filter((r) => (r.planid ?? null) === planid && (r.courseid ?? null) === courseid);
-    const proficientIds = new Set(scoped.filter((r) => r.proficiency === true).map((r) => r.competencyid));
+      .filter((r) => (r.planId ?? null) === planId && (r.courseId ?? null) === courseId);
+    const proficientIds = new Set(scoped.filter((r) => r.proficiency === true).map((r) => r.competencyId));
     let points = 0;
     for (const entry of config.entries) {
       if (!proficientIds.has(entry.competencyId)) {
@@ -270,22 +270,22 @@ export class CompetenciesService implements OnModuleInit {
     const parentUc = await this.getOrCreateUsercomp(userId, parent.id, scope);
     const existing = await this.repo.listEvidence(parentUc.id);
     if (existing.some((e) => e.action === 'rule_points_met')) return; // đã áp rule rồi — không ghi trùng
-    if (parent.ruleoutcome === 'attach-evidence') {
+    if (parent.ruleOutcome === 'attach-evidence') {
       // Chỉ ghi evidence: proficiency của cha KHÔNG đổi (bám Moodle OUTCOME_EVIDENCE).
       await this.repo.insertEvidence({
-        usercompetencyid: parentUc.id, actionuserid: userId, action: 'rule_points_met',
+        userCompetencyId: parentUc.id, actionUserId: userId, action: 'rule_points_met',
         description: 'Competency rule (points) matched', grade: null,
       });
       return;
     }
     // outcome 'complete': cha tự đạt proficiency theo mức proficient đầu tiên của scale.
     if (parentUc.proficiency === true) return;
-    const framework = await this.getFramework(parent.frameworkid);
+    const framework = await this.getFramework(parent.frameworkId);
     const grade = parseScale(framework).proficient[0];
     if (grade === undefined) return;
     await this.repo.updateUsercomp(parentUc.id, { grade, proficiency: true });
     await this.repo.insertEvidence({
-      usercompetencyid: parentUc.id, actionuserid: userId, action: 'rule_points_met',
+      userCompetencyId: parentUc.id, actionUserId: userId, action: 'rule_points_met',
       description: 'Competency rule (points) matched', grade,
     });
     await this.emitter.emitAsync('competency_proficiency_changed', { userId, competencyId: parent.id });
@@ -310,16 +310,16 @@ export class CompetenciesService implements OnModuleInit {
       format: 'lms-competency-framework',
       version: 1,
       framework: {
-        shortname: framework.shortname, idnumber: framework.idnumber, description: framework.description,
+        shortName: framework.shortName, idNumber: framework.idNumber, description: framework.description,
         visible: framework.visible, taxonomies: framework.taxonomies, scale: parseScale(framework),
       },
       competencies: competencies.map((c) => {
-        const config = c.ruletype === 'points' ? parseRuleConfig(c.ruleconfig) : null;
+        const config = c.ruleType === 'points' ? parseRuleConfig(c.ruleConfig) : null;
         return {
-          key: c.id, shortname: c.shortname, idnumber: c.idnumber, description: c.description,
-          parentKey: c.parentid, sortorder: c.sortorder,
+          key: c.id, shortName: c.shortName, idNumber: c.idNumber, description: c.description,
+          parentKey: c.parentId, sortOrder: c.sortOrder,
           rule: config ? {
-            outcome: c.ruleoutcome, pointsRequired: config.pointsRequired,
+            outcome: c.ruleOutcome, pointsRequired: config.pointsRequired,
             entries: config.entries.map((e) => ({ competencyKey: e.competencyId, points: e.points, required: e.required })),
           } : null,
         };
@@ -371,14 +371,14 @@ export class CompetenciesService implements OnModuleInit {
    * Toàn bộ thao tác nằm trong MỘT transaction: tài liệu hỏng ⇒ rollback, không tạo nửa vời.
    * Dùng chung cho import và duplication.
    */
-  private async createFrameworkFromExport(doc: FrameworkExportDoc, overrides?: { shortname?: string; idnumber?: string }): Promise<FrameworkRow> {
+  private async createFrameworkFromExport(doc: FrameworkExportDoc, overrides?: { shortName?: string; idNumber?: string }): Promise<FrameworkRow> {
     this.validateFrameworkExport(doc);
     const frameworkId = await this.repo.dbHandle.transaction(async (tx) => {
       const framework = await this.repo.insertFramework({
-        shortname: overrides?.shortname ?? doc.framework.shortname,
-        idnumber: overrides?.idnumber ?? doc.framework.idnumber,
-        description: doc.framework.description, contextid: await this.systemCtx(),
-        scaleconfiguration: doc.framework.scale, taxonomies: doc.framework.taxonomies,
+        shortName: overrides?.shortName ?? doc.framework.shortName,
+        idNumber: overrides?.idNumber ?? doc.framework.idNumber,
+        description: doc.framework.description, contextId: await this.systemCtx(),
+        scaleConfiguration: doc.framework.scale, taxonomies: doc.framework.taxonomies,
         visible: doc.framework.visible,
       }, tx as never);
       // Chèn theo thứ tự topo: cha trước con (tài liệu export vốn đã xếp theo path,
@@ -391,9 +391,9 @@ export class CompetenciesService implements OnModuleInit {
         const [node] = pending.splice(idx, 1);
         const parentInfo = node.parentKey ? mapped.get(node.parentKey)! : undefined;
         const created = await this.repo.insertCompetency({
-          frameworkid: framework.id, shortname: node.shortname, idnumber: node.idnumber,
-          description: node.description, parentid: parentInfo?.id ?? null,
-          path: '', depth: parentInfo ? parentInfo.depth + 1 : 1, sortorder: node.sortorder,
+          frameworkId: framework.id, shortName: node.shortName, idNumber: node.idNumber,
+          description: node.description, parentId: parentInfo?.id ?? null,
+          path: '', depth: parentInfo ? parentInfo.depth + 1 : 1, sortOrder: node.sortOrder,
         }, tx as never);
         const path = parentInfo ? `${parentInfo.path}/${created.id}` : `/${created.id}`;
         await this.repo.updateCompetency(created.id, { path }, tx as never);
@@ -407,7 +407,7 @@ export class CompetenciesService implements OnModuleInit {
           entries: node.rule.entries.map((e) => ({ competencyId: mapped.get(e.competencyKey)!.id, points: e.points, required: e.required })),
         };
         await this.repo.updateCompetency(mapped.get(node.key)!.id, {
-          ruletype: 'points', ruleconfig: config, ruleoutcome: node.rule.outcome,
+          ruleType: 'points', ruleConfig: config, ruleOutcome: node.rule.outcome,
         }, tx as never);
       }
       return framework.id;
@@ -425,25 +425,25 @@ export class CompetenciesService implements OnModuleInit {
 
   /**
    * Nhân bản framework ngay trong hệ thống (oracle: Moodle `api::duplicate_framework` /
-   * `test_duplicate_framework`): framework mới mang idnumber chưa dùng (hậu tố `_1`, `_2`, …),
-   * shortname thêm " (copy)", toàn bộ cây + rule được sao với id mới (rule config được
+   * `test_duplicate_framework`): framework mới mang idNumber chưa dùng (hậu tố `_1`, `_2`, …),
+   * shortName thêm " (copy)", toàn bộ cây + rule được sao với id mới (rule config được
    * migrate sang id con mới như Moodle `migrate_competency_tree_rules`).
    */
   async duplicateFramework(actorId: string, frameworkId: string): Promise<FrameworkRow> {
     const doc = await this.exportFramework(actorId, frameworkId);
     const original = await this.getFramework(frameworkId);
-    const used = new Set((await this.repo.listFrameworks()).map((f) => f.idnumber));
+    const used = new Set((await this.repo.listFrameworks()).map((f) => f.idNumber));
     let n = 1;
-    let candidate = `${original.idnumber}_${n}`;
-    while (used.has(candidate)) { n += 1; candidate = `${original.idnumber}_${n}`; }
-    return this.createFrameworkFromExport(doc, { shortname: `${original.shortname} (copy)`, idnumber: candidate });
+    let candidate = `${original.idNumber}_${n}`;
+    while (used.has(candidate)) { n += 1; candidate = `${original.idNumber}_${n}`; }
+    return this.createFrameworkFromExport(doc, { shortName: `${original.shortName} (copy)`, idNumber: candidate });
   }
 
   // --- course / cm links --------------------------------------------------------------
 
   private assertOutcome(outcome: string): RuleOutcome {
     if (!RULE_OUTCOMES.includes(outcome as RuleOutcome)) {
-      throw new BadRequestException({ message: `Unknown ruleoutcome ${outcome} (expected complete | attach-evidence | nothing)`, code: 'competency.bad_ruleoutcome' });
+      throw new BadRequestException({ message: `Unknown ruleOutcome ${outcome} (expected complete | attach-evidence | nothing)`, code: 'competency.bad_ruleoutcome' });
     }
     return outcome as RuleOutcome;
   }
@@ -451,11 +451,11 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Liên kết competency với khoá học + quy tắc tự cấp proficiency.
    */
-  async linkCourseCompetency(actorId: string, courseId: string, input: { competencyId: string; ruleoutcome: string }) {
+  async linkCourseCompetency(actorId: string, courseId: string, input: { competencyId: string; ruleOutcome: string }) {
     await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(courseId));
     const competencyRow = await this.getCompetency(input.competencyId);
-    return this.repo.insertCourseLink({ courseid: courseId, competencyid: competencyRow.id, ruleoutcome: this.assertOutcome(input.ruleoutcome) });
+    return this.repo.insertCourseLink({ courseId: courseId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
   /**
    * Competency đã liên kết với khoá học.
@@ -466,11 +466,11 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Liên kết competency với course module.
    */
-  async linkModuleCompetency(actorId: string, cmId: string, input: { competencyId: string; ruleoutcome: string }) {
+  async linkModuleCompetency(actorId: string, cmId: string, input: { competencyId: string; ruleOutcome: string }) {
     const cm = await this.courses.getCm(cmId);
     await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(cm.course));
     const competencyRow = await this.getCompetency(input.competencyId);
-    return this.repo.insertModuleLink({ coursemoduleid: cmId, competencyid: competencyRow.id, ruleoutcome: this.assertOutcome(input.ruleoutcome) });
+    return this.repo.insertModuleLink({ courseModuleId: cmId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
   /**
    * Competency đã liên kết với module.
@@ -485,11 +485,11 @@ export class CompetenciesService implements OnModuleInit {
    * Lấy hoặc tạo bản ghi năng lực của user cho một competency.
    */
   async getOrCreateUsercomp(userId: string, competencyId: string, scope: { planId?: string; courseId?: string }): Promise<UsercompRow> {
-    const planid = scope.planId ?? null;
-    const courseid = scope.courseId ?? null;
-    const existing = await this.repo.findUsercomp(userId, competencyId, planid, courseid);
+    const planId = scope.planId ?? null;
+    const courseId = scope.courseId ?? null;
+    const existing = await this.repo.findUsercomp(userId, competencyId, planId, courseId);
     if (existing) return existing;
-    return this.repo.insertUsercomp({ userid: userId, competencyid: competencyId, planid, courseid });
+    return this.repo.insertUsercomp({ userId: userId, competencyId: competencyId, planId, courseId });
   }
 
   /**
@@ -513,12 +513,12 @@ export class CompetenciesService implements OnModuleInit {
    */
   async isProficient(userId: string, competencyId: string): Promise<boolean> {
     const rows = await this.repo.listUsercompsForUser(userId);
-    return rows.some((r) => r.competencyid === competencyId && r.proficiency === true);
+    return rows.some((r) => r.competencyId === competencyId && r.proficiency === true);
   }
 
   private async validateGrade(competencyId: string, grade: number): Promise<FrameworkRow> {
     const competencyRow = await this.getCompetency(competencyId);
-    const framework = await this.getFramework(competencyRow.frameworkid);
+    const framework = await this.getFramework(competencyRow.frameworkId);
     const scale = parseScale(framework);
     if (!Number.isInteger(grade) || grade < 0 || grade >= scale.values.length) {
       throw new BadRequestException({
@@ -553,13 +553,13 @@ export class CompetenciesService implements OnModuleInit {
     let evidence!: EvidenceRow;
     await this.repo.dbHandle.transaction(async (tx) => {
       evidence = await this.repo.insertEvidence({
-        usercompetencyid: usercomp.id, actionuserid: actorId, action: 'evidence',
+        userCompetencyId: usercomp.id, actionUserId: actorId, action: 'evidence',
         description: input.description, url: input.url ?? null,
         grade: input.grade ?? null, note: input.note ?? '',
-        contextid: await this.systemCtx(),
+        contextId: await this.systemCtx(),
       }, tx as never);
       if (input.grade !== undefined && canRate) {
-        const framework = await this.getFramework(competencyRow.frameworkid);
+        const framework = await this.getFramework(competencyRow.frameworkId);
         await this.repo.updateUsercomp(usercomp.id, {
           grade: input.grade, proficiency: isProficientGrade(framework, input.grade),
         }, tx as never);
@@ -568,7 +568,7 @@ export class CompetenciesService implements OnModuleInit {
       if (input.sendForReview) {
         await this.repo.updateUsercomp(usercomp.id, { status: USERCOMP_REVIEW.WAITING }, tx as never);
         await this.repo.insertEvidence({
-          usercompetencyid: usercomp.id, actionuserid: actorId, action: 'review_requested',
+          userCompetencyId: usercomp.id, actionUserId: actorId, action: 'review_requested',
           description: 'Sent for review with evidence', grade: null,
         }, tx as never);
       }
@@ -579,7 +579,7 @@ export class CompetenciesService implements OnModuleInit {
     });
     // Evidence kèm grade của người có quyền chấm đã đặt proficiency ⇒ đánh giá rule của cha.
     if (input.grade !== undefined && canRate) {
-      const framework = await this.getFramework(competencyRow.frameworkid);
+      const framework = await this.getFramework(competencyRow.frameworkId);
       if (isProficientGrade(framework, input.grade)) {
         await this.evaluateParentRule(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
       }
@@ -602,55 +602,55 @@ export class CompetenciesService implements OnModuleInit {
     const usercomp = await this.getUsercomp(usercompId);
     const systemCtx = await this.systemCtx();
     if (action === 'request') {
-      if (actorId !== usercomp.userid) {
+      if (actorId !== usercomp.userId) {
         await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', systemCtx);
       }
       if (usercomp.status !== USERCOMP_REVIEW.NONE) {
         throw new BadRequestException({ message: 'A review is already in progress for this competency', code: 'competency.review_in_progress' });
       }
       await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.WAITING });
-      await this.repo.insertEvidence({ usercompetencyid: usercompId, actionuserid: actorId, action: 'review_requested', description: 'Review requested', note: opts?.note ?? '' });
+      await this.repo.insertEvidence({ userCompetencyId: usercompId, actionUserId: actorId, action: 'review_requested', description: 'Review requested', note: opts?.note ?? '' });
     } else {
       await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', systemCtx);
       if (action === 'start') {
         if (usercomp.status !== USERCOMP_REVIEW.WAITING) {
           throw new BadRequestException({ message: 'Review can only start from waitingforreview', code: 'competency.review_not_waiting' });
         }
-        await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.IN_REVIEW, reviewerid: actorId });
-        await this.repo.insertEvidence({ usercompetencyid: usercompId, actionuserid: actorId, action: 'review_started', description: 'Review started', note: opts?.note ?? '' });
+        await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.IN_REVIEW, reviewerId: actorId });
+        await this.repo.insertEvidence({ userCompetencyId: usercompId, actionUserId: actorId, action: 'review_started', description: 'Review started', note: opts?.note ?? '' });
       } else if (action === 'approve') {
         if (usercomp.status !== USERCOMP_REVIEW.IN_REVIEW && usercomp.status !== USERCOMP_REVIEW.WAITING) {
           throw new BadRequestException({ message: 'Only a competency in review can be approved', code: 'competency.review_not_in_review' });
         }
-        if (opts?.grade !== undefined) await this.validateGrade(usercomp.competencyid, opts.grade);
-        const competencyRow = await this.getCompetency(usercomp.competencyid);
-        const framework = await this.getFramework(competencyRow.frameworkid);
+        if (opts?.grade !== undefined) await this.validateGrade(usercomp.competencyId, opts.grade);
+        const competencyRow = await this.getCompetency(usercomp.competencyId);
+        const framework = await this.getFramework(competencyRow.frameworkId);
         const scale = parseScale(framework);
         const grade = opts?.grade ?? scale.proficient[0];
         if (grade === undefined) throw new BadRequestException({ message: 'The framework scale has no proficient value to approve with', code: 'competency.scale_no_proficient' });
         await this.repo.updateUsercomp(usercompId, {
-          status: USERCOMP_REVIEW.NONE, grade, proficiency: isProficientGrade(framework, grade), reviewerid: actorId,
+          status: USERCOMP_REVIEW.NONE, grade, proficiency: isProficientGrade(framework, grade), reviewerId: actorId,
         });
         await this.repo.insertEvidence({
-          usercompetencyid: usercompId, actionuserid: actorId, action: 'review_approved',
+          userCompetencyId: usercompId, actionUserId: actorId, action: 'review_approved',
           description: 'Review approved', grade, note: opts?.note ?? '',
         });
-        await this.emitter.emitAsync('competency_proficiency_changed', { userId: usercomp.userid, competencyId: usercomp.competencyid });
+        await this.emitter.emitAsync('competency_proficiency_changed', { userId: usercomp.userId, competencyId: usercomp.competencyId });
         await this.outbox.enqueueStandalone({
           aggregate: 'competency', type: 'competency_proficiency_changed',
-          payload: { userId: usercomp.userid, competencyId: usercomp.competencyid, proficient: true },
+          payload: { userId: usercomp.userId, competencyId: usercomp.competencyId, proficient: true },
         });
         // Con vừa đạt proficiency ⇒ đánh giá rule points của cha (cùng đường Moodle dùng khi duyệt).
         if (isProficientGrade(framework, grade)) {
-          await this.evaluateParentRule(usercomp.userid, usercomp.competencyid, { planId: usercomp.planid ?? undefined, courseId: usercomp.courseid ?? undefined });
+          await this.evaluateParentRule(usercomp.userId, usercomp.competencyId, { planId: usercomp.planId ?? undefined, courseId: usercomp.courseId ?? undefined });
         }
       } else {
         if (usercomp.status !== USERCOMP_REVIEW.IN_REVIEW && usercomp.status !== USERCOMP_REVIEW.WAITING) {
           throw new BadRequestException({ message: 'Only a competency in review can be rejected', code: 'competency.review_not_in_review' });
         }
-        await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.NONE, reviewerid: actorId });
+        await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.NONE, reviewerId: actorId });
         await this.repo.insertEvidence({
-          usercompetencyid: usercompId, actionuserid: actorId, action: 'review_rejected',
+          userCompetencyId: usercompId, actionUserId: actorId, action: 'review_rejected',
           description: 'Review rejected', note: opts?.note ?? '',
         });
       }
@@ -693,7 +693,7 @@ export class CompetenciesService implements OnModuleInit {
     const usercomp = await this.getOrCreateUsercomp(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
     await this.repo.updateUsercomp(usercomp.id, { grade: input.grade, proficiency: isProficientGrade(framework, input.grade) });
     await this.repo.insertEvidence({
-      usercompetencyid: usercomp.id, actionuserid: actorId, action: 'graded',
+      userCompetencyId: usercomp.id, actionUserId: actorId, action: 'graded',
       description: 'Rated by reviewer', grade: input.grade, note: input.note ?? '',
     });
     await this.emitter.emitAsync('competency_proficiency_changed', { userId: input.userId, competencyId: input.competencyId });
@@ -705,18 +705,18 @@ export class CompetenciesService implements OnModuleInit {
 
   // --- completion-driven rule outcomes (registered hooks) --------------------------------
 
-  /** Course completed ⇒ apply each linked competency's ruleoutcome in the COURSE scope. */
+  /** Course completed ⇒ apply each linked competency's ruleOutcome in the COURSE scope. */
   /**
    * Hook hoàn thành khoá học: cấp proficiency cho competency liên kết có quy tắc tự động.
    */
   async applyCourseCompletion(courseId: string, userId: string): Promise<void> {
     const links = await this.repo.listCourseLinks(courseId);
     for (const link of links) {
-      if (link.ruleoutcome === 'nothing') continue;
-      await this.applyOutcome(userId, link.competencyid, { courseId }, link.ruleoutcome as RuleOutcome, `Course ${courseId} completed`);
+      if (link.ruleOutcome === 'nothing') continue;
+      await this.applyOutcome(userId, link.competencyId, { courseId }, link.ruleOutcome as RuleOutcome, `Course ${courseId} completed`);
     }
   }
-  /** Activity completed ⇒ apply each linked competency's ruleoutcome in the COURSE scope of the cm's course. */
+  /** Activity completed ⇒ apply each linked competency's ruleOutcome in the COURSE scope of the cm's course. */
   /**
    * Hook hoàn thành cm: cấp proficiency cho competency liên kết với module.
    */
@@ -725,8 +725,8 @@ export class CompetenciesService implements OnModuleInit {
     if (!links.length) return;
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     for (const link of links) {
-      if (link.ruleoutcome === 'nothing') continue;
-      await this.applyOutcome(userId, link.competencyid, { courseId: cm?.course }, link.ruleoutcome as RuleOutcome, `Activity ${cmId} completed`);
+      if (link.ruleOutcome === 'nothing') continue;
+      await this.applyOutcome(userId, link.competencyId, { courseId: cm?.course }, link.ruleOutcome as RuleOutcome, `Activity ${cmId} completed`);
     }
   }
 
@@ -737,18 +737,18 @@ export class CompetenciesService implements OnModuleInit {
       // Evidence ONLY: proficiency is untouched — grades/points never leak
       // into proficiency (report §2#15).
       await this.repo.insertEvidence({
-        usercompetencyid: usercomp.id, actionuserid: userId, action: 'course_completed',
+        userCompetencyId: usercomp.id, actionUserId: userId, action: 'course_completed',
         description, grade: null,
       });
       return;
     }
     // 'complete': proficiency from the framework scale's first proficient value.
     const competencyRow = await this.getCompetency(competencyId);
-    const framework = await this.getFramework(competencyRow.frameworkid);
+    const framework = await this.getFramework(competencyRow.frameworkId);
     const scale = parseScale(framework);
     const grade = scale.proficient[0];
     await this.repo.insertEvidence({
-      usercompetencyid: usercomp.id, actionuserid: userId, action: 'course_completed',
+      userCompetencyId: usercomp.id, actionUserId: userId, action: 'course_completed',
       description, grade: grade ?? null,
     });
     if (grade !== undefined) {
@@ -767,11 +767,11 @@ export class CompetenciesService implements OnModuleInit {
   /**
    * Tạo template kế hoạch.
    */
-  async createTemplate(actorId: string, input: { shortname: string; description?: string; duedate?: string }): Promise<TemplateRow> {
+  async createTemplate(actorId: string, input: { shortName: string; description?: string; dueDate?: string }): Promise<TemplateRow> {
     await this.requireManage(actorId);
     return this.repo.insertTemplate({
-      shortname: input.shortname, description: input.description ?? '',
-      contextid: await this.systemCtx(), duedate: input.duedate ? new Date(input.duedate) : null,
+      shortName: input.shortName, description: input.description ?? '',
+      contextId: await this.systemCtx(), dueDate: input.dueDate ? new Date(input.dueDate) : null,
     });
   }
   /**
@@ -819,7 +819,7 @@ export class CompetenciesService implements OnModuleInit {
     for (const cohortId of cohortIds) {
       const members = await this.groups.listCohortMembers(cohortId);
       for (const member of members) {
-        const plan = await this.createPlanFromTemplate(template, member.userid);
+        const plan = await this.createPlanFromTemplate(template, member.userId);
         if (plan) plans.push(plan);
       }
     }
@@ -832,8 +832,8 @@ export class CompetenciesService implements OnModuleInit {
     const competencies = await this.repo.listTemplateCompetencies(template.id);
     const plan = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertPlan({
-        name: template.shortname, description: template.description, userid: userId,
-        templateid: template.id, status: PLAN_STATUS.ACTIVE, duedate: template.duedate,
+        name: template.shortName, description: template.description, userId: userId,
+        templateId: template.id, status: PLAN_STATUS.ACTIVE, dueDate: template.dueDate,
       }, tx as never);
       for (const c of competencies) await this.repo.addPlanCompetency(created.id, c.id, tx as never);
       return created;
@@ -862,8 +862,8 @@ export class CompetenciesService implements OnModuleInit {
       return { ...plan, competencies: await this.repo.listPlanCompetencyIds(plan.id) };
     }
     const plan = await this.repo.insertPlan({
-      name: input.name, description: input.description ?? '', userid: userId,
-      templateid: null, status: PLAN_STATUS.DRAFT,
+      name: input.name, description: input.description ?? '', userId: userId,
+      templateId: null, status: PLAN_STATUS.DRAFT,
     });
     return { ...plan, competencies: [] };
   }
@@ -874,18 +874,18 @@ export class CompetenciesService implements OnModuleInit {
   async getPlanView(actorId: string, planId: string): Promise<{ plan: PlanRow; competencies: { competency: CompetencyRow; usercomp: UsercompRow | null }[]; reviews: unknown }> {
     const plan = await this.repo.getPlan(planId);
     if (!plan) throw new NotFoundException({ message: `Learning plan ${planId} not found`, code: 'competency.plan_not_found' });
-    if (plan.userid !== actorId) {
+    if (plan.userId !== actorId) {
       await this.evaluator.requireCapability(actorId, 'moodle/competency:planview', await this.systemCtx());
     }
-    const ids = plan.templateid
-      ? (await this.repo.listTemplateCompetencies(plan.templateid)).map((c) => c.id)
+    const ids = plan.templateId
+      ? (await this.repo.listTemplateCompetencies(plan.templateId)).map((c) => c.id)
       : await this.repo.listPlanCompetencyIds(planId);
-    const usercomps = await this.repo.listUsercompsForPlan(planId, plan.userid);
+    const usercomps = await this.repo.listUsercompsForPlan(planId, plan.userId);
     const competencies = [];
     for (const id of ids) {
       competencies.push({
         competency: await this.getCompetency(id),
-        usercomp: usercomps.find((u) => u.competencyid === id) ?? null,
+        usercomp: usercomps.find((u) => u.competencyId === id) ?? null,
       });
     }
     return { plan, competencies, reviews: await this.repo.listPlanReviews(planId) };
@@ -910,17 +910,17 @@ export class CompetenciesService implements OnModuleInit {
     let to = from;
     switch (action) {
       case 'activate':
-        if (plan.userid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.DRAFT) bad('Only a draft plan can be activated');
         to = PLAN_STATUS.ACTIVE;
         break;
       case 'request-review':
-        if (plan.userid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.ACTIVE) bad('Only an active plan can be sent for review');
         to = PLAN_STATUS.WAITING_FOR_REVIEW;
         break;
       case 'cancel-review':
-        if (plan.userid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.WAITING_FOR_REVIEW) bad('Only a plan waiting for review can cancel the request');
         to = PLAN_STATUS.ACTIVE;
         break;
@@ -945,23 +945,23 @@ export class CompetenciesService implements OnModuleInit {
         to = PLAN_STATUS.IN_REVIEW;
         break;
       case 'complete':
-        if (plan.userid !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.ACTIVE && from !== PLAN_STATUS.IN_REVIEW) bad('Only an active plan can be completed');
         to = PLAN_STATUS.COMPLETE;
         break;
     }
-    await this.repo.updatePlan(planId, { status: to, reviewerid: ['start-review', 'approve', 'unapprove'].includes(action) ? actorId : plan.reviewerid });
-    await this.repo.insertPlanReview({ planid: planId, actorid: actorId, action, statusfrom: from, statusto: to, note: note ?? '' });
-    if (action === 'request-review' && plan.reviewerid) {
-      await this.messaging.notify(plan.reviewerid, 'competency_review_requested', {
+    await this.repo.updatePlan(planId, { status: to, reviewerId: ['start-review', 'approve', 'unapprove'].includes(action) ? actorId : plan.reviewerId });
+    await this.repo.insertPlanReview({ planId: planId, actorId: actorId, action, statusFrom: from, statusTo: to, note: note ?? '' });
+    if (action === 'request-review' && plan.reviewerId) {
+      await this.messaging.notify(plan.reviewerId, 'competency_review_requested', {
         subject: this.i18n.t('platform.planReviewRequestedSubject', { args: { name: plan.name } }),
-        body: this.i18n.t('platform.planReviewRequestedBody', { args: { userId: plan.userid, planId: plan.id } }),
+        body: this.i18n.t('platform.planReviewRequestedBody', { args: { userId: plan.userId, planId: plan.id } }),
         contextUrl: `/competencies/plans/${plan.id}`,
       }).catch(() => undefined);
     }
     await this.outbox.enqueueStandalone({
       aggregate: 'competency', type: `competency_plan_${action.replace('-', '_')}`,
-      payload: { planId, userId: plan.userid, from, to },
+      payload: { planId, userId: plan.userId, from, to },
     });
     return (await this.repo.getPlan(planId))!;
   }

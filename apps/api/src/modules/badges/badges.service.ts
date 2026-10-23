@@ -22,12 +22,12 @@ export const BADGE_STATUS = { INACTIVE: 0, ACTIVE: 1, RETIRED: 2, ARCHIVED: 3, D
 export const CRITERIA_AGGREGATION = { ALL: 1, ANY: 2 } as const;
 export const LEAF_TYPES = ['coursecompletion', 'activitycompletion', 'competency', 'badge', 'manual', 'cohort', 'profile'] as const;
 
-/** Các trường hồ sơ chuẩn mà lá `profile` đọc trực tiếp từ bản ghi user (ngoài ra lá nhận custom field theo shortname). */
-const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstname', 'lastname'] as const;
+/** Các trường hồ sơ chuẩn mà lá `profile` đọc trực tiếp từ bản ghi user (ngoài ra lá nhận custom field theo shortName). */
+const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;
 
 export interface CriteriaInput {
   method: number; // 1=ALL, 2=ANY over the leaves
-  criteria: { criteriatype: string; params?: Record<string, unknown>; description?: string }[];
+  criteria: { criteriaType: string; params?: Record<string, unknown>; description?: string }[];
 }
 
 /**
@@ -53,7 +53,7 @@ export interface CriteriaInput {
  * Đối chiếu Moodle: badges/classes (badge, criteria) và lib/badgeslib.php.
  * Vòng đời: badge nháp (inactive) → đặt tiêu chí → kích hoạt (active); badge đã kích hoạt hoặc đã cấp
  * thì bộ tiêu chí bị đóng băng — muốn sửa phải nhân bản (duplicate). Đánh giá tiêu chí chạy theo sự kiện
- * (hoàn thành khoá học/cm, năng lực đạt) và theo yêu cầu; mỗi lần cấp sinh assertion có uniquehash kiểm chứng được.
+ * (hoàn thành khoá học/cm, năng lực đạt) và theo yêu cầu; mỗi lần cấp sinh assertion có uniqueHash kiểm chứng được.
  */
 export class BadgesService implements OnModuleInit {
   constructor(
@@ -108,8 +108,8 @@ export class BadgesService implements OnModuleInit {
     return (await this.contexts.ensureSystemContext()).id;
   }
   private async badgeContextId(badgeRow: BadgeRow): Promise<string> {
-    return badgeRow.type === 2 && badgeRow.courseid
-      ? this.courses.courseContextId(badgeRow.courseid)
+    return badgeRow.type === 2 && badgeRow.courseId
+      ? this.courses.courseContextId(badgeRow.courseId)
       : this.systemCtx();
   }
 
@@ -119,13 +119,13 @@ export class BadgesService implements OnModuleInit {
    * Tạo badge ở trạng thái inactive.
    */
   async createBadge(actorId: string, input: {
-    name: string; description?: string; type?: number; courseid?: string;
-    issuername?: string; issuerurl?: string; issuercontact?: string;
-    expiredate?: string; expireperiod?: number; version?: string;
+    name: string; description?: string; type?: number; courseId?: string;
+    issuerName?: string; issuerUrl?: string; issuerContact?: string;
+    expireDate?: string; expirePeriod?: number; version?: string;
   }): Promise<BadgeRow> {
     const type = input.type ?? 1;
-    if (type === 2 && !input.courseid) throw new BadRequestException({ message: 'A course badge requires courseid', code: 'badges.course_required' });
-    const ctx = type === 2 ? await this.courses.courseContextId(input.courseid!) : await this.systemCtx();
+    if (type === 2 && !input.courseId) throw new BadRequestException({ message: 'A course badge requires courseId', code: 'badges.course_required' });
+    const ctx = type === 2 ? await this.courses.courseContextId(input.courseId!) : await this.systemCtx();
     await this.evaluator.requireCapability(actorId, 'moodle/badges:createbadge', ctx);
     if (type === 1 && !(await this.evaluator.isSiteAdmin(actorId))) {
       // Site badges are a system-context artefact: only manager/site-admin paths.
@@ -135,11 +135,11 @@ export class BadgesService implements OnModuleInit {
     }
     return this.repo.insertBadge({
       name: input.name, description: input.description ?? '', type,
-      courseid: type === 2 ? input.courseid! : null,
-      issuername: input.issuername ?? 'LMS', issuerurl: input.issuerurl ?? '', issuercontact: input.issuercontact ?? '',
-      expiredate: input.expiredate ? new Date(input.expiredate) : null,
-      expireperiod: input.expireperiod ?? null, status: BADGE_STATUS.INACTIVE,
-      version: input.version ?? '', usercreated: actorId, usermodified: actorId,
+      courseId: type === 2 ? input.courseId! : null,
+      issuerName: input.issuerName ?? 'LMS', issuerUrl: input.issuerUrl ?? '', issuerContact: input.issuerContact ?? '',
+      expireDate: input.expireDate ? new Date(input.expireDate) : null,
+      expirePeriod: input.expirePeriod ?? null, status: BADGE_STATUS.INACTIVE,
+      version: input.version ?? '', userCreated: actorId, userModified: actorId,
     });
   }
 
@@ -159,14 +159,14 @@ export class BadgesService implements OnModuleInit {
   /**
    * Cập nhật thông tin badge (trước khi kích hoạt).
    */
-  async updateBadge(actorId: string, id: string, input: { name?: string; description?: string; issuername?: string; expireperiod?: number }): Promise<BadgeRow> {
+  async updateBadge(actorId: string, id: string, input: { name?: string; description?: string; issuerName?: string; expirePeriod?: number }): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
-    const patch: Partial<BadgeRow> = { usermodified: actorId };
+    const patch: Partial<BadgeRow> = { userModified: actorId };
     if (input.name !== undefined) patch.name = input.name;
     if (input.description !== undefined) patch.description = input.description;
-    if (input.issuername !== undefined) patch.issuername = input.issuername;
-    if (input.expireperiod !== undefined) patch.expireperiod = input.expireperiod;
+    if (input.issuerName !== undefined) patch.issuerName = input.issuerName;
+    if (input.expirePeriod !== undefined) patch.expirePeriod = input.expirePeriod;
     await this.repo.updateBadge(id, patch);
     return this.getBadge(id);
   }
@@ -178,7 +178,7 @@ export class BadgesService implements OnModuleInit {
   async archiveBadge(actorId: string, id: string): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
-    await this.repo.updateBadge(id, { status: BADGE_STATUS.ARCHIVED, usermodified: actorId });
+    await this.repo.updateBadge(id, { status: BADGE_STATUS.ARCHIVED, userModified: actorId });
     return this.getBadge(id);
   }
 
@@ -192,12 +192,12 @@ export class BadgesService implements OnModuleInit {
       throw new BadRequestException({ message: `Status ${status} cannot be set directly`, code: 'badges.bad_status' });
     }
     if (status === BADGE_STATUS.ACTIVE) {
-      const leaves = (await this.repo.listCriteria(id)).filter((c) => c.criteriatype !== 'overall');
+      const leaves = (await this.repo.listCriteria(id)).filter((c) => c.criteriaType !== 'overall');
       if (!leaves.length) {
         throw new BadRequestException({ message: 'A badge cannot be enabled without criteria', code: 'badges.no_criteria' });
       }
     }
-    await this.repo.updateBadge(id, { status, usermodified: actorId });
+    await this.repo.updateBadge(id, { status, userModified: actorId });
     await this.outbox.enqueueStandalone({ aggregate: 'badges', type: 'badge_status_changed', payload: { badgeId: id, status } });
     return this.getBadge(id);
   }
@@ -210,8 +210,8 @@ export class BadgesService implements OnModuleInit {
   async getCriteria(badgeId: string): Promise<{ method: number; criteria: CriteriaRow[] }> {
     await this.getBadge(badgeId);
     const rows = await this.repo.listCriteria(badgeId);
-    const overall = rows.find((r) => r.criteriatype === 'overall');
-    return { method: overall?.method ?? CRITERIA_AGGREGATION.ALL, criteria: rows.filter((r) => r.criteriatype !== 'overall') };
+    const overall = rows.find((r) => r.criteriaType === 'overall');
+    return { method: overall?.method ?? CRITERIA_AGGREGATION.ALL, criteria: rows.filter((r) => r.criteriaType !== 'overall') };
   }
 
   /** The freeze law (report §2#14): active badges and badges with awards have immutable criteria. */
@@ -244,20 +244,20 @@ export class BadgesService implements OnModuleInit {
       throw new BadRequestException({ message: 'Criteria method must be 1 (ALL) or 2 (ANY)', code: 'badges.bad_method' });
     }
     for (const leaf of input.criteria) {
-      if (!LEAF_TYPES.includes(leaf.criteriatype as never)) {
-        throw new BadRequestException({ message: `Unknown criteria type ${leaf.criteriatype}`, code: 'badges.bad_criteria_type' });
+      if (!LEAF_TYPES.includes(leaf.criteriaType as never)) {
+        throw new BadRequestException({ message: `Unknown criteria type ${leaf.criteriaType}`, code: 'badges.bad_criteria_type' });
       }
-      const paramError = this.leafParamError(leaf.criteriatype, (leaf.params ?? {}) as Record<string, unknown>);
+      const paramError = this.leafParamError(leaf.criteriaType, (leaf.params ?? {}) as Record<string, unknown>);
       if (paramError) {
         throw new BadRequestException({ message: paramError, code: 'badges.bad_criteria_params' });
       }
     }
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.deleteCriteria(badgeId, tx as never);
-      await this.repo.insertCriteria({ badgeid: badgeId, criteriatype: 'overall', method: input.method, params: {} }, tx as never);
+      await this.repo.insertCriteria({ badgeId: badgeId, criteriaType: 'overall', method: input.method, params: {} }, tx as never);
       for (const leaf of input.criteria) {
         await this.repo.insertCriteria({
-          badgeid: badgeId, criteriatype: leaf.criteriatype, method: input.method,
+          badgeId: badgeId, criteriaType: leaf.criteriaType, method: input.method,
           params: leaf.params ?? {}, description: leaf.description ?? '',
         }, tx as never);
       }
@@ -274,17 +274,17 @@ export class BadgesService implements OnModuleInit {
     await this.evaluator.requireCapability(actorId, 'moodle/badges:createbadge', await this.badgeContextId(source));
     const copy = await this.repo.insertBadge({
       name: `${source.name} (copy)`, description: source.description, type: source.type,
-      courseid: source.courseid, issuername: source.issuername, issuerurl: source.issuerurl,
-      issuercontact: source.issuercontact, expiredate: source.expiredate, expireperiod: source.expireperiod,
+      courseId: source.courseId, issuerName: source.issuerName, issuerUrl: source.issuerUrl,
+      issuerContact: source.issuerContact, expireDate: source.expireDate, expirePeriod: source.expirePeriod,
       status: BADGE_STATUS.INACTIVE, version: source.version, language: source.language,
-      usercreated: actorId, usermodified: actorId,
+      userCreated: actorId, userModified: actorId,
     });
     const { criteria } = await this.getCriteria(badgeId);
     const rows = await this.repo.listCriteria(badgeId);
-    const overall = rows.find((r) => r.criteriatype === 'overall');
-    await this.repo.insertCriteria({ badgeid: copy.id, criteriatype: 'overall', method: overall?.method ?? 1, params: {} });
+    const overall = rows.find((r) => r.criteriaType === 'overall');
+    await this.repo.insertCriteria({ badgeId: copy.id, criteriaType: 'overall', method: overall?.method ?? 1, params: {} });
     for (const leaf of criteria) {
-      await this.repo.insertCriteria({ badgeid: copy.id, criteriatype: leaf.criteriatype, method: leaf.method, params: leaf.params, description: leaf.description });
+      await this.repo.insertCriteria({ badgeId: copy.id, criteriaType: leaf.criteriaType, method: leaf.method, params: leaf.params, description: leaf.description });
     }
     return copy;
   }
@@ -295,9 +295,9 @@ export class BadgesService implements OnModuleInit {
    * trường hồ sơ); `byDate` của lá hoàn thành khoá học phải là ngày hợp lệ.
    * Trả về thông điệp lỗi hoặc null khi hợp lệ.
    */
-  private leafParamError(criteriatype: string, params: Record<string, unknown>): string | null {
+  private leafParamError(criteriaType: string, params: Record<string, unknown>): string | null {
     const hasId = (key: string) => typeof params[key] === 'string' && (params[key] as string).length > 0;
-    switch (criteriatype) {
+    switch (criteriaType) {
       case 'coursecompletion': {
         if (!hasId('courseId')) return 'Course completion criteria require a courseId param';
         if (params.byDate !== undefined && (typeof params.byDate !== 'string' || Number.isNaN(Date.parse(params.byDate)))) {
@@ -327,7 +327,7 @@ export class BadgesService implements OnModuleInit {
 
   private async leafSatisfied(leaf: CriteriaRow, userId: string): Promise<boolean> {
     const params = (leaf.params ?? {}) as Record<string, unknown>;
-    switch (leaf.criteriatype) {
+    switch (leaf.criteriaType) {
       case 'coursecompletion': {
         const courseId = typeof params.courseId === 'string' ? params.courseId : '';
         if (!courseId) return false;
@@ -339,8 +339,8 @@ export class BadgesService implements OnModuleInit {
         const byDate = typeof params.byDate === 'string' ? params.byDate : undefined;
         if (byDate !== undefined) {
           const cutoff = Date.parse(byDate);
-          if (Number.isNaN(cutoff) || !completion.timecompleted) return false;
-          return completion.timecompleted.getTime() <= cutoff;
+          if (Number.isNaN(cutoff) || !completion.timeCompleted) return false;
+          return completion.timeCompleted.getTime() <= cutoff;
         }
         return true;
       }
@@ -358,7 +358,7 @@ export class BadgesService implements OnModuleInit {
       }
       case 'profile': {
         // Lá profile (Moodle criteria_profile): trường hồ sơ chuẩn hoặc
-        // custom field (theo shortname, scope core_user/user) đạt điều kiện —
+        // custom field (theo shortName, scope core_user/user) đạt điều kiện —
         // có `value` thì phải bằng đúng, không có thì trường phải được điền.
         const field = typeof params.field === 'string' ? params.field : '';
         if (!field) return false;
@@ -368,7 +368,7 @@ export class BadgesService implements OnModuleInit {
           actual = user ? String(user[field as keyof typeof user] ?? '') : undefined;
         } else {
           const values = await this.customFields.getValuesForInstance(USER_COMPONENT, USER_AREA, userId).catch(() => []);
-          actual = values.find((v) => v.field.shortname === field)?.value;
+          actual = values.find((v) => v.field.shortName === field)?.value;
         }
         if (actual === null || actual === undefined) return false;
         return typeof params.value === 'string' ? actual === params.value : actual.trim() !== '';
@@ -391,7 +391,7 @@ export class BadgesService implements OnModuleInit {
         return !!issued && !issued.revoked;
       }
       case 'manual': {
-        const award = await this.repo.findManualAward(leaf.badgeid, userId);
+        const award = await this.repo.findManualAward(leaf.badgeId, userId);
         return !!award;
       }
       default:
@@ -403,11 +403,11 @@ export class BadgesService implements OnModuleInit {
   /**
    * Đánh giá một badge cho một user: đủ tiêu chí thì cấp.
    */
-  async evaluateBadge(badgeId: string, userId: string): Promise<{ satisfied: boolean; method: number; leaves: { criteriaId: string; criteriatype: string; satisfied: boolean }[] }> {
+  async evaluateBadge(badgeId: string, userId: string): Promise<{ satisfied: boolean; method: number; leaves: { criteriaId: string; criteriaType: string; satisfied: boolean }[] }> {
     const { method, criteria } = await this.getCriteria(badgeId);
     const leaves = [];
     for (const leaf of criteria) {
-      leaves.push({ criteriaId: leaf.id, criteriatype: leaf.criteriatype, satisfied: await this.leafSatisfied(leaf, userId) });
+      leaves.push({ criteriaId: leaf.id, criteriaType: leaf.criteriaType, satisfied: await this.leafSatisfied(leaf, userId) });
     }
     const satisfied = leaves.length === 0 ? false
       : method === CRITERIA_AGGREGATION.ANY ? leaves.some((l) => l.satisfied) : leaves.every((l) => l.satisfied);
@@ -420,38 +420,38 @@ export class BadgesService implements OnModuleInit {
    * assertion).
    */
   /**
-   * Cấp huy hiệu: tạo assertion với uniquehash và gửi notification đã dịch cho người nhận.
+   * Cấp huy hiệu: tạo assertion với uniqueHash và gửi notification đã dịch cho người nhận.
    */
   async issueBadge(badgeId: string, userId: string, evidence?: Record<string, unknown>): Promise<IssuedRow> {
     const badgeRow = await this.getBadge(badgeId);
     const existing = await this.repo.findIssued(badgeId, userId);
     if (existing) return existing;
     const { criteria } = await this.getCriteria(badgeId);
-    const dateexpire = badgeRow.expiredate ?? (badgeRow.expireperiod
-      ? new Date(Date.now() + badgeRow.expireperiod * 86400_000) : null);
-    const uniquehash = createHash('sha256').update(`${badgeId}:${userId}:${randomUUID()}`).digest('hex');
+    const dateExpire = badgeRow.expireDate ?? (badgeRow.expirePeriod
+      ? new Date(Date.now() + badgeRow.expirePeriod * 86400_000) : null);
+    const uniqueHash = createHash('sha256').update(`${badgeId}:${userId}:${randomUUID()}`).digest('hex');
     const issued = await this.repo.dbHandle.transaction(async (tx) => {
       const row = await this.repo.insertIssued({
-        badgeid: badgeId, userid: userId, uniquehash,
+        badgeId: badgeId, userId: userId, uniqueHash,
         snapshot: {
-          badge: { id: badgeRow.id, name: badgeRow.name, description: badgeRow.description, type: badgeRow.type, courseid: badgeRow.courseid, issuername: badgeRow.issuername, issuerurl: badgeRow.issuerurl, version: badgeRow.version },
-          criteria: criteria.map((c) => ({ criteriatype: c.criteriatype, method: c.method, params: c.params })),
+          badge: { id: badgeRow.id, name: badgeRow.name, description: badgeRow.description, type: badgeRow.type, courseId: badgeRow.courseId, issuerName: badgeRow.issuerName, issuerUrl: badgeRow.issuerUrl, version: badgeRow.version },
+          criteria: criteria.map((c) => ({ criteriaType: c.criteriaType, method: c.method, params: c.params })),
         },
         evidence: evidence ?? {},
-        dateexpire, visible: true,
+        dateExpire, visible: true,
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'badges', type: 'badge_issued',
-        payload: { badgeId, userId, issuedId: row.id, uniquehash },
+        payload: { badgeId, userId, issuedId: row.id, uniqueHash },
       });
       return row;
     });
     await this.messaging.notify(userId, 'badge_awarded', {
       subject: this.i18n.t('platform.badgeAwardedSubject', { args: { name: badgeRow.name } }),
-      body: this.i18n.t('platform.badgeAwardedBody', { args: { name: badgeRow.name, issuer: badgeRow.issuername } }),
+      body: this.i18n.t('platform.badgeAwardedBody', { args: { name: badgeRow.name, issuer: badgeRow.issuerName } }),
       contextUrl: `/badges/${badgeId}`,
     }).catch(() => undefined);
-    await this.repo.updateIssued(issued.id, { issuernotified: true });
+    await this.repo.updateIssued(issued.id, { issuerNotified: true });
     return issued;
   }
 
@@ -495,7 +495,7 @@ export class BadgesService implements OnModuleInit {
     await this.evaluator.requireCapability(actorId, 'moodle/badges:awardbadge', ctx);
     await this.users.getUser(recipientId);
     const { criteria } = await this.getCriteria(badgeId);
-    const manualLeaf = criteria.find((c) => c.criteriatype === 'manual');
+    const manualLeaf = criteria.find((c) => c.criteriaType === 'manual');
     if (!manualLeaf) {
       throw new BadRequestException({ message: 'This badge has no manual award criterion', code: 'badges.no_manual_criteria' });
     }
@@ -506,7 +506,7 @@ export class BadgesService implements OnModuleInit {
       if (!assignments) throw new ForbiddenException({ message: 'Issuer does not hold the required awarding role', code: 'badges.issuer_role' });
       issuerRole = typeof roleIdParam === 'string' ? roleIdParam : null;
     }
-    const award = await this.repo.insertManualAward({ badgeid: badgeId, recipientid: recipientId, issuerid: actorId, issuerrole: issuerRole });
+    const award = await this.repo.insertManualAward({ badgeId: badgeId, recipientId: recipientId, issuerId: actorId, issuerRole: issuerRole });
     const evaluation = await this.evaluateBadge(badgeId, recipientId);
     const issued = evaluation.satisfied ? await this.issueBadge(badgeId, recipientId, { manualAwardId: award.id }) : null;
     return { award, issued, evaluation };
@@ -521,7 +521,7 @@ export class BadgesService implements OnModuleInit {
     const rows = await this.repo.listIssuedForUser(userId);
     const out: (IssuedRow & { badge: BadgeRow })[] = [];
     for (const row of rows) {
-      const badgeRow = await this.repo.getBadge(row.badgeid);
+      const badgeRow = await this.repo.getBadge(row.badgeId);
       if (badgeRow) out.push({ ...row, badge: badgeRow });
     }
     return out;
@@ -549,10 +549,10 @@ export class BadgesService implements OnModuleInit {
    */
   async revokeIssued(actorId: string, issuedId: string): Promise<IssuedRow> {
     const issued = await this.getIssued(issuedId);
-    const badgeRow = await this.getBadge(issued.badgeid);
+    const badgeRow = await this.getBadge(issued.badgeId);
     await this.evaluator.requireCapability(actorId, 'moodle/badges:revokebadge', await this.badgeContextId(badgeRow));
-    await this.repo.updateIssued(issuedId, { revoked: true, revokedat: new Date(), visible: false });
-    await this.outbox.enqueueStandalone({ aggregate: 'badges', type: 'badge_revoked', payload: { badgeId: issued.badgeid, userId: issued.userid, issuedId } });
+    await this.repo.updateIssued(issuedId, { revoked: true, revokedAt: new Date(), visible: false });
+    await this.outbox.enqueueStandalone({ aggregate: 'badges', type: 'badge_revoked', payload: { badgeId: issued.badgeId, userId: issued.userId, issuedId } });
     return this.getIssued(issuedId);
   }
 }

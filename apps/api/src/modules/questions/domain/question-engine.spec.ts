@@ -85,13 +85,13 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(compareStringWithWildcard('axb', 'a\\*b', false)).toBe(false);
   });
 
-  it('shortanswer grading: first matching answer wins; usecase toggles case sensitivity', () => {
+  it('shortanswer grading: first matching answer wins; useCase toggles case sensitivity', () => {
     const data: GradingData = {
       answers: [
         { id: '1', text: 'frog', fraction: 0.5 },
         { id: '2', text: 'frog', fraction: 1 },
       ],
-      shortanswer: { usecase: false },
+      shortanswer: { useCase: false },
     };
     // Đáp án khớp đầu tiên (fraction 0.5) quyết định, không phải đáp án tốt nhất.
     expect(gradeAnswer('shortanswer', data, 'FROG').fraction).toBe(0.5);
@@ -99,7 +99,7 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(gradeAnswer('shortanswer', data, 'toad').fraction).toBe(0);
     const sensitive: GradingData = {
       answers: [{ id: '1', text: 'Paris', fraction: 1 }],
-      shortanswer: { usecase: true },
+      shortanswer: { useCase: true },
     };
     expect(gradeAnswer('shortanswer', sensitive, 'paris').fraction).toBe(0);
     expect(gradeAnswer('shortanswer', sensitive, 'Paris').fraction).toBe(1);

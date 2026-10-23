@@ -95,7 +95,7 @@ describe('Messaging & calendar', () => {
     expect(unreadB.body.conversations).toBe(1);
     const view = await http(app).get(`/api/v1/messages/conversations/${conversationId}`).set('Authorization', `Bearer ${bToken}`);
     expect(view.body.messages).toHaveLength(2);
-    expect(view.body.messages[0].fullmessage).toBe('Hello from A');
+    expect(view.body.messages[0].fullMessage).toBe('Hello from A');
 
     await http(app).post(`/api/v1/messages/conversations/${conversationId}/read`).set('Authorization', `Bearer ${bToken}`).send({});
     const after = await http(app).get('/api/v1/messages/unread-count').set('Authorization', `Bearer ${bToken}`);
@@ -175,7 +175,7 @@ describe('Messaging & calendar', () => {
     expect(first.body.channels.email).toBe('queued');
     let list = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${accessToken}`);
     expect(list.body).toHaveLength(1);
-    expect(list.body[0].eventtype).toBe('badge_awarded');
+    expect(list.body[0].eventType).toBe('badge_awarded');
     // Notifications are NOT messages: no conversation was created.
     const convs = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${accessToken}`);
     expect(convs.body).toHaveLength(0);
@@ -221,16 +221,16 @@ describe('Messaging & calendar', () => {
     const soon = new Date(Date.now() + 3600_000).toISOString();
 
     const site = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Site day', eventtype: 'site', timestart: soon });
+      .send({ name: 'Site day', eventType: 'site', timeStart: soon });
     expect(site.status).toBe(201);
     const courseEv = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Course lecture', eventtype: 'course', courseid: course.id, timestart: soon });
+      .send({ name: 'Course lecture', eventType: 'course', courseId: course.id, timeStart: soon });
     expect(courseEv.status).toBe(201);
     const catEv = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Category fair', eventtype: 'category', categoryid: category.id, timestart: soon });
+      .send({ name: 'Category fair', eventType: 'category', categoryId: category.id, timeStart: soon });
     expect(catEv.status).toBe(201);
     const userEv = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${studentToken}`)
-      .send({ name: 'My dentist', eventtype: 'user', timestart: soon });
+      .send({ name: 'My dentist', eventType: 'user', timeStart: soon });
     expect(userEv.status).toBe(201);
 
     const names = async (token: string) => {
@@ -261,14 +261,14 @@ describe('Messaging & calendar', () => {
     await addGroupMember(app, admin, course.id, group.id, member.id);
     const soon = new Date(Date.now() + 3600_000).toISOString();
     const ev = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Alpha standup', eventtype: 'group', courseid: course.id, groupid: group.id, timestart: soon });
+      .send({ name: 'Alpha standup', eventType: 'group', courseId: course.id, groupId: group.id, timeStart: soon });
     expect(ev.status).toBe(201);
 
     const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
     const nonMemberToken = (await login(app, nonMember.username, STRONG_PASSWORD)).accessToken;
-    const forMember = await http(app).get('/api/v1/calendar/events').query({ eventtype: 'group' }).set('Authorization', `Bearer ${memberToken}`);
+    const forMember = await http(app).get('/api/v1/calendar/events').query({ eventType: 'group' }).set('Authorization', `Bearer ${memberToken}`);
     expect((forMember.body as { name: string }[]).map((e) => e.name)).toContain('Alpha standup');
-    const forNonMember = await http(app).get('/api/v1/calendar/events').query({ eventtype: 'group' }).set('Authorization', `Bearer ${nonMemberToken}`);
+    const forNonMember = await http(app).get('/api/v1/calendar/events').query({ eventType: 'group' }).set('Authorization', `Bearer ${nonMemberToken}`);
     expect((forNonMember.body as { name: string }[]).map((e) => e.name)).not.toContain('Alpha standup');
   });
 
@@ -277,21 +277,21 @@ describe('Messaging & calendar', () => {
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const start = new Date(Date.now() + 86400_000);
     const created = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${accessToken}`)
-      .send({ name: 'Weekly yoga', eventtype: 'user', timestart: start.toISOString(), repeat: { freq: 'WEEKLY', count: 3 } });
+      .send({ name: 'Weekly yoga', eventType: 'user', timeStart: start.toISOString(), repeat: { freq: 'WEEKLY', count: 3 } });
     expect(created.status).toBe(201);
     expect(created.body.occurrences).toHaveLength(3);
-    const root = created.body.event as { id: string; rrule: string; repeatid: string };
+    const root = created.body.event as { id: string; rrule: string; repeatId: string };
     expect(root.rrule).toContain('FREQ=WEEKLY');
-    expect(root.repeatid).toBe(root.id);
-    const secondOccurrence = created.body.occurrences[1] as { id: string; timestart: string };
+    expect(root.repeatId).toBe(root.id);
+    const secondOccurrence = created.body.occurrences[1] as { id: string; timeStart: string };
 
-    const moved = new Date(new Date(secondOccurrence.timestart).getTime() + 7200_000).toISOString();
+    const moved = new Date(new Date(secondOccurrence.timeStart).getTime() + 7200_000).toISOString();
     const exception = await http(app).post(`/api/v1/calendar/events/${secondOccurrence.id}/exception`).set('Authorization', `Bearer ${accessToken}`)
-      .send({ name: 'Yoga (moved)', timestart: moved });
+      .send({ name: 'Yoga (moved)', timeStart: moved });
     expect(exception.status).toBe(201);
-    expect(exception.body.isexception).toBe(true);
+    expect(exception.body.isException).toBe(true);
 
-    const list = await http(app).get('/api/v1/calendar/events').query({ eventtype: 'user' }).set('Authorization', `Bearer ${accessToken}`);
+    const list = await http(app).get('/api/v1/calendar/events').query({ eventType: 'user' }).set('Authorization', `Bearer ${accessToken}`);
     const names = (list.body as { name: string }[]).map((e) => e.name);
     expect(names.filter((n) => n === 'Weekly yoga')).toHaveLength(2); // occurrences 1 and 3
     expect(names).toContain('Yoga (moved)');
@@ -307,7 +307,7 @@ describe('Messaging & calendar', () => {
       'END:VEVENT', 'END:VCALENDAR',
     ].join('\r\n');
     const sub = await http(app).post('/api/v1/calendar/subscriptions').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Conf feed', eventtype: 'site', icsdata: ics });
+      .send({ name: 'Conf feed', eventType: 'site', icsData: ics });
     expect(sub.status).toBe(201);
     const subs = await http(app).get('/api/v1/calendar/subscriptions').set('Authorization', `Bearer ${admin}`);
     expect((subs.body as { name: string }[]).some((s) => s.name === 'Conf feed')).toBe(true);
@@ -315,7 +315,7 @@ describe('Messaging & calendar', () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const ev = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${accessToken}`)
-      .send({ name: 'Deadline', eventtype: 'user', timestart: new Date(Date.now() + 7200_000).toISOString() });
+      .send({ name: 'Deadline', eventType: 'user', timeStart: new Date(Date.now() + 7200_000).toISOString() });
     const remind = await http(app).post(`/api/v1/calendar/events/${ev.body.event.id}/remind`).set('Authorization', `Bearer ${accessToken}`)
       .send({ minutesBefore: 30 });
     expect(remind.status).toBe(201);
@@ -344,21 +344,21 @@ describe('Messaging & calendar', () => {
     const soonIso = soon.toISOString();
 
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Export site day', eventtype: 'site', timestart: soonIso });
+      .send({ name: 'Export site day', eventType: 'site', timeStart: soonIso });
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Export course lecture', eventtype: 'course', courseid: course.id, timestart: soonIso });
+      .send({ name: 'Export course lecture', eventType: 'course', courseId: course.id, timeStart: soonIso });
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Export alpha standup', eventtype: 'group', courseid: course.id, groupid: group.id, timestart: soonIso });
+      .send({ name: 'Export alpha standup', eventType: 'group', courseId: course.id, groupId: group.id, timeStart: soonIso });
     const dentist = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
-      .send({ name: 'Export my dentist', eventtype: 'user', timestart: soonIso, timeduration: 3600, description: 'Checkup, cleaning', location: 'Clinic' });
+      .send({ name: 'Export my dentist', eventType: 'user', timeStart: soonIso, timeDuration: 3600, description: 'Checkup, cleaning', location: 'Clinic' });
     expect(dentist.status).toBe(201);
     const dentistId = dentist.body.event.id as string;
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${otherToken}`)
-      .send({ name: 'Export B secret plan', eventtype: 'user', timestart: soonIso });
+      .send({ name: 'Export B secret plan', eventType: 'user', timeStart: soonIso });
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
-      .send({ name: 'Export later event', eventtype: 'user', timestart: new Date(Date.now() + 30 * 86400_000).toISOString() });
+      .send({ name: 'Export later event', eventType: 'user', timeStart: new Date(Date.now() + 30 * 86400_000).toISOString() });
     const series = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${memberToken}`)
-      .send({ name: 'Export weekly series', eventtype: 'user', timestart: new Date(Date.now() + 1800_000).toISOString(), repeat: { freq: 'WEEKLY', count: 2 } });
+      .send({ name: 'Export weekly series', eventType: 'user', timeStart: new Date(Date.now() + 1800_000).toISOString(), repeat: { freq: 'WEEKLY', count: 2 } });
     expect(series.status).toBe(201);
 
     // Download requires login.
@@ -386,7 +386,7 @@ describe('Messaging & calendar', () => {
     expect(summaries).not.toContain('Export B secret plan');
     // The series is exported as its materialised occurrences, one VEVENT each.
     expect(summaries.filter((n) => n === 'Export weekly series')).toHaveLength(2);
-    // UID is stable per event id; DTEND = DTSTART + timeduration.
+    // UID is stable per event id; DTEND = DTSTART + timeDuration.
     const dentistParsed = parsed.find((e) => e.summary === 'Export my dentist')!;
     expect(dentistParsed.uid).toBe(`${dentistId}@lms`);
     expect(dentistParsed.start.getTime()).toBe(Math.floor(soon.getTime() / 1000) * 1000);
@@ -419,9 +419,9 @@ describe('Messaging & calendar', () => {
     const { aToken, bToken } = await twoUsers();
     const soon = new Date(Date.now() + 3600_000).toISOString();
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${aToken}`)
-      .send({ name: 'Token export A private', eventtype: 'user', timestart: soon });
+      .send({ name: 'Token export A private', eventType: 'user', timeStart: soon });
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${bToken}`)
-      .send({ name: 'Token export B private', eventtype: 'user', timestart: soon });
+      .send({ name: 'Token export B private', eventType: 'user', timeStart: soon });
 
     // Creating a token requires login; the status endpoint starts empty.
     const anonymousCreate = await http(app).post('/api/v1/calendar/export-token').send({});
@@ -617,8 +617,8 @@ describe('Messaging & calendar', () => {
     expect(created.status).toBe(201);
     expect(created.body.type).toBe(2);
     expect(created.body.component).toBe('core_group');
-    expect(created.body.itemtype).toBe('groups');
-    expect(created.body.itemid).toBe(group.id);
+    expect(created.body.itemType).toBe('groups');
+    expect(created.body.itemId).toBe(group.id);
     expect(new Set(created.body.members as string[])).toEqual(new Set([m1.id, m2.id]));
     const conversationId = created.body.id as string;
     // Creating again returns the same conversation (one per group).
@@ -647,7 +647,7 @@ describe('Messaging & calendar', () => {
     const openedByM1 = await http(app).get(`/api/v1/messages/conversations/${conversationId}`).set('Authorization', `Bearer ${m1Token}`);
     expect(openedByM1.status).toBe(200);
     expect(new Set(openedByM1.body.members as string[])).toEqual(new Set([m1.id, m3.id]));
-    expect((openedByM1.body.messages as { fullmessage: string }[]).map((m) => m.fullmessage)).toContain('Hello team');
+    expect((openedByM1.body.messages as { fullMessage: string }[]).map((m) => m.fullMessage)).toContain('Hello team');
     const openedByM2 = await http(app).get(`/api/v1/messages/conversations/${conversationId}`).set('Authorization', `Bearer ${m2Token}`);
     expect(openedByM2.status).toBe(403);
     expect(openedByM2.body.code).toBe('messaging.not_member');

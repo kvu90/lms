@@ -19,29 +19,29 @@ export interface QuestionAnswerInput {
 /** Options trong payload theo qtype — mỗi qtype chỉ dùng phần trường của nó (service kiểm chứng). */
 export interface QuestionOptionsInput {
   single?: boolean;
-  shuffleanswers?: boolean;
-  answernumbering?: string;
-  shownumcorrect?: boolean;
-  showstandardinstruction?: boolean;
-  correctfeedback?: RichTextInput;
-  partiallycorrectfeedback?: RichTextInput;
-  incorrectfeedback?: RichTextInput;
-  usecase?: boolean;
-  responseformat?: string;
-  responserequired?: boolean;
-  responsefieldlines?: number;
-  minwordlimit?: number | null;
-  maxwordlimit?: number | null;
-  graderinfo?: RichTextInput;
-  responsetemplate?: RichTextInput;
+  shuffleAnswers?: boolean;
+  answerNumbering?: string;
+  showNumCorrect?: boolean;
+  showStandardInstruction?: boolean;
+  correctFeedback?: RichTextInput;
+  partiallyCorrectFeedback?: RichTextInput;
+  incorrectFeedback?: RichTextInput;
+  useCase?: boolean;
+  responseFormat?: string;
+  responseRequired?: boolean;
+  responseFieldLines?: number;
+  minWordLimit?: number | null;
+  maxWordLimit?: number | null;
+  graderInfo?: RichTextInput;
+  responseTemplate?: RichTextInput;
 }
 
 /** Payload tạo/sửa câu hỏi: một payload cấu trúc, service tự bung ra bảng khi lưu. */
 export interface QuestionContentInput {
-  questiontext?: RichTextInput;
-  generalfeedback?: RichTextInput;
+  questionText?: RichTextInput;
+  generalFeedback?: RichTextInput;
   guidance?: RichTextInput;
-  defaultmark?: number;
+  defaultMark?: number;
   penalty?: number;
   stimulusId?: string | null;
   answers?: QuestionAnswerInput[];
@@ -59,7 +59,7 @@ export interface QuestionView {
   stimulus: StimulusRow | null;
 }
 export interface AttemptView extends AttemptRow {
-  steps: { id: string; sequencenumber: number; state: string; fraction: number | null; data: Record<string, string | null> }[];
+  steps: { id: string; sequenceNumber: number; state: string; fraction: number | null; data: Record<string, string | null> }[];
 }
 export interface UsageView {
   usage: UsageRow;
@@ -73,11 +73,11 @@ export type SupportedQtype = (typeof SUPPORTED_QTYPES)[number];
 /** Nội dung đã chuẩn hoá, sẵn sàng ghi xuống question_answers + bảng options. */
 interface NormalisedContent {
   answers: { answer: RichTextDocument; fraction: number; feedback: RichTextDocument | null }[];
-  multichoice?: { single: boolean; shuffleanswers: boolean; answernumbering: string; correctfeedback: RichTextDocument | null; partiallycorrectfeedback: RichTextDocument | null; incorrectfeedback: RichTextDocument | null; shownumcorrect: boolean; showstandardinstruction: boolean };
+  multichoice?: { single: boolean; shuffleAnswers: boolean; answerNumbering: string; correctFeedback: RichTextDocument | null; partiallyCorrectFeedback: RichTextDocument | null; incorrectFeedback: RichTextDocument | null; showNumCorrect: boolean; showStandardInstruction: boolean };
   truefalseCorrect?: boolean;
   truefalseShowStandardInstruction?: boolean;
-  shortanswer?: { usecase: boolean };
-  essay?: { responseformat: string; responserequired: boolean; responsefieldlines: number; minwordlimit: number | null; maxwordlimit: number | null; graderinfo: RichTextDocument | null; responsetemplate: RichTextDocument | null };
+  shortanswer?: { useCase: boolean };
+  essay?: { responseFormat: string; responseRequired: boolean; responseFieldLines: number; minWordLimit: number | null; maxWordLimit: number | null; graderInfo: RichTextDocument | null; responseTemplate: RichTextDocument | null };
 }
 
 const FRACTION_SUM_TOLERANCE = 0.000001;
@@ -96,12 +96,12 @@ function badAnswerData(message: string): BadRequestException {
  *
  * Content storage mirrors Moodle: answers live in question_answers
  * (fraction + per-answer feedback), options in the per-qtype table, and
- * questiontext/generalfeedback are Tiptap documents on the version row.
+ * questionText/generalFeedback are Tiptap documents on the version row.
  * The API accepts ONE structured payload per qtype; the service spreads
  * it into those tables when saving.
  *
  * Engine invariants (questionusagebyactivity_test): a usage groups attempts
- * per (component, instanceid); starting an attempt PINS the current latest
+ * per (component, instanceId); starting an attempt PINS the current latest
  * version; every transition writes a step (with step_data for responses);
  * deferredfeedback grades at finish against the PINNED version's answers
  * and options; the usage state is a rollup of its attempts.
@@ -136,11 +136,11 @@ export class QuestionsService {
   /**
    * Tạo category câu hỏi trong context.
    */
-  async createCategory(actorId: string, input: { name: string; contextid: string; info?: string; parent?: string }): Promise<QCategoryRow> {
-    const ctx = await this.contextOrSystem(input.contextid);
+  async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string }): Promise<QCategoryRow> {
+    const ctx = await this.contextOrSystem(input.contextId);
     await this.requireCap(actorId, 'moodle/question:managecategory', ctx.id);
     return this.repo.insertCategory({
-      name: input.name, contextid: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
+      name: input.name, contextId: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
       stamp: `qcat-${Date.now().toString(36)}`,
     });
   }
@@ -166,9 +166,9 @@ export class QuestionsService {
    */
   async createStimulus(actorId: string, input: { categoryId: string; content: RichTextInput }): Promise<StimulusRow> {
     const category = await this.getCategory(input.categoryId);
-    await this.requireCap(actorId, 'moodle/question:add', category.contextid);
+    await this.requireCap(actorId, 'moodle/question:add', category.contextId);
     const row = await this.repo.insertStimulus({
-      categoryid: category.id, createdby: actorId, content: toRichTextDocument(input.content) as never,
+      categoryId: category.id, createdBy: actorId, content: toRichTextDocument(input.content) as never,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_created', payload: { stimulusId: row.id, categoryId: category.id } });
     return row;
@@ -201,8 +201,8 @@ export class QuestionsService {
    */
   async updateStimulus(actorId: string, id: string, input: { content: RichTextInput }): Promise<StimulusRow> {
     const stimulus = await this.getStimulus(id);
-    const category = await this.getCategory(stimulus.categoryid);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextid);
+    const category = await this.getCategory(stimulus.categoryId);
+    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.updateStimulus(id, { content: toRichTextDocument(input.content) as never });
     await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_updated', payload: { stimulusId: id } });
@@ -213,8 +213,8 @@ export class QuestionsService {
    */
   async deleteStimulus(actorId: string, id: string): Promise<void> {
     const stimulus = await this.getStimulus(id);
-    const category = await this.getCategory(stimulus.categoryid);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextid);
+    const category = await this.getCategory(stimulus.categoryId);
+    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.deleteStimulus(id);
     await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_deleted', payload: { stimulusId: id } });
@@ -239,27 +239,27 @@ export class QuestionsService {
    *    (quy tắc của form multichoice của Moodle: tổng tỷ trọng đúng = 100%).
    *  - truefalse: đáp án đúng/sai suy từ payload cũ {correct} — hai dòng
    *    'True'/'False' với fraction 1 ở phía đúng, 0 ở phía sai.
-   *  - shortanswer: ít nhất 1 đáp án mẫu; fraction trong [0, 1]; usecase
+   *  - shortanswer: ít nhất 1 đáp án mẫu; fraction trong [0, 1]; useCase
    *    lấy từ options hoặc từ trường casesensitive của payload cũ.
-   *  - essay: không có đáp án; options mang cấu hình trả lời + graderinfo
-   *    + responsetemplate; giới hạn từ phải hợp lệ (min ≤ max).
+   *  - essay: không có đáp án; options mang cấu hình trả lời + graderInfo
+   *    + responseTemplate; giới hạn từ phải hợp lệ (min ≤ max).
    */
   private normaliseContent(qtype: SupportedQtype, input: QuestionContentInput): NormalisedContent {
     const options = input.options ?? {};
     if (qtype === 'essay') {
       if (input.answers && input.answers.length > 0) throw badAnswerData('essay questions do not carry answers; the response is graded manually');
-      const min = options.minwordlimit ?? null;
-      const max = options.maxwordlimit ?? null;
-      if (min !== null && max !== null && min > max) throw badAnswerData('essay minwordlimit must not exceed maxwordlimit');
+      const min = options.minWordLimit ?? null;
+      const max = options.maxWordLimit ?? null;
+      if (min !== null && max !== null && min > max) throw badAnswerData('essay minWordLimit must not exceed maxWordLimit');
       return {
         answers: [],
         essay: {
-          responseformat: options.responseformat ?? 'editor',
-          responserequired: options.responserequired ?? true,
-          responsefieldlines: options.responsefieldlines ?? 15,
-          minwordlimit: min, maxwordlimit: max,
-          graderinfo: this.docOrNull(options.graderinfo),
-          responsetemplate: this.docOrNull(options.responsetemplate),
+          responseFormat: options.responseFormat ?? 'editor',
+          responseRequired: options.responseRequired ?? true,
+          responseFieldLines: options.responseFieldLines ?? 15,
+          minWordLimit: min, maxWordLimit: max,
+          graderInfo: this.docOrNull(options.graderInfo),
+          responseTemplate: this.docOrNull(options.responseTemplate),
         },
       };
     }
@@ -272,18 +272,18 @@ export class QuestionsService {
           { answer: toRichTextDocument('False'), fraction: correct ? 0 : 1, feedback: null },
         ],
         truefalseCorrect: correct,
-        truefalseShowStandardInstruction: options.showstandardinstruction ?? true,
+        truefalseShowStandardInstruction: options.showStandardInstruction ?? true,
       };
     }
     // multichoice / shortanswer dùng danh sách answers — từ payload cấu trúc
     // mới hoặc ánh xạ từ payload cũ của shortanswer.
     let rawAnswers: QuestionAnswerInput[] | undefined = input.answers;
-    let usecase = options.usecase ?? false;
+    let useCase = options.useCase ?? false;
     if (!rawAnswers && qtype === 'shortanswer' && input.answer) {
       const legacy = input.answer.answers;
       if (!Array.isArray(legacy) || legacy.length === 0) throw badAnswerData('shortanswer answer data requires {answers: string[]}');
       rawAnswers = legacy.map((text) => ({ text: String(text), fraction: 1 }));
-      usecase = input.answer.casesensitive === true;
+      useCase = input.answer.casesensitive === true;
     }
     if (!rawAnswers || rawAnswers.length === 0) {
       throw badAnswerData(`${qtype} requires at least one answer in the structured answers list`);
@@ -298,7 +298,7 @@ export class QuestionsService {
         if (!(a.fraction >= 0 && a.fraction <= 1)) throw badAnswerData('shortanswer answer fractions must be within [0, 1]');
       }
       if (!answers.some((a) => a.fraction > 0)) throw badAnswerData('shortanswer requires at least one answer with a positive fraction');
-      return { answers, shortanswer: { usecase } };
+      return { answers, shortanswer: { useCase } };
     }
     // multichoice
     if (answers.length < 2) throw badAnswerData('multichoice requires at least two choices');
@@ -313,13 +313,13 @@ export class QuestionsService {
       answers,
       multichoice: {
         single: options.single ?? true,
-        shuffleanswers: options.shuffleanswers ?? false,
-        answernumbering: options.answernumbering ?? 'abc',
-        correctfeedback: this.docOrNull(options.correctfeedback),
-        partiallycorrectfeedback: this.docOrNull(options.partiallycorrectfeedback),
-        incorrectfeedback: this.docOrNull(options.incorrectfeedback),
-        shownumcorrect: options.shownumcorrect ?? false,
-        showstandardinstruction: options.showstandardinstruction ?? true,
+        shuffleAnswers: options.shuffleAnswers ?? false,
+        answerNumbering: options.answerNumbering ?? 'abc',
+        correctFeedback: this.docOrNull(options.correctFeedback),
+        partiallyCorrectFeedback: this.docOrNull(options.partiallyCorrectFeedback),
+        incorrectFeedback: this.docOrNull(options.incorrectFeedback),
+        showNumCorrect: options.showNumCorrect ?? false,
+        showStandardInstruction: options.showStandardInstruction ?? true,
       },
     };
   }
@@ -329,26 +329,26 @@ export class QuestionsService {
     const inserted: AnswerRow[] = [];
     for (const [index, a] of content.answers.entries()) {
       inserted.push(await this.repo.insertAnswer({
-        questionversionid: versionId, answer: a.answer as never, fraction: a.fraction,
-        feedback: a.feedback as never, sortorder: index,
+        questionVersionId: versionId, answer: a.answer as never, fraction: a.fraction,
+        feedback: a.feedback as never, sortOrder: index,
       }, tx));
     }
     if (content.multichoice) {
-      await this.repo.insertMultichoiceOptions({ questionversionid: versionId, ...content.multichoice } as never, tx);
+      await this.repo.insertMultichoiceOptions({ questionVersionId: versionId, ...content.multichoice } as never, tx);
     }
     if (content.truefalseCorrect !== undefined) {
       const trueRow = inserted[0]!;
       const falseRow = inserted[1]!;
       await this.repo.insertTruefalseOptions({
-        questionversionid: versionId, trueanswer: trueRow.id, falseanswer: falseRow.id,
-        showstandardinstruction: content.truefalseShowStandardInstruction ?? true,
+        questionVersionId: versionId, trueAnswer: trueRow.id, falseAnswer: falseRow.id,
+        showStandardInstruction: content.truefalseShowStandardInstruction ?? true,
       }, tx);
     }
     if (content.shortanswer) {
-      await this.repo.insertShortanswerOptions({ questionversionid: versionId, usecase: content.shortanswer.usecase }, tx);
+      await this.repo.insertShortanswerOptions({ questionVersionId: versionId, useCase: content.shortanswer.useCase }, tx);
     }
     if (content.essay) {
-      await this.repo.insertEssayOptions({ questionversionid: versionId, ...content.essay } as never, tx);
+      await this.repo.insertEssayOptions({ questionVersionId: versionId, ...content.essay } as never, tx);
     }
   }
 
@@ -358,34 +358,34 @@ export class QuestionsService {
     const idMap = new Map<string, string>();
     for (const a of answers) {
       const row = await this.repo.insertAnswer({
-        questionversionid: toVersionId, answer: a.answer as never, fraction: a.fraction,
-        feedback: a.feedback as never, sortorder: a.sortorder,
+        questionVersionId: toVersionId, answer: a.answer as never, fraction: a.fraction,
+        feedback: a.feedback as never, sortOrder: a.sortOrder,
       }, tx);
       idMap.set(a.id, row.id);
     }
     if (qtype === 'multichoice') {
       const o = await this.repo.getMultichoiceOptions(fromVersionId);
       if (o) await this.repo.insertMultichoiceOptions({
-        questionversionid: toVersionId, single: o.single, shuffleanswers: o.shuffleanswers,
-        answernumbering: o.answernumbering, correctfeedback: o.correctfeedback as never,
-        partiallycorrectfeedback: o.partiallycorrectfeedback as never, incorrectfeedback: o.incorrectfeedback as never,
-        shownumcorrect: o.shownumcorrect, showstandardinstruction: o.showstandardinstruction,
+        questionVersionId: toVersionId, single: o.single, shuffleAnswers: o.shuffleAnswers,
+        answerNumbering: o.answerNumbering, correctFeedback: o.correctFeedback as never,
+        partiallyCorrectFeedback: o.partiallyCorrectFeedback as never, incorrectFeedback: o.incorrectFeedback as never,
+        showNumCorrect: o.showNumCorrect, showStandardInstruction: o.showStandardInstruction,
       }, tx);
     } else if (qtype === 'truefalse') {
       const o = await this.repo.getTruefalseOptions(fromVersionId);
       if (o) await this.repo.insertTruefalseOptions({
-        questionversionid: toVersionId, trueanswer: idMap.get(o.trueanswer)!, falseanswer: idMap.get(o.falseanswer)!,
-        showstandardinstruction: o.showstandardinstruction,
+        questionVersionId: toVersionId, trueAnswer: idMap.get(o.trueAnswer)!, falseAnswer: idMap.get(o.falseAnswer)!,
+        showStandardInstruction: o.showStandardInstruction,
       }, tx);
     } else if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(fromVersionId);
-      if (o) await this.repo.insertShortanswerOptions({ questionversionid: toVersionId, usecase: o.usecase }, tx);
+      if (o) await this.repo.insertShortanswerOptions({ questionVersionId: toVersionId, useCase: o.useCase }, tx);
     } else if (qtype === 'essay') {
       const o = await this.repo.getEssayOptions(fromVersionId);
       if (o) await this.repo.insertEssayOptions({
-        questionversionid: toVersionId, responseformat: o.responseformat, responserequired: o.responserequired,
-        responsefieldlines: o.responsefieldlines, minwordlimit: o.minwordlimit, maxwordlimit: o.maxwordlimit,
-        graderinfo: o.graderinfo as never, responsetemplate: o.responsetemplate as never,
+        questionVersionId: toVersionId, responseFormat: o.responseFormat, responseRequired: o.responseRequired,
+        responseFieldLines: o.responseFieldLines, minWordLimit: o.minWordLimit, maxWordLimit: o.maxWordLimit,
+        graderInfo: o.graderInfo as never, responseTemplate: o.responseTemplate as never,
       }, tx);
     }
   }
@@ -396,29 +396,29 @@ export class QuestionsService {
       const o = await this.repo.getMultichoiceOptions(versionId);
       if (!o) return null;
       return {
-        single: o.single, shuffleanswers: o.shuffleanswers, answernumbering: o.answernumbering,
-        correctfeedback: o.correctfeedback, partiallycorrectfeedback: o.partiallycorrectfeedback,
-        incorrectfeedback: o.incorrectfeedback, shownumcorrect: o.shownumcorrect,
-        showstandardinstruction: o.showstandardinstruction,
+        single: o.single, shuffleAnswers: o.shuffleAnswers, answerNumbering: o.answerNumbering,
+        correctFeedback: o.correctFeedback, partiallyCorrectFeedback: o.partiallyCorrectFeedback,
+        incorrectFeedback: o.incorrectFeedback, showNumCorrect: o.showNumCorrect,
+        showStandardInstruction: o.showStandardInstruction,
       };
     }
     if (qtype === 'truefalse') {
       const o = await this.repo.getTruefalseOptions(versionId);
       if (!o) return null;
-      return { trueanswer: o.trueanswer, falseanswer: o.falseanswer, showstandardinstruction: o.showstandardinstruction };
+      return { trueAnswer: o.trueAnswer, falseAnswer: o.falseAnswer, showStandardInstruction: o.showStandardInstruction };
     }
     if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(versionId);
       if (!o) return null;
-      return { usecase: o.usecase };
+      return { useCase: o.useCase };
     }
     if (qtype === 'essay') {
       const o = await this.repo.getEssayOptions(versionId);
       if (!o) return null;
       return {
-        responseformat: o.responseformat, responserequired: o.responserequired,
-        responsefieldlines: o.responsefieldlines, minwordlimit: o.minwordlimit,
-        maxwordlimit: o.maxwordlimit, graderinfo: o.graderinfo, responsetemplate: o.responsetemplate,
+        responseFormat: o.responseFormat, responseRequired: o.responseRequired,
+        responseFieldLines: o.responseFieldLines, minWordLimit: o.minWordLimit,
+        maxWordLimit: o.maxWordLimit, graderInfo: o.graderInfo, responseTemplate: o.responseTemplate,
       };
     }
     return null;
@@ -428,14 +428,14 @@ export class QuestionsService {
   private async assembleView(question: QuestionRow, entry: EntryRow, version: VersionRow): Promise<QuestionView> {
     const answers = await this.repo.listAnswers(version.id);
     const options = await this.optionsView(question.qtype, version.id);
-    const stimulus = version.stimulusid ? (await this.repo.getStimulus(version.stimulusid)) ?? null : null;
+    const stimulus = version.stimulusId ? (await this.repo.getStimulus(version.stimulusId)) ?? null : null;
     return { question, entry, latestVersion: version, answers, options, stimulus };
   }
 
   /** Kiểm chứng stimulus được gắn: phải tồn tại và cùng category với câu hỏi (phạm vi chia sẻ). */
   private async resolveStimulus(stimulusId: string, categoryId: string): Promise<StimulusRow> {
     const stimulus = await this.getStimulus(stimulusId);
-    if (stimulus.categoryid !== categoryId) {
+    if (stimulus.categoryId !== categoryId) {
       throw new BadRequestException({
         message: 'Stimulus belongs to a different question category; a stimulus is shared only within its own category',
         code: 'question.stimulus_category_mismatch',
@@ -452,23 +452,23 @@ export class QuestionsService {
     categoryId: string; qtype: string; name: string;
   } & QuestionContentInput): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
-    await this.requireCap(actorId, 'moodle/question:add', category.contextid);
+    await this.requireCap(actorId, 'moodle/question:add', category.contextId);
     this.assertSupportedQtype(input.qtype);
     const content = this.normaliseContent(input.qtype, input);
     const stimulus = input.stimulusId ? await this.resolveStimulus(input.stimulusId, category.id) : null;
     let created!: { q: QuestionRow; entry: EntryRow; version: VersionRow };
     await this.repo.dbHandle.transaction(async (tx) => {
       const q = await this.repo.insertQuestion({
-        category: category.id, qtype: input.qtype, name: input.name, createdby: actorId, modifiedby: actorId,
+        category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
       }, tx);
-      const entry = await this.repo.insertEntry({ questioncategoryid: category.id, questionid: q.id, latestversion: 1 }, tx);
+      const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
       const version = await this.repo.insertVersion({
-        questionbankentryid: entry.id, questionid: q.id, version: 1,
-        questiontext: toRichTextDocument(input.questiontext ?? '') as never,
-        generalfeedback: this.docOrNull(input.generalfeedback) as never,
+        questionBankEntryId: entry.id, questionId: q.id, version: 1,
+        questionText: toRichTextDocument(input.questionText ?? '') as never,
+        generalFeedback: this.docOrNull(input.generalFeedback) as never,
         guidance: this.docOrNull(input.guidance) as never,
-        defaultmark: input.defaultmark ?? 1, penalty: input.penalty ?? 0,
-        stimulusid: stimulus?.id ?? null,
+        defaultMark: input.defaultMark ?? 1, penalty: input.penalty ?? 0,
+        stimulusId: stimulus?.id ?? null,
       }, tx);
       await this.writeVersionContent(tx, input.qtype as SupportedQtype, version.id, content);
       created = { q, entry, version };
@@ -485,7 +485,7 @@ export class QuestionsService {
     if (!q) throw new NotFoundException({ message: `Question ${id} not found`, code: 'question.not_found' });
     const entry = await this.repo.getEntryByQuestion(id);
     if (!entry) throw new NotFoundException({ message: `Question ${id} has no bank entry`, code: 'question.entry_missing' });
-    const latest = await this.repo.getVersionByNumber(entry.id, entry.latestversion);
+    const latest = await this.repo.getVersionByNumber(entry.id, entry.latestVersion);
     if (!latest) throw new NotFoundException({ message: `Question ${id} latest version missing`, code: 'question.version_missing' });
     return this.assembleView(q, entry, latest);
   }
@@ -513,7 +513,7 @@ export class QuestionsService {
     const q = await this.repo.getQuestion(questionId);
     if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const version = await this.repo.getVersion(versionId);
-    if (!version || version.questionid !== questionId) {
+    if (!version || version.questionId !== questionId) {
       throw new NotFoundException({ message: `Question version ${versionId} not found`, code: 'question.version_missing' });
     }
     const answers = await this.repo.listAnswers(version.id);
@@ -523,7 +523,7 @@ export class QuestionsService {
 
   /** Editing creates a NEW version; existing versions (and attempts pinned to them) are untouched. */
   /**
-   * Sửa câu hỏi = tạo version mới và nâng latestversion của entry. Phần
+   * Sửa câu hỏi = tạo version mới và nâng latestVersion của entry. Phần
    * đáp án/options không được gửi lên thì nhân bản nguyên từ version trước
    * sang version mới; stimulusId = null gỡ gắn ngữ liệu, không gửi thì giữ.
    */
@@ -532,31 +532,31 @@ export class QuestionsService {
   } & QuestionContentInput): Promise<QuestionView> {
     const { question: q, entry, latestVersion } = await this.getQuestion(questionId);
     const category = await this.getCategory(q.category);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextid);
+    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
     this.assertSupportedQtype(q.qtype);
     const hasNewContent = input.answers !== undefined || input.answer !== undefined || input.options !== undefined;
     const content = hasNewContent ? this.normaliseContent(q.qtype, input) : null;
-    let stimulusId = latestVersion.stimulusid;
+    let stimulusId = latestVersion.stimulusId;
     if (input.stimulusId !== undefined) {
       stimulusId = input.stimulusId === null ? null : (await this.resolveStimulus(input.stimulusId, category.id)).id;
     }
-    const nextVersion = entry.latestversion + 1;
+    const nextVersion = entry.latestVersion + 1;
     let version!: VersionRow;
     await this.repo.dbHandle.transaction(async (tx) => {
       version = await this.repo.insertVersion({
-        questionbankentryid: entry.id, questionid: q.id, version: nextVersion,
-        questiontext: (input.questiontext !== undefined ? toRichTextDocument(input.questiontext) : latestVersion.questiontext) as never,
-        generalfeedback: (input.generalfeedback !== undefined ? toRichTextDocument(input.generalfeedback) : latestVersion.generalfeedback) as never,
+        questionBankEntryId: entry.id, questionId: q.id, version: nextVersion,
+        questionText: (input.questionText !== undefined ? toRichTextDocument(input.questionText) : latestVersion.questionText) as never,
+        generalFeedback: (input.generalFeedback !== undefined ? toRichTextDocument(input.generalFeedback) : latestVersion.generalFeedback) as never,
         guidance: (input.guidance !== undefined ? toRichTextDocument(input.guidance) : latestVersion.guidance) as never,
-        defaultmark: input.defaultmark ?? latestVersion.defaultmark,
+        defaultMark: input.defaultMark ?? latestVersion.defaultMark,
         penalty: input.penalty ?? latestVersion.penalty,
-        stimulusid: stimulusId,
+        stimulusId: stimulusId,
       }, tx);
       if (content) await this.writeVersionContent(tx, q.qtype as SupportedQtype, version.id, content);
       else await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id);
     });
-    await this.repo.updateEntry(entry.id, { latestversion: nextVersion });
-    await this.repo.updateQuestion(q.id, { name: input.name ?? q.name, modifiedby: actorId });
+    await this.repo.updateEntry(entry.id, { latestVersion: nextVersion });
+    await this.repo.updateQuestion(q.id, { name: input.name ?? q.name, modifiedBy: actorId });
     await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_updated', payload: { questionId: q.id, version: nextVersion } });
     return this.getQuestion(q.id);
   }
@@ -567,30 +567,30 @@ export class QuestionsService {
    * Tạo usage mới cho một component (vd quiz) với behaviour cho trước.
    */
   async createUsage(actorId: string, input: {
-    component: string; instanceid?: string; contextid?: string; preferredbehaviour?: string;
-    slots: { questionId: string; maxmark?: number }[];
+    component: string; instanceId?: string; contextId?: string; preferredBehaviour?: string;
+    slots: { questionId: string; maxMark?: number }[];
   }): Promise<UsageView> {
-    const behaviour = input.preferredbehaviour ?? 'deferredfeedback';
+    const behaviour = input.preferredBehaviour ?? 'deferredfeedback';
     if (!BEHAVIOURS[behaviour]) {
       throw new BadRequestException({ message: `Unknown question behaviour ${behaviour}`, code: 'question.unknown_behaviour' });
     }
     if (!input.slots.length) throw new BadRequestException({ message: 'A usage needs at least one question slot', code: 'question.usage_empty' });
     const usage = await this.repo.insertUsage({
-      component: input.component, instanceid: input.instanceid ?? null,
-      owningcontextid: input.contextid ?? null, preferredbehaviour: behaviour, userid: actorId,
+      component: input.component, instanceId: input.instanceId ?? null,
+      owningContextId: input.contextId ?? null, preferredBehaviour: behaviour, userId: actorId,
     });
     let slot = 1;
     for (const s of input.slots) {
       const view = await this.getQuestion(s.questionId);
       await this.repo.insertAttempt({
-        questionusageid: usage.id, slot: slot++, behaviour,
-        questionid: s.questionId, questionversionid: null,
-        maxmark: s.maxmark ?? view.latestVersion.defaultmark,
-        questionsummary: extractRichTextPlainText(view.latestVersion.questiontext as RichTextDocument), userid: actorId,
+        questionUsageId: usage.id, slot: slot++, behaviour,
+        questionId: s.questionId, questionVersionId: null,
+        maxMark: s.maxMark ?? view.latestVersion.defaultMark,
+        questionSummary: extractRichTextPlainText(view.latestVersion.questionText as RichTextDocument), userId: actorId,
         state: 'notstarted',
       });
     }
-    await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_usage_created', payload: { usageId: usage.id, component: input.component, instanceid: input.instanceid ?? 0 } });
+    await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_usage_created', payload: { usageId: usage.id, component: input.component, instanceId: input.instanceId ?? 0 } });
     return this.getUsage(usage.id);
   }
 
@@ -608,7 +608,7 @@ export class QuestionsService {
       for (const s of steps) {
         const dataRows = await this.repo.listStepData(s.id);
         stepViews.push({
-          id: s.id, sequencenumber: s.sequencenumber, state: s.state, fraction: s.fraction,
+          id: s.id, sequenceNumber: s.sequenceNumber, state: s.state, fraction: s.fraction,
           data: Object.fromEntries(dataRows.map((d) => [d.name, d.value])),
         });
       }
@@ -630,11 +630,11 @@ export class QuestionsService {
     const seq = steps.length;
     await this.repo.dbHandle.transaction(async (tx) => {
       const step = await this.repo.insertStep({
-        questionattemptid: attempt.id, sequencenumber: seq, state, fraction, userid: userId,
+        questionAttemptId: attempt.id, sequenceNumber: seq, state, fraction, userId: userId,
       }, tx as never);
       if (data) {
         for (const [name, value] of Object.entries(data)) {
-          await this.repo.insertStepData({ attemptstepid: step.id, name, value }, tx as never);
+          await this.repo.insertStepData({ attemptStepId: step.id, name, value }, tx as never);
         }
       }
     });
@@ -670,10 +670,10 @@ export class QuestionsService {
       data.multichoice = { single: o?.single ?? true };
     } else if (qtype === 'truefalse') {
       const o = await this.repo.getTruefalseOptions(version.id);
-      if (o) data.truefalse = { trueanswerId: o.trueanswer, falseanswerId: o.falseanswer };
+      if (o) data.truefalse = { trueanswerId: o.trueAnswer, falseanswerId: o.falseAnswer };
     } else if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(version.id);
-      data.shortanswer = { usecase: o?.usecase ?? false };
+      data.shortanswer = { useCase: o?.useCase ?? false };
     }
     return data;
   }
@@ -685,12 +685,12 @@ export class QuestionsService {
   async startAttempt(userId: string, attemptId: string): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     await this.transition(attempt, 'todo');
-    const { entry, latestVersion } = await this.getQuestion(attempt.questionid);
+    const { entry, latestVersion } = await this.getQuestion(attempt.questionId);
     void entry;
-    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionversionid: latestVersion.id, userid: userId });
+    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionVersionId: latestVersion.id, userId: userId });
     const updated = await this.getAttempt(attempt.id);
     await this.appendStep(updated, userId, 'todo', null);
-    const usage = await this.getUsage(attempt.questionusageid);
+    const usage = await this.getUsage(attempt.questionUsageId);
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
@@ -704,10 +704,10 @@ export class QuestionsService {
     if (!behaviour) throw new BadRequestException({ message: `Unknown behaviour ${attempt.behaviour}`, code: 'question.unknown_behaviour' });
     const to = behaviour.stateAfterSubmit(response);
     await this.transition(attempt, to);
-    await this.repo.updateAttempt(attempt.id, { state: to, responsesummary: response ?? '', userid: userId });
+    await this.repo.updateAttempt(attempt.id, { state: to, responseSummary: response ?? '', userId: userId });
     const updated = await this.getAttempt(attempt.id);
     await this.appendStep(updated, userId, to, null, { answer: response ?? '' });
-    const usage = await this.getUsage(attempt.questionusageid);
+    const usage = await this.getUsage(attempt.questionUsageId);
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
@@ -722,15 +722,15 @@ export class QuestionsService {
       throw new BadRequestException({ message: 'Cannot finish an attempt that was never started', code: 'question.not_started' });
     }
     if (['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup', 'needsgrading'].includes(attempt.state)) {
-      const usage = await this.getUsage(attempt.questionusageid);
+      const usage = await this.getUsage(attempt.questionUsageId);
       return usage.attempts.find((a) => a.id === attemptId)!;
     }
     const behaviour = BEHAVIOURS[attempt.behaviour];
     if (!behaviour) throw new BadRequestException({ message: `Unknown behaviour ${attempt.behaviour}`, code: 'question.unknown_behaviour' });
-    if (!attempt.questionversionid) throw new BadRequestException({ message: 'Attempt has no pinned version', code: 'question.no_version' });
-    const version = await this.repo.getVersion(attempt.questionversionid);
+    if (!attempt.questionVersionId) throw new BadRequestException({ message: 'Attempt has no pinned version', code: 'question.no_version' });
+    const version = await this.repo.getVersion(attempt.questionVersionId);
     if (!version) throw new NotFoundException({ message: 'Pinned question version missing', code: 'question.version_missing' });
-    const q = await this.repo.getQuestion(attempt.questionid);
+    const q = await this.repo.getQuestion(attempt.questionId);
     const response = await this.latestResponse(attempt.id);
     const gradingData = await this.gradingDataFor(version, q?.qtype ?? '');
     const outcome = behaviour.gradeAtFinish(q?.qtype ?? '', gradingData, response);
@@ -740,11 +740,11 @@ export class QuestionsService {
     else { state = outcome.state; fraction = outcome.fraction; }
     await this.transition(attempt, state);
     await this.repo.updateAttempt(attempt.id, {
-      state, fraction, rightanswer: outcome?.rightAnswer ?? attempt.rightanswer, userid: userId,
+      state, fraction, rightAnswer: outcome?.rightAnswer ?? attempt.rightAnswer, userId: userId,
     });
     const updated = await this.getAttempt(attempt.id);
     await this.appendStep(updated, userId, state, fraction);
-    const usage = await this.getUsage(attempt.questionusageid);
+    const usage = await this.getUsage(attempt.questionUsageId);
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 

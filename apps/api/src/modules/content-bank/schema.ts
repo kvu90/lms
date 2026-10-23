@@ -10,21 +10,21 @@ import {
 import { sql } from 'drizzle-orm';
 
 /** Nội dung Content Bank: thuộc context, có tác giả, trạng thái draft/public, file qua FilesModule. */
-export const contentbankContent = pgTable('contentbank_content', {
+export const contentBankContent = pgTable('content_bank_content', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
-  contenttype: text('contenttype').notNull().default('file-based'),
-  contextid: uuid('contextid').notNull(),
-  creatorid: uuid('creatorid').notNull(),
+  contentType: text('content_type').notNull().default('file-based'),
+  contextId: uuid('context_id').notNull(),
+  creatorId: uuid('creator_id').notNull(),
   visibility: text('visibility').notNull().default('draft'), // draft | public
-  fileid: uuid('fileid'),
-  configdata: jsonb('configdata'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  fileId: uuid('file_id'),
+  configData: jsonb('config_data'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('contentbank_content_contextid_idx').on(table.contextid),
-      index('contentbank_content_creatorid_idx').on(table.creatorid),
-      index('contentbank_content_fileid_idx').on(table.fileid),
+      index('content_bank_content_context_id_idx').on(table.contextId),
+      index('content_bank_content_creator_id_idx').on(table.creatorId),
+      index('content_bank_content_file_id_idx').on(table.fileId),
   ]);
 

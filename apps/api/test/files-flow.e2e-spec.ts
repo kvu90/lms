@@ -13,7 +13,7 @@ import {
  * Oracle: public/lib/filestorage/tests/file_storage_test.php (MOODLE_503_STABLE) —
  * test_create_file_from_string, test_get_file_by_hash, test_delete_area_files;
  * dedup/refcount semantics from the File API internals doc (report §3.8).
- * Note: our contenthash is SHA-256 (project decision, no legacy compat) where Moodle uses SHA-1.
+ * Note: our contentHash is SHA-256 (project decision, no legacy compat) where Moodle uses SHA-1.
  */
 describe('Files: content-addressed dedup, refcount cleanup, capability-checked serving', () => {
   let app: INestApplication;
@@ -23,10 +23,10 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
   let uploaderId: string;
   const CONTENT = `hello-dedup-content-${Date.now()}`;
 
-  async function upload(token: string, filename: string, content: string): Promise<{ id: string; contenthash: string }> {
+  async function upload(token: string, fileName: string, content: string): Promise<{ id: string; contentHash: string }> {
     const res = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${token}`)
-      .field('contextid', String(courseCtx)).field('component', 'core_user').field('filearea', 'profile')
-      .attach('file', Buffer.from(content), filename);
+      .field('contextId', String(courseCtx)).field('component', 'core_user').field('fileArea', 'profile')
+      .attach('file', Buffer.from(content), fileName);
     if (res.status !== 201) throw new Error(`upload failed: ${res.status} ${JSON.stringify(res.body)}`);
     return res.body;
   }
@@ -48,12 +48,12 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     const a = await upload(uploaderToken, 'a.txt', CONTENT);
     const b = await upload(uploaderToken, 'b.txt', CONTENT);
     expect(a.id).not.toBe(b.id);
-    expect(a.contenthash).toBe(b.contenthash);
-    expect(a.contenthash).toHaveLength(64); // SHA-256 hex
+    expect(a.contentHash).toBe(b.contentHash);
+    expect(a.contentHash).toHaveLength(64); // SHA-256 hex
     const service = app.get(FilesService);
-    expect(await service.refcount(a.contenthash)).toBe(2);
-    expect(existsSync(service.physicalKey(a.contenthash))).toBe(true);
-    expect(service.physicalKey(a.contenthash)).toContain(`/${a.contenthash.slice(0, 2)}/${a.contenthash.slice(2, 4)}/`);
+    expect(await service.refcount(a.contentHash)).toBe(2);
+    expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
+    expect(service.physicalKey(a.contentHash)).toContain(`/${a.contentHash.slice(0, 2)}/${a.contentHash.slice(2, 4)}/`);
   });
 
   it('deleting one record keeps the physical file; deleting the last queues cleanup and the worker path removes it', async () => {
@@ -63,13 +63,13 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     const delA = await http(app).delete(`/api/v1/files/${a.id}`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(delA.status).toBe(200);
     expect(delA.body.refcount).toBe(1);
-    expect(existsSync(service.physicalKey(a.contenthash))).toBe(true);
+    expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
     const delB = await http(app).delete(`/api/v1/files/${b.id}`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(delB.body.refcount).toBe(0);
     // The worker processor runs the same facade operation the API queued.
-    const removed = await service.cleanupOrphan(a.contenthash);
+    const removed = await service.cleanupOrphan(a.contentHash);
     expect(removed).toBe(true);
-    expect(existsSync(service.physicalKey(a.contenthash))).toBe(false);
+    expect(existsSync(service.physicalKey(a.contentHash))).toBe(false);
   });
 
   it('serves content to a user with the file-context capability via signed URL and guarded stream', async () => {

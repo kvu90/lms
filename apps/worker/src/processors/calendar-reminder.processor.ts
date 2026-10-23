@@ -33,16 +33,16 @@ export class CalendarReminderProcessor extends WorkerHost {
     const { eventId, userId } = job.data;
     const [event] = await this.db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId));
     if (!event) return { status: 'event-missing' };
-    const contexturl = `/calendar/events/${eventId}`;
+    const contextUrl = `/calendar/events/${eventId}`;
     const [existing] = await this.db.select().from(notifications).where(and(
-      eq(notifications.useridto, userId), eq(notifications.eventtype, 'calendar_reminder'),
-      eq(notifications.contexturl, contexturl),
+      eq(notifications.userIdTo, userId), eq(notifications.eventType, 'calendar_reminder'),
+      eq(notifications.contextUrl, contextUrl),
     ));
     if (existing) return { status: 'duplicate', notificationId: existing.id };
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
     if (!user || user.suspended || user.deleted) return { status: 'skipped-suspended' };
     const [pref] = await this.db.select().from(userPreferences).where(and(
-      eq(userPreferences.userid, userId),
+      eq(userPreferences.userId, userId),
       eq(userPreferences.name, 'message_provider_calendar_reminder_popup_loggedin'),
     ));
     if (pref?.value === '0') return { status: 'skipped-preference' };
@@ -51,14 +51,14 @@ export class CalendarReminderProcessor extends WorkerHost {
     const recipientLocale = 'vi';
     const subject = this.i18n.t('platform.calendarReminderSubject', { locale: recipientLocale, args: { name: event.name } });
     const [notification] = await this.db.insert(notifications).values({
-      useridto: userId, subject,
-      fullmessage: this.i18n.t('platform.calendarReminderBody', { locale: recipientLocale, args: { name: event.name, time: event.timestart.toISOString() } }),
-      smallmessage: subject, component: 'core_calendar', eventtype: 'calendar_reminder',
-      contexturl,
+      userIdTo: userId, subject,
+      fullMessage: this.i18n.t('platform.calendarReminderBody', { locale: recipientLocale, args: { name: event.name, time: event.timeStart.toISOString() } }),
+      smallMessage: subject, component: 'core_calendar', eventType: 'calendar_reminder',
+      contextUrl,
     }).returning();
     await this.db.insert(notificationDispatchLog).values({
-      notificationid: notification!.id, userid: userId, provider: 'calendar_reminder',
-      channel: 'popup', status: 'delivered', subject, dedupekey: `popup-${notification!.id}`,
+      notificationId: notification!.id, userId: userId, provider: 'calendar_reminder',
+      channel: 'popup', status: 'delivered', subject, dedupeKey: `popup-${notification!.id}`,
     }).onConflictDoNothing();
     return { status: 'notified', notificationId: notification!.id };
   }

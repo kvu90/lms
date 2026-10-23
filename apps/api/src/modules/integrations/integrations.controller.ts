@@ -28,7 +28,7 @@ export class IntegrationsController {
   @Post('tokens')
   async createToken(@Body({ schema: createExternalTokenSchema }) dto: CreateTokenDto, @CurrentUser() actor: AuthenticatedUser) {
     const { token, row } = await this.integrations.createToken(actor.id, dto);
-    return { token, id: row.id, userid: row.userid, serviceid: row.serviceid, validuntil: row.validuntil };
+    return { token, id: row.id, userId: row.userId, serviceId: row.serviceId, validUntil: row.validUntil };
   }
   @Get('tokens')
   async listTokens(@CurrentUser() actor: AuthenticatedUser) { return this.integrations.listTokens(actor.id); }

@@ -143,14 +143,14 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
 
   it('login-as: an admin with moodle/user:loginas can act as another user; a normal user cannot', async () => {
     const target = await createUserViaApi(app, admin);
-    const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userid: target.id });
+    const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id });
     expect(as.status).toBe(201);
     expect(as.body.loginAs.byUserId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${as.body.accessToken}`);
     expect(me.body.id).toBe(target.id);
     const plain = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, plain.username, STRONG_PASSWORD);
-    const denied = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${accessToken}`).send({ userid: target.id });
+    const denied = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${accessToken}`).send({ userId: target.id });
     expect(denied.status).toBe(403);
     expect(denied.body.code).toBe('access.capability_denied');
   });

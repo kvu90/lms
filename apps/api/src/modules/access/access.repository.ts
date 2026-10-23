@@ -38,11 +38,11 @@ export class AccessRepository {
     return row;
   }
   /**
-   * Lấy context theo cặp (contextlevel, instanceid) — khoá tự nhiên của cây context.
+   * Lấy context theo cặp (contextLevel, instanceId) — khoá tự nhiên của cây context.
    */
-  async getContextByLevelInstance(contextlevel: number, instanceid: string | null): Promise<ContextRow | undefined> {
+  async getContextByLevelInstance(contextLevel: number, instanceId: string | null): Promise<ContextRow | undefined> {
     const [row] = await this.db.select().from(context)
-      .where(and(eq(context.contextlevel, contextlevel), instanceid === null ? isNull(context.instanceid) : eq(context.instanceid, instanceid)));
+      .where(and(eq(context.contextLevel, contextLevel), instanceId === null ? isNull(context.instanceId) : eq(context.instanceId, instanceId)));
     return row;
   }
   /**
@@ -75,11 +75,11 @@ export class AccessRepository {
 
   // --- capabilities ---------------------------------------------------------
   /**
-   * Khai báo/cập nhật định nghĩa capability (tên, loại rủi ro, contextlevel, archetypes).
+   * Khai báo/cập nhật định nghĩa capability (tên, loại rủi ro, contextLevel, archetypes).
    */
-  async upsertCapability(def: { name: string; captype: string; contextlevel: number; component: string }): Promise<void> {
+  async upsertCapability(def: { name: string; capType: string; contextLevel: number; component: string }): Promise<void> {
     await this.db.insert(capabilities).values(def)
-      .onConflictDoUpdate({ target: capabilities.name, set: { captype: def.captype, contextlevel: def.contextlevel, component: def.component } });
+      .onConflictDoUpdate({ target: capabilities.name, set: { capType: def.capType, contextLevel: def.contextLevel, component: def.component } });
   }
   /**
    * Liệt kê mọi capability đã khai báo.
@@ -104,17 +104,17 @@ export class AccessRepository {
     return row;
   }
   /**
-   * Lấy role theo shortname duy nhất.
+   * Lấy role theo shortName duy nhất.
    */
-  async getRoleByShortname(shortname: string): Promise<RoleRow | undefined> {
-    const [row] = await this.db.select().from(role).where(eq(role.shortname, shortname));
+  async getRoleByShortname(shortName: string): Promise<RoleRow | undefined> {
+    const [row] = await this.db.select().from(role).where(eq(role.shortName, shortName));
     return row;
   }
   /**
    * Liệt kê mọi role.
    */
   async listRoles(): Promise<RoleRow[]> {
-    return this.db.select().from(role).orderBy(role.sortorder);
+    return this.db.select().from(role).orderBy(role.sortOrder);
   }
   /**
    * Cập nhật thông tin role.
@@ -126,8 +126,8 @@ export class AccessRepository {
    * Xoá role.
    */
   async deleteRole(id: string): Promise<void> {
-    await this.db.delete(roleAssignments).where(eq(roleAssignments.roleid, id));
-    await this.db.delete(roleCapabilities).where(eq(roleCapabilities.roleid, id));
+    await this.db.delete(roleAssignments).where(eq(roleAssignments.roleId, id));
+    await this.db.delete(roleCapabilities).where(eq(roleCapabilities.roleId, id));
     await this.db.delete(role).where(eq(role.id, id));
   }
 
@@ -140,8 +140,8 @@ export class AccessRepository {
       .onConflictDoNothing().returning();
     if (row) return row;
     const [existing] = await this.db.select().from(roleAssignments).where(and(
-      eq(roleAssignments.roleid, values.roleid!), eq(roleAssignments.userid, values.userid!),
-      eq(roleAssignments.contextid, values.contextid!)));
+      eq(roleAssignments.roleId, values.roleId!), eq(roleAssignments.userId, values.userId!),
+      eq(roleAssignments.contextId, values.contextId!)));
     return existing!;
   }
   /**
@@ -153,20 +153,20 @@ export class AccessRepository {
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userid?: string; contextid?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {
+  async listAssignments(filter: { userId?: string; contextId?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {
     const conds = [];
-    if (filter.userid !== undefined) conds.push(eq(roleAssignments.userid, filter.userid));
-    if (filter.contextid !== undefined) conds.push(eq(roleAssignments.contextid, filter.contextid));
+    if (filter.userId !== undefined) conds.push(eq(roleAssignments.userId, filter.userId));
+    if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
     return this.db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
   }
   /** Assignments whose context is on the given ancestor path (ids ordered as supplied). */
   /**
    * Lấy mọi gán role của user tại các context cho trước (đầu vào của PermissionEvaluator).
    */
-  async getAssignmentsForUserInContexts(userid: string, contextIds: string[]): Promise<(typeof roleAssignments.$inferSelect)[]> {
+  async getAssignmentsForUserInContexts(userId: string, contextIds: string[]): Promise<(typeof roleAssignments.$inferSelect)[]> {
     if (contextIds.length === 0) return [];
     return this.db.select().from(roleAssignments)
-      .where(and(eq(roleAssignments.userid, userid), inArray(roleAssignments.contextid, contextIds)));
+      .where(and(eq(roleAssignments.userId, userId), inArray(roleAssignments.contextId, contextIds)));
   }
 
   // --- capability overrides ---------------------------------------------------
@@ -175,16 +175,16 @@ export class AccessRepository {
    */
   async upsertRoleCapability(values: typeof roleCapabilities.$inferInsert): Promise<void> {
     await this.db.insert(roleCapabilities).values(values).onConflictDoUpdate({
-      target: [roleCapabilities.contextid, roleCapabilities.roleid, roleCapabilities.capability],
-      set: { permission: values.permission, timemodified: new Date() },
+      target: [roleCapabilities.contextId, roleCapabilities.roleId, roleCapabilities.capability],
+      set: { permission: values.permission, updatedAt: new Date() },
     });
   }
   /**
    * Xoá một override cụ thể.
    */
-  async deleteRoleCapability(contextid: string, roleid: string, capability: string): Promise<void> {
+  async deleteRoleCapability(contextId: string, roleId: string, capability: string): Promise<void> {
     await this.db.delete(roleCapabilities).where(and(
-      eq(roleCapabilities.contextid, contextid), eq(roleCapabilities.roleid, roleid),
+      eq(roleCapabilities.contextId, contextId), eq(roleCapabilities.roleId, roleId),
       eq(roleCapabilities.capability, capability)));
   }
   /**
@@ -193,24 +193,24 @@ export class AccessRepository {
   async getOverridesForRoles(roleIds: string[], capability: string, contextIds: string[]): Promise<(typeof roleCapabilities.$inferSelect)[]> {
     if (roleIds.length === 0 || contextIds.length === 0) return [];
     return this.db.select().from(roleCapabilities).where(and(
-      inArray(roleCapabilities.roleid, roleIds),
+      inArray(roleCapabilities.roleId, roleIds),
       eq(roleCapabilities.capability, capability),
-      inArray(roleCapabilities.contextid, contextIds)));
+      inArray(roleCapabilities.contextId, contextIds)));
   }
   /** Remove a role's seeded default overrides at one context (used by seed to keep archetype defaults in sync with code). */
   /**
    * Xoá toàn bộ override tại một context (khi context bị xoá).
    */
-  async deleteRoleCapabilitiesAtContext(roleid: string, contextid: string, capabilityNames: string[]): Promise<void> {
+  async deleteRoleCapabilitiesAtContext(roleId: string, contextId: string, capabilityNames: string[]): Promise<void> {
     await this.db.delete(roleCapabilities).where(and(
-      eq(roleCapabilities.roleid, roleid), eq(roleCapabilities.contextid, contextid),
+      eq(roleCapabilities.roleId, roleId), eq(roleCapabilities.contextId, contextId),
       inArray(roleCapabilities.capability, capabilityNames)));
   }
   /**
    * Liệt kê override đã lưu của role (hiển thị ma trận capability).
    */
-  async listRoleCapabilities(roleid: string): Promise<(typeof roleCapabilities.$inferSelect)[]> {
-    return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleid, roleid));
+  async listRoleCapabilities(roleId: string): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+    return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleId, roleId));
   }
 
   // --- site config (siteadmins lives in the `config` table, like Moodle $CFG->siteadmins) ---

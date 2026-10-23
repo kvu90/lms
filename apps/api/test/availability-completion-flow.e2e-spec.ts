@@ -63,7 +63,7 @@ describe('Availability & completion', () => {
 
   it('completion leaf: cm B stays locked until cm A is complete, then opens (completionlib + tree combination)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
-    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'First', completion: 1, completionmanual: true });
+    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'First', completion: 1, completionManual: true });
     const cmB = await createCm(app, admin, course.id, sectionId, {
       name: 'Second',
       availability: { op: '&', show: true, showc: [true], c: [{ type: 'completion', id: cmA.id }] },
@@ -71,7 +71,7 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmB.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     // Student marks A complete manually.
     const mark = await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`)
-      .set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+      .set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     expect(mark.status).toBeLessThan(300);
     expect(mark.body.state).toBe(1);
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmB.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
@@ -89,7 +89,7 @@ describe('Availability & completion', () => {
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Gated', availability: tree });
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
     // Put the student in the group: both inner conditions now hold (username contains 'user' by construction of test usernames) ⇒ NOT-OR fails ⇒ blocked.
-    await http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: student.id });
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
@@ -112,9 +112,9 @@ describe('Availability & completion', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/sections/${sectionRes.body.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
-  it('completionview: viewing a cm records viewed and completes it (completionlib::test_set_module_viewed + test_update_state)', async () => {
+  it('completionView: viewing a cm records viewed and completes it (completionlib::test_set_module_viewed + test_update_state)', async () => {
     const { course, sectionId, student, studentToken } = await setup();
-    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Read me', completion: 2, completionview: true });
+    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Read me', completion: 2, completionView: true });
     const before = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
     expect(before.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)?.state).toBe(0);
     const view = await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/view`).set('Authorization', `Bearer ${studentToken}`);
@@ -127,38 +127,38 @@ describe('Availability & completion', () => {
 
   it('manual completion by a teacher for another user requires markothers; a student cannot mark others', async () => {
     const { course, sectionId, student, studentToken } = await setup();
-    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Manual task', completion: 1, completionmanual: true });
+    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Manual task', completion: 1, completionManual: true });
     const other = await createUserViaApi(app, admin);
     const forbidden = await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/completion/manual`)
-      .set('Authorization', `Bearer ${studentToken}`).send({ userid: other.id, complete: true });
+      .set('Authorization', `Bearer ${studentToken}`).send({ userId: other.id, complete: true });
     expect(forbidden.status).toBe(403);
     const byAdmin = await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/completion/manual`)
-      .set('Authorization', `Bearer ${admin}`).send({ userid: student.id, complete: true });
+      .set('Authorization', `Bearer ${admin}`).send({ userId: student.id, complete: true });
     expect(byAdmin.body.state).toBe(1);
   });
 
   it('course completion aggregates module criteria with AND, and with ANY after the method changes', async () => {
     const { course, sectionId, student, studentToken } = await setup();
-    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A', completion: 1, completionmanual: true });
-    const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B', completion: 1, completionmanual: true });
+    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A', completion: 1, completionManual: true });
+    const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B', completion: 1, completionManual: true });
     const set = await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'module', moduleinstance: cmA.id }, { criteriatype: 'module', moduleinstance: cmB.id }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'module', moduleInstance: cmA.id }, { criteriaType: 'module', moduleInstance: cmB.id }] });
     expect(set.status).toBe(200);
     // Complete only A: AND ⇒ course not complete.
-    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     let mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).not.toBe('complete');
     // Complete B too ⇒ complete.
-    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
-    expect(mine.body.course.timecompleted).toBeTruthy();
+    expect(mine.body.course.timeCompleted).toBeTruthy();
   });
 
   it('date criterion: a course with only a past date criterion completes on reaggregation', async () => {
     const { course, student, studentToken } = await setup();
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'date', date: '2020-01-01T00:00:00.000Z' }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'date', date: '2020-01-01T00:00:00.000Z' }] });
     const mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     void student;
     expect(mine.body.course.status).toBe('complete');
@@ -166,34 +166,34 @@ describe('Availability & completion', () => {
 
   it('changing criteria after data exists triggers controlled recalculation: previously complete course reopens when a new criterion is added', async () => {
     const { course, sectionId, student, studentToken } = await setup();
-    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A2', completion: 1, completionmanual: true });
-    const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B2', completion: 1, completionmanual: true });
+    const cmA = await createCm(app, admin, course.id, sectionId, { name: 'A2', completion: 1, completionManual: true });
+    const cmB = await createCm(app, admin, course.id, sectionId, { name: 'B2', completion: 1, completionManual: true });
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'module', moduleinstance: cmA.id }] });
-    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+      .send({ method: 1, criteria: [{ criteriaType: 'module', moduleInstance: cmA.id }] });
+    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     let mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
     // Teacher adds cmB as a required criterion ⇒ recalculation must reopen the course completion.
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'module', moduleinstance: cmA.id }, { criteriatype: 'module', moduleinstance: cmB.id }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'module', moduleInstance: cmA.id }, { criteriaType: 'module', moduleInstance: cmB.id }] });
     const recalc = await http(app).post(`/api/v1/courses/${course.id}/completion/recalculate`).set('Authorization', `Bearer ${admin}`);
     expect(recalc.status).toBeLessThan(300);
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).not.toBe('complete');
     // Completing B closes it again.
-    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+    await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
   });
 
   it('unenrol keeps completion data: the UE row is soft-withdrawn (status=2) instead of deleted', async () => {
     const { course, sectionId, instance, student, studentToken } = await setup();
-    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Keep my data', completion: 1, completionmanual: true });
-    await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userid: student.id, complete: true });
+    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Keep my data', completion: 1, completionManual: true });
+    await http(app).post(`/api/v1/courses/${course.id}/modules/${cm.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     const del = await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.body.withdrawn).toBe(true);
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
-    const ue = (list.body as { userid: string; status: number }[]).find((e) => e.userid === student.id);
+    const ue = (list.body as { userId: string; status: number }[]).find((e) => e.userId === student.id);
     expect(ue?.status).toBe(2);
     // The completion record itself survived the unenrol.
     const completion = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
@@ -204,9 +204,9 @@ describe('Availability & completion', () => {
 
   it('GOLDEN end-to-end: category → course → section/cm → group/cohort → enrol with role → availability blocks → completion records', async () => {
     const cat = await createCategory(app, admin, { name: 'Golden' });
-    const course = await createCourse(app, admin, cat.id, { fullname: 'Golden course' });
+    const course = await createCourse(app, admin, cat.id, { fullName: 'Golden course' });
     const sectionId = await getFirstSectionId(app, admin, course.id);
-    const cm1 = await createCm(app, admin, course.id, sectionId, { name: 'Step 1', completion: 2, completionview: true });
+    const cm1 = await createCm(app, admin, course.id, sectionId, { name: 'Step 1', completion: 2, completionView: true });
     const cm2 = await createCm(app, admin, course.id, sectionId, {
       name: 'Step 2',
       availability: { op: '&', show: true, showc: [true], c: [{ type: 'completion', id: cm1.id }] },
@@ -214,12 +214,12 @@ describe('Availability & completion', () => {
     const groupRes = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Golden group' });
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Golden cohort' });
     const student = await createUserViaApi(app, admin);
-    await http(app).post(`/api/v1/cohorts/${cohortRes.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: student.id });
+    await http(app).post(`/api/v1/cohorts/${cohortRes.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId: cohortRes.body.id, groupId: groupRes.body.id });
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Enrolled via cohort sync, member of the group via the instance config:
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${groupRes.body.id}/members`).set('Authorization', `Bearer ${admin}`);
-    expect((members.body as { userid: string }[]).map((m) => m.userid)).toContain(student.id);
+    expect((members.body as { userId: string }[]).map((m) => m.userId)).toContain(student.id);
     // Step 2 blocked until Step 1 viewed:
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm2.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cm1.id}/view`).set('Authorization', `Bearer ${studentToken}`);

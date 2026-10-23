@@ -54,7 +54,7 @@ export class CourseGroupsController {
    * POST /groups/:id/members — thêm thành viên.
    */
   async addMember(@Param('groupId', { schema: uuidIdSchema }) groupId: string, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.groups.addMember(actor.id, groupId, dto.userid);
+    await this.groups.addMember(actor.id, groupId, dto.userId);
     return { added: true };
   }
   @Delete(':courseId/groups/:groupId/members/:userId')
@@ -92,7 +92,7 @@ export class CourseGroupsController {
    * POST /groupings/:id/groups — đưa nhóm vào grouping.
    */
   async addToGrouping(@Param('groupingId', { schema: uuidIdSchema }) groupingId: string, @Body({ schema: groupingGroupSchema }) dto: GroupingGroupDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.groups.addGroupToGrouping(actor.id, groupingId, dto.groupid);
+    await this.groups.addGroupToGrouping(actor.id, groupingId, dto.groupId);
     return { added: true };
   }
   @Get(':courseId/groupings/:groupingId/groups')
@@ -158,7 +158,7 @@ export class CohortsController {
   @Post(':id/members')
   /** POST /cohorts/:id/members — thêm thành viên cohort (kích hoạt cohort sync). */
   async addMember(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.groups.addCohortMember(actor.id, id, dto.userid);
+    await this.groups.addCohortMember(actor.id, id, dto.userId);
     return { added: true };
   }
   @Delete(':id/members/:userId')

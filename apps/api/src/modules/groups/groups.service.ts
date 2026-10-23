@@ -18,7 +18,7 @@ import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } fro
  * admin) can only ever see their own groups and their members — enforced
  * here in the service for every read. VISIBLEGROUPS imposes no read
  * restriction (writes stay capability-gated). A course with
- * `groupmodeforce` forces its mode onto every cm surface.
+ * `groupModeForce` forces its mode onto every cm surface.
  *
  * Cohort membership changes are published as outbox events
  * (cohort_member_added / cohort_member_removed); EnrolModule listens and
@@ -49,12 +49,12 @@ export class GroupsService implements OnModuleInit {
   onModuleInit(): void {
     // Availability leaves owned by this module (registry pattern).
     this.availability.register('group', async (leaf, ctx) => {
-      const groupId = String(leaf.id ?? leaf.groupid ?? '');
+      const groupId = String(leaf.id ?? leaf.groupId ?? '');
       const member = groupId ? await this.repo.isMember(groupId, ctx.userId) : false;
       return { available: member, description: this.i18n.t('availability.mustBeInGroup', { args: { groupId } }) };
     });
     this.availability.register('grouping', async (leaf, ctx) => {
-      const groupingId = String(leaf.id ?? leaf.groupingid ?? '');
+      const groupingId = String(leaf.id ?? leaf.groupingId ?? '');
       if (!groupingId) return { available: false, description: this.i18n.t('availability.groupingMissingId') };
       const groups = await this.repo.groupsInGrouping(groupingId);
       for (const g of groups) {
@@ -79,21 +79,21 @@ export class GroupsService implements OnModuleInit {
 
   /**
    * Che khoá ghi danh của nhóm đối với người không có quyền quản lý nhóm:
-   * khoá là bí mật, response chỉ mang `enrolmentkey: null` (vẫn giữ nguyên
+   * khoá là bí mật, response chỉ mang `enrolmentKey: null` (vẫn giữ nguyên
    * hình dạng bản ghi để client không phải đoán trường có tồn tại hay không).
    */
   private hideGroupKey(group: GroupRow): GroupRow {
-    return group.enrolmentkey ? { ...group, enrolmentkey: null } : group;
+    return group.enrolmentKey ? { ...group, enrolmentKey: null } : group;
   }
 
   /**
    * Tạo nhóm trong khoá học; `enrolmentKey` đặt khoá ghi danh riêng của nhóm
    * (người tạo là staff quản lý nhóm nên bản ghi trả về giữ nguyên khoá).
    */
-  async createGroup(actorId: string, courseId: string, input: { name: string; idnumber?: string; description?: string; enrolmentKey?: string }): Promise<GroupRow> {
+  async createGroup(actorId: string, courseId: string, input: { name: string; idNumber?: string; description?: string; enrolmentKey?: string }): Promise<GroupRow> {
     await this.courses.getCourse(courseId);
     await this.requireManageGroups(actorId, courseId);
-    const row = await this.repo.insertGroup({ courseid: courseId, name: input.name, idnumber: input.idnumber ?? '', description: input.description ?? '', enrolmentkey: input.enrolmentKey ?? null });
+    const row = await this.repo.insertGroup({ courseId: courseId, name: input.name, idNumber: input.idNumber ?? '', description: input.description ?? '', enrolmentKey: input.enrolmentKey ?? null });
     await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_created', payload: { groupId: row.id, courseId } });
     return row;
   }
@@ -108,11 +108,11 @@ export class GroupsService implements OnModuleInit {
   /**
    * Cập nhật nhóm; `enrolmentKey: null` xoá khoá ghi danh của nhóm.
    */
-  async updateGroup(actorId: string, id: string, input: { name?: string; idnumber?: string; description?: string; enrolmentKey?: string | null }): Promise<GroupRow> {
+  async updateGroup(actorId: string, id: string, input: { name?: string; idNumber?: string; description?: string; enrolmentKey?: string | null }): Promise<GroupRow> {
     const group = await this.getGroup(id);
-    await this.requireManageGroups(actorId, group.courseid);
+    await this.requireManageGroups(actorId, group.courseId);
     const { enrolmentKey, ...rest } = input;
-    await this.repo.updateGroup(id, { ...rest, ...(enrolmentKey !== undefined ? { enrolmentkey: enrolmentKey } : {}) });
+    await this.repo.updateGroup(id, { ...rest, ...(enrolmentKey !== undefined ? { enrolmentKey: enrolmentKey } : {}) });
     return this.getGroup(id);
   }
   /**
@@ -120,9 +120,9 @@ export class GroupsService implements OnModuleInit {
    */
   async deleteGroup(actorId: string, id: string): Promise<void> {
     const group = await this.getGroup(id);
-    await this.requireManageGroups(actorId, group.courseid);
+    await this.requireManageGroups(actorId, group.courseId);
     await this.repo.deleteGroup(id);
-    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_deleted', payload: { groupId: id, courseId: group.courseid } });
+    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_deleted', payload: { groupId: id, courseId: group.courseId } });
   }
 
   /**
@@ -140,20 +140,20 @@ export class GroupsService implements OnModuleInit {
 
   /**
    * Chế độ nhóm hiệu lực cho một bề mặt của khoá học: khi khoá bật
-   * `groupmodeforce`, chế độ của khoá thắng tuyệt đối và groupmode riêng
-   * của course module bị bỏ qua; ngược lại groupmode của cm (khác 0 =
+   * `groupModeForce`, chế độ của khoá thắng tuyệt đối và groupMode riêng
+   * của course module bị bỏ qua; ngược lại groupMode của cm (khác 0 =
    * "inherit") được ưu tiên, cuối cùng mới tới chế độ của khoá.
    */
-  effectiveGroupMode(courseRow: { groupmode: number; groupmodeforce: boolean }, cmGroupMode?: number): number {
-    if (courseRow.groupmodeforce) return courseRow.groupmode;
-    return cmGroupMode !== undefined && cmGroupMode !== 0 ? cmGroupMode : courseRow.groupmode;
+  effectiveGroupMode(courseRow: { groupMode: number; groupModeForce: boolean }, cmGroupMode?: number): number {
+    if (courseRow.groupModeForce) return courseRow.groupMode;
+    return cmGroupMode !== undefined && cmGroupMode !== 0 ? cmGroupMode : courseRow.groupMode;
   }
 
   /**
    * The groups visible to an actor in a course under the separate-groups law.
-   * Effective mode: the cm's own groupmode when a cm is given and its mode is
-   * not "inherit" (0), otherwise the course groupmode — unless the course
-   * forces its mode (groupmodeforce), which overrides the cm entirely.
+   * Effective mode: the cm's own groupMode when a cm is given and its mode is
+   * not "inherit" (0), otherwise the course groupMode — unless the course
+   * forces its mode (groupModeForce), which overrides the cm entirely.
    * VISIBLEGROUPS and NOGROUPS return every group; only SEPARATEGROUPS
    * restricts a non-privileged actor to their own groups.
    */
@@ -171,7 +171,7 @@ export class GroupsService implements OnModuleInit {
 
   /**
    * Liệt kê nhóm của khoá học. Khoá ghi danh của nhóm chỉ hiện với người có
-   * capability quản lý nhóm; học viên thường nhận `enrolmentkey: null`.
+   * capability quản lý nhóm; học viên thường nhận `enrolmentKey: null`.
    */
   async listGroups(actorId: string, courseId: string): Promise<GroupRow[]> {
     await this.courses.assertCourseAccess(actorId, courseId).catch(async () => {
@@ -196,18 +196,18 @@ export class GroupsService implements OnModuleInit {
    */
   async addMember(actorId: string, groupId: string, userId: string): Promise<void> {
     const group = await this.getGroup(groupId);
-    await this.requireManageGroups(actorId, group.courseid);
+    await this.requireManageGroups(actorId, group.courseId);
     await this.repo.addMember(groupId, userId);
-    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_member_added', payload: { groupId, courseId: group.courseid, userId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_member_added', payload: { groupId, courseId: group.courseId, userId } });
   }
   /**
    * Gỡ thành viên (kiểm capability).
    */
   async removeMember(actorId: string, groupId: string, userId: string): Promise<void> {
     const group = await this.getGroup(groupId);
-    await this.requireManageGroups(actorId, group.courseid);
+    await this.requireManageGroups(actorId, group.courseId);
     await this.repo.removeMember(groupId, userId);
-    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_member_removed', payload: { groupId, courseId: group.courseid, userId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_member_removed', payload: { groupId, courseId: group.courseId, userId } });
   }
 
   /**
@@ -218,24 +218,24 @@ export class GroupsService implements OnModuleInit {
   /**
    * Thành viên của nhóm.
    */
-  async listMembers(actorId: string, groupId: string): Promise<{ userid: string; timeadded: Date }[]> {
+  async listMembers(actorId: string, groupId: string): Promise<{ userId: string; timeAdded: Date }[]> {
     const group = await this.getGroup(groupId);
-    const visible = await this.visibleGroupsFor(actorId, group.courseid);
+    const visible = await this.visibleGroupsFor(actorId, group.courseId);
     if (!visible.some((g) => g.id === groupId)) {
       throw new ForbiddenException({ message: 'Separate groups: you cannot see members of a group you are not in', code: 'group.separate_groups_denied' });
     }
     const rows = await this.repo.listMembers(groupId);
-    return rows.map((r) => ({ userid: r.userid, timeadded: r.timeadded }));
+    return rows.map((r) => ({ userId: r.userId, timeAdded: r.timeAdded }));
   }
 
   /** All members visible to the actor across the course (used by course participant/group-data views). */
   /**
    * Thành viên mà người xem được phép thấy.
    */
-  async listVisibleMembers(actorId: string, courseId: string): Promise<{ groupId: string; userid: string }[]> {
+  async listVisibleMembers(actorId: string, courseId: string): Promise<{ groupId: string; userId: string }[]> {
     const visible = await this.visibleGroupsFor(actorId, courseId);
     const rows = await this.repo.listMembersOfGroups(visible.map((g) => g.id));
-    return rows.map((r) => ({ groupId: r.groupid, userid: r.userid }));
+    return rows.map((r) => ({ groupId: r.groupId, userId: r.userId }));
   }
 
   /**
@@ -250,8 +250,8 @@ export class GroupsService implements OnModuleInit {
   /**
    * Thêm thành viên không kiểm capability — dành cho đồng bộ nội bộ (cohort sync).
    */
-  async addMemberInternal(groupId: string, userId: string, component = '', itemid: string | null = null): Promise<void> {
-    await this.repo.addMember(groupId, userId, component, itemid);
+  async addMemberInternal(groupId: string, userId: string, component = '', itemId: string | null = null): Promise<void> {
+    await this.repo.addMember(groupId, userId, component, itemId);
   }
   /**
    * Gỡ thành viên không kiểm capability — dành cho đồng bộ nội bộ.
@@ -262,10 +262,10 @@ export class GroupsService implements OnModuleInit {
   /**
    * Tạo grouping.
    */
-  async createGrouping(actorId: string, courseId: string, input: { name: string; idnumber?: string; description?: string }): Promise<GroupingRow> {
+  async createGrouping(actorId: string, courseId: string, input: { name: string; idNumber?: string; description?: string }): Promise<GroupingRow> {
     await this.courses.getCourse(courseId);
     await this.requireManageGroups(actorId, courseId);
-    const row = await this.repo.insertGrouping({ courseid: courseId, name: input.name, idnumber: input.idnumber ?? '', description: input.description ?? '' });
+    const row = await this.repo.insertGrouping({ courseId: courseId, name: input.name, idNumber: input.idNumber ?? '', description: input.description ?? '' });
     await this.outbox.enqueueStandalone({ aggregate: 'grouping', type: 'grouping_created', payload: { groupingId: row.id, courseId } });
     return row;
   }
@@ -307,7 +307,7 @@ export class GroupsService implements OnModuleInit {
    */
   async deleteGrouping(actorId: string, id: string): Promise<void> {
     const grouping = await this.getGrouping(id);
-    await this.requireManageGroups(actorId, grouping.courseid);
+    await this.requireManageGroups(actorId, grouping.courseId);
     await this.repo.deleteGrouping(id);
   }
   /**
@@ -316,8 +316,8 @@ export class GroupsService implements OnModuleInit {
   async addGroupToGrouping(actorId: string, groupingId: string, groupId: string): Promise<void> {
     const grouping = await this.getGrouping(groupingId);
     const group = await this.getGroup(groupId);
-    if (group.courseid !== grouping.courseid) throw new ForbiddenException({ message: 'Group and grouping are in different courses', code: 'group.course_mismatch' });
-    await this.requireManageGroups(actorId, grouping.courseid);
+    if (group.courseId !== grouping.courseId) throw new ForbiddenException({ message: 'Group and grouping are in different courses', code: 'group.course_mismatch' });
+    await this.requireManageGroups(actorId, grouping.courseId);
     await this.repo.addGroupToGrouping(groupingId, groupId);
   }
   /**
@@ -330,7 +330,7 @@ export class GroupsService implements OnModuleInit {
   async groupsInGrouping(groupingId: string, actorId?: string): Promise<GroupRow[]> {
     const groups = await this.repo.groupsInGrouping(groupingId);
     if (!actorId || !groups.length) return groups;
-    const courseId = groups[0]!.courseid;
+    const courseId = groups[0]!.courseId;
     const visible = await this.visibleGroupsFor(actorId, courseId);
     const visibleIds = new Set(visible.map((g) => g.id));
     const scoped = groups.filter((g) => visibleIds.has(g.id));
@@ -339,7 +339,7 @@ export class GroupsService implements OnModuleInit {
   }
 
   // --- cohorts -------------------------------------------------------------------
-  private async cohortContextId(input: { contextlevel?: number; categoryId?: string }): Promise<string> {
+  private async cohortContextId(input: { contextLevel?: number; categoryId?: string }): Promise<string> {
     if (input.categoryId !== undefined) {
       const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSECAT, input.categoryId);
       if (!ctx) throw new NotFoundException({ message: `No context for category ${input.categoryId}`, code: 'cohort.category_context_missing' });
@@ -351,12 +351,12 @@ export class GroupsService implements OnModuleInit {
   /**
    * Tạo cohort tại context hệ thống hoặc category.
    */
-  async createCohort(actorId: string, input: { name: string; idnumber?: string; description?: string; categoryId?: string; visible?: boolean }): Promise<CohortRow> {
-    const contextid = await this.cohortContextId(input);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', contextid);
+  async createCohort(actorId: string, input: { name: string; idNumber?: string; description?: string; categoryId?: string; visible?: boolean }): Promise<CohortRow> {
+    const contextId = await this.cohortContextId(input);
+    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', contextId);
     const row = await this.repo.insertCohort({
-      name: input.name, idnumber: input.idnumber ?? '', description: input.description ?? '',
-      contextid, visible: input.visible ?? true,
+      name: input.name, idNumber: input.idNumber ?? '', description: input.description ?? '',
+      contextId, visible: input.visible ?? true,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_created', payload: { cohortId: row.id } });
     return row;
@@ -376,9 +376,9 @@ export class GroupsService implements OnModuleInit {
   /**
    * Cập nhật cohort.
    */
-  async updateCohort(actorId: string, id: string, input: { name?: string; idnumber?: string; description?: string; visible?: boolean }): Promise<CohortRow> {
+  async updateCohort(actorId: string, id: string, input: { name?: string; idNumber?: string; description?: string; visible?: boolean }): Promise<CohortRow> {
     const cohortRow = await this.getCohort(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextid);
+    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
     await this.repo.updateCohort(id, input);
     return this.getCohort(id);
   }
@@ -387,16 +387,16 @@ export class GroupsService implements OnModuleInit {
    */
   async deleteCohort(actorId: string, id: string): Promise<void> {
     const cohortRow = await this.getCohort(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextid);
+    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
     await this.repo.deleteCohort(id);
   }
   /**
    * Thành viên cohort.
    */
-  async listCohortMembers(cohortId: string): Promise<{ userid: string; timeadded: Date }[]> {
+  async listCohortMembers(cohortId: string): Promise<{ userId: string; timeAdded: Date }[]> {
     await this.getCohort(cohortId);
     const rows = await this.repo.listCohortMembers(cohortId);
-    return rows.map((r) => ({ userid: r.userid, timeadded: r.timeadded }));
+    return rows.map((r) => ({ userId: r.userId, timeAdded: r.timeAdded }));
   }
   /**
    * Kiểm tra thành viên cohort.
@@ -413,7 +413,7 @@ export class GroupsService implements OnModuleInit {
    */
   async addCohortMember(actorId: string, cohortId: string, userId: string): Promise<void> {
     const cohortRow = await this.getCohort(cohortId);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextid);
+    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
     const added = await this.repo.addCohortMember(cohortId, userId);
     if (!added) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });
@@ -424,7 +424,7 @@ export class GroupsService implements OnModuleInit {
    */
   async removeCohortMember(actorId: string, cohortId: string, userId: string): Promise<void> {
     const cohortRow = await this.getCohort(cohortId);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextid);
+    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
     const removed = await this.repo.removeCohortMember(cohortId, userId);
     if (!removed) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });

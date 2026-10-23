@@ -11,14 +11,14 @@ import { apiJson } from '#lib/api';
 
 interface ContextRow {
   id: string;
-  contextlevel: number;
-  instanceid: string;
+  contextLevel: number;
+  instanceId: string;
   path: string;
 }
 interface RoleCapabilityRow {
-  roleid: string;
+  roleId: string;
   capability: string;
-  contextid: string;
+  contextId: string;
   permission: number;
 }
 
@@ -33,7 +33,7 @@ export function AdminRolesPage() {
     [CAP.PROHIBIT]: t('permProhibit'),
   };
   /** Cột của ma trận capability trên DataTable dùng chung: lọc/sắp xếp theo tên capability (danh mục capability rất dài nên lọc là nhu cầu thật), phân trang thay cho bảng thô trước đây. */
-  const matrixColumns: DataColumn<{ name: string; contextid: string; permission: string }>[] = [
+  const matrixColumns: DataColumn<{ name: string; contextId: string; permission: string }>[] = [
     {
       id: 'capability',
       header: t('capability'),
@@ -41,7 +41,7 @@ export function AdminRolesPage() {
       sortValue: (row) => row.name,
       filterValue: (row) => row.name,
     },
-    { id: 'context', header: t('context'), cell: (row) => row.contextid },
+    { id: 'context', header: t('context'), cell: (row) => row.contextId },
     {
       id: 'permission',
       header: t('permission'),
@@ -53,7 +53,7 @@ export function AdminRolesPage() {
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
   const [contexts, setContexts] = useState<ContextRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [assign, setAssign] = useState({ userid: '', roleid: '', contextid: '' });
+  const [assign, setAssign] = useState({ userId: '', roleId: '', contextId: '' });
   const [matrixRole, setMatrixRole] = useState<Role | null>(null);
   const [matrix, setMatrix] = useState<RoleCapabilityRow[]>([]);
 
@@ -67,8 +67,8 @@ export function AdminRolesPage() {
       setRoles(r);
       setCapabilities(c);
       setContexts(x);
-      const system = x.find((ctx) => ctx.contextlevel === 10);
-      if (system) setAssign((prev) => ({ ...prev, contextid: String(system.id) }));
+      const system = x.find((ctx) => ctx.contextLevel === 10);
+      if (system) setAssign((prev) => ({ ...prev, contextId: String(system.id) }));
       setError(null);
     } catch {
       setError(t('rolesLoadFailed'));
@@ -82,9 +82,9 @@ export function AdminRolesPage() {
   async function submitAssignment() {
     await apiJson('/api/v1/access/assignments', {
       method: 'POST',
-      body: JSON.stringify({ userid: assign.userid, roleid: assign.roleid, contextid: assign.contextid }),
+      body: JSON.stringify({ userId: assign.userId, roleId: assign.roleId, contextId: assign.contextId }),
     });
-    setAssign({ ...assign, userid: '' });
+    setAssign({ ...assign, userId: '' });
   }
 
   async function showMatrix(roleRow: Role) {
@@ -110,7 +110,7 @@ export function AdminRolesPage() {
             {roles.map((r) => (
               <li key={r.id} className="flex items-center justify-between py-2">
                 <span>
-                  <strong>{r.name}</strong> <code>{r.shortname}</code>
+                  <strong>{r.name}</strong> <code>{r.shortName}</code>
                   {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
                 </span>
                 <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>
@@ -132,8 +132,8 @@ export function AdminRolesPage() {
             <Input
               id="assign-userid"
               inputMode="numeric"
-              value={assign.userid}
-              onChange={(e) => setAssign({ ...assign, userid: e.target.value })}
+              value={assign.userId}
+              onChange={(e) => setAssign({ ...assign, userId: e.target.value })}
             />
           </div>
           <div className="space-y-1">
@@ -141,13 +141,13 @@ export function AdminRolesPage() {
             <select
               id="assign-role"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-              value={assign.roleid}
-              onChange={(e) => setAssign({ ...assign, roleid: e.target.value })}
+              value={assign.roleId}
+              onChange={(e) => setAssign({ ...assign, roleId: e.target.value })}
             >
               <option value="">{t('selectRole')}</option>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.shortname}
+                  {r.shortName}
                 </option>
               ))}
             </select>
@@ -157,12 +157,12 @@ export function AdminRolesPage() {
             <select
               id="assign-context"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-              value={assign.contextid}
-              onChange={(e) => setAssign({ ...assign, contextid: e.target.value })}
+              value={assign.contextId}
+              onChange={(e) => setAssign({ ...assign, contextId: e.target.value })}
             >
               {contexts.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {t('contextOption', { level: c.contextlevel, instance: c.instanceid, path: c.path })}
+                  {t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path })}
                 </option>
               ))}
             </select>
@@ -176,7 +176,7 @@ export function AdminRolesPage() {
       {matrixRole && (
         <Card>
           <CardHeader>
-            <CardTitle>{t('matrixTitle', { shortname: matrixRole.shortname })}</CardTitle>
+            <CardTitle>{t('matrixTitle', { shortName: matrixRole.shortName })}</CardTitle>
             <CardDescription>{t('matrixDescription')}</CardDescription>
           </CardHeader>
           <DataTable
@@ -184,7 +184,7 @@ export function AdminRolesPage() {
               const row = matrix.find((m) => m.capability === cap.name);
               return {
                 name: cap.name,
-                contextid: row ? row.contextid : '—',
+                contextId: row ? row.contextId : '—',
                 permission: row ? (PERMISSION_LABEL[row.permission] ?? String(row.permission)) : t('permInherit'),
               };
             })}

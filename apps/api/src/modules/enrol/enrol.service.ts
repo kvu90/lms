@@ -29,14 +29,14 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  *    always under the current enrol rules, the user_enrolments row is kept as WITHDRAWN
  *    (soft state) instead of being hard-deleted, and `user_unenrolled` is
  *    emitted. The role assignment granted BY this enrolment is removed.
- *  - Expired enrolments (timeend in the past) are not active; the worker
+ *  - Expired enrolments (timeEnd in the past) are not active; the worker
  *    job `enrol-expiry` also flips them to SUSPENDED in bulk.
  */
 @Injectable()
 /**
  * Nghiệp vụ ghi danh (enrolment).
  * Đối chiếu Moodle: lib/enrollib.php (enrol_get_plugin, user_enrolment) và các plugin enrol_manual/enrol_self/enrol_cohort.
- * Trạng thái ghi danh: 0 = đang hiệu lực, 1 = tạm đình chỉ, 2 = đã rút; ghi danh có thể có cửa sổ thời gian (timestart/timeend).
+ * Trạng thái ghi danh: 0 = đang hiệu lực, 1 = tạm đình chỉ, 2 = đã rút; ghi danh có thể có cửa sổ thời gian (timeStart/timeEnd).
  * Cohort sync: thành viên cohort được tự động ghi danh qua instance cohort; rời cohort thì ghi danh cohort bị rút
  * (chỉ rút khi user không còn dữ liệu liên quan — bài nộp/điểm — theo probe dữ liệu liên quan, khớp hành vi Moodle).
  */
@@ -101,11 +101,11 @@ export class EnrolService implements OnModuleInit {
   /**
    * Che khoá ghi danh của instance đối với người không có quyền quản lý enrol:
    * khoá không bao giờ rời server cho học viên/người ngoài (response mang
-   * `enrolmentkey: null`, đúng hình dạng bản ghi). Dùng cho mọi đường đọc
+   * `enrolmentKey: null`, đúng hình dạng bản ghi). Dùng cho mọi đường đọc
    * instance phơi qua API; đường nội bộ vẫn dùng bản ghi gốc.
    */
   private hideInstanceKey(instance: EnrolRow): EnrolRow {
-    return instance.enrolmentkey ? { ...instance, enrolmentkey: null } : instance;
+    return instance.enrolmentKey ? { ...instance, enrolmentKey: null } : instance;
   }
 
   /**
@@ -115,7 +115,7 @@ export class EnrolService implements OnModuleInit {
    * `sendWelcomeMessage` được chỉ định rõ.
    */
   async createInstance(actorId: string, courseId: string, input: {
-    method: string; name?: string; roleShortname?: string; status?: number; enrolperiod?: number;
+    method: string; name?: string; roleShortname?: string; status?: number; enrolPeriod?: number;
     cohortId?: string; groupId?: string; onCohortLeave?: 'suspend' | 'unenrol';
     cost?: number; currency?: string; paymentAccountId?: string;
     enrolmentKey?: string; sendWelcomeMessage?: boolean; welcomeMessage?: string;
@@ -128,33 +128,33 @@ export class EnrolService implements OnModuleInit {
     if (input.method === 'cohort' && !input.cohortId) {
       throw new BadRequestException({ message: 'A cohort enrol instance requires cohortId', code: 'enrol.cohort_required' });
     }
-    let roleid: string | undefined;
+    let roleId: string | undefined;
     if (input.roleShortname) {
       const roleRow = await this.roles.getRoleByShortname(input.roleShortname);
       if (!roleRow) throw new BadRequestException({ message: `Role ${input.roleShortname} not found`, code: 'enrol.role_not_found' });
-      roleid = roleRow.id;
+      roleId = roleRow.id;
     } else {
-      roleid = await this.defaultStudentRoleId();
+      roleId = await this.defaultStudentRoleId();
     }
     if (input.method === 'fee' && (!input.cost || input.cost <= 0 || !input.currency)) {
       throw new BadRequestException({ message: 'A fee enrol instance requires a positive integer cost and a currency', code: 'enrol.fee_config_required' });
     }
     const instance = await this.repo.insertInstance({
-      courseid: courseId, enrol: input.method, name: input.name ?? null, roleid,
-      status: input.status ?? 0, enrolperiod: input.enrolperiod ?? 0,
-      customint1: input.method === 'cohort' ? (input.cohortId ?? null) : null,
-      customint2: input.groupId ?? null,
-      customtext1: input.onCohortLeave ?? 'suspend',
-      cost: input.cost ?? 0, currency: input.currency ?? '', paymentaccountid: input.paymentAccountId ?? null,
-      enrolmentkey: input.enrolmentKey ?? null,
-      sendwelcomemessage: input.sendWelcomeMessage ?? (input.method === 'self'),
-      welcomemessage: input.welcomeMessage ?? null,
+      courseId: courseId, enrol: input.method, name: input.name ?? null, roleId,
+      status: input.status ?? 0, enrolPeriod: input.enrolPeriod ?? 0,
+      customInt1: input.method === 'cohort' ? (input.cohortId ?? null) : null,
+      customInt2: input.groupId ?? null,
+      customText1: input.onCohortLeave ?? 'suspend',
+      cost: input.cost ?? 0, currency: input.currency ?? '', paymentAccountId: input.paymentAccountId ?? null,
+      enrolmentKey: input.enrolmentKey ?? null,
+      sendWelcomeMessage: input.sendWelcomeMessage ?? (input.method === 'self'),
+      welcomeMessage: input.welcomeMessage ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'enrol', type: 'enrol_instance_created', payload: { instanceId: instance.id, courseId, method: input.method } });
     // Cohort sync: enrol everyone already in the cohort.
     if (input.method === 'cohort' && input.cohortId) {
       const members = await this.groups.listCohortMembers(input.cohortId);
-      for (const m of members) await this.enrolUserInternal(instance, m.userid, actorId);
+      for (const m of members) await this.enrolUserInternal(instance, m.userId, actorId);
     }
     return instance;
   }
@@ -186,29 +186,29 @@ export class EnrolService implements OnModuleInit {
    * thái ghi danh giữ nguyên. `enrolmentKey: null` xoá khoá ghi danh.
    */
   async updateInstance(actorId: string, id: string, input: {
-    name?: string; status?: number; enrolperiod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: string;
+    name?: string; status?: number; enrolPeriod?: number; onCohortLeave?: 'suspend' | 'unenrol'; groupId?: string;
     roleShortname?: string; enrolmentKey?: string | null; sendWelcomeMessage?: boolean; welcomeMessage?: string | null;
   }): Promise<EnrolRow> {
     const instance = await this.getInstance(id);
-    await this.requireManage(actorId, instance.courseid);
+    await this.requireManage(actorId, instance.courseId);
     const patch: Partial<EnrolRow> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.status !== undefined) patch.status = input.status;
-    if (input.enrolperiod !== undefined) patch.enrolperiod = input.enrolperiod;
-    if (input.onCohortLeave !== undefined) patch.customtext1 = input.onCohortLeave;
-    if (input.groupId !== undefined) patch.customint2 = input.groupId;
-    if (input.enrolmentKey !== undefined) patch.enrolmentkey = input.enrolmentKey;
-    if (input.sendWelcomeMessage !== undefined) patch.sendwelcomemessage = input.sendWelcomeMessage;
-    if (input.welcomeMessage !== undefined) patch.welcomemessage = input.welcomeMessage;
+    if (input.enrolPeriod !== undefined) patch.enrolPeriod = input.enrolPeriod;
+    if (input.onCohortLeave !== undefined) patch.customText1 = input.onCohortLeave;
+    if (input.groupId !== undefined) patch.customInt2 = input.groupId;
+    if (input.enrolmentKey !== undefined) patch.enrolmentKey = input.enrolmentKey;
+    if (input.sendWelcomeMessage !== undefined) patch.sendWelcomeMessage = input.sendWelcomeMessage;
+    if (input.welcomeMessage !== undefined) patch.welcomeMessage = input.welcomeMessage;
     let newRoleId: string | undefined;
     if (input.roleShortname !== undefined) {
       const roleRow = await this.roles.getRoleByShortname(input.roleShortname);
       if (!roleRow) throw new BadRequestException({ message: `Role ${input.roleShortname} not found`, code: 'enrol.role_not_found' });
       newRoleId = roleRow.id;
-      patch.roleid = newRoleId;
+      patch.roleId = newRoleId;
     }
     if (Object.keys(patch).length) await this.repo.updateInstance(id, patch);
-    if (newRoleId && newRoleId !== instance.roleid) {
+    if (newRoleId && newRoleId !== instance.roleId) {
       await this.reassignEnrolledRoles(instance, newRoleId, actorId);
     }
     return this.getInstance(id);
@@ -220,17 +220,17 @@ export class EnrolService implements OnModuleInit {
    * khoá học) rồi cấp role mới cho từng người; không đụng tới bản ghi ghi danh.
    */
   private async reassignEnrolledRoles(instance: EnrolRow, newRoleId: string, modifierId: string): Promise<void> {
-    const courseCtxId = await this.courses.courseContextId(instance.courseid);
+    const courseCtxId = await this.courses.courseContextId(instance.courseId);
     const enrolments = await this.repo.listUserEnrolmentsForInstance(instance.id);
     for (const ue of enrolments) {
       if (ue.status === ENROL_WITHDRAWN) continue;
-      if (instance.roleid) {
-        const assignments = await this.roles.listAssignments({ userid: ue.userid, contextid: courseCtxId });
-        for (const a of assignments as { id: string; roleid: string }[]) {
-          if (a.roleid === instance.roleid) await this.roles.unassignRole(a.id);
+      if (instance.roleId) {
+        const assignments = await this.roles.listAssignments({ userId: ue.userId, contextId: courseCtxId });
+        for (const a of assignments as { id: string; roleId: string }[]) {
+          if (a.roleId === instance.roleId) await this.roles.unassignRole(a.id);
         }
       }
-      await this.roles.assignRole(ue.userid, newRoleId, courseCtxId, modifierId);
+      await this.roles.assignRole(ue.userId, newRoleId, courseCtxId, modifierId);
     }
   }
   /**
@@ -238,7 +238,7 @@ export class EnrolService implements OnModuleInit {
    */
   async deleteInstance(actorId: string, id: string): Promise<void> {
     const instance = await this.getInstance(id);
-    await this.requireManage(actorId, instance.courseid);
+    await this.requireManage(actorId, instance.courseId);
     await this.repo.deleteInstance(id);
   }
 
@@ -247,30 +247,30 @@ export class EnrolService implements OnModuleInit {
   /**
    * Ghi danh nội bộ không kiểm capability (dùng cho cohort sync và thanh toán đã xác nhận).
    */
-  async enrolUserInternal(instance: EnrolRow, userId: string, modifierId?: string, opts?: { timestart?: Date; timeend?: Date }): Promise<UserEnrolmentRow> {
+  async enrolUserInternal(instance: EnrolRow, userId: string, modifierId?: string, opts?: { timeStart?: Date; timeEnd?: Date }): Promise<UserEnrolmentRow> {
     if (instance.status !== 0) throw new BadRequestException({ message: 'Enrol instance is disabled', code: 'enrol.instance_disabled' });
-    const timestart = opts?.timestart ?? new Date();
-    const timeend = opts?.timeend ?? (instance.enrolperiod > 0 ? new Date(timestart.getTime() + instance.enrolperiod * 1000) : null);
+    const timeStart = opts?.timeStart ?? new Date();
+    const timeEnd = opts?.timeEnd ?? (instance.enrolPeriod > 0 ? new Date(timeStart.getTime() + instance.enrolPeriod * 1000) : null);
     const existing = await this.repo.getUserEnrolment(instance.id, userId);
     let ue: UserEnrolmentRow;
     let isNewEnrolment = false;
     if (existing) {
-      await this.repo.updateUserEnrolment(existing.id, { status: ENROL_ACTIVE, timestart, timeend, modifierid: modifierId });
+      await this.repo.updateUserEnrolment(existing.id, { status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId });
       ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
     } else {
       isNewEnrolment = true;
       ue = await this.repo.dbHandle.transaction(async (tx) => {
-        const row = await this.repo.insertUserEnrolment({ enrolid: instance.id, userid: userId, status: ENROL_ACTIVE, timestart, timeend, modifierid: modifierId }, tx as never);
-        await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseid, userId, instanceId: instance.id, method: instance.enrol } });
+        const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx as never);
+        await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol } });
         return row;
       });
     }
-    if (instance.roleid) {
-      const courseCtxId = await this.courses.courseContextId(instance.courseid);
-      await this.roles.assignRole(userId, instance.roleid, courseCtxId, modifierId);
+    if (instance.roleId) {
+      const courseCtxId = await this.courses.courseContextId(instance.courseId);
+      await this.roles.assignRole(userId, instance.roleId, courseCtxId, modifierId);
     }
-    if (instance.customint2) {
-      await this.groups.addMemberInternal(instance.customint2, userId, 'enrol_cohort', instance.id).catch(() => undefined);
+    if (instance.customInt2) {
+      await this.groups.addMemberInternal(instance.customInt2, userId, 'enrol_cohort', instance.id).catch(() => undefined);
     }
     if (isNewEnrolment) await this.maybeSendWelcomeMessage(instance, userId);
     return ue;
@@ -279,7 +279,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * Gửi tin nhắn chào mừng qua MessagingModule (provider `enrol_welcome`)
    * khi một ghi danh MỚI thành công — chỉ cho self + manual và chỉ khi
-   * instance bật `sendwelcomemessage` (mặc định lúc tạo: self bật, manual
+   * instance bật `sendWelcomeMessage` (mặc định lúc tạo: self bật, manual
    * tắt, đúng mặc định Moodle). Nội dung tuỳ biến của instance được dùng
    * nguyên văn (token `{coursename}`/`{course}` được thay bằng tên khoá);
    * không có nội dung tuỳ biến thì dùng mẫu i18n `platform.enrolWelcome*`.
@@ -292,16 +292,16 @@ export class EnrolService implements OnModuleInit {
    */
   private async maybeSendWelcomeMessage(instance: EnrolRow, userId: string): Promise<void> {
     if (instance.enrol !== 'self' && instance.enrol !== 'manual') return;
-    if (!instance.sendwelcomemessage) return;
+    if (!instance.sendWelcomeMessage) return;
     try {
-      const course = await this.courses.getCourse(instance.courseid);
-      const custom = instance.welcomemessage?.trim();
+      const course = await this.courses.getCourse(instance.courseId);
+      const custom = instance.welcomeMessage?.trim();
       const body = custom
-        ? custom.replaceAll('{coursename}', course.fullname).replaceAll('{course}', course.fullname)
-        : String(this.i18n.t('platform.enrolWelcomeBody', { args: { course: course.fullname } }));
-      const subject = String(this.i18n.t('platform.enrolWelcomeSubject', { args: { course: course.fullname } }));
+        ? custom.replaceAll('{coursename}', course.fullName).replaceAll('{course}', course.fullName)
+        : String(this.i18n.t('platform.enrolWelcomeBody', { args: { course: course.fullName } }));
+      const subject = String(this.i18n.t('platform.enrolWelcomeSubject', { args: { course: course.fullName } }));
       await this.messaging.notify(userId, 'enrol_welcome', {
-        subject, body, contextUrl: `/courses/${instance.courseid}`,
+        subject, body, contextUrl: `/courses/${instance.courseId}`,
       });
     } catch {
       /* Tin nhắn chào mừng không được phép làm hỏng ghi danh đã thành công. */
@@ -311,12 +311,12 @@ export class EnrolService implements OnModuleInit {
   /**
    * Ghi danh thủ công một user (kiểm capability enrol).
    */
-  async enrolUser(actorId: string, instanceId: string, userId: string, opts?: { timestart?: string; timeend?: string }): Promise<UserEnrolmentRow> {
+  async enrolUser(actorId: string, instanceId: string, userId: string, opts?: { timeStart?: string; timeEnd?: string }): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
-    await this.requireManage(actorId, instance.courseid);
+    await this.requireManage(actorId, instance.courseId);
     return this.enrolUserInternal(instance, userId, actorId, {
-      timestart: opts?.timestart ? new Date(opts.timestart) : undefined,
-      timeend: opts?.timeend ? new Date(opts.timeend) : undefined,
+      timeStart: opts?.timeStart ? new Date(opts.timeStart) : undefined,
+      timeEnd: opts?.timeEnd ? new Date(opts.timeEnd) : undefined,
     });
   }
 
@@ -342,11 +342,11 @@ export class EnrolService implements OnModuleInit {
     }
     if (instance.enrol !== 'self') throw new BadRequestException({ message: 'Instance is not a self-enrol instance', code: 'enrol.not_self' });
     const providedKey = enrolmentKey ? enrolmentKey : undefined;
-    const courseGroups = await this.groups.groupsForCourseInternal(instance.courseid);
+    const courseGroups = await this.groups.groupsForCourseInternal(instance.courseId);
     const matchedGroup = providedKey
-      ? courseGroups.find((g) => g.enrolmentkey !== null && g.enrolmentkey !== '' && g.enrolmentkey === providedKey)
+      ? courseGroups.find((g) => g.enrolmentKey !== null && g.enrolmentKey !== '' && g.enrolmentKey === providedKey)
       : undefined;
-    const instanceKey = instance.enrolmentkey ? instance.enrolmentkey : null;
+    const instanceKey = instance.enrolmentKey ? instance.enrolmentKey : null;
     if (instanceKey) {
       if (!providedKey) {
         throw new BadRequestException({ message: 'This course requires an enrolment key', code: 'enrol.enrolment_key_required' });
@@ -400,14 +400,14 @@ export class EnrolService implements OnModuleInit {
    */
   async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
-    await this.requireManage(actorId, instance.courseid);
+    await this.requireManage(actorId, instance.courseId);
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
     if (!ue || ue.status === ENROL_WITHDRAWN) throw new NotFoundException({ message: 'User enrolment not found', code: 'enrol.user_not_enrolled' });
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
-        payload: { courseId: instance.courseid, userId, instanceId },
+        payload: { courseId: instance.courseId, userId, instanceId },
       });
     });
     return (await this.repo.getUserEnrolment(instanceId, userId))!;
@@ -426,7 +426,7 @@ export class EnrolService implements OnModuleInit {
    */
   async unenrolUser(actorId: string, instanceId: string, userId: string): Promise<{ withdrawn: boolean }> {
     const instance = await this.getInstance(instanceId);
-    await this.requireManage(actorId, instance.courseid);
+    await this.requireManage(actorId, instance.courseId);
     return this.unenrolInternal(instance, userId, actorId);
   }
 
@@ -436,23 +436,23 @@ export class EnrolService implements OnModuleInit {
   async unenrolInternal(instance: EnrolRow, userId: string, modifierId?: string): Promise<{ withdrawn: boolean }> {
     const ue = await this.repo.getUserEnrolment(instance.id, userId);
     if (!ue) return { withdrawn: false };
-    const hasRelated = await this.hasRelatedData(instance.courseid, userId);
+    const hasRelated = await this.hasRelatedData(instance.courseId, userId);
     await this.repo.dbHandle.transaction(async (tx) => {
       if (hasRelated) {
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierid: modifierId }, tx as never);
+        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierId: modifierId }, tx as never);
       }
       await this.outbox.enqueue(tx as never, {
         aggregate: 'enrol', type: 'user_unenrolled',
-        payload: { courseId: instance.courseid, userId, instanceId: instance.id, keptData: hasRelated },
+        payload: { courseId: instance.courseId, userId, instanceId: instance.id, keptData: hasRelated },
       });
     });
     if (!hasRelated) await this.repo.deleteUserEnrolment(ue.id);
     // Remove the role assignment this enrolment granted (component-scoped in
     // Moodle; here: the instance role at the course context).
-    if (instance.roleid) {
-      const assignments = await this.roles.listAssignments({ userid: userId, contextid: await this.courses.courseContextId(instance.courseid) });
-      for (const a of assignments as { id: string; roleid: string }[]) {
-        if (a.roleid === instance.roleid) await this.roles.unassignRole(a.id);
+    if (instance.roleId) {
+      const assignments = await this.roles.listAssignments({ userId: userId, contextId: await this.courses.courseContextId(instance.courseId) });
+      for (const a of assignments as { id: string; roleId: string }[]) {
+        if (a.roleId === instance.roleId) await this.roles.unassignRole(a.id);
       }
     }
     return { withdrawn: hasRelated };
@@ -462,7 +462,7 @@ export class EnrolService implements OnModuleInit {
   /**
    * THE enrol check (Moodle is_enrolled): enrolment only, never capability.
    * onlyActive additionally requires status=ACTIVE and now within
-   * [timestart, timeend]. A record in ANY enabled instance of the course counts.
+   * [timeStart, timeEnd]. A record in ANY enabled instance of the course counts.
    */
   /**
    * User có ghi danh đang hiệu lực và trong cửa sổ thời gian hay không.
@@ -476,8 +476,8 @@ export class EnrolService implements OnModuleInit {
       if (!ue || ue.status === ENROL_WITHDRAWN) continue;
       if (opts?.onlyActive) {
         if (ue.status !== ENROL_ACTIVE) continue;
-        if (ue.timestart > now) continue;
-        if (ue.timeend && ue.timeend < now) continue;
+        if (ue.timeStart > now) continue;
+        if (ue.timeEnd && ue.timeEnd < now) continue;
       }
       if (opts?.capability) {
         const ok = await this.evaluator.hasCapability(userId, opts.capability, await this.courses.courseContextId(courseId));
@@ -515,12 +515,12 @@ export class EnrolService implements OnModuleInit {
     const expired = await this.repo.listExpiredActive(now);
     const flipped: string[] = [];
     for (const ue of expired) {
-      const instance = await this.repo.getInstance(ue.enrolid);
+      const instance = await this.repo.getInstance(ue.enrolId);
       await this.repo.dbHandle.transaction(async (tx) => {
         await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED }, tx as never);
         await this.outbox.enqueue(tx as never, {
           aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { courseId: instance?.courseid, userId: ue.userid, instanceId: ue.enrolid, reason: 'expired' },
+          payload: { courseId: instance?.courseId, userId: ue.userId, instanceId: ue.enrolId, reason: 'expired' },
         });
       });
       flipped.push(ue.id);
@@ -550,13 +550,13 @@ export class EnrolService implements OnModuleInit {
     for (const instance of instances) {
       const ue = await this.repo.getUserEnrolment(instance.id, payload.userId);
       if (!ue || ue.status === ENROL_WITHDRAWN) continue;
-      if (instance.customtext1 === 'unenrol') {
+      if (instance.customText1 === 'unenrol') {
         await this.unenrolInternal(instance, payload.userId);
       } else {
         await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED });
         await this.outbox.enqueueStandalone({
           aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { courseId: instance.courseid, userId: payload.userId, instanceId: instance.id, reason: 'cohort_removed' },
+          payload: { courseId: instance.courseId, userId: payload.userId, instanceId: instance.id, reason: 'cohort_removed' },
         });
       }
     }

@@ -11,11 +11,11 @@ export { decidePrivacyRequestSchema };
 export type DecidePrivacyRequestDto = DecidePrivacyRequest;
 
 /**
- * Schema phía server — EXTEND từ schema nền ở contracts: `userid` là field chỉ
+ * Schema phía server — EXTEND từ schema nền ở contracts: `userId` là field chỉ
  * admin mới được gửi (gửi hộ người khác); form tự phục vụ của người dùng dùng
  * schema nền không có field này.
  */
 export const createPrivacyRequestServerSchema = createPrivacyRequestSchema.extend({
-  userid: uuidIdSchema.optional(),
+  userId: uuidIdSchema.optional(),
 });
 export type CreatePrivacyRequestDto = z.infer<typeof createPrivacyRequestServerSchema>;

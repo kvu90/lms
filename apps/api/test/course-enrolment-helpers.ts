@@ -9,10 +9,10 @@ export async function createCategory(app: INestApplication, token: string, overr
   return res.body;
 }
 
-export async function createCourse(app: INestApplication, token: string, category: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; fullname: string; shortname: string; category: string }> {
-  const shortname = uniqueName('crs');
+export async function createCourse(app: INestApplication, token: string, category: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; fullName: string; shortName: string; category: string }> {
+  const shortName = uniqueName('crs');
   const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${token}`)
-    .send({ fullname: `Course ${shortname}`, shortname, category, ...overrides });
+    .send({ fullName: `Course ${shortName}`, shortName, category, ...overrides });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create course failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }
@@ -43,9 +43,9 @@ export async function createEnrolInstance(app: INestApplication, token: string, 
   return res.body;
 }
 
-export async function enrolUser(app: INestApplication, token: string, courseId: string, instanceId: string, userid: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; status: number }> {
+export async function enrolUser(app: INestApplication, token: string, courseId: string, instanceId: string, userId: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; status: number }> {
   const res = await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${instanceId}/enrol`).set('Authorization', `Bearer ${token}`)
-    .send({ userid, ...overrides });
+    .send({ userId, ...overrides });
   if (res.status !== 200 && res.status !== 201) throw new Error(`enrol failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }

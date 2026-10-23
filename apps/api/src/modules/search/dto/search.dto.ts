@@ -11,13 +11,13 @@ export type IndexItemDto = SearchIndexItem;
 
 /**
  * Schema chèn tài liệu thô — EXTEND từ schema nền ở contracts: các field
- * `title/content/contextid/ownerid` chỉ tồn tại phía server (indexer nội bộ và
+ * `title/content/contextId/ownerId` chỉ tồn tại phía server (indexer nội bộ và
  * kiểm thử index sót), không thuộc bề mặt contract công khai.
  */
 export const indexRawDocumentSchema = searchIndexItemSchema.extend({
   title: z.string().min(1),
   content: z.string(),
-  contextid: uuidIdSchema,
-  ownerid: uuidIdSchema.optional(),
+  contextId: uuidIdSchema,
+  ownerId: uuidIdSchema.optional(),
 });
 export type IndexRawDto = z.infer<typeof indexRawDocumentSchema>;

@@ -11,13 +11,13 @@ export type Aggregation = (typeof AGGREGATIONS)[number];
 
 export const gradeCategorySchema = z.object({
   id: uuidIdSchema,
-  courseid: uuidIdSchema,
+  courseId: uuidIdSchema,
   parent: uuidIdSchema.nullable(),
-  fullname: z.string(),
+  fullName: z.string(),
   aggregation: z.string(),
-  droplow: z.number().int(),
-  keephigh: z.number().int(),
-  aggregateonlygraded: z.boolean(),
+  dropLow: z.number().int(),
+  keepHigh: z.number().int(),
+  aggregateOnlyGraded: z.boolean(),
   depth: z.number().int(),
   path: z.string(),
   hidden: z.boolean(),
@@ -26,35 +26,35 @@ export type GradeCategory = z.infer<typeof gradeCategorySchema>;
 
 export const gradeItemSchema = z.object({
   id: uuidIdSchema,
-  courseid: uuidIdSchema,
-  categoryid: uuidIdSchema.nullable(),
-  itemname: z.string(),
-  itemtype: z.string(),
-  itemmodule: z.string().nullable(),
-  iteminstance: uuidIdSchema.nullable(),
-  grademax: z.number(),
-  grademin: z.number(),
-  gradepass: z.number(),
-  weightoverride: z.boolean(),
-  aggregationcoef: z.number(),
-  extracredit: z.boolean(),
+  courseId: uuidIdSchema,
+  categoryId: uuidIdSchema.nullable(),
+  itemName: z.string(),
+  itemType: z.string(),
+  itemModule: z.string().nullable(),
+  itemInstance: uuidIdSchema.nullable(),
+  gradeMax: z.number(),
+  gradeMin: z.number(),
+  gradePass: z.number(),
+  weightOverride: z.boolean(),
+  aggregationCoef: z.number(),
+  extraCredit: z.boolean(),
   multiplicator: z.number(),
-  plusfactor: z.number(),
+  plusFactor: z.number(),
   hidden: z.boolean(),
   locked: z.boolean(),
-  gradetype: z.string().optional(),
-  scaleid: uuidIdSchema.nullable().optional(),
-  outcomeid: uuidIdSchema.nullable().optional(),
-  idnumber: z.string().nullable().optional(),
+  gradeType: z.string().optional(),
+  scaleId: uuidIdSchema.nullable().optional(),
+  outcomeId: uuidIdSchema.nullable().optional(),
+  idNumber: z.string().nullable().optional(),
   calculation: z.string().nullable().optional(),
 });
 export type GradeItem = z.infer<typeof gradeItemSchema>;
 
-/** Một grade outcome: thang định tính mức site (courseid null) hoặc mức khoá học, gắn với một scale. */
+/** Một grade outcome: thang định tính mức site (courseId null) hoặc mức khoá học, gắn với một scale. */
 export const gradeOutcomeSchema = z.object({
   id: uuidIdSchema,
-  courseid: uuidIdSchema.nullable(),
-  scaleid: uuidIdSchema,
+  courseId: uuidIdSchema.nullable(),
+  scaleId: uuidIdSchema,
   name: z.string(),
   description: z.string(),
 });
@@ -62,17 +62,17 @@ export type GradeOutcome = z.infer<typeof gradeOutcomeSchema>;
 
 export const gradeGradeSchema = z.object({
   id: uuidIdSchema,
-  itemid: uuidIdSchema,
-  userid: uuidIdSchema,
-  rawgrade: z.number().nullable(),
-  finalgrade: z.number().nullable(),
+  itemId: uuidIdSchema,
+  userId: uuidIdSchema,
+  rawGrade: z.number().nullable(),
+  finalGrade: z.number().nullable(),
   hidden: z.boolean(),
   locked: z.boolean(),
   overridden: z.boolean(),
   excluded: z.boolean(),
   frozen: z.boolean(),
   feedback: z.string().nullable(),
-  aggregationweight: z.number().nullable(),
+  aggregationWeight: z.number().nullable(),
   letter: z.string().nullable(),
   scaleValue: z.string().nullable().optional(),
   outcomeName: z.string().nullable().optional(),
@@ -107,8 +107,8 @@ export type Gradebook = z.infer<typeof gradebookSchema>;
 
 export const gradeLetterSchema = z.object({
   id: uuidIdSchema,
-  contextid: uuidIdSchema,
-  lowerboundary: z.number(),
+  contextId: uuidIdSchema,
+  lowerBoundary: z.number(),
   letter: z.string(),
 });
 export type GradeLetter = z.infer<typeof gradeLetterSchema>;
@@ -117,14 +117,14 @@ export const gradeReportSchema = z.object({
   courseId: uuidIdSchema,
   rows: z.array(z.object({
     userId: uuidIdSchema,
-    finalgrade: z.number().nullable(),
+    finalGrade: z.number().nullable(),
     letter: z.string().nullable(),
     outcomes: z.array(z.object({
       itemId: uuidIdSchema,
       outcomeId: uuidIdSchema,
       outcomeName: z.string(),
       scaleValue: z.string().nullable(),
-      finalgrade: z.number().nullable(),
+      finalGrade: z.number().nullable(),
     })).optional(),
   })),
 });
@@ -135,32 +135,32 @@ export type GradeReport = z.infer<typeof gradeReportSchema>;
 export const questionCategorySchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  contextid: uuidIdSchema,
+  contextId: uuidIdSchema,
   info: z.string(),
   parent: uuidIdSchema.nullable(),
 });
 export type QuestionCategory = z.infer<typeof questionCategorySchema>;
 
 /**
- * Một phiên bản nội dung câu hỏi như API trả về: `questiontext`,
- * `generalfeedback` và `guidance` luôn là tài liệu Tiptap (đầu vào dạng
+ * Một phiên bản nội dung câu hỏi như API trả về: `questionText`,
+ * `generalFeedback` và `guidance` luôn là tài liệu Tiptap (đầu vào dạng
  * chuỗi đã được chuẩn hoá ở tầng nghiệp vụ). `guidance` là hướng dẫn mở
  * rộng cho học viên — Moodle không có trường chuẩn tương đương.
- * `stimulusid` trỏ tới ngữ liệu dùng chung mà phiên bản tham chiếu
+ * `stimulusId` trỏ tới ngữ liệu dùng chung mà phiên bản tham chiếu
  * (`null` khi câu hỏi không gắn ngữ liệu); đáp án và options KHÔNG nằm ở
  * đây mà tách ra ở cấp view (xem `questionViewSchema`).
  */
 export const questionVersionSchema = z.object({
   id: uuidIdSchema,
-  questionbankentryid: uuidIdSchema,
-  questionid: uuidIdSchema,
+  questionBankEntryId: uuidIdSchema,
+  questionId: uuidIdSchema,
   version: z.number().int(),
-  questiontext: richTextDocumentSchema,
-  generalfeedback: richTextDocumentSchema.nullable(),
+  questionText: richTextDocumentSchema,
+  generalFeedback: richTextDocumentSchema.nullable(),
   guidance: richTextDocumentSchema.nullable(),
-  defaultmark: z.number(),
+  defaultMark: z.number(),
   penalty: z.number(),
-  stimulusid: uuidIdSchema.nullable(),
+  stimulusId: uuidIdSchema.nullable(),
 });
 export type QuestionVersion = z.infer<typeof questionVersionSchema>;
 
@@ -172,11 +172,11 @@ export type QuestionVersion = z.infer<typeof questionVersionSchema>;
  */
 export const questionAnswerViewSchema = z.object({
   id: uuidIdSchema,
-  questionversionid: uuidIdSchema,
+  questionVersionId: uuidIdSchema,
   answer: richTextDocumentSchema,
   fraction: z.number(),
   feedback: richTextDocumentSchema.nullable(),
-  sortorder: z.number().int(),
+  sortOrder: z.number().int(),
 });
 export type QuestionAnswerView = z.infer<typeof questionAnswerViewSchema>;
 
@@ -201,9 +201,9 @@ export const questionViewSchema = z.object({
   }),
   entry: z.object({
     id: uuidIdSchema,
-    questioncategoryid: uuidIdSchema,
-    questionid: uuidIdSchema,
-    latestversion: z.number().int(),
+    questionCategoryId: uuidIdSchema,
+    questionId: uuidIdSchema,
+    latestVersion: z.number().int(),
   }),
   latestVersion: questionVersionSchema,
   answers: z.array(questionAnswerViewSchema),
@@ -214,14 +214,14 @@ export type QuestionView = z.infer<typeof questionViewSchema>;
 /**
  * Một ngữ liệu dùng chung (stimulus) như API trả về: thực thể độc lập gắn
  * với một question category, nội dung là một tài liệu Tiptap; nhiều phiên
- * bản câu hỏi có thể cùng tham chiếu một stimulus qua `stimulusid`.
+ * bản câu hỏi có thể cùng tham chiếu một stimulus qua `stimulusId`.
  */
 export const stimulusViewSchema = z.object({
   id: uuidIdSchema,
-  categoryid: uuidIdSchema,
-  createdby: uuidIdSchema.nullable(),
+  categoryId: uuidIdSchema,
+  createdBy: uuidIdSchema.nullable(),
   content: richTextDocumentSchema,
-  timecreated: z.string().optional(),
+  createdAt: z.string().optional(),
 });
 export type StimulusView = z.infer<typeof stimulusViewSchema>;
 
@@ -232,17 +232,17 @@ export const QUESTION_STATES = [
 
 export const questionAttemptSchema = z.object({
   id: uuidIdSchema,
-  questionusageid: uuidIdSchema,
+  questionUsageId: uuidIdSchema,
   slot: z.number().int(),
   behaviour: z.string(),
-  questionid: uuidIdSchema,
-  questionversionid: uuidIdSchema.nullable(),
-  maxmark: z.number(),
+  questionId: uuidIdSchema,
+  questionVersionId: uuidIdSchema.nullable(),
+  maxMark: z.number(),
   state: z.string(),
   fraction: z.number().nullable(),
   steps: z.array(z.object({
     id: uuidIdSchema,
-    sequencenumber: z.number().int(),
+    sequenceNumber: z.number().int(),
     state: z.string(),
     fraction: z.number().nullable(),
     data: z.record(z.string(), z.string().nullable()),
@@ -254,8 +254,8 @@ export const questionUsageSchema = z.object({
   usage: z.object({
     id: uuidIdSchema,
     component: z.string(),
-    instanceid: uuidIdSchema.nullable(),
-    preferredbehaviour: z.string(),
+    instanceId: uuidIdSchema.nullable(),
+    preferredBehaviour: z.string(),
   }),
   state: z.string(),
   attempts: z.array(questionAttemptSchema),
@@ -266,8 +266,8 @@ export type QuestionUsage = z.infer<typeof questionUsageSchema>;
 
 /** Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại. */
 export const completionCriterionSchema = z.strictObject({
-  criteriatype: z.string(),
-  moduleinstance: uuidIdSchema.optional(),
+  criteriaType: z.string(),
+  moduleInstance: uuidIdSchema.optional(),
   date: z.string().optional(),
 });
 export type CompletionCriterion = z.infer<typeof completionCriterionSchema>;
@@ -281,82 +281,82 @@ export type SetCompletionCriteria = z.infer<typeof setCompletionCriteriaSchema>;
 
 /** Payload đánh dấu hoàn thành thủ công cho một course module. */
 export const markManualCompletionSchema = z.strictObject({
-  userid: uuidIdSchema,
+  userId: uuidIdSchema,
   complete: z.boolean(),
 });
 export type MarkManualCompletion = z.infer<typeof markManualCompletionSchema>;
 
 /** Payload tạo hạng mục điểm (grade category). */
 export const createGradeCategorySchema = z.strictObject({
-  fullname: z.string().min(1),
+  fullName: z.string().min(1),
   parentId: uuidIdSchema.optional(),
   aggregation: z.string().optional(),
-  droplow: z.number().int().optional(),
-  keephigh: z.number().int().optional(),
-  aggregateonlygraded: z.boolean().optional(),
+  dropLow: z.number().int().optional(),
+  keepHigh: z.number().int().optional(),
+  aggregateOnlyGraded: z.boolean().optional(),
   hidden: z.boolean().optional(),
 });
 export type CreateGradeCategory = z.infer<typeof createGradeCategorySchema>;
 
 /** Payload sửa hạng mục điểm; `parentId` nhận `null` để đưa hạng mục về gốc. */
 export const updateGradeCategorySchema = z.strictObject({
-  fullname: z.string().optional(),
+  fullName: z.string().optional(),
   aggregation: z.string().optional(),
-  droplow: z.number().int().optional(),
-  keephigh: z.number().int().optional(),
-  aggregateonlygraded: z.boolean().optional(),
+  dropLow: z.number().int().optional(),
+  keepHigh: z.number().int().optional(),
+  aggregateOnlyGraded: z.boolean().optional(),
   hidden: z.boolean().optional(),
   parentId: uuidIdSchema.nullable().optional(),
 });
 export type UpdateGradeCategory = z.infer<typeof updateGradeCategorySchema>;
 
-/** Payload tạo mục điểm (grade item): `itemtype` manual | mod | calculated; `cmId` bắt buộc ở tầng nghiệp vụ khi là mod; `calculation` bắt buộc khi là calculated; `outcomeId` gắn outcome (điểm lưu theo chỉ số scale của outcome). */
+/** Payload tạo mục điểm (grade item): `itemType` manual | mod | calculated; `cmId` bắt buộc ở tầng nghiệp vụ khi là mod; `calculation` bắt buộc khi là calculated; `outcomeId` gắn outcome (điểm lưu theo chỉ số scale của outcome). */
 export const createGradeItemSchema = z.strictObject({
-  itemname: z.string().min(1),
-  itemtype: z.string().optional(),
+  itemName: z.string().min(1),
+  itemType: z.string().optional(),
   categoryId: uuidIdSchema.optional(),
   cmId: uuidIdSchema.optional(),
-  grademax: z.number().optional(),
-  grademin: z.number().optional(),
-  gradepass: z.number().optional(),
+  gradeMax: z.number().optional(),
+  gradeMin: z.number().optional(),
+  gradePass: z.number().optional(),
   scaleId: uuidIdSchema.optional(),
   outcomeId: uuidIdSchema.optional(),
-  idnumber: z.string().min(1).optional(),
+  idNumber: z.string().min(1).optional(),
   calculation: z.string().min(1).optional(),
-  weightoverride: z.boolean().optional(),
+  weightOverride: z.boolean().optional(),
   weight: z.number().optional(),
-  extracredit: z.boolean().optional(),
+  extraCredit: z.boolean().optional(),
   multiplicator: z.number().optional(),
-  plusfactor: z.number().optional(),
+  plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
 });
 export type CreateGradeItem = z.infer<typeof createGradeItemSchema>;
 
 /** Payload sửa mục điểm (mọi trường đều tuỳ chọn); `outcomeId`/`scaleId` nhận `null` để gỡ gắn kết. */
 export const updateGradeItemSchema = z.strictObject({
-  itemname: z.string().optional(),
+  itemName: z.string().optional(),
   categoryId: uuidIdSchema.optional(),
-  grademax: z.number().optional(),
-  grademin: z.number().optional(),
-  gradepass: z.number().optional(),
+  gradeMax: z.number().optional(),
+  gradeMin: z.number().optional(),
+  gradePass: z.number().optional(),
   scaleId: uuidIdSchema.nullable().optional(),
   outcomeId: uuidIdSchema.nullable().optional(),
-  idnumber: z.string().min(1).nullable().optional(),
+  idNumber: z.string().min(1).nullable().optional(),
   calculation: z.string().min(1).nullable().optional(),
-  weightoverride: z.boolean().optional(),
+  weightOverride: z.boolean().optional(),
   weight: z.number().optional(),
-  extracredit: z.boolean().optional(),
+  extraCredit: z.boolean().optional(),
   multiplicator: z.number().optional(),
-  plusfactor: z.number().optional(),
+  plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
   locked: z.boolean().optional(),
 });
 export type UpdateGradeItem = z.infer<typeof updateGradeItemSchema>;
 
-/** Payload chấm điểm thô cho một người dùng; `rawgrade` nhận `null` để xoá điểm. */
+/** Payload chấm điểm thô cho một người dùng; `rawGrade` nhận `null` để xoá điểm. */
 export const setGradeSchema = z.strictObject({
-  userid: uuidIdSchema,
-  rawgrade: z.number().nullable().optional(),
+  userId: uuidIdSchema,
+  rawGrade: z.number().nullable().optional(),
   feedback: z.string().optional(),
 });
 export type SetGrade = z.infer<typeof setGradeSchema>;
@@ -364,7 +364,7 @@ export type SetGrade = z.infer<typeof setGradeSchema>;
 /** Payload cập nhật trạng thái một grade đã có (ghi đè/khoá/loại trừ/ẩn/đóng băng). */
 export const updateGradeSchema = z.strictObject({
   overridden: z.boolean().optional(),
-  finalgrade: z.number().nullable().optional(),
+  finalGrade: z.number().nullable().optional(),
   locked: z.boolean().optional(),
   excluded: z.boolean().optional(),
   hidden: z.boolean().optional(),
@@ -376,7 +376,7 @@ export type UpdateGrade = z.infer<typeof updateGradeSchema>;
 /** Một mốc chữ cái trong thang điểm chữ (grade letter). */
 export const gradeLetterBoundarySchema = z.strictObject({
   letter: z.string().min(1),
-  lowerboundary: z.number(),
+  lowerBoundary: z.number(),
 });
 export type GradeLetterBoundary = z.infer<typeof gradeLetterBoundarySchema>;
 
@@ -413,7 +413,7 @@ export type UpdateGradeOutcome = z.infer<typeof updateGradeOutcomeSchema>;
 /** Payload tạo danh mục câu hỏi trong ngân hàng câu hỏi. */
 export const createQuestionCategorySchema = z.strictObject({
   name: z.string().min(1),
-  contextid: uuidIdSchema,
+  contextId: uuidIdSchema,
   info: z.string().optional(),
   parent: uuidIdSchema.optional(),
 });
@@ -434,35 +434,35 @@ export type QuestionAnswerInput = z.infer<typeof questionAnswerInputSchema>;
 /**
  * Options theo qtype trong payload tạo/sửa câu hỏi — mọi trường đều tuỳ
  * chọn, tầng nghiệp vụ chỉ lấy các trường thuộc về qtype của câu hỏi:
- * multichoice (`single`, `shuffleanswers`, `answernumbering`,
- * `shownumcorrect`, `showstandardinstruction`, ba feedback theo mức đúng),
- * truefalse (`showstandardinstruction`), shortanswer (`usecase`), essay
- * (`responseformat`, `responserequired`, `responsefieldlines`,
- * `minwordlimit`, `maxwordlimit`, `graderinfo`, `responsetemplate`).
+ * multichoice (`single`, `shuffleAnswers`, `answerNumbering`,
+ * `showNumCorrect`, `showStandardInstruction`, ba feedback theo mức đúng),
+ * truefalse (`showStandardInstruction`), shortanswer (`useCase`), essay
+ * (`responseFormat`, `responseRequired`, `responseFieldLines`,
+ * `minWordLimit`, `maxWordLimit`, `graderInfo`, `responseTemplate`).
  */
 export const questionOptionsInputSchema = z.strictObject({
   single: z.boolean().optional(),
-  shuffleanswers: z.boolean().optional(),
-  answernumbering: z.string().optional(),
-  shownumcorrect: z.boolean().optional(),
-  showstandardinstruction: z.boolean().optional(),
-  usecase: z.boolean().optional(),
-  responseformat: z.string().optional(),
-  responserequired: z.boolean().optional(),
-  responsefieldlines: z.number().int().optional(),
-  minwordlimit: z.number().int().nullable().optional(),
-  maxwordlimit: z.number().int().nullable().optional(),
-  graderinfo: richTextInputSchema.optional(),
-  responsetemplate: richTextInputSchema.optional(),
-  correctfeedback: richTextInputSchema.optional(),
-  partiallycorrectfeedback: richTextInputSchema.optional(),
-  incorrectfeedback: richTextInputSchema.optional(),
+  shuffleAnswers: z.boolean().optional(),
+  answerNumbering: z.string().optional(),
+  showNumCorrect: z.boolean().optional(),
+  showStandardInstruction: z.boolean().optional(),
+  useCase: z.boolean().optional(),
+  responseFormat: z.string().optional(),
+  responseRequired: z.boolean().optional(),
+  responseFieldLines: z.number().int().optional(),
+  minWordLimit: z.number().int().nullable().optional(),
+  maxWordLimit: z.number().int().nullable().optional(),
+  graderInfo: richTextInputSchema.optional(),
+  responseTemplate: richTextInputSchema.optional(),
+  correctFeedback: richTextInputSchema.optional(),
+  partiallyCorrectFeedback: richTextInputSchema.optional(),
+  incorrectFeedback: richTextInputSchema.optional(),
 });
 export type QuestionOptionsInput = z.infer<typeof questionOptionsInputSchema>;
 
 /**
  * Payload tạo câu hỏi theo bốn qtype chuẩn Moodle (`multichoice`,
- * `truefalse`, `shortanswer`, `essay`): `questiontext` nhận chuỗi thuần
+ * `truefalse`, `shortanswer`, `essay`): `questionText` nhận chuỗi thuần
  * hoặc tài liệu Tiptap; đáp án truyền qua `answers` + `options` theo
  * qtype và được tầng nghiệp vụ bung ra các bảng đáp án/options riêng.
  * Trường `answer` là dạng payload CŨ còn giữ để tương thích client/test
@@ -475,10 +475,10 @@ export const createQuestionSchema = z.strictObject({
   categoryId: uuidIdSchema,
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
   name: z.string().min(1),
-  questiontext: richTextInputSchema,
-  generalfeedback: richTextInputSchema.optional(),
+  questionText: richTextInputSchema,
+  generalFeedback: richTextInputSchema.optional(),
   guidance: richTextInputSchema.optional(),
-  defaultmark: z.number().optional(),
+  defaultMark: z.number().optional(),
   penalty: z.number().optional(),
   stimulusId: uuidIdSchema.optional(),
   answers: z.array(questionAnswerInputSchema).optional(),
@@ -495,10 +495,10 @@ export type CreateQuestion = z.infer<typeof createQuestionSchema>;
  */
 export const updateQuestionSchema = z.strictObject({
   name: z.string().optional(),
-  questiontext: richTextInputSchema.optional(),
-  generalfeedback: richTextInputSchema.optional(),
+  questionText: richTextInputSchema.optional(),
+  generalFeedback: richTextInputSchema.optional(),
   guidance: richTextInputSchema.optional(),
-  defaultmark: z.number().optional(),
+  defaultMark: z.number().optional(),
   penalty: z.number().optional(),
   stimulusId: uuidIdSchema.nullable().optional(),
   answers: z.array(questionAnswerInputSchema).optional(),
@@ -523,16 +523,16 @@ export type UpdateStimulus = z.infer<typeof updateStimulusSchema>;
 /** Một slot trong một lượt sử dụng câu hỏi (question usage). */
 export const questionUsageSlotSchema = z.strictObject({
   questionId: uuidIdSchema,
-  maxmark: z.number().optional(),
+  maxMark: z.number().optional(),
 });
 export type QuestionUsageSlot = z.infer<typeof questionUsageSlotSchema>;
 
 /** Payload tạo một lượt sử dụng câu hỏi (đề/bài làm) với danh sách slot. */
 export const createQuestionUsageSchema = z.strictObject({
   component: z.string().min(1),
-  instanceid: uuidIdSchema.optional(),
-  contextid: uuidIdSchema.optional(),
-  preferredbehaviour: z.string().optional(),
+  instanceId: uuidIdSchema.optional(),
+  contextId: uuidIdSchema.optional(),
+  preferredBehaviour: z.string().optional(),
   slots: z.array(questionUsageSlotSchema),
 });
 export type CreateQuestionUsage = z.infer<typeof createQuestionUsageSchema>;

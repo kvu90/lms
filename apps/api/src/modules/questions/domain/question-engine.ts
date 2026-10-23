@@ -21,7 +21,7 @@
  *   - truefalse: fraction 1 when the response matches the correct side.
  *   - shortanswer: the FIRST answer (in stored order) whose pattern matches
  *     via compare_string_with_wildcard (`*` wildcard, `\*` literal) decides
- *     the fraction; case sensitivity follows the usecase option.
+ *     the fraction; case sensitivity follows the useCase option.
  *   - multichoice single: the chosen answer's fraction; multiple: the sum
  *     of the chosen answers' fractions clamped to [0, 1].
  *   - essay: never auto-graded — the attempt goes to needsgrading.
@@ -81,7 +81,7 @@ export interface GradingData {
   answers: GradableAnswer[];
   multichoice?: { single: boolean };
   truefalse?: { trueanswerId: string; falseanswerId: string };
-  shortanswer?: { usecase: boolean };
+  shortanswer?: { useCase: boolean };
 }
 
 export interface GradeOutcome {
@@ -108,7 +108,7 @@ function escapeRegExp(s: string): string {
  * So khớp đáp án học viên với mẫu có ký tự đại diện `*` của shortanswer
  * (qtype_shortanswer_question::compare_string_with_wildcard): `*` khớp mọi
  * dãy ký tự, `\*` là dấu sao thường; hai đầu chuỗi được cắt khoảng trắng;
- * ignorecase tương ứng nghịch đảo của tuỳ chọn usecase.
+ * ignorecase tương ứng nghịch đảo của tuỳ chọn useCase.
  */
 export function compareStringWithWildcard(value: string, pattern: string, ignoreCase: boolean): boolean {
   const bits = pattern.trim().split(/(?<!\\)\*+/).map((bit) => escapeRegExp(bit.replace(/\\\*/g, '*')));
@@ -129,7 +129,7 @@ function gradeTruefalse(data: GradingData, response: string | null): GradeOutcom
 }
 
 function gradeShortanswer(data: GradingData, response: string | null): GradeOutcome {
-  const ignoreCase = !(data.shortanswer?.usecase ?? false);
+  const ignoreCase = !(data.shortanswer?.useCase ?? false);
   const given = response ?? '';
   let fraction = 0;
   for (const answer of data.answers) {

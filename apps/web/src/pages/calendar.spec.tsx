@@ -38,11 +38,11 @@ function stubFetch(calls: RecordedCall[]) {
           id: EVENT_ID,
           name: body?.name,
           description: body?.description ?? '',
-          eventtype: body?.eventtype,
-          timestart: body?.timestart,
-          timeduration: body?.timeduration ?? 0,
-          repeatid: EVENT_ID,
-          isexception: false,
+          eventType: body?.eventType,
+          timeStart: body?.timeStart,
+          timeDuration: body?.timeDuration ?? 0,
+          repeatId: EVENT_ID,
+          isException: false,
         };
         state.events = [event];
         return respond({ event, occurrences: [event] });
@@ -53,8 +53,8 @@ function stubFetch(calls: RecordedCall[]) {
           id: SUB_ID,
           name: body?.name,
           url: body?.url ?? null,
-          eventtype: body?.eventtype ?? 'user',
-          pollinterval: 604800,
+          eventType: body?.eventType ?? 'user',
+          pollInterval: 604800,
         };
         state.subs = [sub];
         return respond(sub);
@@ -151,8 +151,8 @@ describe('Calendar page — create events and subscriptions', () => {
       expect(calls.some((c) => c.url === '/api/v1/calendar/events' && c.method === 'POST')).toBe(true),
     );
     const createCall = calls.find((c) => c.url === '/api/v1/calendar/events' && c.method === 'POST');
-    expect(createCall?.body).toMatchObject({ name: 'Họp nhóm', eventtype: 'user', timeduration: 3600 });
-    expect(typeof (createCall?.body as { timestart?: unknown }).timestart).toBe('string');
+    expect(createCall?.body).toMatchObject({ name: 'Họp nhóm', eventType: 'user', timeDuration: 3600 });
+    expect(typeof (createCall?.body as { timeStart?: unknown }).timeStart).toBe('string');
     expect(await screen.findByText('Họp nhóm')).toBeInTheDocument();
     expect(await screen.findByText('Đã tạo sự kiện.')).toBeInTheDocument();
   });
@@ -170,7 +170,7 @@ describe('Calendar page — create events and subscriptions', () => {
       expect(calls.some((c) => c.url === '/api/v1/calendar/subscriptions' && c.method === 'POST')).toBe(true),
     );
     const createCall = calls.find((c) => c.url === '/api/v1/calendar/subscriptions' && c.method === 'POST');
-    expect(createCall?.body).toEqual({ name: 'Lịch trường', url: 'https://example.com/cal.ics', eventtype: 'user' });
+    expect(createCall?.body).toEqual({ name: 'Lịch trường', url: 'https://example.com/cal.ics', eventType: 'user' });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Nhập ngay' }));
     await waitFor(() =>

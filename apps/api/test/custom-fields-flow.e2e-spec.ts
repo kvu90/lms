@@ -20,14 +20,14 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     expect(cat.status).toBe(201);
     categoryId = cat.body.id;
     const mk = async (body: Record<string, unknown>) => {
-      const res = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`).send({ categoryid: categoryId, ...body });
+      const res = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`).send({ categoryId: categoryId, ...body });
       expect(res.status).toBe(201);
       return res.body;
     };
-    await mk({ shortname: 'department', name: 'Department', type: 'select', configdata: { options: ['Engineering', 'Sales'], required: true } });
-    await mk({ shortname: 'bio', name: 'Bio', type: 'textarea', configdata: {} });
-    await mk({ shortname: 'newsletter', name: 'Newsletter', type: 'checkbox', configdata: {} });
-    await mk({ shortname: 'birthdate', name: 'Birth date', type: 'date', configdata: {} });
+    await mk({ shortName: 'department', name: 'Department', type: 'select', configData: { options: ['Engineering', 'Sales'], required: true } });
+    await mk({ shortName: 'bio', name: 'Bio', type: 'textarea', configData: {} });
+    await mk({ shortName: 'newsletter', name: 'Newsletter', type: 'checkbox', configData: {} });
+    await mk({ shortName: 'birthdate', name: 'Birth date', type: 'date', configData: {} });
   });
   afterAll(async () => { await app.close(); });
 
@@ -36,7 +36,7 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
       customFields: { department: 'Engineering', bio: 'hello', newsletter: '1', birthdate: '2000-01-15' },
     });
     const profile = await http(app).get(`/api/v1/users/${user.id}`).set('Authorization', `Bearer ${admin}`);
-    const fields = Object.fromEntries((profile.body.customFields as { shortname: string; value: string | null }[]).map((f) => [f.shortname, f.value]));
+    const fields = Object.fromEntries((profile.body.customFields as { shortName: string; value: string | null }[]).map((f) => [f.shortName, f.value]));
     expect(fields.department).toBe('Engineering');
     expect(fields.newsletter).toBe('1');
     expect(fields.birthdate).toBe('2000-01-15');
@@ -67,7 +67,7 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     const user = await createUserViaApi(app, admin, { customFields: { department: 'Sales' } });
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${accessToken}`)
-      .send({ categoryid: categoryId, shortname: 'evil', name: 'Evil', type: 'text', configdata: {} });
+      .send({ categoryId: categoryId, shortName: 'evil', name: 'Evil', type: 'text', configData: {} });
     expect(res.status).toBe(403);
   });
 
@@ -75,11 +75,11 @@ describe('CustomFields: profile fields are defined as metadata and validated on 
     const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Temp', component: 'core_user', area: 'user' });
     const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryid: cat.body.id, shortname: 'tempfield', name: 'Temp', type: 'text', configdata: {} });
+      .send({ categoryId: cat.body.id, shortName: 'tempfield', name: 'Temp', type: 'text', configData: {} });
     expect(field.status).toBe(201);
     const del = await http(app).delete(`/api/v1/custom-fields/categories/${cat.body.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(200);
     const fields = await http(app).get('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`);
-    expect((fields.body as { shortname: string }[]).some((f) => f.shortname === 'tempfield')).toBe(false);
+    expect((fields.body as { shortName: string }[]).some((f) => f.shortName === 'tempfield')).toBe(false);
   });
 });

@@ -19,10 +19,10 @@ import { ProblemDetailsFilter } from './common/problem-details.filter';
 const ADMIN = { username: process.env['ADMIN_USERNAME'] ?? 'admin', password: process.env['ADMIN_PASSWORD'] ?? 'Admin123!' };
 const TEACHER_PASSWORD = ['Teacher', '123', '!'].join('');
 const STUDENT_PASSWORD = ['Student', '123', '!'].join('');
-const TEACHER = { username: 'teacher1', password: TEACHER_PASSWORD, firstname: 'Lan Anh', lastname: 'Nguyễn', email: 'teacher1@example.com' };
+const TEACHER = { username: 'teacher1', password: TEACHER_PASSWORD, firstName: 'Lan Anh', lastName: 'Nguyễn', email: 'teacher1@example.com' };
 const STUDENTS = [
-  { username: 'student1', password: STUDENT_PASSWORD, firstname: 'Minh Quân', lastname: 'Trần', email: 'student1@example.com' },
-  { username: 'student2', password: STUDENT_PASSWORD, firstname: 'Thu Hằng', lastname: 'Phạm', email: 'student2@example.com' },
+  { username: 'student1', password: STUDENT_PASSWORD, firstName: 'Minh Quân', lastName: 'Trần', email: 'student1@example.com' },
+  { username: 'student2', password: STUDENT_PASSWORD, firstName: 'Thu Hằng', lastName: 'Phạm', email: 'student2@example.com' },
 ];
 const COURSE_SHORTNAME = 'DEMO101';
 
@@ -78,14 +78,14 @@ async function main(): Promise<void> {
       category = must(await call('POST', '/courses/categories', admin, { name: 'Danh mục mẫu' }), 'create category') as { id: string; name: string };
       console.log(`[seed] category created (#${category.id})`);
     }
-    const courses = must(await call('GET', '/courses', admin), 'list courses') as { items?: { id: string; shortname: string }[] } | { id: string; shortname: string }[];
+    const courses = must(await call('GET', '/courses', admin), 'list courses') as { items?: { id: string; shortName: string }[] } | { id: string; shortName: string }[];
     const courseItems = Array.isArray(courses) ? courses : (courses.items ?? []);
-    let course = courseItems.find((c) => c.shortname === COURSE_SHORTNAME);
+    let course = courseItems.find((c) => c.shortName === COURSE_SHORTNAME);
     if (!course) {
       course = must(await call('POST', '/courses', admin, {
-        fullname: 'Khoá học mẫu: Làm quen với LMS', shortname: COURSE_SHORTNAME, category: category.id,
+        fullName: 'Khoá học mẫu: Làm quen với LMS', shortName: COURSE_SHORTNAME, category: category.id,
         summary: 'Khoá học mẫu phục vụ buổi review: có section, module, điểm, huy hiệu và sự kiện lịch.',
-      }), 'create course') as { id: string; shortname: string };
+      }), 'create course') as { id: string; shortName: string };
       console.log(`[seed] course created (#${course.id})`);
     }
     const courseId = course.id;
@@ -118,45 +118,45 @@ async function main(): Promise<void> {
       manual = must(await call('POST', `/courses/${courseId}/enrol/instances`, admin, { method: 'manual' }), 'create manual instance') as { id: string; enrol: string };
       console.log(`[seed] manual enrol instance created (#${manual.id})`);
     }
-    const enrolments = must(await call('GET', `/courses/${courseId}/enrolments`, admin), 'list enrolments') as { userid: string; status: number }[];
+    const enrolments = must(await call('GET', `/courses/${courseId}/enrolments`, admin), 'list enrolments') as { userId: string; status: number }[];
     for (const sid of studentIds) {
-      if (enrolments.some((e) => e.userid === sid && e.status !== 2)) { console.log(`[seed] student #${sid} already enrolled`); continue; }
-      must(await call('POST', `/courses/${courseId}/enrol/instances/${manual.id}/enrol`, admin, { userid: sid }), `enrol student ${sid}`);
+      if (enrolments.some((e) => e.userId === sid && e.status !== 2)) { console.log(`[seed] student #${sid} already enrolled`); continue; }
+      must(await call('POST', `/courses/${courseId}/enrol/instances/${manual.id}/enrol`, admin, { userId: sid }), `enrol student ${sid}`);
       console.log(`[seed] student #${sid} enrolled`);
     }
     // Giáo viên: gán role editingteacher tại context khoá học.
-    const roles = must(await call('GET', '/access/roles', admin), 'list roles') as { id: string; shortname: string }[];
-    const teacherRole = roles.find((r) => r.shortname === 'editingteacher');
+    const roles = must(await call('GET', '/access/roles', admin), 'list roles') as { id: string; shortName: string }[];
+    const teacherRole = roles.find((r) => r.shortName === 'editingteacher');
     if (teacherRole) {
-      const assignments = must(await call('GET', `/access/assignments?userid=${teacherId}&contextid=${content.contextId}`, admin), 'list assignments') as { roleid: string }[];
-      if (!assignments.some((a) => a.roleid === teacherRole.id)) {
-        must(await call('POST', '/access/assignments', admin, { userid: teacherId, roleid: teacherRole.id, contextid: content.contextId }), 'assign teacher role');
+      const assignments = must(await call('GET', `/access/assignments?userId=${teacherId}&contextId=${content.contextId}`, admin), 'list assignments') as { roleId: string }[];
+      if (!assignments.some((a) => a.roleId === teacherRole.id)) {
+        must(await call('POST', '/access/assignments', admin, { userId: teacherId, roleId: teacherRole.id, contextId: content.contextId }), 'assign teacher role');
         console.log('[seed] teacher1 assigned editingteacher at the course');
       } else console.log('[seed] teacher role assignment exists');
     }
 
-    const items = must(await call('GET', `/courses/${courseId}/grades/items`, admin), 'list grade items') as { id: string; itemname: string }[];
-    let item = items.find((i) => i.itemname === 'Bài kiểm tra 1');
+    const items = must(await call('GET', `/courses/${courseId}/grades/items`, admin), 'list grade items') as { id: string; itemName: string }[];
+    let item = items.find((i) => i.itemName === 'Bài kiểm tra 1');
     if (!item) {
-      item = must(await call('POST', `/courses/${courseId}/grades/items`, admin, { itemname: 'Bài kiểm tra 1', grademax: 10 }), 'create grade item') as { id: string; itemname: string };
+      item = must(await call('POST', `/courses/${courseId}/grades/items`, admin, { itemName: 'Bài kiểm tra 1', gradeMax: 10 }), 'create grade item') as { id: string; itemName: string };
       console.log(`[seed] grade item created (#${item.id})`);
     }
     const sampleGrades: [string, number][] = [[studentIds[0]!, 8.5], [studentIds[1]!, 6.5]];
     for (const [uid, grade] of sampleGrades) {
-      must(await call('POST', `/courses/grades/items/${item.id}/grades`, admin, { userid: uid, rawgrade: grade }), `set grade for ${uid}`);
+      must(await call('POST', `/courses/grades/items/${item.id}/grades`, admin, { userId: uid, rawGrade: grade }), `set grade for ${uid}`);
     }
     console.log('[seed] sample grades set (student1=8.5, student2=6.5 / 10)');
 
     const badges = must(await call('GET', '/badges', admin), 'list badges') as { id: string; name: string; status: number }[];
     let badge = badges.find((b) => b.name === 'Huy hiệu khởi đầu');
     if (!badge) {
-      badge = must(await call('POST', '/badges', admin, { name: 'Huy hiệu khởi đầu', type: 1, issuername: 'LMS Review', description: 'Cấp thủ công cho student1 để xem ngay trong buổi review.' }), 'create badge') as { id: string; name: string; status: number };
-      must(await call('PUT', `/badges/${badge.id}/criteria`, admin, { method: 1, criteria: [{ criteriatype: 'manual', params: {} }] }), 'set badge criteria');
+      badge = must(await call('POST', '/badges', admin, { name: 'Huy hiệu khởi đầu', type: 1, issuerName: 'LMS Review', description: 'Cấp thủ công cho student1 để xem ngay trong buổi review.' }), 'create badge') as { id: string; name: string; status: number };
+      must(await call('PUT', `/badges/${badge.id}/criteria`, admin, { method: 1, criteria: [{ criteriaType: 'manual', params: {} }] }), 'set badge criteria');
       must(await call('POST', `/badges/${badge.id}/status`, admin, { status: 1 }), 'activate badge');
       console.log(`[seed] badge created + activated (#${badge.id})`);
     }
-    const issued = must(await call('GET', `/badges/${badge.id}/issued`, admin), 'list issued') as { userid: string }[];
-    if (!issued.some((i) => i.userid === studentIds[0])) {
+    const issued = must(await call('GET', `/badges/${badge.id}/issued`, admin), 'list issued') as { userId: string }[];
+    if (!issued.some((i) => i.userId === studentIds[0])) {
       must(await call('POST', `/badges/${badge.id}/award`, admin, { userId: studentIds[0] }), 'award badge');
       console.log('[seed] badge awarded to student1');
     } else console.log('[seed] badge already awarded to student1');
@@ -166,7 +166,7 @@ async function main(): Promise<void> {
       const tomorrow = new Date(Date.now() + 24 * 3600_000);
       tomorrow.setHours(9, 0, 0, 0);
       must(await call('POST', '/calendar/events', admin, {
-        name: 'Buổi học trực tuyến đầu tiên', eventtype: 'course', courseid: courseId, timestart: tomorrow.toISOString(),
+        name: 'Buổi học trực tuyến đầu tiên', eventType: 'course', courseId: courseId, timeStart: tomorrow.toISOString(),
       }), 'create calendar event');
       console.log('[seed] calendar event created (tomorrow 09:00)');
     } else console.log('[seed] calendar event exists');

@@ -14,7 +14,7 @@ export type UploadMetaBaseDto = UploadFileMeta;
  * `z.coerce` ở tầng server.
  */
 export const uploadMetaServerSchema = uploadFileMetaSchema.extend({
-  contextid: uuidIdSchema,
-  itemid: uuidIdSchema.optional(),
+  contextId: uuidIdSchema,
+  itemId: uuidIdSchema.optional(),
 });
 export type UploadMetaDto = z.infer<typeof uploadMetaServerSchema>;

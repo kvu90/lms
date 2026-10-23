@@ -9,27 +9,27 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Logical file records (Moodle `files`). Physical bytes live once per contenthash (SHA-256) in content-addressed storage. */
+/** Logical file records (Moodle `files`). Physical bytes live once per content_hash (SHA-256) in content-addressed storage. */
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  contenthash: text('contenthash').notNull(),
-  contextid: uuid('contextid').notNull(),
+  contentHash: text('content_hash').notNull(),
+  contextId: uuid('context_id').notNull(),
   component: text('component').notNull(),
-  filearea: text('filearea').notNull(),
-  itemid: uuid('itemid'),
-  filepath: text('filepath').notNull().default('/'),
-  filename: text('filename').notNull(),
-  userid: uuid('userid'),
-  filesize: integer('filesize').notNull(),
-  mimetype: text('mimetype'),
+  fileArea: text('file_area').notNull(),
+  itemId: uuid('item_id'),
+  filePath: text('file_path').notNull().default('/'),
+  fileName: text('file_name').notNull(),
+  userId: uuid('user_id'),
+  fileSize: integer('file_size').notNull(),
+  mimeType: text('mime_type'),
   status: integer('status').notNull().default(0),
   source: text('source'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('files_contextid_idx').on(table.contextid),
-      index('files_itemid_idx').on(table.itemid),
-      index('files_userid_idx').on(table.userid),
+      index('files_context_id_idx').on(table.contextId),
+      index('files_item_id_idx').on(table.itemId),
+      index('files_user_id_idx').on(table.userId),
   ]);
 

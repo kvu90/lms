@@ -34,127 +34,127 @@ export class GradeRegradeProcessor extends WorkerHost {
    */
   async process(job: Job<GradeRegradeJobData>): Promise<GradeRegradeResult> {
     const { courseId } = job.data;
-    const categories = await this.db.select().from(gradeCategories).where(eq(gradeCategories.courseid, courseId));
-    const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseid, courseId));
+    const categories = await this.db.select().from(gradeCategories).where(eq(gradeCategories.courseId, courseId));
+    const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
     const itemIds = items.map((i) => i.id);
     const allGrades = itemIds.length
-      ? await this.db.select().from(gradeGrades).where(inArray(gradeGrades.itemid, itemIds))
+      ? await this.db.select().from(gradeGrades).where(inArray(gradeGrades.itemId, itemIds))
       : [];
-    const userIds = [...new Set(allGrades.map((g) => g.userid))];
+    const userIds = [...new Set(allGrades.map((g) => g.userId))];
     let updatedTotals = 0;
 
     for (const userId of userIds) {
-      const grades = allGrades.filter((g) => g.userid === userId);
-      const gradeByItem = new Map(grades.map((g) => [g.itemid, g]));
-      const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemid, g.finalgrade]));
+      const grades = allGrades.filter((g) => g.userId === userId);
+      const gradeByItem = new Map(grades.map((g) => [g.itemId, g]));
+      const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemId, g.finalGrade]));
 
-      // Calculated items (bản worker — cùng logic với API): đánh giá công thức theo idnumber
-      // trước khi tổng hợp category, kẹp vào [grademin, grademax] của item và lưu lại điểm.
-      const byIdnumber = new Map(items.filter((i) => i.idnumber).map((i) => [i.idnumber!, i]));
+      // Calculated items (bản worker — cùng logic với API): đánh giá công thức theo idNumber
+      // trước khi tổng hợp category, kẹp vào [gradeMin, gradeMax] của item và lưu lại điểm.
+      const byIdnumber = new Map(items.filter((i) => i.idNumber).map((i) => [i.idNumber!, i]));
       const computedCalc = new Map<string, number | null>();
       const resolving = new Set<string>();
       type ItemRowW = (typeof items)[number];
       const resolveFinal = (it: ItemRowW): number | null => {
-        if (it.itemtype !== 'calculated') return finalByItem.get(it.id) ?? null;
+        if (it.itemType !== 'calculated') return finalByItem.get(it.id) ?? null;
         if (computedCalc.has(it.id)) return computedCalc.get(it.id)!;
         if (resolving.has(it.id)) return null;
         resolving.add(it.id);
         let value: number | null = null;
         const existingCalc = gradeByItem.get(it.id);
-        if (existingCalc?.overridden) value = existingCalc.finalgrade;
+        if (existingCalc?.overridden) value = existingCalc.finalGrade;
         else if (it.calculation) {
           try {
-            value = evaluateGradeFormula(parseGradeFormula(it.calculation), (idnumber) => {
-              const ref = byIdnumber.get(idnumber);
+            value = evaluateGradeFormula(parseGradeFormula(it.calculation), (idNumber) => {
+              const ref = byIdnumber.get(idNumber);
               if (!ref || ref.id === it.id) return null;
               if (gradeByItem.get(ref.id)?.excluded) return null;
               return resolveFinal(ref);
             });
           } catch { value = null; }
-          if (value !== null) value = Math.min(it.grademax, Math.max(it.grademin, value));
+          if (value !== null) value = Math.min(it.gradeMax, Math.max(it.gradeMin, value));
         }
         resolving.delete(it.id);
         computedCalc.set(it.id, value);
         return value;
       };
-      for (const calcItem of items.filter((i) => i.itemtype === 'calculated')) {
+      for (const calcItem of items.filter((i) => i.itemType === 'calculated')) {
         const existingCalc = gradeByItem.get(calcItem.id);
-        if (existingCalc?.overridden) { finalByItem.set(calcItem.id, existingCalc.finalgrade); continue; }
+        if (existingCalc?.overridden) { finalByItem.set(calcItem.id, existingCalc.finalGrade); continue; }
         const value = resolveFinal(calcItem);
         finalByItem.set(calcItem.id, value);
-        const changed = !existingCalc || existingCalc.finalgrade !== value;
+        const changed = !existingCalc || existingCalc.finalGrade !== value;
         await this.db.insert(gradeGrades).values({
-          itemid: calcItem.id, userid: userId, rawgrade: existingCalc?.rawgrade ?? null, finalgrade: value,
-          aggregationstatus: value === null ? 'novalue' : 'used',
+          itemId: calcItem.id, userId: userId, rawGrade: existingCalc?.rawGrade ?? null, finalGrade: value,
+          aggregationStatus: value === null ? 'novalue' : 'used',
         }).onConflictDoUpdate({
-          target: [gradeGrades.itemid, gradeGrades.userid],
-          set: { finalgrade: value, aggregationstatus: value === null ? 'novalue' : 'used', timemodified: new Date() },
+          target: [gradeGrades.itemId, gradeGrades.userId],
+          set: { finalGrade: value, aggregationStatus: value === null ? 'novalue' : 'used', updatedAt: new Date() },
         });
         if (changed && value !== null) {
           updatedTotals += 1;
           await this.db.insert(gradeGradesHistory).values({
-            action: existingCalc ? 2 : 1, oldid: existingCalc?.id ?? null, itemid: calcItem.id, userid: userId,
-            rawgrade: null, finalgrade: value, source: 'calculation-worker',
+            action: existingCalc ? 2 : 1, oldId: existingCalc?.id ?? null, itemId: calcItem.id, userId: userId,
+            rawGrade: null, finalGrade: value, source: 'calculation-worker',
           });
           await this.db.insert(outboxEvents).values({
             aggregate: 'grades', type: 'grade_updated',
-            payload: { courseId, itemId: calcItem.id, userId, finalgrade: value, calculated: true, via: 'worker-regrade' },
+            payload: { courseId, itemId: calcItem.id, userId, finalGrade: value, calculated: true, via: 'worker-regrade' },
           });
         }
       }
 
       const byDepthDesc = [...categories].sort((a, b) => b.depth - a.depth);
       for (const cat of byDepthDesc) {
-        const totalItem = items.find((i) => (i.itemtype === 'category' && i.iteminstance === cat.id)
-          || (i.itemtype === 'course' && cat.parent === null));
+        const totalItem = items.find((i) => (i.itemType === 'category' && i.itemInstance === cat.id)
+          || (i.itemType === 'course' && cat.parent === null));
         if (!totalItem) continue;
         const existing = gradeByItem.get(totalItem.id);
-        if (existing?.overridden) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
-        if (existing?.frozen && existing.finalgrade !== null) { finalByItem.set(totalItem.id, existing.finalgrade); continue; }
-        // Item thang định tính (gradetype='scale', gồm item gắn outcome) không tham gia tổng hợp số — cùng luật với API.
-        const childItems = items.filter((i) => i.categoryid === cat.id && i.id !== totalItem.id
-          && !i.outcomeid && i.gradetype !== 'scale');
+        if (existing?.overridden) { finalByItem.set(totalItem.id, existing.finalGrade); continue; }
+        if (existing?.frozen && existing.finalGrade !== null) { finalByItem.set(totalItem.id, existing.finalGrade); continue; }
+        // Item thang định tính (gradeType='scale', gồm item gắn outcome) không tham gia tổng hợp số — cùng luật với API.
+        const childItems = items.filter((i) => i.categoryId === cat.id && i.id !== totalItem.id
+          && !i.outcomeId && i.gradeType !== 'scale');
         const calcItems: CalcItemInput[] = childItems.map((ci) => {
           const g = gradeByItem.get(ci.id);
-          const isSubTotal = ci.itemtype === 'category' || ci.itemtype === 'course';
-          const isCalculated = ci.itemtype === 'calculated';
+          const isSubTotal = ci.itemType === 'category' || ci.itemType === 'course';
+          const isCalculated = ci.itemType === 'calculated';
           return {
-            itemId: ci.id, grademin: ci.grademin, grademax: ci.grademax,
+            itemId: ci.id, gradeMin: ci.gradeMin, gradeMax: ci.gradeMax,
             grade: finalByItem.get(ci.id) ?? null,
-            excluded: g?.excluded ?? false, extracredit: ci.extracredit,
-            weightOverride: ci.weightoverride, weight: ci.aggregationcoef, aggregationcoef: ci.aggregationcoef,
-            multiplicator: (isSubTotal || isCalculated) ? 1 : ci.multiplicator, offset: (isSubTotal || isCalculated) ? 0 : ci.plusfactor,
+            excluded: g?.excluded ?? false, extraCredit: ci.extraCredit,
+            weightOverride: ci.weightOverride, weight: ci.aggregationCoef, aggregationCoef: ci.aggregationCoef,
+            multiplicator: (isSubTotal || isCalculated) ? 1 : ci.multiplicator, offset: (isSubTotal || isCalculated) ? 0 : ci.plusFactor,
             frozen: g?.frozen ?? false,
           };
         });
         const result = calculateCategory({
           aggregation: cat.aggregation as AggregationStrategy,
-          grademin: totalItem.grademin, grademax: totalItem.grademax,
-          droplow: cat.droplow, keephigh: cat.keephigh, aggregateOnlyGraded: cat.aggregateonlygraded,
+          gradeMin: totalItem.gradeMin, gradeMax: totalItem.gradeMax,
+          dropLow: cat.dropLow, keepHigh: cat.keepHigh, aggregateOnlyGraded: cat.aggregateOnlyGraded,
           items: calcItems,
         });
-        if ((cat.aggregation === 'natural' || cat.aggregation === 'sum') && Math.abs(result.grademax - totalItem.grademax) > 1e-9) {
-          await this.db.update(gradeItems).set({ grademax: result.grademax }).where(eq(gradeItems.id, totalItem.id));
-          totalItem.grademax = result.grademax;
+        if ((cat.aggregation === 'natural' || cat.aggregation === 'sum') && Math.abs(result.gradeMax - totalItem.gradeMax) > 1e-9) {
+          await this.db.update(gradeItems).set({ gradeMax: result.gradeMax }).where(eq(gradeItems.id, totalItem.id));
+          totalItem.gradeMax = result.gradeMax;
         }
-        const changed = !existing || existing.finalgrade !== result.finalgrade;
+        const changed = !existing || existing.finalGrade !== result.finalGrade;
         await this.db.insert(gradeGrades).values({
-          itemid: totalItem.id, userid: userId, rawgrade: null, finalgrade: result.finalgrade,
-          aggregationstatus: result.finalgrade === null ? 'novalue' : 'used',
+          itemId: totalItem.id, userId: userId, rawGrade: null, finalGrade: result.finalGrade,
+          aggregationStatus: result.finalGrade === null ? 'novalue' : 'used',
         }).onConflictDoUpdate({
-          target: [gradeGrades.itemid, gradeGrades.userid],
-          set: { finalgrade: result.finalgrade, aggregationstatus: result.finalgrade === null ? 'novalue' : 'used', timemodified: new Date() },
+          target: [gradeGrades.itemId, gradeGrades.userId],
+          set: { finalGrade: result.finalGrade, aggregationStatus: result.finalGrade === null ? 'novalue' : 'used', updatedAt: new Date() },
         });
-        finalByItem.set(totalItem.id, result.finalgrade);
-        if (changed && result.finalgrade !== null) {
+        finalByItem.set(totalItem.id, result.finalGrade);
+        if (changed && result.finalGrade !== null) {
           updatedTotals += 1;
           await this.db.insert(gradeGradesHistory).values({
-            action: existing ? 2 : 1, oldid: existing?.id ?? null, itemid: totalItem.id, userid: userId,
-            rawgrade: null, finalgrade: result.finalgrade, source: 'regrade-worker',
+            action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: totalItem.id, userId: userId,
+            rawGrade: null, finalGrade: result.finalGrade, source: 'regrade-worker',
           });
           await this.db.insert(outboxEvents).values({
             aggregate: 'grades', type: 'grade_updated',
-            payload: { courseId, itemId: totalItem.id, userId, finalgrade: result.finalgrade, calculated: true, via: 'worker-regrade' },
+            payload: { courseId, itemId: totalItem.id, userId, finalGrade: result.finalGrade, calculated: true, via: 'worker-regrade' },
           });
         }
       }

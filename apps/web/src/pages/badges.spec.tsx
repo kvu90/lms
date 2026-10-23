@@ -19,15 +19,15 @@ const ISSUED_USER_ID = '01900000-0000-7000-8000-000000000099';
 const PROFILE = {
   id: ADMIN_ID,
   username: 'admin',
-  firstname: 'Quản',
-  lastname: 'Trị',
+  firstName: 'Quản',
+  lastName: 'Trị',
   email: 'admin@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 
@@ -55,26 +55,26 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
       if (url === '/api/v1/courses') return respond([]);
       if (url === '/api/v1/badges') {
         return respond([
-          { id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseid: null, status: state.badgeStatus },
+          { id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseId: null, status: state.badgeStatus },
         ]);
       }
       if (url === '/api/v1/badges/mine') {
         return respond([
           {
             id: '01900000-0000-7000-8000-000000000011',
-            badgeid: BADGE_ID,
-            userid: ADMIN_ID,
-            uniquehash: 'abcdef0123456789',
-            dateissued: '2026-10-20T00:00:00.000Z',
-            dateexpire: null,
+            badgeId: BADGE_ID,
+            userId: ADMIN_ID,
+            uniqueHash: 'abcdef0123456789',
+            dateIssued: '2026-10-20T00:00:00.000Z',
+            dateExpire: null,
             revoked: false,
-            badge: { id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseid: null, status: 1 },
+            badge: { id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseId: null, status: 1 },
           },
         ]);
       }
       if (url === `/api/v1/badges/${BADGE_ID}/status` && method === 'POST') {
         state.badgeStatus = 1;
-        return respond({ id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseid: null, status: 1 });
+        return respond({ id: BADGE_ID, name: 'Finisher', description: '', type: 1, courseId: null, status: 1 });
       }
       if (url === `/api/v1/badges/${BADGE_ID}/criteria` && method === 'PUT') {
         return respond({ method: 1, criteria: [] });
@@ -83,11 +83,11 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
         return respond([
           {
             id: '01900000-0000-7000-8000-000000000021',
-            badgeid: BADGE_ID,
-            userid: ISSUED_USER_ID,
-            uniquehash: 'feedface99887766',
-            dateissued: '2026-10-21T00:00:00.000Z',
-            dateexpire: null,
+            badgeId: BADGE_ID,
+            userId: ISSUED_USER_ID,
+            uniqueHash: 'feedface99887766',
+            dateIssued: '2026-10-21T00:00:00.000Z',
+            dateExpire: null,
             revoked: false,
           },
         ]);
@@ -177,7 +177,7 @@ describe('Badges page — real endpoints', () => {
     const putCall = calls.find((c) => c.url === `/api/v1/badges/${BADGE_ID}/criteria`);
     expect(putCall?.body).toEqual({
       method: 1,
-      criteria: [{ criteriatype: 'coursecompletion', params: { courseId } }],
+      criteria: [{ criteriaType: 'coursecompletion', params: { courseId } }],
     });
   });
 });

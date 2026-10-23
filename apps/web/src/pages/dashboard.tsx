@@ -21,13 +21,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/car
 interface CalendarEventView {
   id: string;
   name: string;
-  timestart: string;
+  timeStart: string;
 }
 
 /** Hình dạng thông báo mà trang này cần (khớp NotificationView của trang thông báo). */
 interface NotificationLite {
   id: string;
-  timeread: string | null;
+  timeRead: string | null;
 }
 
 /** Lỗi có phải 403 hay không — để hiện thông báo thân thiện thay vì lỗi thô. */
@@ -60,7 +60,7 @@ function BlockNotice() {
  * người dùng có capability quản trị, và chỉ gọi các endpoint quản trị
  * (danh sách người dùng, cây danh mục, danh sách vai trò). Số liệu lấy từ
  * chính các response đó — tổng người dùng từ trường `total` của API, biểu
- * đồ gom tài khoản theo tuần tạo từ `timecreated`.
+ * đồ gom tài khoản theo tuần tạo từ `createdAt`.
  */
 function AdminSection() {
   const { t, i18n } = useTranslation(['dashboard', 'app']);
@@ -145,7 +145,7 @@ function AdminSection() {
       const start = new Date(now.getTime() - (7 - i) * 7 * 86_400_000);
       const end = new Date(start.getTime() + 7 * 86_400_000);
       const value = users.users.filter((u) => {
-        const created = new Date(u.timecreated);
+        const created = new Date(u.createdAt);
         return created >= start && created < end;
       }).length;
       return { label: dayLabel(start, i18n.language), value };
@@ -155,10 +155,10 @@ function AdminSection() {
   const columns: DataColumn<UserListResponse['users'][number]>[] = [
     { id: 'username', header: t('app:username'), cell: (u) => u.username, sortValue: (u) => u.username },
     {
-      id: 'fullname',
+      id: 'fullName',
       header: t('dashboard:colFullName'),
-      cell: (u) => `${u.firstname} ${u.lastname}`.trim(),
-      sortValue: (u) => `${u.firstname} ${u.lastname}`,
+      cell: (u) => `${u.firstName} ${u.lastName}`.trim(),
+      sortValue: (u) => `${u.firstName} ${u.lastName}`,
     },
     { id: 'email', header: t('app:email'), cell: (u) => u.email ?? '—', sortValue: (u) => u.email ?? '' },
     {
@@ -225,7 +225,7 @@ function TeacherSection() {
   const teaching = perms.teaching;
 
   const rows = teaching.flatMap((c) => c.report?.rows ?? []);
-  const graded = rows.filter((r) => r.finalgrade !== null).length;
+  const graded = rows.filter((r) => r.finalGrade !== null).length;
   const cards: StatCard[] = [
     {
       id: 'teacher-courses',
@@ -257,11 +257,11 @@ function TeacherSection() {
     ];
     const counts = buckets.map(() => 0);
     for (const access of teaching) {
-      const max = access.gradebook?.courseTotal?.item.grademax;
+      const max = access.gradebook?.courseTotal?.item.gradeMax;
       if (!max || max <= 0) continue;
       for (const row of access.report?.rows ?? []) {
-        if (row.finalgrade === null) continue;
-        const pct = (row.finalgrade / max) * 100;
+        if (row.finalGrade === null) continue;
+        const pct = (row.finalGrade / max) * 100;
         const idx = buckets.findIndex((b) => pct >= b.min && pct < b.max);
         if (idx >= 0) counts[idx] = (counts[idx] ?? 0) + 1;
       }
@@ -273,8 +273,8 @@ function TeacherSection() {
     {
       id: 'course',
       header: t('colCourse'),
-      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullname}</Link>,
-      sortValue: (c) => c.course.fullname,
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullName}</Link>,
+      sortValue: (c) => c.course.fullName,
     },
     {
       id: 'students',
@@ -285,8 +285,8 @@ function TeacherSection() {
     {
       id: 'ungraded',
       header: t('colUngraded'),
-      cell: (c) => String((c.report?.rows ?? []).filter((r) => r.finalgrade === null).length),
-      sortValue: (c) => (c.report?.rows ?? []).filter((r) => r.finalgrade === null).length,
+      cell: (c) => String((c.report?.rows ?? []).filter((r) => r.finalGrade === null).length),
+      sortValue: (c) => (c.report?.rows ?? []).filter((r) => r.finalGrade === null).length,
     },
     {
       id: 'actions',
@@ -366,14 +366,14 @@ function StudentSection() {
   });
 
   const badgeCount = badgesQuery.data ? badgesQuery.data.length : null;
-  const unread = notificationsQuery.data ? notificationsQuery.data.filter((n) => n.timeread === null).length : null;
+  const unread = notificationsQuery.data ? notificationsQuery.data.filter((n) => n.timeRead === null).length : null;
   const events = eventsQuery.data ?? [];
 
   const gradedTotals: { grade: number; max: number }[] = [];
   for (const access of learning) {
     const total = access.gradebook?.courseTotal;
-    if (total?.grade?.finalgrade !== null && total?.grade?.finalgrade !== undefined && total.item.grademax > 0) {
-      gradedTotals.push({ grade: total.grade.finalgrade, max: total.item.grademax });
+    if (total?.grade?.finalGrade !== null && total?.grade?.finalGrade !== undefined && total.item.gradeMax > 0) {
+      gradedTotals.push({ grade: total.grade.finalGrade, max: total.item.gradeMax });
     }
   }
   const average =
@@ -420,7 +420,7 @@ function StudentSection() {
       const day = new Date(start.getTime() + i * 86_400_000);
       const next = new Date(day.getTime() + 86_400_000);
       const value = events.filter((e) => {
-        const at = new Date(e.timestart);
+        const at = new Date(e.timeStart);
         return at >= day && at < next;
       }).length;
       return { label: dayLabel(day, i18n.language), value };
@@ -431,8 +431,8 @@ function StudentSection() {
     {
       id: 'course',
       header: t('colCourse'),
-      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullname}</Link>,
-      sortValue: (c) => c.course.fullname,
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullName}</Link>,
+      sortValue: (c) => c.course.fullName,
     },
     {
       id: 'mygrade',
@@ -440,9 +440,9 @@ function StudentSection() {
       cell: (c) => {
         const total = c.gradebook?.courseTotal;
         if (!total?.grade) return '—';
-        return `${total.grade.finalgrade ?? '—'} / ${total.item.grademax}`;
+        return `${total.grade.finalGrade ?? '—'} / ${total.item.gradeMax}`;
       },
-      sortValue: (c) => c.gradebook?.courseTotal?.grade?.finalgrade ?? -1,
+      sortValue: (c) => c.gradebook?.courseTotal?.grade?.finalGrade ?? -1,
     },
     {
       id: 'letter',
@@ -521,7 +521,7 @@ export function DashboardPage() {
   }
 
   const hasBlocks = perms.canAdminister || perms.teaching.length > 0 || perms.learning.length > 0;
-  const name = user ? `${user.firstname} ${user.lastname}`.trim() || user.username : '';
+  const name = user ? `${user.firstName} ${user.lastName}`.trim() || user.username : '';
 
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">

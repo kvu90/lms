@@ -8,8 +8,8 @@ import {
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
 } from '../src/processors/platform-services.processors';
 import {
-  backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportbuilderReport,
-  reportbuilderSchedule, searchDocuments, userEnrolments, users,
+  backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportBuilderReport,
+  reportBuilderSchedule, searchDocuments, userEnrolments, users,
 } from '../src/db/schema';
 import { WorkerModule } from '../src/worker.module';
 
@@ -35,35 +35,35 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     db = context.get(getDrizzleToken());
     const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk5-cat-${suffix}`}, '') returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     // Chuỗi context phải hợp lệ theo bất biến của cây context: path gồm
     // các id UUID thật và kết thúc bằng id của chính context — tài liệu
     // search gắn với context này được PermissionEvaluator ở phía API
     // duyệt lại theo path, path hư cấu sẽ làm nổ truy vấn đó.
-    await db.execute(sql`insert into context (id, contextlevel, instanceid, path, depth)
+    await db.execute(sql`insert into context (id, context_level, instance_id, path, depth)
       select '01990000-0000-7000-8000-0000000000a1', 10, null, '/01990000-0000-7000-8000-0000000000a1', 1
-      where not exists (select 1 from context where contextlevel = 10 and instanceid is null)`);
-    const sysRows = await db.execute(sql`select id from context where contextlevel = 10 and instanceid is null limit 1`);
+      where not exists (select 1 from context where context_level = 10 and instance_id is null)`);
+    const sysRows = await db.execute(sql`select id from context where context_level = 10 and instance_id is null limit 1`);
     const systemCtxId = (sysRows.rows[0] as { id: string }).id;
-    const ctxRows = await db.execute(sql`insert into context (contextlevel, instanceid, path, depth) values (50, ${courseId}, '', 2) returning id`);
+    const ctxRows = await db.execute(sql`insert into context (context_level, instance_id, path, depth) values (50, ${courseId}, '', 2) returning id`);
     courseCtxId = (ctxRows.rows[0] as { id: string }).id;
     await db.execute(sql`update context set path = ${`/${systemCtxId}/${courseCtxId}`} where id = ${courseCtxId}`);
     void courseCtxId;
-    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${userId}, ${`wk5-u-${suffix}`}, ${`wk5u${suffix}@x.io`}, 'Risk', 'Student', false, false) on conflict (id) do nothing`);
-    await db.execute(sql`insert into users (id, username, email, firstname, lastname, suspended, deleted) values (${teacherId}, ${`wk5-t-${suffix}`}, ${`wk5t${suffix}@x.io`}, 'Teach', 'Er', false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${userId}, ${`wk5-u-${suffix}`}, ${`wk5u${suffix}@x.io`}, 'Risk', 'Student', false, false) on conflict (id) do nothing`);
+    await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${teacherId}, ${`wk5-t-${suffix}`}, ${`wk5t${suffix}@x.io`}, 'Teach', 'Er', false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into course_sections (course, section, name) values (${courseId}, 0, 'General')`);
     await db.execute(sql`insert into course_sections (course, section, name) values (${courseId}, 1, 'Week 1')`);
     // Teacher assignment ở course context (role editingteacher có sẵn từ seed API? tạo nếu thiếu).
-    await db.execute(sql`insert into role (name, shortname, archetype, sortorder) values ('Teacher', ${`wkteach${suffix}`}, 'editingteacher', 3) on conflict (shortname) do nothing`);
-    const roleRows = await db.execute(sql`select id from role where shortname = ${`wkteach${suffix}`}`);
+    await db.execute(sql`insert into role (name, short_name, archetype, sort_order) values ('Teacher', ${`wkteach${suffix}`}, 'editingteacher', 3) on conflict (short_name) do nothing`);
+    const roleRows = await db.execute(sql`select id from role where short_name = ${`wkteach${suffix}`}`);
     const roleId = (roleRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into role_assignments (roleid, userid, contextid) values (${roleId}, ${teacherId}, ${courseCtxId})`);
+    await db.execute(sql`insert into role_assignments (role_id, user_id, context_id) values (${roleId}, ${teacherId}, ${courseCtxId})`);
   });
   afterAll(async () => { await context.close(); });
 
   it('backup processor builds a versioned archive with contributor steps and is idempotent on replay', async () => {
-    const [job] = await db.insert(backupJobs).values({ type: 'backup', courseid: courseId, userid: teacherId, status: 'pending' }).returning();
+    const [job] = await db.insert(backupJobs).values({ type: 'backup', courseId: courseId, userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(BackupProcessor);
     const first = await processor.process({ data: { jobId: job.id } } as never);
     expect(first.status).toBe('completed');
@@ -77,24 +77,24 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
 
   it('backup processor archive contains the new questions/badges/calendar sections (same lms-backup v1 format as the API)', async () => {
     // Ngân hàng câu hỏi ở context của khoá + badge của khoá + sự kiện/subscription của khoá.
-    const qCatRows = await db.execute(sql`insert into question_categories (name, contextid) values (${`wk5-bank-${suffix}`}, ${courseCtxId}) returning id`);
+    const qCatRows = await db.execute(sql`insert into question_categories (name, context_id) values (${`wk5-bank-${suffix}`}, ${courseCtxId}) returning id`);
     const qCatId = (qCatRows.rows[0] as { id: string }).id;
     const qRows = await db.execute(sql`insert into question (category, qtype, name) values (${qCatId}, 'truefalse', 'WK5 question') returning id`);
     const qId = (qRows.rows[0] as { id: string }).id;
-    const entryRows = await db.execute(sql`insert into question_bank_entries (questioncategoryid, questionid, latestversion) values (${qCatId}, ${qId}, 2) returning id`);
+    const entryRows = await db.execute(sql`insert into question_bank_entries (question_category_id, question_id, latest_version) values (${qCatId}, ${qId}, 2) returning id`);
     const entryId = (entryRows.rows[0] as { id: string }).id;
     const doc = (text: string) =>
       JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
-    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 1, ${doc('v1')}::jsonb)`);
-    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 2, ${doc('v2')}::jsonb)`);
-    const badgeRows = await db.execute(sql`insert into badge (name, type, courseid, status) values (${`WK5 badge ${suffix}`}, 2, ${courseId}, 0) returning id`);
+    await db.execute(sql`insert into question_versions (question_bank_entry_id, question_id, version, question_text) values (${entryId}, ${qId}, 1, ${doc('v1')}::jsonb)`);
+    await db.execute(sql`insert into question_versions (question_bank_entry_id, question_id, version, question_text) values (${entryId}, ${qId}, 2, ${doc('v2')}::jsonb)`);
+    const badgeRows = await db.execute(sql`insert into badge (name, type, course_id, status) values (${`WK5 badge ${suffix}`}, 2, ${courseId}, 0) returning id`);
     const badgeId = (badgeRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into badge_criteria (badgeid, criteriatype, method, params) values (${badgeId}, 'overall', 1, '{}'::jsonb)`);
-    await db.execute(sql`insert into badge_criteria (badgeid, criteriatype, method, params) values (${badgeId}, 'coursecompletion', 1, ${JSON.stringify({ courseId })}::jsonb)`);
-    await db.execute(sql`insert into calendar_events (name, eventtype, courseid, timestart) values (${`WK5 event ${suffix}`}, 'course', ${courseId}, now())`);
-    await db.execute(sql`insert into calendar_subscriptions (name, eventtype, courseid) values (${`WK5 feed ${suffix}`}, 'course', ${courseId})`);
+    await db.execute(sql`insert into badge_criteria (badge_id, criteria_type, method, params) values (${badgeId}, 'overall', 1, '{}'::jsonb)`);
+    await db.execute(sql`insert into badge_criteria (badge_id, criteria_type, method, params) values (${badgeId}, 'coursecompletion', 1, ${JSON.stringify({ courseId })}::jsonb)`);
+    await db.execute(sql`insert into calendar_events (name, event_type, course_id, time_start) values (${`WK5 event ${suffix}`}, 'course', ${courseId}, now())`);
+    await db.execute(sql`insert into calendar_subscriptions (name, event_type, course_id) values (${`WK5 feed ${suffix}`}, 'course', ${courseId})`);
 
-    const [job] = await db.insert(backupJobs).values({ type: 'backup', courseid: courseId, userid: teacherId, status: 'pending' }).returning();
+    const [job] = await db.insert(backupJobs).values({ type: 'backup', courseId: courseId, userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(BackupProcessor);
     const result = await processor.process({ data: { jobId: job.id } } as never);
     expect(result.status).toBe('completed');
@@ -104,17 +104,17 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     expect(row.archive.contributors.questions).toEqual({ categories: 1, questions: 1, entries: 1, versions: 2 });
     expect(row.archive.contributors.badges).toEqual({ badges: 1, criteria: 2 });
     expect(row.archive.contributors.calendar).toEqual({ events: 1, subscriptions: 1 });
-    const steps = await db.execute(sql`select name from backup_job_steps where jobid = ${job.id}`);
+    const steps = await db.execute(sql`select name from backup_job_steps where job_id = ${job.id}`);
     expect((steps.rows as { name: string }[]).map((s) => s.name)).toEqual(
       expect.arrayContaining(['questions', 'badges', 'calendar']));
   });
 
   it('backup processor handles a site-scope job (no course) with only the site-level sections', async () => {
-    const sysRows = await db.execute(sql`select id from context where contextlevel = 10 and instanceid is null limit 1`);
+    const sysRows = await db.execute(sql`select id from context where context_level = 10 and instance_id is null limit 1`);
     const systemCtxId = (sysRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into question_categories (name, contextid) values (${`wk5-site-bank-${suffix}`}, ${systemCtxId})`);
-    await db.execute(sql`insert into badge (name, type, courseid, status) values (${`WK5 site badge ${suffix}`}, 1, null, 0)`);
-    const [job] = await db.insert(backupJobs).values({ type: 'backup', scope: 'site', courseid: null, userid: teacherId, status: 'pending' }).returning();
+    await db.execute(sql`insert into question_categories (name, context_id) values (${`wk5-site-bank-${suffix}`}, ${systemCtxId})`);
+    await db.execute(sql`insert into badge (name, type, course_id, status) values (${`WK5 site badge ${suffix}`}, 1, null, 0)`);
+    const [job] = await db.insert(backupJobs).values({ type: 'backup', scope: 'site', courseId: null, userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(BackupProcessor);
     const result = await processor.process({ data: { jobId: job.id } } as never);
     expect(result.status).toBe('completed');
@@ -129,9 +129,9 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
     const catId = (catRows.rows[0] as { category: string }).category;
-    const targetRows = await db.execute(sql`insert into course (category, fullname, shortname) values (${catId}, ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
+    const targetRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
     const targetId = (targetRows.rows[0] as { id: string }).id;
-    const [job] = await db.insert(backupJobs).values({ type: 'restore', courseid: courseId, targetcourseid: targetId, mode: 'new', userid: teacherId, status: 'pending' }).returning();
+    const [job] = await db.insert(backupJobs).values({ type: 'restore', courseId: courseId, targetCourseId: targetId, mode: 'new', userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(RestoreProcessor);
     const result = await processor.process({ data: { jobId: job.id } } as never);
     expect(result.status).toBe('completed');
@@ -144,53 +144,53 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     const processor = context.get(SearchReindexProcessor);
     const first = await processor.process({ data: {} } as never);
     expect(first.indexed).toBeGreaterThan(0);
-    const docs1 = await db.select().from(searchDocuments).where(and(eq(searchDocuments.area, 'courses'), eq(searchDocuments.itemid, courseId)));
+    const docs1 = await db.select().from(searchDocuments).where(and(eq(searchDocuments.area, 'courses'), eq(searchDocuments.itemId, courseId)));
     expect(docs1).toHaveLength(1);
     await processor.process({ data: {} } as never);
-    const docs2 = await db.select().from(searchDocuments).where(and(eq(searchDocuments.area, 'courses'), eq(searchDocuments.itemid, courseId)));
+    const docs2 = await db.select().from(searchDocuments).where(and(eq(searchDocuments.area, 'courses'), eq(searchDocuments.itemId, courseId)));
     expect(docs2).toHaveLength(1);
   });
 
   it('analytics run creates a prediction + teacher insight for an at-risk student and never touches grades', async () => {
-    const [instance] = await db.insert(enrol).values({ courseid: courseId, enrol: 'manual', status: 0 }).returning();
-    await db.insert(userEnrolments).values({ enrolid: instance.id, userid: userId, status: 0 });
-    const itemsRows = await db.execute(sql`insert into grade_items (courseid, itemname, itemtype, grademax) values (${courseId}, 'WK5 item', 'manual', 100) returning id`);
+    const [instance] = await db.insert(enrol).values({ courseId: courseId, enrol: 'manual', status: 0 }).returning();
+    await db.insert(userEnrolments).values({ enrolId: instance.id, userId: userId, status: 0 });
+    const itemsRows = await db.execute(sql`insert into grade_items (course_id, item_name, item_type, grade_max) values (${courseId}, 'WK5 item', 'manual', 100) returning id`);
     const itemId = (itemsRows.rows[0] as { id: string }).id;
-    await db.insert(gradeGrades).values({ itemid: itemId, userid: userId, rawgrade: 10, finalgrade: 10 });
+    await db.insert(gradeGrades).values({ itemId: itemId, userId: userId, rawGrade: 10, finalGrade: 10 });
     const processor = context.get(AnalyticsRunProcessor);
     const result = await processor.process({ data: { courseId } } as never);
     expect(result.predictions).toBeGreaterThanOrEqual(1);
-    const myInsights = await db.select().from(insights).where(and(eq(insights.courseid, courseId), eq(insights.recipientid, teacherId)));
+    const myInsights = await db.select().from(insights).where(and(eq(insights.courseId, courseId), eq(insights.recipientId, teacherId)));
     expect(myInsights.length).toBeGreaterThanOrEqual(1);
-    const gradesAfter = await db.select().from(gradeGrades).where(eq(gradeGrades.itemid, itemId));
+    const gradesAfter = await db.select().from(gradeGrades).where(eq(gradeGrades.itemId, itemId));
     expect(gradesAfter).toHaveLength(1);
-    expect(gradesAfter[0].finalgrade).toBe(10);
+    expect(gradesAfter[0].finalGrade).toBe(10);
   });
 
   it('report schedule processor runs as the creator, stores the result and notifies the creator', async () => {
-    const [report] = await db.insert(reportbuilderReport).values({ name: `WK5 report ${suffix}`, datasource: 'enrolments', createdby: teacherId, columns: ['userId'] }).returning();
-    const [schedule] = await db.insert(reportbuilderSchedule).values({ reportid: report.id, createdby: teacherId, cron: 'daily', enabled: true }).returning();
+    const [report] = await db.insert(reportBuilderReport).values({ name: `WK5 report ${suffix}`, dataSource: 'enrolments', createdBy: teacherId, columns: ['userId'] }).returning();
+    const [schedule] = await db.insert(reportBuilderSchedule).values({ reportId: report.id, createdBy: teacherId, cron: 'daily', enabled: true }).returning();
     const processor = context.get(ReportScheduleProcessor);
     const result = await processor.process({ data: { scheduleId: schedule.id } } as never);
     expect(result.status).toBe('completed');
-    const [row] = await db.select().from(reportbuilderSchedule).where(eq(reportbuilderSchedule.id, schedule.id));
-    expect(row.lastresult.ranAs).toBe(teacherId);
-    const notes = await db.execute(sql`select id from notifications where useridto = ${teacherId} and eventtype = 'report_scheduled'`);
+    const [row] = await db.select().from(reportBuilderSchedule).where(eq(reportBuilderSchedule.id, schedule.id));
+    expect(row.lastResult.ranAs).toBe(teacherId);
+    const notes = await db.execute(sql`select id from notifications where user_id_to = ${teacherId} and event_type = 'report_scheduled'`);
     expect(notes.rows.length).toBeGreaterThanOrEqual(1);
   });
 
   it('privacy processor: approved delete anonymizes the user and clears enrolments/grades; export writes a manifest', async () => {
-    const [expReq] = await db.insert(privacyRequests).values({ userid: userId, type: 'export', status: 'approved', requestedby: userId }).returning();
+    const [expReq] = await db.insert(privacyRequests).values({ userId: userId, type: 'export', status: 'approved', requestedBy: userId }).returning();
     const processor = context.get(PrivacyProcessor);
     const exp = await processor.process({ data: { requestId: expReq.id } } as never);
     expect(exp.status).toBe('completed');
     expect(exp.subsystems).toContain('payments');
-    const [delReq] = await db.insert(privacyRequests).values({ userid: userId, type: 'delete', status: 'approved', requestedby: userId }).returning();
+    const [delReq] = await db.insert(privacyRequests).values({ userId: userId, type: 'delete', status: 'approved', requestedBy: userId }).returning();
     const del = await processor.process({ data: { requestId: delReq.id } } as never);
     expect(del.status).toBe('completed');
-    const ues = await db.select().from(userEnrolments).where(eq(userEnrolments.userid, userId));
+    const ues = await db.select().from(userEnrolments).where(eq(userEnrolments.userId, userId));
     expect(ues).toHaveLength(0);
-    const grades = await db.select().from(gradeGrades).where(eq(gradeGrades.userid, userId));
+    const grades = await db.select().from(gradeGrades).where(eq(gradeGrades.userId, userId));
     expect(grades).toHaveLength(0);
     const [u] = await db.select().from(users).where(eq(users.id, userId));
     expect(u.deleted).toBe(true);
@@ -200,7 +200,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   it('payment webhook twin is idempotent by external transaction id and reconciliation counts succeeded', async () => {
     const acctRows = await db.execute(sql`insert into payment_accounts (name, gateway) values (${`WK5 acct ${suffix}`}, 'manual') returning id`);
     const acctId = (acctRows.rows[0] as { id: string }).id;
-    const [payment] = await db.insert(payments).values({ accountid: acctId, userid: teacherId, amount: 12000, currency: 'VND', status: 'pending', gateway: 'manual' }).returning();
+    const [payment] = await db.insert(payments).values({ accountId: acctId, userId: teacherId, amount: 12000, currency: 'VND', status: 'pending', gateway: 'manual' }).returning();
     const processor = context.get(PaymentReconciliationProcessor);
     const tx = `wk5-tx-${suffix}`;
     const first = await processor.process({ data: { paymentId: payment.id, externalTransactionId: tx, status: 'succeeded' } } as never);

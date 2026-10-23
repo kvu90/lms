@@ -36,12 +36,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     );
     expect(cat.rows[0].v).toBe(7);
     const course = await pg.query(
-      `insert into course (category, fullname, shortname) values ($1, $2, $3) returning id, uuid_extract_version(id) as v`,
+      `insert into course (category, full_name, short_name) values ($1, $2, $3) returning id, uuid_extract_version(id) as v`,
       [cat.rows[0].id, `${run} course`, `${run}c`],
     );
     expect(course.rows[0].v).toBe(7);
     const tag = await pg.query(
-      `insert into tag (name, rawname) values ($1, $1) returning id, uuid_extract_version(id) as v`,
+      `insert into tag (name, raw_name) values ($1, $1) returning id, uuid_extract_version(id) as v`,
       [`${run}-tag`],
     );
     expect(tag.rows[0].v).toBe(7);
@@ -105,7 +105,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // Một Client = một connection = một session: đúng phạm vi đảm bảo của uuidv7().
     const inserted: string[] = [];
     for (let i = 0; i < 2000; i += 1) {
-      const r = await pg.query(`insert into tag (name, rawname) values ($1, $1) returning id`, [`${run}-mono-${i}`]);
+      const r = await pg.query(`insert into tag (name, raw_name) values ($1, $1) returning id`, [`${run}-mono-${i}`]);
       inserted.push(r.rows[0].id as string);
     }
     const sorted = await pg.query(`select id from tag where name like $1 order by id`, [`${run}-mono-%`]);
@@ -237,8 +237,8 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       'course_category_idx',
       'course_modules_course_idx',
       'course_modules_section_idx',
-      'grade_grades_userid_idx',
-      'user_enrolments_userid_idx',
+      'grade_grades_user_id_idx',
+      'user_enrolments_user_id_idx',
     ];
     const present = await pg.query(
       `select indexname from pg_indexes where schemaname = 'public' and indexname = any($1)`,

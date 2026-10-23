@@ -8,18 +8,18 @@ import {
  * GOLDEN calculated grade items — bộ đánh giá công thức an toàn (không eval).
  *
  * Nguồn oracle: MoodleDocs "Grade calculations" (docs.moodle.org/en/Grade_calculations,
- * tra cứu trực tuyến 2026-10-23): công thức bắt đầu bằng `=`, tham chiếu idnumber trong
+ * tra cứu trực tuyến 2026-10-23): công thức bắt đầu bằng `=`, tham chiếu idNumber trong
  * ngoặc vuông kép, hàm sum/average/min/max, ví dụ của tài liệu gồm
  * `=average([[1]], [[2]], [[3]])` (trung bình đều) và
  * `=sum([[1]]*0.3, [[2]]*0.6, [[3]]*0.1)` (trọng số 30/60/10),
  * `=max([[A]], [[B]], 100)`. Các số kỳ vọng dưới đây tính tay từ chính các ví dụ đó.
  * Ngữ nghĩa riêng đã chốt và ghi trong grade-formula.ts: chia 0 → null,
  * hàm bỏ qua đối số trống, phép toán hai ngôi có toán hạng trống → null,
- * tham chiếu vòng và idnumber lạ bị từ chối lúc lưu (kiểm ở service, vòng kiểm ở đây bằng findFormulaCycle).
+ * tham chiếu vòng và idNumber lạ bị từ chối lúc lưu (kiểm ở service, vòng kiểm ở đây bằng findFormulaCycle).
  */
 describe('GradeFormula — golden parser/evaluator (MoodleDocs Grade calculations)', () => {
   const grades: Record<string, number | null> = { a: 80, b: 60, c: 100, empty: null };
-  const resolve = (idnumber: string): number | null => grades[idnumber] ?? null;
+  const resolve = (idNumber: string): number | null => grades[idNumber] ?? null;
 
   it('sum: =sum([[a]],[[b]]) = 140 và ví dụ trọng số của MoodleDocs =sum([[a]]*0.3,[[b]]*0.6,[[c]]*0.1) = 70', () => {
     expect(calculateFromFormula('=sum([[a]],[[b]])', resolve)).toBeCloseTo(140, 9);
@@ -58,7 +58,7 @@ describe('GradeFormula — golden parser/evaluator (MoodleDocs Grade calculation
     expect(calculateFromFormula('=sum([[empty]])', resolve)).toBeNull();
   });
 
-  it('formulaReferences liệt kê idnumber không trùng theo thứ tự xuất hiện', () => {
+  it('formulaReferences liệt kê idNumber không trùng theo thứ tự xuất hiện', () => {
     expect(formulaReferences(parseGradeFormula('=sum([[b]],[[a]],[[b]])'))).toEqual(['b', 'a']);
   });
 
@@ -88,15 +88,15 @@ describe('GradeFormula — golden parser/evaluator (MoodleDocs Grade calculation
     // Hai item thường 80/100 và 60/100; calculated = average của chúng = 70/100.
     const calcValue = calculateFromFormula('=average([[a]],[[b]])', resolve)!;
     const r = calculateCategory({
-      aggregation: 'natural', grademin: 0, grademax: 100,
+      aggregation: 'natural', gradeMin: 0, gradeMax: 100,
       items: [
-        { itemId: 'a', grademin: 0, grademax: 100, grade: 80 },
-        { itemId: 'b', grademin: 0, grademax: 100, grade: 60 },
-        { itemId: 'calc', grademin: 0, grademax: 100, grade: calcValue },
+        { itemId: 'a', gradeMin: 0, gradeMax: 100, grade: 80 },
+        { itemId: 'b', gradeMin: 0, gradeMax: 100, grade: 60 },
+        { itemId: 'calc', gradeMin: 0, gradeMax: 100, grade: calcValue },
       ],
     });
     // natural: (80 + 60 + 70) / 300 của thang cấu trúc 300 ⇒ 210.
-    expect(r.grademax).toBe(300);
-    expect(r.finalgrade).toBeCloseTo(210, 9);
+    expect(r.gradeMax).toBe(300);
+    expect(r.finalGrade).toBeCloseTo(210, 9);
   });
 });

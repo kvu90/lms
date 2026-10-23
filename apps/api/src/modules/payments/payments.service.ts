@@ -58,15 +58,15 @@ export class PaymentsService {
   }
 
   /** Tạo payment ở trạng thái pending cho một user. */
-  async createPayment(userId: string, input: { accountid: string; amount: number; currency: string; component?: string; itemid?: string }): Promise<PaymentRow> {
+  async createPayment(userId: string, input: { accountId: string; amount: number; currency: string; component?: string; itemId?: string }): Promise<PaymentRow> {
     if (!Number.isInteger(input.amount) || input.amount <= 0) {
       throw new BadRequestException({ message: 'Amount must be a positive integer in the smallest currency unit', code: 'payment.amount_not_integer' });
     }
-    const account = await this.getAccount(input.accountid);
+    const account = await this.getAccount(input.accountId);
     if (!account.enabled) throw new BadRequestException({ message: 'Payment account is disabled', code: 'payment.account_disabled' });
     return this.repo.insertPayment({
-      accountid: input.accountid, userid: userId, amount: input.amount, currency: input.currency.toUpperCase(),
-      status: 'pending', gateway: account.gateway, component: input.component ?? '', itemid: input.itemid ?? null,
+      accountId: input.accountId, userId: userId, amount: input.amount, currency: input.currency.toUpperCase(),
+      status: 'pending', gateway: account.gateway, component: input.component ?? '', itemId: input.itemId ?? null,
     });
   }
 
@@ -76,9 +76,9 @@ export class PaymentsService {
     if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) {
       throw new BadRequestException({ message: 'Enrol instance has no fee configured', code: 'payment.no_fee' });
     }
-    const accountId = instance.paymentaccountid ?? (await this.repo.listAccounts())[0]?.id;
+    const accountId = instance.paymentAccountId ?? (await this.repo.listAccounts())[0]?.id;
     if (!accountId) throw new BadRequestException({ message: 'No payment account configured for this fee enrol instance', code: 'payment.no_account' });
-    return this.createPayment(userId, { accountid: accountId, amount: instance.cost, currency: instance.currency || 'VND', component: 'enrol_fee', itemid: enrolInstanceId });
+    return this.createPayment(userId, { accountId: accountId, amount: instance.cost, currency: instance.currency || 'VND', component: 'enrol_fee', itemId: enrolInstanceId });
   }
 
   /**
@@ -91,18 +91,18 @@ export class PaymentsService {
     const payment = await this.getPayment(input.paymentId);
     if (payment.status === 'succeeded') return { status: 'succeeded', duplicate: true, payment };
     if (input.status !== 'succeeded') {
-      await this.repo.updatePayment(payment.id, { status: 'failed', gateway: input.gateway, externaltransactionid: input.externalTransactionId });
+      await this.repo.updatePayment(payment.id, { status: 'failed', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
       return { status: 'failed', payment: await this.getPayment(payment.id) };
     }
-    await this.repo.updatePayment(payment.id, { status: 'succeeded', gateway: input.gateway, externaltransactionid: input.externalTransactionId });
+    await this.repo.updatePayment(payment.id, { status: 'succeeded', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
     const succeeded = await this.getPayment(payment.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'payment', type: 'payment_succeeded',
-      payload: { paymentId: succeeded.id, userId: succeeded.userid, amount: succeeded.amount, currency: succeeded.currency, component: succeeded.component, itemid: succeeded.itemid, externalTransactionId: input.externalTransactionId },
+      payload: { paymentId: succeeded.id, userId: succeeded.userId, amount: succeeded.amount, currency: succeeded.currency, component: succeeded.component, itemId: succeeded.itemId, externalTransactionId: input.externalTransactionId },
     });
     // Nghiệp vụ hưởng lợi: enrol có phí chỉ active sau PaymentSucceeded đã xác thực.
-    if (succeeded.component === 'enrol_fee' && succeeded.itemid) {
-      await this.enrol.activatePaidEnrol(succeeded.itemid, succeeded.userid);
+    if (succeeded.component === 'enrol_fee' && succeeded.itemId) {
+      await this.enrol.activatePaidEnrol(succeeded.itemId, succeeded.userId);
     }
     return { status: 'succeeded', payment: succeeded };
   }
@@ -116,8 +116,8 @@ export class PaymentsService {
       throw new BadRequestException({ message: 'Refund amount must be a positive integer not exceeding the payment amount', code: 'payment.bad_refund_amount' });
     }
     const refund = await this.repo.insertRefund({
-      paymentid: payment.id, amount: input.amount, currency: payment.currency,
-      reason: input.reason ?? '', externaltransactionid: input.externalTransactionId ?? null,
+      paymentId: payment.id, amount: input.amount, currency: payment.currency,
+      reason: input.reason ?? '', externalTransactionId: input.externalTransactionId ?? null,
     });
     if (input.amount === payment.amount) await this.repo.updatePayment(payment.id, { status: 'refunded' });
     return refund;
@@ -131,7 +131,7 @@ export class PaymentsService {
     return {
       total: all.length,
       succeeded: all.filter((p) => p.status === 'succeeded').length,
-      pendingWithoutExternalTx: all.filter((p) => p.status === 'pending' && !p.externaltransactionid).length,
+      pendingWithoutExternalTx: all.filter((p) => p.status === 'pending' && !p.externalTransactionId).length,
     };
   }
 }

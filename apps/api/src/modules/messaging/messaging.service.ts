@@ -169,8 +169,8 @@ export class MessagingService {
     if (!recipient || recipient.suspended || recipient.deleted) {
       // Suspended users receive nothing (report §2#12). Nothing is stored.
       await this.repo.insertDispatchLog({
-        userid: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
-        subject: input.subject, dedupekey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
+        subject: input.subject, dedupeKey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
       }).catch(() => undefined);
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'suspended' };
     }
@@ -182,23 +182,23 @@ export class MessagingService {
     if (provider.channels.includes('popup')) {
       if (await this.isChannelEnabled(userId, providerName, 'popup', state)) {
         const notification = await this.repo.insertNotification({
-          useridfrom: input.fromUserId ?? null, useridto: userId,
-          subject: input.subject, fullmessage: input.body, smallmessage: input.body.slice(0, 200),
-          component: provider.component, eventtype: providerName,
-          contexturl: input.contextUrl ?? null,
+          userIdFrom: input.fromUserId ?? null, userIdTo: userId,
+          subject: input.subject, fullMessage: input.body, smallMessage: input.body.slice(0, 200),
+          component: provider.component, eventType: providerName,
+          contextUrl: input.contextUrl ?? null,
         });
         notificationId = notification.id;
         channels.popup = 'delivered';
         await this.repo.insertDispatchLog({
-          notificationid: notification.id, userid: userId, provider: providerName, channel: 'popup',
+          notificationId: notification.id, userId: userId, provider: providerName, channel: 'popup',
           status: 'delivered', subject: input.subject,
-          dedupekey: `popup-${notification.id}`,
+          dedupeKey: `popup-${notification.id}`,
         });
       } else {
         channels.popup = 'skipped-preference';
         await this.repo.insertDispatchLog({
-          userid: userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
-          subject: input.subject, dedupekey: `popup-off-${providerName}-${userId}-${randomUUID()}`,
+          userId: userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
+          subject: input.subject, dedupeKey: `popup-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }
@@ -213,17 +213,17 @@ export class MessagingService {
     // worker, which only LOGS it. Disabled-by-preference ⇒ no job at all.
     for (const channel of provider.channels.filter((c) => c !== 'popup')) {
       if (await this.isChannelEnabled(userId, providerName, channel, state)) {
-        const dedupekey = `dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
+        const dedupeKey = `dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
           userId, provider: providerName, channel, subject: input.subject, body: input.body,
-          notificationId, dedupekey,
-        }, { jobId: dedupekey, attempts: 3 });
+          notificationId, dedupeKey,
+        }, { jobId: dedupeKey, attempts: 3 });
         channels[channel] = 'queued';
       } else {
         channels[channel] = 'skipped-preference';
         await this.repo.insertDispatchLog({
-          userid: userId, provider: providerName, channel, status: 'skipped-preference',
-          subject: input.subject, dedupekey: `${channel}-off-${providerName}-${userId}-${randomUUID()}`,
+          userId: userId, provider: providerName, channel, status: 'skipped-preference',
+          subject: input.subject, dedupeKey: `${channel}-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }
@@ -408,12 +408,12 @@ export class MessagingService {
 
   // --- group conversations (gắn course group) ---------------------------------
 
-  /** Conversation có gắn với một course group qua (component, itemtype, itemid) hay không. */
+  /** Conversation có gắn với một course group qua (component, itemType, itemId) hay không. */
   private isGroupLinked(conversation: ConversationRow): boolean {
     return conversation.type === 2
       && conversation.component === 'core_group'
-      && conversation.itemtype === 'groups'
-      && conversation.itemid !== null;
+      && conversation.itemType === 'groups'
+      && conversation.itemId !== null;
   }
 
   /**
@@ -424,7 +424,7 @@ export class MessagingService {
    * gửi — không cần hook trong module groups.
    */
   private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
-    const groupMemberIds = [...new Set(await this.repo.listGroupMemberIds(conversation.itemid!))];
+    const groupMemberIds = [...new Set(await this.repo.listGroupMemberIds(conversation.itemId!))];
     const current = await this.repo.listMembers(conversation.id);
     for (const id of groupMemberIds) {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
@@ -453,7 +453,7 @@ export class MessagingService {
 
   /**
    * Tạo (hoặc lấy lại) conversation của một course group: component
-   * 'core_group', itemtype 'groups', itemid = group id. Chỉ thành viên
+   * 'core_group', itemType 'groups', itemId = group id. Chỉ thành viên
    * group hoặc staff của khoá mới tạo được; thành viên conversation khởi
    * tạo đúng bằng thành viên group hiện tại và về sau được đồng bộ lười.
    */
@@ -461,17 +461,17 @@ export class MessagingService {
     const group = await this.repo.getCourseGroup(input.groupId);
     if (!group) throw new NotFoundException({ message: `Course group ${input.groupId} not found`, code: 'messaging.group_not_found' });
     const groupMemberIds = await this.repo.listGroupMemberIds(group.id);
-    if (!groupMemberIds.includes(actorId) && !(await this.isCourseStaff(actorId, group.courseid))) {
+    if (!groupMemberIds.includes(actorId) && !(await this.isCourseStaff(actorId, group.courseId))) {
       throw new ForbiddenException({ message: 'Only group members or course staff can create the group conversation', code: 'messaging.group_conversation_forbidden' });
     }
     const existing = await this.repo.findGroupConversation(group.id);
     if (existing) return { ...existing, members: await this.syncGroupConversationMembers(existing) };
-    const courseCtx = await this.contexts.getByLevelInstance(50, group.courseid);
+    const courseCtx = await this.contexts.getByLevelInstance(50, group.courseId);
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertConversation({
         type: 2, name: input.name ?? group.name,
-        component: 'core_group', itemtype: 'groups', itemid: group.id,
-        contextid: courseCtx?.id ?? null,
+        component: 'core_group', itemType: 'groups', itemId: group.id,
+        contextId: courseCtx?.id ?? null,
       }, tx as never);
       for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx as never);
       return created;
@@ -503,7 +503,7 @@ export class MessagingService {
       out.push({
         ...c,
         members,
-        unread: messages.filter((m) => m.useridfrom !== userId && !m.timeread).length,
+        unread: messages.filter((m) => m.userIdFrom !== userId && !m.timeRead).length,
       });
     }
     return out;
@@ -566,8 +566,8 @@ export class MessagingService {
     }
     const saved = await this.repo.dbHandle.transaction(async (tx) => {
       const msg = await this.repo.insertMessage({
-        conversationid: conversationId, useridfrom: actorId,
-        subject: input.subject ?? '', fullmessage: input.text, smallmessage: input.text.slice(0, 200),
+        conversationId: conversationId, userIdFrom: actorId,
+        subject: input.subject ?? '', fullMessage: input.text, smallMessage: input.text.slice(0, 200),
       }, tx as never);
       await this.repo.touchConversation(conversationId, tx as never);
       await this.outbox.enqueue(tx as never, {

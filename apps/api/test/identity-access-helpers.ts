@@ -46,52 +46,52 @@ export function uniqueName(prefix: string): string {
 export async function createUserViaApi(app: INestApplication, token: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; username: string; email: string }> {
   const username = uniqueName('user');
   const res = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${token}`)
-    .send({ username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstname: 'Test', lastname: 'User', ...overrides });
+    .send({ username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Test', lastName: 'User', ...overrides });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create user failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }
 
-export async function createContextViaApi(app: INestApplication, token: string, contextlevel: number, instanceid: string, parentId?: string): Promise<{ id: string; path: string }> {
+export async function createContextViaApi(app: INestApplication, token: string, contextLevel: number, instanceId: string, parentId?: string): Promise<{ id: string; path: string }> {
   const res = await http(app).post('/api/v1/access/contexts').set('Authorization', `Bearer ${token}`)
-    .send({ contextlevel, instanceid, parentId });
+    .send({ contextLevel, instanceId, parentId });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create context failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }
 
 export async function systemContextId(app: INestApplication, token: string): Promise<string> {
   const res = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${token}`);
-  const system = (res.body as { id: string; contextlevel: number }[]).find((c) => c.contextlevel === 10);
+  const system = (res.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10);
   if (!system) throw new Error('system context missing');
   return system.id;
 }
 
-export async function roleIdByShortname(app: INestApplication, token: string, shortname: string): Promise<string> {
+export async function roleIdByShortname(app: INestApplication, token: string, shortName: string): Promise<string> {
   const res = await http(app).get('/api/v1/access/roles').set('Authorization', `Bearer ${token}`);
-  const roleRow = (res.body as { id: string; shortname: string }[]).find((r) => r.shortname === shortname);
-  if (!roleRow) throw new Error(`role ${shortname} missing`);
+  const roleRow = (res.body as { id: string; shortName: string }[]).find((r) => r.shortName === shortName);
+  if (!roleRow) throw new Error(`role ${shortName} missing`);
   return roleRow.id;
 }
 
 export async function createRoleViaApi(app: INestApplication, token: string): Promise<string> {
-  const shortname = uniqueName('role');
+  const shortName = uniqueName('role');
   const res = await http(app).post('/api/v1/access/roles').set('Authorization', `Bearer ${token}`)
-    .send({ name: `Role ${shortname}`, shortname });
+    .send({ name: `Role ${shortName}`, shortName });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create role failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body.id;
 }
 
-export async function assignRole(app: INestApplication, token: string, userid: string, roleid: string, contextid: string): Promise<void> {
-  const res = await http(app).post('/api/v1/access/assignments').set('Authorization', `Bearer ${token}`).send({ userid, roleid, contextid });
+export async function assignRole(app: INestApplication, token: string, userId: string, roleId: string, contextId: string): Promise<void> {
+  const res = await http(app).post('/api/v1/access/assignments').set('Authorization', `Bearer ${token}`).send({ userId, roleId, contextId });
   if (res.status !== 200 && res.status !== 201) throw new Error(`assign failed: ${res.status} ${JSON.stringify(res.body)}`);
 }
 
-export async function setOverride(app: INestApplication, token: string, roleid: string, capability: string, contextid: string, permission: number): Promise<void> {
-  const res = await http(app).post('/api/v1/access/overrides').set('Authorization', `Bearer ${token}`).send({ roleid, capability, contextid, permission });
+export async function setOverride(app: INestApplication, token: string, roleId: string, capability: string, contextId: string, permission: number): Promise<void> {
+  const res = await http(app).post('/api/v1/access/overrides').set('Authorization', `Bearer ${token}`).send({ roleId, capability, contextId, permission });
   if (res.status !== 200 && res.status !== 201) throw new Error(`override failed: ${res.status} ${JSON.stringify(res.body)}`);
 }
 
-export async function hasCapability(app: INestApplication, token: string, userid: string, capability: string, contextid: string): Promise<boolean> {
-  const res = await http(app).get('/api/v1/access/has-capability').query({ userid, capability, contextid }).set('Authorization', `Bearer ${token}`);
+export async function hasCapability(app: INestApplication, token: string, userId: string, capability: string, contextId: string): Promise<boolean> {
+  const res = await http(app).get('/api/v1/access/has-capability').query({ userId, capability, contextId }).set('Authorization', `Bearer ${token}`);
   if (res.status !== 200) throw new Error(`has-capability failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body.allowed as boolean;
 }

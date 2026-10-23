@@ -58,33 +58,33 @@ async function measure(label, fn) {
 const admin = await login(ADMIN.username, ADMIN.password);
 console.log(`setup: category + course + ${STUDENTS} students + ${ITEMS} grade items (run=${run})`);
 const cat = await api(admin, 'POST', '/api/v1/courses/categories', { name: `${run} category` });
-const course = await api(admin, 'POST', '/api/v1/courses', { category: cat.id, fullname: `${run} course`, shortname: `${run}c` });
+const course = await api(admin, 'POST', '/api/v1/courses', { category: cat.id, fullName: `${run} course`, shortName: `${run}c` });
 const instance = await api(admin, 'POST', `/api/v1/courses/${course.id}/enrol/instances`, { method: 'manual' });
 
 const teacher = await api(admin, 'POST', '/api/v1/users', {
-  username: `${run}-teacher`, email: `${run}-teacher@example.com`, password: PASSWORD, firstname: 'Bench', lastname: 'Teacher',
+  username: `${run}-teacher`, email: `${run}-teacher@example.com`, password: PASSWORD, firstName: 'Bench', lastName: 'Teacher',
 });
 const contexts = await api(admin, 'GET', '/api/v1/access/contexts');
-const courseCtx = contexts.find((c) => c.contextlevel === 50 && c.instanceid === course.id);
+const courseCtx = contexts.find((c) => c.contextLevel === 50 && c.instanceId === course.id);
 const roles = await api(admin, 'GET', '/api/v1/access/roles');
-const teacherRole = roles.find((r) => r.shortname === 'editingteacher');
-await api(admin, 'POST', '/api/v1/access/assignments', { userid: teacher.id, roleid: teacherRole.id, contextid: courseCtx.id });
+const teacherRole = roles.find((r) => r.shortName === 'editingteacher');
+await api(admin, 'POST', '/api/v1/access/assignments', { userId: teacher.id, roleId: teacherRole.id, contextId: courseCtx.id });
 
 const studentIds = [];
 for (let i = 0; i < STUDENTS; i += 1) {
   const u = await api(admin, 'POST', '/api/v1/users', {
-    username: `${run}-s${i}`, email: `${run}-s${i}@example.com`, password: PASSWORD, firstname: 'Bench', lastname: `Student${i}`,
+    username: `${run}-s${i}`, email: `${run}-s${i}@example.com`, password: PASSWORD, firstName: 'Bench', lastName: `Student${i}`,
   });
-  await api(admin, 'POST', `/api/v1/courses/${course.id}/enrol/instances/${instance.id}/enrol`, { userid: u.id });
+  await api(admin, 'POST', `/api/v1/courses/${course.id}/enrol/instances/${instance.id}/enrol`, { userId: u.id });
   studentIds.push(u.id);
 }
 const items = [];
 for (let i = 0; i < ITEMS; i += 1) {
-  items.push(await api(admin, 'POST', `/api/v1/courses/${course.id}/grades/items`, { itemname: `Bench item ${i}`, grademax: 10 }));
+  items.push(await api(admin, 'POST', `/api/v1/courses/${course.id}/grades/items`, { itemName: `Bench item ${i}`, gradeMax: 10 }));
 }
 for (const item of items) {
   for (const sid of studentIds) {
-    await api(admin, 'POST', `/api/v1/courses/grades/items/${item.id}/grades`, { userid: sid, rawgrade: 7 });
+    await api(admin, 'POST', `/api/v1/courses/grades/items/${item.id}/grades`, { userId: sid, rawGrade: 7 });
   }
 }
 const teacherToken = await login(teacher.username, PASSWORD);

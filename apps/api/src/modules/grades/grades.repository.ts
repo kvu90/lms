@@ -39,13 +39,13 @@ export class GradesRepository {
    * Category của khoá học.
    */
   async listCategories(courseId: string): Promise<CategoryRow[]> {
-    return this.db.select().from(gradeCategories).where(eq(gradeCategories.courseid, courseId)).orderBy(asc(gradeCategories.depth), asc(gradeCategories.id));
+    return this.db.select().from(gradeCategories).where(eq(gradeCategories.courseId, courseId)).orderBy(asc(gradeCategories.depth), asc(gradeCategories.id));
   }
   /**
    * Cập nhật category.
    */
   async updateCategory(id: string, patch: Partial<CategoryRow>): Promise<void> {
-    await this.db.update(gradeCategories).set({ ...patch, timemodified: new Date() }).where(eq(gradeCategories.id, id));
+    await this.db.update(gradeCategories).set({ ...patch, updatedAt: new Date() }).where(eq(gradeCategories.id, id));
   }
   /**
    * Xoá category.
@@ -78,20 +78,20 @@ export class GradesRepository {
    * Item của khoá học.
    */
   async listItems(courseId: string): Promise<ItemRow[]> {
-    return this.db.select().from(gradeItems).where(eq(gradeItems.courseid, courseId)).orderBy(asc(gradeItems.sortorder), asc(gradeItems.id));
+    return this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId)).orderBy(asc(gradeItems.sortOrder), asc(gradeItems.id));
   }
   /**
    * Item trong một category.
    */
   async listItemsInCategory(categoryId: string): Promise<ItemRow[]> {
-    return this.db.select().from(gradeItems).where(eq(gradeItems.categoryid, categoryId)).orderBy(asc(gradeItems.sortorder), asc(gradeItems.id));
+    return this.db.select().from(gradeItems).where(eq(gradeItems.categoryId, categoryId)).orderBy(asc(gradeItems.sortOrder), asc(gradeItems.id));
   }
   /**
-   * Tìm item theo (itemtype, iteminstance) — khoá liên kết với hoạt động nguồn.
+   * Tìm item theo (itemType, itemInstance) — khoá liên kết với hoạt động nguồn.
    */
-  async findItemByTypeInstance(courseId: string, itemtype: string, iteminstance: string): Promise<ItemRow | undefined> {
+  async findItemByTypeInstance(courseId: string, itemType: string, itemInstance: string): Promise<ItemRow | undefined> {
     const [row] = await this.db.select().from(gradeItems)
-      .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.itemtype, itemtype), eq(gradeItems.iteminstance, iteminstance)));
+      .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.itemType, itemType), eq(gradeItems.itemInstance, itemInstance)));
     return row;
   }
   /**
@@ -99,14 +99,14 @@ export class GradesRepository {
    */
   async findItemForCm(courseId: string, cmId: string): Promise<ItemRow | undefined> {
     const [row] = await this.db.select().from(gradeItems)
-      .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.itemtype, 'mod'), eq(gradeItems.iteminstance, cmId)));
+      .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, cmId)));
     return row;
   }
   /**
    * Cập nhật item.
    */
   async updateItem(id: string, patch: Partial<ItemRow>): Promise<void> {
-    await this.db.update(gradeItems).set({ ...patch, timemodified: new Date() }).where(eq(gradeItems.id, id));
+    await this.db.update(gradeItems).set({ ...patch, updatedAt: new Date() }).where(eq(gradeItems.id, id));
   }
   /**
    * Xoá item.
@@ -121,7 +121,7 @@ export class GradesRepository {
    */
   async getGrade(itemId: string, userId: string): Promise<GradeRow | undefined> {
     const [row] = await this.db.select().from(gradeGrades)
-      .where(and(eq(gradeGrades.itemid, itemId), eq(gradeGrades.userid, userId)));
+      .where(and(eq(gradeGrades.itemId, itemId), eq(gradeGrades.userId, userId)));
     return row;
   }
   /**
@@ -130,8 +130,8 @@ export class GradesRepository {
   async listGradesForCourse(courseId: string, userId?: string): Promise<GradeRow[]> {
     const items = await this.listItems(courseId);
     if (!items.length) return [];
-    const conds = [inArray(gradeGrades.itemid, items.map((i) => i.id))];
-    if (userId !== undefined) conds.push(eq(gradeGrades.userid, userId));
+    const conds = [inArray(gradeGrades.itemId, items.map((i) => i.id))];
+    if (userId !== undefined) conds.push(eq(gradeGrades.userId, userId));
     return this.db.select().from(gradeGrades).where(and(...conds));
   }
   /**
@@ -144,7 +144,7 @@ export class GradesRepository {
    * Mọi điểm tại một item.
    */
   async listGradesForItem(itemId: string): Promise<GradeRow[]> {
-    return this.db.select().from(gradeGrades).where(eq(gradeGrades.itemid, itemId));
+    return this.db.select().from(gradeGrades).where(eq(gradeGrades.itemId, itemId));
   }
   /**
    * Ghi/cập nhật điểm (kèm ghi lịch sử ở tầng service).
@@ -152,12 +152,12 @@ export class GradesRepository {
   async upsertGrade(v: typeof gradeGrades.$inferInsert, tx?: DbTx): Promise<GradeRow> {
     const [row] = await (tx ?? this.db).insert(gradeGrades).values(v)
       .onConflictDoUpdate({
-        target: [gradeGrades.itemid, gradeGrades.userid],
+        target: [gradeGrades.itemId, gradeGrades.userId],
         set: {
-          rawgrade: v.rawgrade, finalgrade: v.finalgrade, hidden: v.hidden, locked: v.locked,
+          rawGrade: v.rawGrade, finalGrade: v.finalGrade, hidden: v.hidden, locked: v.locked,
           overridden: v.overridden, excluded: v.excluded, frozen: v.frozen, feedback: v.feedback,
-          aggregationstatus: v.aggregationstatus, aggregationweight: v.aggregationweight,
-          locktime: v.locktime, timemodified: new Date(),
+          aggregationStatus: v.aggregationStatus, aggregationWeight: v.aggregationWeight,
+          lockTime: v.lockTime, updatedAt: new Date(),
         },
       }).returning();
     return row!;
@@ -166,7 +166,7 @@ export class GradesRepository {
    * Cập nhật một bản ghi điểm.
    */
   async updateGrade(id: string, patch: Partial<GradeRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(gradeGrades).set({ ...patch, timemodified: new Date() }).where(eq(gradeGrades.id, id));
+    await (tx ?? this.db).update(gradeGrades).set({ ...patch, updatedAt: new Date() }).where(eq(gradeGrades.id, id));
   }
   /**
    * Ghi một dòng lịch sử thay đổi điểm.
@@ -179,7 +179,7 @@ export class GradesRepository {
    */
   async listHistory(itemId: string, userId: string): Promise<(typeof gradeGradesHistory.$inferSelect)[]> {
     return this.db.select().from(gradeGradesHistory)
-      .where(and(eq(gradeGradesHistory.itemid, itemId), eq(gradeGradesHistory.userid, userId)))
+      .where(and(eq(gradeGradesHistory.itemId, itemId), eq(gradeGradesHistory.userId, userId)))
       .orderBy(asc(gradeGradesHistory.id));
   }
 
@@ -188,14 +188,14 @@ export class GradesRepository {
    * Bảng grade letters của khoá học.
    */
   async listLetters(contextId: string): Promise<LetterRow[]> {
-    return this.db.select().from(gradeLetters).where(eq(gradeLetters.contextid, contextId)).orderBy(asc(gradeLetters.lowerboundary));
+    return this.db.select().from(gradeLetters).where(eq(gradeLetters.contextId, contextId)).orderBy(asc(gradeLetters.lowerBoundary));
   }
   /**
    * Thay toàn bộ bảng grade letters.
    */
-  async replaceLetters(contextId: string, letters: { letter: string; lowerboundary: number }[]): Promise<void> {
-    await this.db.delete(gradeLetters).where(eq(gradeLetters.contextid, contextId));
-    for (const l of letters) await this.db.insert(gradeLetters).values({ contextid: contextId, ...l });
+  async replaceLetters(contextId: string, letters: { letter: string; lowerBoundary: number }[]): Promise<void> {
+    await this.db.delete(gradeLetters).where(eq(gradeLetters.contextId, contextId));
+    for (const l of letters) await this.db.insert(gradeLetters).values({ contextId: contextId, ...l });
   }
   /**
    * Chèn scale điểm tuỳ biến.
@@ -207,7 +207,7 @@ export class GradesRepository {
    * Liệt kê scales.
    */
   async listScales(courseId: string): Promise<ScaleRow[]> {
-    return this.db.select().from(scales).where(or(isNull(scales.courseid), eq(scales.courseid, courseId)));
+    return this.db.select().from(scales).where(or(isNull(scales.courseId), eq(scales.courseId, courseId)));
   }
   /**
    * Lấy scale theo id.
@@ -230,24 +230,24 @@ export class GradesRepository {
     const [row] = await this.db.select().from(gradeOutcomes).where(eq(gradeOutcomes.id, id)); return row;
   }
   /**
-   * Liệt kê outcome khả dụng cho một khoá học: outcome mức site (courseid null) cộng outcome của chính khoá học đó.
+   * Liệt kê outcome khả dụng cho một khoá học: outcome mức site (courseId null) cộng outcome của chính khoá học đó.
    */
   async listOutcomes(courseId?: string): Promise<OutcomeRow[]> {
     if (courseId === undefined) {
-      return this.db.select().from(gradeOutcomes).where(isNull(gradeOutcomes.courseid)).orderBy(asc(gradeOutcomes.id));
+      return this.db.select().from(gradeOutcomes).where(isNull(gradeOutcomes.courseId)).orderBy(asc(gradeOutcomes.id));
     }
     return this.db.select().from(gradeOutcomes)
-      .where(or(isNull(gradeOutcomes.courseid), eq(gradeOutcomes.courseid, courseId)))
+      .where(or(isNull(gradeOutcomes.courseId), eq(gradeOutcomes.courseId, courseId)))
       .orderBy(asc(gradeOutcomes.id));
   }
   /**
    * Cập nhật grade outcome.
    */
   async updateOutcome(id: string, patch: Partial<OutcomeRow>): Promise<void> {
-    await this.db.update(gradeOutcomes).set({ ...patch, timemodified: new Date() }).where(eq(gradeOutcomes.id, id));
+    await this.db.update(gradeOutcomes).set({ ...patch, updatedAt: new Date() }).where(eq(gradeOutcomes.id, id));
   }
   /**
-   * Xoá grade outcome (item đang gắn sẽ được gỡ outcomeid nhờ khoá ngoại set null).
+   * Xoá grade outcome (item đang gắn sẽ được gỡ outcomeId nhờ khoá ngoại set null).
    */
   async deleteOutcome(id: string): Promise<void> {
     await this.db.delete(gradeOutcomes).where(eq(gradeOutcomes.id, id));
@@ -256,14 +256,14 @@ export class GradesRepository {
    * Mọi grade item đang gắn một outcome (ở bất kỳ khoá học nào — outcome site dùng chung).
    */
   async listItemsForOutcome(outcomeId: string): Promise<ItemRow[]> {
-    return this.db.select().from(gradeItems).where(eq(gradeItems.outcomeid, outcomeId));
+    return this.db.select().from(gradeItems).where(eq(gradeItems.outcomeId, outcomeId));
   }
   /**
-   * Tìm grade item theo idnumber trong một khoá học (khoá tham chiếu của công thức tính).
+   * Tìm grade item theo idNumber trong một khoá học (khoá tham chiếu của công thức tính).
    */
-  async findItemByIdnumber(courseId: string, idnumber: string): Promise<ItemRow | undefined> {
+  async findItemByIdnumber(courseId: string, idNumber: string): Promise<ItemRow | undefined> {
     const [row] = await this.db.select().from(gradeItems)
-      .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.idnumber, idnumber)));
+      .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.idNumber, idNumber)));
     return row;
   }
 }

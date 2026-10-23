@@ -53,7 +53,7 @@ export class CompletionController {
    * POST /courses/:courseId/modules/:cmId/completion/manual — đánh dấu hoàn thành thủ công.
    */
   async markManual(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.completion.markManual(actor.id, cmId, dto.userid, dto.complete);
+    return this.completion.markManual(actor.id, cmId, dto.userId, dto.complete);
   }
 
   @Get(':courseId/completion/criteria')

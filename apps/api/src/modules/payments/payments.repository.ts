@@ -26,22 +26,22 @@ export class PaymentsRepository {
   async getPayment(id: string): Promise<PaymentRow | undefined> {
     const [row] = await this.db.select().from(payments).where(eq(payments.id, id)); return row;
   }
-  async getByExternalTx(gateway: string, externaltransactionid: string): Promise<PaymentRow | undefined> {
+  async getByExternalTx(gateway: string, externalTransactionId: string): Promise<PaymentRow | undefined> {
     const [row] = await this.db.select().from(payments)
-      .where(and(eq(payments.gateway, gateway), eq(payments.externaltransactionid, externaltransactionid)));
+      .where(and(eq(payments.gateway, gateway), eq(payments.externalTransactionId, externalTransactionId)));
     return row;
   }
   async listPayments(): Promise<PaymentRow[]> { return this.db.select().from(payments); }
-  async listPaymentsForUser(userid: string): Promise<PaymentRow[]> {
-    return this.db.select().from(payments).where(eq(payments.userid, userid));
+  async listPaymentsForUser(userId: string): Promise<PaymentRow[]> {
+    return this.db.select().from(payments).where(eq(payments.userId, userId));
   }
   async updatePayment(id: string, v: Partial<typeof payments.$inferInsert>): Promise<void> {
-    await this.db.update(payments).set({ ...v, timemodified: new Date() }).where(eq(payments.id, id));
+    await this.db.update(payments).set({ ...v, updatedAt: new Date() }).where(eq(payments.id, id));
   }
   async insertRefund(v: typeof paymentRefunds.$inferInsert): Promise<RefundRow> {
     const [row] = await this.db.insert(paymentRefunds).values(v).returning(); return row!;
   }
-  async listRefunds(paymentid: string): Promise<RefundRow[]> {
-    return this.db.select().from(paymentRefunds).where(eq(paymentRefunds.paymentid, paymentid));
+  async listRefunds(paymentId: string): Promise<RefundRow[]> {
+    return this.db.select().from(paymentRefunds).where(eq(paymentRefunds.paymentId, paymentId));
   }
 }

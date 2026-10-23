@@ -18,16 +18,16 @@ export const messageConversations = pgTable('message_conversations', {
   type: integer('type').notNull().default(1),
   name: text('name'),
   component: text('component'),
-  itemtype: text('itemtype'),
-  itemid: uuid('itemid'),
-  contextid: uuid('contextid'),
+  itemType: text('item_type'),
+  itemId: uuid('item_id'),
+  contextId: uuid('context_id'),
   enabled: boolean('enabled').notNull().default(true),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timemodified: timestamp('timemodified', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('message_conversations_itemid_idx').on(table.itemid),
-      index('message_conversations_contextid_idx').on(table.contextid),
+      index('message_conversations_item_id_idx').on(table.itemId),
+      index('message_conversations_context_id_idx').on(table.contextId),
   ]);
 
 
@@ -35,86 +35,86 @@ export const messageConversations = pgTable('message_conversations', {
 export const messageConversationMembers = pgTable(
   'message_conversation_members',
   {
-    conversationid: uuid('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
-    userid: uuid('userid').notNull(),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    conversationId: uuid('conversation_id').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('message_conversation_members_userid_idx').on(table.userid),primaryKey({ columns: [table.conversationid, table.userid] })],
+      index('message_conversation_members_user_id_idx').on(table.userId),primaryKey({ columns: [table.conversationId, table.userId] })],
 );
 
 /**
  * User-to-user messages inside a conversation (Moodle `message` +
  * `messages`). Once sent, a message belongs to core_message: the sending
  * component/user can NEVER edit or delete it through the API (report §2#12).
- * `timeread` is the recipient-side read marker used for unread counts.
+ * `time_read` is the recipient-side read marker used for unread counts.
  */
 export const message = pgTable('message', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  conversationid: uuid('conversationid').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
-  useridfrom: uuid('useridfrom').notNull(),
+  conversationId: uuid('conversation_id').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+  userIdFrom: uuid('user_id_from').notNull(),
   subject: text('subject').notNull().default(''),
-  fullmessage: text('fullmessage').notNull().default(''),
-  smallmessage: text('smallmessage').notNull().default(''),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timeread: timestamp('timeread', { withTimezone: true }),
+  fullMessage: text('full_message').notNull().default(''),
+  smallMessage: text('small_message').notNull().default(''),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  timeRead: timestamp('time_read', { withTimezone: true }),
 },
   (table) => [
-      index('message_conversationid_idx').on(table.conversationid),
-      index('message_useridfrom_idx').on(table.useridfrom),
+      index('message_conversation_id_idx').on(table.conversationId),
+      index('message_user_id_from_idx').on(table.userIdFrom),
   ]);
 
 
 /**
- * Contacts (Moodle `message_contacts`): userid đã thêm contactid vào danh
+ * Contacts (Moodle `message_contacts`): user_id đã thêm contact_id vào danh
  * bạ của mình. Quan hệ có hướng — dòng (người nhận, người gửi) là một trong
  * hai điều kiện mở cổng liên lạc khi `core/messagingallusers` tắt.
  */
 export const messageContacts = pgTable(
   'message_contacts',
   {
-    userid: uuid('userid').notNull(),
-    contactid: uuid('contactid').notNull(),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    userId: uuid('user_id').notNull(),
+    contactId: uuid('contact_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('message_contacts_contactid_idx').on(table.contactid),primaryKey({ columns: [table.userid, table.contactid] })],
+      index('message_contacts_contact_id_idx').on(table.contactId),primaryKey({ columns: [table.userId, table.contactId] })],
 );
 
-/** Blocked contacts (Moodle `message_users_blocked`): userid blocks blockeduserid from contacting them. */
+/** Blocked contacts (Moodle `message_users_blocked`): user_id blocks blocked_user_id from contacting them. */
 export const messageUsersBlocked = pgTable(
   'message_users_blocked',
   {
-    userid: uuid('userid').notNull(),
-    blockeduserid: uuid('blockeduserid').notNull(),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    userId: uuid('user_id').notNull(),
+    blockedUserId: uuid('blocked_user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('message_users_blocked_blockeduserid_idx').on(table.blockeduserid),primaryKey({ columns: [table.userid, table.blockeduserid] })],
+      index('message_users_blocked_blocked_user_id_idx').on(table.blockedUserId),primaryKey({ columns: [table.userId, table.blockedUserId] })],
 );
 
 /**
  * System notifications (Moodle `notifications`) — DISTINCT from user
- * messages: useridfrom is null/system, the record is produced by a message
- * provider (component + eventtype) and delivered per user preference.
+ * messages: user_id_from is null/system, the record is produced by a message
+ * provider (component + event_type) and delivered per user preference.
  */
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  useridfrom: uuid('useridfrom'),
-  useridto: uuid('useridto').notNull(),
+  userIdFrom: uuid('user_id_from'),
+  userIdTo: uuid('user_id_to').notNull(),
   subject: text('subject').notNull().default(''),
-  fullmessage: text('fullmessage').notNull().default(''),
-  smallmessage: text('smallmessage').notNull().default(''),
+  fullMessage: text('full_message').notNull().default(''),
+  smallMessage: text('small_message').notNull().default(''),
   component: text('component').notNull().default(''),
-  eventtype: text('eventtype').notNull().default(''),
-  contexturl: text('contexturl'),
-  contexturlname: text('contexturlname'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
-  timeread: timestamp('timeread', { withTimezone: true }),
+  eventType: text('event_type').notNull().default(''),
+  contextUrl: text('context_url'),
+  contextUrlName: text('context_url_name'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  timeRead: timestamp('time_read', { withTimezone: true }),
 },
   (table) => [
-      index('notifications_useridfrom_idx').on(table.useridfrom),
-      index('notifications_useridto_idx').on(table.useridto),
+      index('notifications_user_id_from_idx').on(table.userIdFrom),
+      index('notifications_user_id_to_idx').on(table.userIdTo),
   ]);
 
 
@@ -122,22 +122,22 @@ export const notifications = pgTable('notifications', {
  * Per-channel dispatch log for notifications. The in-app (popup) channel is
  * the only REAL channel; email/push are ports whose dispatch is only LOGGED
  * (never actually sent) — status: delivered | queued | logged | skipped-preference | skipped-suspended.
- * `dedupekey` makes worker dispatch idempotent.
+ * `dedupe_key` makes worker dispatch idempotent.
  */
 export const notificationDispatchLog = pgTable(
   'notification_dispatch_log',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    notificationid: uuid('notificationid'),
-    userid: uuid('userid').notNull(),
+    notificationId: uuid('notification_id'),
+    userId: uuid('user_id').notNull(),
     provider: text('provider').notNull(),
     channel: text('channel').notNull(),
     status: text('status').notNull(),
     subject: text('subject').notNull().default(''),
-    dedupekey: text('dedupekey'),
-    timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+    dedupeKey: text('dedupe_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('notification_dispatch_log_notificationid_idx').on(table.notificationid),
-      index('notification_dispatch_log_userid_idx').on(table.userid),unique('notification_dispatch_log_dedupe_unique').on(table.dedupekey)],
+      index('notification_dispatch_log_notification_id_idx').on(table.notificationId),
+      index('notification_dispatch_log_user_id_idx').on(table.userId),unique('notification_dispatch_log_dedupe_unique').on(table.dedupeKey)],
 );

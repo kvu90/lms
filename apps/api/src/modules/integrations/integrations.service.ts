@@ -9,7 +9,7 @@ import { IntegrationsRepository, type ServiceRow, type TokenRow } from './integr
 export interface ExternalFunctionDef {
   name: string;
   capability: string;
-  /** Resolve contextid từ args; mặc định là system context. */
+  /** Resolve contextId từ args; mặc định là system context. */
   resolveContext?: (args: Record<string, unknown>, ctx: ContextsService, courses: CoursesService) => Promise<string>;
   handler: (callerId: string, args: Record<string, unknown>) => Promise<unknown>;
 }
@@ -72,12 +72,12 @@ export class IntegrationsService {
     await this.evaluator.requireCapability(actorId, 'lms/webservice:manage', sys.id);
   }
 
-  async createService(actorId: string, input: { name: string; shortname: string; enabled?: boolean; functions?: string[] }): Promise<ServiceRow> {
+  async createService(actorId: string, input: { name: string; shortName: string; enabled?: boolean; functions?: string[] }): Promise<ServiceRow> {
     await this.requireManage(actorId);
     for (const fn of input.functions ?? []) {
       if (!this.functions.has(fn)) throw new BadRequestException({ message: `Unknown function ${fn}`, code: 'webservice.unknown_function' });
     }
-    return this.repo.insertService({ name: input.name, shortname: input.shortname, enabled: input.enabled ?? true, functions: input.functions ?? [] });
+    return this.repo.insertService({ name: input.name, shortName: input.shortName, enabled: input.enabled ?? true, functions: input.functions ?? [] });
   }
   async listServices(): Promise<ServiceRow[]> { return this.repo.listServices(); }
   async getService(id: string): Promise<ServiceRow> {
@@ -93,14 +93,14 @@ export class IntegrationsService {
   }
 
   /** Tạo token: trả token thô đúng một lần; DB chỉ lưu hash. */
-  async createToken(actorId: string, input: { userid: string; serviceid: string; validuntil?: string; iprestriction?: string }): Promise<{ token: string; row: TokenRow }> {
+  async createToken(actorId: string, input: { userId: string; serviceId: string; validUntil?: string; ipRestriction?: string }): Promise<{ token: string; row: TokenRow }> {
     await this.requireManage(actorId);
-    await this.getService(input.serviceid);
+    await this.getService(input.serviceId);
     const raw = randomBytes(32).toString('hex');
     const row = await this.repo.insertToken({
-      tokenhash: hashToken(raw), userid: input.userid, serviceid: input.serviceid,
-      validuntil: input.validuntil ? new Date(input.validuntil) : null,
-      iprestriction: input.iprestriction ?? null,
+      tokenHash: hashToken(raw), userId: input.userId, serviceId: input.serviceId,
+      validUntil: input.validUntil ? new Date(input.validUntil) : null,
+      ipRestriction: input.ipRestriction ?? null,
     });
     return { token: raw, row };
   }
@@ -121,25 +121,25 @@ export class IntegrationsService {
   async callFunction(input: { token: string; functionName: string; args?: Record<string, unknown>; ip?: string }): Promise<unknown> {
     const row = await this.repo.getTokenByHash(hashToken(input.token));
     if (!row || row.revoked) throw new UnauthorizedException({ message: 'Invalid or revoked token', code: 'webservice.invalid_token' });
-    if (row.validuntil && row.validuntil < new Date()) throw new UnauthorizedException({ message: 'Token expired', code: 'webservice.token_expired' });
-    if (row.iprestriction) {
-      const allowed = row.iprestriction.split(',').map((s) => s.trim());
+    if (row.validUntil && row.validUntil < new Date()) throw new UnauthorizedException({ message: 'Token expired', code: 'webservice.token_expired' });
+    if (row.ipRestriction) {
+      const allowed = row.ipRestriction.split(',').map((s) => s.trim());
       if (!input.ip || !allowed.includes(input.ip)) throw new ForbiddenException({ message: 'IP not allowed for this token', code: 'webservice.ip_denied' });
     }
-    const service = await this.getService(row.serviceid);
+    const service = await this.getService(row.serviceId);
     if (!service.enabled) throw new ForbiddenException({ message: 'Service is disabled', code: 'webservice.service_disabled' });
     const serviceFunctions = (service.functions as string[]) ?? [];
     if (!serviceFunctions.includes(input.functionName)) {
-      throw new ForbiddenException({ message: `Function ${input.functionName} is not part of service ${service.shortname}`, code: 'webservice.function_not_in_service' });
+      throw new ForbiddenException({ message: `Function ${input.functionName} is not part of service ${service.shortName}`, code: 'webservice.function_not_in_service' });
     }
     const def = this.functions.get(input.functionName);
     if (!def) throw new NotFoundException({ message: `Unknown function ${input.functionName}`, code: 'webservice.unknown_function' });
     const args = input.args ?? {};
     const contextId = def.resolveContext ? await def.resolveContext(args, this.contexts, this.courses) : (await this.contexts.ensureSystemContext()).id;
     // Điểm cốt lõi §2#21: token không bypass capability của chủ token.
-    const ok = await this.evaluator.hasCapability(row.userid, def.capability, contextId);
+    const ok = await this.evaluator.hasCapability(row.userId, def.capability, contextId);
     if (!ok) throw new ForbiddenException({ message: `Token owner lacks capability ${def.capability}`, code: 'webservice.capability_denied' });
-    await this.repo.updateToken(row.id, { lastaccess: new Date() });
-    return def.handler(row.userid, args);
+    await this.repo.updateToken(row.id, { lastAccess: new Date() });
+    return def.handler(row.userId, args);
   }
 }

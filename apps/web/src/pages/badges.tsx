@@ -14,18 +14,18 @@ interface BadgeView {
   name: string;
   description: string;
   type: number;
-  courseid: string | null;
+  courseId: string | null;
   status: number;
 }
 
 /** Bản ghi đã cấp (IssuedRow ở tầng API): bằng chứng bất biến của một lần cấp. */
 interface IssuedView {
   id: string;
-  badgeid: string;
-  userid: string;
-  uniquehash: string;
-  dateissued: string;
-  dateexpire: string | null;
+  badgeId: string;
+  userId: string;
+  uniqueHash: string;
+  dateIssued: string;
+  dateExpire: string | null;
   revoked: boolean;
 }
 
@@ -86,7 +86,7 @@ export function BadgesPage() {
 
   /** Tên huy hiệu của một bản ghi đã cấp: ưu tiên badge lồng trong /mine. */
   const badgeName = (entry: MyBadgeView) =>
-    entry.badge?.name ?? all.find((b) => b.id === entry.badgeid)?.name ?? t('badgeFallback', { id: entry.badgeid });
+    entry.badge?.name ?? all.find((b) => b.id === entry.badgeId)?.name ?? t('badgeFallback', { id: entry.badgeId });
 
   /** Tạo một site badge mới (panel quản trị). */
   async function createBadge(event: FormEvent) {
@@ -109,7 +109,7 @@ export function BadgesPage() {
         method: 'PUT',
         body: JSON.stringify({
           method: 1,
-          criteria: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }],
+          criteria: [{ criteriaType: 'coursecompletion', params: { courseId: criteriaCourseId } }],
         }),
       });
       setMessage(t('criteriaSaved'));
@@ -166,10 +166,10 @@ export function BadgesPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {t('issuedLine', {
-                    date: new Date(i.dateissued).toLocaleDateString(),
-                    hash: i.uniquehash.slice(0, 12),
+                    date: new Date(i.dateIssued).toLocaleDateString(),
+                    hash: i.uniqueHash.slice(0, 12),
                   })}
-                  {i.dateexpire ? ` ${t('expiresSuffix', { date: new Date(i.dateexpire).toLocaleDateString() })}` : ''}
+                  {i.dateExpire ? ` ${t('expiresSuffix', { date: new Date(i.dateExpire).toLocaleDateString() })}` : ''}
                 </p>
               </li>
             ))}
@@ -208,13 +208,13 @@ export function BadgesPage() {
                   {issuedList.map((i) => (
                     <li key={i.id} className="rounded border p-2 text-sm">
                       <p>
-                        {t('issuedToLine', { userId: i.userid, date: new Date(i.dateissued).toLocaleDateString() })}
+                        {t('issuedToLine', { userId: i.userId, date: new Date(i.dateIssued).toLocaleDateString() })}
                         {i.revoked ? ` ${t('revokedSuffix')}` : ''}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {t('issuedLine', {
-                          date: new Date(i.dateissued).toLocaleDateString(),
-                          hash: i.uniquehash.slice(0, 12),
+                          date: new Date(i.dateIssued).toLocaleDateString(),
+                          hash: i.uniqueHash.slice(0, 12),
                         })}
                       </p>
                     </li>

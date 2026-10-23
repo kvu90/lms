@@ -72,7 +72,7 @@ export function CoursesPage() {
                   {nodeCourses.map((c) => (
                     <li key={c.id}>
                       <Link to={`/courses/${c.id}`}>
-                        {c.fullname} ({c.shortname})
+                        {c.fullName} ({c.shortName})
                       </Link>
                       {!c.visible && <span> {t('hiddenSuffix')}</span>}
                     </li>
@@ -145,14 +145,14 @@ export function CoursesPage() {
     }
   }
 
-  /** Tạo khoá học qua POST /courses với tối thiểu của `createCourseSchema` (fullname, shortname, category). */
+  /** Tạo khoá học qua POST /courses với tối thiểu của `createCourseSchema` (fullName, shortName, category). */
   async function createCourse(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
     try {
       await apiJson('/api/v1/courses', {
         method: 'POST',
-        body: JSON.stringify({ fullname: courseName, shortname: courseShort, category: courseCategory }),
+        body: JSON.stringify({ fullName: courseName, shortName: courseShort, category: courseCategory }),
       });
       setCourseName('');
       setCourseShort('');

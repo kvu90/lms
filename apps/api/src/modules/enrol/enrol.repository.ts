@@ -32,7 +32,7 @@ export class EnrolRepository {
    * Instance của một khoá học.
    */
   async listInstances(courseId: string): Promise<EnrolRow[]> {
-    return this.db.select().from(enrol).where(eq(enrol.courseid, courseId)).orderBy(enrol.id);
+    return this.db.select().from(enrol).where(eq(enrol.courseId, courseId)).orderBy(enrol.id);
   }
   /**
    * Instance theo phương thức (manual, self, cohort, paypal…).
@@ -45,13 +45,13 @@ export class EnrolRepository {
    */
   async listCohortInstances(cohortId: string): Promise<EnrolRow[]> {
     const rows = await this.db.select().from(enrol).where(eq(enrol.enrol, 'cohort'));
-    return rows.filter((r) => r.customint1 === cohortId);
+    return rows.filter((r) => r.customInt1 === cohortId);
   }
   /**
    * Cập nhật instance.
    */
   async updateInstance(id: string, v: Partial<typeof enrol.$inferInsert>): Promise<void> {
-    await this.db.update(enrol).set({ ...v, timemodified: new Date() }).where(eq(enrol.id, id));
+    await this.db.update(enrol).set({ ...v, updatedAt: new Date() }).where(eq(enrol.id, id));
   }
   /**
    * Xoá instance.
@@ -67,16 +67,16 @@ export class EnrolRepository {
   /**
    * Lấy ghi danh theo id.
    */
-  async getUserEnrolment(enrolid: string, userid: string): Promise<UserEnrolmentRow | undefined> {
+  async getUserEnrolment(enrolId: string, userId: string): Promise<UserEnrolmentRow | undefined> {
     const [row] = await this.db.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.enrolid, enrolid), eq(userEnrolments.userid, userid)));
+      .where(and(eq(userEnrolments.enrolId, enrolId), eq(userEnrolments.userId, userId)));
     return row;
   }
   /**
    * Cập nhật ghi danh (trạng thái, thời hạn).
    */
   async updateUserEnrolment(id: string, v: Partial<typeof userEnrolments.$inferInsert>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(userEnrolments).set({ ...v, timemodified: new Date() }).where(eq(userEnrolments.id, id));
+    await (tx ?? this.db).update(userEnrolments).set({ ...v, updatedAt: new Date() }).where(eq(userEnrolments.id, id));
   }
   /**
    * Xoá ghi danh.
@@ -90,27 +90,27 @@ export class EnrolRepository {
   async listUserEnrolmentsForCourse(courseId: string): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
     const instances = await this.listInstances(courseId);
     if (!instances.length) return [];
-    const rows = await this.db.select().from(userEnrolments).where(inArray(userEnrolments.enrolid, instances.map((i) => i.id)));
+    const rows = await this.db.select().from(userEnrolments).where(inArray(userEnrolments.enrolId, instances.map((i) => i.id)));
     const methodById = new Map(instances.map((i) => [i.id, i.enrol]));
-    return rows.map((r) => ({ ...r, enrolMethod: methodById.get(r.enrolid) ?? '' }));
+    return rows.map((r) => ({ ...r, enrolMethod: methodById.get(r.enrolId) ?? '' }));
   }
   /**
    * Mọi ghi danh của một user.
    */
-  async listUserEnrolmentsForUser(userid: string): Promise<UserEnrolmentRow[]> {
-    return this.db.select().from(userEnrolments).where(eq(userEnrolments.userid, userid));
+  async listUserEnrolmentsForUser(userId: string): Promise<UserEnrolmentRow[]> {
+    return this.db.select().from(userEnrolments).where(eq(userEnrolments.userId, userId));
   }
   /**
    * Mọi ghi danh qua một instance — đầu vào của việc gán lại role khi instance đổi role.
    */
-  async listUserEnrolmentsForInstance(enrolid: string): Promise<UserEnrolmentRow[]> {
-    return this.db.select().from(userEnrolments).where(eq(userEnrolments.enrolid, enrolid));
+  async listUserEnrolmentsForInstance(enrolId: string): Promise<UserEnrolmentRow[]> {
+    return this.db.select().from(userEnrolments).where(eq(userEnrolments.enrolId, enrolId));
   }
   /**
    * Các ghi danh đang hiệu lực nhưng đã quá hạn — đầu vào của tiến trình hết hạn.
    */
   async listExpiredActive(now: Date): Promise<UserEnrolmentRow[]> {
     const rows = await this.db.select().from(userEnrolments).where(eq(userEnrolments.status, 0));
-    return rows.filter((r) => r.timeend !== null && r.timeend < now);
+    return rows.filter((r) => r.timeEnd !== null && r.timeEnd < now);
   }
 }

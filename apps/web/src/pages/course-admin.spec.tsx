@@ -26,31 +26,31 @@ const MODULE_ID = '01900000-0000-7000-8000-000000001000';
 const PROFILE = {
   id: TEACHER_ID,
   username: 'teacher1',
-  firstname: 'Lan Anh',
-  lastname: 'Nguyễn',
+  firstName: 'Lan Anh',
+  lastName: 'Nguyễn',
   email: 'teacher1@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 
 const COURSE = {
   id: COURSE_ID,
   category: CATEGORY_ID,
-  fullname: 'Physics 101',
-  shortname: 'PHY101',
-  idnumber: '',
+  fullName: 'Physics 101',
+  shortName: 'PHY101',
+  idNumber: '',
   summary: 'Mô tả khoá',
   format: 'topics',
   visible: true,
-  startdate: null,
-  enddate: null,
-  groupmode: 0,
-  enablecompletion: true,
+  startDate: null,
+  endDate: null,
+  groupMode: 0,
+  enableCompletion: true,
 };
 
 const CONTENT = {
@@ -72,13 +72,13 @@ const CONTENT = {
           course: COURSE_ID,
           section: SECTION_ID,
           component: 'mod_page',
-          instanceid: '01900000-0000-7000-8000-000000000001',
+          instanceId: '01900000-0000-7000-8000-000000000001',
           name: 'Welcome page',
           visible: true,
-          groupmode: 0,
+          groupMode: 0,
           availability: null,
           completion: 0,
-          completionview: false,
+          completionView: false,
         },
       ],
     },
@@ -87,7 +87,7 @@ const CONTENT = {
 
 const REPORT = {
   courseId: COURSE_ID,
-  rows: [{ userId: '01900000-0000-7000-8000-000000000007', finalgrade: 85, letter: 'B' }],
+  rows: [{ userId: '01900000-0000-7000-8000-000000000007', finalGrade: 85, letter: 'B' }],
 };
 const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
 
@@ -233,7 +233,7 @@ describe('Course completion criteria (teacher with lms/completion:manage)', () =
       ).toBe(true),
     );
     const put = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT');
-    expect(put?.body).toEqual({ method: 2, criteria: [{ criteriatype: 'module', moduleinstance: MODULE_ID }] });
+    expect(put?.body).toEqual({ method: 2, criteria: [{ criteriaType: 'module', moduleInstance: MODULE_ID }] });
   });
 });
 
@@ -317,13 +317,13 @@ const COHORT_ID = '01900000-0000-7000-8000-000000002020';
 const MEMBER_ID = '01900000-0000-7000-8000-000000000007';
 const NEW_MEMBER_ID = '01900000-0000-7000-8000-000000000008';
 
-const GROUP_ROW = { id: GROUP_ID, courseid: COURSE_ID, name: 'Nhóm 1', idnumber: '', description: '' };
+const GROUP_ROW = { id: GROUP_ID, courseId: COURSE_ID, name: 'Nhóm 1', idNumber: '', description: '' };
 const COHORT_ROW = {
   id: COHORT_ID,
   name: 'K2026',
-  idnumber: 'K26',
+  idNumber: 'K26',
   description: '',
-  contextid: '01900000-0000-7000-8000-0000000000e1',
+  contextId: '01900000-0000-7000-8000-0000000000e1',
   visible: true,
 };
 
@@ -334,10 +334,10 @@ const COHORT_ROW = {
  * closure để các thao tác POST/DELETE phản ánh lại ở lần GET sau.
  */
 function stubFetchGroups(calls: RecordedCall[]) {
-  let groupingList: { id: string; courseid: string; name: string; idnumber: string; description: string }[] = [];
+  let groupingList: { id: string; courseId: string; name: string; idNumber: string; description: string }[] = [];
   let groupingGroupList: (typeof GROUP_ROW)[] = [];
-  let memberList: { userid: string; timeadded: string }[] = [
-    { userid: MEMBER_ID, timeadded: '2026-01-02T00:00:00.000Z' },
+  let memberList: { userId: string; timeAdded: string }[] = [
+    { userId: MEMBER_ID, timeAdded: '2026-01-02T00:00:00.000Z' },
   ];
   vi.stubGlobal(
     'fetch',
@@ -396,12 +396,12 @@ function stubFetchGroups(calls: RecordedCall[]) {
       if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([GROUP_ROW]);
       if (url === `/api/v1/courses/${COURSE_ID}/groupings` && method === 'GET') return respond(groupingList);
       if (url === `/api/v1/courses/${COURSE_ID}/groupings` && method === 'POST') {
-        const body = JSON.parse(String(init?.body)) as { name: string; idnumber?: string; description?: string };
+        const body = JSON.parse(String(init?.body)) as { name: string; idNumber?: string; description?: string };
         const created = {
           id: GROUPING_ID,
-          courseid: COURSE_ID,
+          courseId: COURSE_ID,
           name: body.name,
-          idnumber: body.idnumber ?? '',
+          idNumber: body.idNumber ?? '',
           description: body.description ?? '',
         };
         groupingList = [created];
@@ -416,11 +416,11 @@ function stubFetchGroups(calls: RecordedCall[]) {
       if (url === '/api/v1/cohorts') return respond([COHORT_ROW]);
       if (url === `/api/v1/cohorts/${COHORT_ID}/members` && method === 'GET') return respond(memberList);
       if (url === `/api/v1/cohorts/${COHORT_ID}/members` && method === 'POST') {
-        memberList = [...memberList, { userid: NEW_MEMBER_ID, timeadded: '2026-01-03T00:00:00.000Z' }];
+        memberList = [...memberList, { userId: NEW_MEMBER_ID, timeAdded: '2026-01-03T00:00:00.000Z' }];
         return respond({ added: true });
       }
       if (url === `/api/v1/cohorts/${COHORT_ID}/members/${MEMBER_ID}` && method === 'DELETE') {
-        memberList = memberList.filter((m) => m.userid !== MEMBER_ID);
+        memberList = memberList.filter((m) => m.userId !== MEMBER_ID);
         return respond({ removed: true });
       }
       if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
@@ -477,7 +477,7 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
     const addCall = calls.find(
       (c) => c.url === `/api/v1/courses/${COURSE_ID}/groupings/${GROUPING_ID}/groups` && c.method === 'POST',
     );
-    expect(addCall?.body).toEqual({ groupid: GROUP_ID });
+    expect(addCall?.body).toEqual({ groupId: GROUP_ID });
     await waitFor(() => expect(within(groupingRow).getByText('Nhóm 1')).toBeTruthy());
   });
 
@@ -498,7 +498,7 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
           (c) =>
             c.url === `/api/v1/cohorts/${COHORT_ID}/members` &&
             c.method === 'POST' &&
-            (c.body as { userid?: string })?.userid === NEW_MEMBER_ID,
+            (c.body as { userId?: string })?.userId === NEW_MEMBER_ID,
         ),
       ).toBe(true),
     );

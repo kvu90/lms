@@ -39,7 +39,7 @@ export class SeedService implements OnApplicationBootstrap {
           username,
           email: this.config.get<string>('ADMIN_EMAIL') ?? 'admin@localhost',
           password: this.config.get<string>('ADMIN_PASSWORD') ?? 'Admin123!',
-          firstname: 'Site', lastname: 'Administrator',
+          firstName: 'Site', lastName: 'Administrator',
         });
       }
       const system = await this.contexts.ensureSystemContext();

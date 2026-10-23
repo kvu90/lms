@@ -20,9 +20,9 @@ export class CompletionRepository {
   /**
    * Trạng thái hoàn thành một cm của một user.
    */
-  async getCmCompletion(cmid: string, userid: string): Promise<CmCompletionRow | undefined> {
+  async getCmCompletion(cmid: string, userId: string): Promise<CmCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseModulesCompletion)
-      .where(and(eq(courseModulesCompletion.coursemoduleid, cmid), eq(courseModulesCompletion.userid, userid)));
+      .where(and(eq(courseModulesCompletion.courseModuleId, cmid), eq(courseModulesCompletion.userId, userId)));
     return row;
   }
   /**
@@ -31,37 +31,37 @@ export class CompletionRepository {
   async upsertCmCompletion(v: typeof courseModulesCompletion.$inferInsert, tx?: DbTx): Promise<CmCompletionRow> {
     const [row] = await (tx ?? this.db).insert(courseModulesCompletion).values(v)
       .onConflictDoUpdate({
-        target: [courseModulesCompletion.coursemoduleid, courseModulesCompletion.userid],
-        set: { completionstate: v.completionstate, viewed: v.viewed, overrideby: v.overrideby, timemodified: new Date() },
+        target: [courseModulesCompletion.courseModuleId, courseModulesCompletion.userId],
+        set: { completionState: v.completionState, viewed: v.viewed, overrideBy: v.overrideBy, updatedAt: new Date() },
       }).returning();
     return row!;
   }
   /**
    * Mọi trạng thái hoàn thành cm của user trong khoá học.
    */
-  async listCmCompletionsForUser(userid: string, cmIds: string[]): Promise<CmCompletionRow[]> {
+  async listCmCompletionsForUser(userId: string, cmIds: string[]): Promise<CmCompletionRow[]> {
     if (!cmIds.length) return [];
     return this.db.select().from(courseModulesCompletion)
-      .where(and(eq(courseModulesCompletion.userid, userid), inArray(courseModulesCompletion.coursemoduleid, cmIds)));
+      .where(and(eq(courseModulesCompletion.userId, userId), inArray(courseModulesCompletion.courseModuleId, cmIds)));
   }
   /**
    * Mọi trạng thái hoàn thành của một cm.
    */
   async listCmCompletionsForCm(cmid: string): Promise<CmCompletionRow[]> {
-    return this.db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid));
+    return this.db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.courseModuleId, cmid));
   }
   /**
    * Xoá trạng thái hoàn thành khi cm bị xoá.
    */
   async deleteCmCompletionsForCm(cmid: string): Promise<number> {
-    const deleted = await this.db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.coursemoduleid, cmid)).returning();
+    const deleted = await this.db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.courseModuleId, cmid)).returning();
     return deleted.length;
   }
   /**
    * Cm đã có bất kỳ bản ghi hoàn thành nào chưa (probe dữ liệu liên quan).
    */
-  async hasAnyCmCompletion(userid: string, cmIds: string[]): Promise<boolean> {
-    const rows = await this.listCmCompletionsForUser(userid, cmIds);
+  async hasAnyCmCompletion(userId: string, cmIds: string[]): Promise<boolean> {
+    const rows = await this.listCmCompletionsForUser(userId, cmIds);
     return rows.length > 0;
   }
 
@@ -75,7 +75,7 @@ export class CompletionRepository {
    * Tiêu chí của khoá học.
    */
   async listCriteria(courseId: string): Promise<CriteriaRow[]> {
-    return this.db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId)).orderBy(courseCompletionCriteria.sortorder, courseCompletionCriteria.id);
+    return this.db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId)).orderBy(courseCompletionCriteria.sortOrder, courseCompletionCriteria.id);
   }
   /**
    * Xoá toàn bộ tiêu chí của khoá học (khi đặt lại).
@@ -101,9 +101,9 @@ export class CompletionRepository {
   /**
    * Bản ghi hoàn thành khoá học của user.
    */
-  async getCourseCompletion(userid: string, courseId: string): Promise<CourseCompletionRow | undefined> {
+  async getCourseCompletion(userId: string, courseId: string): Promise<CourseCompletionRow | undefined> {
     const [row] = await this.db.select().from(courseCompletions)
-      .where(and(eq(courseCompletions.userid, userid), eq(courseCompletions.course, courseId)));
+      .where(and(eq(courseCompletions.userId, userId), eq(courseCompletions.course, courseId)));
     return row;
   }
   /**
@@ -112,8 +112,8 @@ export class CompletionRepository {
   async upsertCourseCompletion(v: typeof courseCompletions.$inferInsert): Promise<CourseCompletionRow> {
     const [row] = await this.db.insert(courseCompletions).values(v)
       .onConflictDoUpdate({
-        target: [courseCompletions.userid, courseCompletions.course],
-        set: { status: v.status, timestarted: v.timestarted, timecompleted: v.timecompleted, reaggregate: new Date() },
+        target: [courseCompletions.userId, courseCompletions.course],
+        set: { status: v.status, timeStarted: v.timeStarted, timeCompleted: v.timeCompleted, reAggregate: new Date() },
       }).returning();
     return row!;
   }

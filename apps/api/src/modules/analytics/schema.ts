@@ -18,47 +18,47 @@ export const analyticsModels = pgTable('analytics_models', {
   target: text('target').notNull(),
   indicators: jsonb('indicators').notNull().default([]),
   enabled: boolean('enabled').notNull().default(true),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Dự đoán của model cho một user trong một context — suy luận, không phải dữ kiện. */
 export const analyticsPredictions = pgTable('analytics_predictions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  modelid: uuid('modelid').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
-  userid: uuid('userid').notNull(),
-  contextid: uuid('contextid').notNull(),
-  courseid: uuid('courseid'),
+  modelId: uuid('model_id').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  courseId: uuid('course_id'),
   score: doublePrecision('score').notNull().default(0),
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('analytics_predictions_modelid_idx').on(table.modelid),
-      index('analytics_predictions_userid_idx').on(table.userid),
-      index('analytics_predictions_contextid_idx').on(table.contextid),
-      index('analytics_predictions_courseid_idx').on(table.courseid),
+      index('analytics_predictions_model_id_idx').on(table.modelId),
+      index('analytics_predictions_user_id_idx').on(table.userId),
+      index('analytics_predictions_context_id_idx').on(table.contextId),
+      index('analytics_predictions_course_id_idx').on(table.courseId),
   ]);
 
 
 /** Insight sinh cho user có capability ở context liên quan. */
 export const insights = pgTable('insights', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  modelid: uuid('modelid').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
-  predictionid: uuid('predictionid'),
-  userid: uuid('userid').notNull(), // subject
-  recipientid: uuid('recipientid').notNull(),
-  contextid: uuid('contextid').notNull(),
-  courseid: uuid('courseid'),
+  modelId: uuid('model_id').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
+  predictionId: uuid('prediction_id'),
+  userId: uuid('user_id').notNull(), // subject
+  recipientId: uuid('recipient_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  courseId: uuid('course_id'),
   heading: text('heading').notNull().default(''),
   data: jsonb('data'),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('insights_modelid_idx').on(table.modelid),
-      index('insights_predictionid_idx').on(table.predictionid),
-      index('insights_userid_idx').on(table.userid),
-      index('insights_recipientid_idx').on(table.recipientid),
-      index('insights_contextid_idx').on(table.contextid),
-      index('insights_courseid_idx').on(table.courseid),
+      index('insights_model_id_idx').on(table.modelId),
+      index('insights_prediction_id_idx').on(table.predictionId),
+      index('insights_user_id_idx').on(table.userId),
+      index('insights_recipient_id_idx').on(table.recipientId),
+      index('insights_context_id_idx').on(table.contextId),
+      index('insights_course_id_idx').on(table.courseId),
   ]);
 

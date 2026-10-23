@@ -12,8 +12,8 @@ import type { relations } from '../db/relations';
 type Database = NodePgDatabase<typeof relations>;
 import { files } from '../db/schema';
 
-export interface FileCleanupJobData { contenthash: string }
-export interface FileCleanupResult { contenthash: string; removed: boolean; refcount: number }
+export interface FileCleanupJobData { contentHash: string }
+export interface FileCleanupResult { contentHash: string; removed: boolean; refcount: number }
 
 /**
  * Orphan file cleanup (Moodle filestorage cron semantics): physical bytes of
@@ -36,17 +36,17 @@ export class FileCleanupProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
-    const { contenthash } = job.data;
-    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contenthash, contenthash));
+    const { contentHash } = job.data;
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contentHash, contentHash));
     const refcount = row?.n ?? 0;
     if (refcount > 0) {
-      this.logger.log(`Hash ${contenthash.slice(0, 8)}… still referenced (${refcount}), keeping physical file`);
-      return { contenthash, removed: false, refcount };
+      this.logger.log(`Hash ${contentHash.slice(0, 8)}… still referenced (${refcount}), keeping physical file`);
+      return { contentHash, removed: false, refcount };
     }
     const root = this.config.get<string>('FILE_STORAGE_DIR') ?? './data/files';
-    const path = join(root, contenthash.slice(0, 2), contenthash.slice(2, 4), contenthash);
+    const path = join(root, contentHash.slice(0, 2), contentHash.slice(2, 4), contentHash);
     await rm(path, { force: true });
-    this.logger.log(`Removed orphan physical file for hash ${contenthash.slice(0, 8)}…`);
-    return { contenthash, removed: true, refcount: 0 };
+    this.logger.log(`Removed orphan physical file for hash ${contentHash.slice(0, 8)}…`);
+    return { contentHash, removed: true, refcount: 0 };
   }
 }

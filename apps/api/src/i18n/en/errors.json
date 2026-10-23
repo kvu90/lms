@@ -5,7 +5,7 @@
     "invalid_permission": "Invalid permission value",
     "parent_context_not_found": "Parent context not found",
     "role_not_found": "Role not found",
-    "role_shortname_taken": "Role shortname already exists"
+    "role_shortname_taken": "Role shortName already exists"
   },
   "analytics": {
     "model_not_found": "Analytics model not found",
@@ -134,13 +134,13 @@
     "not_found": "Course not found",
     "section_course_mismatch": "Section does not belong to this course",
     "section_not_found": "Course section not found",
-    "shortname_taken": "Course shortname is taken"
+    "shortname_taken": "Course shortName is taken"
   },
   "customfield": {
     "category_not_found": "Custom field category not found",
     "field_not_found": "Custom field not found",
     "invalid_type": "Unsupported custom field type",
-    "shortname_taken": "Field shortname already exists in this category",
+    "shortname_taken": "Field shortName already exists in this category",
     "validation_failed": "Custom field value validation failed"
   },
   "enrol": {
@@ -167,14 +167,14 @@
   "grades": {
     "bad_aggregation": "Unknown aggregation method",
     "bad_itemtype": "This grade item type is created by the system",
-    "bad_range": "grademax must be greater than grademin",
+    "bad_range": "gradeMax must be greater than gradeMin",
     "calculated_item": "Category/course totals are calculated, not entered",
     "calculation_cycle": "Grade calculation has a circular reference",
     "calculation_invalid": "Invalid grade calculation",
     "calculation_only_calculated": "Only calculated items carry a calculation formula",
     "calculation_required": "A calculated item requires a calculation formula",
     "calculation_unknown_function": "Unsupported function in grade calculation",
-    "calculation_unknown_idnumber": "Grade calculation references an unknown idnumber",
+    "calculation_unknown_idnumber": "Grade calculation references an unknown idNumber",
     "category_course_mismatch": "Grade category belongs to another course",
     "category_not_empty": "Grade category is not empty",
     "category_not_found": "Grade category not found",
@@ -183,8 +183,8 @@
     "grade_locked": "This grade is locked",
     "grade_not_found": "Grade not found",
     "grade_overridden": "This grade is overridden; clear the override before entering a grade",
-    "idnumber_in_use": "This idnumber is referenced by a grade calculation",
-    "idnumber_taken": "idnumber is already used by another grade item in this course",
+    "idnumber_in_use": "This idNumber is referenced by a grade calculation",
+    "idnumber_taken": "idNumber is already used by another grade item in this course",
     "item_exists_for_cm": "This activity already has a grade item",
     "item_locked": "This grade item is locked",
     "item_not_found": "Grade item not found",

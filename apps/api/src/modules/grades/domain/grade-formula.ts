@@ -3,7 +3,7 @@
  *
  * Nguồn oracle: MoodleDocs "Grade calculations" (docs.moodle.org/en/Grade_calculations,
  * tra cứu trực tuyến 2026-10-23): công thức bắt đầu bằng dấu `=`, tham chiếu một grade item
- * bằng idnumber của nó đặt trong ngoặc vuông kép — ví dụ `[[Quiz1]]` — các phép toán số học
+ * bằng idNumber của nó đặt trong ngoặc vuông kép — ví dụ `[[Quiz1]]` — các phép toán số học
  * `+ - * /`, dấu ngoặc, và các hàm `sum`, `average`, `min`, `max` với đối số tách bằng dấu phẩy.
  * Ví dụ trong tài liệu: `=average([[item1]], [[item2]])`,
  * `=sum([[item1]]*0.3, [[item2]]*0.6, [[item3]]*0.1)`, `=max([[A]], [[B]], 100)`.
@@ -34,19 +34,19 @@ export type FormulaFunction = (typeof FORMULA_FUNCTIONS)[number];
 /** Nút cây cú pháp của công thức điểm. */
 export type FormulaNode =
   | { kind: 'number'; value: number }
-  | { kind: 'reference'; idnumber: string }
+  | { kind: 'reference'; idNumber: string }
   | { kind: 'negate'; operand: FormulaNode }
   | { kind: 'binary'; op: '+' | '-' | '*' | '/'; left: FormulaNode; right: FormulaNode }
   | { kind: 'call'; fn: FormulaFunction; args: FormulaNode[] };
 
 type Token =
   | { type: 'number'; value: number }
-  | { type: 'reference'; idnumber: string }
+  | { type: 'reference'; idNumber: string }
   | { type: 'identifier'; name: string }
   | { type: 'op'; value: string };
 
 /**
- * Token hoá công thức: số, tham chiếu `[[idnumber]]`, tên hàm và toán tử/ngoặc/dấu phẩy.
+ * Token hoá công thức: số, tham chiếu `[[idNumber]]`, tên hàm và toán tử/ngoặc/dấu phẩy.
  * Ném GradeFormulaError('syntax') khi gặp ký tự lạ hoặc tham chiếu không đóng ngoặc.
  */
 function tokenize(input: string): Token[] {
@@ -58,9 +58,9 @@ function tokenize(input: string): Token[] {
     if (ch === '[' && input[i + 1] === '[') {
       const end = input.indexOf(']]', i + 2);
       if (end === -1) throw new GradeFormulaError('syntax', 'Unclosed [[...]] reference in grade calculation');
-      const idnumber = input.slice(i + 2, end).trim();
-      if (!idnumber) throw new GradeFormulaError('syntax', 'Empty [[...]] reference in grade calculation');
-      tokens.push({ type: 'reference', idnumber });
+      const idNumber = input.slice(i + 2, end).trim();
+      if (!idNumber) throw new GradeFormulaError('syntax', 'Empty [[...]] reference in grade calculation');
+      tokens.push({ type: 'reference', idNumber });
       i = end + 2;
       continue;
     }
@@ -132,7 +132,7 @@ export function parseGradeFormula(formula: string): FormulaNode {
     const t = next();
     if (!t) throw new GradeFormulaError('syntax', 'Unexpected end of grade calculation');
     if (t.type === 'number') return { kind: 'number', value: t.value };
-    if (t.type === 'reference') return { kind: 'reference', idnumber: t.idnumber };
+    if (t.type === 'reference') return { kind: 'reference', idNumber: t.idNumber };
     if (t.type === 'op' && t.value === '(') {
       const inner = parseExpression();
       expectOp(')');
@@ -165,14 +165,14 @@ export function parseGradeFormula(formula: string): FormulaNode {
 }
 
 /**
- * Liệt kê mọi idnumber được tham chiếu trong cây cú pháp (không trùng lặp, giữ thứ tự xuất hiện).
+ * Liệt kê mọi idNumber được tham chiếu trong cây cú pháp (không trùng lặp, giữ thứ tự xuất hiện).
  */
 export function formulaReferences(node: FormulaNode): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const walk = (n: FormulaNode): void => {
     if (n.kind === 'reference') {
-      if (!seen.has(n.idnumber)) { seen.add(n.idnumber); out.push(n.idnumber); }
+      if (!seen.has(n.idNumber)) { seen.add(n.idNumber); out.push(n.idNumber); }
     } else if (n.kind === 'negate') walk(n.operand);
     else if (n.kind === 'binary') { walk(n.left); walk(n.right); }
     else if (n.kind === 'call') n.args.forEach(walk);
@@ -182,13 +182,13 @@ export function formulaReferences(node: FormulaNode): string[] {
 }
 
 /**
- * Đánh giá cây cú pháp với hàm tra điểm theo idnumber (null = chưa có điểm).
+ * Đánh giá cây cú pháp với hàm tra điểm theo idNumber (null = chưa có điểm).
  * Chia cho 0 → null; phép toán hai ngôi có toán hạng null → null; hàm bỏ qua đối số null.
  */
-export function evaluateGradeFormula(node: FormulaNode, resolve: (idnumber: string) => number | null): number | null {
+export function evaluateGradeFormula(node: FormulaNode, resolve: (idNumber: string) => number | null): number | null {
   switch (node.kind) {
     case 'number': return node.value;
-    case 'reference': return resolve(node.idnumber);
+    case 'reference': return resolve(node.idNumber);
     case 'negate': {
       const v = evaluateGradeFormula(node.operand, resolve);
       return v === null ? null : -v;
@@ -218,12 +218,12 @@ export function evaluateGradeFormula(node: FormulaNode, resolve: (idnumber: stri
 /**
  * Tiện ích: phân tích rồi đánh giá một công thức dạng chuỗi trong một lần gọi.
  */
-export function calculateFromFormula(formula: string, resolve: (idnumber: string) => number | null): number | null {
+export function calculateFromFormula(formula: string, resolve: (idNumber: string) => number | null): number | null {
   return evaluateGradeFormula(parseGradeFormula(formula), resolve);
 }
 
 /**
- * Phát hiện vòng tham chiếu trong đồ thị idnumber → các idnumber mà công thức của nó tham chiếu,
+ * Phát hiện vòng tham chiếu trong đồ thị idNumber → các idNumber mà công thức của nó tham chiếu,
  * bắt đầu từ `start`. Trả về đường vòng (gồm nút lặp ở cuối) hoặc null khi không có vòng.
  */
 export function findFormulaCycle(graph: Map<string, string[]>, start: string): string[] | null {

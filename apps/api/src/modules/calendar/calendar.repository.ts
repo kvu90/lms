@@ -33,7 +33,7 @@ export class CalendarRepository {
    * Cập nhật sự kiện.
    */
   async updateEvent(id: string, patch: Partial<CalendarEventRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(calendarEvents).set({ ...patch, timemodified: new Date() }).where(eq(calendarEvents.id, id));
+    await (tx ?? this.db).update(calendarEvents).set({ ...patch, updatedAt: new Date() }).where(eq(calendarEvents.id, id));
   }
   /**
    * Xoá sự kiện.
@@ -45,28 +45,28 @@ export class CalendarRepository {
    * Mọi sự kiện của một phạm vi (cho quản trị).
    */
   async listAllEvents(): Promise<CalendarEventRow[]> {
-    return this.db.select().from(calendarEvents).orderBy(asc(calendarEvents.timestart));
+    return this.db.select().from(calendarEvents).orderBy(asc(calendarEvents.timeStart));
   }
   /**
    * Sự kiện có mốc trong khoảng thời gian (trước khi mở rộng chuỗi lặp).
    */
   async listEventsInRange(from: Date, to: Date): Promise<CalendarEventRow[]> {
     return this.db.select().from(calendarEvents)
-      .where(and(gte(calendarEvents.timestart, from), lte(calendarEvents.timestart, to)))
-      .orderBy(asc(calendarEvents.timestart));
+      .where(and(gte(calendarEvents.timeStart, from), lte(calendarEvents.timeStart, to)))
+      .orderBy(asc(calendarEvents.timeStart));
   }
   /**
    * Các sự kiện thuộc cùng một chuỗi lặp.
    */
-  async listSeries(repeatid: string): Promise<CalendarEventRow[]> {
-    return this.db.select().from(calendarEvents).where(eq(calendarEvents.repeatid, repeatid)).orderBy(asc(calendarEvents.timestart));
+  async listSeries(repeatId: string): Promise<CalendarEventRow[]> {
+    return this.db.select().from(calendarEvents).where(eq(calendarEvents.repeatId, repeatId)).orderBy(asc(calendarEvents.timeStart));
   }
   /**
    * Tìm sự kiện đã nhập theo uuid của subscription (để đồng bộ không trùng).
    */
-  async findBySubscriptionUuid(subscriptionid: string, uuid: string): Promise<CalendarEventRow | undefined> {
+  async findBySubscriptionUuid(subscriptionId: string, uuid: string): Promise<CalendarEventRow | undefined> {
     const [row] = await this.db.select().from(calendarEvents)
-      .where(and(eq(calendarEvents.subscriptionid, subscriptionid), eq(calendarEvents.uuid, uuid)));
+      .where(and(eq(calendarEvents.subscriptionId, subscriptionId), eq(calendarEvents.uuid, uuid)));
     return row;
   }
 
@@ -91,25 +91,25 @@ export class CalendarRepository {
   /**
    * Token xuất lịch đang hiệu lực của một user (chỉ chứa hash), nếu có.
    */
-  async getExportTokenByUser(userid: string): Promise<CalendarExportTokenRow | undefined> {
-    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.userid, userid)); return row;
+  async getExportTokenByUser(userId: string): Promise<CalendarExportTokenRow | undefined> {
+    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.userId, userId)); return row;
   }
   /**
    * Tìm token xuất lịch theo hash của token thô — đường tra cứu duy nhất của
    * URL xuất công khai; không bao giờ tra theo token thô.
    */
-  async getExportTokenByHash(tokenhash: string): Promise<CalendarExportTokenRow | undefined> {
-    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.tokenhash, tokenhash)); return row;
+  async getExportTokenByHash(tokenHash: string): Promise<CalendarExportTokenRow | undefined> {
+    const [row] = await this.db.select().from(calendarExportTokens).where(eq(calendarExportTokens.tokenHash, tokenHash)); return row;
   }
   /**
    * Tạo mới hoặc thay thế token xuất lịch của user (một user một token):
    * ghi đè hash cũ khiến URL xuất cũ chết ngay khi đổi token.
    */
-  async upsertExportToken(userid: string, tokenhash: string): Promise<CalendarExportTokenRow> {
-    const [row] = await this.db.insert(calendarExportTokens).values({ userid, tokenhash })
+  async upsertExportToken(userId: string, tokenHash: string): Promise<CalendarExportTokenRow> {
+    const [row] = await this.db.insert(calendarExportTokens).values({ userId, tokenHash })
       .onConflictDoUpdate({
-        target: calendarExportTokens.userid,
-        set: { tokenhash, timemodified: new Date(), lastaccess: null },
+        target: calendarExportTokens.userId,
+        set: { tokenHash, updatedAt: new Date(), lastAccess: null },
       }).returning();
     return row!;
   }
@@ -117,21 +117,21 @@ export class CalendarRepository {
    * Thu hồi token xuất lịch của user: xoá hẳn bản ghi hash để URL cũ chết;
    * trả về true khi thật sự có token đã bị thu hồi.
    */
-  async deleteExportToken(userid: string): Promise<boolean> {
-    const deleted = await this.db.delete(calendarExportTokens).where(eq(calendarExportTokens.userid, userid)).returning();
+  async deleteExportToken(userId: string): Promise<boolean> {
+    const deleted = await this.db.delete(calendarExportTokens).where(eq(calendarExportTokens.userId, userId)).returning();
     return deleted.length > 0;
   }
   /**
    * Ghi nhận lần dùng URL xuất công khai gần nhất.
    */
   async touchExportToken(id: string): Promise<void> {
-    await this.db.update(calendarExportTokens).set({ lastaccess: new Date() }).where(eq(calendarExportTokens.id, id));
+    await this.db.update(calendarExportTokens).set({ lastAccess: new Date() }).where(eq(calendarExportTokens.id, id));
   }
 
   /**
    * Cập nhật mốc đồng bộ gần nhất của subscription.
    */
   async touchSubscription(id: string): Promise<void> {
-    await this.db.update(calendarSubscriptions).set({ lastupdated: new Date() }).where(eq(calendarSubscriptions.id, id));
+    await this.db.update(calendarSubscriptions).set({ lastUpdated: new Date() }).where(eq(calendarSubscriptions.id, id));
   }
 }

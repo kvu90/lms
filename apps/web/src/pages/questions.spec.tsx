@@ -28,25 +28,25 @@ function stubFetch(calls: RecordedCall[]) {
     fraction: null as number | null,
     steps: [] as {
       id: string;
-      sequencenumber: number;
+      sequenceNumber: number;
       state: string;
       fraction: number | null;
       data: Record<string, string>;
     }[],
   };
   const usageBody = () => ({
-    usage: { id: USAGE_ID, component: 'mod_quiz', instanceid: null, preferredbehaviour: 'deferredfeedback' },
+    usage: { id: USAGE_ID, component: 'mod_quiz', instanceId: null, preferredBehaviour: 'deferredfeedback' },
     state:
       state.attempt === 'notstarted' ? 'notstarted' : state.attempt.startsWith('graded') ? 'finished' : 'inprogress',
     attempts: [
       {
         id: ATTEMPT_ID,
-        questionusageid: USAGE_ID,
+        questionUsageId: USAGE_ID,
         slot: 1,
         behaviour: 'deferredfeedback',
-        questionid: QUESTION_ID,
-        questionversionid: state.attempt === 'notstarted' ? null : '01900000-0000-7000-8000-000000000008',
-        maxmark: 1,
+        questionId: QUESTION_ID,
+        questionVersionId: state.attempt === 'notstarted' ? null : '01900000-0000-7000-8000-000000000008',
+        maxMark: 1,
         state: state.attempt,
         fraction: state.fraction,
         steps: state.steps,
@@ -61,27 +61,27 @@ function stubFetch(calls: RecordedCall[]) {
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/questions/categories')
-        return respond([{ id: CATEGORY_ID, name: 'General', contextid: CATEGORY_ID, info: '', parent: null }]);
+        return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) {
         return respond([
           {
             question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'truefalse', name: 'Sky' },
             entry: {
               id: '01900000-0000-7000-8000-000000000002',
-              questioncategoryid: CATEGORY_ID,
-              questionid: QUESTION_ID,
-              latestversion: 1,
+              questionCategoryId: CATEGORY_ID,
+              questionId: QUESTION_ID,
+              latestVersion: 1,
             },
             latestVersion: {
               id: '01900000-0000-7000-8000-000000000008',
-              questionbankentryid: '01900000-0000-7000-8000-000000000002',
-              questionid: QUESTION_ID,
+              questionBankEntryId: '01900000-0000-7000-8000-000000000002',
+              questionId: QUESTION_ID,
               version: 1,
-              questiontext: {
+              questionText: {
                 type: 'doc',
                 content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The sky is blue.' }] }],
               },
-              defaultmark: 1,
+              defaultMark: 1,
             },
           },
         ]);
@@ -91,7 +91,7 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === `/api/v1/question-usages/${USAGE_ID}/start` && method === 'POST') {
         state.attempt = 'todo';
         state.steps = [
-          { id: '01900000-0000-7000-8000-000000000021', sequencenumber: 0, state: 'todo', fraction: null, data: {} },
+          { id: '01900000-0000-7000-8000-000000000021', sequenceNumber: 0, state: 'todo', fraction: null, data: {} },
         ];
         return respond(usageBody());
       }
@@ -101,7 +101,7 @@ function stubFetch(calls: RecordedCall[]) {
           ...state.steps,
           {
             id: '01900000-0000-7000-8000-000000000022',
-            sequencenumber: 1,
+            sequenceNumber: 1,
             state: 'complete',
             fraction: null,
             data: { answer: 'true' },

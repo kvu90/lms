@@ -68,7 +68,7 @@ export function AdminUsersPage() {
     {
       id: 'name',
       header: t('fullName'),
-      cell: (u) => `${u.firstname} ${u.lastname}`,
+      cell: (u) => `${u.firstName} ${u.lastName}`,
     },
     {
       id: 'email',

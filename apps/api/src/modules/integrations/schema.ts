@@ -14,26 +14,26 @@ import { sql } from 'drizzle-orm';
 export const externalServices = pgTable('external_services', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull().unique(),
-  shortname: text('shortname').notNull().unique(),
+  shortName: text('short_name').notNull().unique(),
   enabled: boolean('enabled').notNull().default(true),
   functions: jsonb('functions').notNull().default([]),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Token ngoài: chỉ lưu HASH của token, gắn user + service, có hạn và IP whitelist tuỳ chọn. */
 export const externalTokens = pgTable('external_tokens', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  tokenhash: text('tokenhash').notNull().unique(),
-  userid: uuid('userid').notNull(),
-  serviceid: uuid('serviceid').notNull().references(() => externalServices.id, { onDelete: 'cascade' }),
-  validuntil: timestamp('validuntil', { withTimezone: true }),
-  iprestriction: text('iprestriction'),
+  tokenHash: text('token_hash').notNull().unique(),
+  userId: uuid('user_id').notNull(),
+  serviceId: uuid('service_id').notNull().references(() => externalServices.id, { onDelete: 'cascade' }),
+  validUntil: timestamp('valid_until', { withTimezone: true }),
+  ipRestriction: text('ip_restriction'),
   revoked: boolean('revoked').notNull().default(false),
-  lastaccess: timestamp('lastaccess', { withTimezone: true }),
-  timecreated: timestamp('timecreated', { withTimezone: true }).notNull().defaultNow(),
+  lastAccess: timestamp('last_access', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('external_tokens_userid_idx').on(table.userid),
-      index('external_tokens_serviceid_idx').on(table.serviceid),
+      index('external_tokens_user_id_idx').on(table.userId),
+      index('external_tokens_service_id_idx').on(table.serviceId),
   ]);
 

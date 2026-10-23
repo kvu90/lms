@@ -44,12 +44,12 @@ export function CourseAdminPage() {
   const [completions, setCompletions] = useState<CourseCompletion[]>([]);
   const [enrolUserId, setEnrolUserId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
-  const [groupingDraft, setGroupingDraft] = useState({ name: '', idnumber: '', description: '' });
+  const [groupingDraft, setGroupingDraft] = useState({ name: '', idNumber: '', description: '' });
   const [expandedGroupingId, setExpandedGroupingId] = useState('');
   const [groupingGroups, setGroupingGroups] = useState<Record<string, CourseGroup[]>>({});
   const [groupingAddSelection, setGroupingAddSelection] = useState<Record<string, string>>({});
   const [expandedCohortId, setExpandedCohortId] = useState('');
-  const [cohortMembers, setCohortMembers] = useState<Record<string, { userid: string; timeadded: string }[]>>({});
+  const [cohortMembers, setCohortMembers] = useState<Record<string, { userId: string; timeAdded: string }[]>>({});
   const [cohortMemberInputs, setCohortMemberInputs] = useState<Record<string, string>>({});
 
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
@@ -73,13 +73,13 @@ export function CourseAdminPage() {
   const [content, setContent] = useState<CourseContent | null>(null);
   const [builderMessage, setBuilderMessage] = useState<string | null>(null);
   const [builderError, setBuilderError] = useState<string | null>(null);
-  const [fullname, setFullname] = useState('');
-  const [shortname, setShortname] = useState('');
+  const [fullName, setFullname] = useState('');
+  const [shortName, setShortname] = useState('');
   const [courseCategory, setCourseCategory] = useState('');
   const [summary, setSummary] = useState('');
   const [courseVisible, setCourseVisible] = useState(true);
-  const [startdate, setStartdate] = useState('');
-  const [enddate, setEnddate] = useState('');
+  const [startDate, setStartdate] = useState('');
+  const [endDate, setEnddate] = useState('');
   const [newSectionName, setNewSectionName] = useState('');
   const [sectionEdits, setSectionEdits] = useState<Record<string, { name: string; visible: boolean }>>({});
   const [moduleDrafts, setModuleDrafts] = useState<Record<string, { component: string; name: string }>>({});
@@ -87,7 +87,7 @@ export function CourseAdminPage() {
   const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
   const [availabilityDrafts, setAvailabilityDrafts] = useState<Record<string, unknown>>({});
   const [criteriaMethod, setCriteriaMethod] = useState(1);
-  const [criteriaDraft, setCriteriaDraft] = useState<{ criteriatype: string; moduleinstance: string; date: string }[]>(
+  const [criteriaDraft, setCriteriaDraft] = useState<{ criteriaType: string; moduleInstance: string; date: string }[]>(
     [],
   );
 
@@ -126,7 +126,7 @@ export function CourseAdminPage() {
       apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
       apiJson<{
         method: number;
-        criteria: { id: string; criteriatype: string; moduleinstance: string | null; date: string | null }[];
+        criteria: { id: string; criteriaType: string; moduleInstance: string | null; date: string | null }[];
       }>(`/api/v1/courses/${courseId}/completion/criteria`).catch(() => null),
     ]);
     setGradeItems(itemsRes);
@@ -134,21 +134,21 @@ export function CourseAdminPage() {
       setCriteriaMethod(criteriaRes.method);
       setCriteriaDraft(
         criteriaRes.criteria.map((criterion) => ({
-          criteriatype: criterion.criteriatype,
-          moduleinstance: criterion.moduleinstance ?? '',
+          criteriaType: criterion.criteriaType,
+          moduleInstance: criterion.moduleInstance ?? '',
           date: criterion.date ? String(criterion.date).slice(0, 10) : '',
         })),
       );
     }
     if (courseRes) {
       setCourse(courseRes);
-      setFullname(courseRes.fullname);
-      setShortname(courseRes.shortname);
+      setFullname(courseRes.fullName);
+      setShortname(courseRes.shortName);
       setCourseCategory(courseRes.category);
       setSummary(courseRes.summary);
       setCourseVisible(courseRes.visible);
-      setStartdate(courseRes.startdate ? courseRes.startdate.slice(0, 10) : '');
-      setEnddate(courseRes.enddate ? courseRes.enddate.slice(0, 10) : '');
+      setStartdate(courseRes.startDate ? courseRes.startDate.slice(0, 10) : '');
+      setEnddate(courseRes.endDate ? courseRes.endDate.slice(0, 10) : '');
     }
     if (contentRes) {
       setContent(contentRes);
@@ -193,7 +193,7 @@ export function CourseAdminPage() {
     }
   }
 
-  /** Tạo grouping qua POST /courses/:id/groupings (`createGroupingSchema`: name bắt buộc, idnumber/description tuỳ chọn). */
+  /** Tạo grouping qua POST /courses/:id/groupings (`createGroupingSchema`: name bắt buộc, idNumber/description tuỳ chọn). */
   async function createGrouping(event: FormEvent) {
     event.preventDefault();
     try {
@@ -201,11 +201,11 @@ export function CourseAdminPage() {
         method: 'POST',
         body: JSON.stringify({
           name: groupingDraft.name,
-          ...(groupingDraft.idnumber.trim() ? { idnumber: groupingDraft.idnumber.trim() } : {}),
+          ...(groupingDraft.idNumber.trim() ? { idNumber: groupingDraft.idNumber.trim() } : {}),
           ...(groupingDraft.description.trim() ? { description: groupingDraft.description.trim() } : {}),
         }),
       });
-      setGroupingDraft({ name: '', idnumber: '', description: '' });
+      setGroupingDraft({ name: '', idNumber: '', description: '' });
       await reload();
       setMessage(t('groupingCreated'));
     } catch {
@@ -243,14 +243,14 @@ export function CourseAdminPage() {
     }
   }
 
-  /** Gắn một nhóm vào grouping qua POST groupings/:groupingId/groups với `{ groupid }` (`groupingGroupSchema`). */
+  /** Gắn một nhóm vào grouping qua POST groupings/:groupingId/groups với `{ groupId }` (`groupingGroupSchema`). */
   async function addGroupToGrouping(groupingId: string) {
-    const groupid = groupingAddSelection[groupingId];
-    if (!groupid) return;
+    const groupId = groupingAddSelection[groupingId];
+    if (!groupId) return;
     try {
       await apiJson(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`, {
         method: 'POST',
-        body: JSON.stringify({ groupid }),
+        body: JSON.stringify({ groupId }),
       });
       const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`).catch(
         () => groupingGroups[groupingId] ?? [],
@@ -262,7 +262,7 @@ export function CourseAdminPage() {
     }
   }
 
-  /** Mở/thu danh sách thành viên của một cohort: GET /cohorts/:id/members (mảng `{ userid, timeadded }`). */
+  /** Mở/thu danh sách thành viên của một cohort: GET /cohorts/:id/members (mảng `{ userId, timeAdded }`). */
   async function toggleCohortMembers(cohortId: string) {
     if (expandedCohortId === cohortId) {
       setExpandedCohortId('');
@@ -271,7 +271,7 @@ export function CourseAdminPage() {
     setExpandedCohortId(cohortId);
     if (!cohortMembers[cohortId]) {
       try {
-        const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`);
+        const rows = await apiJson<{ userId: string; timeAdded: string }[]>(`/api/v1/cohorts/${cohortId}/members`);
         setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
       } catch {
         setMessage(t('cohortMembersLoadFailed'));
@@ -281,12 +281,12 @@ export function CourseAdminPage() {
 
   /** Thêm thành viên vào cohort qua POST /cohorts/:id/members (`groupMemberSchema`); backend kích hoạt đồng bộ ghi danh theo cohort. */
   async function addCohortMember(cohortId: string) {
-    const userid = (cohortMemberInputs[cohortId] ?? '').trim();
-    if (!userid) return;
+    const userId = (cohortMemberInputs[cohortId] ?? '').trim();
+    if (!userId) return;
     try {
-      await apiJson(`/api/v1/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ userid }) });
+      await apiJson(`/api/v1/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ userId }) });
       setCohortMemberInputs((prev) => ({ ...prev, [cohortId]: '' }));
-      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
+      const rows = await apiJson<{ userId: string; timeAdded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
         () => cohortMembers[cohortId] ?? [],
       );
       setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
@@ -300,8 +300,8 @@ export function CourseAdminPage() {
   async function removeCohortMember(cohortId: string, userId: string) {
     try {
       await apiJson(`/api/v1/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' });
-      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
-        () => (cohortMembers[cohortId] ?? []).filter((m) => m.userid !== userId),
+      const rows = await apiJson<{ userId: string; timeAdded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
+        () => (cohortMembers[cohortId] ?? []).filter((m) => m.userId !== userId),
       );
       setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
       setMessage(t('cohortMemberRemoved'));
@@ -322,7 +322,7 @@ export function CourseAdminPage() {
       }
       await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${instance.id}/enrol`, {
         method: 'POST',
-        body: JSON.stringify({ userid: enrolUserId }),
+        body: JSON.stringify({ userId: enrolUserId }),
       });
       await reload();
       setMessage(t('userEnrolled'));
@@ -334,7 +334,7 @@ export function CourseAdminPage() {
   async function toggleSuspend(ue: UserEnrolment) {
     const action = ue.status === 1 ? 'reactivate' : 'suspend';
     try {
-      await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${ue.enrolid}/users/${ue.userid}/${action}`, {
+      await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${ue.enrolId}/users/${ue.userId}/${action}`, {
         method: 'POST',
       });
       await reload();
@@ -355,13 +355,13 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          fullname,
-          shortname,
+          fullName,
+          shortName,
           category: courseCategory,
           summary,
           visible: courseVisible,
-          startdate: startdate ? startdate : null,
-          enddate: enddate ? enddate : null,
+          startDate: startDate ? startDate : null,
+          endDate: endDate ? endDate : null,
         }),
       });
       setBuilderMessage(t('courseSaved'));
@@ -510,7 +510,7 @@ export function CourseAdminPage() {
   /**
    * Lưu toàn bộ bộ tiêu chí hoàn thành qua PUT /courses/:id/completion/criteria
    * (`completionCriteriaSchema`): method 1 = đạt tất cả (ALL), 2 = đạt bất kỳ
-   * (ANY); từng tiêu chí gửi kèm moduleinstance với loại `module` hoặc date với
+   * (ANY); từng tiêu chí gửi kèm moduleInstance với loại `module` hoặc date với
    * loại `date`, loại `grade` không cần thêm trường.
    */
   async function saveCriteria(event: FormEvent) {
@@ -522,9 +522,9 @@ export function CourseAdminPage() {
         body: JSON.stringify({
           method: criteriaMethod,
           criteria: criteriaDraft.map((criterion) => ({
-            criteriatype: criterion.criteriatype,
-            ...(criterion.criteriatype === 'module' ? { moduleinstance: criterion.moduleinstance } : {}),
-            ...(criterion.criteriatype === 'date' ? { date: criterion.date } : {}),
+            criteriaType: criterion.criteriaType,
+            ...(criterion.criteriaType === 'module' ? { moduleInstance: criterion.moduleInstance } : {}),
+            ...(criterion.criteriaType === 'date' ? { date: criterion.date } : {}),
           })),
         }),
       });
@@ -562,11 +562,11 @@ export function CourseAdminPage() {
                 <form onSubmit={(e) => void saveCourse(e)} className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="builder-fullname">{t('courseFullName')}</Label>
-                    <Input id="builder-fullname" value={fullname} onChange={(e) => setFullname(e.target.value)} />
+                    <Input id="builder-fullname" value={fullName} onChange={(e) => setFullname(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-shortname">{t('courseShortName')}</Label>
-                    <Input id="builder-shortname" value={shortname} onChange={(e) => setShortname(e.target.value)} />
+                    <Input id="builder-shortname" value={shortName} onChange={(e) => setShortname(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-category">{t('courseCategory')}</Label>
@@ -585,7 +585,7 @@ export function CourseAdminPage() {
                     <Input
                       id="builder-startdate"
                       type="date"
-                      value={startdate}
+                      value={startDate}
                       onChange={(e) => setStartdate(e.target.value)}
                     />
                   </div>
@@ -594,7 +594,7 @@ export function CourseAdminPage() {
                     <Input
                       id="builder-enddate"
                       type="date"
-                      value={enddate}
+                      value={endDate}
                       onChange={(e) => setEnddate(e.target.value)}
                     />
                   </div>
@@ -742,7 +742,7 @@ export function CourseAdminPage() {
                                   modules={(content?.sections ?? []).flatMap((s) =>
                                     s.modules.map((m) => ({ id: m.id, name: m.name || m.component })),
                                   )}
-                                  gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
+                                  gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemName }))}
                                 />
                                 <Button
                                   type="button"
@@ -803,7 +803,7 @@ export function CourseAdminPage() {
                         modules={(content?.sections ?? []).flatMap((s) =>
                           s.modules.map((m) => ({ id: m.id, name: m.name || m.component })),
                         )}
-                        gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
+                        gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemName }))}
                       />
                       <Button
                         type="button"
@@ -851,18 +851,18 @@ export function CourseAdminPage() {
                     <select
                       id={`criterion-type-${index}`}
                       className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                      value={criterion.criteriatype}
+                      value={criterion.criteriaType}
                       onChange={(e) =>
                         setCriteriaDraft((prev) =>
                           prev.map((c, i) =>
                             i === index
                               ? {
                                   ...c,
-                                  criteriatype: e.target.value,
-                                  moduleinstance:
-                                    e.target.value === 'module' && !c.moduleinstance
+                                  criteriaType: e.target.value,
+                                  moduleInstance:
+                                    e.target.value === 'module' && !c.moduleInstance
                                       ? ((content?.sections ?? []).flatMap((s) => s.modules)[0]?.id ?? '')
-                                      : c.moduleinstance,
+                                      : c.moduleInstance,
                                 }
                               : c,
                           ),
@@ -874,16 +874,16 @@ export function CourseAdminPage() {
                       <option value="grade">{t('criterionTypeGrade')}</option>
                     </select>
                   </div>
-                  {criterion.criteriatype === 'module' ? (
+                  {criterion.criteriaType === 'module' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`criterion-module-${index}`}>{t('criterionModule')}</Label>
                       <select
                         id={`criterion-module-${index}`}
                         className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                        value={criterion.moduleinstance}
+                        value={criterion.moduleInstance}
                         onChange={(e) =>
                           setCriteriaDraft((prev) =>
-                            prev.map((c, i) => (i === index ? { ...c, moduleinstance: e.target.value } : c)),
+                            prev.map((c, i) => (i === index ? { ...c, moduleInstance: e.target.value } : c)),
                           )
                         }
                       >
@@ -897,7 +897,7 @@ export function CourseAdminPage() {
                       </select>
                     </div>
                   ) : null}
-                  {criterion.criteriatype === 'date' ? (
+                  {criterion.criteriaType === 'date' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`criterion-date-${index}`}>{t('criterionDate')}</Label>
                       <Input
@@ -928,7 +928,7 @@ export function CourseAdminPage() {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    setCriteriaDraft((prev) => [...prev, { criteriatype: 'grade', moduleinstance: '', date: '' }])
+                    setCriteriaDraft((prev) => [...prev, { criteriaType: 'grade', moduleInstance: '', date: '' }])
                   }
                 >
                   {t('addCriterion')}
@@ -977,7 +977,7 @@ export function CourseAdminPage() {
                   <li key={g.id} data-testid={`grouping-${g.id}`} className="space-y-2 rounded border p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{g.name}</span>
-                      {g.idnumber ? <span className="text-sm text-muted-foreground">({g.idnumber})</span> : null}
+                      {g.idNumber ? <span className="text-sm text-muted-foreground">({g.idNumber})</span> : null}
                       <Button type="button" variant="outline" size="sm" onClick={() => void toggleGroupingGroups(g.id)}>
                         {t('groupingViewGroups')}
                       </Button>
@@ -1049,8 +1049,8 @@ export function CourseAdminPage() {
                 <Label htmlFor="grouping-idnumber">{t('groupingIdnumber')}</Label>
                 <Input
                   id="grouping-idnumber"
-                  value={groupingDraft.idnumber}
-                  onChange={(e) => setGroupingDraft({ ...groupingDraft, idnumber: e.target.value })}
+                  value={groupingDraft.idNumber}
+                  onChange={(e) => setGroupingDraft({ ...groupingDraft, idNumber: e.target.value })}
                 />
               </div>
               <div className="space-y-1">
@@ -1079,7 +1079,7 @@ export function CourseAdminPage() {
               <li key={c.id} data-testid={`cohort-${c.id}`} className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span>
-                    {c.name} ({c.idnumber || t('noIdnumber')})
+                    {c.name} ({c.idNumber || t('noIdnumber')})
                   </span>
                   <Button type="button" variant="outline" size="sm" onClick={() => void toggleCohortMembers(c.id)}>
                     {t('cohortViewMembers')}
@@ -1090,14 +1090,14 @@ export function CourseAdminPage() {
                     <p className="text-sm font-medium">{t('cohortMembersTitle', { name: c.name })}</p>
                     <ul className="space-y-1">
                       {(cohortMembers[c.id] ?? []).map((m) => (
-                        <li key={m.userid} className="flex items-center gap-2 text-sm">
-                          <span>{t('cohortMemberLine', { userId: m.userid, time: m.timeadded })}</span>
+                        <li key={m.userId} className="flex items-center gap-2 text-sm">
+                          <span>{t('cohortMemberLine', { userId: m.userId, time: m.timeAdded })}</span>
                           {canManageCohorts && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => void removeCohortMember(c.id, m.userid)}
+                              onClick={() => void removeCohortMember(c.id, m.userId)}
                             >
                               {t('cohortRemoveMember')}
                             </Button>
@@ -1148,7 +1148,7 @@ export function CourseAdminPage() {
               <li key={ue.id} className="flex items-center gap-3">
                 <span>
                   {t('enrolUserLine', {
-                    userId: ue.userid,
+                    userId: ue.userId,
                     status:
                       ue.status === 0 ? t('enrolActive') : ue.status === 1 ? t('enrolSuspended') : t('enrolWithdrawn'),
                     method: ue.enrolMethod ?? '',
@@ -1175,9 +1175,9 @@ export function CourseAdminPage() {
             {completions.map((c) => (
               <li key={c.id}>
                 {t('completionLine', {
-                  userId: c.userid,
+                  userId: c.userId,
                   status: c.status,
-                  suffix: c.timecompleted ? t('completionSuffix', { time: c.timecompleted }) : '',
+                  suffix: c.timeCompleted ? t('completionSuffix', { time: c.timeCompleted }) : '',
                 })}
               </li>
             ))}

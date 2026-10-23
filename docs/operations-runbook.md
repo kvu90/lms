@@ -73,7 +73,7 @@ Nội dung file lưu theo content hash (SHA-256) tại
   (`redis-cli LLEN bull:file-cleanup:wait` và các key `bull:file-cleanup:*`).
 - Nghi có hash mồ côi chưa có job (ví dụ sau sự cố): đối chiếu danh
   sách hash trong bảng `files` với thư mục lưu trữ, enqueue lại job
-  `{ contenthash }` cho các hash không còn bản ghi nào — processor sẽ
+  `{ contentHash }` cho các hash không còn bản ghi nào — processor sẽ
   tự xác minh refcount trước khi xoá.
 
 ## 5. Đọc dấu vết kiểm toán (audit trail)
