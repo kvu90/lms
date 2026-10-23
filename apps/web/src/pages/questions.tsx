@@ -17,14 +17,6 @@ import '../i18n';
 import { apiJson } from '#lib/api';
 import { DataTable, type DataColumn } from '#components/data-table';
 
-/**
- * View câu hỏi như API thực tế trả về: tầng nghiệp vụ (assembleView) còn
- * kèm `stimulus` đã gắn của phiên bản mới nhất, dù schema view ở contracts
- * chưa khai báo trường này. Web chỉ đọc nó để hiển thị; khi vắng mặt thì
- * tra cứu qua `latestVersion.stimulusId` trong danh sách ngữ liệu.
- */
-type QuestionViewFull = QuestionView & { stimulus?: StimulusView | null };
-
 const QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
 type Qtype = (typeof QTYPES)[number];
 
@@ -92,7 +84,7 @@ function emptyForm(qtype: Qtype): QuestionFormState {
 }
 
 /** Nạp một câu hỏi có sẵn vào editor: đáp án/options lấy từ view của phiên bản mới nhất. */
-function formFromView(view: QuestionViewFull): QuestionFormState {
+function formFromView(view: QuestionView): QuestionFormState {
   const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
     ? (view.question.qtype as Qtype)
     : 'truefalse';
@@ -165,7 +157,7 @@ export function QuestionsPage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string[]>([]);
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
-  const [questions, setQuestions] = useState<QuestionViewFull[]>([]);
+  const [questions, setQuestions] = useState<QuestionView[]>([]);
   const [stimuli, setStimuli] = useState<StimulusView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{
     questionId: string;
@@ -176,7 +168,7 @@ export function QuestionsPage() {
   const [catName, setCatName] = useState('');
   const [qCategory, setQCategory] = useState('');
   const [form, setForm] = useState<QuestionFormState>(() => emptyForm('multichoice'));
-  const [editing, setEditing] = useState<QuestionViewFull | null>(null);
+  const [editing, setEditing] = useState<QuestionView | null>(null);
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
 
@@ -185,7 +177,7 @@ export function QuestionsPage() {
   }, []);
 
   const loadQuestions = useCallback(async (categoryId: string) => {
-    const rows = await apiJson<QuestionViewFull[]>(`/api/v1/questions/categories/${categoryId}/questions`);
+    const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
     setQuestions(rows);
   }, []);
   const loadStimuli = useCallback(async (categoryId: string) => {
@@ -225,7 +217,7 @@ export function QuestionsPage() {
     event.preventDefault();
     if (editing) {
       try {
-        const updated = await apiJson<QuestionViewFull>(`/api/v1/questions/${editing.question.id}`, {
+        const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
             ...formContent(form),
@@ -258,7 +250,7 @@ export function QuestionsPage() {
     }
   }
 
-  function startEdit(view: QuestionViewFull) {
+  function startEdit(view: QuestionView) {
     setEditing(view);
     setForm(formFromView(view));
   }
@@ -330,7 +322,7 @@ export function QuestionsPage() {
     }
   }
 
-  async function showVersions(view: QuestionViewFull) {
+  async function showVersions(view: QuestionView) {
     const versions = await apiJson<{ version: number; questionText: RichTextDocument }[]>(
       `/api/v1/questions/${view.question.id}/versions`,
     );
@@ -338,7 +330,7 @@ export function QuestionsPage() {
   }
 
   /** Nội dung ngữ liệu gắn với phiên bản mới nhất của câu hỏi (rỗng khi không gắn). */
-  function stimulusTextOf(view: QuestionViewFull): string {
+  function stimulusTextOf(view: QuestionView): string {
     if (view.stimulus) return plainText(view.stimulus.content);
     const stimulusId = view.latestVersion.stimulusId;
     if (!stimulusId) return '';
@@ -353,7 +345,7 @@ export function QuestionsPage() {
    * bảng quét theo tên và nội dung câu hỏi. Trước đây danh sách này là
    * một <ul> tự chế không sắp xếp/lọc/phân trang.
    */
-  const questionColumns: DataColumn<QuestionViewFull>[] = [
+  const questionColumns: DataColumn<QuestionView>[] = [
     {
       id: 'select',
       header: '',

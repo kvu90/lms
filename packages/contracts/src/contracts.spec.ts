@@ -367,10 +367,17 @@ describe('question view contracts', () => {
         { id: '01900000-0000-7000-8000-000000000012', questionVersionId: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, fraction: 0, feedback: null, sortOrder: 1 },
       ],
       options: { single: true, shuffleAnswers: false, answerNumbering: 'abc' },
+      stimulus: {
+        id: '01900000-0000-7000-8000-000000000099', categoryId: '01900000-0000-7000-8000-000000000001', createdBy: null,
+        content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Đoạn văn ngữ liệu' }] }] },
+      },
     });
     expect(view.answers).toHaveLength(2);
     expect(view.latestVersion.questionText).toEqual(questionText);
     expect(view.latestVersion.stimulusId).toBe('01900000-0000-7000-8000-000000000099');
+    expect(view.stimulus?.id).toBe('01900000-0000-7000-8000-000000000099');
+    expect(extractRichTextPlainText(view.stimulus!.content)).toBe('Đoạn văn ngữ liệu');
+    expect(questionViewSchema.parse({ ...view, stimulus: null }).stimulus).toBeNull();
   });
 
   it('rejects the old version shape (string questionText carrying answerdata)', () => {

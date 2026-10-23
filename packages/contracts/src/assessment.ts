@@ -189,8 +189,24 @@ export const questionOptionsViewSchema = z.record(z.string(), z.unknown()).nulla
 export type QuestionOptionsView = z.infer<typeof questionOptionsViewSchema>;
 
 /**
+ * Một ngữ liệu dùng chung (stimulus) như API trả về: thực thể độc lập gắn
+ * với một question category, nội dung là một tài liệu Tiptap; nhiều phiên
+ * bản câu hỏi có thể cùng tham chiếu một stimulus qua `stimulusId`.
+ */
+export const stimulusViewSchema = z.object({
+  id: uuidIdSchema,
+  categoryId: uuidIdSchema,
+  createdBy: uuidIdSchema.nullable(),
+  content: richTextDocumentSchema,
+  createdAt: z.string().optional(),
+});
+export type StimulusView = z.infer<typeof stimulusViewSchema>;
+
+/**
  * View đầy đủ của một câu hỏi: định danh + phiên bản mới nhất, kèm danh
- * sách đáp án và options của chính phiên bản đó.
+ * sách đáp án và options của chính phiên bản đó, và `stimulus` là ngữ
+ * liệu đã gắn của phiên bản mới nhất (tầng nghiệp vụ nạp sẵn từ
+ * `latestVersion.stimulusId`; `null` khi phiên bản không gắn ngữ liệu).
  */
 export const questionViewSchema = z.object({
   question: z.object({
@@ -208,22 +224,9 @@ export const questionViewSchema = z.object({
   latestVersion: questionVersionSchema,
   answers: z.array(questionAnswerViewSchema),
   options: questionOptionsViewSchema,
+  stimulus: stimulusViewSchema.nullable(),
 });
 export type QuestionView = z.infer<typeof questionViewSchema>;
-
-/**
- * Một ngữ liệu dùng chung (stimulus) như API trả về: thực thể độc lập gắn
- * với một question category, nội dung là một tài liệu Tiptap; nhiều phiên
- * bản câu hỏi có thể cùng tham chiếu một stimulus qua `stimulusId`.
- */
-export const stimulusViewSchema = z.object({
-  id: uuidIdSchema,
-  categoryId: uuidIdSchema,
-  createdBy: uuidIdSchema.nullable(),
-  content: richTextDocumentSchema,
-  createdAt: z.string().optional(),
-});
-export type StimulusView = z.infer<typeof stimulusViewSchema>;
 
 export const QUESTION_STATES = [
   'notstarted', 'todo', 'incomplete', 'complete',
