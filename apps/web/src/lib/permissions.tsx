@@ -148,6 +148,15 @@ async function probeCourseData(course: Course) {
  * liệu thất bại độc lập và chỉ làm rỗng đúng phần dữ liệu đó. Kết quả
  * được cache theo staleTime của QueryClient nên các lần F5/điều hướng
  * gần nhau dựng ngay từ cache rồi làm mới nền.
+ *
+ * Vị trí kiểm soát: provider được mount tại root (root.tsx), bao phủ
+ * toàn bộ cây route vô điều kiện — đây là điểm duy nhất dựng context
+ * này trong app. Các query chỉ bật khi đã có người dùng đăng nhập; khi
+ * chưa có, provider trả ảnh chụp rỗng ở trạng thái sẵn sàng (không
+ * phải lỗi) để mọi trang, kể cả trang công khai có đọc quyền, luôn ở
+ * trong provider và không bao giờ gặp lỗi thiếu provider khi vào
+ * thẳng/F5. Khi đăng xuất/đổi người dùng, tầng phiên xoá toàn bộ
+ * Query cache nên ảnh chụp của người trước không lọt sang người sau.
  */
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();

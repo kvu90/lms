@@ -15,7 +15,7 @@ import { Skeleton } from '@lms/ui/components/ui/skeleton';
  */
 export function AppShellSkeleton() {
   return (
-    <div className="flex min-h-svh w-full bg-sidebar" aria-hidden="true">
+    <div className="flex min-h-svh w-full bg-sidebar" aria-hidden="true" data-testid="app-shell-skeleton">
       <div className="hidden w-72 shrink-0 p-2 md:block">
         <div className="flex h-full flex-col gap-6 px-2 py-2">
           <Skeleton className="h-9 w-32" />

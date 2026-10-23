@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useRouteError } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
+import { PermissionsProvider } from './lib/permissions';
 import { queryClient } from './lib/query-client';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
@@ -32,16 +33,26 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 /**
- * Gốc ứng dụng: QueryClientProvider (một QueryClient duy nhất cho cả
- * app) bọc ngoài AuthProvider để mọi trang dùng chung một phiên đăng
- * nhập (useAuth) và một cache dữ liệu máy chủ. Provider quyền nằm trong
- * khung route đã đăng nhập, gần nơi dùng.
+ * Gốc ứng dụng: MỌI provider toàn cục bọc tại đây theo đúng vị trí
+ * framework mode quy định cho root route — QueryClientProvider (một
+ * QueryClient duy nhất cho cả app), AuthProvider (phiên đăng nhập) và
+ * PermissionsProvider (ảnh chụp quyền) bao phủ TOÀN BỘ cây route vô
+ * điều kiện, không phụ thuộc khung nào đang hiển thị. Nhờ vậy không
+ * trang nào có thể mount ngoài provider nó cần: lỗi "usePermissions
+ * must be used inside PermissionsProvider" khi vào thẳng/F5 một trang
+ * cần quyền bị loại ở mức kiến trúc, thay vì trông vào cổng chờ phiên
+ * của từng khung. PermissionsProvider chỉ bật các query khi đã có
+ * người dùng; khi chưa đăng nhập nó trả ảnh chụp rỗng ở trạng thái sẵn
+ * sàng nên các trang công khai vẫn đọc quyền an toàn. Cổng chờ phiên
+ * (chặn mount trang con cho tới khi phiên resolve) nằm ở layout Shell.
  */
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <PermissionsProvider>
+          <Outlet />
+        </PermissionsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

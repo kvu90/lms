@@ -3,7 +3,6 @@ import { Link, Outlet } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@lms/ui/components/ui/button';
 import { useAuth } from '../lib/auth';
-import { PermissionsProvider } from '../lib/permissions';
 import { AppSidebar } from '../components/app-sidebar';
 import { AppShellSkeleton } from '../components/app-shell-skeleton';
 import { SiteHeader } from '../components/site-header';
@@ -25,30 +24,30 @@ function readSidebarDefaultOpen(): boolean {
 
 /**
  * Khung của khu vực ĐÃ đăng nhập, theo block dashboard-01: sidebar điều
- * hướng (đã lọc theo quyền trong AppSidebar) + header trên cùng + vùng nội
- * dung. PermissionsProvider bọc ngoài để sidebar và trang tổng quan dùng
- * chung một ảnh chụp quyền.
+ * hướng (đã lọc theo quyền trong AppSidebar) + header trên cùng + vùng
+ * nội dung. Khung này CHỈ lo trình bày: PermissionsProvider đã bọc ở
+ * root (root.tsx) cho toàn bộ cây route nên sidebar và mọi trang con
+ * dùng chung một ảnh chụp quyền mà không cần bọc lại tại đây — và
+ * trang nào cũng ở trong provider kể cả khi khung thay đổi.
  */
 function AuthenticatedShell() {
   const [sidebarDefaultOpen] = useState(readSidebarDefaultOpen);
   return (
-    <PermissionsProvider>
-      <SidebarProvider
-        defaultOpen={sidebarDefaultOpen}
-        style={
-          {
-            '--sidebar-width': 'calc(var(--spacing) * 72)',
-            '--header-height': 'calc(var(--spacing) * 12)',
-          } as CSSProperties
-        }
-      >
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          <SiteHeader />
-          <Outlet />
-        </SidebarInset>
-      </SidebarProvider>
-    </PermissionsProvider>
+    <SidebarProvider
+      defaultOpen={sidebarDefaultOpen}
+      style={
+        {
+          '--sidebar-width': 'calc(var(--spacing) * 72)',
+          '--header-height': 'calc(var(--spacing) * 12)',
+        } as CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <Outlet />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
