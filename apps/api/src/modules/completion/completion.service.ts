@@ -374,6 +374,12 @@ export class CompletionService implements OnModuleInit {
       timeCompleted: complete ? (existing?.timeCompleted ?? new Date()) : null,
     });
     if (complete && existing?.status !== 'complete') {
+      // Sự kiện course_completed (Moodle \core\event\course_completed) cho
+      // logstore: chỉ phát đúng lần chuyển trạng thái sang hoàn thành.
+      await this.outbox.enqueueStandalone({
+        aggregate: 'completion', type: 'course_completed',
+        payload: { courseId, userId, actorId: userId },
+      });
       for (const hook of this.courseCompletionHooks) {
         await hook({ courseId, userId }).catch((err) => this.logger.warn(`course completion hook failed: ${String(err)}`));
       }

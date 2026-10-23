@@ -1,7 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { PasswordService } from '../users/password.service';
@@ -82,7 +83,29 @@ export class AuthService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly totp: TotpService,
+    private readonly outbox: OutboxService,
   ) {}
+
+  private readonly logger = new Logger(AuthService.name);
+
+  /**
+   * Phát sự kiện vòng đời phiên (user_logged_in / user_logged_out) vào
+   * outbox: relay sẽ phản chiếu sang event_log (logstore). Ghi sự kiện
+   * không bao giờ được làm hỏng luồng đăng nhập — lỗi chỉ ghi cảnh báo.
+   */
+  private async recordAuthEvent(type: 'user_logged_in' | 'user_logged_out', payload: Record<string, unknown>): Promise<void> {
+    await this.outbox
+      .enqueueStandalone({ aggregate: 'auth', type, payload })
+      .catch((err) => this.logger.warn(`auth event ${type} not recorded: ${String(err)}`));
+  }
+
+  /**
+   * Ghi sự kiện đăng nhập cho các luồng hoàn tất nằm ngoài AuthService
+   * (OAuth handoff): cùng một điểm ghi user_logged_in như các luồng nội bộ.
+   */
+  async recordLoginEvent(user: UserRow, method: string, client?: SessionClientInfo): Promise<void> {
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method, ip: client?.ip ?? null });
+  }
 
   // --- lockout (authlib_test::test_lockout semantics) -----------------------
   /**
@@ -144,6 +167,7 @@ export class AuthService {
     }
     await this.users.recordLogin(user.id);
     const tokens = await this.issueTokens(user, client);
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'password', ip: client?.ip ?? null });
     return { mfaRequired: false, user, tokens };
   }
 
@@ -204,6 +228,7 @@ export class AuthService {
     const user = await this.passMfaChallenge(challengeToken, code, ip, 'token');
     await this.users.recordLogin(user.id);
     const tokens = await this.issueTokens(user, { ip, userAgent });
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'totp', ip: ip ?? null });
     return { user, tokens };
   }
 
@@ -299,7 +324,10 @@ export class AuthService {
    */
   async logout(refreshToken: string): Promise<void> {
     const family = await this.repo.getFamilyByHash(hashToken(refreshToken));
-    if (family) await this.repo.revokeFamily(family.id);
+    if (family) {
+      await this.repo.revokeFamily(family.id);
+      await this.recordAuthEvent('user_logged_out', { userId: family.userId, actorId: family.userId, method: 'token' });
+    }
   }
 
   /** Password change honours the policy; clearing forcePasswordChange is part of the first-login flow. */
@@ -332,6 +360,7 @@ export class AuthService {
     if (target.deleted || target.suspended) throw new ForbiddenException({ message: 'Target account is not active', code: 'auth.account_inactive' });
     if (await this.evaluator.isSiteAdmin(target.id)) throw new ForbiddenException({ message: 'Cannot log in as a site administrator', code: 'auth.loginas_admin_denied' });
     const tokens = await this.issueTokens(target, client);
+    await this.recordAuthEvent('user_logged_in', { userId: target.id, actorId: adminId, relatedUserId: target.id, method: 'login-as', ip: client?.ip ?? null });
     return { user: target, tokens };
   }
 
@@ -350,6 +379,7 @@ export class AuthService {
     }
     await this.users.recordLogin(user.id);
     const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'session', ip: ip ?? null });
     return { mfaRequired: false, sessionId, user };
   }
   /**
@@ -361,6 +391,7 @@ export class AuthService {
     const user = await this.passMfaChallenge(challengeToken, code, ip, 'session');
     await this.users.recordLogin(user.id);
     const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
+    await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method: 'session-totp', ip: ip ?? null });
     return { sessionId, user };
   }
   /**
@@ -381,7 +412,14 @@ export class AuthService {
   /**
    * Huỷ session hiện tại.
    */
-  async sessionLogout(sessionId: string | undefined): Promise<void> { if (sessionId) await this.sessions.destroy(sessionId); }
+  async sessionLogout(sessionId: string | undefined): Promise<void> {
+    if (!sessionId) return;
+    const session = await this.sessions.get(sessionId);
+    await this.sessions.destroy(sessionId);
+    if (session) {
+      await this.recordAuthEvent('user_logged_out', { userId: session.userId, actorId: session.userId, method: 'session' });
+    }
+  }
 
   // --- my sessions (report_usersessions) --------------------------------------
   /**

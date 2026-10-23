@@ -590,7 +590,7 @@ export class QuestionsService {
         state: 'notstarted',
       });
     }
-    await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_usage_created', payload: { usageId: usage.id, component: input.component, instanceId: input.instanceId ?? 0 } });
+    await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_usage_created', payload: { usageId: usage.id, component: input.component, instanceId: input.instanceId ?? 0, userId: actorId, actorId } });
     return this.getUsage(usage.id);
   }
 
@@ -760,7 +760,7 @@ export class QuestionsService {
     const after = await this.getUsage(usageId);
     await this.outbox.enqueueStandalone({
       aggregate: 'question', type: 'question_usage_finished',
-      payload: { usageId, state: after.state, attempts: after.attempts.map((a) => ({ attemptId: a.id, state: a.state, fraction: a.fraction })) },
+      payload: { usageId, userId, actorId: userId, state: after.state, attempts: after.attempts.map((a) => ({ attemptId: a.id, state: a.state, fraction: a.fraction })) },
     });
     return after;
   }

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { OutboxService } from '../../infra/events/outbox.service';
 import { AccessRepository, type RoleRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
@@ -12,7 +13,11 @@ const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
  * Đối chiếu Moodle: lib/accesslib.php (create_role, assign_capability, role_assign).
  */
 export class RolesService {
-  constructor(private readonly repo: AccessRepository, private readonly contexts: ContextsService) {}
+  constructor(
+    private readonly repo: AccessRepository,
+    private readonly contexts: ContextsService,
+    private readonly outbox: OutboxService,
+  ) {}
 
   /** Idempotent seed: sync capability definitions from code, create the standard Moodle core roles and their archetype defaults at the system context. */
   /**
@@ -83,15 +88,33 @@ export class RolesService {
   async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string): Promise<unknown> {
     await this.getRole(roleId);
     await this.contexts.getContext(contextId);
+    const existing = await this.repo.listAssignments({ userId, contextId });
+    const alreadyAssigned = existing.some((a) => a.roleId === roleId);
     const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId });
     await this.contexts.markContextDirty(contextId);
+    if (!alreadyAssigned) {
+      // Sự kiện role_assigned (Moodle \core\event\role_assigned) cho
+      // logstore — chỉ phát khi gán thật sự mới (gán trùng là no-op).
+      await this.outbox.enqueueStandalone({
+        aggregate: 'access', type: 'role_assigned',
+        payload: { assignmentId: (row as { id: string }).id, userId, roleId, contextId, actorId: modifierId ?? null },
+      });
+    }
     return row;
   }
   /**
    * Gỡ gán role của user tại context.
    */
-  async unassignRole(assignmentId: string): Promise<void> {
+  async unassignRole(assignmentId: string, modifierId?: string): Promise<void> {
+    const existing = await this.repo.getAssignment(assignmentId);
     await this.repo.deleteAssignment(assignmentId);
+    if (existing) {
+      // Sự kiện role_unassigned (Moodle \core\event\role_unassigned) cho logstore.
+      await this.outbox.enqueueStandalone({
+        aggregate: 'access', type: 'role_unassigned',
+        payload: { assignmentId, userId: existing.userId, roleId: existing.roleId, contextId: existing.contextId, actorId: modifierId ?? null },
+      });
+    }
   }
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.

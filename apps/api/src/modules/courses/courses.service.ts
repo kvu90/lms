@@ -128,7 +128,7 @@ export class CoursesService {
     const depth = parentRow ? parentRow.depth + 1 : 1;
     await this.repo.updateCategoryPath(cat.id, path, depth);
     await this.contexts.createContext(CONTEXT_LEVELS.COURSECAT, cat.id, parentCtxId);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_created', payload: { categoryId: cat.id, parent } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_created', payload: { categoryId: cat.id, parent, actorId } });
     return { ...cat, path, depth };
   }
 
@@ -167,7 +167,7 @@ export class CoursesService {
     const cat = await this.getCategory(id);
     await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
     if (input.parent !== undefined && input.parent !== cat.parent) {
-      await this.moveCategory(cat, input.parent);
+      await this.moveCategory(cat, input.parent, actorId);
     }
     const patch: Partial<CategoryRow> = {};
     if (input.name !== undefined) patch.name = input.name;
@@ -175,12 +175,12 @@ export class CoursesService {
     if (input.description !== undefined) patch.description = input.description;
     if (input.visible !== undefined) patch.visible = input.visible;
     if (Object.keys(patch).length) await this.repo.updateCategory(id, patch);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_updated', payload: { categoryId: id } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_updated', payload: { categoryId: id, actorId } });
     return this.getCategory(id);
   }
 
   /** Move a category under a new parent, rewriting path/depth of the whole subtree and reparenting its context. */
-  private async moveCategory(cat: CategoryRow, newParent: string | null): Promise<void> {
+  private async moveCategory(cat: CategoryRow, newParent: string | null, actorId?: string): Promise<void> {
     if (newParent === cat.id) throw new BadRequestException({ message: 'A category cannot be its own parent', code: 'course.category_cycle' });
     const subtree = await this.repo.subtreeOf(cat);
     if (subtree.some((c) => c.id === newParent)) {
@@ -197,7 +197,7 @@ export class CoursesService {
     const ctxId = await this.categoryContextId(cat.id);
     const newParentCtxId = newParentRow ? await this.categoryContextId(newParentRow.id) : (await this.contexts.ensureSystemContext()).id;
     await this.contexts.reparentContext(ctxId, newParentCtxId);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_moved', payload: { categoryId: cat.id, fromParent: cat.parent, toParent: newParent } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_moved', payload: { categoryId: cat.id, fromParent: cat.parent, toParent: newParent, actorId: actorId ?? null } });
   }
 
   /**
@@ -225,7 +225,7 @@ export class CoursesService {
       throw new BadRequestException({ message: 'Cannot move courses up from a top-level category (no parent category)', code: 'course.category_moveup_no_parent' });
     }
     if (mode === 'moveup') {
-      for (const child of children) await this.moveCategory(child, cat.parent);
+      for (const child of children) await this.moveCategory(child, cat.parent, actorId);
       for (const c of coursesHere) {
         await this.repo.updateCourse(c.id, { category: cat.parent! });
         const courseCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSE, c.id);
@@ -234,7 +234,7 @@ export class CoursesService {
     } else if (mode === 'recursive') {
       const subtree = await this.repo.subtreeOf(cat);
       for (const sub of subtree) {
-        for (const c of await this.repo.listCourses(sub.id)) await this.deleteCourseInternal(c);
+        for (const c of await this.repo.listCourses(sub.id)) await this.deleteCourseInternal(c, actorId);
       }
       // Delete subcategories deepest-first (FK from course.category is cascade, courses already gone).
       for (const sub of subtree.sort((a, b) => b.depth - a.depth)) {
@@ -246,7 +246,7 @@ export class CoursesService {
     }
     await this.contexts.deleteByLevelInstance(CONTEXT_LEVELS.COURSECAT, id);
     await this.repo.deleteCategory(id);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_deleted', payload: { categoryId: id, mode: effectiveMode } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_deleted', payload: { categoryId: id, mode: effectiveMode, actorId } });
     return { deleted: true, mode: effectiveMode };
   }
 
@@ -281,7 +281,7 @@ export class CoursesService {
         endDate: input.endDate ? new Date(input.endDate) : null,
         groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
       }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id } });
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId } });
       return row;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, categoryCtxId);
@@ -363,7 +363,7 @@ export class CoursesService {
       for (const [name, value] of Object.entries(input.formatOptions)) await this.repo.setFormatOption(id, fmt, name, value);
     }
     if (input.customFields) await this.customFields.setValuesForInstance(COURSE_COMPONENT, COURSE_AREA, id, input.customFields);
-    await this.outbox.enqueueStandalone({ aggregate: 'course', type: 'course_updated', payload: { courseId: id } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course', type: 'course_updated', payload: { courseId: id, actorId } });
     return this.getCourse(id);
   }
 
@@ -373,16 +373,16 @@ export class CoursesService {
   async deleteCourse(actorId: string, id: string): Promise<void> {
     const courseRow = await this.getCourse(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:delete', await this.courseContextId(id));
-    await this.deleteCourseInternal(courseRow);
+    await this.deleteCourseInternal(courseRow, actorId);
   }
 
   /** Delete without a capability re-check (category recursive delete already checked the category capability). */
-  private async deleteCourseInternal(courseRow: CourseRow): Promise<void> {
+  private async deleteCourseInternal(courseRow: CourseRow, actorId?: string): Promise<void> {
     const cms = await this.repo.listCms(courseRow.id);
-    for (const cm of cms) await this.emitCmDeleted(cm);
+    for (const cm of cms) await this.emitCmDeleted(cm, actorId);
     await this.contexts.deleteByLevelInstance(CONTEXT_LEVELS.COURSE, courseRow.id);
     await this.repo.deleteCourse(courseRow.id);
-    await this.outbox.enqueueStandalone({ aggregate: 'course', type: 'course_deleted', payload: { courseId: courseRow.id } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course', type: 'course_deleted', payload: { courseId: courseRow.id, actorId: actorId ?? null } });
   }
 
   // --- access gate -------------------------------------------------------------
@@ -466,7 +466,7 @@ export class CoursesService {
     const section = await this.getSection(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(section.course));
     const cms = await this.repo.listCmsInSection(id);
-    for (const cm of cms) await this.deleteCmInternal(cm);
+    for (const cm of cms) await this.deleteCmInternal(cm, actorId);
     await this.repo.deleteSection(id);
   }
 
@@ -494,7 +494,7 @@ export class CoursesService {
     });
     const courseCtxId = await this.courseContextId(courseId);
     await this.contexts.createContext(CONTEXT_LEVELS.MODULE, cm.id, courseCtxId);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_created', payload: { cmId: cm.id, courseId, component: cm.component, instanceId: cm.instanceId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_created', payload: { cmId: cm.id, courseId, component: cm.component, instanceId: cm.instanceId, actorId } });
     void courseRow;
     return cm;
   }
@@ -536,15 +536,15 @@ export class CoursesService {
       patch.section = section.id;
     }
     if (Object.keys(patch).length) await this.repo.updateCm(id, patch);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_updated', payload: { cmId: id, courseId: cm.course } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_updated', payload: { cmId: id, courseId: cm.course, actorId } });
     return this.getCm(id);
   }
 
-  private async emitCmDeleted(cm: CmRow): Promise<void> {
+  private async emitCmDeleted(cm: CmRow, actorId?: string): Promise<void> {
     const contextId = await this.cmContextId(cm.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'course_module', type: 'cm_deleted',
-      payload: { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId },
+      payload: { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId, actorId: actorId ?? null },
     });
     // In-process delivery for the owning modules' handlers (completion, files);
     // handlers are idempotent, so the durable outbox relay may replay safely.
@@ -552,8 +552,8 @@ export class CoursesService {
     if (contextId) await this.contexts.deleteContext(contextId);
   }
 
-  private async deleteCmInternal(cm: CmRow): Promise<void> {
-    await this.emitCmDeleted(cm);
+  private async deleteCmInternal(cm: CmRow, actorId?: string): Promise<void> {
+    await this.emitCmDeleted(cm, actorId);
     await this.repo.deleteCm(cm.id);
   }
   /**
@@ -562,7 +562,7 @@ export class CoursesService {
   async deleteCm(actorId: string, id: string): Promise<void> {
     const cm = await this.getCm(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(cm.course));
-    await this.deleteCmInternal(cm);
+    await this.deleteCmInternal(cm, actorId);
   }
 
   /**
@@ -578,7 +578,7 @@ export class CoursesService {
     await this.assertCourseAccess(userId, cm.course);
     const access = await this.checkCmAccess(userId, cm);
     if (!access.available) throw new ForbiddenException({ message: 'This activity is not available to you yet', code: 'availability.not_available' });
-    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_viewed', payload: { cmId, courseId: cm.course, userId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_viewed', payload: { cmId, courseId: cm.course, userId, actorId: userId } });
     await this.emitter.emitAsync('cm_viewed', { cmId, courseId: cm.course, userId });
     return cm;
   }
