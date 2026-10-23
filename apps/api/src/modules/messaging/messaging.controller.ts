@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Sse, type MessageEvent } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
+import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
 import { createConversationSchema, createGroupConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type CreateGroupConversationDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
@@ -150,6 +151,18 @@ export class NotificationsController {
   @Get('unread-count')
   async unread(@CurrentUser() actor: AuthenticatedUser) {
     return { unread: await this.messaging.unreadNotificationCount(actor.id) };
+  }
+  @Sse('unread-count/stream')
+  /**
+   * GET /notifications/unread-count/stream — stream SSE số chưa đọc của
+   * chính user: sự kiện `unread-count` đầu tiên là số hiện tại, các sự
+   * kiện sau đẩy mỗi khi số thay đổi; heartbeat giữ kết nối. EventSource
+   * không đặt được header Authorization nên riêng route này JWT strategy
+   * nhận thêm access token qua query `access_token` (xem strategies.ts
+   * của module auth) — Bearer header vẫn được ưu tiên khi có.
+   */
+  unreadCountStream(@CurrentUser() actor: AuthenticatedUser): Observable<MessageEvent> {
+    return this.messaging.unreadCountStream(actor.id);
   }
   @Get('dispatch-log')
   /**

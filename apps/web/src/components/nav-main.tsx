@@ -1,6 +1,7 @@
 import type { Icon } from '@tabler/icons-react';
 import { Link, useLocation } from 'react-router';
 
+import { Badge } from '@lms/ui/components/ui/badge';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -15,6 +16,13 @@ export interface NavItem {
   title: string;
   url: string;
   icon?: Icon;
+  /**
+   * Số đếm hiện thành huy hiệu đỏ cạnh nhãn (vd số thông báo chưa đọc
+   * của mục Thông báo). Chỉ trình bày số được truyền vào — việc truy
+   * vấn số liệu thuộc về AppSidebar; bằng 0 hoặc không đặt thì không
+   * hiện huy hiệu.
+   */
+  badgeCount?: number;
 }
 
 /**
@@ -39,6 +47,11 @@ export function NavMain({ label, items }: { label?: string; items: NavItem[] }) 
                 <SidebarMenuButton render={<Link to={item.url} />} tooltip={item.title} isActive={isActive}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
+                  {item.badgeCount != null && item.badgeCount > 0 ? (
+                    <Badge variant="destructive" className="ml-auto h-5 min-w-5 shrink-0 rounded-full px-1">
+                      {item.badgeCount}
+                    </Badge>
+                  ) : null}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

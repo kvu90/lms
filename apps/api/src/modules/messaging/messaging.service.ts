@@ -1,13 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, type MessageEvent } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
+import type { Observable } from 'rxjs';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow } from './messaging.repository';
+import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 export const NOTIFICATION_DISPATCH_QUEUE = 'notification-dispatch';
 
@@ -98,6 +100,7 @@ export class MessagingService {
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
     private readonly siteConfig: SiteConfigService,
+    private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
   ) {}
 
@@ -200,6 +203,12 @@ export class MessagingService {
       }
     }
 
+    // Số chưa đọc vừa tăng: báo cho các stream SSE đang mở của người
+    // nhận (qua Redis pub/sub) để huy hiệu cập nhật ngay, không polling.
+    if (notificationId) {
+      await this.unreadStream.signalUnreadCountChanged(userId);
+    }
+
     // External channels are ports: a BullMQ job carries the dispatch to the
     // worker, which only LOGS it. Disabled-by-preference ⇒ no job at all.
     for (const channel of provider.channels.filter((c) => c !== 'popup')) {
@@ -255,13 +264,23 @@ export class MessagingService {
   async markNotificationRead(userId: string, notificationId: string): Promise<{ read: boolean }> {
     const ok = await this.repo.markNotificationRead(notificationId, userId);
     if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
+    await this.unreadStream.signalUnreadCountChanged(userId);
     return { read: true };
   }
   /**
    * Đánh dấu tất cả đã đọc.
    */
   async markAllNotificationsRead(userId: string): Promise<{ marked: number }> {
-    return { marked: await this.repo.markAllNotificationsRead(userId) };
+    const marked = await this.repo.markAllNotificationsRead(userId);
+    if (marked > 0) await this.unreadStream.signalUnreadCountChanged(userId);
+    return { marked };
+  }
+  /**
+   * Stream SSE số thông báo chưa đọc của chính user: snapshot số hiện
+   * tại ngay khi nối, rồi đẩy mỗi thay đổi (xem NotificationUnreadStreamService).
+   */
+  unreadCountStream(userId: string): Observable<MessageEvent> {
+    return this.unreadStream.streamUnreadCount(userId);
   }
   /**
    * Nhật ký phân phối notification.

@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.service';
+import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 /**
  * MessagingModule facade: MessagingService (conversations, messages,
@@ -19,7 +20,7 @@ import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.servi
     BullModule.registerQueue({ name: NOTIFICATION_DISPATCH_QUEUE }),
   ],
   controllers: [MessagingController, NotificationsController],
-  providers: [MessagingRepository, MessagingService],
+  providers: [MessagingRepository, MessagingService, NotificationUnreadStreamService],
   exports: [MessagingService],
 })
 /** Module nhắn tin và thông báo. */
