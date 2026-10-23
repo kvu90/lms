@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
+import { TestProviders } from '@/test/providers';
 import { PermissionsProvider } from '@/lib/permissions';
 import { CourseAdminPage } from './course-admin';
 
@@ -118,11 +118,11 @@ function renderCourseAdmin() {
     { initialEntries: [`/courses/${COURSE_ID}/admin`] },
   );
   render(
-    <AuthProvider>
+    <TestProviders>
       <PermissionsProvider>
         <RouterProvider router={router} />
       </PermissionsProvider>
-    </AuthProvider>,
+    </TestProviders>,
   );
 }
 

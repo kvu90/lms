@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import type { Course, Gradebook, GradeReport, MyAccessView } from '@lms/contracts';
 import { apiJson } from './api';
 import { useAuth } from './auth';
+import { queryKeys } from './query-keys';
 
 /** Ghi danh của chính người dùng trong một khoá học (GET /courses/:id/enrolments/me). */
 export interface MyEnrolment {
@@ -77,18 +79,6 @@ export interface PermissionsState {
   learning: CourseAccess[];
 }
 
-const EMPTY: PermissionsState = {
-  ready: false,
-  access: null,
-  canViewUsers: false,
-  canManageRoles: false,
-  canAdminister: false,
-  canUseQuestionBank: false,
-  courses: [],
-  teaching: [],
-  learning: [],
-};
-
 const PermissionsContext = createContext<PermissionsState | null>(null);
 
 /** Tải một tài nguyên đọc: trả dữ liệu khi gọi được, null khi bị từ chối/lỗi. */
@@ -138,75 +128,99 @@ function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess):
   return access.isSiteAdmin || courseAccess.capabilities.includes('moodle/grade:viewall');
 }
 
+/** Ba lượt dò dữ liệu hiển thị của một khoá, chạy song song trong một query. */
+async function probeCourseData(course: Course) {
+  const [enrolment, report, gradebook] = await Promise.all([
+    probe<MyEnrolment>(`/api/v1/courses/${course.id}/enrolments/me`),
+    probe<GradeReport>(`/api/v1/courses/${course.id}/grades/report`),
+    probe<Gradebook>(`/api/v1/courses/${course.id}/gradebook`),
+  ]);
+  return { enrolment, report, gradebook };
+}
+
 /**
- * Nạp ảnh chụp quyền cho người đang đăng nhập từ GET /users/me/capabilities,
- * kèm danh sách khoá học và dữ liệu hiển thị theo từng khoá (ghi danh của
- * tôi, báo cáo điểm toàn lớp, sổ điểm của tôi). Phân loại quản trị/giảng
- * dạy/học viên suy ra hoàn toàn từ capability đã phân giải; các tải dữ liệu
- * thất bại độc lập và chỉ làm rỗng đúng phần dữ liệu đó.
+ * Nạp ảnh chụp quyền cho người đang đăng nhập bằng TanStack Query: ảnh
+ * chụp quyền và danh sách khoá chạy song song ngay từ đầu; dữ liệu theo
+ * từng khoá là các query độc lập (useQueries) chạy song song và lấp vào
+ * trạng thái ngay khi từng khoá xong — không còn thác nước nối tiếp chờ
+ * tất cả mới hiển thị một lần như trước. Phân loại quản trị/giảng dạy/
+ * học viên vẫn suy ra hoàn toàn từ capability đã phân giải; các tải dữ
+ * liệu thất bại độc lập và chỉ làm rỗng đúng phần dữ liệu đó. Kết quả
+ * được cache theo staleTime của QueryClient nên các lần F5/điều hướng
+ * gần nhau dựng ngay từ cache rồi làm mới nền.
  */
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [state, setState] = useState<PermissionsState>(EMPTY);
+  const enabled = !!user;
 
-  useEffect(() => {
+  const capabilitiesQuery = useQuery({
+    queryKey: queryKeys.capabilities,
+    queryFn: () => probe<MyAccessView>('/api/v1/users/me/capabilities'),
+    enabled,
+    staleTime: 60_000,
+  });
+  const coursesQuery = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: () => probe<Course[]>('/api/v1/courses'),
+    enabled,
+  });
+  const courseList = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const courseDataQueries = useQueries({
+    queries: courseList.map((course) => ({
+      queryKey: queryKeys.courseAccess(course.id),
+      queryFn: () => probeCourseData(course),
+    })),
+  });
+
+  const value = useMemo<PermissionsState>(() => {
     if (!user) {
-      setState({ ...EMPTY, ready: true });
-      return;
-    }
-    let cancelled = false;
-    setState(EMPTY);
-    void (async () => {
-      const [access, courseList] = await Promise.all([
-        probe<MyAccessView>('/api/v1/users/me/capabilities'),
-        probe<Course[]>('/api/v1/courses'),
-      ]);
-      const courses = await Promise.all(
-        (courseList ?? []).map(async (course): Promise<CourseAccess> => {
-          const [enrolment, report, gradebook] = await Promise.all([
-            probe<MyEnrolment>(`/api/v1/courses/${course.id}/enrolments/me`),
-            probe<GradeReport>(`/api/v1/courses/${course.id}/grades/report`),
-            probe<Gradebook>(`/api/v1/courses/${course.id}/gradebook`),
-          ]);
-          return {
-            course,
-            enrolment,
-            report,
-            gradebook,
-            capabilities: access ? courseCapabilities(access, course) : [],
-          };
-        }),
-      );
-      if (cancelled) return;
-      const sysCaps = access ? systemCapabilities(access) : [];
-      const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/user:viewdetails');
-      const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/role:manage');
-      const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
-      const learning = courses.filter(
-        (c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c),
-      );
-      setState({
+      return {
         ready: true,
-        access,
-        canViewUsers,
-        canManageRoles,
-        canAdminister: canViewUsers || canManageRoles,
-        canUseQuestionBank:
-          (access?.isSiteAdmin ?? false) ||
-          (access?.contexts.some((c) =>
-            c.capabilities.some((cap) => (QUESTION_CAPABILITIES as readonly string[]).includes(cap)),
-          ) ?? false),
-        courses,
-        teaching,
-        learning,
-      });
-    })();
-    return () => {
-      cancelled = true;
+        access: null,
+        canViewUsers: false,
+        canManageRoles: false,
+        canAdminister: false,
+        canUseQuestionBank: false,
+        courses: [],
+        teaching: [],
+        learning: [],
+      };
+    }
+    const access = capabilitiesQuery.data ?? null;
+    const courses: CourseAccess[] = courseList.map((course, i) => {
+      const data = courseDataQueries[i]?.data;
+      return {
+        course,
+        enrolment: data?.enrolment ?? null,
+        report: data?.report ?? null,
+        gradebook: data?.gradebook ?? null,
+        capabilities: access ? courseCapabilities(access, course) : [],
+      };
+    });
+    const sysCaps = access ? systemCapabilities(access) : [];
+    const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/user:viewdetails');
+    const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/role:manage');
+    const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
+    const learning = courses.filter(
+      (c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c),
+    );
+    return {
+      ready: !capabilitiesQuery.isPending && !coursesQuery.isPending,
+      access,
+      canViewUsers,
+      canManageRoles,
+      canAdminister: canViewUsers || canManageRoles,
+      canUseQuestionBank:
+        (access?.isSiteAdmin ?? false) ||
+        (access?.contexts.some((c) =>
+          c.capabilities.some((cap) => (QUESTION_CAPABILITIES as readonly string[]).includes(cap)),
+        ) ?? false),
+      courses,
+      teaching,
+      learning,
     };
-  }, [user]);
+  }, [user, capabilitiesQuery.data, capabilitiesQuery.isPending, coursesQuery.isPending, courseList, courseDataQueries]);
 
-  const value = useMemo(() => state, [state]);
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }
 

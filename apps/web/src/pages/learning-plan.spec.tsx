@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
+import { TestProviders } from '@/test/providers';
 import { PermissionsProvider } from '@/lib/permissions';
 import { LearningPlanPage } from './learning-plan';
 
@@ -97,11 +97,11 @@ function stubFetchExport(calls: RecordedCall[]) {
 function renderPage() {
   const router = createMemoryRouter([{ path: '/learning-plan', element: <LearningPlanPage /> }], { initialEntries: ['/learning-plan'] });
   render(
-    <AuthProvider>
+    <TestProviders>
       <PermissionsProvider>
         <RouterProvider router={router} />
       </PermissionsProvider>
-    </AuthProvider>,
+    </TestProviders>,
   );
 }
 

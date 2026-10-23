@@ -8,7 +8,9 @@ import {
   isRouteErrorResponse,
   useRouteError,
 } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
+import { queryClient } from './lib/query-client';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
 import './index.css';
@@ -38,15 +40,18 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 /**
- * Gốc ứng dụng: AuthProvider bọc toàn bộ cây route để mọi trang dùng
- * chung một phiên đăng nhập (useAuth). Thứ tự provider khác (query,
- * quyền) nằm trong các khung route con, gần nơi dùng.
+ * Gốc ứng dụng: QueryClientProvider (một QueryClient duy nhất cho cả
+ * app) bọc ngoài AuthProvider để mọi trang dùng chung một phiên đăng
+ * nhập (useAuth) và một cache dữ liệu máy chủ. Provider quyền nằm trong
+ * khung route đã đăng nhập, gần nơi dùng.
  */
 export default function App() {
   return (
-    <AuthProvider>
-      <Outlet />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 /** Một thẻ thống kê: nhãn, giá trị lớn và dòng chú thích phụ — tất cả từ dữ liệu thật. */
 export interface StatCard {
@@ -12,6 +13,12 @@ export interface StatCard {
   label: string
   value: string
   footer?: string
+  /**
+   * Đang chờ dữ liệu: thẻ vẫn chiếm đúng ô của nó trong lưới với nhãn
+   * thật và khung xương ở phần giá trị/chú thích, để lưới không co giãn
+   * khi số liệu về (giữ hình học, tránh nhảy bố cục).
+   */
+  loading?: boolean
 }
 
 /**
@@ -29,10 +36,14 @@ export function SectionCards({ cards }: { cards: StatCard[] }) {
           <CardHeader>
             <CardDescription>{card.label}</CardDescription>
             <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-              {card.value}
+              {card.loading ? <Skeleton className="h-8 w-20" /> : card.value}
             </CardTitle>
           </CardHeader>
-          {card.footer ? (
+          {card.loading ? (
+            <CardFooter className="flex-col items-start gap-1.5 text-sm">
+              <Skeleton className="h-4 w-28" />
+            </CardFooter>
+          ) : card.footer ? (
             <CardFooter className="flex-col items-start gap-1.5 text-sm">
               <div className="text-muted-foreground">{card.footer}</div>
             </CardFooter>

@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
+import { TestProviders } from '@/test/providers';
 import { PermissionsProvider } from '@/lib/permissions';
 import { GradebookPage } from './grades';
 import { QuestionsPage, QuestionUsagePage } from './questions';
@@ -64,11 +64,11 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
 function renderGradebook() {
   const router = createMemoryRouter([{ path: '/courses/:id/grades', element: <GradebookPage /> }], { initialEntries: ['/courses/01900000-0000-7000-8000-000000000010/grades'] });
   render(
-    <AuthProvider>
+    <TestProviders>
       <PermissionsProvider>
         <RouterProvider router={router} />
       </PermissionsProvider>
-    </AuthProvider>,
+    </TestProviders>,
   );
 }
 

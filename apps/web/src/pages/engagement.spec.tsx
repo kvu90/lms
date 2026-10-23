@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
+import { TestProviders } from '@/test/providers';
 import { PermissionsProvider } from '@/lib/permissions';
 import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
@@ -80,7 +80,7 @@ describe('Badges page', () => {
       return undefined;
     });
     const router = createMemoryRouter([{ path: '/badges', element: <BadgesPage /> }], { initialEntries: ['/badges'] });
-    render(<AuthProvider><PermissionsProvider><RouterProvider router={router} /></PermissionsProvider></AuthProvider>);
+    render(<TestProviders><PermissionsProvider><RouterProvider router={router} /></PermissionsProvider></TestProviders>);
     // Wait for the issued list itself (it loads after the auth profile resolves).
     expect(await screen.findByText(/Old honour \(đã thu hồi\)/)).toBeInTheDocument();
     expect(screen.getByText(/bản ghi abcdef012345/)).toBeInTheDocument();

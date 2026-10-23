@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
+import { TestProviders } from '@/test/providers';
 import { PermissionsProvider } from '@/lib/permissions';
 import { BadgesPage } from './badges';
 
@@ -67,11 +67,11 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
 function renderBadges() {
   const router = createMemoryRouter([{ path: '/badges', element: <BadgesPage /> }], { initialEntries: ['/badges'] });
   render(
-    <AuthProvider>
+    <TestProviders>
       <PermissionsProvider>
         <RouterProvider router={router} />
       </PermissionsProvider>
-    </AuthProvider>,
+    </TestProviders>,
   );
 }
 

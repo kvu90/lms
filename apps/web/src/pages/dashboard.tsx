@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import type {
   CourseCategoryTreeNode,
   Role,
@@ -10,7 +11,10 @@ import '../i18n';
 import { ApiError, apiJson } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { usePermissions, type CourseAccess } from '@/lib/permissions';
+import { queryKeys } from '@/lib/query-keys';
+import { DashboardSkeleton } from '@/components/dashboard-skeleton';
 import { SectionCards, type StatCard } from '@/components/section-cards';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   ChartAreaInteractive,
   type ChartPoint,
@@ -68,77 +72,81 @@ function BlockNotice() {
 function AdminSection() {
   const { t, i18n } = useTranslation(['dashboard', 'app']);
   const perms = usePermissions();
-  const [users, setUsers] = useState<UserListResponse | null>(null);
-  const [categoryCount, setCategoryCount] = useState<{ total: number; topLevel: number } | null>(null);
-  const [roles, setRoles] = useState<Role[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Ba nguồn dữ liệu của khối là ba query độc lập: TanStack Query cho
+  // chúng chạy SONG SONG (trước đây nạp tuần tự trong một effect), và
+  // từng thẻ/bảng tự lấp khi nguồn của nó về thay vì chờ cả khối.
+  const usersQuery = useQuery({
+    queryKey: queryKeys.adminUsers(1, 100),
+    queryFn: () => apiJson<UserListResponse>('/api/v1/users?page=1&pageSize=100'),
+  });
+  const treeQuery = useQuery({
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'),
+  });
+  const rolesQuery = useQuery({
+    queryKey: queryKeys.roles,
+    queryFn: () => apiJson<Role[]>('/api/v1/access/roles'),
+  });
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const list = await apiJson<UserListResponse>('/api/v1/users?page=1&pageSize=100');
-        setUsers(list);
-      } catch (error) {
-        if (isForbidden(error)) setFailed(true);
+  const users = usersQuery.data ?? null;
+  const categoryCount = useMemo(() => {
+    if (!treeQuery.data) return null;
+    let total = 0;
+    const walk = (nodes: CourseCategoryTreeNode[]) => {
+      for (const node of nodes) {
+        total += 1;
+        walk(node.children);
       }
-      try {
-        const tree = await apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree');
-        let total = 0;
-        const walk = (nodes: CourseCategoryTreeNode[]) => {
-          for (const node of nodes) {
-            total += 1;
-            walk(node.children);
-          }
-        };
-        walk(tree);
-        setCategoryCount({ total, topLevel: tree.length });
-      } catch {
-        setCategoryCount(null);
-      }
-      try {
-        setRoles(await apiJson<Role[]>('/api/v1/access/roles'));
-      } catch {
-        setRoles(null);
-      }
-    })();
-  }, []);
+    };
+    walk(treeQuery.data);
+    return { total, topLevel: treeQuery.data.length };
+  }, [treeQuery.data]);
+  const roles = rolesQuery.data ?? null;
+  const failed = usersQuery.isError && isForbidden(usersQuery.error);
 
-  const cards: StatCard[] = [];
-  if (users) {
-    const active = users.users.filter((u) => !u.suspended && !u.deleted).length;
-    cards.push({
+  // Lưới thẻ LUÔN đủ 4 ô: ô nào chưa có dữ liệu thì ở trạng thái loading
+  // (giữ ô) hoặc hiện "—" khi nguồn lỗi, thay vì mọc thêm từng thẻ.
+  const active = users ? users.users.filter((u) => !u.suspended && !u.deleted).length : 0;
+  const cards: StatCard[] = [
+    {
       id: 'admin-users',
       label: t('dashboard:statTotalUsers'),
-      value: String(users.total),
-      footer: users.users.length >= users.total ? t('dashboard:statUsersFooter', { count: active }) : undefined,
-    });
-  }
-  cards.push({
-    id: 'admin-courses',
-    label: t('dashboard:statTotalCourses'),
-    value: String(perms.courses.length),
-    footer: t('dashboard:statCoursesFooter', {
-      count: perms.courses.filter((c) => c.course.visible).length,
-    }),
-  });
-  if (categoryCount) {
-    cards.push({
+      value: users ? String(users.total) : '—',
+      footer:
+        users && users.users.length >= users.total
+          ? t('dashboard:statUsersFooter', { count: active })
+          : undefined,
+      loading: usersQuery.isPending,
+    },
+    {
+      id: 'admin-courses',
+      label: t('dashboard:statTotalCourses'),
+      value: String(perms.courses.length),
+      footer: t('dashboard:statCoursesFooter', {
+        count: perms.courses.filter((c) => c.course.visible).length,
+      }),
+    },
+    {
       id: 'admin-categories',
       label: t('dashboard:statTotalCategories'),
-      value: String(categoryCount.total),
-      footer: t('dashboard:statCategoriesFooter', { count: categoryCount.topLevel }),
-    });
-  }
-  if (roles) {
-    cards.push({
+      value: categoryCount ? String(categoryCount.total) : '—',
+      footer: categoryCount
+        ? t('dashboard:statCategoriesFooter', { count: categoryCount.topLevel })
+        : undefined,
+      loading: treeQuery.isPending,
+    },
+    {
       id: 'admin-roles',
       label: t('dashboard:statTotalRoles'),
-      value: String(roles.length),
-      footer: t('dashboard:statRolesFooter', {
-        count: roles.filter((r) => r.archetype !== null).length,
-      }),
-    });
-  }
+      value: roles ? String(roles.length) : '—',
+      footer: roles
+        ? t('dashboard:statRolesFooter', {
+            count: roles.filter((r) => r.archetype !== null).length,
+          })
+        : undefined,
+      loading: rolesQuery.isPending,
+    },
+  ];
 
   const chartData: ChartPoint[] = useMemo(() => {
     if (!users) return [];
@@ -183,14 +191,20 @@ function AdminSection() {
     <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-admin">
       <SectionHeading title={t('dashboard:adminSection')} />
       <SectionCards cards={cards} />
-      <ChartAreaInteractive
-        title={t('dashboard:chartAdminTitle')}
-        description={t('dashboard:chartAdminDescription')}
-        seriesLabel={t('dashboard:chartAdminSeries')}
-        emptyText={t('dashboard:chartNoData')}
-        data={chartData}
-      />
-      {users ? (
+      {usersQuery.isPending ? (
+        <Skeleton className="mx-4 h-[352px] lg:mx-6" />
+      ) : (
+        <ChartAreaInteractive
+          title={t('dashboard:chartAdminTitle')}
+          description={t('dashboard:chartAdminDescription')}
+          seriesLabel={t('dashboard:chartAdminSeries')}
+          emptyText={t('dashboard:chartNoData')}
+          data={chartData}
+        />
+      )}
+      {usersQuery.isPending ? (
+        <Skeleton className="mx-4 h-64 lg:mx-6" />
+      ) : users ? (
         <DataTable
           title={t('dashboard:tableUsersTitle')}
           data={users.users}
@@ -337,41 +351,37 @@ function TeacherSection() {
  */
 function StudentSection() {
   const { t, i18n } = useTranslation(['dashboard', 'app']);
-  const { user } = useAuth();
   const perms = usePermissions();
   const learning = perms.learning;
-  const [badgeCount, setBadgeCount] = useState<number | null>(null);
-  const [unread, setUnread] = useState<number | null>(null);
-  const [events, setEvents] = useState<CalendarEventView[]>([]);
+  // Huy hiệu, thông báo và sự kiện lịch là ba query độc lập chạy SONG
+  // SONG — trước đây một effect await lần lượt từng endpoint nên thẻ
+  // thống kê mọc nối tiếp và đẩy bố cục (nguồn CLS đội audit đo được).
+  const badgesQuery = useQuery({
+    queryKey: queryKeys.myBadges,
+    queryFn: () => apiJson<unknown[]>('/api/v1/badges/mine'),
+  });
+  const notificationsQuery = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: () => apiJson<NotificationLite[]>('/api/v1/notifications'),
+  });
+  const eventRange = useMemo(() => {
+    const from = new Date();
+    const to = new Date(from.getTime() + 30 * 86_400_000);
+    return { from: from.toISOString(), to: to.toISOString() };
+  }, []);
+  const eventsQuery = useQuery({
+    queryKey: queryKeys.calendarEvents(eventRange.from, eventRange.to),
+    queryFn: () =>
+      apiJson<CalendarEventView[]>(
+        `/api/v1/calendar/events?from=${eventRange.from}&to=${eventRange.to}`,
+      ),
+  });
 
-  useEffect(() => {
-    if (!user) return;
-    void (async () => {
-      try {
-        const issued = await apiJson<unknown[]>('/api/v1/badges/mine');
-        setBadgeCount(issued.length);
-      } catch {
-        setBadgeCount(null);
-      }
-      try {
-        const list = await apiJson<NotificationLite[]>('/api/v1/notifications');
-        setUnread(list.filter((n) => n.timeread === null).length);
-      } catch {
-        setUnread(null);
-      }
-      try {
-        const from = new Date();
-        const to = new Date(from.getTime() + 30 * 86_400_000);
-        setEvents(
-          await apiJson<CalendarEventView[]>(
-            `/api/v1/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`,
-          ),
-        );
-      } catch {
-        setEvents([]);
-      }
-    })();
-  }, [user]);
+  const badgeCount = badgesQuery.data ? badgesQuery.data.length : null;
+  const unread = notificationsQuery.data
+    ? notificationsQuery.data.filter((n) => n.timeread === null).length
+    : null;
+  const events = eventsQuery.data ?? [];
 
   const gradedTotals: { grade: number; max: number }[] = [];
   for (const access of learning) {
@@ -385,6 +395,9 @@ function StudentSection() {
       ? gradedTotals.reduce((sum, entry) => sum + (entry.grade / entry.max) * 100, 0) / gradedTotals.length
       : null;
 
+  // Lưới thẻ luôn đủ 4 ô: thẻ huy hiệu/thông báo giữ ô ở trạng thái
+  // loading trong lúc query chạy và hiện "—" nếu nguồn lỗi, thay vì
+  // biến mất rồi làm lưới co lại như trước.
   const cards: StatCard[] = [
     {
       id: 'student-courses',
@@ -398,26 +411,20 @@ function StudentSection() {
       value: average === null ? '—' : `${average.toFixed(1)}%`,
       footer: t('statAverageFooter', { count: gradedTotals.length }),
     },
-    ...(badgeCount !== null
-      ? [
-          {
-            id: 'student-badges',
-            label: t('statMyBadges'),
-            value: String(badgeCount),
-            footer: t('statBadgesFooter'),
-          },
-        ]
-      : []),
-    ...(unread !== null
-      ? [
-          {
-            id: 'student-unread',
-            label: t('statUnread'),
-            value: String(unread),
-            footer: t('statUnreadFooter'),
-          },
-        ]
-      : []),
+    {
+      id: 'student-badges',
+      label: t('statMyBadges'),
+      value: badgeCount === null ? '—' : String(badgeCount),
+      footer: t('statBadgesFooter'),
+      loading: badgesQuery.isPending,
+    },
+    {
+      id: 'student-unread',
+      label: t('statUnread'),
+      value: unread === null ? '—' : String(unread),
+      footer: t('statUnreadFooter'),
+      loading: notificationsQuery.isPending,
+    },
   ];
 
   const chartData: ChartPoint[] = useMemo(() => {
@@ -518,12 +525,12 @@ export function DashboardPage() {
   const { user } = useAuth();
   const perms = usePermissions();
 
+  // Chưa phân loại được vai trò (ảnh chụp quyền + danh sách khoá đang
+  // về — hai query song song) thì hiện khung giữ chỗ đúng hình học của
+  // trang thay vì một dòng chữ "Đang tải…" chiếm cả trang như trước;
+  // từng khối sau đó tự lấp dữ liệu theo query của nó.
   if (!perms.ready) {
-    return (
-      <main className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <p className="text-muted-foreground px-4 text-sm lg:px-6">{t('app:loading')}</p>
-      </main>
-    );
+    return <DashboardSkeleton />;
   }
 
   const hasBlocks = perms.canAdminister || perms.teaching.length > 0 || perms.learning.length > 0;

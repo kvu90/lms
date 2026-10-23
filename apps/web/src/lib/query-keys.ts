@@ -1,0 +1,27 @@
+/**
+ * Khoá truy vấn tập trung (query key factory theo khuyến nghị của tài
+ * liệu TanStack Query): mọi useQuery/useQueries trong app lấy khoá từ
+ * đây để việc vô hiệu hoá cache sau đột biến (invalidateQueries) khớp
+ * đúng khoá đã đọc, tránh lệch chuỗi khoá viết tay từng nơi. Cấu trúc
+ * phân cấp: thực thể → định danh → tham số.
+ */
+export const queryKeys = {
+  /** Ảnh chụp quyền của người đang đăng nhập (GET /users/me/capabilities). */
+  capabilities: ['capabilities'] as const,
+  /** Danh sách toàn bộ khoá học (GET /courses). */
+  courses: ['courses'] as const,
+  /** Dữ liệu hiển thị theo từng khoá: ghi danh của tôi + báo cáo điểm + sổ điểm của tôi. */
+  courseAccess: (courseId: string) => ['course-access', courseId] as const,
+  /** Danh sách người dùng cho khối quản trị. */
+  adminUsers: (page: number, pageSize: number) => ['admin', 'users', page, pageSize] as const,
+  /** Cây danh mục khoá học cho khối quản trị. */
+  categoryTree: ['courses', 'categories', 'tree'] as const,
+  /** Danh sách vai trò cho khối quản trị. */
+  roles: ['access', 'roles'] as const,
+  /** Huy hiệu đã cấp cho chính người dùng. */
+  myBadges: ['badges', 'mine'] as const,
+  /** Thông báo của chính người dùng. */
+  notifications: ['notifications'] as const,
+  /** Sự kiện lịch trong một khoảng ngày (ISO string đầu/cuối khoảng). */
+  calendarEvents: (from: string, to: string) => ['calendar', 'events', from, to] as const,
+};
