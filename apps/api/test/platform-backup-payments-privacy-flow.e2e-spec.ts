@@ -318,7 +318,17 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(restoredQuestions.body[0].question.id).toBe(newQ!.newid);
     const restoredVersions = await http(app).get(`/api/v1/questions/${newQ!.newid}/versions`).set('Authorization', `Bearer ${admin}`);
     expect(restoredVersions.body).toHaveLength(2);
-    expect(restoredVersions.body[1].questiontext).toBe('Version two text.');
+    // questiontext nay là tài liệu Tiptap: trích text thuần để so với bản gốc.
+    const docText = (doc: { content?: { content?: { text?: string }[] }[] }) =>
+      (doc.content ?? []).map((p) => (p.content ?? []).map((n) => n.text ?? '').join('')).join('\n');
+    expect(docText(restoredVersions.body[1].questiontext)).toBe('Version two text.');
+    // Nội dung chấm của version khôi phục (đáp án + trỏ true/false) đi theo
+    // archive: trueanswer trỏ vào dòng đáp án 'True', phía đúng nằm ở fraction
+    // (version 2 của câu này có đáp án đúng là False nên True mang fraction 0).
+    expect(restoredQuestions.body[0].answers.map((a: { fraction: number }) => a.fraction)).toEqual([0, 1]);
+    expect(restoredQuestions.body[0].options.trueanswer).toBe(
+      restoredQuestions.body[0].answers.find((a: { id: string; answer: never }) => docText(a.answer) === 'True')?.id,
+    );
     // Badges: badge mới thuộc khoá mới; criteria của B trỏ đúng khoá/cm/badge mới, competency giữ nguyên (thực thể site dùng chung).
     const newBadgeAId = mapOf('badge', badgeA.body.id)?.newid;
     const newBadgeBId = mapOf('badge', badgeB.body.id)?.newid;

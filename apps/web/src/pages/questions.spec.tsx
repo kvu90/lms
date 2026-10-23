@@ -77,9 +77,11 @@ function stubFetch(calls: RecordedCall[]) {
               questionbankentryid: '01900000-0000-7000-8000-000000000002',
               questionid: QUESTION_ID,
               version: 1,
-              questiontext: 'The sky is blue.',
+              questiontext: {
+                type: 'doc',
+                content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The sky is blue.' }] }],
+              },
               defaultmark: 1,
-              answerdata: { correct: true },
             },
           },
         ]);

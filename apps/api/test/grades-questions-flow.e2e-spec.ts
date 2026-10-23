@@ -224,13 +224,13 @@ describe('Grades & questions', () => {
       [versions.body[0].id]);
     expect((v1Answers.rows[0] as { fraction: number }).fraction).toBe(1);
     const view = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
-    const trueRowV2 = (view.body.answers as { answer: unknown; fraction: number }[])
+    const trueRowV2 = (view.body.answers as { id: string; answer: unknown; fraction: number }[])
       .find((a) => docText(a.answer as never) === 'True');
-    const falseRowV2 = (view.body.answers as { answer: unknown; fraction: number }[])
+    const falseRowV2 = (view.body.answers as { id: string; answer: unknown; fraction: number }[])
       .find((a) => docText(a.answer as never) === 'False');
     expect(trueRowV2?.fraction).toBe(0);
     expect(falseRowV2?.fraction).toBe(1);
-    expect(view.body.options.trueanswer).toBe((view.body.answers as { id: string }[]).find((a) => docText(a.answer as never) === 'True')?.id);
+    expect(view.body.options.trueanswer).toBe(trueRowV2?.id);
   });
 
   it('INVARIANT: an attempt started on version 1 is graded by version 1 even after the question is edited to version 2', async () => {
