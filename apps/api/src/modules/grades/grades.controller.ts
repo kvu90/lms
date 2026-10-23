@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
 import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
@@ -121,6 +123,34 @@ export class GradesController {
    */
   async regrade(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.triggerRegrade(actor.id, courseId);
+  }
+
+  @Get(':courseId/grades/export')
+  /**
+   * GET /courses/:courseId/grades/export — xuất điểm toàn khoá ra CSV (một dòng mỗi người học, một cột mỗi grade item, điểm tổng ở cột cuối).
+   */
+  async exportCsv(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    const { filename, csv } = await this.grades.exportGradesCsv(actor.id, courseId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  }
+  @Post(':courseId/grades/import')
+  @UseInterceptors(FileInterceptor('file'))
+  /**
+   * POST /courses/:courseId/grades/import — nhập điểm từ file CSV (multipart, trường `file`; trường tuỳ chọn `userIdentifier`: username|email|userId).
+   * Trả báo cáo: số ô đã nhập, số ô bỏ qua, lỗi theo dòng/cột và các cột bị bỏ qua.
+   */
+  async importCsv(
+    @Param('courseId', { schema: uuidIdSchema }) courseId: string,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @Body('userIdentifier') userIdentifier: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException({ message: 'A CSV file is required in the multipart field "file"', code: 'grades.import_file_required' });
+    }
+    return this.grades.importGradesCsv(actor.id, courseId, file.buffer.toString('utf-8'), { userIdentifier });
   }
 
   @Get(':courseId/grades/letters')

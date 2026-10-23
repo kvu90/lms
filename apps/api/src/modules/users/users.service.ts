@@ -187,6 +187,9 @@ export class UsersService {
    */
   async getByIdOrUndefined(id: string): Promise<UserRow | undefined> { return this.repo.getById(id); }
 
+  /** Nhiều user theo id trong một lần gọi (báo cáo/export dùng để gắn thông tin người học vào dòng dữ liệu). */
+  async getUsersByIds(ids: string[]): Promise<UserRow[]> { return this.repo.getByIds(ids); }
+
   /**
    * Danh sách user có tìm kiếm/phân trang.
    */
