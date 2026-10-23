@@ -5,8 +5,12 @@ import { AccessModule } from '../access/access.module';
 import { SiteConfigModule } from '../site-config/site-config.module';
 import { UsersModule } from '../users/users.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
+import { MessagingGateway } from './messaging.gateway';
+import { MessagingOutboxConsumer } from './messaging-outbox.consumer';
+import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.service';
+import { JwtMessagingSocketAuth } from './messaging-socket-auth';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 /**
@@ -20,7 +24,13 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
     BullModule.registerQueue({ name: NOTIFICATION_DISPATCH_QUEUE }),
   ],
   controllers: [MessagingController, NotificationsController],
-  providers: [MessagingRepository, MessagingService, NotificationUnreadStreamService],
+  providers: [
+    MessagingRepository, MessagingService, NotificationUnreadStreamService,
+    // Realtime (issue #33): gateway Socket.IO + lớp auth mỏng + tầng
+    // phân phối (Redis adapter, presence/typing) + consumer quét
+    // outbox để phân phối sự kiện đã commit.
+    JwtMessagingSocketAuth, MessagingRealtimeService, MessagingGateway, MessagingOutboxConsumer,
+  ],
   exports: [MessagingService],
 })
 /** Module nhắn tin và thông báo. */

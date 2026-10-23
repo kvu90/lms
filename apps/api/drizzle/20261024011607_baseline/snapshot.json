@@ -2,7 +2,11 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
+<<<<<<<< HEAD:apps/api/drizzle/20261024011607_baseline/snapshot.json
   "id": "4d61e17c-ced3-40a1-8dc6-2896e962cc53",
+========
+  "id": "f463a82b-ec0c-4487-b172-1803e7a82058",
+>>>>>>>> 87701be (Nền dữ liệu + realtime cho messaging theo stack chuẩn (Refs #33)):apps/api/drizzle/20261023151227_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1436,7 +1440,8 @@
         "e|tbl|public.message",
         "n|rel|public.message",
         "n|type|public.message",
-        "n|rel|public.message_pkey"
+        "n|rel|public.message_pkey",
+        "n|rel|public.message_conversation_client_id_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -4314,6 +4319,27 @@
         "n|tbl|public.message",
         "n|sch|public",
         "n|col|public.message.user_id_from"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message",
+        "message_conversation_seq_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_conversation_seq_idx",
+        "n|idx|public.message_conversation_seq_idx",
+        "e|idx|public.message_conversation_seq_idx",
+        "n|rel|public.message_conversation_seq_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message",
+        "n|sch|public",
+        "n|col|public.message.conversation_id",
+        "n|col|public.message.seq"
       ]
     },
     {
@@ -17499,12 +17525,12 @@
     {
       "schema": "public",
       "table": "message",
-      "name": "created_at",
-      "type": "timestamp with time zone",
+      "name": "seq",
+      "type": "integer",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "now()",
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -17512,12 +17538,25 @@
     {
       "schema": "public",
       "table": "message",
-      "name": "time_read",
-      "type": "timestamp with time zone",
+      "name": "client_message_id",
+      "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -17583,6 +17622,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_members",
+      "name": "last_read_seq",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -17700,6 +17752,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversations",
+      "name": "last_message_seq",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -25088,6 +25153,34 @@
     },
     {
       "schema": "public",
+      "table": "message",
+      "name": "message_conversation_seq_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "conversation_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "seq",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message_contacts",
       "name": "message_contacts_contact_id_idx",
       "nameExplicit": true,
@@ -30651,6 +30744,7 @@
     },
     {
       "schema": "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024011607_baseline/snapshot.json
       "table": "curricula",
       "name": "curricula_subject_id_grade_unique",
       "nameExplicit": true,
@@ -30669,6 +30763,15 @@
       "columns": [
         "curriculum_id",
         "id"
+========
+      "table": "message",
+      "name": "message_conversation_client_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "conversation_id",
+        "user_id_from",
+        "client_message_id"
+>>>>>>>> 87701be (Nền dữ liệu + realtime cho messaging theo stack chuẩn (Refs #33)):apps/api/drizzle/20261023151227_baseline/snapshot.json
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
