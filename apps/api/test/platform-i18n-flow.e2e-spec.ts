@@ -29,9 +29,9 @@ describe('Platform i18n flow (e2e)', () => {
     const sysCtx = await systemContextId(app, admin);
     await assignRole(app, admin, student.id, await roleIdByShortname(app, admin, 'student'), sysCtx);
     const svc = await http(app).post('/api/v1/webservice/services').set(auth)
-      .send({ name: uniqueName('I18n Svc'), shortname: uniqueName('i18nsvc'), enabled: true, functions: ['core_course_get_courses', 'core_grades_update_grades'] }).expect(201);
+      .send({ name: uniqueName('I18n Svc'), shortName: uniqueName('i18nsvc'), enabled: true, functions: ['core_course_get_courses', 'core_grades_update_grades'] }).expect(201);
     const tok = await http(app).post('/api/v1/webservice/tokens').set(auth)
-      .send({ userid: student.id, serviceid: svc.body.id }).expect(201);
+      .send({ userId: student.id, serviceId: svc.body.id }).expect(201);
     externalToken = tok.body.token as string;
     const category = await createCategory(app, admin, {});
     courseId = (await createCourse(app, admin, category.id, {})).id;

@@ -17,7 +17,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('creates a category tree with path/depth/sortorder and a course context per node', async () => {
+  it('creates a category tree with path/depth/sortOrder and a course context per node', async () => {
     const parent = await createCategory(app, admin);
     const child = await createCategory(app, admin, { parent: parent.id });
     expect(child.path).toBe(`${parent.path}/${child.id}`);
@@ -31,14 +31,14 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(content.body.sections[0].section).toBe(0);
   });
 
-  it('rejects a duplicate course shortname and an end date before the start date', async () => {
+  it('rejects a duplicate course shortName and an end date before the start date', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const dup = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullname: 'Copy', shortname: course.shortname, category: cat.id });
+      .send({ fullName: 'Copy', shortName: course.shortName, category: cat.id });
     expect(dup.status).toBe(409);
     const badDates = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullname: 'Bad', shortname: uniqueName('bad'), category: cat.id, startdate: '2026-05-01', enddate: '2026-04-01' });
+      .send({ fullName: 'Bad', shortName: uniqueName('bad'), category: cat.id, startDate: '2026-05-01', endDate: '2026-04-01' });
     expect(badDates.status).toBe(400);
   });
 
@@ -47,7 +47,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     const plain = await createUserViaApi(app, admin);
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
     const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${plainLogin.accessToken}`)
-      .send({ fullname: 'Nope', shortname: uniqueName('nope'), category: cat.id });
+      .send({ fullName: 'Nope', shortName: uniqueName('nope'), category: cat.id });
     expect(res.status).toBe(403);
   });
 
@@ -105,7 +105,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
       .send({ name: 'Course fields', component: 'core_course', area: 'course' });
     expect([200, 201]).toContain(catRes.status);
     const fieldRes = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryid: catRes.body.id, shortname: 'level', name: 'Level', type: 'select', configdata: { options: ['intro', 'advanced'], required: false } });
+      .send({ categoryId: catRes.body.id, shortName: 'level', name: 'Level', type: 'select', configData: { options: ['intro', 'advanced'], required: false } });
     expect([200, 201]).toContain(fieldRes.status);
 
     const cat = await createCategory(app, admin);
@@ -114,11 +114,11 @@ describe('Courses: categories, courses, sections, course modules', () => {
       formatOptions: { numsections: '8' },
     });
     const view = await http(app).get(`/api/v1/courses/${course.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(view.body.customFields).toEqual(expect.arrayContaining([{ shortname: 'level', value: 'advanced' }]));
+    expect(view.body.customFields).toEqual(expect.arrayContaining([{ shortName: 'level', value: 'advanced' }]));
     expect(view.body.formatOptions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'numsections', value: '8' })]));
     // Invalid select value is rejected.
     const bad = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullname: 'Bad cf', shortname: uniqueName('badcf'), category: cat.id, customFields: { level: 'expert' } });
+      .send({ fullName: 'Bad cf', shortName: uniqueName('badcf'), category: cat.id, customFields: { level: 'expert' } });
     expect(bad.status).toBe(400);
   });
 
@@ -140,7 +140,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     const course = await createCourse(app, admin, cat.id);
     const section0 = await getFirstSectionId(app, admin, course.id);
     const section1 = await createSection(app, admin, course.id, { name: 'Week 1' });
-    const cm = await createCm(app, admin, course.id, section0, { completion: 2, completionview: true });
+    const cm = await createCm(app, admin, course.id, section0, { completion: 2, completionView: true });
     expect(cm.contextId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
     // Move the cm to section 1.
@@ -155,7 +155,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     await enrolUser(app, admin, course.id, instance.id, student.id);
     const studentLogin = await login(app, student.username, STRONG_PASSWORD);
     const upload = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${admin}`)
-      .field('contextid', String(cm.contextId)).field('component', 'mod_page').field('filearea', 'content')
+      .field('contextId', String(cm.contextId)).field('component', 'mod_page').field('fileArea', 'content')
       .attach('file', Buffer.from('hello cm'), 'page.txt');
     expect(upload.status).toBe(201);
     const uploadedFileId = upload.body?.id as string | undefined;

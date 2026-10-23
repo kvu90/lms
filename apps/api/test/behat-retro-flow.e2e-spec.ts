@@ -28,27 +28,27 @@ describe('Behat retro-audit journeys', () => {
     await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId, groupId: group.id });
     const user = await createUserViaApi(app, admin);
     // Vào cohort ⇒ được ghi danh qua cohort sync VÀ vào group của instance.
-    await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set('Authorization', `Bearer ${admin}`).send({ userid: user.id });
+    await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: user.id });
     const userToken = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${userToken}`);
     expect(mine.body).toMatchObject({ enrolled: true, active: true });
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${group.id}/members`).set('Authorization', `Bearer ${admin}`);
     expect(members.status).toBe(200);
-    expect((members.body as { userid: string }[]).some((m) => m.userid === user.id)).toBe(true);
+    expect((members.body as { userId: string }[]).some((m) => m.userId === user.id)).toBe(true);
   });
 
   it('badge criteria can require another badge: badge B is issued only after badge A (Behat: badges/tests/behat/criteria_*.feature họ tiêu chí; lá "badge" của evaluator)', async () => {
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Badge A: tiêu chí manual, cấp thủ công.
-    const aRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step one', type: 1, issuername: 'LMS HQ' });
+    const aRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step one', type: 1, issuerName: 'LMS HQ' });
     const aId = aRes.body.id as string;
-    await http(app).put(`/api/v1/badges/${aId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+    await http(app).put(`/api/v1/badges/${aId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     await http(app).post(`/api/v1/badges/${aId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Badge B: yêu cầu đã có badge A.
-    const bRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step two', type: 1, issuername: 'LMS HQ' });
+    const bRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Step two', type: 1, issuerName: 'LMS HQ' });
     const bId = bRes.body.id as string;
-    await http(app).put(`/api/v1/badges/${bId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriatype: 'badge', params: { badgeId: aId } }] });
+    await http(app).put(`/api/v1/badges/${bId}/criteria`).set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria: [{ criteriaType: 'badge', params: { badgeId: aId } }] });
     await http(app).post(`/api/v1/badges/${bId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Chưa có A ⇒ đánh giá B không đạt, B chưa được cấp.
     const evaluation = await http(app).post(`/api/v1/badges/${bId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
@@ -57,7 +57,7 @@ describe('Behat retro-audit journeys', () => {
     await http(app).post(`/api/v1/badges/${aId}/award`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${studentToken}`);
-    const ids = (mine.body as { badgeid: string }[]).map((r) => r.badgeid);
+    const ids = (mine.body as { badgeId: string }[]).map((r) => r.badgeId);
     expect(ids).toContain(aId);
     expect(ids).toContain(bId);
   });
@@ -67,7 +67,7 @@ describe('Behat retro-audit journeys', () => {
     const userToken = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
     const soon = new Date(Date.now() + 3600_000).toISOString();
     const created = await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`)
-      .send({ name: 'Dentist appointment', eventtype: 'user', timestart: soon });
+      .send({ name: 'Dentist appointment', eventType: 'user', timeStart: soon });
     expect(created.status).toBe(201);
     const eventId = created.body.event.id as string;
     let list = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`);
@@ -87,16 +87,16 @@ describe('Behat retro-audit journeys', () => {
     const scaleId = scaleRes.body.id as string;
     const listed = await http(app).get(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`);
     expect((listed.body as { id: string }[]).some((s) => s.id === scaleId)).toBe(true);
-    // Item dùng scale: grademax bằng số mức của scale (4).
-    const item = await createGradeItem(app, admin, course.id, { itemname: 'Essay quality', scaleId, grademax: 4 });
+    // Item dùng scale: gradeMax bằng số mức của scale (4).
+    const item = await createGradeItem(app, admin, course.id, { itemName: 'Essay quality', scaleId, gradeMax: 4 });
     const student = await createUserViaApi(app, admin);
     const instance = await createEnrolInstance(app, admin, course.id);
-    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/enrol`).set('Authorization', `Bearer ${admin}`).send({ userid: student.id });
+    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/enrol`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     const grade = await setGrade(app, admin, item.id, student.id, 3);
-    expect(grade.finalgrade).toBe(3);
+    expect(grade.finalGrade).toBe(3);
     const book = await getGradebook(app, admin, course.id, student.id);
     const allItems = book.categories.flatMap((c) => c.items);
     const row = allItems.find((i) => i.item.id === item.id);
-    expect(row?.grade?.finalgrade).toBe(3);
+    expect(row?.grade?.finalGrade).toBe(3);
   });
 });

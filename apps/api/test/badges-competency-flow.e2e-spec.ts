@@ -44,13 +44,13 @@ describe('Badges & competencies', () => {
 
   async function frameworkWithCompetency() {
     const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
-      .send({ shortname: `FW ${Date.now()}-${Math.random()}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
+      .send({ shortName: `FW ${Date.now()}-${Math.random()}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
     expect(fw.status).toBe(201);
     const comp = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
-      .send({ shortname: 'Teamwork' });
+      .send({ shortName: 'Teamwork' });
     expect(comp.status).toBe(201);
     const child = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
-      .send({ shortname: 'Teamwork basics', parentId: comp.body.id });
+      .send({ shortName: 'Teamwork basics', parentId: comp.body.id });
     expect(child.body.path).toBe(`/${comp.body.id}/${child.body.id}`);
     expect(child.body.depth).toBe(2);
     return { framework: fw.body, competency: comp.body, child: child.body };
@@ -61,14 +61,14 @@ describe('Badges & competencies', () => {
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
     const sectionId = await getFirstSectionId(app, admin, course.id);
-    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Task', completion: 1, completionmanual: true });
-    await setCourseCompletionCriteria(app, admin, course.id, [{ criteriatype: 'module', moduleinstance: cm.id }]);
+    const cm = await createCm(app, admin, course.id, sectionId, { name: 'Task', completion: 1, completionManual: true });
+    await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'module', moduleInstance: cm.id }]);
     return { category, course, instance, cm };
   }
 
   it('badge criteria tree: ALL requires every leaf, ANY requires one; activation needs criteria and locks them (badgeslib + §2#14)', async () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Finisher', type: 1, issuername: 'LMS HQ' });
+      .send({ name: 'Finisher', type: 1, issuerName: 'LMS HQ' });
     const badgeId = badgeRes.body.id as string;
     // Cannot activate without criteria.
     const early = await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
@@ -78,11 +78,11 @@ describe('Badges & competencies', () => {
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'activitycompletion', params: { cmId: cm.id } }, { criteriatype: 'coursecompletion', params: { courseId: course.id } }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'activitycompletion', params: { cmId: cm.id } }, { criteriaType: 'coursecompletion', params: { courseId: course.id } }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     // Frozen while active.
     const frozen = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 2, criteria: [{ criteriatype: 'manual', params: {} }] });
+      .send({ method: 2, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(frozen.status).toBe(403);
     expect(frozen.body.code).toBe('badges.criteria_frozen');
     // Before completion: not satisfied under ALL.
@@ -93,16 +93,16 @@ describe('Badges & competencies', () => {
     await markCmComplete(app, admin, course.id, cm.id, student.id);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${studentToken}`);
-    const mineRows = mine.body as { badgeid: string; uniquehash: string; snapshot: { criteria: unknown[] } }[];
-    const awarded = mineRows.find((r) => r.badgeid === badgeId);
+    const mineRows = mine.body as { badgeId: string; uniqueHash: string; snapshot: { criteria: unknown[] } }[];
+    const awarded = mineRows.find((r) => r.badgeId === badgeId);
     expect(awarded).toBeTruthy();
-    expect(awarded!.uniquehash).toHaveLength(64);
+    expect(awarded!.uniqueHash).toHaveLength(64);
     expect(awarded!.snapshot.criteria).toHaveLength(2);
     evaluation = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect(evaluation.body.satisfied).toBe(true);
     // And the award produced a badge_awarded notification for the student.
     const notifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${studentToken}`);
-    expect((notifications.body as { eventtype: string }[]).some((n) => n.eventtype === 'badge_awarded')).toBe(true);
+    expect((notifications.body as { eventType: string }[]).some((n) => n.eventType === 'badge_awarded')).toBe(true);
   });
 
   it('badge freeze after issuance + duplicate-to-edit + revoke keeps the assertion (§2#14)', async () => {
@@ -111,7 +111,7 @@ describe('Badges & competencies', () => {
       .send({ name: 'Competent', type: 1 });
     const badgeId = badgeRes.body.id as string;
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 2, criteria: [{ criteriatype: 'competency', params: { competencyId: competency.id } }] });
+      .send({ method: 2, criteria: [{ criteriaType: 'competency', params: { competencyId: competency.id } }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     const user = await createUserViaApi(app, admin);
     // Becoming proficient (review approve) triggers the competency listener → auto-award.
@@ -122,19 +122,19 @@ describe('Badges & competencies', () => {
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/approve`).set('Authorization', `Bearer ${admin}`).send({ grade: 1 });
     const userToken = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${userToken}`);
-    const assertion = (mine.body as { id: string; badgeid: string }[]).find((r) => r.badgeid === badgeId);
+    const assertion = (mine.body as { id: string; badgeId: string }[]).find((r) => r.badgeId === badgeId);
     expect(assertion).toBeTruthy();
     // Deactivate, then try to edit criteria: still frozen because awards exist.
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 0 });
     const frozen = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(frozen.status).toBe(403);
     // Duplicate is the sanctioned edit path: the copy is inactive and editable.
     const copy = await http(app).post(`/api/v1/badges/${badgeId}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
     expect(copy.status).toBe(201);
     expect(copy.body.status).toBe(0);
     const editCopy = await http(app).put(`/api/v1/badges/${copy.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(editCopy.status).toBe(200);
     // Revoke: assertion row survives, marked revoked.
     const revoked = await http(app).post(`/api/v1/badges/issued/${assertion!.id}/revoke`).set('Authorization', `Bearer ${admin}`).send({});
@@ -143,7 +143,7 @@ describe('Badges & competencies', () => {
     const fetched = await http(app).get(`/api/v1/badges/issued/${assertion!.id}`).set('Authorization', `Bearer ${admin}`);
     expect(fetched.status).toBe(200);
     expect(fetched.body.revoked).toBe(true);
-    expect(fetched.body.uniquehash).toHaveLength(64);
+    expect(fetched.body.uniqueHash).toHaveLength(64);
   });
 
   it('manual award: requires the awardbadge capability and a manual criterion; ALL with an unmet leaf does not issue', async () => {
@@ -151,7 +151,7 @@ describe('Badges & competencies', () => {
       .send({ name: 'Mentor pick', type: 1 });
     const badgeId = badgeRes.body.id as string;
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'manual', params: {} }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     const recipient = await createUserViaApi(app, admin);
     const plain = await createUserViaApi(app, admin);
@@ -161,7 +161,7 @@ describe('Badges & competencies', () => {
     const awarded = await http(app).post(`/api/v1/badges/${badgeId}/award`).set('Authorization', `Bearer ${admin}`).send({ userId: recipient.id });
     expect(awarded.status).toBe(201);
     expect(awarded.body.issued).toBeTruthy();
-    expect(awarded.body.award.recipientid).toBe(recipient.id);
+    expect(awarded.body.award.recipientId).toBe(recipient.id);
   });
 
   async function activeBadgeWithCriteria(name: string, criteria: unknown[]) {
@@ -180,14 +180,14 @@ describe('Badges & competencies', () => {
   async function evaluateLeaves(badgeId: string, userId: string) {
     const res = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId });
     expect(res.status).toBe(201);
-    return res.body as { satisfied: boolean; leaves: { criteriatype: string; satisfied: boolean }[] };
+    return res.body as { satisfied: boolean; leaves: { criteriaType: string; satisfied: boolean }[] };
   }
 
   async function issuedBadgeIdsFor(userId: string, token: string) {
     void userId;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${token}`);
     expect(mine.status).toBe(200);
-    return (mine.body as { badgeid: string }[]).map((r) => r.badgeid);
+    return (mine.body as { badgeId: string }[]).map((r) => r.badgeId);
   }
 
   it('cohort leaf: members of the named cohort are awarded, non-members are not (Behat criteria_cohort.feature)', async () => {
@@ -198,11 +198,11 @@ describe('Badges & competencies', () => {
     // A cohort leaf without its cohort reference is refused at criteria time.
     const probe = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Cohort probe', type: 1 });
     const badParams = await http(app).put(`/api/v1/badges/${probe.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
-      .send({ method: 1, criteria: [{ criteriatype: 'cohort', params: {} }] });
+      .send({ method: 1, criteria: [{ criteriaType: 'cohort', params: {} }] });
     expect(badParams.status).toBe(400);
     expect(badParams.body.code).toBe('badges.bad_criteria_params');
 
-    const badgeId = await activeBadgeWithCriteria('Cohort member badge', [{ criteriatype: 'cohort', params: { cohortId: cohort.id } }]);
+    const badgeId = await activeBadgeWithCriteria('Cohort member badge', [{ criteriaType: 'cohort', params: { cohortId: cohort.id } }]);
     expect((await evaluateLeaves(badgeId, member.id)).satisfied).toBe(true);
     expect((await evaluateLeaves(badgeId, outsider.id)).satisfied).toBe(false);
     // Auto-award path: evaluating the member's badges issues it; the outsider gets nothing.
@@ -216,12 +216,12 @@ describe('Badges & competencies', () => {
 
   it('profile leaf: a custom profile field meeting the condition awards; a different or missing value does not (Behat criteria_profile.feature)', async () => {
     const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-    const shortname = `badgedept${suffix.replaceAll('-', '')}`.slice(0, 32);
+    const shortName = `badgedept${suffix.replaceAll('-', '')}`.slice(0, 32);
     const cat = await http(app).post('/api/v1/custom-fields/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Badge profile ${suffix}`, component: 'core_user', area: 'user' });
     expect(cat.status).toBe(201);
     const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryid: cat.body.id, shortname, name: 'Badge department', type: 'text', configdata: {} });
+      .send({ categoryId: cat.body.id, shortName, name: 'Badge department', type: 'text', configData: {} });
     expect(field.status).toBe(201);
     // lms_test is shared across suites: other suites may have declared
     // REQUIRED core_user fields (e.g. a select `department`), and user
@@ -229,15 +229,15 @@ describe('Badges & competencies', () => {
     const fieldsRes = await http(app).get('/api/v1/custom-fields/fields?component=core_user&area=user').set('Authorization', `Bearer ${admin}`);
     expect(fieldsRes.status).toBe(200);
     const requiredValues: Record<string, string> = {};
-    for (const f of fieldsRes.body as { shortname: string; type: string; configdata?: { required?: boolean; options?: string[] } }[]) {
-      if (!f.configdata?.required || f.shortname === shortname) continue;
-      requiredValues[f.shortname] = f.configdata.options?.[0] ?? (f.type === 'date' ? '2000-01-01' : f.type === 'checkbox' ? '1' : 'Required');
+    for (const f of fieldsRes.body as { shortName: string; type: string; configData?: { required?: boolean; options?: string[] } }[]) {
+      if (!f.configData?.required || f.shortName === shortName) continue;
+      requiredValues[f.shortName] = f.configData.options?.[0] ?? (f.type === 'date' ? '2000-01-01' : f.type === 'checkbox' ? '1' : 'Required');
     }
-    const matching = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Engineering' } });
-    const different = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortname]: 'Sales' } });
+    const matching = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortName]: 'Engineering' } });
+    const different = await createUserViaApi(app, admin, { customFields: { ...requiredValues, [shortName]: 'Sales' } });
     const missing = await createUserViaApi(app, admin);
 
-    const badgeId = await activeBadgeWithCriteria('Engineering badge', [{ criteriatype: 'profile', params: { field: shortname, value: 'Engineering' } }]);
+    const badgeId = await activeBadgeWithCriteria('Engineering badge', [{ criteriaType: 'profile', params: { field: shortName, value: 'Engineering' } }]);
     expect((await evaluateLeaves(badgeId, matching.id)).satisfied).toBe(true);
     expect((await evaluateLeaves(badgeId, different.id)).satisfied).toBe(false);
     expect((await evaluateLeaves(badgeId, missing.id)).satisfied).toBe(false);
@@ -246,12 +246,12 @@ describe('Badges & competencies', () => {
     expect(await issuedBadgeIdsFor(matching.id, matchingToken)).toContain(badgeId);
 
     // Standard profile fields work through the same leaf (no `value` ⇒ the field must be filled).
-    const stdBadgeId = await activeBadgeWithCriteria('Has a last name', [{ criteriatype: 'profile', params: { field: 'lastname' } }]);
+    const stdBadgeId = await activeBadgeWithCriteria('Has a last name', [{ criteriaType: 'profile', params: { field: 'lastName' } }]);
     expect((await evaluateLeaves(stdBadgeId, matching.id)).satisfied).toBe(true);
-    const stdValueBadgeId = await activeBadgeWithCriteria('Last name is User', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'User' } }]);
+    const stdValueBadgeId = await activeBadgeWithCriteria('Last name is User', [{ criteriaType: 'profile', params: { field: 'lastName', value: 'User' } }]);
     expect((await evaluateLeaves(stdValueBadgeId, matching.id)).satisfied).toBe(true);
-    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // helper default lastname is also 'User'
-    const stdMissBadgeId = await activeBadgeWithCriteria('Last name is Nobody', [{ criteriatype: 'profile', params: { field: 'lastname', value: 'Nobody' } }]);
+    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // helper default lastName is also 'User'
+    const stdMissBadgeId = await activeBadgeWithCriteria('Last name is Nobody', [{ criteriaType: 'profile', params: { field: 'lastName', value: 'Nobody' } }]);
     expect((await evaluateLeaves(stdMissBadgeId, matching.id)).satisfied).toBe(false);
   });
 
@@ -265,10 +265,10 @@ describe('Badges & competencies', () => {
     const futureCutoff = new Date(now + 30 * 86400_000).toISOString();
     const pastCutoff = new Date(now - 30 * 86400_000).toISOString();
     const inTimeBadgeId = await activeBadgeWithCriteria('Completed in time', [
-      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: futureCutoff } },
+      { criteriaType: 'coursecompletion', params: { courseId: course.id, byDate: futureCutoff } },
     ]);
     const tooLateBadgeId = await activeBadgeWithCriteria('Completed too late', [
-      { criteriatype: 'coursecompletion', params: { courseId: course.id, byDate: pastCutoff } },
+      { criteriaType: 'coursecompletion', params: { courseId: course.id, byDate: pastCutoff } },
     ]);
     expect((await evaluateLeaves(inTimeBadgeId, student.id)).satisfied).toBe(true);
     expect((await evaluateLeaves(tooLateBadgeId, student.id)).satisfied).toBe(false);
@@ -279,15 +279,15 @@ describe('Badges & competencies', () => {
     expect(issuedIds).not.toContain(tooLateBadgeId);
   });
 
-  it('competency course links: ruleoutcome complete sets proficiency from the scale; attach-evidence only logs evidence (§2#15)', async () => {
+  it('competency course links: ruleOutcome complete sets proficiency from the scale; attach-evidence only logs evidence (§2#15)', async () => {
     const { competency } = await frameworkWithCompetency();
     const { competency: competency2 } = await frameworkWithCompetency();
     const a = await completableCourse();
     const b = await completableCourse();
     await http(app).post(`/api/v1/competencies/courses/${a.course.id}/links`).set('Authorization', `Bearer ${admin}`)
-      .send({ competencyId: competency.id, ruleoutcome: 'complete' });
+      .send({ competencyId: competency.id, ruleOutcome: 'complete' });
     await http(app).post(`/api/v1/competencies/courses/${b.course.id}/links`).set('Authorization', `Bearer ${admin}`)
-      .send({ competencyId: competency2.id, ruleoutcome: 'attach-evidence' });
+      .send({ competencyId: competency2.id, ruleOutcome: 'attach-evidence' });
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, a.course.id, a.instance.id, student.id);
     await enrolUser(app, admin, b.course.id, b.instance.id, student.id);
@@ -295,11 +295,11 @@ describe('Badges & competencies', () => {
     await markCmComplete(app, admin, b.course.id, b.cm.id, student.id);
 
     const usercomps = await http(app).get(`/api/v1/competencies/usercomp/user/${student.id}`).set('Authorization', `Bearer ${admin}`);
-    const rows = usercomps.body as { competencyid: string; proficiency: boolean | null; grade: number | null; id: string }[];
-    const completeRow = rows.find((r) => r.competencyid === competency.id);
+    const rows = usercomps.body as { competencyId: string; proficiency: boolean | null; grade: number | null; id: string }[];
+    const completeRow = rows.find((r) => r.competencyId === competency.id);
     expect(completeRow?.proficiency).toBe(true);
     expect(completeRow?.grade).toBe(1); // first proficient index of the scale
-    const evidenceRow = rows.find((r) => r.competencyid === competency2.id);
+    const evidenceRow = rows.find((r) => r.competencyId === competency2.id);
     expect(evidenceRow).toBeTruthy();
     expect(evidenceRow?.proficiency).not.toBe(true); // evidence does NOT set proficiency
     const evidence = await http(app).get(`/api/v1/competencies/usercomp/${evidenceRow!.id}/evidence`).set('Authorization', `Bearer ${admin}`);
@@ -309,7 +309,7 @@ describe('Badges & competencies', () => {
   it('learning plans from template + cohort: members get active plans with the template competencies (api_test template_cohort + create_plan_from_template)', async () => {
     const { competency } = await frameworkWithCompetency();
     const template = await http(app).post('/api/v1/competencies/templates').set('Authorization', `Bearer ${admin}`)
-      .send({ shortname: 'Onboarding plan' });
+      .send({ shortName: 'Onboarding plan' });
     await http(app).post(`/api/v1/competencies/templates/${template.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
       .send({ competencyId: competency.id });
     const cohort = await createCohortViaApi(app, admin, `cohort-${Date.now()}`);
@@ -413,13 +413,13 @@ describe('Badges & competencies', () => {
 
   async function parentChildFramework(suffix: string) {
     const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
-      .send({ shortname: `Rule FW ${suffix}`, idnumber: `rule-fw-${suffix}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
+      .send({ shortName: `Rule FW ${suffix}`, idNumber: `rule-fw-${suffix}`, scale: { values: ['Not competent', 'Competent'], proficient: [1] } });
     expect(fw.status).toBe(201);
-    const mk = async (shortname: string, parentId?: string) => {
+    const mk = async (shortName: string, parentId?: string) => {
       const res = await http(app).post(`/api/v1/competencies/frameworks/${fw.body.id}/competencies`).set('Authorization', `Bearer ${admin}`)
-        .send({ shortname, ...(parentId ? { parentId } : {}) });
+        .send({ shortName, ...(parentId ? { parentId } : {}) });
       expect(res.status).toBe(201);
-      return res.body as { id: string; shortname: string; parentid: string | null };
+      return res.body as { id: string; shortName: string; parentId: string | null };
     };
     const parent = await mk('Parent skill');
     const childA = await mk('Child A', parent.id);
@@ -453,8 +453,8 @@ describe('Badges & competencies', () => {
     const learner = await createUserViaApi(app, admin);
     const parentRow = async () => {
       const rows = await http(app).get(`/api/v1/competencies/usercomp/user/${learner.id}`).set('Authorization', `Bearer ${admin}`);
-      return (rows.body as { competencyid: string; proficiency: boolean | null; grade: number | null; id: string }[])
-        .find((r) => r.competencyid === parent.id);
+      return (rows.body as { competencyId: string; proficiency: boolean | null; grade: number | null; id: string }[])
+        .find((r) => r.competencyId === parent.id);
     };
     // Required child B approved (2 points < 4 required): parent NOT proficient yet.
     await approveChild(learner.id, childB.id);
@@ -485,18 +485,18 @@ describe('Badges & competencies', () => {
     const imported = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`).send(exported.body);
     expect(imported.status).toBe(201);
     expect(imported.body.id).not.toBe(framework.id);
-    expect(imported.body.scaleconfiguration).toEqual({ values: ['Not competent', 'Competent'], proficient: [1] });
+    expect(imported.body.scaleConfiguration).toEqual({ values: ['Not competent', 'Competent'], proficient: [1] });
     expect(imported.body.taxonomies).toBe(exported.body.framework.taxonomies);
     const importedComps = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
-    const rows = importedComps.body as { id: string; shortname: string; parentid: string | null; path: string }[];
+    const rows = importedComps.body as { id: string; shortName: string; parentId: string | null; path: string }[];
     expect(rows).toHaveLength(3);
     const sourceIds = new Set([parent.id, childA.id, childB.id]);
     for (const row of rows) expect(sourceIds.has(row.id)).toBe(false); // toàn bộ id đều mới
-    const newParent = rows.find((r) => r.shortname === 'Parent skill')!;
-    const newChildA = rows.find((r) => r.shortname === 'Child A')!;
-    const newChildB = rows.find((r) => r.shortname === 'Child B')!;
-    expect(newChildA.parentid).toBe(newParent.id);
-    expect(newChildB.parentid).toBe(newParent.id);
+    const newParent = rows.find((r) => r.shortName === 'Parent skill')!;
+    const newChildA = rows.find((r) => r.shortName === 'Child A')!;
+    const newChildB = rows.find((r) => r.shortName === 'Child B')!;
+    expect(newChildA.parentId).toBe(newParent.id);
+    expect(newChildB.parentId).toBe(newParent.id);
     expect(newChildA.path).toBe(`/${newParent.id}/${newChildA.id}`);
     // Rule được mang sang với id con ĐÃ remap sang framework mới.
     const rule = await http(app).get(`/api/v1/competencies/frameworks/${imported.body.id}/competencies/${newParent.id}/rule`).set('Authorization', `Bearer ${admin}`);
@@ -505,15 +505,15 @@ describe('Badges & competencies', () => {
     expect(rule.body.config.pointsRequired).toBe(4);
     expect(new Set(rule.body.config.entries.map((e: { competencyId: string }) => e.competencyId))).toEqual(new Set([newChildA.id, newChildB.id]));
 
-    // Duplicate: idnumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
+    // Duplicate: idNumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
     const duplicate = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
     expect(duplicate.status).toBe(201);
     expect(duplicate.body.id).not.toBe(framework.id);
-    expect(duplicate.body.idnumber).toBe(`${framework.idnumber}_1`);
+    expect(duplicate.body.idNumber).toBe(`${framework.idNumber}_1`);
     const dupComps = await http(app).get(`/api/v1/competencies/frameworks/${duplicate.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
     expect(dupComps.body).toHaveLength(3);
     const duplicate2 = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
-    expect(duplicate2.body.idnumber).toBe(`${framework.idnumber}_2`);
+    expect(duplicate2.body.idNumber).toBe(`${framework.idNumber}_2`);
   });
 
   it('framework import: malformed documents are refused with 400 and create no framework at all', async () => {
@@ -522,17 +522,17 @@ describe('Badges & competencies', () => {
     const scale = { values: ['Not competent', 'Competent'], proficient: [1] };
     // Sai version → Zod từ chối.
     const wrongVersion = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
-      .send({ format: 'lms-competency-framework', version: 2, framework: { shortname: 'Bad', idnumber: '', description: '', visible: true, taxonomies: 'competency', scale }, competencies: [] });
+      .send({ format: 'lms-competency-framework', version: 2, framework: { shortName: 'Bad', idNumber: '', description: '', visible: true, taxonomies: 'competency', scale }, competencies: [] });
     expect(wrongVersion.status).toBe(400);
     // Đúng hình dạng nhưng rule tham chiếu competency không phải con trực tiếp → import_invalid, rollback toàn bộ.
     const badRef = await http(app).post('/api/v1/competencies/frameworks/import').set('Authorization', `Bearer ${admin}`)
       .send({
         format: 'lms-competency-framework', version: 1,
-        framework: { shortname: `Bad import ${Date.now()}`, idnumber: '', description: '', visible: true, taxonomies: 'competency', scale },
+        framework: { shortName: `Bad import ${Date.now()}`, idNumber: '', description: '', visible: true, taxonomies: 'competency', scale },
         competencies: [
-          { key: 'p', shortname: 'P', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: { outcome: 'complete', pointsRequired: 1, entries: [{ competencyKey: 'x', points: 1, required: true }] } },
-          { key: 'c', shortname: 'C', idnumber: '', description: '', parentKey: 'p', sortorder: 0, rule: null },
-          { key: 'x', shortname: 'X', idnumber: '', description: '', parentKey: null, sortorder: 0, rule: null },
+          { key: 'p', shortName: 'P', idNumber: '', description: '', parentKey: null, sortOrder: 0, rule: { outcome: 'complete', pointsRequired: 1, entries: [{ competencyKey: 'x', points: 1, required: true }] } },
+          { key: 'c', shortName: 'C', idNumber: '', description: '', parentKey: 'p', sortOrder: 0, rule: null },
+          { key: 'x', shortName: 'X', idNumber: '', description: '', parentKey: null, sortOrder: 0, rule: null },
         ],
       });
     expect(badRef.status).toBe(400);

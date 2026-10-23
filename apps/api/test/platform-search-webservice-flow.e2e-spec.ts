@@ -44,13 +44,13 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const { course, student, studentToken } = await setupCourseWithStudent();
     const ctxId = await courseContextId(app, admin, course.id);
     // Index khoá học qua area thật.
-    const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'courses', itemid: course.id });
+    const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'courses', itemId: course.id });
     expect(idx.body.indexed).toBe(true);
-    const q = encodeURIComponent(course.fullname.split(' ').slice(0, 2).join(' '));
+    const q = encodeURIComponent(course.fullName.split(' ').slice(0, 2).join(' '));
     // Người có quyền (học viên đã ghi danh) tìm thấy.
     const found = await http(app).get(`/api/v1/search?q=${encodeURIComponent('Course')}`).set('Authorization', `Bearer ${studentToken}`);
     expect(found.status).toBe(200);
-    expect((found.body as { itemid: string }[]).some((d) => d.itemid === course.id)).toBe(true);
+    expect((found.body as { itemId: string }[]).some((d) => d.itemId === course.id)).toBe(true);
     void q;
     // User bị PROHIBIT moodle/course:view tại course context: tạo role riêng + assignment + PROHIBIT override.
     const blocked = await createUserViaApi(app, admin);
@@ -60,14 +60,14 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const blockedToken = (await login(app, blocked.username, STRONG_PASSWORD)).accessToken;
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent('Course')}`).set('Authorization', `Bearer ${blockedToken}`);
     expect(res.status).toBe(200);
-    expect((res.body as { itemid: string }[]).some((d) => d.itemid === course.id)).toBe(false);
+    expect((res.body as { itemId: string }[]).some((d) => d.itemId === course.id)).toBe(false);
     // Kể cả khi index còn sót một tài liệu trỏ vào context đó, re-check vẫn chặn.
     const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
-      .send({ area: 'courses', itemid: uuidv7(), title: 'StaleSecretCourse', content: 'StaleSecretCourse leaked content', contextid: ctxId });
+      .send({ area: 'courses', itemId: uuidv7(), title: 'StaleSecretCourse', content: 'StaleSecretCourse leaked content', contextId: ctxId });
     expect(stale.status).toBeLessThan(300);
     const res2 = await http(app).get(`/api/v1/search?q=StaleSecretCourse`).set('Authorization', `Bearer ${blockedToken}`);
     expect((res2.body as unknown[]).length).toBe(0);
-    // Admin (site admin bypass có chủ đích) vẫn thấy tài liệu stale vì area fetch trả null? — re-check bản ghi gốc: itemid không tồn tại nên admin cũng không thấy.
+    // Admin (site admin bypass có chủ đích) vẫn thấy tài liệu stale vì area fetch trả null? — re-check bản ghi gốc: itemId không tồn tại nên admin cũng không thấy.
     const resAdmin = await http(app).get(`/api/v1/search?q=StaleSecretCourse`).set('Authorization', `Bearer ${admin}`);
     expect((resAdmin.body as unknown[]).length).toBe(0);
     void student;
@@ -77,23 +77,23 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const areas = await http(app).get('/api/v1/search/areas').set('Authorization', `Bearer ${admin}`);
     expect(areas.body).toEqual(expect.arrayContaining(['courses', 'users', 'contentbank', 'blog']));
     const user = await createUserViaApi(app, admin);
-    const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemid: user.id });
+    const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemId: user.id });
     expect(idx.body.indexed).toBe(true);
     await http(app).post(`/api/v1/users/${user.id}/suspend`).set('Authorization', `Bearer ${admin}`).send({});
     // Sau suspend, fetch của area trả null ⇒ index lại sẽ gỡ tài liệu.
-    const idx2 = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemid: user.id });
+    const idx2 = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemId: user.id });
     expect(idx2.body.indexed).toBe(false);
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(user.username)}`).set('Authorization', `Bearer ${admin}`);
-    expect((res.body as { itemid: string }[]).some((d) => d.itemid === user.id)).toBe(false);
+    expect((res.body as { itemId: string }[]).some((d) => d.itemId === user.id)).toBe(false);
   });
 
   it('webservice DoD: a student token cannot call a function requiring a teacher capability (403), but can call a view function in its service', async () => {
     const { course, student } = await setupCourseWithStudent();
     const svc = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${admin}`)
-      .send({ name: `Svc ${Date.now()}`, shortname: `svc${Date.now()}`, functions: ['core_course_get_courses', 'core_grades_update_grades'] });
+      .send({ name: `Svc ${Date.now()}`, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses', 'core_grades_update_grades'] });
     expect(svc.status).toBeLessThan(300);
     const tok = await http(app).post('/api/v1/webservice/tokens').set('Authorization', `Bearer ${admin}`)
-      .send({ userid: student.id, serviceid: svc.body.id });
+      .send({ userId: student.id, serviceId: svc.body.id });
     expect(tok.status).toBeLessThan(300);
     expect(tok.body.token).toHaveLength(64);
     // Token thô không được lưu: danh sách token chỉ chứa hash.
@@ -112,7 +112,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     // User thường không có webservice:manage ⇒ không tạo được service.
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const forbidden = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${studentToken}`)
-      .send({ name: 'X', shortname: `x${Date.now()}`, functions: [] });
+      .send({ name: 'X', shortName: `x${Date.now()}`, functions: [] });
     expect(forbidden.status).toBe(403);
   });
 
@@ -125,20 +125,20 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     await assignRole(app, admin, teacher.id, teacherRole, ctxId);
     const teacherToken = (await login(app, teacher.username, STRONG_PASSWORD)).accessToken;
     const draft = await http(app).post('/api/v1/contentbank').set('Authorization', `Bearer ${teacherToken}`)
-      .send({ name: 'Draft resource', contextid: ctxId });
+      .send({ name: 'Draft resource', contextId: ctxId });
     expect(draft.status).toBeLessThan(300);
     expect(draft.body.visibility).toBe('draft');
     // Student không thấy draft.
-    const listStudent = await http(app).get(`/api/v1/contentbank?contextid=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
+    const listStudent = await http(app).get(`/api/v1/contentbank?contextId=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
     expect((listStudent.body as { id: string }[]).some((c) => c.id === draft.body.id)).toBe(false);
     // Upload file qua FilesModule + chuyển public ⇒ student thấy và lấy được signed URL.
     const up = await http(app).post(`/api/v1/contentbank/${draft.body.id}/file`).set('Authorization', `Bearer ${teacherToken}`)
-      .send({ filename: 'notes.txt', contentBase64: Buffer.from('content-bank-file').toString('base64'), mimetype: 'text/plain' });
+      .send({ fileName: 'notes.txt', contentBase64: Buffer.from('content-bank-file').toString('base64'), mimeType: 'text/plain' });
     expect(up.status).toBeLessThan(300);
-    expect(up.body.fileid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(up.body.fileId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const pub = await http(app).patch(`/api/v1/contentbank/${draft.body.id}`).set('Authorization', `Bearer ${teacherToken}`).send({ visibility: 'public' });
     expect(pub.body.visibility).toBe('public');
-    const list2 = await http(app).get(`/api/v1/contentbank?contextid=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
+    const list2 = await http(app).get(`/api/v1/contentbank?contextId=${ctxId}`).set('Authorization', `Bearer ${studentToken}`);
     expect((list2.body as { id: string }[]).some((c) => c.id === draft.body.id)).toBe(true);
     const url = await http(app).get(`/api/v1/contentbank/${draft.body.id}/file-url`).set('Authorization', `Bearer ${studentToken}`);
     expect(url.status).toBeLessThan(300);
@@ -159,7 +159,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     // Học viên nguy cơ: chưa từng đăng nhập (no_recent_access=1) + điểm 0 (low_grade=1) ⇒ score 1.
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);
-    const item = await createGradeItem(app, admin, course.id, { itemname: 'Risk item' });
+    const item = await createGradeItem(app, admin, course.id, { itemName: 'Risk item' });
     await setGrade(app, admin, item.id, student.id, 0);
     const enrolBefore = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     const run = await http(app).post('/api/v1/analytics/models/students_at_risk/run').set('Authorization', `Bearer ${admin}`).send({ courseId: course.id });
@@ -168,7 +168,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(run.body.predictions).toBeGreaterThanOrEqual(1);
     expect(run.body.insights).toBeGreaterThanOrEqual(1);
     const teacherInsights = await http(app).get('/api/v1/analytics/insights/me').set('Authorization', `Bearer ${teacherToken}`);
-    expect((teacherInsights.body as { userid: string }[]).some((i) => i.userid === student.id)).toBe(true);
+    expect((teacherInsights.body as { userId: string }[]).some((i) => i.userId === student.id)).toBe(true);
     // Student không phải recipient có viewinsights ⇒ không thấy insight về mình trong hộp của mình.
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const studentInsights = await http(app).get('/api/v1/analytics/insights/me').set('Authorization', `Bearer ${studentToken}`);
@@ -176,7 +176,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     // Không side-effect: enrolments và gradebook không đổi.
     const enrolAfter = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect(enrolAfter.body).toHaveLength((enrolBefore.body as unknown[]).length);
-    const gradesRes = await http(app).get(`/api/v1/courses/${course.id}/gradebook?userid=${student.id}`).set('Authorization', `Bearer ${admin}`);
+    const gradesRes = await http(app).get(`/api/v1/courses/${course.id}/gradebook?userId=${student.id}`).set('Authorization', `Bearer ${admin}`);
     expect(gradesRes.status).toBe(200);
   });
 
@@ -185,7 +185,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const b = await setupCourseWithStudent();
     // Report enrolments do admin tạo, audience = student của course A.
     const report = await http(app).post('/api/v1/reports').set('Authorization', `Bearer ${admin}`)
-      .send({ name: `Enrol report ${Date.now()}`, datasource: 'enrolments', columns: ['userId', 'username', 'courseId', 'status'], filters: {}, audienceUserIds: [a.student.id] });
+      .send({ name: `Enrol report ${Date.now()}`, dataSource: 'enrolments', columns: ['userId', 'username', 'courseId', 'status'], filters: {}, audienceUserIds: [a.student.id] });
     expect(report.status).toBeLessThan(300);
     const run = await http(app).get(`/api/v1/reports/${report.body.id}/run`).set('Authorization', `Bearer ${a.studentToken}`);
     expect(run.status).toBe(200);
@@ -203,8 +203,8 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const ran = await http(app).post(`/api/v1/reports/schedules/${sched.body.id}/run`).set('Authorization', `Bearer ${admin}`).send({});
     expect(ran.status).toBeLessThan(300);
     const schedules = await http(app).get('/api/v1/reports/schedules/all').set('Authorization', `Bearer ${admin}`);
-    const mine = (schedules.body as { id: string; lastresult: { ranAs: number } | null }[]).find((s) => s.id === sched.body.id);
-    expect(mine?.lastresult).toBeTruthy();
+    const mine = (schedules.body as { id: string; lastResult: { ranAs: number } | null }[]).find((s) => s.id === sched.body.id);
+    expect(mine?.lastResult).toBeTruthy();
     void b;
   });
 });

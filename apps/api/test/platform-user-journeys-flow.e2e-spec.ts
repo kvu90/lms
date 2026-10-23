@@ -41,8 +41,8 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     const cat = await createCategory(app, admin);
     const tokenA = uniqueName('amphibian');
     const tokenB = uniqueName('zombie');
-    const courseA = await createCourse(app, admin, cat.id, { fullname: `Course ${tokenA}` });
-    const courseB = await createCourse(app, admin, cat.id, { fullname: `Course ${tokenB}` });
+    const courseA = await createCourse(app, admin, cat.id, { fullName: `Course ${tokenA}` });
+    const courseB = await createCourse(app, admin, cat.id, { fullName: `Course ${tokenB}` });
     const instanceA = await createEnrolInstance(app, admin, courseA.id);
     const instanceB = await createEnrolInstance(app, admin, courseB.id);
     const student = await createUserViaApi(app, admin);
@@ -54,7 +54,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
 
     // Behat "two results": truy vấn khớp → thấy kết quả của khoá mình tham gia.
     const hits = await http(app).get(`/api/v1/search?q=${tokenA}`).set('Authorization', `Bearer ${studentToken}`);
-    expect((hits.body as { area: string; itemid: string }[]).some((d) => d.area === 'courses' && d.itemid === courseA.id)).toBe(true);
+    expect((hits.body as { area: string; itemId: string }[]).some((d) => d.area === 'courses' && d.itemId === courseA.id)).toBe(true);
     // Behat "cannot see users on other courses" gắn với user-picker của form
     // tìm kiếm PHP (autocomplete chỉ liệt kê user của khoá đang chọn trong
     // "Search within") — đó là chi tiết cài đặt UI, bỏ qua theo quy ước dịch
@@ -65,7 +65,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     // trong index (admin thấy), để các assertion "không thấy" không rỗng.
     void tokenB; void courseB;
     const asAdmin = await http(app).get(`/api/v1/search?q=${outsider.username}`).set('Authorization', `Bearer ${admin}`);
-    expect((asAdmin.body as { area: string; itemid: string }[]).some((d) => d.area === 'users' && d.itemid === outsider.id)).toBe(true);
+    expect((asAdmin.body as { area: string; itemId: string }[]).some((d) => d.area === 'users' && d.itemId === outsider.id)).toBe(true);
     // Behat "No results": truy vấn không khớp gì → danh sách rỗng.
     const none = await http(app).get(`/api/v1/search?q=${uniqueName('nomatch')}`).set('Authorization', `Bearer ${studentToken}`);
     expect(none.body).toEqual([]);
@@ -73,9 +73,9 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
 
   it('restore journey: merging into an existing course keeps the target identity and adds the source content; restoring as new copies exactly the source structure', async () => {
     const cat = await createCategory(app, admin);
-    const source = await createCourse(app, admin, cat.id, { fullname: uniqueName('JourneySource') });
+    const source = await createCourse(app, admin, cat.id, { fullName: uniqueName('JourneySource') });
     const section = await createSection(app, admin, source.id, { name: 'Journey Week' });
-    const cm = await createCm(app, admin, source.id, section.id, { name: 'Journey Reading', completion: 1, completionmanual: true });
+    const cm = await createCm(app, admin, source.id, section.id, { name: 'Journey Reading', completion: 1, completionManual: true });
     void cm;
     const backup = await http(app).post('/api/v1/backup/jobs').set('Authorization', `Bearer ${admin}`).send({ courseId: source.id });
     expect(backup.body.status).toBe('completed');
@@ -84,12 +84,12 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
 
     // Behat: restore vào khoá có sẵn — "I should see Course 2" (danh tính
     // đích giữ nguyên) và "I should see Test forum name" (nội dung nguồn có mặt).
-    const target = await createCourse(app, admin, cat.id, { fullname: uniqueName('JourneyTarget') });
+    const target = await createCourse(app, admin, cat.id, { fullName: uniqueName('JourneyTarget') });
     const merge = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
       .send({ backupJobId: backup.body.id, mode: 'merge', targetCourseId: target.id });
     expect(merge.body.status).toBe('completed');
     const targetAfter = await http(app).get(`/api/v1/courses/${target.id}`).set('Authorization', `Bearer ${admin}`);
-    expect(targetAfter.body.fullname).toBe(target.fullname);
+    expect(targetAfter.body.fullName).toBe(target.fullName);
     const targetContent = await http(app).get(`/api/v1/courses/${target.id}/content`).set('Authorization', `Bearer ${admin}`);
     const targetModuleNames = (targetContent.body.sections as { modules: { name: string }[] }[]).flatMap((s) => s.modules.map((m) => m.name));
     expect(targetModuleNames).toContain('Journey Reading');
@@ -99,7 +99,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
       .send({ backupJobId: backup.body.id, mode: 'new' });
     expect(restore.body.status).toBe('completed');
-    const newContent = await http(app).get(`/api/v1/courses/${restore.body.targetcourseid}/content`).set('Authorization', `Bearer ${admin}`);
+    const newContent = await http(app).get(`/api/v1/courses/${restore.body.targetCourseId}/content`).set('Authorization', `Bearer ${admin}`);
     expect((newContent.body.sections as unknown[]).length).toBe(sourceSections);
     const newModuleNames = (newContent.body.sections as { modules: { name: string }[] }[]).flatMap((s) => s.modules.map((m) => m.name));
     expect(newModuleNames).toContain('Journey Reading');
