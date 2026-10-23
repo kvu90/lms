@@ -5,8 +5,12 @@ const ACCESS_KEY = 'lms.accessToken';
 const REFRESH_KEY = 'lms.refreshToken';
 
 export const tokenStore = {
-  get access(): string | null { return localStorage.getItem(ACCESS_KEY); },
-  get refresh(): string | null { return localStorage.getItem(REFRESH_KEY); },
+  get access(): string | null {
+    return localStorage.getItem(ACCESS_KEY);
+  },
+  get refresh(): string | null {
+    return localStorage.getItem(REFRESH_KEY);
+  },
   save(pair: TokenPair): void {
     localStorage.setItem(ACCESS_KEY, pair.accessToken);
     localStorage.setItem(REFRESH_KEY, pair.refreshToken);
@@ -26,7 +30,11 @@ export class ApiError extends Error {
 async function parseProblem(res: Response): Promise<ApiError> {
   const body: unknown = await res.json().catch(() => null);
   const parsed = problemDetailsSchema.safeParse(body);
-  return new ApiError(parsed.success ? parsed.data : { type: 'about:blank', title: res.statusText, status: res.status, code: 'http.unknown' });
+  return new ApiError(
+    parsed.success
+      ? parsed.data
+      : { type: 'about:blank', title: res.statusText, status: res.status, code: 'http.unknown' },
+  );
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -36,13 +44,19 @@ export function refreshTokens(): Promise<boolean> {
     const refreshToken = tokenStore.refresh;
     if (!refreshToken) return false;
     const res = await fetch('/api/v1/auth/refresh', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
-    if (!res.ok) { tokenStore.clear(); return false; }
+    if (!res.ok) {
+      tokenStore.clear();
+      return false;
+    }
     tokenStore.save(tokenPairSchema.parse(await res.json()));
     return true;
-  })().finally(() => { refreshing = null; });
+  })().finally(() => {
+    refreshing = null;
+  });
   return refreshing;
 }
 
@@ -66,7 +80,8 @@ export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<
 
 export async function loginWithPassword(username: string, password: string): Promise<LoginResponse> {
   const res = await fetch('/api/v1/auth/token', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) throw await parseProblem(res);
@@ -80,7 +95,8 @@ export async function logoutSession(): Promise<void> {
   tokenStore.clear();
   if (refreshToken) {
     await fetch('/api/v1/auth/logout', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     }).catch(() => undefined);
   }

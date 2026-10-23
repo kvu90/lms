@@ -1,15 +1,8 @@
-import {
-  IconDotsVertical,
-  IconLogout,
-  IconUserCircle,
-} from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
+import { IconDotsVertical, IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 
-import {
-  Avatar,
-  AvatarFallback,
-} from "@lms/ui/components/ui/avatar"
+import { Avatar, AvatarFallback } from '@lms/ui/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,15 +10,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@lms/ui/components/ui/dropdown-menu"
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@lms/ui/components/ui/sidebar"
-import { useAuth } from "@/lib/auth"
-import "../i18n"
+} from '@lms/ui/components/ui/dropdown-menu';
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@lms/ui/components/ui/sidebar';
+import { useAuth } from '@/lib/auth';
+import '../i18n';
 
 /** Chữ viết tắt từ họ tên để làm avatar khi người dùng chưa có ảnh đại diện. */
 function initialsOf(name: string): string {
@@ -34,7 +22,7 @@ function initialsOf(name: string): string {
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]!.toUpperCase())
-    .join("")
+    .join('');
 }
 
 /**
@@ -43,12 +31,12 @@ function initialsOf(name: string): string {
  * chỉ những thao tác người dùng nào cũng thực hiện được với chính mình.
  */
 export function NavUser() {
-  const { user, logout } = useAuth()
-  const { t } = useTranslation("app")
-  const { isMobile } = useSidebar()
-  const navigate = useNavigate()
-  if (!user) return null
-  const name = `${user.firstname} ${user.lastname}`.trim() || user.username
+  const { user, logout } = useAuth();
+  const { t } = useTranslation('app');
+  const { isMobile } = useSidebar();
+  const navigate = useNavigate();
+  if (!user) return null;
+  const name = `${user.firstname} ${user.lastname}`.trim() || user.username;
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -61,20 +49,18 @@ export function NavUser() {
               />
             }
           >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">{initialsOf(name)}</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.email ?? user.username}
-                </span>
-              </div>
-              <IconDotsVertical className="ml-auto size-4" />
+            <Avatar className="h-8 w-8 rounded-lg">
+              <AvatarFallback className="rounded-lg">{initialsOf(name)}</AvatarFallback>
+            </Avatar>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{name}</span>
+              <span className="truncate text-xs text-muted-foreground">{user.email ?? user.username}</span>
+            </div>
+            <IconDotsVertical className="ml-auto size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--anchor-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
+            side={isMobile ? 'bottom' : 'right'}
             align="end"
             sideOffset={4}
           >
@@ -85,28 +71,26 @@ export function NavUser() {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{name}</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {user.email ?? user.username}
-                  </span>
+                  <span className="truncate text-xs text-muted-foreground">{user.email ?? user.username}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/profile")}>
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
               <IconUserCircle />
-              {t("navProfile")}
+              {t('navProfile')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                void logout().then(() => navigate("/login"))
+                void logout().then(() => navigate('/login'));
               }}
             >
               <IconLogout />
-              {t("logout")}
+              {t('logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

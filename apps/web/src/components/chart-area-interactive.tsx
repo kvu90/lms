@@ -1,36 +1,21 @@
-import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import * as React from 'react';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@lms/ui/components/ui/card"
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@lms/ui/components/ui/chart"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@lms/ui/components/ui/toggle-group"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@lms/ui/components/ui/chart';
+import { ToggleGroup, ToggleGroupItem } from '@lms/ui/components/ui/toggle-group';
 
 /** Một điểm dữ liệu của biểu đồ: trục hoành là nhãn, giá trị nằm ở khoá `value`. */
 export interface ChartPoint {
-  label: string
-  value: number
+  label: string;
+  value: number;
 }
 
 /** Một lựa chọn khoảng hiển thị: giữ `count` điểm cuối của chuỗi. */
 export interface ChartRange {
-  value: string
-  label: string
-  count: number
+  value: string;
+  label: string;
+  count: number;
 }
 
 /**
@@ -48,19 +33,19 @@ export function ChartAreaInteractive({
   data,
   ranges,
 }: {
-  title: string
-  description: string
-  seriesLabel: string
-  emptyText: string
-  data: ChartPoint[]
-  ranges?: ChartRange[]
+  title: string;
+  description: string;
+  seriesLabel: string;
+  emptyText: string;
+  data: ChartPoint[];
+  ranges?: ChartRange[];
 }) {
-  const [range, setRange] = React.useState<string>(ranges?.[ranges.length - 1]?.value ?? "")
-  const activeRange = ranges?.find((r) => r.value === range) ?? ranges?.[ranges.length - 1]
-  const visible = activeRange ? data.slice(-activeRange.count) : data
+  const [range, setRange] = React.useState<string>(ranges?.[ranges.length - 1]?.value ?? '');
+  const activeRange = ranges?.find((r) => r.value === range) ?? ranges?.[ranges.length - 1];
+  const visible = activeRange ? data.slice(-activeRange.count) : data;
   const config: ChartConfig = {
-    value: { label: seriesLabel, color: "var(--primary)" },
-  }
+    value: { label: seriesLabel, color: 'var(--primary)' },
+  };
   return (
     <div className="px-4 lg:px-6">
       <Card className="@container/card">
@@ -72,8 +57,8 @@ export function ChartAreaInteractive({
               <ToggleGroup
                 value={activeRange ? [activeRange.value] : []}
                 onValueChange={(values) => {
-                  const v = values[values.length - 1]
-                  if (v) setRange(v)
+                  const v = values[values.length - 1];
+                  if (v) setRange(v);
                 }}
                 variant="outline"
                 className="hidden *:data-[slot=toggle-group-item]:px-3 @[767px]/card:flex"
@@ -89,7 +74,7 @@ export function ChartAreaInteractive({
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           {visible.length === 0 ? (
-            <p className="text-muted-foreground py-10 text-center text-sm">{emptyText}</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">{emptyText}</p>
           ) : (
             <ChartContainer config={config} className="aspect-auto h-62.5 w-full">
               <AreaChart data={visible}>
@@ -100,13 +85,7 @@ export function ChartAreaInteractive({
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={24}
-                />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
                 <Area
@@ -122,5 +101,5 @@ export function ChartAreaInteractive({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

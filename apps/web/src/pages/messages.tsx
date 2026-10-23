@@ -8,8 +8,18 @@ import '../i18n';
 import { apiJson } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
-interface ConversationView { id: string; type: number; name: string | null; members: string[] }
-interface MessageView { id: string; useridfrom: string; fullmessage: string; timecreated: string }
+interface ConversationView {
+  id: string;
+  type: number;
+  name: string | null;
+  members: string[];
+}
+interface MessageView {
+  id: string;
+  useridfrom: string;
+  fullmessage: string;
+  timecreated: string;
+}
 
 /**
  * Messages: conversation list with unread count, message thread and
@@ -46,29 +56,42 @@ export function MessagesPage() {
   async function blockContact(userId: string) {
     setBlockMessage(null);
     try {
-      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, { method: 'POST', body: '{}' });
+      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, {
+        method: 'POST',
+        body: '{}',
+      });
       setBlocked(res.blocked);
       setBlockMessage(t('contactBlocked'));
-    } catch { setBlockMessage(t('blockFailed')); }
+    } catch {
+      setBlockMessage(t('blockFailed'));
+    }
   }
 
   /** Bỏ chặn một liên hệ; server trả về danh sách đã chặn mới để hiển thị ngay. */
   async function unblockContact(userId: string) {
     setBlockMessage(null);
     try {
-      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, { method: 'DELETE' });
+      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, {
+        method: 'DELETE',
+      });
       setBlocked(res.blocked);
       setBlockMessage(t('contactUnblocked'));
-    } catch { setBlockMessage(t('unblockFailed')); }
+    } catch {
+      setBlockMessage(t('unblockFailed'));
+    }
   }
 
-  useEffect(() => { void reload().catch(() => setError(t('messagesLoadFailed'))); }, [reload]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('messagesLoadFailed')));
+  }, [reload]);
 
   async function open(conv: ConversationView) {
     setActive(conv);
     const msgs = await apiJson<MessageView[]>(`/api/v1/messages/conversations/${conv.id}/messages`);
     setMessages(msgs);
-    await apiJson(`/api/v1/messages/conversations/${conv.id}/read`, { method: 'POST', body: '{}' }).catch(() => undefined);
+    await apiJson(`/api/v1/messages/conversations/${conv.id}/read`, { method: 'POST', body: '{}' }).catch(
+      () => undefined,
+    );
     await reload().catch(() => undefined);
   }
 
@@ -76,7 +99,8 @@ export function MessagesPage() {
     event.preventDefault();
     if (!active || !draft.trim()) return;
     await apiJson(`/api/v1/messages/conversations/${active.id}/messages`, {
-      method: 'POST', body: JSON.stringify({ fullmessage: draft }),
+      method: 'POST',
+      body: JSON.stringify({ fullmessage: draft }),
     });
     setDraft('');
     await open(active);
@@ -85,7 +109,8 @@ export function MessagesPage() {
   async function startConversation(event: FormEvent) {
     event.preventDefault();
     const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
-      method: 'POST', body: JSON.stringify({ userids: [newUserId] }),
+      method: 'POST',
+      body: JSON.stringify({ userids: [newUserId] }),
     });
     setNewUserId('');
     await reload();
@@ -96,14 +121,20 @@ export function MessagesPage() {
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}</CardTitle>
+          <CardTitle>
+            {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {error ? <p role="alert">{error}</p> : null}
           <ul className="space-y-1">
             {conversations.map((c) => (
               <li key={c.id}>
-                <Button type="button" variant={active?.id === c.id ? 'default' : 'outline'} onClick={() => void open(c)}>
+                <Button
+                  type="button"
+                  variant={active?.id === c.id ? 'default' : 'outline'}
+                  onClick={() => void open(c)}
+                >
                   {c.name ?? t('conversationWithUser', { members: c.members.join(', ') })}
                 </Button>
               </li>
@@ -121,7 +152,9 @@ export function MessagesPage() {
               {blocked.map((userId) => (
                 <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
                   <span className="text-sm">{userId}</span>
-                  <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>{t('unblockContact')}</Button>
+                  <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>
+                    {t('unblockContact')}
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -130,28 +163,41 @@ export function MessagesPage() {
         </CardContent>
       </Card>
       <Card className="md:col-span-2">
-        <CardHeader><CardTitle>{active ? (active.name ?? t('conversationFallback')) : t('selectConversation')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{active ? (active.name ?? t('conversationFallback')) : t('selectConversation')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           {active ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                {active.members.filter((memberId) => memberId !== user?.id).map((memberId) => (
-                  blocked.includes(memberId) ? (
-                    <span key={memberId} className="flex items-center gap-2 text-sm">
-                      {memberId} {t('blockedSuffix')}
-                      <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>{t('unblockContact')}</Button>
-                    </span>
-                  ) : (
-                    <Button key={memberId} type="button" variant="outline" onClick={() => void blockContact(memberId)}>
-                      {t('blockContact')}
-                    </Button>
-                  )
-                ))}
+                {active.members
+                  .filter((memberId) => memberId !== user?.id)
+                  .map((memberId) =>
+                    blocked.includes(memberId) ? (
+                      <span key={memberId} className="flex items-center gap-2 text-sm">
+                        {memberId} {t('blockedSuffix')}
+                        <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
+                          {t('unblockContact')}
+                        </Button>
+                      </span>
+                    ) : (
+                      <Button
+                        key={memberId}
+                        type="button"
+                        variant="outline"
+                        onClick={() => void blockContact(memberId)}
+                      >
+                        {t('blockContact')}
+                      </Button>
+                    ),
+                  )}
               </div>
               <ul className="space-y-2" aria-label={t('messagesListLabel')}>
                 {messages.map((m) => (
                   <li key={m.id} className="rounded border p-2">
-                    <p className="text-xs text-muted-foreground">{t('messageFromUser', { userId: m.useridfrom, time: new Date(m.timecreated).toLocaleString() })}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('messageFromUser', { userId: m.useridfrom, time: new Date(m.timecreated).toLocaleString() })}
+                    </p>
                     <p>{m.fullmessage}</p>
                   </li>
                 ))}
@@ -161,7 +207,9 @@ export function MessagesPage() {
                 <Button type="submit">{t('send')}</Button>
               </form>
             </>
-          ) : <p>{t('pickConversation')}</p>}
+          ) : (
+            <p>{t('pickConversation')}</p>
+          )}
         </CardContent>
       </Card>
     </main>

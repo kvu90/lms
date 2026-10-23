@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import type { Cohort, Course, CourseCompletion, CourseContent, CourseGroup, CourseGrouping, EnrolInstance, GradeItem, UserEnrolment } from '@lms/contracts';
+import type {
+  Cohort,
+  Course,
+  CourseCompletion,
+  CourseContent,
+  CourseGroup,
+  CourseGrouping,
+  EnrolInstance,
+  GradeItem,
+  UserEnrolment,
+} from '@lms/contracts';
 import { AvailabilityEditor } from '@/components/availability-editor';
 import { Button } from '@lms/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
@@ -44,13 +54,20 @@ export function CourseAdminPage() {
 
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
-  const canBuild = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
+  const canBuild =
+    perms.canAdminister ||
+    perms.teaching.some((c) => c.course.id === courseId) ||
+    (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
   /** Sửa tiêu chí hoàn thành khoá cần `lms/completion:manage` tại context khoá (đúng capability backend đòi ở completion service) hoặc quyền quản trị hệ thống. */
-  const canManageCompletion = perms.canAdminister || (courseAccess?.capabilities.includes('lms/completion:manage') ?? false);
+  const canManageCompletion =
+    perms.canAdminister || (courseAccess?.capabilities.includes('lms/completion:manage') ?? false);
   /** Quản lý grouping cần `moodle/course:managegroups` tại context khoá (đúng capability backend đòi ở groups service) hoặc quyền quản trị hệ thống. */
-  const canManageGroups = perms.canAdminister || (courseAccess?.capabilities.includes('moodle/course:managegroups') ?? false);
+  const canManageGroups =
+    perms.canAdminister || (courseAccess?.capabilities.includes('moodle/course:managegroups') ?? false);
   /** Quản lý thành viên cohort cần `moodle/cohort:manage` ở context của cohort; giao diện hiện thao tác khi capability này xuất hiện trong ảnh chụp quyền ở bất kỳ context nào hoặc là quản trị hệ thống — API vẫn thực thi theo đúng context của từng cohort. */
-  const canManageCohorts = perms.canAdminister || (perms.access?.contexts.some((c) => c.capabilities.includes('moodle/cohort:manage')) ?? false);
+  const canManageCohorts =
+    perms.canAdminister ||
+    (perms.access?.contexts.some((c) => c.capabilities.includes('moodle/cohort:manage')) ?? false);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);
@@ -70,7 +87,9 @@ export function CourseAdminPage() {
   const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
   const [availabilityDrafts, setAvailabilityDrafts] = useState<Record<string, unknown>>({});
   const [criteriaMethod, setCriteriaMethod] = useState(1);
-  const [criteriaDraft, setCriteriaDraft] = useState<{ criteriatype: string; moduleinstance: string; date: string }[]>([]);
+  const [criteriaDraft, setCriteriaDraft] = useState<{ criteriatype: string; moduleinstance: string; date: string }[]>(
+    [],
+  );
 
   const reload = useCallback(async () => {
     const [g, gr, c, i, e, comp] = await Promise.all([
@@ -81,10 +100,17 @@ export function CourseAdminPage() {
       apiJson<UserEnrolment[]>(`/api/v1/courses/${courseId}/enrolments`).catch(() => []),
       apiJson<CourseCompletion[]>(`/api/v1/courses/${courseId}/completion`).catch(() => []),
     ]);
-    setGroups(g); setGroupings(gr); setCohorts(c); setInstances(i); setEnrolments(e); setCompletions(comp);
+    setGroups(g);
+    setGroupings(gr);
+    setCohorts(c);
+    setInstances(i);
+    setEnrolments(e);
+    setCompletions(comp);
   }, [courseId]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   /**
    * Nạp dữ liệu cho khu xây dựng: thông tin khoá từ GET /courses/:id (kèm
@@ -98,16 +124,21 @@ export function CourseAdminPage() {
       apiJson<Course>(`/api/v1/courses/${courseId}`).catch(() => null),
       apiJson<CourseContent>(`/api/v1/courses/${courseId}/content`).catch(() => null),
       apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
-      apiJson<{ method: number; criteria: { id: string; criteriatype: string; moduleinstance: string | null; date: string | null }[] }>(`/api/v1/courses/${courseId}/completion/criteria`).catch(() => null),
+      apiJson<{
+        method: number;
+        criteria: { id: string; criteriatype: string; moduleinstance: string | null; date: string | null }[];
+      }>(`/api/v1/courses/${courseId}/completion/criteria`).catch(() => null),
     ]);
     setGradeItems(itemsRes);
     if (criteriaRes) {
       setCriteriaMethod(criteriaRes.method);
-      setCriteriaDraft(criteriaRes.criteria.map((criterion) => ({
-        criteriatype: criterion.criteriatype,
-        moduleinstance: criterion.moduleinstance ?? '',
-        date: criterion.date ? String(criterion.date).slice(0, 10) : '',
-      })));
+      setCriteriaDraft(
+        criteriaRes.criteria.map((criterion) => ({
+          criteriatype: criterion.criteriatype,
+          moduleinstance: criterion.moduleinstance ?? '',
+          date: criterion.date ? String(criterion.date).slice(0, 10) : '',
+        })),
+      );
     }
     if (courseRes) {
       setCourse(courseRes);
@@ -121,28 +152,45 @@ export function CourseAdminPage() {
     }
     if (contentRes) {
       setContent(contentRes);
-      setSectionEdits(Object.fromEntries(contentRes.sections.map((s) => [s.id, { name: s.name ?? '', visible: s.visible }])));
-      setModuleEdits(Object.fromEntries(contentRes.sections.flatMap((s) => s.modules.map((m) => [m.id, { name: m.name, visible: m.visible }]))));
-      setAvailabilityDrafts(Object.fromEntries([
-        ...contentRes.sections.map((s) => [`section:${s.id}`, s.availability ?? null] as const),
-        ...contentRes.sections.flatMap((s) => s.modules.map((m) => [`module:${m.id}`, m.availability ?? null] as const)),
-      ]));
+      setSectionEdits(
+        Object.fromEntries(contentRes.sections.map((s) => [s.id, { name: s.name ?? '', visible: s.visible }])),
+      );
+      setModuleEdits(
+        Object.fromEntries(
+          contentRes.sections.flatMap((s) => s.modules.map((m) => [m.id, { name: m.name, visible: m.visible }])),
+        ),
+      );
+      setAvailabilityDrafts(
+        Object.fromEntries([
+          ...contentRes.sections.map((s) => [`section:${s.id}`, s.availability ?? null] as const),
+          ...contentRes.sections.flatMap((s) =>
+            s.modules.map((m) => [`module:${m.id}`, m.availability ?? null] as const),
+          ),
+        ]),
+      );
     }
     if (!courseRes && !contentRes) setBuilderError(t('builderLoadFailed'));
   }, [courseId, t]);
 
-  useEffect(() => { if (canBuild) void reloadBuilder(); }, [canBuild, reloadBuilder]);
+  useEffect(() => {
+    if (canBuild) void reloadBuilder();
+  }, [canBuild, reloadBuilder]);
 
   const manualInstance = instances.find((i) => i.enrol === 'manual');
 
   async function createGroup(event: FormEvent) {
     event.preventDefault();
     try {
-      await apiJson(`/api/v1/courses/${courseId}/groups`, { method: 'POST', body: JSON.stringify({ name: groupName }) });
+      await apiJson(`/api/v1/courses/${courseId}/groups`, {
+        method: 'POST',
+        body: JSON.stringify({ name: groupName }),
+      });
       setGroupName('');
       await reload();
       setMessage(t('groupCreated'));
-    } catch { setMessage(t('groupCreateFailed')); }
+    } catch {
+      setMessage(t('groupCreateFailed'));
+    }
   }
 
   /** Tạo grouping qua POST /courses/:id/groupings (`createGroupingSchema`: name bắt buộc, idnumber/description tuỳ chọn). */
@@ -160,7 +208,9 @@ export function CourseAdminPage() {
       setGroupingDraft({ name: '', idnumber: '', description: '' });
       await reload();
       setMessage(t('groupingCreated'));
-    } catch { setMessage(t('groupingCreateFailed')); }
+    } catch {
+      setMessage(t('groupingCreateFailed'));
+    }
   }
 
   /** Xoá grouping qua DELETE /courses/:id/groupings/:groupingId — hỏi xác nhận trước; các nhóm trong khoá không bị xoá theo. */
@@ -171,18 +221,25 @@ export function CourseAdminPage() {
       if (expandedGroupingId === grouping.id) setExpandedGroupingId('');
       await reload();
       setMessage(t('groupingDeleted'));
-    } catch { setMessage(t('groupingDeleteFailed')); }
+    } catch {
+      setMessage(t('groupingDeleteFailed'));
+    }
   }
 
   /** Mở/thu danh sách nhóm của một grouping: GET /courses/:id/groupings/:groupingId/groups khi mở lần đầu. */
   async function toggleGroupingGroups(groupingId: string) {
-    if (expandedGroupingId === groupingId) { setExpandedGroupingId(''); return; }
+    if (expandedGroupingId === groupingId) {
+      setExpandedGroupingId('');
+      return;
+    }
     setExpandedGroupingId(groupingId);
     if (!groupingGroups[groupingId]) {
       try {
         const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`);
         setGroupingGroups((prev) => ({ ...prev, [groupingId]: rows }));
-      } catch { setMessage(t('groupingGroupsLoadFailed')); }
+      } catch {
+        setMessage(t('groupingGroupsLoadFailed'));
+      }
     }
   }
 
@@ -192,23 +249,33 @@ export function CourseAdminPage() {
     if (!groupid) return;
     try {
       await apiJson(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`, {
-        method: 'POST', body: JSON.stringify({ groupid }),
+        method: 'POST',
+        body: JSON.stringify({ groupid }),
       });
-      const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`).catch(() => groupingGroups[groupingId] ?? []);
+      const rows = await apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groupings/${groupingId}/groups`).catch(
+        () => groupingGroups[groupingId] ?? [],
+      );
       setGroupingGroups((prev) => ({ ...prev, [groupingId]: rows }));
       setMessage(t('groupingGroupAdded'));
-    } catch { setMessage(t('groupingGroupAddFailed')); }
+    } catch {
+      setMessage(t('groupingGroupAddFailed'));
+    }
   }
 
   /** Mở/thu danh sách thành viên của một cohort: GET /cohorts/:id/members (mảng `{ userid, timeadded }`). */
   async function toggleCohortMembers(cohortId: string) {
-    if (expandedCohortId === cohortId) { setExpandedCohortId(''); return; }
+    if (expandedCohortId === cohortId) {
+      setExpandedCohortId('');
+      return;
+    }
     setExpandedCohortId(cohortId);
     if (!cohortMembers[cohortId]) {
       try {
         const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`);
         setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
-      } catch { setMessage(t('cohortMembersLoadFailed')); }
+      } catch {
+        setMessage(t('cohortMembersLoadFailed'));
+      }
     }
   }
 
@@ -219,20 +286,28 @@ export function CourseAdminPage() {
     try {
       await apiJson(`/api/v1/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ userid }) });
       setCohortMemberInputs((prev) => ({ ...prev, [cohortId]: '' }));
-      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(() => cohortMembers[cohortId] ?? []);
+      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
+        () => cohortMembers[cohortId] ?? [],
+      );
       setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
       setMessage(t('cohortMemberAdded'));
-    } catch { setMessage(t('cohortMemberAddFailed')); }
+    } catch {
+      setMessage(t('cohortMemberAddFailed'));
+    }
   }
 
   /** Gỡ thành viên khỏi cohort qua DELETE /cohorts/:id/members/:userId. */
   async function removeCohortMember(cohortId: string, userId: string) {
     try {
       await apiJson(`/api/v1/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' });
-      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(() => (cohortMembers[cohortId] ?? []).filter((m) => m.userid !== userId));
+      const rows = await apiJson<{ userid: string; timeadded: string }[]>(`/api/v1/cohorts/${cohortId}/members`).catch(
+        () => (cohortMembers[cohortId] ?? []).filter((m) => m.userid !== userId),
+      );
       setCohortMembers((prev) => ({ ...prev, [cohortId]: rows }));
       setMessage(t('cohortMemberRemoved'));
-    } catch { setMessage(t('cohortMemberRemoveFailed')); }
+    } catch {
+      setMessage(t('cohortMemberRemoveFailed'));
+    }
   }
 
   async function ensureManualAndEnrol(event: FormEvent) {
@@ -241,23 +316,31 @@ export function CourseAdminPage() {
       let instance = manualInstance;
       if (!instance) {
         instance = await apiJson<EnrolInstance>(`/api/v1/courses/${courseId}/enrol/instances`, {
-          method: 'POST', body: JSON.stringify({ method: 'manual' }),
+          method: 'POST',
+          body: JSON.stringify({ method: 'manual' }),
         });
       }
       await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${instance.id}/enrol`, {
-        method: 'POST', body: JSON.stringify({ userid: enrolUserId }),
+        method: 'POST',
+        body: JSON.stringify({ userid: enrolUserId }),
       });
       await reload();
       setMessage(t('userEnrolled'));
-    } catch { setMessage(t('userEnrolFailed')); }
+    } catch {
+      setMessage(t('userEnrolFailed'));
+    }
   }
 
   async function toggleSuspend(ue: UserEnrolment) {
     const action = ue.status === 1 ? 'reactivate' : 'suspend';
     try {
-      await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${ue.enrolid}/users/${ue.userid}/${action}`, { method: 'POST' });
+      await apiJson(`/api/v1/courses/${courseId}/enrol/instances/${ue.enrolid}/users/${ue.userid}/${action}`, {
+        method: 'POST',
+      });
       await reload();
-    } catch { setMessage(t('enrolStatusChangeFailed')); }
+    } catch {
+      setMessage(t('enrolStatusChangeFailed'));
+    }
   }
 
   /**
@@ -272,7 +355,10 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          fullname, shortname, category: courseCategory, summary,
+          fullname,
+          shortname,
+          category: courseCategory,
+          summary,
           visible: courseVisible,
           startdate: startdate ? startdate : null,
           enddate: enddate ? enddate : null,
@@ -280,7 +366,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('courseSaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('courseSaveFailed')); }
+    } catch {
+      setBuilderMessage(t('courseSaveFailed'));
+    }
   }
 
   /** Tạo section mới qua POST /courses/:id/sections (`createCourseSectionSchema`: chỉ gửi `name` khi đã nhập). */
@@ -295,7 +383,9 @@ export function CourseAdminPage() {
       setNewSectionName('');
       setBuilderMessage(t('sectionCreated'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('sectionCreateFailed')); }
+    } catch {
+      setBuilderMessage(t('sectionCreateFailed'));
+    }
   }
 
   /** Lưu tên/hiển thị của một section qua PATCH /courses/:id/sections/:sectionId (`updateCourseSectionSchema`). */
@@ -310,7 +400,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('sectionSaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('sectionSaveFailed')); }
+    } catch {
+      setBuilderMessage(t('sectionSaveFailed'));
+    }
   }
 
   /** Xoá một section qua DELETE — luôn hỏi xác nhận vì thao tác xoá cả module bên trong. */
@@ -321,7 +413,9 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}`, { method: 'DELETE' });
       setBuilderMessage(t('sectionDeleted'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('sectionDeleteFailed')); }
+    } catch {
+      setBuilderMessage(t('sectionDeleteFailed'));
+    }
   }
 
   /**
@@ -344,7 +438,9 @@ export function CourseAdminPage() {
       setModuleDrafts((prev) => ({ ...prev, [sectionId]: { component: '', name: '' } }));
       setBuilderMessage(t('moduleCreated'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('moduleCreateFailed')); }
+    } catch {
+      setBuilderMessage(t('moduleCreateFailed'));
+    }
   }
 
   /** Lưu tên/hiển thị của một module qua PATCH /courses/:id/modules/:cmId (`updateCourseModuleSchema`). */
@@ -359,7 +455,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('moduleSaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('moduleSaveFailed')); }
+    } catch {
+      setBuilderMessage(t('moduleSaveFailed'));
+    }
   }
 
   /** Xoá một module qua DELETE — luôn hỏi xác nhận trước. */
@@ -370,7 +468,9 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}`, { method: 'DELETE' });
       setBuilderMessage(t('moduleDeleted'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('moduleDeleteFailed')); }
+    } catch {
+      setBuilderMessage(t('moduleDeleteFailed'));
+    }
   }
 
   /**
@@ -387,7 +487,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('availabilitySaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('availabilitySaveFailed')); }
+    } catch {
+      setBuilderMessage(t('availabilitySaveFailed'));
+    }
   }
 
   /** Lưu cây availability của một course module qua PATCH module (trường `availability` của `updateCourseModuleSchema`). */
@@ -400,7 +502,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('availabilitySaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('availabilitySaveFailed')); }
+    } catch {
+      setBuilderMessage(t('availabilitySaveFailed'));
+    }
   }
 
   /**
@@ -426,7 +530,9 @@ export function CourseAdminPage() {
       });
       setBuilderMessage(t('completionCriteriaSaved'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('completionCriteriaSaveFailed')); }
+    } catch {
+      setBuilderMessage(t('completionCriteriaSaveFailed'));
+    }
   }
 
   /** Yêu cầu tính lại trạng thái hoàn thành cho cả khoá qua POST /courses/:id/completion/recalculate. */
@@ -436,7 +542,9 @@ export function CourseAdminPage() {
       await apiJson(`/api/v1/courses/${courseId}/completion/recalculate`, { method: 'POST' });
       setBuilderMessage(t('recalculatedCompletion'));
       await reloadBuilder();
-    } catch { setBuilderMessage(t('recalculateFailed')); }
+    } catch {
+      setBuilderMessage(t('recalculateFailed'));
+    }
   }
 
   return (
@@ -462,7 +570,11 @@ export function CourseAdminPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-category">{t('courseCategory')}</Label>
-                    <Input id="builder-category" value={courseCategory} onChange={(e) => setCourseCategory(e.target.value)} />
+                    <Input
+                      id="builder-category"
+                      value={courseCategory}
+                      onChange={(e) => setCourseCategory(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-summary">{t('courseSummary')}</Label>
@@ -470,29 +582,53 @@ export function CourseAdminPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-startdate">{t('courseStartDate')}</Label>
-                    <Input id="builder-startdate" type="date" value={startdate} onChange={(e) => setStartdate(e.target.value)} />
+                    <Input
+                      id="builder-startdate"
+                      type="date"
+                      value={startdate}
+                      onChange={(e) => setStartdate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="builder-enddate">{t('courseEndDate')}</Label>
-                    <Input id="builder-enddate" type="date" value={enddate} onChange={(e) => setEnddate(e.target.value)} />
+                    <Input
+                      id="builder-enddate"
+                      type="date"
+                      value={enddate}
+                      onChange={(e) => setEnddate(e.target.value)}
+                    />
                   </div>
                   <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={courseVisible} onChange={(e) => setCourseVisible(e.target.checked)} />
+                    <input
+                      type="checkbox"
+                      checked={courseVisible}
+                      onChange={(e) => setCourseVisible(e.target.checked)}
+                    />
                     {t('courseVisible')}
                   </label>
                   <Button type="submit">{t('saveCourse')}</Button>
                 </form>
               ) : null}
-              {builderMessage ? <p role="status" className="pt-2 text-sm">{builderMessage}</p> : null}
+              {builderMessage ? (
+                <p role="status" className="pt-2 text-sm">
+                  {builderMessage}
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('sectionsBuilderTitle')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('sectionsBuilderTitle')}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-6">
               <form onSubmit={(e) => void createSection(e)} className="space-y-2">
                 <Label htmlFor="new-section-name">{t('newSectionName')}</Label>
-                <Input id="new-section-name" value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)} />
+                <Input
+                  id="new-section-name"
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                />
                 <Button type="submit">{t('createSection')}</Button>
               </form>
               {content && content.sections.length === 0 ? <p>{t('noSections')}</p> : null}
@@ -501,70 +637,129 @@ export function CourseAdminPage() {
                 const draft = moduleDrafts[section.id] ?? { component: '', name: '' };
                 const displayName = section.name ?? t('sectionDefaultName', { number: section.section });
                 return (
-                  <div key={section.id} data-testid={`section-builder-${section.id}`} className="space-y-3 rounded border p-3">
+                  <div
+                    key={section.id}
+                    data-testid={`section-builder-${section.id}`}
+                    className="space-y-3 rounded border p-3"
+                  >
                     <div className="space-y-2">
                       <Label htmlFor={`section-name-${section.id}`}>{t('sectionName')}</Label>
                       <Input
                         id={`section-name-${section.id}`}
                         value={edit.name}
-                        onChange={(e) => setSectionEdits((prev) => ({ ...prev, [section.id]: { ...edit, name: e.target.value } }))}
+                        onChange={(e) =>
+                          setSectionEdits((prev) => ({ ...prev, [section.id]: { ...edit, name: e.target.value } }))
+                        }
                       />
                       <label className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
                           checked={edit.visible}
-                          onChange={(e) => setSectionEdits((prev) => ({ ...prev, [section.id]: { ...edit, visible: e.target.checked } }))}
+                          onChange={(e) =>
+                            setSectionEdits((prev) => ({
+                              ...prev,
+                              [section.id]: { ...edit, visible: e.target.checked },
+                            }))
+                          }
                         />
                         {t('sectionVisible')}
                       </label>
                       <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => void saveSection(section.id)}>{t('saveSection')}</Button>
-                        <Button type="button" variant="destructive" onClick={() => void deleteSection(section.id, displayName)}>{t('deleteSection')}</Button>
+                        <Button type="button" variant="outline" onClick={() => void saveSection(section.id)}>
+                          {t('saveSection')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={() => void deleteSection(section.id, displayName)}
+                        >
+                          {t('deleteSection')}
+                        </Button>
                       </div>
                     </div>
                     <ul className="space-y-3">
                       {section.modules.map((cm) => {
                         const mEdit = moduleEdits[cm.id] ?? { name: cm.name, visible: cm.visible };
                         return (
-                          <li key={cm.id} data-testid={`module-builder-${cm.id}`} className="space-y-2 rounded border p-2">
-                            <p className="text-sm font-medium">{cm.name || cm.component} <span className="text-muted-foreground">({cm.component})</span></p>
+                          <li
+                            key={cm.id}
+                            data-testid={`module-builder-${cm.id}`}
+                            className="space-y-2 rounded border p-2"
+                          >
+                            <p className="text-sm font-medium">
+                              {cm.name || cm.component} <span className="text-muted-foreground">({cm.component})</span>
+                            </p>
                             <div className="space-y-2">
                               <Label htmlFor={`module-name-${cm.id}`}>{t('moduleName')}</Label>
                               <Input
                                 id={`module-name-${cm.id}`}
                                 value={mEdit.name}
-                                onChange={(e) => setModuleEdits((prev) => ({ ...prev, [cm.id]: { ...mEdit, name: e.target.value } }))}
+                                onChange={(e) =>
+                                  setModuleEdits((prev) => ({ ...prev, [cm.id]: { ...mEdit, name: e.target.value } }))
+                                }
                               />
                               <label className="flex items-center gap-2 text-sm">
                                 <input
                                   type="checkbox"
                                   checked={mEdit.visible}
-                                  onChange={(e) => setModuleEdits((prev) => ({ ...prev, [cm.id]: { ...mEdit, visible: e.target.checked } }))}
+                                  onChange={(e) =>
+                                    setModuleEdits((prev) => ({
+                                      ...prev,
+                                      [cm.id]: { ...mEdit, visible: e.target.checked },
+                                    }))
+                                  }
                                 />
                                 {t('moduleVisible')}
                               </label>
                               <div className="flex gap-2">
-                                <Button type="button" variant="outline" size="sm" onClick={() => void saveModule(cm.id)}>{t('saveModule')}</Button>
-                                <Button type="button" variant="destructive" size="sm" onClick={() => void deleteModule(cm.id, cm.name || cm.component)}>{t('deleteModule')}</Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => void saveModule(cm.id)}
+                                >
+                                  {t('saveModule')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => void deleteModule(cm.id, cm.name || cm.component)}
+                                >
+                                  {t('deleteModule')}
+                                </Button>
                               </div>
                               <div className="space-y-2" data-testid={`module-availability-${cm.id}`}>
                                 <h5 className="text-sm font-medium">{t('availabilityTitle')}</h5>
                                 <AvailabilityEditor
                                   key={`module-availability-editor-${cm.id}`}
                                   value={cm.availability}
-                                  onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`module:${cm.id}`]: next }))}
+                                  onChange={(next) =>
+                                    setAvailabilityDrafts((prev) => ({ ...prev, [`module:${cm.id}`]: next }))
+                                  }
                                   groups={groups.map((g) => ({ id: g.id, name: g.name }))}
                                   groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
-                                  modules={(content?.sections ?? []).flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
+                                  modules={(content?.sections ?? []).flatMap((s) =>
+                                    s.modules.map((m) => ({ id: m.id, name: m.name || m.component })),
+                                  )}
                                   gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
                                 />
-                                <Button type="button" variant="outline" size="sm" onClick={() => void saveModuleAvailability(cm.id)}>{t('availabilitySave')}</Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => void saveModuleAvailability(cm.id)}
+                                >
+                                  {t('availabilitySave')}
+                                </Button>
                               </div>
                             </div>
                           </li>
                         );
                       })}
-                      {section.modules.length === 0 ? <li className="text-sm text-muted-foreground">{t('noModulesInSection')}</li> : null}
+                      {section.modules.length === 0 ? (
+                        <li className="text-sm text-muted-foreground">{t('noModulesInSection')}</li>
+                      ) : null}
                     </ul>
                     <form onSubmit={(e) => void createModule(e, section.id)} className="space-y-2">
                       <div className="space-y-2">
@@ -572,7 +767,12 @@ export function CourseAdminPage() {
                         <Input
                           id={`module-component-${section.id}`}
                           value={draft.component}
-                          onChange={(e) => setModuleDrafts((prev) => ({ ...prev, [section.id]: { ...draft, component: e.target.value } }))}
+                          onChange={(e) =>
+                            setModuleDrafts((prev) => ({
+                              ...prev,
+                              [section.id]: { ...draft, component: e.target.value },
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -580,10 +780,14 @@ export function CourseAdminPage() {
                         <Input
                           id={`module-new-name-${section.id}`}
                           value={draft.name}
-                          onChange={(e) => setModuleDrafts((prev) => ({ ...prev, [section.id]: { ...draft, name: e.target.value } }))}
+                          onChange={(e) =>
+                            setModuleDrafts((prev) => ({ ...prev, [section.id]: { ...draft, name: e.target.value } }))
+                          }
                         />
                       </div>
-                      <Button type="submit" variant="outline">{t('addModule')}</Button>
+                      <Button type="submit" variant="outline">
+                        {t('addModule')}
+                      </Button>
                     </form>
                     <div className="space-y-2" data-testid={`section-availability-${section.id}`}>
                       <h4 className="text-sm font-medium">{t('availabilityTitle')}</h4>
@@ -591,13 +795,24 @@ export function CourseAdminPage() {
                       <AvailabilityEditor
                         key={`section-availability-editor-${section.id}`}
                         value={section.availability}
-                        onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`section:${section.id}`]: next }))}
+                        onChange={(next) =>
+                          setAvailabilityDrafts((prev) => ({ ...prev, [`section:${section.id}`]: next }))
+                        }
                         groups={groups.map((g) => ({ id: g.id, name: g.name }))}
                         groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
-                        modules={(content?.sections ?? []).flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
+                        modules={(content?.sections ?? []).flatMap((s) =>
+                          s.modules.map((m) => ({ id: m.id, name: m.name || m.component })),
+                        )}
                         gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemname }))}
                       />
-                      <Button type="button" variant="outline" size="sm" onClick={() => void saveSectionAvailability(section.id)}>{t('availabilitySave')}</Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void saveSectionAvailability(section.id)}
+                      >
+                        {t('availabilitySave')}
+                      </Button>
                     </div>
                   </div>
                 );
@@ -609,12 +824,21 @@ export function CourseAdminPage() {
 
       {canBuild && canManageCompletion && (
         <Card>
-          <CardHeader><CardTitle>{t('completionCriteriaTitle')}</CardTitle><CardDescription>{t('completionCriteriaDescription')}</CardDescription></CardHeader>
+          <CardHeader>
+            <CardTitle>{t('completionCriteriaTitle')}</CardTitle>
+            <CardDescription>{t('completionCriteriaDescription')}</CardDescription>
+          </CardHeader>
           <CardContent>
             <form onSubmit={(e) => void saveCriteria(e)} className="space-y-3" data-testid="completion-criteria">
               <div className="space-y-2">
                 <Label htmlFor="criteria-method">{t('completionMethod')}</Label>
-                <select id="criteria-method" aria-label={t('completionMethod')} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criteriaMethod} onChange={(e) => setCriteriaMethod(Number(e.target.value))}>
+                <select
+                  id="criteria-method"
+                  aria-label={t('completionMethod')}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  value={criteriaMethod}
+                  onChange={(e) => setCriteriaMethod(Number(e.target.value))}
+                >
                   <option value={1}>{t('completionMethodAll')}</option>
                   <option value={2}>{t('completionMethodAny')}</option>
                 </select>
@@ -624,7 +848,27 @@ export function CourseAdminPage() {
                 <div key={index} className="flex flex-wrap items-end gap-2">
                   <div className="space-y-1">
                     <Label htmlFor={`criterion-type-${index}`}>{t('criterionType')}</Label>
-                    <select id={`criterion-type-${index}`} className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criterion.criteriatype} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, criteriatype: e.target.value, moduleinstance: e.target.value === 'module' && !c.moduleinstance ? ((content?.sections ?? []).flatMap((s) => s.modules)[0]?.id ?? '') : c.moduleinstance } : c)))}>
+                    <select
+                      id={`criterion-type-${index}`}
+                      className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      value={criterion.criteriatype}
+                      onChange={(e) =>
+                        setCriteriaDraft((prev) =>
+                          prev.map((c, i) =>
+                            i === index
+                              ? {
+                                  ...c,
+                                  criteriatype: e.target.value,
+                                  moduleinstance:
+                                    e.target.value === 'module' && !c.moduleinstance
+                                      ? ((content?.sections ?? []).flatMap((s) => s.modules)[0]?.id ?? '')
+                                      : c.moduleinstance,
+                                }
+                              : c,
+                          ),
+                        )
+                      }
+                    >
                       <option value="module">{t('criterionTypeModule')}</option>
                       <option value="date">{t('criterionTypeDate')}</option>
                       <option value="grade">{t('criterionTypeGrade')}</option>
@@ -633,24 +877,66 @@ export function CourseAdminPage() {
                   {criterion.criteriatype === 'module' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`criterion-module-${index}`}>{t('criterionModule')}</Label>
-                      <select id={`criterion-module-${index}`} className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={criterion.moduleinstance} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, moduleinstance: e.target.value } : c)))}>
-                        {(content?.sections ?? []).flatMap((s) => s.modules).map((m) => <option key={m.id} value={m.id}>{m.name || m.component}</option>)}
+                      <select
+                        id={`criterion-module-${index}`}
+                        className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                        value={criterion.moduleinstance}
+                        onChange={(e) =>
+                          setCriteriaDraft((prev) =>
+                            prev.map((c, i) => (i === index ? { ...c, moduleinstance: e.target.value } : c)),
+                          )
+                        }
+                      >
+                        {(content?.sections ?? [])
+                          .flatMap((s) => s.modules)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name || m.component}
+                            </option>
+                          ))}
                       </select>
                     </div>
                   ) : null}
                   {criterion.criteriatype === 'date' ? (
                     <div className="space-y-1">
                       <Label htmlFor={`criterion-date-${index}`}>{t('criterionDate')}</Label>
-                      <Input id={`criterion-date-${index}`} type="date" value={criterion.date} onChange={(e) => setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, date: e.target.value } : c)))} />
+                      <Input
+                        id={`criterion-date-${index}`}
+                        type="date"
+                        value={criterion.date}
+                        onChange={(e) =>
+                          setCriteriaDraft((prev) =>
+                            prev.map((c, i) => (i === index ? { ...c, date: e.target.value } : c)),
+                          )
+                        }
+                      />
                     </div>
                   ) : null}
-                  <Button type="button" variant="destructive" size="sm" onClick={() => setCriteriaDraft((prev) => prev.filter((_, i) => i !== index))}>{t('removeCriterion')}</Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setCriteriaDraft((prev) => prev.filter((_, i) => i !== index))}
+                  >
+                    {t('removeCriterion')}
+                  </Button>
                 </div>
               ))}
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setCriteriaDraft((prev) => [...prev, { criteriatype: 'grade', moduleinstance: '', date: '' }])}>{t('addCriterion')}</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCriteriaDraft((prev) => [...prev, { criteriatype: 'grade', moduleinstance: '', date: '' }])
+                  }
+                >
+                  {t('addCriterion')}
+                </Button>
                 <Button type="submit">{t('saveCriteria')}</Button>
-                <Button type="button" variant="outline" onClick={() => void recalculateCompletion()}>{t('recalculateCompletion')}</Button>
+                <Button type="button" variant="outline" onClick={() => void recalculateCompletion()}>
+                  {t('recalculateCompletion')}
+                </Button>
               </div>
             </form>
           </CardContent>
@@ -658,9 +944,16 @@ export function CourseAdminPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle>{t('groups')}</CardTitle><CardDescription>{t('groupsInCourse')}</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('groups')}</CardTitle>
+          <CardDescription>{t('groupsInCourse')}</CardDescription>
+        </CardHeader>
         <CardContent>
-          <ul>{groups.map((g) => <li key={g.id}>{g.name}</li>)}</ul>
+          <ul>
+            {groups.map((g) => (
+              <li key={g.id}>{g.name}</li>
+            ))}
+          </ul>
           <form onSubmit={createGroup} className="mt-3 space-y-2">
             <Label htmlFor="group-name">{t('newGroupName')}</Label>
             <Input id="group-name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
@@ -671,7 +964,10 @@ export function CourseAdminPage() {
 
       {canManageGroups && (
         <Card>
-          <CardHeader><CardTitle>{t('groupings')}</CardTitle><CardDescription>{t('groupingsDescription')}</CardDescription></CardHeader>
+          <CardHeader>
+            <CardTitle>{t('groupings')}</CardTitle>
+            <CardDescription>{t('groupingsDescription')}</CardDescription>
+          </CardHeader>
           <CardContent className="space-y-4">
             <ul className="space-y-3">
               {groupings.map((g) => {
@@ -682,15 +978,25 @@ export function CourseAdminPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{g.name}</span>
                       {g.idnumber ? <span className="text-sm text-muted-foreground">({g.idnumber})</span> : null}
-                      <Button type="button" variant="outline" size="sm" onClick={() => void toggleGroupingGroups(g.id)}>{t('groupingViewGroups')}</Button>
-                      <Button type="button" variant="destructive" size="sm" onClick={() => void deleteGrouping(g)}>{t('deleteGrouping')}</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void toggleGroupingGroups(g.id)}>
+                        {t('groupingViewGroups')}
+                      </Button>
+                      <Button type="button" variant="destructive" size="sm" onClick={() => void deleteGrouping(g)}>
+                        {t('deleteGrouping')}
+                      </Button>
                     </div>
                     {expandedGroupingId === g.id && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium">{t('groupingGroupsTitle', { name: g.name })}</p>
                         <ul className="space-y-1">
-                          {inGrouping.map((gr) => <li key={gr.id} className="text-sm">{gr.name}</li>)}
-                          {inGrouping.length === 0 && <li className="text-sm text-muted-foreground">{t('groupingNoGroups')}</li>}
+                          {inGrouping.map((gr) => (
+                            <li key={gr.id} className="text-sm">
+                              {gr.name}
+                            </li>
+                          ))}
+                          {inGrouping.length === 0 && (
+                            <li className="text-sm text-muted-foreground">{t('groupingNoGroups')}</li>
+                          )}
                         </ul>
                         {candidates.length > 0 && (
                           <div className="flex flex-wrap items-end gap-2">
@@ -700,13 +1006,26 @@ export function CourseAdminPage() {
                                 id={`grouping-add-${g.id}`}
                                 className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                                 value={groupingAddSelection[g.id] ?? ''}
-                                onChange={(e) => setGroupingAddSelection((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                                onChange={(e) =>
+                                  setGroupingAddSelection((prev) => ({ ...prev, [g.id]: e.target.value }))
+                                }
                               >
                                 <option value="">—</option>
-                                {candidates.map((gr) => <option key={gr.id} value={gr.id}>{gr.name}</option>)}
+                                {candidates.map((gr) => (
+                                  <option key={gr.id} value={gr.id}>
+                                    {gr.name}
+                                  </option>
+                                ))}
                               </select>
                             </div>
-                            <Button type="button" variant="outline" size="sm" onClick={() => void addGroupToGrouping(g.id)}>{t('groupingAddGroup')}</Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void addGroupToGrouping(g.id)}
+                            >
+                              {t('groupingAddGroup')}
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -719,15 +1038,28 @@ export function CourseAdminPage() {
             <form onSubmit={(e) => void createGrouping(e)} className="space-y-2">
               <div className="space-y-1">
                 <Label htmlFor="grouping-name">{t('groupingName')}</Label>
-                <Input id="grouping-name" value={groupingDraft.name} onChange={(e) => setGroupingDraft({ ...groupingDraft, name: e.target.value })} required />
+                <Input
+                  id="grouping-name"
+                  value={groupingDraft.name}
+                  onChange={(e) => setGroupingDraft({ ...groupingDraft, name: e.target.value })}
+                  required
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="grouping-idnumber">{t('groupingIdnumber')}</Label>
-                <Input id="grouping-idnumber" value={groupingDraft.idnumber} onChange={(e) => setGroupingDraft({ ...groupingDraft, idnumber: e.target.value })} />
+                <Input
+                  id="grouping-idnumber"
+                  value={groupingDraft.idnumber}
+                  onChange={(e) => setGroupingDraft({ ...groupingDraft, idnumber: e.target.value })}
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="grouping-description">{t('groupingDescriptionField')}</Label>
-                <Input id="grouping-description" value={groupingDraft.description} onChange={(e) => setGroupingDraft({ ...groupingDraft, description: e.target.value })} />
+                <Input
+                  id="grouping-description"
+                  value={groupingDraft.description}
+                  onChange={(e) => setGroupingDraft({ ...groupingDraft, description: e.target.value })}
+                />
               </div>
               <Button type="submit">{t('createGrouping')}</Button>
             </form>
@@ -737,14 +1069,21 @@ export function CourseAdminPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle>{t('cohorts')}</CardTitle><CardDescription>{t('cohortsDescription')}</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('cohorts')}</CardTitle>
+          <CardDescription>{t('cohortsDescription')}</CardDescription>
+        </CardHeader>
         <CardContent>
           <ul className="space-y-3">
             {cohorts.map((c) => (
               <li key={c.id} data-testid={`cohort-${c.id}`} className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span>{c.name} ({c.idnumber || t('noIdnumber')})</span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => void toggleCohortMembers(c.id)}>{t('cohortViewMembers')}</Button>
+                  <span>
+                    {c.name} ({c.idnumber || t('noIdnumber')})
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => void toggleCohortMembers(c.id)}>
+                    {t('cohortViewMembers')}
+                  </Button>
                 </div>
                 {expandedCohortId === c.id && (
                   <div className="space-y-2 rounded border p-3">
@@ -754,11 +1093,20 @@ export function CourseAdminPage() {
                         <li key={m.userid} className="flex items-center gap-2 text-sm">
                           <span>{t('cohortMemberLine', { userId: m.userid, time: m.timeadded })}</span>
                           {canManageCohorts && (
-                            <Button type="button" variant="outline" size="sm" onClick={() => void removeCohortMember(c.id, m.userid)}>{t('cohortRemoveMember')}</Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void removeCohortMember(c.id, m.userid)}
+                            >
+                              {t('cohortRemoveMember')}
+                            </Button>
                           )}
                         </li>
                       ))}
-                      {(cohortMembers[c.id] ?? []).length === 0 && <li className="text-sm text-muted-foreground">{t('cohortNoMembers')}</li>}
+                      {(cohortMembers[c.id] ?? []).length === 0 && (
+                        <li className="text-sm text-muted-foreground">{t('cohortNoMembers')}</li>
+                      )}
                     </ul>
                     {canManageCohorts && (
                       <div className="flex flex-wrap items-end gap-2">
@@ -770,7 +1118,9 @@ export function CourseAdminPage() {
                             onChange={(e) => setCohortMemberInputs((prev) => ({ ...prev, [c.id]: e.target.value }))}
                           />
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => void addCohortMember(c.id)}>{t('cohortAddMember')}</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void addCohortMember(c.id)}>
+                          {t('cohortAddMember')}
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -783,7 +1133,10 @@ export function CourseAdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('enrolment')}</CardTitle><CardDescription>{t('enrolmentDescription')}</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('enrolment')}</CardTitle>
+          <CardDescription>{t('enrolmentDescription')}</CardDescription>
+        </CardHeader>
         <CardContent>
           <form onSubmit={ensureManualAndEnrol} className="space-y-2">
             <Label htmlFor="enrol-userid">{t('userIdToEnrol')}</Label>
@@ -793,7 +1146,14 @@ export function CourseAdminPage() {
           <ul className="mt-4 space-y-2">
             {enrolments.map((ue) => (
               <li key={ue.id} className="flex items-center gap-3">
-                <span>{t('enrolUserLine', { userId: ue.userid, status: ue.status === 0 ? t('enrolActive') : ue.status === 1 ? t('enrolSuspended') : t('enrolWithdrawn'), method: ue.enrolMethod ?? '' })}</span>
+                <span>
+                  {t('enrolUserLine', {
+                    userId: ue.userid,
+                    status:
+                      ue.status === 0 ? t('enrolActive') : ue.status === 1 ? t('enrolSuspended') : t('enrolWithdrawn'),
+                    method: ue.enrolMethod ?? '',
+                  })}
+                </span>
                 {ue.status !== 2 && (
                   <Button type="button" variant="outline" onClick={() => void toggleSuspend(ue)}>
                     {ue.status === 1 ? t('reactivate') : t('suspend')}
@@ -806,15 +1166,28 @@ export function CourseAdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('completionProgress')}</CardTitle><CardDescription>{t('completionProgressDescription')}</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('completionProgress')}</CardTitle>
+          <CardDescription>{t('completionProgressDescription')}</CardDescription>
+        </CardHeader>
         <CardContent>
           <ul>
             {completions.map((c) => (
-              <li key={c.id}>{t('completionLine', { userId: c.userid, status: c.status, suffix: c.timecompleted ? t('completionSuffix', { time: c.timecompleted }) : '' })}</li>
+              <li key={c.id}>
+                {t('completionLine', {
+                  userId: c.userid,
+                  status: c.status,
+                  suffix: c.timecompleted ? t('completionSuffix', { time: c.timecompleted }) : '',
+                })}
+              </li>
             ))}
           </ul>
           {completions.length === 0 && <p>{t('noCompletionRecords')}</p>}
-          {message && <p role="status" className="pt-2 text-sm">{message}</p>}
+          {message && (
+            <p role="status" className="pt-2 text-sm">
+              {message}
+            </p>
+          )}
         </CardContent>
       </Card>
     </main>

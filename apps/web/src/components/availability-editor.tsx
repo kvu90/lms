@@ -140,7 +140,11 @@ function withChildren(node: AvailabilityNodeModel, children: AvailabilityChildMo
 }
 
 /** Áp một hàm biến đổi lên nút tại đường dẫn (dãy chỉ số con từ gốc) và trả cây mới — không đột biến cây cũ. */
-function updateAtPath(node: AvailabilityNodeModel, path: number[], fn: (n: AvailabilityNodeModel) => AvailabilityNodeModel): AvailabilityNodeModel {
+function updateAtPath(
+  node: AvailabilityNodeModel,
+  path: number[],
+  fn: (n: AvailabilityNodeModel) => AvailabilityNodeModel,
+): AvailabilityNodeModel {
   if (path.length === 0) return fn(node);
   const [head, ...rest] = path as [number, ...number[]];
   const children = node.c.map((child, i) => {
@@ -184,7 +188,12 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-direction`}>{t('availabilityDateDirection')}</Label>
-            <select id={`${idPrefix}-direction`} className={SELECT_CLASS} value={direction} onChange={(e) => onChange({ ...leaf, d: e.target.value })}>
+            <select
+              id={`${idPrefix}-direction`}
+              className={SELECT_CLASS}
+              value={direction}
+              onChange={(e) => onChange({ ...leaf, d: e.target.value })}
+            >
               <option value=">=">{t('availabilityDateFrom')}</option>
               <option value="<">{t('availabilityDateUntil')}</option>
             </select>
@@ -212,11 +221,24 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-grade-item`}>{t('availabilityGradeItem')}</Label>
             {ctx.gradeItems.length > 0 ? (
-              <select id={`${idPrefix}-grade-item`} className={SELECT_CLASS} value={String(leaf.id ?? '')} onChange={(e) => onChange({ ...leaf, id: e.target.value })}>
-                {ctx.gradeItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              <select
+                id={`${idPrefix}-grade-item`}
+                className={SELECT_CLASS}
+                value={String(leaf.id ?? '')}
+                onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+              >
+                {ctx.gradeItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
               </select>
             ) : (
-              <Input id={`${idPrefix}-grade-item`} value={String(leaf.id ?? '')} onChange={(e) => onChange({ ...leaf, id: e.target.value })} />
+              <Input
+                id={`${idPrefix}-grade-item`}
+                value={String(leaf.id ?? '')}
+                onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+              />
             )}
           </div>
           <div className="space-y-1">
@@ -259,13 +281,27 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-completion-cm`}>{t('availabilityCompletionActivity')}</Label>
-            <select id={`${idPrefix}-completion-cm`} className={SELECT_CLASS} value={String(leaf.id ?? '')} onChange={(e) => onChange({ ...leaf, id: e.target.value })}>
-              {ctx.modules.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <select
+              id={`${idPrefix}-completion-cm`}
+              className={SELECT_CLASS}
+              value={String(leaf.id ?? '')}
+              onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+            >
+              {ctx.modules.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-completion-state`}>{t('availabilityCompletionState')}</Label>
-            <select id={`${idPrefix}-completion-state`} className={SELECT_CLASS} value={String(leaf.state ?? 1)} onChange={(e) => onChange({ ...leaf, state: Number(e.target.value) })}>
+            <select
+              id={`${idPrefix}-completion-state`}
+              className={SELECT_CLASS}
+              value={String(leaf.state ?? 1)}
+              onChange={(e) => onChange({ ...leaf, state: Number(e.target.value) })}
+            >
               <option value="1">{t('availabilityCompletionComplete')}</option>
               <option value="2">{t('availabilityCompletionPass')}</option>
               <option value="3">{t('availabilityCompletionFail')}</option>
@@ -281,8 +317,17 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       return (
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-membership`}>{label}</Label>
-          <select id={`${idPrefix}-membership`} className={SELECT_CLASS} value={String(leaf.id ?? '')} onChange={(e) => onChange({ ...leaf, id: e.target.value })}>
-            {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          <select
+            id={`${idPrefix}-membership`}
+            className={SELECT_CLASS}
+            value={String(leaf.id ?? '')}
+            onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+          >
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
           </select>
         </div>
       );
@@ -312,12 +357,21 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
           {!isStandard ? (
             <div className="space-y-1">
               <Label htmlFor={`${idPrefix}-profile-custom`}>{t('availabilityProfileFieldCustom')}</Label>
-              <Input id={`${idPrefix}-profile-custom`} value={field} onChange={(e) => onChange({ ...leaf, field: e.target.value })} />
+              <Input
+                id={`${idPrefix}-profile-custom`}
+                value={field}
+                onChange={(e) => onChange({ ...leaf, field: e.target.value })}
+              />
             </div>
           ) : null}
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-profile-operator`}>{t('availabilityProfileOperator')}</Label>
-            <select id={`${idPrefix}-profile-operator`} className={SELECT_CLASS} value={operator} onChange={(e) => onChange({ ...leaf, operator: e.target.value })}>
+            <select
+              id={`${idPrefix}-profile-operator`}
+              className={SELECT_CLASS}
+              value={operator}
+              onChange={(e) => onChange({ ...leaf, operator: e.target.value })}
+            >
               <option value="eq">{t('availabilityProfileOpEq')}</option>
               <option value="contains">{t('availabilityProfileOpContains')}</option>
               <option value="notempty">{t('availabilityProfileOpNotEmpty')}</option>
@@ -327,7 +381,11 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
           {needsValue ? (
             <div className="space-y-1">
               <Label htmlFor={`${idPrefix}-profile-value`}>{t('availabilityProfileValue')}</Label>
-              <Input id={`${idPrefix}-profile-value`} value={String(leaf.value ?? '')} onChange={(e) => onChange({ ...leaf, value: e.target.value })} />
+              <Input
+                id={`${idPrefix}-profile-value`}
+                value={String(leaf.value ?? '')}
+                onChange={(e) => onChange({ ...leaf, value: e.target.value })}
+              />
             </div>
           ) : null}
         </div>
@@ -365,12 +423,18 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
   /** Lá mặc định cho từng loại, bám đúng tham số tối thiểu mà evaluator phía backend cần. */
   function defaultLeaf(type: string): AvailabilityLeafModel {
     switch (type) {
-      case 'date': return { type, d: '>=', t: Math.floor(Date.now() / 1000) };
-      case 'grade': return { type, id: ctx.gradeItems[0]?.id ?? '' };
-      case 'completion': return { type, id: ctx.modules[0]?.id ?? '', state: 1 };
-      case 'group': return { type, id: ctx.groups[0]?.id ?? '' };
-      case 'grouping': return { type, id: ctx.groupings[0]?.id ?? '' };
-      default: return { type: 'profile', field: 'email', operator: 'eq', value: '' };
+      case 'date':
+        return { type, d: '>=', t: Math.floor(Date.now() / 1000) };
+      case 'grade':
+        return { type, id: ctx.gradeItems[0]?.id ?? '' };
+      case 'completion':
+        return { type, id: ctx.modules[0]?.id ?? '', state: 1 };
+      case 'group':
+        return { type, id: ctx.groups[0]?.id ?? '' };
+      case 'grouping':
+        return { type, id: ctx.groupings[0]?.id ?? '' };
+      default:
+        return { type: 'profile', field: 'email', operator: 'eq', value: '' };
     }
   }
 
@@ -387,7 +451,13 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor={`avail-${pathKey}-op`}>{t('availabilityOperator')}</Label>
-          <select id={`avail-${pathKey}-op`} data-testid={`avail-op-${pathKey}`} className={SELECT_CLASS} value={node.op} onChange={(e) => replaceSelf({ ...node, op: e.target.value as AvailabilityOp })}>
+          <select
+            id={`avail-${pathKey}-op`}
+            data-testid={`avail-op-${pathKey}`}
+            className={SELECT_CLASS}
+            value={node.op}
+            onChange={(e) => replaceSelf({ ...node, op: e.target.value as AvailabilityOp })}
+          >
             <option value="&">{t('availabilityOpAnd')}</option>
             <option value="|">{t('availabilityOpOr')}</option>
             <option value="!&">{t('availabilityOpNotAnd')}</option>
@@ -405,7 +475,9 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
           </label>
         ) : null}
         {onRemoveSelf ? (
-          <Button type="button" variant="destructive" size="sm" onClick={onRemoveSelf}>{t('availabilityRemoveGroup')}</Button>
+          <Button type="button" variant="destructive" size="sm" onClick={onRemoveSelf}>
+            {t('availabilityRemoveGroup')}
+          </Button>
         ) : null}
       </div>
 
@@ -432,20 +504,39 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
                 isRoot={false}
                 ctx={ctx}
                 onUpdate={onUpdate}
-                onRemoveSelf={() => replaceSelf(withChildren(node, node.c.filter((_, i) => i !== index)))}
+                onRemoveSelf={() =>
+                  replaceSelf(
+                    withChildren(
+                      node,
+                      node.c.filter((_, i) => i !== index),
+                    ),
+                  )
+                }
               />
             ) : (
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{LEAF_LABELS[child.type] ?? child.type}</p>
-                  <LeafEditor leaf={child} idPrefix={`avail-${pathKey}-${index}`} ctx={ctx} onChange={(next) => updateChild(index, next)} />
+                  <LeafEditor
+                    leaf={child}
+                    idPrefix={`avail-${pathKey}-${index}`}
+                    ctx={ctx}
+                    onChange={(next) => updateChild(index, next)}
+                  />
                 </div>
                 <Button
                   type="button"
                   variant="destructive"
                   size="sm"
                   aria-label={t('availabilityRemoveCondition')}
-                  onClick={() => replaceSelf(withChildren(node, node.c.filter((_, i) => i !== index)))}
+                  onClick={() =>
+                    replaceSelf(
+                      withChildren(
+                        node,
+                        node.c.filter((_, i) => i !== index),
+                      ),
+                    )
+                  }
                 >
                   {t('availabilityRemoveCondition')}
                 </Button>
@@ -458,11 +549,25 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor={`avail-${pathKey}-new-type`}>{t('availabilityNewConditionType')}</Label>
-          <select id={`avail-${pathKey}-new-type`} className={SELECT_CLASS} value={newLeafType} onChange={(e) => setNewLeafType(e.target.value)}>
-            {LEAF_TYPES.map((type) => <option key={type} value={type}>{LEAF_LABELS[type]}</option>)}
+          <select
+            id={`avail-${pathKey}-new-type`}
+            className={SELECT_CLASS}
+            value={newLeafType}
+            onChange={(e) => setNewLeafType(e.target.value)}
+          >
+            {LEAF_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {LEAF_LABELS[type]}
+              </option>
+            ))}
           </select>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={() => replaceSelf(withChildren(node, [...node.c, defaultLeaf(newLeafType)]))}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => replaceSelf(withChildren(node, [...node.c, defaultLeaf(newLeafType)]))}
+        >
           {t('availabilityAddCondition')}
         </Button>
         <Button
@@ -490,7 +595,14 @@ export interface AvailabilityEditorProps extends AvailabilityEditorContext {
  * module: giữ state mô hình nội bộ khởi tạo từ `value`, mọi thay đổi đều
  * phát ra qua `onChange` dưới dạng payload JSON khớp cây phía API.
  */
-export function AvailabilityEditor({ value, onChange, groups, groupings, modules, gradeItems }: AvailabilityEditorProps) {
+export function AvailabilityEditor({
+  value,
+  onChange,
+  groups,
+  groupings,
+  modules,
+  gradeItems,
+}: AvailabilityEditorProps) {
   const [model, setModel] = useState<AvailabilityNodeModel>(() => availabilityToModel(value) ?? { op: '&', c: [] });
   const ctx: AvailabilityEditorContext = { groups, groupings, modules, gradeItems };
 

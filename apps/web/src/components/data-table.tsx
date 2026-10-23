@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from 'react';
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -6,7 +6,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconLayoutColumns,
-} from "@tabler/icons-react"
+} from '@tabler/icons-react';
 import {
   columnFilteringFeature,
   columnVisibilityFeature,
@@ -25,23 +25,16 @@ import {
   type PaginationState,
   type RowSelectionState,
   type SortingState,
-} from "@tanstack/react-table"
+} from '@tanstack/react-table';
 
-import { Button } from "@lms/ui/components/ui/button"
+import { Button } from '@lms/ui/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@lms/ui/components/ui/dropdown-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@lms/ui/components/ui/table"
+} from '@lms/ui/components/ui/dropdown-menu';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/ui/table';
 
 // Bộ tính năng của bảng (TanStack Table v9 khai báo tường minh để
 // tree-shake), giữ đúng bộ khung của block dashboard-01.
@@ -54,24 +47,24 @@ const features = tableFeatures({
   filteredRowModel: createFilteredRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   sortedRowModel: createSortedRowModel(),
-})
+});
 
 /** Định nghĩa một cột theo ngôn ngữ nghiệp vụ của trang gọi, không lộ chi tiết TanStack. */
 export interface DataColumn<T extends Record<string, any>> {
-  id: string
-  header: string
-  cell: (row: T) => React.ReactNode
+  id: string;
+  header: string;
+  cell: (row: T) => React.ReactNode;
   /** Giá trị để sắp xếp; bỏ qua thì cột không sắp xếp được. */
-  sortValue?: (row: T) => string | number
+  sortValue?: (row: T) => string | number;
 }
 
 /** Các nhãn đã dịch do trang gọi truyền vào — component không chứa chuỗi cứng. */
 export interface DataTableLabels {
-  columns: string
-  previous: string
-  next: string
-  empty: string
-  pageInfo: (page: number, pages: number) => string
+  columns: string;
+  previous: string;
+  next: string;
+  empty: string;
+  pageInfo: (page: number, pages: number) => string;
 }
 
 /**
@@ -94,40 +87,36 @@ export function DataTable<T extends Record<string, any>>({
   getRowId,
   pageSize = 10,
 }: {
-  title?: string
-  data: T[]
-  columns: DataColumn<T>[]
-  labels: DataTableLabels
-  getRowId: (row: T) => string
-  pageSize?: number
+  title?: string;
+  data: T[];
+  columns: DataColumn<T>[];
+  labels: DataTableLabels;
+  getRowId: (row: T) => string;
+  pageSize?: number;
 }) {
-  type AnyRow = Record<string, any>
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<ColumnVisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  type AnyRow = Record<string, any>;
+  const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([]);
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize,
-  })
+  });
 
   const tableColumns = React.useMemo(() => {
-    const helper = createColumnHelper<typeof features, AnyRow>()
+    const helper = createColumnHelper<typeof features, AnyRow>();
     return helper.columns(
       columns.map((col) =>
-        helper.accessor(
-          (row: AnyRow): string | number => (col.sortValue ? col.sortValue(row as T) : ""),
-          {
-            id: col.id,
-            header: col.header,
-            enableSorting: Boolean(col.sortValue),
-            cell: (info) => col.cell(info.row.original as T),
-          },
-        ),
+        helper.accessor((row: AnyRow): string | number => (col.sortValue ? col.sortValue(row as T) : ''), {
+          id: col.id,
+          header: col.header,
+          enableSorting: Boolean(col.sortValue),
+          cell: (info) => col.cell(info.row.original as T),
+        }),
       ),
-    )
-  }, [columns])
+    );
+  }, [columns]);
 
   const table = useTable({
     features,
@@ -141,7 +130,7 @@ export function DataTable<T extends Record<string, any>>({
     onColumnVisibilityChange: setColumnVisibility,
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
-  })
+  });
 
   return (
     <div className="flex w-full flex-col gap-4 px-4 lg:px-6">
@@ -173,7 +162,7 @@ export function DataTable<T extends Record<string, any>>({
       </div>
       <div className="overflow-hidden rounded-lg border">
         <Table>
-          <TableHeader className="bg-muted sticky top-0 z-10">
+          <TableHeader className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -183,11 +172,7 @@ export function DataTable<T extends Record<string, any>>({
                         variant="ghost"
                         size="sm"
                         className="-ml-2 h-8"
-                        onClick={() =>
-                          header.column.toggleSorting(
-                            header.column.getIsSorted() === "asc",
-                          )
-                        }
+                        onClick={() => header.column.toggleSorting(header.column.getIsSorted() === 'asc')}
                       >
                         <FlexRender header={header} />
                       </Button>
@@ -222,10 +207,7 @@ export function DataTable<T extends Record<string, any>>({
       </div>
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">
-          {labels.pageInfo(
-            table.state.pagination.pageIndex + 1,
-            Math.max(table.getPageCount(), 1),
-          )}
+          {labels.pageInfo(table.state.pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -271,5 +253,5 @@ export function DataTable<T extends Record<string, any>>({
         </div>
       </div>
     </div>
-  )
+  );
 }

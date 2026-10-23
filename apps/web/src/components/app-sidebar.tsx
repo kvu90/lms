@@ -1,4 +1,4 @@
-import * as React from "react"
+import * as React from 'react';
 import {
   IconAward,
   IconBell,
@@ -18,12 +18,12 @@ import {
   IconSettings,
   IconShieldLock,
   IconUsers,
-} from "@tabler/icons-react"
-import { useTranslation } from "react-i18next"
-import { Link } from "react-router"
+} from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 
-import { NavMain, type NavItem } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
+import { NavMain, type NavItem } from '@/components/nav-main';
+import { NavUser } from '@/components/nav-user';
 import {
   Sidebar,
   SidebarContent,
@@ -32,9 +32,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@lms/ui/components/ui/sidebar"
-import { usePermissions } from "@/lib/permissions"
-import "../i18n"
+} from '@lms/ui/components/ui/sidebar';
+import { usePermissions } from '@/lib/permissions';
+import '../i18n';
 
 /**
  * Sidebar điều hướng của khu vực đã đăng nhập (khung block dashboard-01),
@@ -51,51 +51,46 @@ import "../i18n"
  *   render — không render rồi disable, không để link dẫn tới trang 403.
  */
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { t } = useTranslation(["app", "dashboard"])
-  const perms = usePermissions()
+  const { t } = useTranslation(['app', 'dashboard']);
+  const perms = usePermissions();
 
   const mainItems: NavItem[] = [
-    { title: t("dashboard:itemDashboard"), url: "/", icon: IconLayoutDashboard },
-    { title: t("app:navCourses"), url: "/courses", icon: IconBook },
-    { title: t("app:navCalendar"), url: "/calendar", icon: IconCalendar },
-    { title: t("app:navMessages"), url: "/messages", icon: IconMail },
-    { title: t("app:navNotifications"), url: "/notifications", icon: IconBell },
-    { title: t("app:navSearch"), url: "/search", icon: IconSearch },
-  ]
+    { title: t('dashboard:itemDashboard'), url: '/', icon: IconLayoutDashboard },
+    { title: t('app:navCourses'), url: '/courses', icon: IconBook },
+    { title: t('app:navCalendar'), url: '/calendar', icon: IconCalendar },
+    { title: t('app:navMessages'), url: '/messages', icon: IconMail },
+    { title: t('app:navNotifications'), url: '/notifications', icon: IconBell },
+    { title: t('app:navSearch'), url: '/search', icon: IconSearch },
+  ];
 
   const learningItems: NavItem[] = [
-    { title: t("app:navBadges"), url: "/badges", icon: IconAward },
-    { title: t("app:navLearningPlan"), url: "/learning-plan", icon: IconNotebook },
-    { title: t("app:navBlog"), url: "/blog", icon: IconBooks },
-    ...(perms.canUseQuestionBank
-      ? [{ title: t("app:navQuestions"), url: "/questions", icon: IconQuestionMark }]
-      : []),
-  ]
+    { title: t('app:navBadges'), url: '/badges', icon: IconAward },
+    { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
+    { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
+    ...(perms.canUseQuestionBank ? [{ title: t('app:navQuestions'), url: '/questions', icon: IconQuestionMark }] : []),
+  ];
 
   const adminItems: NavItem[] = perms.canAdminister
     ? [
-        { title: t("app:navUsers"), url: "/admin/users", icon: IconUsers },
-        { title: t("app:navRoles"), url: "/admin/roles", icon: IconShieldLock },
-        { title: t("app:navSiteConfig"), url: "/admin/site-config", icon: IconSettings },
-        { title: t("app:navTokens"), url: "/tokens", icon: IconSettings },
-        { title: t("app:navBackup"), url: "/backup", icon: IconDatabase },
-        { title: t("app:navReports"), url: "/reports", icon: IconReport },
-        { title: t("app:navInsights"), url: "/insights", icon: IconChartBar },
-        { title: t("app:navContentBank"), url: "/contentbank", icon: IconDatabase },
-        { title: t("app:navPrivacy"), url: "/privacy", icon: IconShieldLock },
-        { title: t("app:navHealth"), url: "/health", icon: IconHelpCircle },
+        { title: t('app:navUsers'), url: '/admin/users', icon: IconUsers },
+        { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
+        { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
+        { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
+        { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
+        { title: t('app:navReports'), url: '/reports', icon: IconReport },
+        { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
+        { title: t('app:navContentBank'), url: '/contentbank', icon: IconDatabase },
+        { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
+        { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },
       ]
-    : []
+    : [];
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/" />}
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-            >
+            <SidebarMenuButton render={<Link to="/" />} className="data-[slot=sidebar-menu-button]:p-1.5!">
               <IconInnerShadowTop className="size-5!" />
               <span className="text-base font-semibold">LMS</span>
             </SidebarMenuButton>
@@ -104,12 +99,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={mainItems} />
-        <NavMain label={t("dashboard:groupLearning")} items={learningItems} />
-        <NavMain label={t("dashboard:groupAdmin")} items={adminItems} />
+        <NavMain label={t('dashboard:groupLearning')} items={learningItems} />
+        <NavMain label={t('dashboard:groupAdmin')} items={adminItems} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

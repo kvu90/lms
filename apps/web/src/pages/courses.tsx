@@ -41,10 +41,17 @@ export function CoursesPage() {
     if (c.length === 0 && t.length > 0) setCourseCategory(String(t[0]!.id));
   }, []);
 
-  useEffect(() => { void reload().catch(() => setMessage(t('coursesLoadFailed'))); }, [reload]);
+  useEffect(() => {
+    void reload().catch(() => setMessage(t('coursesLoadFailed')));
+  }, [reload]);
 
   const flatCategories: CourseCategory[] = [];
-  const walk = (nodes: CourseCategoryTreeNode[]) => { for (const n of nodes) { flatCategories.push(n); walk(n.children); } };
+  const walk = (nodes: CourseCategoryTreeNode[]) => {
+    for (const n of nodes) {
+      flatCategories.push(n);
+      walk(n.children);
+    }
+  };
   walk(tree);
 
   function renderTree(nodes: CourseCategoryTreeNode[]) {
@@ -54,12 +61,16 @@ export function CoursesPage() {
           <li key={node.id}>
             <span>{node.name}</span>
             <ul className="ml-3">
-              {courses.filter((c) => c.category === node.id).map((c) => (
-                <li key={c.id}>
-                  <Link to={`/courses/${c.id}`}>{c.fullname} ({c.shortname})</Link>
-                  {!c.visible && <span> {t('hiddenSuffix')}</span>}
-                </li>
-              ))}
+              {courses
+                .filter((c) => c.category === node.id)
+                .map((c) => (
+                  <li key={c.id}>
+                    <Link to={`/courses/${c.id}`}>
+                      {c.fullname} ({c.shortname})
+                    </Link>
+                    {!c.visible && <span> {t('hiddenSuffix')}</span>}
+                  </li>
+                ))}
             </ul>
             {node.children.length > 0 && renderTree(node.children)}
           </li>
@@ -88,7 +99,9 @@ export function CoursesPage() {
       setCatName('');
       await reload();
       setMessage(t('categoryCreated'));
-    } catch { setMessage(t('categoryCreateFailed')); }
+    } catch {
+      setMessage(t('categoryCreateFailed'));
+    }
   }
 
   /** Đổi tên một danh mục qua PATCH /courses/categories/:id (`updateCourseCategorySchema`). */
@@ -102,7 +115,9 @@ export function CoursesPage() {
       });
       await reload();
       setMessage(t('categoryUpdated'));
-    } catch { setMessage(t('categoryUpdateFailed')); }
+    } catch {
+      setMessage(t('categoryUpdateFailed'));
+    }
   }
 
   /**
@@ -117,7 +132,9 @@ export function CoursesPage() {
       await apiJson(`/api/v1/courses/categories/${cat.id}`, { method: 'DELETE' });
       await reload();
       setMessage(t('categoryDeleted'));
-    } catch { setMessage(t('categoryDeleteFailed')); }
+    } catch {
+      setMessage(t('categoryDeleteFailed'));
+    }
   }
 
   /** Tạo khoá học qua POST /courses với tối thiểu của `createCourseSchema` (fullname, shortname, category). */
@@ -129,10 +146,13 @@ export function CoursesPage() {
         method: 'POST',
         body: JSON.stringify({ fullname: courseName, shortname: courseShort, category: courseCategory }),
       });
-      setCourseName(''); setCourseShort('');
+      setCourseName('');
+      setCourseShort('');
       await reload();
       setMessage(t('courseCreated'));
-    } catch { setMessage(t('courseCreateFailed')); }
+    } catch {
+      setMessage(t('courseCreateFailed'));
+    }
   }
 
   return (
@@ -142,12 +162,14 @@ export function CoursesPage() {
           <CardTitle>{t('courseCategories')}</CardTitle>
           <CardDescription>{t('courseCategoriesDescription')}</CardDescription>
         </CardHeader>
-        <CardContent>
-          {tree.length === 0 ? <p>{t('noCategories')}</p> : renderTree(tree)}
-        </CardContent>
+        <CardContent>{tree.length === 0 ? <p>{t('noCategories')}</p> : renderTree(tree)}</CardContent>
       </Card>
 
-      {message && <p role="status" className="text-sm">{message}</p>}
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
+      )}
 
       {canAdminister && (
         <>
@@ -170,8 +192,12 @@ export function CoursesPage() {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Button type="button" variant="outline" onClick={() => void renameCategory(cat)}>{t('saveCategory')}</Button>
-                      <Button type="button" variant="destructive" onClick={() => void deleteCategory(cat)}>{t('deleteCategory')}</Button>
+                      <Button type="button" variant="outline" onClick={() => void renameCategory(cat)}>
+                        {t('saveCategory')}
+                      </Button>
+                      <Button type="button" variant="destructive" onClick={() => void deleteCategory(cat)}>
+                        {t('deleteCategory')}
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -180,7 +206,9 @@ export function CoursesPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('createCategory')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('createCategory')}</CardTitle>
+            </CardHeader>
             <CardContent>
               <form onSubmit={createCategory} className="space-y-3">
                 <div className="space-y-2">
@@ -189,9 +217,18 @@ export function CoursesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cat-parent">{t('parentCategory')}</Label>
-                  <select id="cat-parent" value={catParent} onChange={(e) => setCatParent(e.target.value)} className="border px-2 py-1">
+                  <select
+                    id="cat-parent"
+                    value={catParent}
+                    onChange={(e) => setCatParent(e.target.value)}
+                    className="border px-2 py-1"
+                  >
                     <option value="0">{t('topLevel')}</option>
-                    {flatCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {flatCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <Button type="submit">{t('createCategory')}</Button>
@@ -200,7 +237,9 @@ export function CoursesPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('createCourse')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('createCourse')}</CardTitle>
+            </CardHeader>
             <CardContent>
               <form onSubmit={createCourse} className="space-y-3">
                 <div className="space-y-2">
@@ -213,8 +252,17 @@ export function CoursesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="course-category">{t('courseCategory')}</Label>
-                  <select id="course-category" value={courseCategory} onChange={(e) => setCourseCategory(e.target.value)} className="border px-2 py-1">
-                    {flatCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <select
+                    id="course-category"
+                    value={courseCategory}
+                    onChange={(e) => setCourseCategory(e.target.value)}
+                    className="border px-2 py-1"
+                  >
+                    {flatCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <Button type="submit">{t('createCourse')}</Button>

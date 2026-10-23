@@ -17,15 +17,73 @@ const FEE_ID = '01900000-0000-7000-8000-000000000202';
 const CM_MANUAL_ID = '01900000-0000-7000-8000-000000001000';
 
 const COURSE = {
-  id: COURSE_ID, category: '01900000-0000-7000-8000-000000000002', fullname: 'Physics 101', shortname: 'PHY101', idnumber: '', summary: '',
-  format: 'topics', visible: true, startdate: null, enddate: null, groupmode: 0, enablecompletion: true,
+  id: COURSE_ID,
+  category: '01900000-0000-7000-8000-000000000002',
+  fullname: 'Physics 101',
+  shortname: 'PHY101',
+  idnumber: '',
+  summary: '',
+  format: 'topics',
+  visible: true,
+  startdate: null,
+  enddate: null,
+  groupmode: 0,
+  enablecompletion: true,
 };
 
 const INSTANCES = [
-  { id: SELF_ID, courseid: COURSE_ID, enrol: 'self', status: 0, name: 'Tự ghi danh', roleid: null, customint1: null, customint2: null, customtext1: '', cost: 0, currency: '' },
-  { id: FEE_ID, courseid: COURSE_ID, enrol: 'fee', status: 0, name: 'Ghi danh có phí', roleid: null, customint1: null, customint2: null, customtext1: '', cost: 150000, currency: 'VND' },
-  { id: '01900000-0000-7000-8000-000000000203', courseid: COURSE_ID, enrol: 'manual', status: 0, name: 'Ghi danh thủ công', roleid: null, customint1: null, customint2: null, customtext1: '', cost: 0, currency: '' },
-  { id: '01900000-0000-7000-8000-000000000204', courseid: COURSE_ID, enrol: 'self', status: 1, name: 'Tự ghi danh đã tắt', roleid: null, customint1: null, customint2: null, customtext1: '', cost: 0, currency: '' },
+  {
+    id: SELF_ID,
+    courseid: COURSE_ID,
+    enrol: 'self',
+    status: 0,
+    name: 'Tự ghi danh',
+    roleid: null,
+    customint1: null,
+    customint2: null,
+    customtext1: '',
+    cost: 0,
+    currency: '',
+  },
+  {
+    id: FEE_ID,
+    courseid: COURSE_ID,
+    enrol: 'fee',
+    status: 0,
+    name: 'Ghi danh có phí',
+    roleid: null,
+    customint1: null,
+    customint2: null,
+    customtext1: '',
+    cost: 150000,
+    currency: 'VND',
+  },
+  {
+    id: '01900000-0000-7000-8000-000000000203',
+    courseid: COURSE_ID,
+    enrol: 'manual',
+    status: 0,
+    name: 'Ghi danh thủ công',
+    roleid: null,
+    customint1: null,
+    customint2: null,
+    customtext1: '',
+    cost: 0,
+    currency: '',
+  },
+  {
+    id: '01900000-0000-7000-8000-000000000204',
+    courseid: COURSE_ID,
+    enrol: 'self',
+    status: 1,
+    name: 'Tự ghi danh đã tắt',
+    roleid: null,
+    customint1: null,
+    customint2: null,
+    customtext1: '',
+    cost: 0,
+    currency: '',
+  },
 ];
 
 const CONTENT = {
@@ -34,17 +92,43 @@ const CONTENT = {
   customFields: [],
   sections: [
     {
-      id: '01900000-0000-7000-8000-000000000100', course: COURSE_ID, section: 0, name: 'General', summary: '', visible: true, availability: null,
+      id: '01900000-0000-7000-8000-000000000100',
+      course: COURSE_ID,
+      section: 0,
+      name: 'General',
+      summary: '',
+      visible: true,
+      availability: null,
       availabilityResult: { available: true, visible: true, failedDescriptions: [] },
       modules: [
         {
-          id: CM_MANUAL_ID, course: COURSE_ID, section: '01900000-0000-7000-8000-000000000100', component: 'mod_page', instanceid: '01900000-0000-7000-8000-000000000001', name: 'Welcome page',
-          visible: true, groupmode: 0, availability: null, completion: 1, completionview: false, completionmanual: true,
+          id: CM_MANUAL_ID,
+          course: COURSE_ID,
+          section: '01900000-0000-7000-8000-000000000100',
+          component: 'mod_page',
+          instanceid: '01900000-0000-7000-8000-000000000001',
+          name: 'Welcome page',
+          visible: true,
+          groupmode: 0,
+          availability: null,
+          completion: 1,
+          completionview: false,
+          completionmanual: true,
           availabilityResult: { available: true, visible: true, failedDescriptions: [] },
         },
         {
-          id: '01900000-0000-7000-8000-000000001001', course: COURSE_ID, section: '01900000-0000-7000-8000-000000000100', component: 'mod_page', instanceid: '01900000-0000-7000-8000-000000000002', name: 'Reading page',
-          visible: true, groupmode: 0, availability: null, completion: 0, completionview: false, completionmanual: false,
+          id: '01900000-0000-7000-8000-000000001001',
+          course: COURSE_ID,
+          section: '01900000-0000-7000-8000-000000000100',
+          component: 'mod_page',
+          instanceid: '01900000-0000-7000-8000-000000000002',
+          name: 'Reading page',
+          visible: true,
+          groupmode: 0,
+          availability: null,
+          completion: 0,
+          completionview: false,
+          completionmanual: false,
           availabilityResult: { available: true, visible: true, failedDescriptions: [] },
         },
       ],
@@ -54,7 +138,11 @@ const CONTENT = {
 
 const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'course.not_enrolled' };
 
-interface RecordedCall { url: string; method: string; body: unknown }
+interface RecordedCall {
+  url: string;
+  method: string;
+  body: unknown;
+}
 
 /** Handler có trạng thái: ghi danh lật cờ để content/completion mở ra như server thật. */
 function makeHandler(state: { enrolled: boolean; cmState: number; payments: unknown[] }, calls: RecordedCall[]) {
@@ -64,7 +152,10 @@ function makeHandler(state: { enrolled: boolean; cmState: number; payments: unkn
     if (url === `/api/v1/courses/${COURSE_ID}`) return { status: 200, body: COURSE };
     if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return { status: 200, body: INSTANCES };
     if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`) {
-      return { status: 200, body: { courseId: COURSE_ID, userId: USER_ID, enrolled: state.enrolled, active: state.enrolled } };
+      return {
+        status: 200,
+        body: { courseId: COURSE_ID, userId: USER_ID, enrolled: state.enrolled, active: state.enrolled },
+      };
     }
     if (url === `/api/v1/courses/${COURSE_ID}/content`) {
       return state.enrolled ? { status: 200, body: CONTENT } : { status: 403, body: FORBIDDEN };
@@ -75,17 +166,36 @@ function makeHandler(state: { enrolled: boolean; cmState: number; payments: unkn
         status: 200,
         body: {
           activities: [{ cmId: CM_MANUAL_ID, state: state.cmState, viewed: false }],
-          course: { id: '01900000-0000-7000-8000-000000000301', userid: USER_ID, course: COURSE_ID, status: 'in_progress', timecompleted: null },
+          course: {
+            id: '01900000-0000-7000-8000-000000000301',
+            userid: USER_ID,
+            course: COURSE_ID,
+            status: 'in_progress',
+            timecompleted: null,
+          },
         },
       };
     }
     if (url === '/api/v1/payments/me') return { status: 200, body: state.payments };
     if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances/${SELF_ID}/self-enrol` && method === 'POST') {
       state.enrolled = true;
-      return { status: 200, body: { id: '01900000-0000-7000-8000-000000000401', enrolid: SELF_ID, userid: USER_ID, status: 0 } };
+      return {
+        status: 200,
+        body: { id: '01900000-0000-7000-8000-000000000401', enrolid: SELF_ID, userid: USER_ID, status: 0 },
+      };
     }
     if (url === `/api/v1/payments/fee/${FEE_ID}` && method === 'POST') {
-      const payment = { id: '01900000-0000-7000-8000-000000000501', accountid: '01900000-0000-7000-8000-000000000601', userid: USER_ID, amount: 150000, currency: 'VND', status: 'pending', gateway: 'manual', component: 'enrol_fee', itemid: FEE_ID };
+      const payment = {
+        id: '01900000-0000-7000-8000-000000000501',
+        accountid: '01900000-0000-7000-8000-000000000601',
+        userid: USER_ID,
+        amount: 150000,
+        currency: 'VND',
+        status: 'pending',
+        gateway: 'manual',
+        component: 'enrol_fee',
+        itemid: FEE_ID,
+      };
       state.payments = [payment];
       return { status: 200, body: payment };
     }
@@ -100,21 +210,32 @@ function makeHandler(state: { enrolled: boolean; cmState: number; payments: unkn
 
 /** Stub fetch kiểu dashboard.spec: handler trả {status, body} hoặc undefined (404). */
 function stubFetch(handler: (url: string, init?: RequestInit) => { status: number; body: unknown } | undefined) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    const result = handler(url, init);
-    if (!result) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-    return new Response(JSON.stringify(result.body), { status: result.status, headers: { 'Content-Type': 'application/json' } });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const result = handler(url, init);
+      if (!result) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(result.body), {
+        status: result.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }),
+  );
 }
 
 /** Render trang khoá học tại đúng route /courses/:id. */
 function renderCourse() {
-  const router = createMemoryRouter([{ path: '/courses/:id', element: <CoursePage /> }], { initialEntries: [`/courses/${COURSE_ID}`] });
+  const router = createMemoryRouter([{ path: '/courses/:id', element: <CoursePage /> }], {
+    initialEntries: [`/courses/${COURSE_ID}`],
+  });
   render(<RouterProvider router={router} />);
 }
 
 describe('Course page — self enrolment and fee payment', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('shows the self-enrol panel to a non-enrolled user and enrols via self-enrol on click', async () => {
     const state = { enrolled: false, cmState: 0, payments: [] as unknown[] };

@@ -201,9 +201,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/user:viewdetails');
     const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/role:manage');
     const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
-    const learning = courses.filter(
-      (c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c),
-    );
+    const learning = courses.filter((c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c));
     return {
       ready: !capabilitiesQuery.isPending && !coursesQuery.isPending,
       access,
@@ -216,18 +214,25 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       // endpoint con. Chỉ các capability quản trị thật (quản vai trò,
       // cấu hình site) hoặc cờ site admin mới mở được khu vực này —
       // API vẫn là nơi thực thi quyền thật ở từng endpoint.
-      canAdminister:
-        (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('moodle/site:config'),
+      canAdminister: (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('moodle/site:config'),
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>
           c.capabilities.some((cap) => (QUESTION_CAPABILITIES as readonly string[]).includes(cap)),
-        ) ?? false),
+        ) ??
+          false),
       courses,
       teaching,
       learning,
     };
-  }, [user, capabilitiesQuery.data, capabilitiesQuery.isPending, coursesQuery.isPending, courseList, courseDataQueries]);
+  }, [
+    user,
+    capabilitiesQuery.data,
+    capabilitiesQuery.isPending,
+    coursesQuery.isPending,
+    courseList,
+    courseDataQueries,
+  ]);
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
 }

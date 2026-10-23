@@ -43,14 +43,33 @@ export function LoginPage() {
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">{t('username')}</Label>
-              <Input id="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              <Input
+                id="username"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{t('password')}</Label>
-              <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" disabled={busy} className="w-full">{busy ? t('signingIn') : t('signIn')}</Button>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={busy} className="w-full">
+              {busy ? t('signingIn') : t('signIn')}
+            </Button>
           </form>
         </CardContent>
       </Card>

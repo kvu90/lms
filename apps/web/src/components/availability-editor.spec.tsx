@@ -40,17 +40,25 @@ function lastPayload(calls: unknown[]): AvailabilityNodeModel {
 }
 
 describe('AvailabilityEditor', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('renders an existing tree with a date leaf and a nested OR group holding a group leaf', () => {
     const calls: unknown[] = [];
-    renderEditor({
-      op: '&', show: true, showc: [true, true],
-      c: [
-        { type: 'date', d: '>=', t: 1893456000 },
-        { op: '|', c: [{ type: 'group', id: GROUP_ID }] },
-      ],
-    }, calls);
+    renderEditor(
+      {
+        op: '&',
+        show: true,
+        showc: [true, true],
+        c: [
+          { type: 'date', d: '>=', t: 1893456000 },
+          { op: '|', c: [{ type: 'group', id: GROUP_ID }] },
+        ],
+      },
+      calls,
+    );
 
     const root = screen.getByTestId('availability-node-root');
     expect(screen.getByTestId('avail-op-root')).toHaveValue('&');

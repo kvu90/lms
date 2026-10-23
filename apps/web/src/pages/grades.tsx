@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import type { Gradebook, GradebookCategoryView, GradeCategory, GradeItem, GradeLetter, GradeReport } from '@lms/contracts';
+import type {
+  Gradebook,
+  GradebookCategoryView,
+  GradeCategory,
+  GradeItem,
+  GradeLetter,
+  GradeReport,
+} from '@lms/contracts';
 import { AGGREGATIONS } from '@lms/contracts';
 import { Button } from '@lms/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
@@ -91,7 +98,10 @@ export function GradebookPage() {
 
   /** Staff của khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
-  const isStaff = perms.canAdminister || perms.teaching.some((c) => c.course.id === courseId) || (courseAccess?.capabilities.includes('moodle/grade:viewall') ?? false);
+  const isStaff =
+    perms.canAdminister ||
+    perms.teaching.some((c) => c.course.id === courseId) ||
+    (courseAccess?.capabilities.includes('moodle/grade:viewall') ?? false);
 
   const [adminCategories, setAdminCategories] = useState<GradeCategory[]>([]);
   const [adminItems, setAdminItems] = useState<GradeItem[]>([]);
@@ -152,7 +162,9 @@ export function GradebookPage() {
     setAdminScales(scales);
   }, [courseId]);
 
-  useEffect(() => { if (isStaff) void reloadAdmin(); }, [isStaff, reloadAdmin]);
+  useEffect(() => {
+    if (isStaff) void reloadAdmin();
+  }, [isStaff, reloadAdmin]);
 
   async function enterGrade(event: FormEvent) {
     event.preventDefault();
@@ -181,7 +193,9 @@ export function GradebookPage() {
       setNewCatName('');
       setAdminMessage(t('gradeCategoryCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeCategoryCreateFailed')); }
+    } catch {
+      setAdminMessage(t('gradeCategoryCreateFailed'));
+    }
   }
 
   /** Đổi tên hạng mục qua PATCH /courses/grades/categories/:categoryId (`updateGradeCategorySchema`). */
@@ -194,7 +208,9 @@ export function GradebookPage() {
       });
       setAdminMessage(t('gradeCategoryUpdated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeCategoryUpdateFailed')); }
+    } catch {
+      setAdminMessage(t('gradeCategoryUpdateFailed'));
+    }
   }
 
   /** Xoá hạng mục qua DELETE /courses/grades/categories/:categoryId sau khi xác nhận. */
@@ -205,7 +221,9 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/grades/categories/${cat.id}`, { method: 'DELETE' });
       setAdminMessage(t('gradeCategoryDeleted'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeCategoryDeleteFailed')); }
+    } catch {
+      setAdminMessage(t('gradeCategoryDeleteFailed'));
+    }
   }
 
   /**
@@ -229,7 +247,9 @@ export function GradebookPage() {
       setNewItemName('');
       setAdminMessage(t('gradeItemCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeItemCreateFailedAdmin')); }
+    } catch {
+      setAdminMessage(t('gradeItemCreateFailedAdmin'));
+    }
   }
 
   /** Sửa tên/điểm tối đa của mục điểm qua PATCH /courses/grades/items/:itemId (`updateGradeItemSchema`). */
@@ -243,7 +263,9 @@ export function GradebookPage() {
       });
       setAdminMessage(t('gradeItemUpdated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeItemUpdateFailed')); }
+    } catch {
+      setAdminMessage(t('gradeItemUpdateFailed'));
+    }
   }
 
   /** Xoá mục điểm qua DELETE /courses/grades/items/:itemId sau khi xác nhận. */
@@ -254,7 +276,9 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/grades/items/${item.id}`, { method: 'DELETE' });
       setAdminMessage(t('gradeItemDeleted'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('gradeItemDeleteFailed')); }
+    } catch {
+      setAdminMessage(t('gradeItemDeleteFailed'));
+    }
   }
 
   /**
@@ -274,7 +298,9 @@ export function GradebookPage() {
       });
       setAdminMessage(t('lettersSaved'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('lettersSaveFailed')); }
+    } catch {
+      setAdminMessage(t('lettersSaveFailed'));
+    }
   }
 
   /** Tạo scale qua POST /courses/:courseId/grades/scales (`createGradeScaleSchema`: name, scale, description tuỳ chọn). */
@@ -290,10 +316,14 @@ export function GradebookPage() {
           ...(scaleDescription.trim() ? { description: scaleDescription.trim() } : {}),
         }),
       });
-      setScaleName(''); setScaleValues(''); setScaleDescription('');
+      setScaleName('');
+      setScaleValues('');
+      setScaleDescription('');
       setAdminMessage(t('scaleCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('scaleCreateFailed')); }
+    } catch {
+      setAdminMessage(t('scaleCreateFailed'));
+    }
   }
 
   /** Tạo outcome của khoá qua POST /courses/:courseId/grades/outcomes (`createGradeOutcomeSchema`: name, scaleId bắt buộc, description tuỳ chọn). */
@@ -309,10 +339,13 @@ export function GradebookPage() {
           ...(outcomeDescription.trim() ? { description: outcomeDescription.trim() } : {}),
         }),
       });
-      setOutcomeName(''); setOutcomeDescription('');
+      setOutcomeName('');
+      setOutcomeDescription('');
       setAdminMessage(t('outcomeCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('outcomeCreateFailed')); }
+    } catch {
+      setAdminMessage(t('outcomeCreateFailed'));
+    }
   }
 
   /** Đổi tên outcome qua PATCH /courses/grades/outcomes/:outcomeId (endpoint không mang tiền tố courseId, đúng controller phía API). */
@@ -325,7 +358,9 @@ export function GradebookPage() {
       });
       setAdminMessage(t('outcomeUpdated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('outcomeUpdateFailed')); }
+    } catch {
+      setAdminMessage(t('outcomeUpdateFailed'));
+    }
   }
 
   /** Xoá outcome qua DELETE /courses/grades/outcomes/:outcomeId (item đang gắn được gỡ outcomeid phía server). */
@@ -336,7 +371,9 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/grades/outcomes/${outcome.id}`, { method: 'DELETE' });
       setAdminMessage(t('outcomeDeleted'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('outcomeDeleteFailed')); }
+    } catch {
+      setAdminMessage(t('outcomeDeleteFailed'));
+    }
   }
 
   /** Tính lại điểm toàn khoá qua POST /courses/:courseId/grades/regrade (không body). */
@@ -346,7 +383,9 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/${courseId}/grades/regrade`, { method: 'POST' });
       setAdminMessage(t('regradeDone'));
       await reload();
-    } catch { setAdminMessage(t('regradeFailed')); }
+    } catch {
+      setAdminMessage(t('regradeFailed'));
+    }
   }
 
   /**
@@ -359,28 +398,47 @@ export function GradebookPage() {
     setHistoryError(null);
     setHistoryRows(null);
     try {
-      const rows = await apiJson<GradeHistoryView[]>(`/api/v1/courses/grades/items/${historyItemId}/users/${historyUserId}/history`);
+      const rows = await apiJson<GradeHistoryView[]>(
+        `/api/v1/courses/grades/items/${historyItemId}/users/${historyUserId}/history`,
+      );
       setHistoryRows(rows);
-    } catch { setHistoryError(t('historyLoadFailed')); }
+    } catch {
+      setHistoryError(t('historyLoadFailed'));
+    }
   }
 
   function renderCategory(view: GradebookCategoryView, depth: number) {
     return (
       <div key={view.category.id} className={CATEGORY_INDENT[Math.min(depth, 5)]}>
         <h3 className="font-medium">
-          {view.category.fullname || t('gradeCourseFallback')} <span className="text-sm text-muted-foreground">({view.category.aggregation})</span>
-          {view.total?.grade?.finalgrade !== null && view.total?.grade
-            ? <span data-testid={`cat-total-${view.category.id}`}>{t('categoryTotal', { grade: view.total.grade.finalgrade, max: view.total.item.grademax, letterSuffix: view.total.grade.letter ? t('letterSuffix', { letter: view.total.grade.letter }) : '' })}</span>
-            : null}
+          {view.category.fullname || t('gradeCourseFallback')}{' '}
+          <span className="text-sm text-muted-foreground">({view.category.aggregation})</span>
+          {view.total?.grade?.finalgrade !== null && view.total?.grade ? (
+            <span data-testid={`cat-total-${view.category.id}`}>
+              {t('categoryTotal', {
+                grade: view.total.grade.finalgrade,
+                max: view.total.item.grademax,
+                letterSuffix: view.total.grade.letter ? t('letterSuffix', { letter: view.total.grade.letter }) : '',
+              })}
+            </span>
+          ) : null}
         </h3>
         <table className="w-full text-sm">
           <thead>
-            <tr><th className="text-left">{t('gradeItem')}</th><th className="text-left">{t('grade')}</th><th className="text-left">{t('letter')}</th><th className="text-left">{t('max')}</th></tr>
+            <tr>
+              <th className="text-left">{t('gradeItem')}</th>
+              <th className="text-left">{t('grade')}</th>
+              <th className="text-left">{t('letter')}</th>
+              <th className="text-left">{t('max')}</th>
+            </tr>
           </thead>
           <tbody>
             {view.items.map(({ item, grade }) => (
               <tr key={item.id} data-testid={`grade-item-${item.id}`}>
-                <td>{item.itemname}{item.extracredit ? ` ${t('extraCreditSuffix')}` : ''}</td>
+                <td>
+                  {item.itemname}
+                  {item.extracredit ? ` ${t('extraCreditSuffix')}` : ''}
+                </td>
                 <td>{grade?.finalgrade ?? '—'}</td>
                 <td>{grade?.letter ?? ''}</td>
                 <td>{item.grademax}</td>
@@ -393,7 +451,12 @@ export function GradebookPage() {
     );
   }
 
-  if (error) return <main className="px-4 py-4 md:py-6 lg:px-6"><p role="alert">{error}</p></main>;
+  if (error)
+    return (
+      <main className="px-4 py-4 md:py-6 lg:px-6">
+        <p role="alert">{error}</p>
+      </main>
+    );
   if (!book) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('loading')}</main>;
 
   return (
@@ -402,23 +465,38 @@ export function GradebookPage() {
         <CardHeader>
           <CardTitle>{t('gradebook')}</CardTitle>
           <CardDescription>
-            {t('courseTotalLine', { grade: book.courseTotal?.grade?.finalgrade ?? '—', letterSuffix: book.courseTotal?.grade?.letter ? t('letterSuffix', { letter: book.courseTotal.grade.letter }) : '' })}
+            {t('courseTotalLine', {
+              grade: book.courseTotal?.grade?.finalgrade ?? '—',
+              letterSuffix: book.courseTotal?.grade?.letter
+                ? t('letterSuffix', { letter: book.courseTotal.grade.letter })
+                : '',
+            })}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {book.categories.map((c) => renderCategory(c, 0))}
-        </CardContent>
+        <CardContent className="space-y-4">{book.categories.map((c) => renderCategory(c, 0))}</CardContent>
       </Card>
 
       {report && (
         <Card>
-          <CardHeader><CardTitle>{t('classReport')}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{t('classReport')}</CardTitle>
+          </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
-              <thead><tr><th className="text-left">{t('studentUserId')}</th><th className="text-left">{t('courseTotal')}</th><th className="text-left">{t('letter')}</th></tr></thead>
+              <thead>
+                <tr>
+                  <th className="text-left">{t('studentUserId')}</th>
+                  <th className="text-left">{t('courseTotal')}</th>
+                  <th className="text-left">{t('letter')}</th>
+                </tr>
+              </thead>
               <tbody>
                 {report.rows.map((row) => (
-                  <tr key={row.userId}><td>{row.userId}</td><td>{row.finalgrade ?? '—'}</td><td>{row.letter ?? ''}</td></tr>
+                  <tr key={row.userId}>
+                    <td>{row.userId}</td>
+                    <td>{row.finalgrade ?? '—'}</td>
+                    <td>{row.letter ?? ''}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
@@ -427,7 +505,9 @@ export function GradebookPage() {
       )}
 
       <Card>
-        <CardHeader><CardTitle>{t('enterGradeTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('enterGradeTitle')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void enterGrade(e)} className="space-y-3">
             <div>
@@ -456,17 +536,25 @@ export function GradebookPage() {
               <CardDescription>{t('gradeAdminDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button type="button" variant="outline" onClick={() => void regradeCourse()}>{t('regrade')}</Button>
+              <Button type="button" variant="outline" onClick={() => void regradeCourse()}>
+                {t('regrade')}
+              </Button>
               {adminMessage ? <p role="status">{adminMessage}</p> : null}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('gradeCategoriesAdminTitle')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('gradeCategoriesAdminTitle')}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-3">
                 {adminCategories.map((cat) => (
-                  <li key={cat.id} data-testid={`grade-category-admin-${cat.id}`} className="space-y-2 rounded border p-3">
+                  <li
+                    key={cat.id}
+                    data-testid={`grade-category-admin-${cat.id}`}
+                    className="space-y-2 rounded border p-3"
+                  >
                     <div className="space-y-2">
                       <Label htmlFor={`grade-cat-edit-${cat.id}`}>{t('gradeCategoryName')}</Label>
                       <Input
@@ -475,10 +563,16 @@ export function GradebookPage() {
                         onChange={(e) => setCatEdits((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                       />
                     </div>
-                    <p className="text-sm text-muted-foreground">{t('gradeCategoryAggregation')}: {cat.aggregation}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t('gradeCategoryAggregation')}: {cat.aggregation}
+                    </p>
                     <div className="flex gap-2">
-                      <Button type="button" variant="outline" onClick={() => void saveGradeCategory(cat)}>{t('saveGradeCategory')}</Button>
-                      <Button type="button" variant="destructive" onClick={() => void deleteGradeCategory(cat)}>{t('deleteGradeCategory')}</Button>
+                      <Button type="button" variant="outline" onClick={() => void saveGradeCategory(cat)}>
+                        {t('saveGradeCategory')}
+                      </Button>
+                      <Button type="button" variant="destructive" onClick={() => void deleteGradeCategory(cat)}>
+                        {t('deleteGradeCategory')}
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -490,8 +584,17 @@ export function GradebookPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grade-cat-aggregation">{t('gradeCategoryAggregation')}</Label>
-                  <select id="grade-cat-aggregation" value={newCatAggregation} onChange={(e) => setNewCatAggregation(e.target.value)} className="border px-2 py-1">
-                    {AGGREGATIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                  <select
+                    id="grade-cat-aggregation"
+                    value={newCatAggregation}
+                    onChange={(e) => setNewCatAggregation(e.target.value)}
+                    className="border px-2 py-1"
+                  >
+                    {AGGREGATIONS.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <Button type="submit">{t('createGradeCategory')}</Button>
@@ -500,19 +603,27 @@ export function GradebookPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('gradeItemsAdminTitle')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('gradeItemsAdminTitle')}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-3">
                 {adminItems.map((item) => {
                   const edit = itemEdits[item.id] ?? { itemname: item.itemname, grademax: String(item.grademax) };
                   return (
-                    <li key={item.id} data-testid={`grade-item-admin-${item.id}`} className="space-y-2 rounded border p-3">
+                    <li
+                      key={item.id}
+                      data-testid={`grade-item-admin-${item.id}`}
+                      className="space-y-2 rounded border p-3"
+                    >
                       <div className="space-y-2">
                         <Label htmlFor={`grade-item-edit-name-${item.id}`}>{t('gradeItemName')}</Label>
                         <Input
                           id={`grade-item-edit-name-${item.id}`}
                           value={edit.itemname}
-                          onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemname: e.target.value } }))}
+                          onChange={(e) =>
+                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemname: e.target.value } }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -520,12 +631,18 @@ export function GradebookPage() {
                         <Input
                           id={`grade-item-edit-max-${item.id}`}
                           value={edit.grademax}
-                          onChange={(e) => setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, grademax: e.target.value } }))}
+                          onChange={(e) =>
+                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, grademax: e.target.value } }))
+                          }
                         />
                       </div>
                       <div className="flex gap-2">
-                        <Button type="button" variant="outline" onClick={() => void saveGradeItem(item)}>{t('saveGradeItem')}</Button>
-                        <Button type="button" variant="destructive" onClick={() => void deleteGradeItem(item)}>{t('deleteGradeItem')}</Button>
+                        <Button type="button" variant="outline" onClick={() => void saveGradeItem(item)}>
+                          {t('saveGradeItem')}
+                        </Button>
+                        <Button type="button" variant="destructive" onClick={() => void deleteGradeItem(item)}>
+                          {t('deleteGradeItem')}
+                        </Button>
                       </div>
                     </li>
                   );
@@ -542,9 +659,18 @@ export function GradebookPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grade-item-category">{t('gradeItemCategory')}</Label>
-                  <select id="grade-item-category" value={newItemCategoryId} onChange={(e) => setNewItemCategoryId(e.target.value)} className="border px-2 py-1">
+                  <select
+                    id="grade-item-category"
+                    value={newItemCategoryId}
+                    onChange={(e) => setNewItemCategoryId(e.target.value)}
+                    className="border px-2 py-1"
+                  >
                     <option value="">{t('gradeItemNoCategory')}</option>
-                    {adminCategories.map((c) => <option key={c.id} value={c.id}>{c.fullname || t('gradeCourseFallback')}</option>)}
+                    {adminCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fullname || t('gradeCourseFallback')}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <Button type="submit">{t('createGradeItem')}</Button>
@@ -566,7 +692,11 @@ export function GradebookPage() {
                       <Input
                         id={`letter-symbol-${index}`}
                         value={draft.letter}
-                        onChange={(e) => setLetterDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, letter: e.target.value } : d)))}
+                        onChange={(e) =>
+                          setLetterDrafts((prev) =>
+                            prev.map((d, i) => (i === index ? { ...d, letter: e.target.value } : d)),
+                          )
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -574,7 +704,11 @@ export function GradebookPage() {
                       <Input
                         id={`letter-boundary-${index}`}
                         value={draft.lowerboundary}
-                        onChange={(e) => setLetterDrafts((prev) => prev.map((d, i) => (i === index ? { ...d, lowerboundary: e.target.value } : d)))}
+                        onChange={(e) =>
+                          setLetterDrafts((prev) =>
+                            prev.map((d, i) => (i === index ? { ...d, lowerboundary: e.target.value } : d)),
+                          )
+                        }
                       />
                     </div>
                     <Button
@@ -587,7 +721,13 @@ export function GradebookPage() {
                   </div>
                 ))}
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setLetterDrafts((prev) => [...prev, { letter: '', lowerboundary: '' }])}>{t('addLetter')}</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLetterDrafts((prev) => [...prev, { letter: '', lowerboundary: '' }])}
+                  >
+                    {t('addLetter')}
+                  </Button>
                   <Button type="submit">{t('saveLetters')}</Button>
                 </div>
               </form>
@@ -595,11 +735,15 @@ export function GradebookPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('gradeScalesTitle')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('gradeScalesTitle')}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-1">
                 {adminScales.map((s) => (
-                  <li key={s.id} className="text-sm"><span className="font-medium">{s.name}</span>: {s.scale}</li>
+                  <li key={s.id} className="text-sm">
+                    <span className="font-medium">{s.name}</span>: {s.scale}
+                  </li>
                 ))}
                 {adminScales.length === 0 ? <li className="text-sm text-muted-foreground">{t('noScales')}</li> : null}
               </ul>
@@ -614,7 +758,11 @@ export function GradebookPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="scale-description">{t('scaleDescriptionLabel')}</Label>
-                  <Input id="scale-description" value={scaleDescription} onChange={(e) => setScaleDescription(e.target.value)} />
+                  <Input
+                    id="scale-description"
+                    value={scaleDescription}
+                    onChange={(e) => setScaleDescription(e.target.value)}
+                  />
                 </div>
                 <Button type="submit">{t('createScale')}</Button>
               </form>
@@ -622,19 +770,36 @@ export function GradebookPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{t('gradeOutcomesTitle')}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t('gradeOutcomesTitle')}</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-2">
                 {adminOutcomes.map((outcome) => (
                   <li key={outcome.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <Input aria-label={t('outcomeName')} className="max-w-xs" value={outcomeEdits[outcome.id] ?? outcome.name} onChange={(e) => setOutcomeEdits((prev) => ({ ...prev, [outcome.id]: e.target.value }))} />
-                    <span className="text-muted-foreground">{adminScales.find((s) => s.id === outcome.scaleid)?.name ?? outcome.scaleid}</span>
-                    {outcome.courseid === null ? <span className="text-muted-foreground">{t('outcomeSiteBadge')}</span> : null}
-                    <Button type="button" variant="outline" size="sm" onClick={() => void updateOutcome(outcome)}>{t('saveOutcome')}</Button>
-                    <Button type="button" variant="destructive" size="sm" onClick={() => void deleteOutcome(outcome)}>{t('deleteOutcome')}</Button>
+                    <Input
+                      aria-label={t('outcomeName')}
+                      className="max-w-xs"
+                      value={outcomeEdits[outcome.id] ?? outcome.name}
+                      onChange={(e) => setOutcomeEdits((prev) => ({ ...prev, [outcome.id]: e.target.value }))}
+                    />
+                    <span className="text-muted-foreground">
+                      {adminScales.find((s) => s.id === outcome.scaleid)?.name ?? outcome.scaleid}
+                    </span>
+                    {outcome.courseid === null ? (
+                      <span className="text-muted-foreground">{t('outcomeSiteBadge')}</span>
+                    ) : null}
+                    <Button type="button" variant="outline" size="sm" onClick={() => void updateOutcome(outcome)}>
+                      {t('saveOutcome')}
+                    </Button>
+                    <Button type="button" variant="destructive" size="sm" onClick={() => void deleteOutcome(outcome)}>
+                      {t('deleteOutcome')}
+                    </Button>
                   </li>
                 ))}
-                {adminOutcomes.length === 0 ? <li className="text-sm text-muted-foreground">{t('noOutcomes')}</li> : null}
+                {adminOutcomes.length === 0 ? (
+                  <li className="text-sm text-muted-foreground">{t('noOutcomes')}</li>
+                ) : null}
               </ul>
               <form onSubmit={(e) => void createOutcome(e)} className="space-y-3">
                 <div className="space-y-2">
@@ -643,13 +808,26 @@ export function GradebookPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="outcome-scale">{t('outcomeScale')}</Label>
-                  <select id="outcome-scale" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" value={outcomeScaleId} onChange={(e) => setOutcomeScaleId(e.target.value)}>
-                    {adminScales.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  <select
+                    id="outcome-scale"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    value={outcomeScaleId}
+                    onChange={(e) => setOutcomeScaleId(e.target.value)}
+                  >
+                    {adminScales.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="outcome-description">{t('outcomeDescriptionLabel')}</Label>
-                  <Input id="outcome-description" value={outcomeDescription} onChange={(e) => setOutcomeDescription(e.target.value)} />
+                  <Input
+                    id="outcome-description"
+                    value={outcomeDescription}
+                    onChange={(e) => setOutcomeDescription(e.target.value)}
+                  />
                 </div>
                 <Button type="submit">{t('createOutcome')}</Button>
               </form>
@@ -665,9 +843,18 @@ export function GradebookPage() {
               <form onSubmit={(e) => void loadHistory(e)} className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="history-item">{t('gradeItem')}</Label>
-                  <select id="history-item" value={historyItemId} onChange={(e) => setHistoryItemId(e.target.value)} className="border px-2 py-1">
+                  <select
+                    id="history-item"
+                    value={historyItemId}
+                    onChange={(e) => setHistoryItemId(e.target.value)}
+                    className="border px-2 py-1"
+                  >
                     <option value="">{t('gradeItem')}</option>
-                    {adminItems.map((i) => <option key={i.id} value={i.id}>{i.itemname}</option>)}
+                    {adminItems.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.itemname}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -686,7 +873,12 @@ export function GradebookPage() {
                         time: row.timemodified,
                         raw: row.rawgrade ?? '—',
                         final: row.finalgrade ?? '—',
-                        action: row.action === 1 ? t('historyActionInsert') : row.action === 3 ? t('historyActionDelete') : t('historyActionUpdate'),
+                        action:
+                          row.action === 1
+                            ? t('historyActionInsert')
+                            : row.action === 3
+                              ? t('historyActionDelete')
+                              : t('historyActionUpdate'),
                       })}
                     </li>
                   ))}
@@ -701,7 +893,5 @@ export function GradebookPage() {
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default GradebookPage;/** Thụt lề theo độ sâu cây hạng mục điểm: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
+export default GradebookPage; /** Thụt lề theo độ sâu cây hạng mục điểm: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
 const CATEGORY_INDENT = ['ml-0', 'ml-4', 'ml-8', 'ml-12', 'ml-16', 'ml-20'];
-
-

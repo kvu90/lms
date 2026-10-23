@@ -14,16 +14,34 @@ const COURSE_ID = '01900000-0000-7000-8000-000000000010';
 const CATEGORY_ID = '01900000-0000-7000-8000-000000000001';
 
 const COURSE = {
-  id: COURSE_ID, category: CATEGORY_ID, fullname: 'Khoá học mẫu', shortname: 'DEMO101',
-  idnumber: '', summary: '', format: 'topics', visible: true, startdate: null, enddate: null,
-  groupmode: 0, enablecompletion: true,
+  id: COURSE_ID,
+  category: CATEGORY_ID,
+  fullname: 'Khoá học mẫu',
+  shortname: 'DEMO101',
+  idnumber: '',
+  summary: '',
+  format: 'topics',
+  visible: true,
+  startdate: null,
+  enddate: null,
+  groupmode: 0,
+  enablecompletion: true,
 };
 
 function profile(id: string, username: string, firstname: string, lastname: string) {
   return {
-    id, username, firstname, lastname, email: `${username}@example.com`,
-    suspended: false, deleted: false, isGuest: false, forcePasswordChange: false,
-    lastlogin: null, timecreated: '2026-10-01T00:00:00.000Z', customFields: [],
+    id,
+    username,
+    firstname,
+    lastname,
+    email: `${username}@example.com`,
+    suspended: false,
+    deleted: false,
+    isGuest: false,
+    forcePasswordChange: false,
+    lastlogin: null,
+    timecreated: '2026-10-01T00:00:00.000Z',
+    customFields: [],
   };
 }
 
@@ -61,22 +79,44 @@ function accessView(role: 'admin' | 'teacher' | 'student') {
   const me = role === 'admin' ? PROFILES.admin : role === 'teacher' ? PROFILES.teacher1 : PROFILES.student1;
   if (role === 'admin') {
     return {
-      userId: me.id, isSiteAdmin: true, assignments: [],
-      contexts: [{ contextId: SYS_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: ['moodle/user:viewdetails', 'moodle/role:manage'] }],
+      userId: me.id,
+      isSiteAdmin: true,
+      assignments: [],
+      contexts: [
+        {
+          contextId: SYS_CTX_ID,
+          contextLevel: 10,
+          contextPath: '/1',
+          capabilities: ['moodle/user:viewdetails', 'moodle/role:manage'],
+        },
+      ],
     };
   }
   return {
-    userId: me.id, isSiteAdmin: false,
-    assignments: [{
-      id: '01900000-0000-7000-8000-0000000000f1', roleId: '01900000-0000-7000-8000-0000000000b9',
-      roleShortname: role === 'teacher' ? 'editingteacher' : 'student', roleName: role === 'teacher' ? 'Teacher' : 'Student',
-      contextId: COURSE_CTX_ID, contextLevel: 50, contextPath: '/1/9/10', instanceId: COURSE_ID,
-    }],
+    userId: me.id,
+    isSiteAdmin: false,
+    assignments: [
+      {
+        id: '01900000-0000-7000-8000-0000000000f1',
+        roleId: '01900000-0000-7000-8000-0000000000b9',
+        roleShortname: role === 'teacher' ? 'editingteacher' : 'student',
+        roleName: role === 'teacher' ? 'Teacher' : 'Student',
+        contextId: COURSE_CTX_ID,
+        contextLevel: 50,
+        contextPath: '/1/9/10',
+        instanceId: COURSE_ID,
+      },
+    ],
     contexts: [
       { contextId: SYS_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: [] },
       {
-        contextId: COURSE_CTX_ID, contextLevel: 50, contextPath: '/1/9/10',
-        capabilities: role === 'teacher' ? ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall'] : ['moodle/course:view'],
+        contextId: COURSE_CTX_ID,
+        contextLevel: 50,
+        contextPath: '/1/9/10',
+        capabilities:
+          role === 'teacher'
+            ? ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall']
+            : ['moodle/course:view'],
       },
     ],
   };
@@ -98,14 +138,17 @@ function forbidden() {
  * của API để test kiểm chứng cả dữ liệu hiển thị theo vai trò.
  */
 function stubFetch(handler: Handler) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    const result = handler(url);
-    if (!result) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-    return new Response(JSON.stringify(result.body), {
-      status: result.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const result = handler(url);
+      if (!result) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(result.body), {
+        status: result.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }),
+  );
 }
 
 function renderApp(withSidebar: boolean) {
@@ -145,8 +188,20 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
     if (url === '/api/v1/access/roles') {
       return role === 'admin'
         ? ok([
-            { id: '01900000-0000-7000-8000-0000000000b1', name: 'Quản lý', shortname: 'manager', description: '', archetype: 'manager' },
-            { id: '01900000-0000-7000-8000-0000000000b2', name: 'Học viên', shortname: 'student', description: '', archetype: 'student' },
+            {
+              id: '01900000-0000-7000-8000-0000000000b1',
+              name: 'Quản lý',
+              shortname: 'manager',
+              description: '',
+              archetype: 'manager',
+            },
+            {
+              id: '01900000-0000-7000-8000-0000000000b2',
+              name: 'Học viên',
+              shortname: 'student',
+              description: '',
+              archetype: 'student',
+            },
           ])
         : forbidden();
     }
@@ -154,7 +209,19 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
     if (url === '/api/v1/courses') return ok([COURSE]);
     if (url === '/api/v1/courses/categories/tree') {
       return ok([
-        { ...COURSE, id: CATEGORY_ID, name: 'Danh mục mẫu', idnumber: null, description: '', parent: null, sortorder: 0, path: '/1', depth: 1, visible: true, children: [] },
+        {
+          ...COURSE,
+          id: CATEGORY_ID,
+          name: 'Danh mục mẫu',
+          idnumber: null,
+          description: '',
+          parent: null,
+          sortorder: 0,
+          path: '/1',
+          depth: 1,
+          visible: true,
+          children: [],
+        },
       ]);
     }
     if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`) {
@@ -188,16 +255,29 @@ describe('Dashboard theo vai trò', () => {
     localStorage.clear();
     // jsdom thiếu matchMedia/ResizeObserver mà sidebar và biểu đồ cần.
     vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: false, media: query, onchange: null,
-      addListener: () => undefined, removeListener: () => undefined,
-      addEventListener: () => undefined, removeEventListener: () => undefined,
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
       dispatchEvent: () => false,
     }));
-    vi.stubGlobal('ResizeObserver', class {
-      observe() { /* no-op cho jsdom */ }
-      unobserve() { /* no-op cho jsdom */ }
-      disconnect() { /* no-op cho jsdom */ }
-    });
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {
+          /* no-op cho jsdom */
+        }
+        unobserve() {
+          /* no-op cho jsdom */
+        }
+        disconnect() {
+          /* no-op cho jsdom */
+        }
+      },
+    );
   });
   afterEach(() => {
     cleanup();

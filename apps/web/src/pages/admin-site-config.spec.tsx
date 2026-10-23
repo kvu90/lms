@@ -13,34 +13,62 @@ import { AdminSiteConfigPage } from './admin-site-config';
  * cùng URL đó.
  */
 const SETTINGS: SiteSetting[] = [
-  { component: 'core', name: 'messagingallusers', type: 'boolean', defaultValue: false, value: false, source: 'default' },
-  { component: 'core', name: 'fullname', type: 'string', defaultValue: 'LMS', value: 'LMS Trường tôi', source: 'database' },
+  {
+    component: 'core',
+    name: 'messagingallusers',
+    type: 'boolean',
+    defaultValue: false,
+    value: false,
+    source: 'default',
+  },
+  {
+    component: 'core',
+    name: 'fullname',
+    type: 'string',
+    defaultValue: 'LMS',
+    value: 'LMS Trường tôi',
+    source: 'database',
+  },
   { component: 'core', name: 'lang', type: 'enum', defaultValue: 'vi', value: 'vi', source: 'default' },
 ];
 
-interface RecordedCall { url: string; method: string; body: unknown }
+interface RecordedCall {
+  url: string;
+  method: string;
+  body: unknown;
+}
 
 /** Stub fetch ghi lại mọi lời gọi; audit trả rỗng để trang yên tĩnh. */
 function stubFetch(calls: RecordedCall[], settings: SiteSetting[] = SETTINGS) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    const method = init?.method ?? 'GET';
-    calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-    const respond = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    if (url === '/api/v1/site-config' && method === 'GET') return respond(settings);
-    if (url === '/api/v1/site-config/audit') return respond([]);
-    if (url.startsWith('/api/v1/site-config/')) return respond(settings[0]);
-    return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/site-config' && method === 'GET') return respond(settings);
+      if (url === '/api/v1/site-config/audit') return respond([]);
+      if (url.startsWith('/api/v1/site-config/')) return respond(settings[0]);
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
 }
 
 /** Render trang cấu hình site qua router bộ nhớ như các spec khác. */
 function renderPage() {
-  const router = createMemoryRouter([{ path: '/admin/site-config', element: <AdminSiteConfigPage /> }], { initialEntries: ['/admin/site-config'] });
+  const router = createMemoryRouter([{ path: '/admin/site-config', element: <AdminSiteConfigPage /> }], {
+    initialEntries: ['/admin/site-config'],
+  });
   render(<RouterProvider router={router} />);
 }
 
 describe('Admin site config page', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   it('renders settings from the stub grouped by component with source badges', async () => {
     const calls: RecordedCall[] = [];

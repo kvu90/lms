@@ -1,24 +1,18 @@
-import {
-  Card,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@lms/ui/components/ui/card"
-import { Skeleton } from "@lms/ui/components/ui/skeleton"
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
+import { Skeleton } from '@lms/ui/components/ui/skeleton';
 
 /** Một thẻ thống kê: nhãn, giá trị lớn và dòng chú thích phụ — tất cả từ dữ liệu thật. */
 export interface StatCard {
-  id: string
-  label: string
-  value: string
-  footer?: string
+  id: string;
+  label: string;
+  value: string;
+  footer?: string;
   /**
    * Đang chờ dữ liệu: thẻ vẫn chiếm đúng ô của nó trong lưới với nhãn
    * thật và khung xương ở phần giá trị/chú thích, để lưới không co giãn
    * khi số liệu về (giữ hình học, tránh nhảy bố cục).
    */
-  loading?: boolean
+  loading?: boolean;
 }
 
 /**
@@ -28,7 +22,7 @@ export interface StatCard {
  * không truyền vào — component không tự bịa số hay phần trăm xu hướng.
  */
 export function SectionCards({ cards }: { cards: StatCard[] }) {
-  if (cards.length === 0) return null
+  if (cards.length === 0) return null;
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
       {cards.map((card) => (
@@ -51,5 +45,5 @@ export function SectionCards({ cards }: { cards: StatCard[] }) {
         </Card>
       ))}
     </div>
-  )
+  );
 }

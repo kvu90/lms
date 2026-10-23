@@ -5,8 +5,20 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface NotificationView { id: string; subject: string; fullmessage: string; eventtype: string; timeread: string | null; timecreated: string }
-interface PreferenceView { provider: string; channel: string; loggedin: boolean; loggedoff: boolean }
+interface NotificationView {
+  id: string;
+  subject: string;
+  fullmessage: string;
+  eventtype: string;
+  timeread: string | null;
+  timecreated: string;
+}
+interface PreferenceView {
+  provider: string;
+  channel: string;
+  loggedin: boolean;
+  loggedoff: boolean;
+}
 
 /**
  * Notification centre + preferences. A notification only exists when
@@ -29,7 +41,9 @@ export function NotificationsPage() {
     setPrefs(p);
   }, []);
 
-  useEffect(() => { void reload().catch(() => setError(t('notificationsLoadFailed'))); }, [reload]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('notificationsLoadFailed')));
+  }, [reload]);
 
   async function toggle(pref: PreferenceView, field: 'loggedin' | 'loggedoff') {
     const next = { ...pref, [field]: !pref[field] };
@@ -55,13 +69,18 @@ export function NotificationsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {error ? <p role="alert">{error}</p> : null}
-          <Button type="button" variant="outline" onClick={() => void markAllRead()}>{t('markAllRead')}</Button>
+          <Button type="button" variant="outline" onClick={() => void markAllRead()}>
+            {t('markAllRead')}
+          </Button>
           <ul className="space-y-2" aria-label={t('notificationsListLabel')}>
             {items.map((n) => (
               <li key={n.id} className={`rounded border p-2 ${n.timeread ? 'opacity-60' : ''}`}>
                 <p className="font-medium">{n.subject}</p>
                 <p className="text-sm">{n.fullmessage}</p>
-                <p className="text-xs text-muted-foreground">{n.eventtype} · {new Date(n.timecreated).toLocaleString()}{n.timeread ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}</p>
+                <p className="text-xs text-muted-foreground">
+                  {n.eventtype} · {new Date(n.timecreated).toLocaleString()}
+                  {n.timeread ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}
+                </p>
               </li>
             ))}
             {items.length === 0 ? <li>{t('noNotifications')}</li> : null}
@@ -69,11 +88,18 @@ export function NotificationsPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>{t('notificationPreferences')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('notificationPreferences')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <table className="w-full text-sm">
             <thead>
-              <tr><th className="text-left">{t('provider')}</th><th className="text-left">{t('channel')}</th><th>{t('loggedIn')}</th><th>{t('loggedOff')}</th></tr>
+              <tr>
+                <th className="text-left">{t('provider')}</th>
+                <th className="text-left">{t('channel')}</th>
+                <th>{t('loggedIn')}</th>
+                <th>{t('loggedOff')}</th>
+              </tr>
             </thead>
             <tbody>
               {prefs.map((p) => (
@@ -81,12 +107,20 @@ export function NotificationsPage() {
                   <td>{p.provider}</td>
                   <td>{p.channel}</td>
                   <td>
-                    <input aria-label={`${p.provider} ${p.channel} ${t('prefLoggedIn')}`} type="checkbox" checked={p.loggedin}
-                      onChange={() => void toggle(p, 'loggedin')} />
+                    <input
+                      aria-label={`${p.provider} ${p.channel} ${t('prefLoggedIn')}`}
+                      type="checkbox"
+                      checked={p.loggedin}
+                      onChange={() => void toggle(p, 'loggedin')}
+                    />
                   </td>
                   <td>
-                    <input aria-label={`${p.provider} ${p.channel} ${t('prefLoggedOff')}`} type="checkbox" checked={p.loggedoff}
-                      onChange={() => void toggle(p, 'loggedoff')} />
+                    <input
+                      aria-label={`${p.provider} ${p.channel} ${t('prefLoggedOff')}`}
+                      type="checkbox"
+                      checked={p.loggedoff}
+                      onChange={() => void toggle(p, 'loggedoff')}
+                    />
                   </td>
                 </tr>
               ))}

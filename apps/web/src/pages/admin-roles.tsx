@@ -8,15 +8,28 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';
 
-interface ContextRow { id: string; contextlevel: number; instanceid: string; path: string }
-interface RoleCapabilityRow { roleid: string; capability: string; contextid: string; permission: number }
+interface ContextRow {
+  id: string;
+  contextlevel: number;
+  instanceid: string;
+  path: string;
+}
+interface RoleCapabilityRow {
+  roleid: string;
+  capability: string;
+  contextid: string;
+  permission: number;
+}
 
 /** Nhãn mức quyền dịch qua catalog ở thời điểm render (xem hook trong component). */
 
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
   const PERMISSION_LABEL: Record<number, string> = {
-    [CAP.ALLOW]: t('permAllow'), [CAP.INHERIT]: t('permInherit'), [CAP.PREVENT]: t('permPrevent'), [CAP.PROHIBIT]: t('permProhibit'),
+    [CAP.ALLOW]: t('permAllow'),
+    [CAP.INHERIT]: t('permInherit'),
+    [CAP.PREVENT]: t('permPrevent'),
+    [CAP.PROHIBIT]: t('permProhibit'),
   };
   const [roles, setRoles] = useState<Role[]>([]);
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
@@ -33,7 +46,9 @@ export function AdminRolesPage() {
         apiJson<Capability[]>('/api/v1/access/capabilities'),
         apiJson<ContextRow[]>('/api/v1/access/contexts'),
       ]);
-      setRoles(r); setCapabilities(c); setContexts(x);
+      setRoles(r);
+      setCapabilities(c);
+      setContexts(x);
       const system = x.find((ctx) => ctx.contextlevel === 10);
       if (system) setAssign((prev) => ({ ...prev, contextid: String(system.id) }));
       setError(null);
@@ -42,7 +57,9 @@ export function AdminRolesPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function submitAssignment() {
     await apiJson('/api/v1/access/assignments', {
@@ -66,12 +83,21 @@ export function AdminRolesPage() {
           <CardDescription>{t('rolesDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <ul className="divide-y">
             {roles.map((r) => (
               <li key={r.id} className="flex items-center justify-between py-2">
-                <span><strong>{r.name}</strong> <code>{r.shortname}</code>{r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}</span>
-                <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>{t('capabilityMatrix')}</Button>
+                <span>
+                  <strong>{r.name}</strong> <code>{r.shortname}</code>
+                  {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
+                </span>
+                <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>
+                  {t('capabilityMatrix')}
+                </Button>
               </li>
             ))}
           </ul>
@@ -79,20 +105,53 @@ export function AdminRolesPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('assignRoleTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('assignRoleTitle')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1"><Label htmlFor="assign-userid">{t('userId')}</Label>
-            <Input id="assign-userid" inputMode="numeric" value={assign.userid} onChange={(e) => setAssign({ ...assign, userid: e.target.value })} /></div>
-          <div className="space-y-1"><Label htmlFor="assign-role">{t('role')}</Label>
-            <select id="assign-role" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={assign.roleid} onChange={(e) => setAssign({ ...assign, roleid: e.target.value })}>
+          <div className="space-y-1">
+            <Label htmlFor="assign-userid">{t('userId')}</Label>
+            <Input
+              id="assign-userid"
+              inputMode="numeric"
+              value={assign.userid}
+              onChange={(e) => setAssign({ ...assign, userid: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="assign-role">{t('role')}</Label>
+            <select
+              id="assign-role"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              value={assign.roleid}
+              onChange={(e) => setAssign({ ...assign, roleid: e.target.value })}
+            >
               <option value="">{t('selectRole')}</option>
-              {roles.map((r) => <option key={r.id} value={r.id}>{r.shortname}</option>)}
-            </select></div>
-          <div className="space-y-1"><Label htmlFor="assign-context">{t('context')}</Label>
-            <select id="assign-context" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={assign.contextid} onChange={(e) => setAssign({ ...assign, contextid: e.target.value })}>
-              {contexts.map((c) => <option key={c.id} value={c.id}>{t('contextOption', { level: c.contextlevel, instance: c.instanceid, path: c.path })}</option>)}
-            </select></div>
-          <Button type="button" onClick={() => void submitAssignment()}>{t('assignRole')}</Button>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.shortname}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="assign-context">{t('context')}</Label>
+            <select
+              id="assign-context"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              value={assign.contextid}
+              onChange={(e) => setAssign({ ...assign, contextid: e.target.value })}
+            >
+              {contexts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {t('contextOption', { level: c.contextlevel, instance: c.instanceid, path: c.path })}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" onClick={() => void submitAssignment()}>
+            {t('assignRole')}
+          </Button>
         </CardContent>
       </Card>
 
@@ -104,13 +163,21 @@ export function AdminRolesPage() {
           </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
-              <thead><tr className="text-left"><th>{t('capability')}</th><th>{t('context')}</th><th>{t('permission')}</th></tr></thead>
+              <thead>
+                <tr className="text-left">
+                  <th>{t('capability')}</th>
+                  <th>{t('context')}</th>
+                  <th>{t('permission')}</th>
+                </tr>
+              </thead>
               <tbody>
                 {capabilities.map((cap) => {
                   const row = matrix.find((m) => m.capability === cap.name);
                   return (
                     <tr key={cap.name} className="border-t">
-                      <td><code>{cap.name}</code></td>
+                      <td>
+                        <code>{cap.name}</code>
+                      </td>
                       <td>{row ? row.contextid : '—'}</td>
                       <td>{row ? (PERMISSION_LABEL[row.permission] ?? row.permission) : t('permInherit')}</td>
                     </tr>

@@ -8,13 +8,23 @@ import '../i18n';
 import { apiFetch, apiJson } from '@/lib/api';
 
 interface EventView {
-  id: string; name: string; description: string; eventtype: string;
-  timestart: string; timeduration: number; repeatid: string; isexception: boolean;
+  id: string;
+  name: string;
+  description: string;
+  eventtype: string;
+  timestart: string;
+  timeduration: number;
+  repeatid: string;
+  isexception: boolean;
 }
 
 /** Một đăng ký lịch ngoài (hàng của GET /calendar/subscriptions phía server). */
 interface SubscriptionView {
-  id: string; name: string; url: string | null; eventtype: string; pollinterval: number;
+  id: string;
+  name: string;
+  url: string | null;
+  eventtype: string;
+  pollinterval: number;
 }
 
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
@@ -54,15 +64,21 @@ export function CalendarPage() {
   const reload = useCallback(async () => {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    const list = await apiJson<EventView[]>(`/api/v1/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`);
+    const list = await apiJson<EventView[]>(
+      `/api/v1/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`,
+    );
     setEvents(list);
     const subs = await apiJson<SubscriptionView[]>('/api/v1/calendar/subscriptions').catch(() => null);
     if (subs) setSubscriptions(subs);
-    const token = await apiJson<{ token: string; url: string } | null>('/api/v1/calendar/export-token').catch(() => undefined);
+    const token = await apiJson<{ token: string; url: string } | null>('/api/v1/calendar/export-token').catch(
+      () => undefined,
+    );
     if (token !== undefined) setExportToken(token);
   }, [now]);
 
-  useEffect(() => { void reload().catch(() => setError(t('calendarLoadFailed'))); }, [reload, t]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('calendarLoadFailed')));
+  }, [reload, t]);
 
   /** Tạo sự kiện theo đúng DTO: loại sự kiện quyết định id phạm vi đi kèm. */
   async function createEvent(event: FormEvent) {
@@ -83,10 +99,14 @@ export function CalendarPage() {
           ...(evType === 'category' ? { categoryid: evCategoryId } : {}),
         }),
       });
-      setEvName(''); setEvDescription(''); setEvLocation('');
+      setEvName('');
+      setEvDescription('');
+      setEvLocation('');
       setMessage(t('eventCreated'));
       await reload();
-    } catch { setMessage(t('eventCreateFailed')); }
+    } catch {
+      setMessage(t('eventCreateFailed'));
+    }
   }
 
   /** Xoá một sự kiện của mình rồi nạp lại danh sách tháng. */
@@ -96,7 +116,9 @@ export function CalendarPage() {
       await apiJson(`/api/v1/calendar/events/${id}`, { method: 'DELETE' });
       setMessage(t('eventDeleted'));
       await reload();
-    } catch { setMessage(t('eventDeleteFailed')); }
+    } catch {
+      setMessage(t('eventDeleteFailed'));
+    }
   }
 
   /** Đặt nhắc trước sự kiện 60 phút (DTO nhắc chỉ gồm `minutesBefore`). */
@@ -104,10 +126,13 @@ export function CalendarPage() {
     setMessage(null);
     try {
       await apiJson(`/api/v1/calendar/events/${id}/remind`, {
-        method: 'POST', body: JSON.stringify({ minutesBefore: 60 }),
+        method: 'POST',
+        body: JSON.stringify({ minutesBefore: 60 }),
       });
       setMessage(t('reminderSet'));
-    } catch { setMessage(t('reminderFailed')); }
+    } catch {
+      setMessage(t('reminderFailed'));
+    }
   }
 
   /**
@@ -123,10 +148,13 @@ export function CalendarPage() {
         method: 'POST',
         body: JSON.stringify({ name: subName, url: subUrl, eventtype: 'user' }),
       });
-      setSubName(''); setSubUrl('');
+      setSubName('');
+      setSubUrl('');
       setMessage(t('subscriptionCreated'));
       await reload();
-    } catch { setMessage(t('subscriptionCreateFailed')); }
+    } catch {
+      setMessage(t('subscriptionCreateFailed'));
+    }
   }
 
   /** Yêu cầu nhập ngay một subscription (server đưa vào hàng đợi worker). */
@@ -136,7 +164,9 @@ export function CalendarPage() {
       await apiJson(`/api/v1/calendar/subscriptions/${id}/import`, { method: 'POST', body: '{}' });
       setMessage(t('importQueued'));
       await reload();
-    } catch { setMessage(t('importFailed')); }
+    } catch {
+      setMessage(t('importFailed'));
+    }
   }
 
   /** Tải tệp ICS của chính user qua GET /calendar/export.ics (endpoint đòi đăng nhập nên phải fetch kèm token rồi tải blob, không dùng link trực tiếp). */
@@ -152,17 +182,23 @@ export function CalendarPage() {
       anchor.download = 'calendar.ics';
       anchor.click();
       URL.revokeObjectURL(objectUrl);
-    } catch { setMessage(t('downloadIcsFailed')); }
+    } catch {
+      setMessage(t('downloadIcsFailed'));
+    }
   }
 
   /** Tạo hoặc tạo lại đường dẫn đăng ký xuất lịch (POST /calendar/export-token thay token cũ). */
   async function createExportToken() {
     setMessage(null);
     try {
-      const created = await apiJson<{ token: string; url: string }>('/api/v1/calendar/export-token', { method: 'POST' });
+      const created = await apiJson<{ token: string; url: string }>('/api/v1/calendar/export-token', {
+        method: 'POST',
+      });
       setExportToken(created);
       setMessage(t('exportTokenCreated'));
-    } catch { setMessage(t('exportTokenCreateFailed')); }
+    } catch {
+      setMessage(t('exportTokenCreateFailed'));
+    }
   }
 
   /** Thu hồi đường dẫn đăng ký xuất lịch (DELETE /calendar/export-token) — đường dẫn cũ lập tức hết hiệu lực. */
@@ -172,7 +208,9 @@ export function CalendarPage() {
       await apiJson('/api/v1/calendar/export-token', { method: 'DELETE' });
       setExportToken(null);
       setMessage(t('exportTokenRevoked'));
-    } catch { setMessage(t('exportTokenRevokeFailed')); }
+    } catch {
+      setMessage(t('exportTokenRevokeFailed'));
+    }
   }
 
   const visible = events.filter((e) => typeFilter === 'all' || e.eventtype === typeFilter);
@@ -186,15 +224,25 @@ export function CalendarPage() {
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('calendarTitle', { month: now.toLocaleString(undefined, { month: 'long', year: 'numeric' }) })}</CardTitle>
+          <CardTitle>
+            {t('calendarTitle', { month: now.toLocaleString(undefined, { month: 'long', year: 'numeric' }) })}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <p role="alert">{error}</p> : null}
           {message ? <p role="status">{message}</p> : null}
           <div className="flex items-center gap-2">
             <Label htmlFor="type-filter">{t('eventType')}</Label>
-            <select id="type-filter" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as (typeof TYPES)[number])}>
-              {TYPES.map((type) => <option key={type} value={type}>{t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}</option>)}
+            <select
+              id="type-filter"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as (typeof TYPES)[number])}
+            >
+              {TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
+                </option>
+              ))}
             </select>
           </div>
           {[...byDay.entries()].map(([day, dayEvents]) => (
@@ -204,11 +252,18 @@ export function CalendarPage() {
                 {dayEvents.map((e) => (
                   <li key={e.id} className="flex items-center gap-2 rounded border p-2 text-sm">
                     <span className="font-medium">{e.name}</span>
-                    <span className="text-muted-foreground"> · {e.eventtype} · {new Date(e.timestart).toLocaleTimeString()}</span>
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {e.eventtype} · {new Date(e.timestart).toLocaleTimeString()}
+                    </span>
                     {e.isexception ? <span> {t('adjustedOccurrence')}</span> : null}
-                    <Button type="button" variant="outline" onClick={() => void remind(e.id)}>{t('remindOneHour')}</Button>
+                    <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
+                      {t('remindOneHour')}
+                    </Button>
                     {e.eventtype === 'user' ? (
-                      <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>{t('deleteEvent')}</Button>
+                      <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>
+                        {t('deleteEvent')}
+                      </Button>
                     ) : null}
                   </li>
                 ))}
@@ -220,7 +275,9 @@ export function CalendarPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('createEventTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('createEventTitle')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createEvent(e)} className="space-y-3">
             <div>
@@ -233,8 +290,16 @@ export function CalendarPage() {
             </div>
             <div>
               <Label htmlFor="ev-type">{t('eventType')}</Label>
-              <select id="ev-type" value={evType} onChange={(e) => setEvType(e.target.value as (typeof EVENT_TYPES)[number])}>
-                {EVENT_TYPES.map((type) => <option key={type} value={type}>{t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}</option>)}
+              <select
+                id="ev-type"
+                value={evType}
+                onChange={(e) => setEvType(e.target.value as (typeof EVENT_TYPES)[number])}
+              >
+                {EVENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -243,7 +308,12 @@ export function CalendarPage() {
             </div>
             <div>
               <Label htmlFor="ev-duration">{t('eventDurationSeconds')}</Label>
-              <Input id="ev-duration" type="number" value={evDuration} onChange={(e) => setEvDuration(e.target.value)} />
+              <Input
+                id="ev-duration"
+                type="number"
+                value={evDuration}
+                onChange={(e) => setEvDuration(e.target.value)}
+              />
             </div>
             <div>
               <Label htmlFor="ev-location">{t('eventLocation')}</Label>
@@ -273,21 +343,29 @@ export function CalendarPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('calendarExportTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('calendarExportTitle')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">{t('calendarExportDescription')}</p>
-          <Button type="button" variant="outline" onClick={() => void downloadIcs()}>{t('downloadIcs')}</Button>
+          <Button type="button" variant="outline" onClick={() => void downloadIcs()}>
+            {t('downloadIcs')}
+          </Button>
           <div className="space-y-2">
             <Label htmlFor="export-token-url">{t('exportToken')}</Label>
             {exportToken ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Input id="export-token-url" readOnly value={exportToken.url} className="max-w-xl" />
-                <Button type="button" variant="destructive" size="sm" onClick={() => void revokeExportToken()}>{t('revokeExportToken')}</Button>
+                <Button type="button" variant="destructive" size="sm" onClick={() => void revokeExportToken()}>
+                  {t('revokeExportToken')}
+                </Button>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm text-muted-foreground">{t('noExportToken')}</p>
-                <Button type="button" size="sm" onClick={() => void createExportToken()}>{t('createExportToken')}</Button>
+                <Button type="button" size="sm" onClick={() => void createExportToken()}>
+                  {t('createExportToken')}
+                </Button>
               </div>
             )}
           </div>
@@ -295,14 +373,18 @@ export function CalendarPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('subscriptionsTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('subscriptionsTitle')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
           <ul className="space-y-2">
             {subscriptions.map((s) => (
               <li key={s.id} data-testid={`subscription-${s.id}`} className="flex items-center gap-3">
                 <span>{s.name}</span>
                 <span className="text-sm text-muted-foreground">{s.url ?? ''}</span>
-                <Button type="button" variant="outline" onClick={() => void importSubscription(s.id)}>{t('importSubscription')}</Button>
+                <Button type="button" variant="outline" onClick={() => void importSubscription(s.id)}>
+                  {t('importSubscription')}
+                </Button>
               </li>
             ))}
           </ul>

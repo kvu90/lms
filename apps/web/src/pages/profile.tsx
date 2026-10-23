@@ -12,13 +12,20 @@ import { useAuth } from '@/lib/auth';
 export function ProfilePage() {
   const { t } = useTranslation('app');
   const { user, reload } = useAuth();
-  const [form, setForm] = useState<{ firstname: string; lastname: string; email: string; customFields: Record<string, string> } | null>(null);
+  const [form, setForm] = useState<{
+    firstname: string;
+    lastname: string;
+    email: string;
+    customFields: Record<string, string>;
+  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       setForm({
-        firstname: user.firstname, lastname: user.lastname, email: user.email ?? '',
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email ?? '',
         customFields: Object.fromEntries(user.customFields.map((f) => [f.shortname, f.value ?? ''])),
       });
     }
@@ -32,7 +39,12 @@ export function ProfilePage() {
     try {
       const updated = await apiJson<UserProfile>(`/api/v1/users/${user!.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ firstname: form!.firstname, lastname: form!.lastname, email: form!.email || undefined, customFields: form!.customFields }),
+        body: JSON.stringify({
+          firstname: form!.firstname,
+          lastname: form!.lastname,
+          email: form!.email || undefined,
+          customFields: form!.customFields,
+        }),
       });
       void updated;
       await reload();
@@ -56,27 +68,48 @@ export function ProfilePage() {
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="firstname">{t('firstName')}</Label>
-              <Input id="firstname" value={form.firstname} onChange={(e) => setForm({ ...form, firstname: e.target.value })} />
+              <Input
+                id="firstname"
+                value={form.firstname}
+                onChange={(e) => setForm({ ...form, firstname: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastname">{t('lastName')}</Label>
-              <Input id="lastname" value={form.lastname} onChange={(e) => setForm({ ...form, lastname: e.target.value })} />
+              <Input
+                id="lastname"
+                value={form.lastname}
+                onChange={(e) => setForm({ ...form, lastname: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">{t('email')}</Label>
-              <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
             </div>
             {user.customFields.map((field) => (
               <div className="space-y-2" key={field.shortname}>
-                <Label htmlFor={`cf-${field.shortname}`}>{field.name} ({field.type})</Label>
+                <Label htmlFor={`cf-${field.shortname}`}>
+                  {field.name} ({field.type})
+                </Label>
                 <Input
                   id={`cf-${field.shortname}`}
                   value={form.customFields[field.shortname] ?? ''}
-                  onChange={(e) => setForm({ ...form, customFields: { ...form.customFields, [field.shortname]: e.target.value } })}
+                  onChange={(e) =>
+                    setForm({ ...form, customFields: { ...form.customFields, [field.shortname]: e.target.value } })
+                  }
                 />
               </div>
             ))}
-            {message && <p role="status" className="text-sm">{message}</p>}
+            {message && (
+              <p role="status" className="text-sm">
+                {message}
+              </p>
+            )}
             <Button type="submit">{t('saveProfile')}</Button>
           </form>
         </CardContent>

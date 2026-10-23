@@ -15,7 +15,7 @@ import { Skeleton } from '@lms/ui/components/ui/skeleton';
  */
 export function AppShellSkeleton() {
   return (
-    <div className="bg-sidebar flex min-h-svh w-full" aria-hidden="true">
+    <div className="flex min-h-svh w-full bg-sidebar" aria-hidden="true">
       <div className="hidden w-72 shrink-0 p-2 md:block">
         <div className="flex h-full flex-col gap-6 px-2 py-2">
           <Skeleton className="h-9 w-32" />
@@ -32,13 +32,13 @@ export function AppShellSkeleton() {
           </div>
         </div>
       </div>
-      <div className="@container/main bg-background relative flex min-w-0 flex-1 flex-col md:m-2 md:ml-0 md:rounded-xl md:shadow-sm">
+      <div className="@container/main relative flex min-w-0 flex-1 flex-col bg-background md:m-2 md:ml-0 md:rounded-xl md:shadow-sm">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4 lg:px-6">
           <Skeleton className="h-5 w-44" />
         </header>
         <div className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
           <Skeleton className="mx-4 h-8 w-72 lg:mx-6" />
-          <div className="grid grid-cols-1 gap-4 px-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 lg:px-6">
+          <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
             <Skeleton className="h-39.5" />
             <Skeleton className="h-39.5" />
             <Skeleton className="h-39.5" />

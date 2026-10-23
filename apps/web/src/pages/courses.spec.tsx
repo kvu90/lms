@@ -9,20 +9,45 @@ import { CoursesPage } from './courses';
 
 const TREE = [
   {
-    id: '01900000-0000-7000-8000-000000000001', name: 'Science', idnumber: null, description: '', parent: null, sortorder: 0,
-    path: '/1', depth: 1, visible: true,
+    id: '01900000-0000-7000-8000-000000000001',
+    name: 'Science',
+    idnumber: null,
+    description: '',
+    parent: null,
+    sortorder: 0,
+    path: '/1',
+    depth: 1,
+    visible: true,
     children: [
       {
-        id: '01900000-0000-7000-8000-000000000002', name: 'Physics', idnumber: null, description: '', parent: '01900000-0000-7000-8000-000000000001', sortorder: 0,
-        path: '/1/2', depth: 2, visible: true, children: [],
+        id: '01900000-0000-7000-8000-000000000002',
+        name: 'Physics',
+        idnumber: null,
+        description: '',
+        parent: '01900000-0000-7000-8000-000000000001',
+        sortorder: 0,
+        path: '/1/2',
+        depth: 2,
+        visible: true,
+        children: [],
       },
     ],
   },
 ];
 const COURSES = [
   {
-    id: '01900000-0000-7000-8000-000000000010', category: '01900000-0000-7000-8000-000000000002', fullname: 'Physics 101', shortname: 'PHY101', idnumber: '', summary: '',
-    format: 'topics', visible: true, startdate: null, enddate: null, groupmode: 0, enablecompletion: true,
+    id: '01900000-0000-7000-8000-000000000010',
+    category: '01900000-0000-7000-8000-000000000002',
+    fullname: 'Physics 101',
+    shortname: 'PHY101',
+    idnumber: '',
+    summary: '',
+    format: 'topics',
+    visible: true,
+    startdate: null,
+    enddate: null,
+    groupmode: 0,
+    enablecompletion: true,
   },
 ];
 const CONTENT = {
@@ -31,19 +56,41 @@ const CONTENT = {
   customFields: [],
   sections: [
     {
-      id: '01900000-0000-7000-8000-000000000100', course: '01900000-0000-7000-8000-000000000010', section: 0, name: 'General', summary: '', visible: true, availability: null,
+      id: '01900000-0000-7000-8000-000000000100',
+      course: '01900000-0000-7000-8000-000000000010',
+      section: 0,
+      name: 'General',
+      summary: '',
+      visible: true,
+      availability: null,
       availabilityResult: { available: true, visible: true, failedDescriptions: [] },
       modules: [
         {
-          id: '01900000-0000-7000-8000-000000001000', course: '01900000-0000-7000-8000-000000000010', section: '01900000-0000-7000-8000-000000000100', component: 'mod_page', instanceid: '01900000-0000-7000-8000-000000000001', name: 'Welcome page',
-          visible: true, groupmode: 0, availability: null, completion: 0, completionview: false,
+          id: '01900000-0000-7000-8000-000000001000',
+          course: '01900000-0000-7000-8000-000000000010',
+          section: '01900000-0000-7000-8000-000000000100',
+          component: 'mod_page',
+          instanceid: '01900000-0000-7000-8000-000000000001',
+          name: 'Welcome page',
+          visible: true,
+          groupmode: 0,
+          availability: null,
+          completion: 0,
+          completionview: false,
           availabilityResult: { available: true, visible: true, failedDescriptions: [] },
         },
         {
-          id: '01900000-0000-7000-8000-000000001001', course: '01900000-0000-7000-8000-000000000010', section: '01900000-0000-7000-8000-000000000100', component: 'mod_quiz', instanceid: '01900000-0000-7000-8000-000000000002', name: 'Locked quiz',
-          visible: true, groupmode: 0,
+          id: '01900000-0000-7000-8000-000000001001',
+          course: '01900000-0000-7000-8000-000000000010',
+          section: '01900000-0000-7000-8000-000000000100',
+          component: 'mod_quiz',
+          instanceid: '01900000-0000-7000-8000-000000000002',
+          name: 'Locked quiz',
+          visible: true,
+          groupmode: 0,
           availability: { op: '&', show: true, showc: [true], c: [{ type: 'date', d: '>=', t: 4102444800 }] },
-          completion: 2, completionview: true,
+          completion: 2,
+          completionview: true,
           availabilityResult: { available: false, visible: true, failedDescriptions: ['Available >= 2100-01-01'] },
         },
       ],
@@ -52,11 +99,15 @@ const CONTENT = {
 };
 
 function stubFetch(handler: (url: string) => unknown) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    const body = handler(url);
-    if (body === undefined) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const body = handler(url);
+      if (body === undefined)
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
 }
 
 /**
@@ -77,7 +128,11 @@ function renderWithProviders(router: ReturnType<typeof createMemoryRouter>) {
 }
 
 describe('Courses pages', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   it('renders the category tree with its courses nested under the right category', async () => {
     stubFetch((url) => {
@@ -85,7 +140,9 @@ describe('Courses pages', () => {
       if (url === '/api/v1/courses') return COURSES;
       return undefined;
     });
-    const router = createMemoryRouter([{ path: '/courses', element: <CoursesPage /> }], { initialEntries: ['/courses'] });
+    const router = createMemoryRouter([{ path: '/courses', element: <CoursesPage /> }], {
+      initialEntries: ['/courses'],
+    });
     renderWithProviders(router);
     await waitFor(() => expect(screen.getAllByText('Science').length).toBeGreaterThan(0));
     expect(screen.getAllByText('Physics').length).toBeGreaterThan(0);
@@ -98,7 +155,9 @@ describe('Courses pages', () => {
       if (url === '/api/v1/courses/01900000-0000-7000-8000-000000000010/content') return CONTENT;
       return undefined;
     });
-    const router = createMemoryRouter([{ path: '/courses/:id', element: <CoursePage /> }], { initialEntries: ['/courses/01900000-0000-7000-8000-000000000010'] });
+    const router = createMemoryRouter([{ path: '/courses/:id', element: <CoursePage /> }], {
+      initialEntries: ['/courses/01900000-0000-7000-8000-000000000010'],
+    });
     renderWithProviders(router);
     await waitFor(() => expect(screen.getByText('Welcome page')).toBeInTheDocument());
     const locked = screen.getByTestId('cm-01900000-0000-7000-8000-000000001001');
@@ -112,7 +171,11 @@ describe('Courses pages', () => {
 });
 
 describe('Courses page — category administration (admin)', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   /**
    * Tạo danh mục từ trang khoá học khi là admin: khu quản trị chỉ hiện vì
@@ -124,37 +187,69 @@ describe('Courses page — category administration (admin)', () => {
   it('creates a category via POST /courses/categories with the contracts body when admin', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const profile = {
-      id: '01900000-0000-7000-8000-0000000000a1', username: 'admin', firstname: 'Quản', lastname: 'Trị',
-      email: 'admin@example.com', suspended: false, deleted: false, isGuest: false, forcePasswordChange: false,
-      lastlogin: null, timecreated: '2026-01-01T00:00:00.000Z', customFields: [],
+      id: '01900000-0000-7000-8000-0000000000a1',
+      username: 'admin',
+      firstname: 'Quản',
+      lastname: 'Trị',
+      email: 'admin@example.com',
+      suspended: false,
+      deleted: false,
+      isGuest: false,
+      forcePasswordChange: false,
+      lastlogin: null,
+      timecreated: '2026-01-01T00:00:00.000Z',
+      customFields: [],
     };
-    interface RecordedCall { url: string; method: string; body: unknown }
+    interface RecordedCall {
+      url: string;
+      method: string;
+      body: unknown;
+    }
     const calls: RecordedCall[] = [];
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      const method = init?.method ?? 'GET';
-      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-      const respond = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      if (url === '/api/v1/users/me') return respond(profile);
-      if (url === '/api/v1/users/me/capabilities') return respond({ userId: profile.id, isSiteAdmin: true, assignments: [], contexts: [] });
-      if (url === '/api/v1/users?pageSize=1') return respond({ users: [profile], total: 1, page: 1, pageSize: 1 });
-      if (url === '/api/v1/access/roles') return respond([]);
-      if (url === '/api/v1/questions/categories') return respond([]);
-      if (url === '/api/v1/courses/categories/tree') return respond(TREE);
-      if (url === '/api/v1/courses' && method === 'GET') return respond(COURSES);
-      if (url === '/api/v1/courses/categories' && method === 'POST') {
-        return respond({ id: '01900000-0000-7000-8000-0000000000c9', name: 'Biology', idnumber: null, description: '', parent: null, sortorder: 0, path: '/3', depth: 1, visible: true });
-      }
-      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond(profile);
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: profile.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/users?pageSize=1') return respond({ users: [profile], total: 1, page: 1, pageSize: 1 });
+        if (url === '/api/v1/access/roles') return respond([]);
+        if (url === '/api/v1/questions/categories') return respond([]);
+        if (url === '/api/v1/courses/categories/tree') return respond(TREE);
+        if (url === '/api/v1/courses' && method === 'GET') return respond(COURSES);
+        if (url === '/api/v1/courses/categories' && method === 'POST') {
+          return respond({
+            id: '01900000-0000-7000-8000-0000000000c9',
+            name: 'Biology',
+            idnumber: null,
+            description: '',
+            parent: null,
+            sortorder: 0,
+            path: '/3',
+            depth: 1,
+            visible: true,
+          });
+        }
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
 
-    const router = createMemoryRouter([{ path: '/courses', element: <CoursesPage /> }], { initialEntries: ['/courses'] });
+    const router = createMemoryRouter([{ path: '/courses', element: <CoursesPage /> }], {
+      initialEntries: ['/courses'],
+    });
     renderWithProviders(router);
 
     // Khu quản trị danh mục chỉ xuất hiện sau khi PermissionsProvider dò xong quyền admin.
     await userEvent.type(await screen.findByLabelText('Tên danh mục'), 'Biology');
     await userEvent.click(screen.getByRole('button', { name: 'Tạo danh mục' }));
 
-    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/courses/categories' && c.method === 'POST')).toBe(true));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/courses/categories' && c.method === 'POST')).toBe(true),
+    );
     const createCall = calls.find((c) => c.url === '/api/v1/courses/categories' && c.method === 'POST');
     expect(createCall?.body).toEqual({ name: 'Biology' });
   });

@@ -13,37 +13,60 @@ import { NotificationsPage } from './notifications';
  * "my badges" list renders the caller's issued assertions.
  */
 const PROFILE = {
-  id: '01900000-0000-7000-8000-000000000007', username: 'learner7', firstname: 'Learner', lastname: 'Seven', suspended: false,
-  deleted: false, isGuest: false, forcePasswordChange: false, lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z', customFields: [],
+  id: '01900000-0000-7000-8000-000000000007',
+  username: 'learner7',
+  firstname: 'Learner',
+  lastname: 'Seven',
+  suspended: false,
+  deleted: false,
+  isGuest: false,
+  forcePasswordChange: false,
+  lastlogin: null,
+  timecreated: '2026-01-01T00:00:00.000Z',
+  customFields: [],
 };
 
 function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    const body = handler(url, init);
-    if (body === undefined) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const body = handler(url, init);
+      if (body === undefined)
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
 }
 
 describe('Notifications page', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('toggling a preference sends a PUT with the flipped logged-in preference', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
-      if (url === '/api/v1/notifications') return [{
-        id: '01900000-0000-7000-8000-000000000001', subject: 'Badge awarded', fullmessage: 'You earned Finisher', eventtype: 'badge_awarded',
-        timeread: null, timecreated: '2026-10-22T00:00:00.000Z',
-      }];
+      if (url === '/api/v1/notifications')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000001',
+            subject: 'Badge awarded',
+            fullmessage: 'You earned Finisher',
+            eventtype: 'badge_awarded',
+            timeread: null,
+            timecreated: '2026-10-22T00:00:00.000Z',
+          },
+        ];
       if (url === '/api/v1/notifications/preferences' && init?.method === 'PUT') {
         puts.push(JSON.parse(String(init.body)));
         return { saved: true };
       }
-      if (url === '/api/v1/notifications/preferences') return [
-        { provider: 'badge_awarded', channel: 'popup', loggedin: true, loggedoff: true },
-        { provider: 'badge_awarded', channel: 'email', loggedin: true, loggedoff: false },
-      ];
+      if (url === '/api/v1/notifications/preferences')
+        return [
+          { provider: 'badge_awarded', channel: 'popup', loggedin: true, loggedoff: true },
+          { provider: 'badge_awarded', channel: 'email', loggedin: true, loggedoff: false },
+        ];
       return undefined;
     });
     render(<NotificationsPage />);
@@ -52,14 +75,18 @@ describe('Notifications page', () => {
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
     await waitFor(() => expect(puts).toHaveLength(1));
-    const saved = (puts[0] as { preferences: { provider: string; channel: string; loggedin: boolean }[] }).preferences
-      .find((p) => p.provider === 'badge_awarded' && p.channel === 'popup');
+    const saved = (
+      puts[0] as { preferences: { provider: string; channel: string; loggedin: boolean }[] }
+    ).preferences.find((p) => p.provider === 'badge_awarded' && p.channel === 'popup');
     expect(saved?.loggedin).toBe(false);
   });
 });
 
 describe('Badges page', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it('renders my issued badges with their assertion hashes, including revoked ones', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
@@ -68,19 +95,73 @@ describe('Badges page', () => {
       // Điểm dò quyền của PermissionsProvider: học viên thường bị từ chối
       // (404 → probe null) nên panel quản trị phải ẩn, phần của tôi vẫn hiện.
       if (url === '/api/v1/courses') return [];
-      if (url === '/api/v1/badges') return [
-        { id: '01900000-0000-7000-8000-000000000002', name: 'Finisher', description: '', type: 1, courseid: null, status: 1 },
-        { id: '01900000-0000-7000-8000-000000000003', name: 'Old honour', description: '', type: 1, courseid: null, status: 3 },
-      ];
+      if (url === '/api/v1/badges')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000002',
+            name: 'Finisher',
+            description: '',
+            type: 1,
+            courseid: null,
+            status: 1,
+          },
+          {
+            id: '01900000-0000-7000-8000-000000000003',
+            name: 'Old honour',
+            description: '',
+            type: 1,
+            courseid: null,
+            status: 3,
+          },
+        ];
       // Shape thật của GET /badges/mine: IssuedRow kèm badge lồng bên trong.
-      if (url === '/api/v1/badges/mine') return [
-        { id: '01900000-0000-7000-8000-000000000011', badgeid: '01900000-0000-7000-8000-000000000002', userid: PROFILE.id, uniquehash: 'abcdef0123456789', dateissued: '2026-10-20T00:00:00.000Z', dateexpire: null, revoked: false, badge: { id: '01900000-0000-7000-8000-000000000002', name: 'Finisher', description: '', type: 1, courseid: null, status: 1 } },
-        { id: '01900000-0000-7000-8000-000000000012', badgeid: '01900000-0000-7000-8000-000000000003', userid: PROFILE.id, uniquehash: '0011223344556677', dateissued: '2026-09-01T00:00:00.000Z', dateexpire: null, revoked: true, badge: { id: '01900000-0000-7000-8000-000000000003', name: 'Old honour', description: '', type: 1, courseid: null, status: 3 } },
-      ];
+      if (url === '/api/v1/badges/mine')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000011',
+            badgeid: '01900000-0000-7000-8000-000000000002',
+            userid: PROFILE.id,
+            uniquehash: 'abcdef0123456789',
+            dateissued: '2026-10-20T00:00:00.000Z',
+            dateexpire: null,
+            revoked: false,
+            badge: {
+              id: '01900000-0000-7000-8000-000000000002',
+              name: 'Finisher',
+              description: '',
+              type: 1,
+              courseid: null,
+              status: 1,
+            },
+          },
+          {
+            id: '01900000-0000-7000-8000-000000000012',
+            badgeid: '01900000-0000-7000-8000-000000000003',
+            userid: PROFILE.id,
+            uniquehash: '0011223344556677',
+            dateissued: '2026-09-01T00:00:00.000Z',
+            dateexpire: null,
+            revoked: true,
+            badge: {
+              id: '01900000-0000-7000-8000-000000000003',
+              name: 'Old honour',
+              description: '',
+              type: 1,
+              courseid: null,
+              status: 3,
+            },
+          },
+        ];
       return undefined;
     });
     const router = createMemoryRouter([{ path: '/badges', element: <BadgesPage /> }], { initialEntries: ['/badges'] });
-    render(<TestProviders><PermissionsProvider><RouterProvider router={router} /></PermissionsProvider></TestProviders>);
+    render(
+      <TestProviders>
+        <PermissionsProvider>
+          <RouterProvider router={router} />
+        </PermissionsProvider>
+      </TestProviders>,
+    );
     // Wait for the issued list itself (it loads after the auth profile resolves).
     expect(await screen.findByText(/Old honour \(đã thu hồi\)/)).toBeInTheDocument();
     expect(screen.getByText(/bản ghi abcdef012345/)).toBeInTheDocument();

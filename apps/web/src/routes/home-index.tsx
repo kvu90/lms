@@ -8,9 +8,7 @@ import { DashboardSkeleton } from '../components/dashboard-skeleton';
  * chưa đăng nhập chỉ tải trang giới thiệu nhẹ; người đã đăng nhập thấy
  * khung giữ chỗ đúng hình học của trang tổng quan trong lúc chunk về.
  */
-const DashboardPage = lazy(() =>
-  import('../pages/dashboard').then((m) => ({ default: m.DashboardPage })),
-);
+const DashboardPage = lazy(() => import('../pages/dashboard').then((m) => ({ default: m.DashboardPage })));
 
 /**
  * Route gốc `/`: đã đăng nhập thì là trang tổng quan theo vai trò, chưa

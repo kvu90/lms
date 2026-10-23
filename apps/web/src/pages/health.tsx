@@ -4,10 +4,7 @@ import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; health: HealthStatus };
+type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; health: HealthStatus };
 
 export function HealthPage() {
   const { t } = useTranslation('app');

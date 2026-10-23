@@ -19,14 +19,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    if (!tokenStore.access) { setUser(null); setLoading(false); return; }
+    if (!tokenStore.access) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
     const res = await apiFetch('/api/v1/users/me');
     if (res.ok) setUser(userProfileSchema.parse(await res.json()));
-    else { setUser(null); tokenStore.clear(); }
+    else {
+      setUser(null);
+      tokenStore.clear();
+    }
     setLoading(false);
   }, []);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const login = useCallback(async (username: string, password: string) => {
     await loginWithPassword(username, password);

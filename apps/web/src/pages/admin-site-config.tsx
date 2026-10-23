@@ -27,7 +27,7 @@ function settingKey(setting: SiteSetting): string {
 
 /** Đưa một giá trị JSON về dạng hiển thị ngắn cho huy hiệu/audit. */
 function formatValue(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+  return typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
 }
 
 /**
@@ -54,11 +54,18 @@ export function AdminSiteConfigPage() {
     try {
       const list = await apiJson<SiteSetting[]>('/api/v1/site-config');
       setSettings(list);
-      setDrafts(Object.fromEntries(list.map((s) => [settingKey(s), typeof s.value === 'boolean' ? s.value : formatValue(s.value)])));
+      setDrafts(
+        Object.fromEntries(
+          list.map((s) => [settingKey(s), typeof s.value === 'boolean' ? s.value : formatValue(s.value)]),
+        ),
+      );
       setForbidden(false);
       setError(null);
     } catch (err) {
-      if (err instanceof ApiError && err.problem.status === 403) { setForbidden(true); return; }
+      if (err instanceof ApiError && err.problem.status === 403) {
+        setForbidden(true);
+        return;
+      }
       setError(t('siteConfigLoadFailed'));
       return;
     }
@@ -66,25 +73,27 @@ export function AdminSiteConfigPage() {
     setAudit(entries);
   }, [t]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   /** Lưu một setting qua PUT với giá trị đã ép đúng kiểu đã đăng ký (number gửi dạng number, boolean dạng boolean). */
   async function save(setting: SiteSetting) {
     const key = settingKey(setting);
     const draft = drafts[key];
-    const value: unknown = setting.type === 'boolean'
-      ? draft === true
-      : setting.type === 'number'
-        ? Number(draft)
-        : String(draft ?? '');
+    const value: unknown =
+      setting.type === 'boolean' ? draft === true : setting.type === 'number' ? Number(draft) : String(draft ?? '');
     setMessage(null);
     try {
       await apiJson(`/api/v1/site-config/${setting.component}/${setting.name}`, {
-        method: 'PUT', body: JSON.stringify({ value }),
+        method: 'PUT',
+        body: JSON.stringify({ value }),
       });
       setMessage(t('siteConfigSaved'));
       await reload();
-    } catch { setMessage(t('siteConfigSaveFailed')); }
+    } catch {
+      setMessage(t('siteConfigSaveFailed'));
+    }
   }
 
   /** Xoá ghi đè của một setting qua DELETE để nó trở về giá trị mặc định trong code. */
@@ -94,7 +103,9 @@ export function AdminSiteConfigPage() {
       await apiJson(`/api/v1/site-config/${setting.component}/${setting.name}`, { method: 'DELETE' });
       setMessage(t('siteConfigResetDone'));
       await reload();
-    } catch { setMessage(t('siteConfigResetFailed')); }
+    } catch {
+      setMessage(t('siteConfigResetFailed'));
+    }
   }
 
   const components = [...new Set(settings.map((s) => s.component))];
@@ -110,59 +121,75 @@ export function AdminSiteConfigPage() {
           {forbidden ? <p role="alert">{t('siteConfigForbidden')}</p> : null}
           {error ? <p role="alert">{error}</p> : null}
           {message ? <p role="status">{message}</p> : null}
-          {!forbidden && settings.length === 0 && !error ? <p className="text-sm">{t('siteConfigNoSettings')}</p> : null}
+          {!forbidden && settings.length === 0 && !error ? (
+            <p className="text-sm">{t('siteConfigNoSettings')}</p>
+          ) : null}
           {components.map((component) => (
             <div key={component} className="space-y-3">
               <h3 className="font-medium">{component}</h3>
               <ul className="space-y-3" aria-label={component}>
-                {settings.filter((s) => s.component === component).map((setting) => {
-                  const key = settingKey(setting);
-                  const draft = drafts[key] ?? '';
-                  const enumOptions = setting.type === 'enum' ? KNOWN_ENUM_OPTIONS[key] : undefined;
-                  const inputId = `site-config-${setting.component}-${setting.name}`;
-                  return (
-                    <li key={key} className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="min-w-40 font-medium">{setting.name}</span>
-                      <Badge variant={setting.source === 'database' ? 'default' : 'secondary'}>
-                        {setting.source === 'database' ? t('siteConfigSourceDatabase') : t('siteConfigSourceDefault')}
-                      </Badge>
-                      <span className="text-muted-foreground">{t('siteConfigDefaultValue', { value: formatValue(setting.defaultValue) })}</span>
-                      {setting.type === 'boolean' ? (
-                        <span className="flex items-center gap-2">
-                          <Checkbox
+                {settings
+                  .filter((s) => s.component === component)
+                  .map((setting) => {
+                    const key = settingKey(setting);
+                    const draft = drafts[key] ?? '';
+                    const enumOptions = setting.type === 'enum' ? KNOWN_ENUM_OPTIONS[key] : undefined;
+                    const inputId = `site-config-${setting.component}-${setting.name}`;
+                    return (
+                      <li key={key} className="flex flex-wrap items-center gap-3 text-sm">
+                        <span className="min-w-40 font-medium">{setting.name}</span>
+                        <Badge variant={setting.source === 'database' ? 'default' : 'secondary'}>
+                          {setting.source === 'database' ? t('siteConfigSourceDatabase') : t('siteConfigSourceDefault')}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {t('siteConfigDefaultValue', { value: formatValue(setting.defaultValue) })}
+                        </span>
+                        {setting.type === 'boolean' ? (
+                          <span className="flex items-center gap-2">
+                            <Checkbox
+                              id={inputId}
+                              aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
+                              checked={draft === true}
+                              onCheckedChange={(checked) => setDrafts((prev) => ({ ...prev, [key]: checked === true }))}
+                            />
+                            <Label htmlFor={inputId}>
+                              {t('siteConfigValue', { component: setting.component, name: setting.name })}
+                            </Label>
+                          </span>
+                        ) : enumOptions ? (
+                          <select
                             id={inputId}
                             aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
-                            checked={draft === true}
-                            onCheckedChange={(checked) => setDrafts((prev) => ({ ...prev, [key]: checked === true }))}
+                            className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                            value={String(draft)}
+                            onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                          >
+                            {enumOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            id={inputId}
+                            aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
+                            type={setting.type === 'number' ? 'number' : 'text'}
+                            value={String(draft)}
+                            onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
                           />
-                          <Label htmlFor={inputId}>{t('siteConfigValue', { component: setting.component, name: setting.name })}</Label>
-                        </span>
-                      ) : enumOptions ? (
-                        <select
-                          id={inputId}
-                          aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
-                          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                          value={String(draft)}
-                          onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
-                        >
-                          {enumOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                        </select>
-                      ) : (
-                        <Input
-                          id={inputId}
-                          aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
-                          type={setting.type === 'number' ? 'number' : 'text'}
-                          value={String(draft)}
-                          onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
-                        />
-                      )}
-                      <Button type="button" onClick={() => void save(setting)}>{t('siteConfigSave')}</Button>
-                      {setting.source === 'database' ? (
-                        <Button type="button" variant="outline" onClick={() => void reset(setting)}>{t('siteConfigReset')}</Button>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                        )}
+                        <Button type="button" onClick={() => void save(setting)}>
+                          {t('siteConfigSave')}
+                        </Button>
+                        {setting.source === 'database' ? (
+                          <Button type="button" variant="outline" onClick={() => void reset(setting)}>
+                            {t('siteConfigReset')}
+                          </Button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           ))}
@@ -170,7 +197,9 @@ export function AdminSiteConfigPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('siteConfigAuditTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('siteConfigAuditTitle')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <ul className="space-y-1 text-sm" aria-label={t('siteConfigAuditTitle')}>
             {audit.map((entry) => (

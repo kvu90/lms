@@ -9,10 +9,25 @@ import '../i18n';
 import { apiJson } from '@/lib/api';
 
 /** Huy hiệu (BadgeRow ở tầng API) như trang này cần để hiển thị. */
-interface BadgeView { id: string; name: string; description: string; type: number; courseid: string | null; status: number }
+interface BadgeView {
+  id: string;
+  name: string;
+  description: string;
+  type: number;
+  courseid: string | null;
+  status: number;
+}
 
 /** Bản ghi đã cấp (IssuedRow ở tầng API): bằng chứng bất biến của một lần cấp. */
-interface IssuedView { id: string; badgeid: string; userid: string; uniquehash: string; dateissued: string; dateexpire: string | null; revoked: boolean }
+interface IssuedView {
+  id: string;
+  badgeid: string;
+  userid: string;
+  uniquehash: string;
+  dateissued: string;
+  dateexpire: string | null;
+  revoked: boolean;
+}
 
 /**
  * Một dòng của GET /badges/mine: bản ghi đã cấp kèm chính huy hiệu lồng
@@ -20,7 +35,9 @@ interface IssuedView { id: string; badgeid: string; userid: string; uniquehash: 
  * tên huy hiệu lấy thẳng từ đây, danh sách /badges chỉ còn là nguồn dự
  * phòng khi bản ghi thiếu badge lồng.
  */
-interface MyBadgeView extends IssuedView { badge?: BadgeView }
+interface MyBadgeView extends IssuedView {
+  badge?: BadgeView;
+}
 
 /**
  * Trang huy hiệu: "huy hiệu của tôi" (từ GET /badges/mine — server tự suy
@@ -34,7 +51,11 @@ interface MyBadgeView extends IssuedView { badge?: BadgeView }
 export function BadgesPage() {
   const { t } = useTranslation('app');
   const STATUS_LABEL: Record<number, string> = {
-    0: t('badgeStatusInactive'), 1: t('badgeStatusActive'), 2: t('badgeStatusRetired'), 3: t('badgeStatusArchived'), 4: t('badgeStatusDisabled'),
+    0: t('badgeStatusInactive'),
+    1: t('badgeStatusActive'),
+    2: t('badgeStatusRetired'),
+    3: t('badgeStatusArchived'),
+    4: t('badgeStatusDisabled'),
   };
   const { canAdminister } = usePermissions();
   const [mine, setMine] = useState<MyBadgeView[]>([]);
@@ -59,10 +80,13 @@ export function BadgesPage() {
     setMine(issued);
   }, []);
 
-  useEffect(() => { void reload().catch(() => setError(t('badgesLoadFailed'))); }, [reload, t]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('badgesLoadFailed')));
+  }, [reload, t]);
 
   /** Tên huy hiệu của một bản ghi đã cấp: ưu tiên badge lồng trong /mine. */
-  const badgeName = (entry: MyBadgeView) => entry.badge?.name ?? all.find((b) => b.id === entry.badgeid)?.name ?? t('badgeFallback', { id: entry.badgeid });
+  const badgeName = (entry: MyBadgeView) =>
+    entry.badge?.name ?? all.find((b) => b.id === entry.badgeid)?.name ?? t('badgeFallback', { id: entry.badgeid });
 
   /** Tạo một site badge mới (panel quản trị). */
   async function createBadge(event: FormEvent) {
@@ -72,7 +96,9 @@ export function BadgesPage() {
       setName('');
       setMessage(t('badgeCreated'));
       await reload();
-    } catch { setMessage(t('badgeCreateFailed')); }
+    } catch {
+      setMessage(t('badgeCreateFailed'));
+    }
   }
 
   /** Đặt tiêu chí hoàn thành khoá học cho một badge (panel quản trị). */
@@ -81,11 +107,16 @@ export function BadgesPage() {
     try {
       await apiJson(`/api/v1/badges/${criteriaBadgeId}/criteria`, {
         method: 'PUT',
-        body: JSON.stringify({ method: 1, criteria: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }] }),
+        body: JSON.stringify({
+          method: 1,
+          criteria: [{ criteriatype: 'coursecompletion', params: { courseId: criteriaCourseId } }],
+        }),
       });
       setMessage(t('criteriaSaved'));
       await reload();
-    } catch { setMessage(t('criteriaRefused')); }
+    } catch {
+      setMessage(t('criteriaRefused'));
+    }
   }
 
   /** Kích hoạt badge: đổi trạng thái qua POST /badges/:id/status với { status: 1 }. */
@@ -94,7 +125,9 @@ export function BadgesPage() {
       await apiJson(`/api/v1/badges/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 1 }) });
       setMessage(t('badgeActivated'));
       await reload();
-    } catch { setMessage(t('badgeActivationRefused')); }
+    } catch {
+      setMessage(t('badgeActivationRefused'));
+    }
   }
 
   /** Xem (hoặc ẩn) danh sách đã cấp của một badge qua GET /badges/:id/issued. */
@@ -120,14 +153,22 @@ export function BadgesPage() {
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       {error ? <p role="alert">{error}</p> : null}
       <Card>
-        <CardHeader><CardTitle>{t('myBadges')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('myBadges')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <ul className="space-y-2" aria-label={t('myBadgesLabel')}>
             {mine.map((i) => (
               <li key={i.id} className="rounded border p-2">
-                <p className="font-medium">{badgeName(i)}{i.revoked ? ` ${t('revokedSuffix')}` : ''}</p>
+                <p className="font-medium">
+                  {badgeName(i)}
+                  {i.revoked ? ` ${t('revokedSuffix')}` : ''}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {t('issuedLine', { date: new Date(i.dateissued).toLocaleDateString(), hash: i.uniquehash.slice(0, 12) })}
+                  {t('issuedLine', {
+                    date: new Date(i.dateissued).toLocaleDateString(),
+                    hash: i.uniquehash.slice(0, 12),
+                  })}
                   {i.dateexpire ? ` ${t('expiresSuffix', { date: new Date(i.dateexpire).toLocaleDateString() })}` : ''}
                 </p>
               </li>
@@ -138,7 +179,9 @@ export function BadgesPage() {
       </Card>
       {canAdminister ? (
         <Card>
-          <CardHeader><CardTitle>{t('badgeAdministration')}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{t('badgeAdministration')}</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             {message ? <p>{message}</p> : null}
             <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
@@ -146,7 +189,11 @@ export function BadgesPage() {
                 <li key={b.id} className="flex items-center gap-3 text-sm">
                   <span className="font-medium">{b.name}</span>
                   <span>{STATUS_LABEL[b.status] ?? b.status}</span>
-                  {b.status === 0 ? <Button type="button" variant="outline" onClick={() => void activate(b.id)}>{t('activate')}</Button> : null}
+                  {b.status === 0 ? (
+                    <Button type="button" variant="outline" onClick={() => void activate(b.id)}>
+                      {t('activate')}
+                    </Button>
+                  ) : null}
                   <Button type="button" variant="outline" onClick={() => void toggleIssued(b)}>
                     {issuedBadgeId === b.id ? t('hideIssued') : t('viewIssued')}
                   </Button>
@@ -160,8 +207,16 @@ export function BadgesPage() {
                 <ul className="space-y-1" aria-label={t('issuedListTitle', { name: issuedBadgeName })}>
                   {issuedList.map((i) => (
                     <li key={i.id} className="rounded border p-2 text-sm">
-                      <p>{t('issuedToLine', { userId: i.userid, date: new Date(i.dateissued).toLocaleDateString() })}{i.revoked ? ` ${t('revokedSuffix')}` : ''}</p>
-                      <p className="text-xs text-muted-foreground">{t('issuedLine', { date: new Date(i.dateissued).toLocaleDateString(), hash: i.uniquehash.slice(0, 12) })}</p>
+                      <p>
+                        {t('issuedToLine', { userId: i.userid, date: new Date(i.dateissued).toLocaleDateString() })}
+                        {i.revoked ? ` ${t('revokedSuffix')}` : ''}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('issuedLine', {
+                          date: new Date(i.dateissued).toLocaleDateString(),
+                          hash: i.uniquehash.slice(0, 12),
+                        })}
+                      </p>
                     </li>
                   ))}
                   {issuedList.length === 0 ? <li>{t('noIssuedYet')}</li> : null}
@@ -177,7 +232,11 @@ export function BadgesPage() {
               <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
               <Input id="criteria-badge" value={criteriaBadgeId} onChange={(e) => setCriteriaBadgeId(e.target.value)} />
               <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
-              <Input id="criteria-course" value={criteriaCourseId} onChange={(e) => setCriteriaCourseId(e.target.value)} />
+              <Input
+                id="criteria-course"
+                value={criteriaCourseId}
+                onChange={(e) => setCriteriaCourseId(e.target.value)}
+              />
               <Button type="submit">{t('setCriteriaAll')}</Button>
             </form>
           </CardContent>

@@ -1,13 +1,13 @@
 import { useState, type CSSProperties } from 'react';
 import { Link, Outlet } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Button } from "@lms/ui/components/ui/button";
+import { Button } from '@lms/ui/components/ui/button';
 import { useAuth } from '../lib/auth';
 import { PermissionsProvider } from '../lib/permissions';
 import { AppSidebar } from '../components/app-sidebar';
 import { AppShellSkeleton } from '../components/app-shell-skeleton';
 import { SiteHeader } from '../components/site-header';
-import { SidebarInset, SidebarProvider } from "@lms/ui/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from '@lms/ui/components/ui/sidebar';
 
 /**
  * Đọc trạng thái thu/mở sidebar người dùng đã chọn từ cookie
@@ -63,10 +63,17 @@ function PublicShell() {
   return (
     <div>
       <header className="flex items-center gap-4 border-b px-8 py-3">
-        <Link to="/" className="font-semibold">LMS</Link>
+        <Link to="/" className="font-semibold">
+          LMS
+        </Link>
         <label className="ml-auto flex items-center gap-2 text-sm">
           {t('language')}
-          <select aria-label={t('language')} value={i18n.language} onChange={(e) => void i18n.changeLanguage(e.target.value)} className="border px-1 py-0.5">
+          <select
+            aria-label={t('language')}
+            value={i18n.language}
+            onChange={(e) => void i18n.changeLanguage(e.target.value)}
+            className="border px-1 py-0.5"
+          >
             <option value="vi">Tiếng Việt</option>
             <option value="en">English</option>
           </select>
@@ -75,7 +82,9 @@ function PublicShell() {
           {user ? (
             <>
               <span>{user.username}</span>
-              <Button type="button" variant="outline" onClick={() => void logout()}>{t('logout')}</Button>
+              <Button type="button" variant="outline" onClick={() => void logout()}>
+                {t('logout')}
+              </Button>
             </>
           ) : (
             <Link to="/login">{t('signIn')}</Link>

@@ -1,13 +1,5 @@
 import type { ReactNode } from 'react';
-import {
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-  isRouteErrorResponse,
-  useRouteError,
-} from 'react-router';
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useRouteError } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
 import { queryClient } from './lib/query-client';
@@ -74,7 +66,7 @@ export function ErrorBoundary() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-3 p-6 text-center">
       <h1 className="text-2xl font-semibold">LMS</h1>
-      <p className="text-muted-foreground text-sm">{message}</p>
+      <p className="text-sm text-muted-foreground">{message}</p>
       <a href="/" className="text-sm underline underline-offset-4">
         Về trang chủ
       </a>

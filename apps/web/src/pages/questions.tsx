@@ -21,7 +21,10 @@ export function QuestionsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [questions, setQuestions] = useState<QuestionView[]>([]);
-  const [versionsOf, setVersionsOf] = useState<{ questionId: string; versions: { version: number; questiontext: string }[] } | null>(null);
+  const [versionsOf, setVersionsOf] = useState<{
+    questionId: string;
+    versions: { version: number; questiontext: string }[];
+  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [contextId, setContextId] = useState('1');
   const [catName, setCatName] = useState('');
@@ -43,17 +46,22 @@ export function QuestionsPage() {
     }
   }, [loadQuestions, qCategory]);
 
-  useEffect(() => { void reload().catch(() => setMessage(t('questionBankLoadFailed'))); }, [reload]);
+  useEffect(() => {
+    void reload().catch(() => setMessage(t('questionBankLoadFailed')));
+  }, [reload]);
 
   async function createCategory(event: FormEvent) {
     event.preventDefault();
     try {
       await apiJson('/api/v1/questions/categories', {
-        method: 'POST', body: JSON.stringify({ name: catName, contextid: contextId }),
+        method: 'POST',
+        body: JSON.stringify({ name: catName, contextid: contextId }),
       });
       setCatName('');
       await reload();
-    } catch { setMessage(t('categoryCreateFailedShort')); }
+    } catch {
+      setMessage(t('categoryCreateFailedShort'));
+    }
   }
 
   async function createQuestion(event: FormEvent) {
@@ -62,24 +70,33 @@ export function QuestionsPage() {
       await apiJson('/api/v1/questions', {
         method: 'POST',
         body: JSON.stringify({
-          categoryId: qCategory, qtype: 'truefalse', name: qName, questiontext: qText,
+          categoryId: qCategory,
+          qtype: 'truefalse',
+          name: qName,
+          questiontext: qText,
           answer: { correct: qCorrect === 'true' },
         }),
       });
-      setQName(''); setQText('');
+      setQName('');
+      setQText('');
       await loadQuestions(qCategory);
-    } catch { setMessage(t('questionCreateFailed')); }
+    } catch {
+      setMessage(t('questionCreateFailed'));
+    }
   }
 
   async function editQuestion(view: QuestionView) {
     const newText = `${view.latestVersion.questiontext} (edited)`;
     try {
       const updated = await apiJson<QuestionView>(`/api/v1/questions/${view.question.id}`, {
-        method: 'PATCH', body: JSON.stringify({ questiontext: newText }),
+        method: 'PATCH',
+        body: JSON.stringify({ questiontext: newText }),
       });
       setMessage(t('questionSavedAsVersion', { version: updated.entry.latestversion }));
       await loadQuestions(view.question.category);
-    } catch { setMessage(t('questionEditFailed')); }
+    } catch {
+      setMessage(t('questionEditFailed'));
+    }
   }
 
   /**
@@ -98,11 +115,15 @@ export function QuestionsPage() {
         }),
       });
       await navigate(`/question-usages/${created.usage.id}`);
-    } catch { setMessage(t('usageCreateFailed')); }
+    } catch {
+      setMessage(t('usageCreateFailed'));
+    }
   }
 
   async function showVersions(view: QuestionView) {
-    const versions = await apiJson<{ version: number; questiontext: string }[]>(`/api/v1/questions/${view.question.id}/versions`);
+    const versions = await apiJson<{ version: number; questiontext: string }[]>(
+      `/api/v1/questions/${view.question.id}/versions`,
+    );
     setVersionsOf({ questionId: view.question.id, versions });
   }
 
@@ -117,7 +138,13 @@ export function QuestionsPage() {
           <ul className="space-y-2">
             {categories.map((cat) => (
               <li key={cat.id}>
-                <button type="button" onClick={() => { setQCategory(String(cat.id)); void loadQuestions(cat.id); }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQCategory(String(cat.id));
+                    void loadQuestions(cat.id);
+                  }}
+                >
                   {cat.name}
                 </button>
               </li>
@@ -125,20 +152,35 @@ export function QuestionsPage() {
           </ul>
           <ul className="space-y-2">
             {questions.map((view) => (
-              <li key={view.question.id} data-testid={`question-${view.question.id}`} className="flex items-center gap-3">
+              <li
+                key={view.question.id}
+                data-testid={`question-${view.question.id}`}
+                className="flex items-center gap-3"
+              >
                 <input
                   type="checkbox"
                   aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
                   checked={selected.includes(view.question.id)}
-                  onChange={(e) => setSelected((prev) => (e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id)))}
+                  onChange={(e) =>
+                    setSelected((prev) =>
+                      e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
+                    )
+                  }
                 />
                 <span>{view.question.name}</span>
-                <span data-testid={`version-badge-${view.question.id}`} className="rounded bg-secondary px-2 py-0.5 text-xs">
+                <span
+                  data-testid={`version-badge-${view.question.id}`}
+                  className="rounded bg-secondary px-2 py-0.5 text-xs"
+                >
                   v{view.entry.latestversion}
                 </span>
                 <span className="text-sm text-muted-foreground">{view.latestVersion.questiontext}</span>
-                <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>{t('editNewVersion')}</Button>
-                <Button type="button" variant="outline" onClick={() => void showVersions(view)}>{t('history')}</Button>
+                <Button type="button" variant="outline" onClick={() => void editQuestion(view)}>
+                  {t('editNewVersion')}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
+                  {t('history')}
+                </Button>
               </li>
             ))}
           </ul>
@@ -150,7 +192,9 @@ export function QuestionsPage() {
               <h3 className="font-medium">{t('versionHistory')}</h3>
               <ul>
                 {versionsOf.versions.map((v) => (
-                  <li key={v.version}>v{v.version} — {v.questiontext}</li>
+                  <li key={v.version}>
+                    v{v.version} — {v.questiontext}
+                  </li>
                 ))}
               </ul>
             </div>
@@ -160,7 +204,9 @@ export function QuestionsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('newCategory')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('newCategory')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createCategory(e)} className="space-y-3">
             <div>
@@ -177,7 +223,9 @@ export function QuestionsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('newTrueFalseQuestion')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('newTrueFalseQuestion')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void createQuestion(e)} className="space-y-3">
             <div>
@@ -221,7 +269,9 @@ export function QuestionUsagePage() {
     setUsage(fresh);
   }, [id]);
 
-  useEffect(() => { void reload().catch(() => setError(t('attemptLoadFailed'))); }, [reload, t]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('attemptLoadFailed')));
+  }, [reload, t]);
 
   /** Chạy một thao tác làm bài rồi nạp lại usage; lỗi hiện thân thiện qua i18n. */
   async function act(run: () => Promise<unknown>) {
@@ -229,10 +279,17 @@ export function QuestionUsagePage() {
     try {
       await run();
       await reload();
-    } catch { setActionError(t('usageActionFailed')); }
+    } catch {
+      setActionError(t('usageActionFailed'));
+    }
   }
 
-  if (error) return <main className="px-4 py-4 md:py-6 lg:px-6"><p role="alert">{error}</p></main>;
+  if (error)
+    return (
+      <main className="px-4 py-4 md:py-6 lg:px-6">
+        <p role="alert">{error}</p>
+      </main>
+    );
   if (!usage) return <main className="px-4 py-4 md:py-6 lg:px-6">{t('attemptLoading')}</main>;
   const usageId = usage.usage.id;
   const gradedStates = ['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'];
@@ -248,12 +305,22 @@ export function QuestionUsagePage() {
           {actionError ? <p role="alert">{actionError}</p> : null}
           <div className="flex gap-2">
             {usage.state === 'notstarted' ? (
-              <Button type="button" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/start`, { method: 'POST', body: '{}' }))}>
+              <Button
+                type="button"
+                onClick={() =>
+                  void act(() => apiJson(`/api/v1/question-usages/${usageId}/start`, { method: 'POST', body: '{}' }))
+                }
+              >
                 {t('usageStart')}
               </Button>
             ) : null}
             {usage.state === 'inprogress' ? (
-              <Button type="button" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/finish`, { method: 'POST', body: '{}' }))}>
+              <Button
+                type="button"
+                onClick={() =>
+                  void act(() => apiJson(`/api/v1/question-usages/${usageId}/finish`, { method: 'POST', body: '{}' }))
+                }
+              >
                 {t('usageFinish')}
               </Button>
             ) : null}
@@ -274,7 +341,18 @@ export function QuestionUsagePage() {
                     </span>
                   </div>
                   {!started ? (
-                    <Button type="button" variant="outline" onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/start`, { method: 'POST', body: '{}' }))}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        void act(() =>
+                          apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/start`, {
+                            method: 'POST',
+                            body: '{}',
+                          }),
+                        )
+                      }
+                    >
                       {t('attemptStart')}
                     </Button>
                   ) : null}
@@ -291,17 +369,30 @@ export function QuestionUsagePage() {
                       <div className="flex gap-2">
                         <Button
                           type="button"
-                          onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/submit`, {
-                            method: 'POST',
-                            body: JSON.stringify({ response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null }),
-                          }))}
+                          onClick={() =>
+                            void act(() =>
+                              apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/submit`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null,
+                                }),
+                              }),
+                            )
+                          }
                         >
                           {t('attemptSubmit')}
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => void act(() => apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/finish`, { method: 'POST', body: '{}' }))}
+                          onClick={() =>
+                            void act(() =>
+                              apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/finish`, {
+                                method: 'POST',
+                                body: '{}',
+                              }),
+                            )
+                          }
                         >
                           {t('attemptFinish')}
                         </Button>
@@ -312,7 +403,9 @@ export function QuestionUsagePage() {
               );
             })}
           </ul>
-          <p className="mt-4 text-sm"><Link to="/questions">{t('backToQuestionBank')}</Link></p>
+          <p className="mt-4 text-sm">
+            <Link to="/questions">{t('backToQuestionBank')}</Link>
+          </p>
         </CardContent>
       </Card>
     </main>

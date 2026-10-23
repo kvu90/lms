@@ -10,23 +10,64 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson, ApiError } from '@/lib/api';
 
-interface PlanView { id: string; name: string; status: number; templateid: string | null }
-interface PlanDetail { plan: PlanView; competencies: { competency: { id: string; shortname: string }; usercomp: { id: string; grade: number | null; proficiency: boolean | null; status: number } | null }[]; reviews: { action: string; timecreated: string }[] }
+interface PlanView {
+  id: string;
+  name: string;
+  status: number;
+  templateid: string | null;
+}
+interface PlanDetail {
+  plan: PlanView;
+  competencies: {
+    competency: { id: string; shortname: string };
+    usercomp: { id: string; grade: number | null; proficiency: boolean | null; status: number } | null;
+  }[];
+  reviews: { action: string; timecreated: string }[];
+}
 
 /**
  * Framework như API trả về (bản ghi `competency_framework`): thang đánh giá
  * nằm trong `scaleconfiguration` dạng `{ values, proficient }` — cùng hình
  * dạng `competencyScaleSchema` mà DTO tạo framework nhận ở trường `scale`.
  */
-interface FrameworkView { id: string; shortname: string; idnumber?: string; description?: string; scaleconfiguration?: { values?: string[]; proficient?: number[] } | null; visible?: boolean }
+interface FrameworkView {
+  id: string;
+  shortname: string;
+  idnumber?: string;
+  description?: string;
+  scaleconfiguration?: { values?: string[]; proficient?: number[] } | null;
+  visible?: boolean;
+}
 /** Competency như API trả về (bản ghi `competency`): cây qua `parentid`/`depth`/`path`. */
-interface CompetencyView { id: string; shortname: string; idnumber?: string; description?: string; parentid?: string | null; depth?: number }
+interface CompetencyView {
+  id: string;
+  shortname: string;
+  idnumber?: string;
+  description?: string;
+  parentid?: string | null;
+  depth?: number;
+}
 /** Template như API trả về (bản ghi `competency_template`). */
-interface TemplateView { id: string; shortname: string; description?: string; duedate?: string | null }
+interface TemplateView {
+  id: string;
+  shortname: string;
+  description?: string;
+  duedate?: string | null;
+}
 /** User competency như API trả về (bản ghi `competency_usercomp`): `status` là trạng thái duyệt 0/1/2. */
-interface UsercompView { id: string; userid: string; competencyid: string; status: number; grade: number | null; proficiency: boolean | null }
+interface UsercompView {
+  id: string;
+  userid: string;
+  competencyid: string;
+  status: number;
+  grade: number | null;
+  proficiency: boolean | null;
+}
 /** Người dùng trong danh sách chọn của hàng đợi duyệt (GET /users trả `{ users, total, ... }`). */
-interface UserOption { id: string; username: string }
+interface UserOption {
+  id: string;
+  username: string;
+}
 
 /** Nhãn trạng thái dịch qua catalog ở thời điểm render (xem hook trong component). */
 
@@ -60,9 +101,17 @@ interface UserOption { id: string; username: string }
 function CompetencyAdmin() {
   const { t } = useTranslation('app');
   const PLAN_STATUS: Record<number, string> = {
-    0: t('planStatusDraft'), 1: t('planStatusActive'), 2: t('planStatusWaiting'), 3: t('planStatusInReview'), 4: t('planStatusComplete'),
+    0: t('planStatusDraft'),
+    1: t('planStatusActive'),
+    2: t('planStatusWaiting'),
+    3: t('planStatusInReview'),
+    4: t('planStatusComplete'),
   };
-  const REVIEW_STATUS: Record<number, string> = { 0: t('reviewStatusNone'), 1: t('reviewStatusWaiting'), 2: t('reviewStatusInReview') };
+  const REVIEW_STATUS: Record<number, string> = {
+    0: t('reviewStatusNone'),
+    1: t('reviewStatusWaiting'),
+    2: t('reviewStatusInReview'),
+  };
   const [frameworks, setFrameworks] = useState<FrameworkView[]>([]);
   const [templates, setTemplates] = useState<TemplateView[]>([]);
   const [competencies, setCompetencies] = useState<CompetencyView[]>([]);
@@ -70,7 +119,14 @@ function CompetencyAdmin() {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
-  const [fwDraft, setFwDraft] = useState({ shortname: '', idnumber: '', description: '', scaleValues: '', scaleProficient: '', visible: true });
+  const [fwDraft, setFwDraft] = useState({
+    shortname: '',
+    idnumber: '',
+    description: '',
+    scaleValues: '',
+    scaleProficient: '',
+    visible: true,
+  });
   const [compDraft, setCompDraft] = useState({ shortname: '', idnumber: '', description: '', parentId: '' });
   const [tplDraft, setTplDraft] = useState({ shortname: '', description: '', duedate: '' });
   const [tplCompetencyId, setTplCompetencyId] = useState('');
@@ -96,11 +152,16 @@ function CompetencyAdmin() {
 
   /** Nạp cây competency của một framework. */
   const loadCompetencies = useCallback(async (frameworkId: string) => {
-    if (!frameworkId) { setCompetencies([]); return; }
+    if (!frameworkId) {
+      setCompetencies([]);
+      return;
+    }
     setCompetencies(await apiJson<CompetencyView[]>(`/api/v1/competencies/frameworks/${frameworkId}/competencies`));
   }, []);
 
-  useEffect(() => { void reloadAdmin().catch(() => setAdminError(t('compAdminLoadFailed'))); }, [reloadAdmin, t]);
+  useEffect(() => {
+    void reloadAdmin().catch(() => setAdminError(t('compAdminLoadFailed')));
+  }, [reloadAdmin, t]);
 
   /**
    * Thử nạp danh sách người dùng cho ô chọn của hàng đợi duyệt qua
@@ -113,7 +174,9 @@ function CompetencyAdmin() {
       try {
         const res = await apiJson<{ users?: UserOption[] } | UserOption[]>('/api/v1/users?page=1&pageSize=50');
         setUsers(Array.isArray(res) ? res : (res.users ?? []));
-      } catch { setUsers([]); }
+      } catch {
+        setUsers([]);
+      }
     })();
   }, []);
 
@@ -121,8 +184,15 @@ function CompetencyAdmin() {
   async function createFramework(event: FormEvent) {
     event.preventDefault();
     setAdminMessage(null);
-    const values = fwDraft.scaleValues.split(',').map((v) => v.trim()).filter(Boolean);
-    const proficient = fwDraft.scaleProficient.split(',').map((v) => v.trim()).filter(Boolean).map(Number);
+    const values = fwDraft.scaleValues
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+    const proficient = fwDraft.scaleProficient
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .map(Number);
     try {
       await apiJson('/api/v1/competencies/frameworks', {
         method: 'POST',
@@ -137,7 +207,9 @@ function CompetencyAdmin() {
       setFwDraft({ shortname: '', idnumber: '', description: '', scaleValues: '', scaleProficient: '', visible: true });
       setAdminMessage(t('compFrameworkCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('compFrameworkCreateFailed')); }
+    } catch {
+      setAdminMessage(t('compFrameworkCreateFailed'));
+    }
   }
 
   /**
@@ -157,7 +229,9 @@ function CompetencyAdmin() {
       anchor.click();
       URL.revokeObjectURL(url);
       setAdminMessage(t('compExported', { name: fw.shortname }));
-    } catch { setAdminMessage(t('compExportFailed')); }
+    } catch {
+      setAdminMessage(t('compExportFailed'));
+    }
   }
 
   /**
@@ -181,16 +255,19 @@ function CompetencyAdmin() {
     }
     try {
       const created = await apiJson<FrameworkView>('/api/v1/competencies/frameworks/import', {
-        method: 'POST', body: JSON.stringify(doc),
+        method: 'POST',
+        body: JSON.stringify(doc),
       });
       setImportFile(null);
       setImportInputKey((k) => k + 1);
       setAdminMessage(t('compImportSuccess', { name: created.shortname }));
       await reloadAdmin();
     } catch (err) {
-      setImportError(err instanceof ApiError
-        ? t('compImportApiError', { detail: err.problem.detail ?? err.problem.title })
-        : t('compImportFailed'));
+      setImportError(
+        err instanceof ApiError
+          ? t('compImportApiError', { detail: err.problem.detail ?? err.problem.title })
+          : t('compImportFailed'),
+      );
     }
   }
 
@@ -212,7 +289,9 @@ function CompetencyAdmin() {
       setCompDraft({ shortname: '', idnumber: '', description: '', parentId: '' });
       setAdminMessage(t('compCompetencyCreated'));
       await loadCompetencies(selectedFrameworkId);
-    } catch { setAdminMessage(t('compCompetencyCreateFailed')); }
+    } catch {
+      setAdminMessage(t('compCompetencyCreateFailed'));
+    }
   }
 
   /** Tạo template qua POST /templates (`createLearningPlanTemplateSchema`). */
@@ -232,7 +311,9 @@ function CompetencyAdmin() {
       setSelectedTemplateId(created.id);
       setAdminMessage(t('compTemplateCreated'));
       await reloadAdmin();
-    } catch { setAdminMessage(t('compTemplateCreateFailed')); }
+    } catch {
+      setAdminMessage(t('compTemplateCreateFailed'));
+    }
   }
 
   /** Gắn competency vào template đang chọn: POST /templates/:id/competencies với `{ competencyId }`. */
@@ -242,11 +323,14 @@ function CompetencyAdmin() {
     setAdminMessage(null);
     try {
       await apiJson(`/api/v1/competencies/templates/${selectedTemplateId}/competencies`, {
-        method: 'POST', body: JSON.stringify({ competencyId: tplCompetencyId.trim() }),
+        method: 'POST',
+        body: JSON.stringify({ competencyId: tplCompetencyId.trim() }),
       });
       setTplCompetencyId('');
       setAdminMessage(t('compTemplateCompetencyAdded'));
-    } catch { setAdminMessage(t('compActionFailed')); }
+    } catch {
+      setAdminMessage(t('compActionFailed'));
+    }
   }
 
   /** Gắn cohort vào template đang chọn: POST /templates/:id/cohorts với `{ cohortId }`. */
@@ -256,11 +340,14 @@ function CompetencyAdmin() {
     setAdminMessage(null);
     try {
       await apiJson(`/api/v1/competencies/templates/${selectedTemplateId}/cohorts`, {
-        method: 'POST', body: JSON.stringify({ cohortId: tplCohortId.trim() }),
+        method: 'POST',
+        body: JSON.stringify({ cohortId: tplCohortId.trim() }),
       });
       setTplCohortId('');
       setAdminMessage(t('compTemplateCohortAdded'));
-    } catch { setAdminMessage(t('compActionFailed')); }
+    } catch {
+      setAdminMessage(t('compActionFailed'));
+    }
   }
 
   /** Sinh plan cho mọi thành viên cohort đã gắn: POST /templates/:id/create-plans (không body). */
@@ -268,9 +355,14 @@ function CompetencyAdmin() {
     if (!selectedTemplateId) return;
     setAdminMessage(null);
     try {
-      const res = await apiJson<{ created: number }>(`/api/v1/competencies/templates/${selectedTemplateId}/create-plans`, { method: 'POST', body: '{}' });
+      const res = await apiJson<{ created: number }>(
+        `/api/v1/competencies/templates/${selectedTemplateId}/create-plans`,
+        { method: 'POST', body: '{}' },
+      );
       setAdminMessage(t('compPlansCreated', { count: res.created }));
-    } catch { setAdminMessage(t('compActionFailed')); }
+    } catch {
+      setAdminMessage(t('compActionFailed'));
+    }
   }
 
   /** Tải plans + usercomp của người dùng đang chọn trong hàng đợi duyệt. */
@@ -292,7 +384,9 @@ function CompetencyAdmin() {
       await apiJson(`/api/v1/competencies/plans/${planId}/${action}`, { method: 'POST', body: '{}' });
       setAdminMessage(t('compReviewActionDone'));
       await loadReviewQueue(reviewUserId);
-    } catch { setAdminMessage(t('compReviewActionFailed')); }
+    } catch {
+      setAdminMessage(t('compReviewActionFailed'));
+    }
   }
 
   /** Thao tác duyệt trên một usercomp (start-review/approve/reject), xong tải lại hàng đợi. */
@@ -302,7 +396,9 @@ function CompetencyAdmin() {
       await apiJson(`/api/v1/competencies/usercomp/${usercompId}/${action}`, { method: 'POST', body: '{}' });
       setAdminMessage(t('compReviewActionDone'));
       await loadReviewQueue(reviewUserId);
-    } catch { setAdminMessage(t('compReviewActionFailed')); }
+    } catch {
+      setAdminMessage(t('compReviewActionFailed'));
+    }
   }
 
   return (
@@ -321,42 +417,95 @@ function CompetencyAdmin() {
               {frameworks.map((fw) => (
                 <li key={fw.id} className="flex items-center gap-3 text-sm">
                   <span className="font-medium">{fw.shortname}</span>
-                  {fw.scaleconfiguration?.values?.length ? <span>{fw.scaleconfiguration.values.join(', ')}</span> : null}
-                  <Button type="button" variant="outline" onClick={() => { setSelectedFrameworkId(fw.id); void loadCompetencies(fw.id).catch(() => setAdminError(t('compAdminLoadFailed'))); }}>{t('compViewCompetencies')}</Button>
-                  <Button type="button" variant="outline" onClick={() => void exportFramework(fw)}>{t('compExportFramework')}</Button>
+                  {fw.scaleconfiguration?.values?.length ? (
+                    <span>{fw.scaleconfiguration.values.join(', ')}</span>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedFrameworkId(fw.id);
+                      void loadCompetencies(fw.id).catch(() => setAdminError(t('compAdminLoadFailed')));
+                    }}
+                  >
+                    {t('compViewCompetencies')}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => void exportFramework(fw)}>
+                    {t('compExportFramework')}
+                  </Button>
                 </li>
               ))}
               {frameworks.length === 0 ? <li className="text-sm">{t('compNoFrameworks')}</li> : null}
             </ul>
             <form onSubmit={(e) => void createFramework(e)} className="space-y-3">
-              <div className="space-y-1"><Label htmlFor="fw-shortname">{t('compFrameworkShortname')}</Label>
-                <Input id="fw-shortname" value={fwDraft.shortname} onChange={(e) => setFwDraft({ ...fwDraft, shortname: e.target.value })} required /></div>
-              <div className="space-y-1"><Label htmlFor="fw-idnumber">{t('compFrameworkIdnumber')}</Label>
-                <Input id="fw-idnumber" value={fwDraft.idnumber} onChange={(e) => setFwDraft({ ...fwDraft, idnumber: e.target.value })} /></div>
-              <div className="space-y-1"><Label htmlFor="fw-description">{t('compFrameworkDescription')}</Label>
-                <Input id="fw-description" value={fwDraft.description} onChange={(e) => setFwDraft({ ...fwDraft, description: e.target.value })} /></div>
-              <div className="space-y-1"><Label htmlFor="fw-scale-values">{t('compScaleValues')}</Label>
-                <Input id="fw-scale-values" value={fwDraft.scaleValues} onChange={(e) => setFwDraft({ ...fwDraft, scaleValues: e.target.value })} required /></div>
-              <div className="space-y-1"><Label htmlFor="fw-scale-proficient">{t('compScaleProficient')}</Label>
-                <Input id="fw-scale-proficient" value={fwDraft.scaleProficient} onChange={(e) => setFwDraft({ ...fwDraft, scaleProficient: e.target.value })} /></div>
+              <div className="space-y-1">
+                <Label htmlFor="fw-shortname">{t('compFrameworkShortname')}</Label>
+                <Input
+                  id="fw-shortname"
+                  value={fwDraft.shortname}
+                  onChange={(e) => setFwDraft({ ...fwDraft, shortname: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fw-idnumber">{t('compFrameworkIdnumber')}</Label>
+                <Input
+                  id="fw-idnumber"
+                  value={fwDraft.idnumber}
+                  onChange={(e) => setFwDraft({ ...fwDraft, idnumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fw-description">{t('compFrameworkDescription')}</Label>
+                <Input
+                  id="fw-description"
+                  value={fwDraft.description}
+                  onChange={(e) => setFwDraft({ ...fwDraft, description: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fw-scale-values">{t('compScaleValues')}</Label>
+                <Input
+                  id="fw-scale-values"
+                  value={fwDraft.scaleValues}
+                  onChange={(e) => setFwDraft({ ...fwDraft, scaleValues: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fw-scale-proficient">{t('compScaleProficient')}</Label>
+                <Input
+                  id="fw-scale-proficient"
+                  value={fwDraft.scaleProficient}
+                  onChange={(e) => setFwDraft({ ...fwDraft, scaleProficient: e.target.value })}
+                />
+              </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={fwDraft.visible} onChange={(e) => setFwDraft({ ...fwDraft, visible: e.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={fwDraft.visible}
+                  onChange={(e) => setFwDraft({ ...fwDraft, visible: e.target.checked })}
+                />
                 {t('compFrameworkVisible')}
               </label>
               <Button type="submit">{t('compCreateFramework')}</Button>
             </form>
             <form onSubmit={(e) => void importFramework(e)} className="space-y-3">
               <h4 className="font-medium">{t('compImportTitle')}</h4>
-              <div className="space-y-1"><Label htmlFor="fw-import-file">{t('compImportFile')}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="fw-import-file">{t('compImportFile')}</Label>
                 <Input
                   key={importInputKey}
                   id="fw-import-file"
                   type="file"
                   accept="application/json,.json"
                   onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-                /></div>
+                />
+              </div>
               {importError ? <p role="alert">{importError}</p> : null}
-              <Button type="submit" variant="outline" disabled={!importFile}>{t('compImportAction')}</Button>
+              <Button type="submit" variant="outline" disabled={!importFile}>
+                {t('compImportAction')}
+              </Button>
             </form>
           </div>
 
@@ -366,68 +515,146 @@ function CompetencyAdmin() {
               <>
                 <ul className="space-y-1" aria-label={t('compCompetenciesTitle')}>
                   {competencies.map((c) => (
-                    <li key={c.id} className={`text-sm ${COMPETENCY_INDENT[Math.min(Math.max(0, (c.depth ?? 1) - 1), 5)]}`}>
-                      <span className="font-medium">{c.shortname}</span>{c.description ? <span> — {c.description}</span> : null}
+                    <li
+                      key={c.id}
+                      className={`text-sm ${COMPETENCY_INDENT[Math.min(Math.max(0, (c.depth ?? 1) - 1), 5)]}`}
+                    >
+                      <span className="font-medium">{c.shortname}</span>
+                      {c.description ? <span> — {c.description}</span> : null}
                     </li>
                   ))}
                   {competencies.length === 0 ? <li className="text-sm">{t('compNoCompetencies')}</li> : null}
                 </ul>
                 <form onSubmit={(e) => void createCompetency(e)} className="space-y-3">
-                  <div className="space-y-1"><Label htmlFor="comp-shortname">{t('compCompetencyShortname')}</Label>
-                    <Input id="comp-shortname" value={compDraft.shortname} onChange={(e) => setCompDraft({ ...compDraft, shortname: e.target.value })} required /></div>
-                  <div className="space-y-1"><Label htmlFor="comp-idnumber">{t('compCompetencyIdnumber')}</Label>
-                    <Input id="comp-idnumber" value={compDraft.idnumber} onChange={(e) => setCompDraft({ ...compDraft, idnumber: e.target.value })} /></div>
-                  <div className="space-y-1"><Label htmlFor="comp-description">{t('compCompetencyDescription')}</Label>
-                    <Input id="comp-description" value={compDraft.description} onChange={(e) => setCompDraft({ ...compDraft, description: e.target.value })} /></div>
-                  <div className="space-y-1"><Label htmlFor="comp-parent">{t('compCompetencyParent')}</Label>
-                    <select id="comp-parent" className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={compDraft.parentId} onChange={(e) => setCompDraft({ ...compDraft, parentId: e.target.value })}>
+                  <div className="space-y-1">
+                    <Label htmlFor="comp-shortname">{t('compCompetencyShortname')}</Label>
+                    <Input
+                      id="comp-shortname"
+                      value={compDraft.shortname}
+                      onChange={(e) => setCompDraft({ ...compDraft, shortname: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="comp-idnumber">{t('compCompetencyIdnumber')}</Label>
+                    <Input
+                      id="comp-idnumber"
+                      value={compDraft.idnumber}
+                      onChange={(e) => setCompDraft({ ...compDraft, idnumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="comp-description">{t('compCompetencyDescription')}</Label>
+                    <Input
+                      id="comp-description"
+                      value={compDraft.description}
+                      onChange={(e) => setCompDraft({ ...compDraft, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="comp-parent">{t('compCompetencyParent')}</Label>
+                    <select
+                      id="comp-parent"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      value={compDraft.parentId}
+                      onChange={(e) => setCompDraft({ ...compDraft, parentId: e.target.value })}
+                    >
                       <option value="">{t('compNoParent')}</option>
-                      {competencies.map((c) => <option key={c.id} value={c.id}>{c.shortname}</option>)}
-                    </select></div>
+                      {competencies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.shortname}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <Button type="submit">{t('compAddCompetency')}</Button>
                 </form>
               </>
-            ) : <p className="text-sm">{t('compSelectFramework')}</p>}
+            ) : (
+              <p className="text-sm">{t('compSelectFramework')}</p>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>{t('compTemplatesTitle')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('compTemplatesTitle')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
           <ul className="space-y-1" aria-label={t('compTemplatesTitle')}>
             {templates.map((tpl) => (
               <li key={tpl.id} className="flex items-center gap-3 text-sm">
                 <span className="font-medium">{tpl.shortname}</span>
-                {tpl.id === selectedTemplateId ? <Badge>{t('compSelectTemplate')}</Badge> : (
-                  <Button type="button" variant="outline" onClick={() => setSelectedTemplateId(tpl.id)}>{t('view')}</Button>
+                {tpl.id === selectedTemplateId ? (
+                  <Badge>{t('compSelectTemplate')}</Badge>
+                ) : (
+                  <Button type="button" variant="outline" onClick={() => setSelectedTemplateId(tpl.id)}>
+                    {t('view')}
+                  </Button>
                 )}
               </li>
             ))}
             {templates.length === 0 ? <li className="text-sm">{t('compNoTemplates')}</li> : null}
           </ul>
           <form onSubmit={(e) => void createTemplate(e)} className="space-y-3">
-            <div className="space-y-1"><Label htmlFor="tpl-shortname">{t('compTemplateShortname')}</Label>
-              <Input id="tpl-shortname" value={tplDraft.shortname} onChange={(e) => setTplDraft({ ...tplDraft, shortname: e.target.value })} required /></div>
-            <div className="space-y-1"><Label htmlFor="tpl-description">{t('compTemplateDescription')}</Label>
-              <Input id="tpl-description" value={tplDraft.description} onChange={(e) => setTplDraft({ ...tplDraft, description: e.target.value })} /></div>
-            <div className="space-y-1"><Label htmlFor="tpl-duedate">{t('compTemplateDuedate')}</Label>
-              <Input id="tpl-duedate" type="date" value={tplDraft.duedate} onChange={(e) => setTplDraft({ ...tplDraft, duedate: e.target.value })} /></div>
+            <div className="space-y-1">
+              <Label htmlFor="tpl-shortname">{t('compTemplateShortname')}</Label>
+              <Input
+                id="tpl-shortname"
+                value={tplDraft.shortname}
+                onChange={(e) => setTplDraft({ ...tplDraft, shortname: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="tpl-description">{t('compTemplateDescription')}</Label>
+              <Input
+                id="tpl-description"
+                value={tplDraft.description}
+                onChange={(e) => setTplDraft({ ...tplDraft, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="tpl-duedate">{t('compTemplateDuedate')}</Label>
+              <Input
+                id="tpl-duedate"
+                type="date"
+                value={tplDraft.duedate}
+                onChange={(e) => setTplDraft({ ...tplDraft, duedate: e.target.value })}
+              />
+            </div>
             <Button type="submit">{t('compCreateTemplate')}</Button>
           </form>
           {selectedTemplateId ? (
             <div className="space-y-3">
               <form onSubmit={(e) => void addTemplateCompetency(e)} className="space-y-2">
                 <Label htmlFor="tpl-competency-id">{t('compTemplateCompetencyId')}</Label>
-                <Input id="tpl-competency-id" value={tplCompetencyId} onChange={(e) => setTplCompetencyId(e.target.value)} required />
-                <Button type="submit" variant="outline">{t('compAddTemplateCompetency')}</Button>
+                <Input
+                  id="tpl-competency-id"
+                  value={tplCompetencyId}
+                  onChange={(e) => setTplCompetencyId(e.target.value)}
+                  required
+                />
+                <Button type="submit" variant="outline">
+                  {t('compAddTemplateCompetency')}
+                </Button>
               </form>
               <form onSubmit={(e) => void addTemplateCohort(e)} className="space-y-2">
                 <Label htmlFor="tpl-cohort-id">{t('compTemplateCohortId')}</Label>
-                <Input id="tpl-cohort-id" value={tplCohortId} onChange={(e) => setTplCohortId(e.target.value)} required />
-                <Button type="submit" variant="outline">{t('compAddTemplateCohort')}</Button>
+                <Input
+                  id="tpl-cohort-id"
+                  value={tplCohortId}
+                  onChange={(e) => setTplCohortId(e.target.value)}
+                  required
+                />
+                <Button type="submit" variant="outline">
+                  {t('compAddTemplateCohort')}
+                </Button>
               </form>
-              <Button type="button" onClick={() => void createPlansFromTemplate()}>{t('compCreatePlansFromTemplate')}</Button>
+              <Button type="button" onClick={() => void createPlansFromTemplate()}>
+                {t('compCreatePlansFromTemplate')}
+              </Button>
             </div>
           ) : null}
         </CardContent>
@@ -443,9 +670,18 @@ function CompetencyAdmin() {
             {users.length > 0 ? (
               <div className="space-y-1">
                 <Label htmlFor="review-user-select">{t('compReviewUser')}</Label>
-                <select id="review-user-select" className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm" value={reviewUserId} onChange={(e) => setReviewUserId(e.target.value)}>
+                <select
+                  id="review-user-select"
+                  className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={reviewUserId}
+                  onChange={(e) => setReviewUserId(e.target.value)}
+                >
                   <option value="">—</option>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.username} ({u.id})</option>)}
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.username} ({u.id})
+                    </option>
+                  ))}
                 </select>
               </div>
             ) : null}
@@ -453,7 +689,14 @@ function CompetencyAdmin() {
               <Label htmlFor="review-user-id">{t('compReviewUserId')}</Label>
               <Input id="review-user-id" value={reviewUserId} onChange={(e) => setReviewUserId(e.target.value)} />
             </div>
-            <Button type="button" onClick={() => void loadReviewQueue(reviewUserId).catch(() => setAdminMessage(t('compReviewQueueLoadFailed')))}>{t('compLoadReviewQueue')}</Button>
+            <Button
+              type="button"
+              onClick={() =>
+                void loadReviewQueue(reviewUserId).catch(() => setAdminMessage(t('compReviewQueueLoadFailed')))
+              }
+            >
+              {t('compLoadReviewQueue')}
+            </Button>
           </div>
           {reviewPlans !== null ? (
             <div className="space-y-2">
@@ -463,10 +706,30 @@ function CompetencyAdmin() {
                   <li key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium">{p.name}</span>
                     <span>{PLAN_STATUS[p.status] ?? p.status}</span>
-                    {p.status === 2 ? <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'start-review')}>{t('compStartReview')}</Button> : null}
-                    {p.status === 3 ? <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'approve')}>{t('compApprovePlan')}</Button> : null}
-                    {p.status === 1 ? <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'unapprove')}>{t('compUnapprovePlan')}</Button> : null}
-                    {p.status === 1 || p.status === 3 ? <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'complete')}>{t('compCompletePlan')}</Button> : null}
+                    {p.status === 2 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void planReviewAction(p.id, 'start-review')}
+                      >
+                        {t('compStartReview')}
+                      </Button>
+                    ) : null}
+                    {p.status === 3 ? (
+                      <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'approve')}>
+                        {t('compApprovePlan')}
+                      </Button>
+                    ) : null}
+                    {p.status === 1 ? (
+                      <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'unapprove')}>
+                        {t('compUnapprovePlan')}
+                      </Button>
+                    ) : null}
+                    {p.status === 1 || p.status === 3 ? (
+                      <Button type="button" variant="outline" onClick={() => void planReviewAction(p.id, 'complete')}>
+                        {t('compCompletePlan')}
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
                 {reviewPlans.length === 0 ? <li className="text-sm">{t('compNoPlansForUser')}</li> : null}
@@ -481,11 +744,41 @@ function CompetencyAdmin() {
                   <li key={uc.id} className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium">{t('compUsercompCompetency', { id: uc.competencyid })}</span>
                     <span>{REVIEW_STATUS[uc.status] ?? uc.status}</span>
-                    <span>{uc.proficiency == null ? t('proficiencyNotYet') : uc.proficiency ? t('proficiencyYes') : t('proficiencyNo')}</span>
+                    <span>
+                      {uc.proficiency == null
+                        ? t('proficiencyNotYet')
+                        : uc.proficiency
+                          ? t('proficiencyYes')
+                          : t('proficiencyNo')}
+                    </span>
                     {uc.grade !== null ? <span>{t('compUsercompGrade', { grade: uc.grade })}</span> : null}
-                    {uc.status === 1 ? <Button type="button" variant="outline" onClick={() => void usercompReviewAction(uc.id, 'start-review')}>{t('compStartReview')}</Button> : null}
-                    {uc.status === 1 || uc.status === 2 ? <Button type="button" variant="outline" onClick={() => void usercompReviewAction(uc.id, 'approve')}>{t('compApproveUsercomp')}</Button> : null}
-                    {uc.status === 1 || uc.status === 2 ? <Button type="button" variant="outline" onClick={() => void usercompReviewAction(uc.id, 'reject')}>{t('compRejectUsercomp')}</Button> : null}
+                    {uc.status === 1 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void usercompReviewAction(uc.id, 'start-review')}
+                      >
+                        {t('compStartReview')}
+                      </Button>
+                    ) : null}
+                    {uc.status === 1 || uc.status === 2 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void usercompReviewAction(uc.id, 'approve')}
+                      >
+                        {t('compApproveUsercomp')}
+                      </Button>
+                    ) : null}
+                    {uc.status === 1 || uc.status === 2 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void usercompReviewAction(uc.id, 'reject')}
+                      >
+                        {t('compRejectUsercomp')}
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
                 {reviewUsercomps.length === 0 ? <li className="text-sm">{t('compNoUsercompsForUser')}</li> : null}
@@ -507,9 +800,17 @@ function CompetencyAdmin() {
 export function LearningPlanPage() {
   const { t } = useTranslation('app');
   const PLAN_STATUS: Record<number, string> = {
-    0: t('planStatusDraft'), 1: t('planStatusActive'), 2: t('planStatusWaiting'), 3: t('planStatusInReview'), 4: t('planStatusComplete'),
+    0: t('planStatusDraft'),
+    1: t('planStatusActive'),
+    2: t('planStatusWaiting'),
+    3: t('planStatusInReview'),
+    4: t('planStatusComplete'),
   };
-  const REVIEW_STATUS: Record<number, string> = { 0: t('reviewStatusNone'), 1: t('reviewStatusWaiting'), 2: t('reviewStatusInReview') };
+  const REVIEW_STATUS: Record<number, string> = {
+    0: t('reviewStatusNone'),
+    1: t('reviewStatusWaiting'),
+    2: t('reviewStatusInReview'),
+  };
   const { user } = useAuth();
   const perms = usePermissions();
   const [plans, setPlans] = useState<PlanView[]>([]);
@@ -523,7 +824,9 @@ export function LearningPlanPage() {
     setPlans(list);
   }, [user]);
 
-  useEffect(() => { void reload().catch(() => setError(t('plansLoadFailed'))); }, [reload]);
+  useEffect(() => {
+    void reload().catch(() => setError(t('plansLoadFailed')));
+  }, [reload]);
 
   async function open(plan: PlanView) {
     const d = await apiJson<PlanDetail>(`/api/v1/competencies/plans/${plan.id}`);
@@ -538,7 +841,8 @@ export function LearningPlanPage() {
 
   async function requestCompetencyReview(usercompId: string) {
     await apiJson(`/api/v1/competencies/usercomp/${usercompId}/evidence`, {
-      method: 'POST', body: JSON.stringify({ action: 'evidence', description: t('evidenceReviewDescription'), sendForReview: true }),
+      method: 'POST',
+      body: JSON.stringify({ action: 'evidence', description: t('evidenceReviewDescription'), sendForReview: true }),
     });
     setMessage(t('competencySentForReview'));
     if (detail) await open(detail.plan);
@@ -549,15 +853,23 @@ export function LearningPlanPage() {
       {error ? <p role="alert">{error}</p> : null}
       {message ? <p>{message}</p> : null}
       <Card>
-        <CardHeader><CardTitle>{t('myLearningPlans')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('myLearningPlans')}</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
           <ul className="space-y-1" aria-label={t('learningPlansLabel')}>
             {plans.map((p) => (
               <li key={p.id} className="flex items-center gap-3 text-sm">
                 <span className="font-medium">{p.name}</span>
                 <span>{PLAN_STATUS[p.status] ?? p.status}</span>
-                <Button type="button" variant="outline" onClick={() => void open(p)}>{t('view')}</Button>
-                {p.status === 1 ? <Button type="button" variant="outline" onClick={() => void requestReview(p.id)}>{t('requestPlanReview')}</Button> : null}
+                <Button type="button" variant="outline" onClick={() => void open(p)}>
+                  {t('view')}
+                </Button>
+                {p.status === 1 ? (
+                  <Button type="button" variant="outline" onClick={() => void requestReview(p.id)}>
+                    {t('requestPlanReview')}
+                  </Button>
+                ) : null}
               </li>
             ))}
             {plans.length === 0 ? <li>{t('noLearningPlans')}</li> : null}
@@ -566,19 +878,40 @@ export function LearningPlanPage() {
       </Card>
       {detail ? (
         <Card>
-          <CardHeader><CardTitle>{t('planCompetenciesTitle', { name: detail.plan.name })}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{t('planCompetenciesTitle', { name: detail.plan.name })}</CardTitle>
+          </CardHeader>
           <CardContent>
             <table className="w-full text-sm">
-              <thead><tr><th className="text-left">{t('competency')}</th><th className="text-left">{t('proficiency')}</th><th className="text-left">{t('review')}</th><th /></tr></thead>
+              <thead>
+                <tr>
+                  <th className="text-left">{t('competency')}</th>
+                  <th className="text-left">{t('proficiency')}</th>
+                  <th className="text-left">{t('review')}</th>
+                  <th />
+                </tr>
+              </thead>
               <tbody>
                 {detail.competencies.map((row) => (
                   <tr key={row.competency.id}>
                     <td>{row.competency.shortname}</td>
-                    <td>{row.usercomp?.proficiency == null ? t('proficiencyNotYet') : row.usercomp.proficiency ? t('proficiencyYes') : t('proficiencyNo')}</td>
+                    <td>
+                      {row.usercomp?.proficiency == null
+                        ? t('proficiencyNotYet')
+                        : row.usercomp.proficiency
+                          ? t('proficiencyYes')
+                          : t('proficiencyNo')}
+                    </td>
                     <td>{row.usercomp ? (REVIEW_STATUS[row.usercomp.status] ?? row.usercomp.status) : '—'}</td>
                     <td>
                       {row.usercomp && row.usercomp.status === 0 ? (
-                        <Button type="button" variant="outline" onClick={() => void requestCompetencyReview(row.usercomp!.id)}>{t('sendForReview')}</Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void requestCompetencyReview(row.usercomp!.id)}
+                        >
+                          {t('sendForReview')}
+                        </Button>
                       ) : null}
                     </td>
                   </tr>
@@ -594,7 +927,5 @@ export function LearningPlanPage() {
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default LearningPlanPage;/** Thụt lề theo độ sâu cây năng lực: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
+export default LearningPlanPage; /** Thụt lề theo độ sâu cây năng lực: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
 const COMPETENCY_INDENT = ['pl-0', 'pl-4', 'pl-8', 'pl-12', 'pl-16', 'pl-20'];
-
-

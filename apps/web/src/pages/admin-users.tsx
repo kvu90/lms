@@ -17,7 +17,9 @@ export function AdminUsersPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await apiJson<UserListResponse>(`/api/v1/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`);
+      const res = await apiJson<UserListResponse>(
+        `/api/v1/users?search=${encodeURIComponent(search)}&page=1&pageSize=20`,
+      );
       setData(res);
       setError(null);
     } catch {
@@ -25,7 +27,9 @@ export function AdminUsersPage() {
     }
   }, [search]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function createUser(event: FormEvent) {
     event.preventDefault();
@@ -47,17 +51,29 @@ export function AdminUsersPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
-            <Input aria-label={t('searchUsers')} placeholder={t('searchUsersPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
-            <Button type="button" onClick={() => void load()}>{t('search')}</Button>
+            <Input
+              aria-label={t('searchUsers')}
+              placeholder={t('searchUsersPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Button type="button" onClick={() => void load()}>
+              {t('search')}
+            </Button>
           </div>
-          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <ul className="divide-y">
             {data?.users.map((u) => (
               <li key={u.id} className="flex items-center justify-between py-2">
                 <span>
                   <strong>{u.username}</strong> — {u.firstname} {u.lastname}
                   {u.email ? ` <${u.email}>` : ''}
-                  {u.suspended ? ` ${t('suspendedSuffix')}` : ''}{u.deleted ? ` ${t('deletedSuffix')}` : ''}
+                  {u.suspended ? ` ${t('suspendedSuffix')}` : ''}
+                  {u.deleted ? ` ${t('deletedSuffix')}` : ''}
                 </span>
                 <Button type="button" variant="outline" onClick={() => void suspend(u.id, !u.suspended)}>
                   {u.suspended ? t('unsuspend') : t('suspend')}
@@ -69,15 +85,40 @@ export function AdminUsersPage() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>{t('createUser')}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>{t('createUser')}</CardTitle>
+        </CardHeader>
         <CardContent>
           <form onSubmit={createUser} className="space-y-3">
-            <div className="space-y-1"><Label htmlFor="new-username">{t('username')}</Label>
-              <Input id="new-username" value={draft.username} onChange={(e) => setDraft({ ...draft, username: e.target.value })} required /></div>
-            <div className="space-y-1"><Label htmlFor="new-email">{t('email')}</Label>
-              <Input id="new-email" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} required /></div>
-            <div className="space-y-1"><Label htmlFor="new-password">{t('password')}</Label>
-              <Input id="new-password" type="password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} required /></div>
+            <div className="space-y-1">
+              <Label htmlFor="new-username">{t('username')}</Label>
+              <Input
+                id="new-username"
+                value={draft.username}
+                onChange={(e) => setDraft({ ...draft, username: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-email">{t('email')}</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={draft.email}
+                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-password">{t('password')}</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={draft.password}
+                onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                required
+              />
+            </div>
             <Button type="submit">{t('create')}</Button>
           </form>
         </CardContent>

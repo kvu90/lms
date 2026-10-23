@@ -2,11 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import type {
-  CourseCategoryTreeNode,
-  Role,
-  UserListResponse,
-} from '@lms/contracts';
+import type { CourseCategoryTreeNode, Role, UserListResponse } from '@lms/contracts';
 import '../i18n';
 import { ApiError, apiJson } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -15,10 +11,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { DashboardSkeleton } from '@/components/dashboard-skeleton';
 import { SectionCards, type StatCard } from '@/components/section-cards';
 import { Skeleton } from '@lms/ui/components/ui/skeleton';
-import {
-  ChartAreaInteractive,
-  type ChartPoint,
-} from '@/components/chart-area-interactive';
+import { ChartAreaInteractive, type ChartPoint } from '@/components/chart-area-interactive';
 import { DataTable, type DataColumn } from '@/components/data-table';
 import { Badge } from '@lms/ui/components/ui/badge';
 import { Button } from '@lms/ui/components/ui/button';
@@ -59,7 +52,7 @@ function SectionHeading({ title }: { title: string }) {
 /** Thông báo khi một khối không tải được (kể cả 403 do quyền vừa thay đổi). */
 function BlockNotice() {
   const { t } = useTranslation('dashboard');
-  return <p className="text-muted-foreground px-4 text-sm lg:px-6">{t('blockForbidden')}</p>;
+  return <p className="px-4 text-sm text-muted-foreground lg:px-6">{t('blockForbidden')}</p>;
 }
 
 /**
@@ -113,9 +106,7 @@ function AdminSection() {
       label: t('dashboard:statTotalUsers'),
       value: users ? String(users.total) : '—',
       footer:
-        users && users.users.length >= users.total
-          ? t('dashboard:statUsersFooter', { count: active })
-          : undefined,
+        users && users.users.length >= users.total ? t('dashboard:statUsersFooter', { count: active }) : undefined,
       loading: usersQuery.isPending,
     },
     {
@@ -130,9 +121,7 @@ function AdminSection() {
       id: 'admin-categories',
       label: t('dashboard:statTotalCategories'),
       value: categoryCount ? String(categoryCount.total) : '—',
-      footer: categoryCount
-        ? t('dashboard:statCategoriesFooter', { count: categoryCount.topLevel })
-        : undefined,
+      footer: categoryCount ? t('dashboard:statCategoriesFooter', { count: categoryCount.topLevel }) : undefined,
       loading: treeQuery.isPending,
     },
     {
@@ -371,16 +360,11 @@ function StudentSection() {
   }, []);
   const eventsQuery = useQuery({
     queryKey: queryKeys.calendarEvents(eventRange.from, eventRange.to),
-    queryFn: () =>
-      apiJson<CalendarEventView[]>(
-        `/api/v1/calendar/events?from=${eventRange.from}&to=${eventRange.to}`,
-      ),
+    queryFn: () => apiJson<CalendarEventView[]>(`/api/v1/calendar/events?from=${eventRange.from}&to=${eventRange.to}`),
   });
 
   const badgeCount = badgesQuery.data ? badgesQuery.data.length : null;
-  const unread = notificationsQuery.data
-    ? notificationsQuery.data.filter((n) => n.timeread === null).length
-    : null;
+  const unread = notificationsQuery.data ? notificationsQuery.data.filter((n) => n.timeread === null).length : null;
   const events = eventsQuery.data ?? [];
 
   const gradedTotals: { grade: number; max: number }[] = [];
@@ -538,9 +522,7 @@ export function DashboardPage() {
 
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <h1 className="px-4 text-2xl font-semibold lg:px-6">
-        {t('dashboard:welcome', { name })}
-      </h1>
+      <h1 className="px-4 text-2xl font-semibold lg:px-6">{t('dashboard:welcome', { name })}</h1>
       {perms.canAdminister ? <AdminSection /> : null}
       {perms.teaching.length > 0 ? <TeacherSection /> : null}
       {perms.learning.length > 0 ? <StudentSection /> : null}
@@ -551,7 +533,7 @@ export function DashboardPage() {
               <CardTitle>{t('dashboard:noBlocksTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-4">
-              <p className="text-muted-foreground text-sm">{t('dashboard:noBlocksBody')}</p>
+              <p className="text-sm text-muted-foreground">{t('dashboard:noBlocksBody')}</p>
               <Button render={<Link to="/courses" />}>{t('dashboard:browseCourses')}</Button>
             </CardContent>
           </Card>

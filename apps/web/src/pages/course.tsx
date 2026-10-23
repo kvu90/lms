@@ -126,7 +126,9 @@ export function CoursePage() {
     setLoaded(true);
   }, [id]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   /** Tự ghi danh qua instance self: POST không body, xong nạp lại trạng thái/nội dung. */
   async function selfEnrol(instanceId: string) {
@@ -204,19 +206,22 @@ export function CoursePage() {
         <Card>
           <CardHeader>
             <CardTitle>{content.course.fullname}</CardTitle>
-            <CardDescription>{content.course.shortname}{content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}</CardDescription>
+            <CardDescription>
+              {content.course.shortname}
+              {content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
+            </CardDescription>
           </CardHeader>
         </Card>
-        {isEnrolledActive ? (
-          <p className="text-sm text-muted-foreground">{t('enrolledNotice')}</p>
-        ) : null}
+        {isEnrolledActive ? <p className="text-sm text-muted-foreground">{t('enrolledNotice')}</p> : null}
         {completionError ? <p role="alert">{completionError}</p> : null}
         {content.sections.map((section) => (
           <Card key={section.id}>
             <CardHeader>
               <CardTitle>{section.name ?? t('sectionDefaultName', { number: section.section })}</CardTitle>
               {section.availabilityResult && !section.availabilityResult.available && (
-                <CardDescription>{t('sectionRestricted', { reasons: section.availabilityResult.failedDescriptions.join('; ') })}</CardDescription>
+                <CardDescription>
+                  {t('sectionRestricted', { reasons: section.availabilityResult.failedDescriptions.join('; ') })}
+                </CardDescription>
               )}
             </CardHeader>
             <CardContent>
@@ -229,10 +234,22 @@ export function CoursePage() {
                   const isComplete = (activity?.state ?? 0) >= 1;
                   const showManual = completion !== null && allowsManualCompletion(cm);
                   return (
-                    <li key={cm.id} data-testid={`cm-${cm.id}`} aria-disabled={locked || undefined} className={locked ? 'opacity-50' : undefined}>
+                    <li
+                      key={cm.id}
+                      data-testid={`cm-${cm.id}`}
+                      aria-disabled={locked || undefined}
+                      className={locked ? 'opacity-50' : undefined}
+                    >
                       <span>{cm.name || cm.component}</span>
                       {locked && (
-                        <span role="note"> {t('lockedSuffix', { reasons: result.failedDescriptions.length ? result.failedDescriptions.join('; ') : t('notAvailableYet') })}</span>
+                        <span role="note">
+                          {' '}
+                          {t('lockedSuffix', {
+                            reasons: result.failedDescriptions.length
+                              ? result.failedDescriptions.join('; ')
+                              : t('notAvailableYet'),
+                          })}
+                        </span>
                       )}
                       {!locked && result && <span> {t('availableSuffix')}</span>}
                       {showManual && (
@@ -270,7 +287,10 @@ export function CoursePage() {
         <CardHeader>
           <CardTitle>{headerCourse ? headerCourse.fullname : t('enrolPanelTitle')}</CardTitle>
           {headerCourse ? (
-            <CardDescription>{headerCourse.shortname}{headerCourse.visible ? '' : ` ${t('hiddenCourseSuffix')}`}</CardDescription>
+            <CardDescription>
+              {headerCourse.shortname}
+              {headerCourse.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
+            </CardDescription>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -299,7 +319,9 @@ export function CoursePage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">{t('enrolFeeDescription')}</p>
-                      <p>{t('enrolFeeLine', { amount: instance.cost.toLocaleString(), currency: instance.currency })}</p>
+                      <p>
+                        {t('enrolFeeLine', { amount: instance.cost.toLocaleString(), currency: instance.currency })}
+                      </p>
                       <Button
                         type="button"
                         disabled={busyInstanceId === instance.id}

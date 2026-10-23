@@ -148,7 +148,8 @@ export const appResources = {
       logout: 'Đăng xuất',
       signIn: 'Đăng nhập',
       language: 'Ngôn ngữ',
-      homeDescription: 'LMS viết bằng TypeScript — tương đương nghiệp vụ lõi của Moodle. Frontend dùng backend REST/OpenAPI qua gói dùng chung @lms/contracts.',
+      homeDescription:
+        'LMS viết bằng TypeScript — tương đương nghiệp vụ lõi của Moodle. Frontend dùng backend REST/OpenAPI qua gói dùng chung @lms/contracts.',
       checkApiHealth: 'Kiểm tra trạng thái API',
       healthTitle: 'Trạng thái API',
       healthDescription: 'Trạng thái trực tiếp từ GET /api/v1/health',
@@ -177,7 +178,8 @@ export const appResources = {
       email: 'Email',
       saveProfile: 'Lưu hồ sơ',
       usersTitle: 'Người dùng',
-      usersDescription: 'Quản trị tài khoản (yêu cầu các capability về người dùng; API là nơi thực thi, trang này chỉ hiển thị kết quả).',
+      usersDescription:
+        'Quản trị tài khoản (yêu cầu các capability về người dùng; API là nơi thực thi, trang này chỉ hiển thị kết quả).',
       usersLoadFailed: 'Không tải được người dùng — bạn có thể thiếu capability moodle/user:viewdetails.',
       searchUsers: 'Tìm người dùng',
       searchUsersPlaceholder: 'Tìm theo tên đăng nhập hoặc email',
@@ -190,7 +192,8 @@ export const appResources = {
       createUser: 'Tạo người dùng',
       create: 'Tạo',
       rolesTitle: 'Vai trò',
-      rolesDescription: 'Các vai trò lõi chuẩn của Moodle. Quyền được API đánh giá trên cây context — trang này chỉ phục vụ quản trị.',
+      rolesDescription:
+        'Các vai trò lõi chuẩn của Moodle. Quyền được API đánh giá trên cây context — trang này chỉ phục vụ quản trị.',
       rolesLoadFailed: 'Không tải được vai trò — bạn có thể thiếu capability moodle/role:manage.',
       archetypeSuffix: '— nguyên mẫu: {{archetype}}',
       capabilityMatrix: 'Ma trận quyền',
@@ -238,7 +241,8 @@ export const appResources = {
       enrolPanelTitle: 'Ghi danh vào khoá học',
       enrolPanelDescription: 'Bạn chưa ghi danh khoá học này. Chọn một cách ghi danh đang mở dưới đây.',
       enrolSelfDescription: 'Tự ghi danh — vào học ngay sau khi ghi danh.',
-      enrolFeeDescription: 'Ghi danh có phí — ghi danh chỉ kích hoạt sau khi cổng thanh toán xác nhận thanh toán thành công.',
+      enrolFeeDescription:
+        'Ghi danh có phí — ghi danh chỉ kích hoạt sau khi cổng thanh toán xác nhận thanh toán thành công.',
       enrolFeeLine: 'Phí: {{amount}} {{currency}}',
       enrolSelfAction: 'Ghi danh',
       enrolPayAction: 'Thanh toán phí ghi danh',
@@ -246,9 +250,11 @@ export const appResources = {
       enrolSuccess: 'Đã ghi danh thành công.',
       enrolledNotice: 'Bạn đã ghi danh khoá học này.',
       enrolFailed: 'Không thể ghi danh. Vui lòng thử lại.',
-      enrolPaymentCreated: 'Đã tạo thanh toán — đang chờ xác nhận từ cổng thanh toán. Ghi danh sẽ tự kích hoạt khi thanh toán được xác nhận.',
+      enrolPaymentCreated:
+        'Đã tạo thanh toán — đang chờ xác nhận từ cổng thanh toán. Ghi danh sẽ tự kích hoạt khi thanh toán được xác nhận.',
       enrolPaymentFailed: 'Không thể tạo thanh toán. Vui lòng thử lại.',
-      enrolPaymentWaiting: 'Đang chờ xác nhận từ cổng thanh toán — ghi danh sẽ tự kích hoạt khi thanh toán được xác nhận.',
+      enrolPaymentWaiting:
+        'Đang chờ xác nhận từ cổng thanh toán — ghi danh sẽ tự kích hoạt khi thanh toán được xác nhận.',
       enrolPaymentLine: 'Thanh toán của tôi: {{amount}} {{currency}} — {{status}}',
       enrolNoOptions: 'Hiện chưa có cách tự ghi danh nào đang mở cho khoá học này.',
       enrolInstanceFallback: 'Cách ghi danh',
@@ -291,7 +297,8 @@ export const appResources = {
       groupingGroupAddFailed: 'Không thể thêm nhóm vào grouping',
       groupingGroupsLoadFailed: 'Không tải được danh sách nhóm của grouping.',
       noGroupings: 'Chưa có grouping nào.',
-      groupingApiNote: 'API hiện chưa hỗ trợ đổi tên grouping hay gỡ một nhóm khỏi grouping; cần đổi thì xoá grouping và tạo lại.',
+      groupingApiNote:
+        'API hiện chưa hỗ trợ đổi tên grouping hay gỡ một nhóm khỏi grouping; cần đổi thì xoá grouping và tạo lại.',
       cohortViewMembers: 'Xem thành viên',
       cohortMembersTitle: 'Thành viên của {{name}}',
       cohortMemberLine: 'Người dùng {{userId}} — tham gia {{time}}',
@@ -397,7 +404,8 @@ export const appResources = {
       availabilityProfileEmail: 'Email',
       availabilityProfileCustomOption: 'Trường tuỳ biến khác…',
       courseBuilder: 'Xây dựng khoá học',
-      courseBuilderDescription: 'Sửa thông tin khoá học, quản lý section và module. Chỉ đội ngũ giảng dạy của khoá hoặc quản trị viên mới thấy khu này.',
+      courseBuilderDescription:
+        'Sửa thông tin khoá học, quản lý section và module. Chỉ đội ngũ giảng dạy của khoá hoặc quản trị viên mới thấy khu này.',
       courseSettings: 'Thông tin khoá học',
       courseSummary: 'Tóm tắt khoá học',
       courseVisible: 'Khoá học hiển thị',
@@ -469,7 +477,8 @@ export const appResources = {
       gradeValue: 'Điểm',
       saveGrade: 'Lưu điểm',
       gradeAdminTitle: 'Quản trị sổ điểm',
-      gradeAdminDescription: 'Hạng mục, mục điểm, thang điểm chữ, thang điểm và tính lại điểm. Chỉ đội ngũ giảng dạy của khoá hoặc quản trị viên mới thấy khu này.',
+      gradeAdminDescription:
+        'Hạng mục, mục điểm, thang điểm chữ, thang điểm và tính lại điểm. Chỉ đội ngũ giảng dạy của khoá hoặc quản trị viên mới thấy khu này.',
       gradeCategoriesAdminTitle: 'Hạng mục điểm',
       gradeCategoryName: 'Tên hạng mục',
       gradeCategoryAggregation: 'Cách tổng hợp',
@@ -499,7 +508,8 @@ export const appResources = {
       gradeItemDeleted: 'Đã xoá mục điểm.',
       gradeItemDeleteFailed: 'Không thể xoá mục điểm.',
       gradeLettersTitle: 'Thang điểm chữ',
-      gradeLettersDescription: 'Mốc dưới là điểm tối thiểu để đạt chữ cái tương ứng. Lưu sẽ thay toàn bộ thang hiện tại của khoá.',
+      gradeLettersDescription:
+        'Mốc dưới là điểm tối thiểu để đạt chữ cái tương ứng. Lưu sẽ thay toàn bộ thang hiện tại của khoá.',
       letterSymbol: 'Chữ cái',
       letterLowerBoundary: 'Mốc dưới',
       addLetter: 'Thêm mốc chữ',
@@ -573,7 +583,8 @@ export const appResources = {
       selectQuestionForAttempt: 'Chọn câu hỏi {{name}} để làm bài',
       startAttemptFromSelection: 'Bắt đầu làm bài',
       usageCreateFailed: 'Không thể tạo lượt làm bài từ các câu hỏi đã chọn.',
-      deferredFeedbackNote: 'Điểm chỉ chốt khi kết thúc: nộp câu trả lời chỉ ghi nhận đáp án, hệ số điểm xuất hiện sau khi kết thúc attempt hoặc kết thúc toàn bộ lượt làm.',
+      deferredFeedbackNote:
+        'Điểm chỉ chốt khi kết thúc: nộp câu trả lời chỉ ghi nhận đáp án, hệ số điểm xuất hiện sau khi kết thúc attempt hoặc kết thúc toàn bộ lượt làm.',
       usageStart: 'Bắt đầu lượt làm',
       usageFinish: 'Kết thúc lượt làm',
       attemptStart: 'Bắt đầu',
@@ -647,7 +658,8 @@ export const appResources = {
       reminderSet: 'Đã đặt nhắc cho sự kiện.',
       reminderFailed: 'Không thể đặt nhắc cho sự kiện này.',
       calendarExportTitle: 'Xuất lịch',
-      calendarExportDescription: 'Tải lịch sự kiện của bạn dạng iCalendar (.ics) hoặc tạo đường dẫn đăng ký bí mật để ứng dụng lịch bên ngoài tự cập nhật.',
+      calendarExportDescription:
+        'Tải lịch sự kiện của bạn dạng iCalendar (.ics) hoặc tạo đường dẫn đăng ký bí mật để ứng dụng lịch bên ngoài tự cập nhật.',
       downloadIcs: 'Tải tệp .ics',
       downloadIcsFailed: 'Không tải được tệp lịch.',
       exportToken: 'Đường dẫn đăng ký',
@@ -746,7 +758,8 @@ export const appResources = {
       evidenceReviewDescription: 'Vui lòng duyệt bằng chứng của tôi',
       navSiteConfig: 'Cấu hình site',
       compAdminTitle: 'Quản lý khung năng lực',
-      compAdminDescription: 'Framework, competency và mẫu kế hoạch học tập. Chỉ quản trị viên mới thấy khu này; API vẫn thực thi capability moodle/competency:competencymanage.',
+      compAdminDescription:
+        'Framework, competency và mẫu kế hoạch học tập. Chỉ quản trị viên mới thấy khu này; API vẫn thực thi capability moodle/competency:competencymanage.',
       compFrameworksTitle: 'Framework năng lực',
       compExportFramework: 'Xuất JSON',
       compExported: 'Đã xuất framework "{{name}}" thành file JSON.',
@@ -766,7 +779,8 @@ export const appResources = {
       compFrameworkVisible: 'Framework hiển thị',
       compCreateFramework: 'Tạo framework',
       compFrameworkCreated: 'Đã tạo framework.',
-      compFrameworkCreateFailed: 'Không thể tạo framework (lỗi quyền hoặc validation — thang đánh giá cần ít nhất một mức).',
+      compFrameworkCreateFailed:
+        'Không thể tạo framework (lỗi quyền hoặc validation — thang đánh giá cần ít nhất một mức).',
       compAdminLoadFailed: 'Không tải được dữ liệu quản lý năng lực.',
       compNoFrameworks: 'Chưa có framework nào.',
       compCompetenciesTitle: 'Cây competency của framework',
@@ -800,7 +814,8 @@ export const appResources = {
       compPlansCreated: 'Đã tạo {{count}} kế hoạch từ template.',
       compActionFailed: 'Thao tác thất bại (lỗi quyền hoặc validation).',
       compReviewQueueTitle: 'Hàng đợi duyệt năng lực',
-      compReviewQueueDescription: 'Chọn một người dùng để xem kế hoạch và năng lực đang chờ duyệt của họ. Các nút thao tác chỉ hiện khi trạng thái hiện tại của bản ghi cho phép theo quy tắc duyệt phía API.',
+      compReviewQueueDescription:
+        'Chọn một người dùng để xem kế hoạch và năng lực đang chờ duyệt của họ. Các nút thao tác chỉ hiện khi trạng thái hiện tại của bản ghi cho phép theo quy tắc duyệt phía API.',
       compReviewUser: 'Người dùng cần duyệt',
       compReviewUserId: 'ID người dùng cần duyệt',
       compLoadReviewQueue: 'Tải hàng đợi duyệt',
@@ -815,12 +830,14 @@ export const appResources = {
       compCompletePlan: 'Hoàn thành kế hoạch',
       compApproveUsercomp: 'Duyệt đạt năng lực',
       compRejectUsercomp: 'Từ chối năng lực',
-      compReviewActionFailed: 'Thao tác duyệt thất bại — trạng thái hiện tại có thể không cho phép hoặc bạn thiếu capability duyệt.',
+      compReviewActionFailed:
+        'Thao tác duyệt thất bại — trạng thái hiện tại có thể không cho phép hoặc bạn thiếu capability duyệt.',
       compReviewActionDone: 'Đã thực hiện thao tác duyệt.',
       compUsercompCompetency: 'Competency {{id}}',
       compUsercompGrade: 'mức {{grade}}',
       siteConfigTitle: 'Cấu hình site',
-      siteConfigDescription: 'Các setting đã đăng ký trên máy chủ, nhóm theo component. Giá trị ghi đè lưu trong cơ sở dữ liệu thay cho giá trị mặc định trong code.',
+      siteConfigDescription:
+        'Các setting đã đăng ký trên máy chủ, nhóm theo component. Giá trị ghi đè lưu trong cơ sở dữ liệu thay cho giá trị mặc định trong code.',
       siteConfigLoadFailed: 'Không tải được cấu hình site.',
       siteConfigForbidden: 'Bạn không có quyền xem cấu hình site (cần capability moodle/site:config).',
       siteConfigSave: 'Lưu',
@@ -863,7 +880,8 @@ export const appResources = {
       logout: 'Log out',
       signIn: 'Sign in',
       language: 'Language',
-      homeDescription: 'TypeScript LMS — Moodle core business equivalent. Frontend consumes the REST/OpenAPI backend via the shared @lms/contracts package.',
+      homeDescription:
+        'TypeScript LMS — Moodle core business equivalent. Frontend consumes the REST/OpenAPI backend via the shared @lms/contracts package.',
       checkApiHealth: 'Check API health',
       healthTitle: 'API health',
       healthDescription: 'Live status from GET /api/v1/health',
@@ -892,7 +910,8 @@ export const appResources = {
       email: 'Email',
       saveProfile: 'Save profile',
       usersTitle: 'Users',
-      usersDescription: 'Administer accounts (requires user capabilities; the API enforces them, this page only renders the result).',
+      usersDescription:
+        'Administer accounts (requires user capabilities; the API enforces them, this page only renders the result).',
       usersLoadFailed: 'Could not load users — you may lack the moodle/user:viewdetails capability.',
       searchUsers: 'Search users',
       searchUsersPlaceholder: 'Search username or email',
@@ -905,7 +924,8 @@ export const appResources = {
       createUser: 'Create user',
       create: 'Create',
       rolesTitle: 'Roles',
-      rolesDescription: 'Standard Moodle core roles. Permissions are evaluated by the API over the context tree — this page is administration only.',
+      rolesDescription:
+        'Standard Moodle core roles. Permissions are evaluated by the API over the context tree — this page is administration only.',
       rolesLoadFailed: 'Could not load roles — you may lack the moodle/role:manage capability.',
       archetypeSuffix: '— archetype: {{archetype}}',
       capabilityMatrix: 'Capability matrix',
@@ -953,7 +973,8 @@ export const appResources = {
       enrolPanelTitle: 'Enrol in this course',
       enrolPanelDescription: 'You are not enrolled in this course yet. Choose one of the open enrolment options below.',
       enrolSelfDescription: 'Self enrolment — start learning right after you enrol.',
-      enrolFeeDescription: 'Fee enrolment — enrolment is only activated after the payment gateway confirms a successful payment.',
+      enrolFeeDescription:
+        'Fee enrolment — enrolment is only activated after the payment gateway confirms a successful payment.',
       enrolFeeLine: 'Fee: {{amount}} {{currency}}',
       enrolSelfAction: 'Enrol',
       enrolPayAction: 'Pay enrolment fee',
@@ -961,9 +982,11 @@ export const appResources = {
       enrolSuccess: 'Enrolled successfully.',
       enrolledNotice: 'You are enrolled in this course.',
       enrolFailed: 'Could not enrol. Please try again.',
-      enrolPaymentCreated: 'Payment created — waiting for confirmation from the payment gateway. Enrolment will be activated automatically once the payment is confirmed.',
+      enrolPaymentCreated:
+        'Payment created — waiting for confirmation from the payment gateway. Enrolment will be activated automatically once the payment is confirmed.',
       enrolPaymentFailed: 'Could not create the payment. Please try again.',
-      enrolPaymentWaiting: 'Waiting for confirmation from the payment gateway — enrolment will be activated automatically once the payment is confirmed.',
+      enrolPaymentWaiting:
+        'Waiting for confirmation from the payment gateway — enrolment will be activated automatically once the payment is confirmed.',
       enrolPaymentLine: 'My payment: {{amount}} {{currency}} — {{status}}',
       enrolNoOptions: 'No self-enrolment option is currently open for this course.',
       enrolInstanceFallback: 'Enrolment option',
@@ -1006,7 +1029,8 @@ export const appResources = {
       groupingGroupAddFailed: 'Could not add the group to the grouping',
       groupingGroupsLoadFailed: 'Could not load the grouping’s groups.',
       noGroupings: 'No groupings yet.',
-      groupingApiNote: 'The API does not yet support renaming a grouping or removing a group from a grouping; delete and recreate the grouping to change it.',
+      groupingApiNote:
+        'The API does not yet support renaming a grouping or removing a group from a grouping; delete and recreate the grouping to change it.',
       cohortViewMembers: 'View members',
       cohortMembersTitle: 'Members of {{name}}',
       cohortMemberLine: 'User {{userId}} — joined {{time}}',
@@ -1059,7 +1083,8 @@ export const appResources = {
       recalculatedCompletion: 'Course completion recalculated.',
       recalculateFailed: 'Could not recalculate completion.',
       availabilityTitle: 'Access restrictions',
-      availabilityDescription: 'The condition tree decides who can access this item; leave it empty for no restriction.',
+      availabilityDescription:
+        'The condition tree decides who can access this item; leave it empty for no restriction.',
       availabilityEmpty: 'No conditions yet.',
       availabilityOperator: 'Group operator',
       availabilityOpAnd: 'All conditions (AND)',
@@ -1112,7 +1137,8 @@ export const appResources = {
       availabilityProfileEmail: 'Email',
       availabilityProfileCustomOption: 'Other custom field…',
       courseBuilder: 'Course builder',
-      courseBuilderDescription: 'Edit the course details and manage its sections and modules. Only the course teaching team or administrators see this area.',
+      courseBuilderDescription:
+        'Edit the course details and manage its sections and modules. Only the course teaching team or administrators see this area.',
       courseSettings: 'Course settings',
       courseSummary: 'Course summary',
       courseVisible: 'Course visible',
@@ -1184,7 +1210,8 @@ export const appResources = {
       gradeValue: 'Grade',
       saveGrade: 'Save grade',
       gradeAdminTitle: 'Gradebook administration',
-      gradeAdminDescription: 'Categories, items, grade letters, scales and regrading. Only the course teaching team or administrators see this area.',
+      gradeAdminDescription:
+        'Categories, items, grade letters, scales and regrading. Only the course teaching team or administrators see this area.',
       gradeCategoriesAdminTitle: 'Grade categories',
       gradeCategoryName: 'Category name',
       gradeCategoryAggregation: 'Aggregation',
@@ -1214,7 +1241,8 @@ export const appResources = {
       gradeItemDeleted: 'Grade item deleted.',
       gradeItemDeleteFailed: 'Could not delete the grade item.',
       gradeLettersTitle: 'Grade letters',
-      gradeLettersDescription: 'The lower boundary is the minimum grade that earns the corresponding letter. Saving replaces the whole scale for this course.',
+      gradeLettersDescription:
+        'The lower boundary is the minimum grade that earns the corresponding letter. Saving replaces the whole scale for this course.',
       letterSymbol: 'Letter',
       letterLowerBoundary: 'Lower boundary',
       addLetter: 'Add a letter boundary',
@@ -1250,7 +1278,8 @@ export const appResources = {
       regradeDone: 'Course regraded.',
       regradeFailed: 'Could not regrade the course.',
       gradeHistoryTitle: 'Student grade history',
-      gradeHistoryDescription: 'Pick a grade item and enter a student user id to see every recorded grade change for that student.',
+      gradeHistoryDescription:
+        'Pick a grade item and enter a student user id to see every recorded grade change for that student.',
       viewHistory: 'View history',
       historyLoadFailed: 'Could not load the grade history.',
       historyEmpty: 'No grade changes recorded for this student on the selected item.',
@@ -1288,7 +1317,8 @@ export const appResources = {
       selectQuestionForAttempt: 'Select question {{name}} to attempt',
       startAttemptFromSelection: 'Start attempt',
       usageCreateFailed: 'Could not create an attempt from the selected questions.',
-      deferredFeedbackNote: 'Marks are only finalised at finish: submitting only records your answer, the fraction appears after finishing the attempt or the whole usage.',
+      deferredFeedbackNote:
+        'Marks are only finalised at finish: submitting only records your answer, the fraction appears after finishing the attempt or the whole usage.',
       usageStart: 'Start usage',
       usageFinish: 'Finish usage',
       attemptStart: 'Start',
@@ -1362,7 +1392,8 @@ export const appResources = {
       reminderSet: 'Reminder set for the event.',
       reminderFailed: 'Could not set a reminder for this event.',
       calendarExportTitle: 'Calendar export',
-      calendarExportDescription: 'Download your event calendar as an iCalendar (.ics) file, or create a secret subscription URL that external calendar apps can refresh automatically.',
+      calendarExportDescription:
+        'Download your event calendar as an iCalendar (.ics) file, or create a secret subscription URL that external calendar apps can refresh automatically.',
       downloadIcs: 'Download .ics file',
       downloadIcsFailed: 'Could not download the calendar file.',
       exportToken: 'Subscription URL',
@@ -1461,7 +1492,8 @@ export const appResources = {
       evidenceReviewDescription: 'Please review my evidence',
       navSiteConfig: 'Site configuration',
       compAdminTitle: 'Competency framework administration',
-      compAdminDescription: 'Frameworks, competencies and learning plan templates. Only administrators see this area; the API still enforces the moodle/competency:competencymanage capability.',
+      compAdminDescription:
+        'Frameworks, competencies and learning plan templates. Only administrators see this area; the API still enforces the moodle/competency:competencymanage capability.',
       compFrameworksTitle: 'Competency frameworks',
       compExportFramework: 'Export JSON',
       compExported: 'Framework "{{name}}" exported as a JSON file.',
@@ -1481,7 +1513,8 @@ export const appResources = {
       compFrameworkVisible: 'Framework visible',
       compCreateFramework: 'Create framework',
       compFrameworkCreated: 'Framework created.',
-      compFrameworkCreateFailed: 'Could not create the framework (permission or validation error — the scale needs at least one value).',
+      compFrameworkCreateFailed:
+        'Could not create the framework (permission or validation error — the scale needs at least one value).',
       compAdminLoadFailed: 'Could not load competency administration data.',
       compNoFrameworks: 'No frameworks yet.',
       compCompetenciesTitle: 'Competency tree of the framework',
@@ -1515,7 +1548,8 @@ export const appResources = {
       compPlansCreated: 'Created {{count}} plans from the template.',
       compActionFailed: 'The action failed (permission or validation error).',
       compReviewQueueTitle: 'Competency review queue',
-      compReviewQueueDescription: 'Pick a user to see their plans and competencies awaiting review. Action buttons only appear when the record current state allows them under the API review rules.',
+      compReviewQueueDescription:
+        'Pick a user to see their plans and competencies awaiting review. Action buttons only appear when the record current state allows them under the API review rules.',
       compReviewUser: 'User to review',
       compReviewUserId: 'User ID to review',
       compLoadReviewQueue: 'Load review queue',
@@ -1530,17 +1564,21 @@ export const appResources = {
       compCompletePlan: 'Complete plan',
       compApproveUsercomp: 'Approve competency',
       compRejectUsercomp: 'Reject competency',
-      compReviewActionFailed: 'The review action failed — the current state may not allow it or you lack the review capability.',
+      compReviewActionFailed:
+        'The review action failed — the current state may not allow it or you lack the review capability.',
       compReviewActionDone: 'Review action done.',
       compUsercompCompetency: 'Competency {{id}}',
       compUsercompGrade: 'grade {{grade}}',
       siteConfigTitle: 'Site configuration',
-      siteConfigDescription: 'Settings registered on the server, grouped by component. An override stored in the database replaces the default value in code.',
+      siteConfigDescription:
+        'Settings registered on the server, grouped by component. An override stored in the database replaces the default value in code.',
       siteConfigLoadFailed: 'Could not load the site configuration.',
-      siteConfigForbidden: 'You do not have permission to view the site configuration (the moodle/site:config capability is required).',
+      siteConfigForbidden:
+        'You do not have permission to view the site configuration (the moodle/site:config capability is required).',
       siteConfigSave: 'Save',
       siteConfigSaved: 'Configuration saved.',
-      siteConfigSaveFailed: 'Could not save the configuration (permission error or a value of the wrong registered type).',
+      siteConfigSaveFailed:
+        'Could not save the configuration (permission error or a value of the wrong registered type).',
       siteConfigReset: 'Reset',
       siteConfigResetDone: 'Override cleared; the setting is back to its default value.',
       siteConfigResetFailed: 'Could not reset this configuration.',
@@ -1555,7 +1593,6 @@ export const appResources = {
     },
   },
 } as const;
-
 
 /**
  * Resources cho trang tổng quan (dashboard) và khung sidebar/header của khu
@@ -1688,7 +1725,8 @@ export const dashboardResources = {
       manageCourse: 'Manage course',
       emptyTable: 'No data yet.',
       noBlocksTitle: 'Nothing to summarise yet',
-      noBlocksBody: 'You are not enrolled in any course and hold no administration rights. Browse the course catalogue to get started.',
+      noBlocksBody:
+        'You are not enrolled in any course and hold no administration rights. Browse the course catalogue to get started.',
       browseCourses: 'Browse courses',
       blockForbidden: 'This block could not be loaded — your permissions may have changed.',
       tablePageInfo: 'Page {{page}} of {{pages}}',
@@ -1701,8 +1739,16 @@ export const dashboardResources = {
 
 void i18n.use(initReactI18next).init({
   resources: {
-    vi: { platform: platformResources.vi.platform, app: appResources.vi.app, dashboard: dashboardResources.vi.dashboard },
-    en: { platform: platformResources.en.platform, app: appResources.en.app, dashboard: dashboardResources.en.dashboard },
+    vi: {
+      platform: platformResources.vi.platform,
+      app: appResources.vi.app,
+      dashboard: dashboardResources.vi.dashboard,
+    },
+    en: {
+      platform: platformResources.en.platform,
+      app: appResources.en.app,
+      dashboard: dashboardResources.en.dashboard,
+    },
   },
   lng: 'vi',
   fallbackLng: 'vi',
