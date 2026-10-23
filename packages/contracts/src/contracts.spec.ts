@@ -6,6 +6,9 @@ import {
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
   paymentWebhookSchema, restoreCourseSchema,
   createGradeItemSchema, createGradeOutcomeSchema, gradeOutcomeSchema,
+  richTextDocumentSchema, richTextInputSchema, toRichTextDocument, extractRichTextPlainText, emptyRichTextDocument,
+  createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema,
+  createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -243,5 +246,137 @@ describe('platform request schemas (Zod — single source of truth for API and R
     expect(createPrivacyRequestSchema.safeParse({ type: 'export', userid: '01900000-0000-7000-8000-000000000005' }).success).toBe(false);
     expect(createExternalTokenSchema.safeParse({ userid: '01900000-0000-7000-8000-000000000001', serviceid: '01900000-0000-7000-8000-000000000002' }).success).toBe(true);
     expect(paymentWebhookSchema.safeParse({ gateway: 'manual', externalTransactionId: 'x', paymentId: '01900000-0000-7000-8000-000000000001', status: 'succeeded' }).success).toBe(true);
+  });
+});
+
+describe('rich text contracts', () => {
+  const doc = {
+    type: 'doc' as const,
+    content: [
+      { type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Xin chào', marks: [{ type: 'bold' as const }] }] },
+      { type: 'paragraph' as const },
+    ],
+  };
+
+  it('accepts a plain-text document with basic marks and an empty paragraph', () => {
+    const parsed = richTextDocumentSchema.parse(doc);
+    expect(parsed.content[0]?.content?.[0]?.marks?.[0]?.type).toBe('bold');
+    expect(richTextInputSchema.parse('chuỗi thuần')).toBe('chuỗi thuần');
+    expect(richTextInputSchema.parse(doc)).toEqual(doc);
+  });
+
+  it('rejects nodes outside the plain-text slice (image, heading) and unknown marks', () => {
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image', attrs: { src: 'x.png' } }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'T' }] }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'highlight' }] }] }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [] })).toThrow();
+  });
+
+  it('wraps strings into a one-paragraph document and the empty string into the empty document', () => {
+    expect(toRichTextDocument('Một cộng một bằng mấy?')).toEqual({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Một cộng một bằng mấy?' }] }],
+    });
+    expect(toRichTextDocument('')).toEqual(emptyRichTextDocument);
+    expect(toRichTextDocument(doc)).toEqual(doc);
+    expect(() => toRichTextDocument({ type: 'doc', content: [{ type: 'image' }] } as never)).toThrow();
+  });
+
+  it('extracts plain text joining paragraphs with newlines, empty paragraph as an empty line', () => {
+    const multi = {
+      type: 'doc' as const,
+      content: [
+        { type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Dòng ' }, { type: 'text' as const, text: 'một' }] },
+        { type: 'paragraph' as const },
+        { type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Dòng ba' }] },
+      ],
+    };
+    expect(extractRichTextPlainText(multi)).toBe('Dòng một\n\nDòng ba');
+    expect(extractRichTextPlainText(emptyRichTextDocument)).toBe('');
+  });
+});
+
+describe('question payload contracts (Moodle qtypes + stimulus)', () => {
+  const categoryId = '01900000-0000-7000-8000-000000000001';
+  const stimulusId = '01900000-0000-7000-8000-000000000099';
+
+  it('accepts a multichoice payload with answers and options, questiontext as string or document', () => {
+    const parsed = createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', name: 'Thủ đô', questiontext: 'Thủ đô của Việt Nam là?',
+      stimulusId,
+      answers: [
+        { text: 'Hà Nội', fraction: 1, feedback: 'Đúng' },
+        { text: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, fraction: 0 },
+      ],
+      options: { single: true, shuffleanswers: true, answernumbering: 'abc', shownumcorrect: true, correctfeedback: 'Chính xác' },
+    });
+    expect(parsed.answers).toHaveLength(2);
+    expect(parsed.options?.single).toBe(true);
+    const withDocText = createQuestionSchema.parse({
+      categoryId, qtype: 'essay', name: 'Tự luận',
+      questiontext: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hãy phân tích...' }] }] },
+      options: { responseformat: 'editor', responserequired: true, responsefieldlines: 15, minwordlimit: null, maxwordlimit: 500, graderinfo: 'Chấm theo rubric' },
+    });
+    expect(withDocText.options?.maxwordlimit).toBe(500);
+  });
+
+  it('keeps the legacy free-form answer payload working for truefalse and shortanswer', () => {
+    const tf = createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', name: 'Đúng sai', questiontext: 'Trái đất quay quanh mặt trời.', answer: { correct: true },
+    });
+    expect(tf.answer).toEqual({ correct: true });
+    const sa = createQuestionSchema.parse({
+      categoryId, qtype: 'shortanswer', name: 'Điền đáp án', questiontext: '2 + 2 = ?', answer: { answers: ['4', 'bốn'], casesensitive: false },
+    });
+    expect(sa.answer).toEqual({ answers: ['4', 'bốn'], casesensitive: false });
+    expect(updateQuestionSchema.parse({ stimulusId: null }).stimulusId).toBeNull();
+    expect(updateQuestionSchema.parse({ answers: [{ text: 'x', fraction: 0.5 }] }).answers).toHaveLength(1);
+  });
+
+  it('rejects an unknown qtype and unknown payload fields', () => {
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'matching', name: 'X', questiontext: '?' })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'essay', name: 'X', questiontext: '?', evil: 1 })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'multichoice', name: 'X', questiontext: '?', options: { bogus: true } })).toThrow();
+  });
+
+  it('accepts stimulus create/update payloads and parses a stimulus view', () => {
+    const created = createStimulusSchema.parse({ categoryId, content: 'Đọc đoạn văn sau và trả lời câu hỏi.' });
+    expect(created.categoryId).toBe(categoryId);
+    expect(updateStimulusSchema.parse({ content: { type: 'doc', content: [{ type: 'paragraph' }] } }).content).toBeDefined();
+    const view = stimulusViewSchema.parse({
+      id: stimulusId, categoryid: categoryId, createdby: null,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Đoạn văn' }] }] },
+    });
+    expect(view.createdby).toBeNull();
+    expect(extractRichTextPlainText(view.content)).toBe('Đoạn văn');
+  });
+});
+
+describe('question view contracts', () => {
+  it('parses a question view whose version carries a Tiptap document, answers and options', () => {
+    const questiontext = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Thủ đô của Việt Nam là?' }] }] };
+    const view = questionViewSchema.parse({
+      question: { id: '01900000-0000-7000-8000-000000000004', category: '01900000-0000-7000-8000-000000000001', qtype: 'multichoice', name: 'Thủ đô' },
+      entry: { id: '01900000-0000-7000-8000-000000000006', questioncategoryid: '01900000-0000-7000-8000-000000000001', questionid: '01900000-0000-7000-8000-000000000004', latestversion: 1 },
+      latestVersion: {
+        id: '01900000-0000-7000-8000-000000000008', questionbankentryid: '01900000-0000-7000-8000-000000000006', questionid: '01900000-0000-7000-8000-000000000004', version: 1,
+        questiontext, generalfeedback: null, guidance: null, defaultmark: 1, penalty: 0, stimulusid: '01900000-0000-7000-8000-000000000099',
+      },
+      answers: [
+        { id: '01900000-0000-7000-8000-000000000011', questionversionid: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hà Nội' }] }] }, fraction: 1, feedback: null, sortorder: 0 },
+        { id: '01900000-0000-7000-8000-000000000012', questionversionid: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, fraction: 0, feedback: null, sortorder: 1 },
+      ],
+      options: { single: true, shuffleanswers: false, answernumbering: 'abc' },
+    });
+    expect(view.answers).toHaveLength(2);
+    expect(view.latestVersion.questiontext).toEqual(questiontext);
+    expect(view.latestVersion.stimulusid).toBe('01900000-0000-7000-8000-000000000099');
+  });
+
+  it('rejects the old version shape (string questiontext carrying answerdata)', () => {
+    expect(() => questionVersionSchema.parse({
+      id: '01900000-0000-7000-8000-000000000008', questionbankentryid: '01900000-0000-7000-8000-000000000006', questionid: '01900000-0000-7000-8000-000000000004', version: 1,
+      questiontext: 'chuỗi cũ', defaultmark: 1, answerdata: { correct: true },
+    })).toThrow();
   });
 });

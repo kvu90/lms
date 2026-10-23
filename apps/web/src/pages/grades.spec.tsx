@@ -217,9 +217,16 @@ describe('Question bank page', () => {
         questionid: '01900000-0000-7000-8000-000000000004',
         version,
         status: 'ready',
-        questiontext: version === 1 ? 'The sky is blue.' : 'The sky is blue. (edited)',
+        questiontext: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: version === 1 ? 'The sky is blue.' : 'The sky is blue. (edited)' }],
+            },
+          ],
+        },
         defaultmark: 1,
-        answerdata: { correct: true },
         timecreated: 'x',
       },
     });

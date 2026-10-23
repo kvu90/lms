@@ -533,6 +533,37 @@ CREATE TABLE "scales" (
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "qtype_essay_options" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"questionversionid" uuid NOT NULL CONSTRAINT "qtype_essay_options_version_unique" UNIQUE,
+	"responseformat" text DEFAULT 'editor' NOT NULL,
+	"responserequired" boolean DEFAULT true NOT NULL,
+	"responsefieldlines" integer DEFAULT 15 NOT NULL,
+	"minwordlimit" integer,
+	"maxwordlimit" integer,
+	"graderinfo" jsonb,
+	"responsetemplate" jsonb
+);
+--> statement-breakpoint
+CREATE TABLE "qtype_multichoice_options" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"questionversionid" uuid NOT NULL CONSTRAINT "qtype_multichoice_options_version_unique" UNIQUE,
+	"single" boolean DEFAULT true NOT NULL,
+	"shuffleanswers" boolean DEFAULT false NOT NULL,
+	"answernumbering" text DEFAULT 'abc' NOT NULL,
+	"correctfeedback" jsonb,
+	"partiallycorrectfeedback" jsonb,
+	"incorrectfeedback" jsonb,
+	"shownumcorrect" boolean DEFAULT false NOT NULL,
+	"showstandardinstruction" boolean DEFAULT true NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "qtype_shortanswer_options" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"questionversionid" uuid NOT NULL CONSTRAINT "qtype_shortanswer_options_version_unique" UNIQUE,
+	"usecase" boolean DEFAULT false NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "question" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"category" uuid NOT NULL,
@@ -542,6 +573,15 @@ CREATE TABLE "question" (
 	"modifiedby" uuid,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "question_answers" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"questionversionid" uuid NOT NULL,
+	"answer" jsonb NOT NULL,
+	"fraction" double precision DEFAULT 0 NOT NULL,
+	"feedback" jsonb,
+	"sortorder" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "question_attempt_step_data" (
@@ -608,6 +648,14 @@ CREATE TABLE "question_categories" (
 	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "question_truefalse" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"questionversionid" uuid NOT NULL CONSTRAINT "question_truefalse_version_unique" UNIQUE,
+	"trueanswer" uuid NOT NULL,
+	"falseanswer" uuid NOT NULL,
+	"showstandardinstruction" boolean DEFAULT true NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "question_usages" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"component" text NOT NULL,
@@ -625,11 +673,23 @@ CREATE TABLE "question_versions" (
 	"questionid" uuid NOT NULL,
 	"version" integer NOT NULL,
 	"status" text DEFAULT 'ready' NOT NULL,
-	"questiontext" text DEFAULT '' NOT NULL,
+	"questiontext" jsonb DEFAULT '{"type":"doc","content":[{"type":"paragraph"}]}' NOT NULL,
+	"generalfeedback" jsonb,
+	"guidance" jsonb,
 	"defaultmark" double precision DEFAULT 1 NOT NULL,
-	"answerdata" jsonb DEFAULT '{}' NOT NULL,
+	"penalty" double precision DEFAULT 0 NOT NULL,
+	"stimulusid" uuid,
 	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "question_versions_entry_version_unique" UNIQUE("questionbankentryid","version")
+);
+--> statement-breakpoint
+CREATE TABLE "stimuli" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"categoryid" uuid NOT NULL,
+	"createdby" uuid,
+	"content" jsonb NOT NULL,
+	"timecreated" timestamp with time zone DEFAULT now() NOT NULL,
+	"timemodified" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "message" (
@@ -1304,6 +1364,7 @@ CREATE INDEX "scales_courseid_idx" ON "scales" ("courseid");--> statement-breakp
 CREATE INDEX "question_category_idx" ON "question" ("category");--> statement-breakpoint
 CREATE INDEX "question_createdby_idx" ON "question" ("createdby");--> statement-breakpoint
 CREATE INDEX "question_modifiedby_idx" ON "question" ("modifiedby");--> statement-breakpoint
+CREATE INDEX "question_answers_questionversionid_idx" ON "question_answers" ("questionversionid");--> statement-breakpoint
 CREATE INDEX "question_attempt_steps_userid_idx" ON "question_attempt_steps" ("userid");--> statement-breakpoint
 CREATE INDEX "question_attempts_questionid_idx" ON "question_attempts" ("questionid");--> statement-breakpoint
 CREATE INDEX "question_attempts_questionversionid_idx" ON "question_attempts" ("questionversionid");--> statement-breakpoint
@@ -1311,10 +1372,15 @@ CREATE INDEX "question_attempts_userid_idx" ON "question_attempts" ("userid");--
 CREATE INDEX "question_bank_entries_questioncategoryid_idx" ON "question_bank_entries" ("questioncategoryid");--> statement-breakpoint
 CREATE INDEX "question_categories_contextid_idx" ON "question_categories" ("contextid");--> statement-breakpoint
 CREATE INDEX "question_categories_parent_idx" ON "question_categories" ("parent");--> statement-breakpoint
+CREATE INDEX "question_truefalse_trueanswer_idx" ON "question_truefalse" ("trueanswer");--> statement-breakpoint
+CREATE INDEX "question_truefalse_falseanswer_idx" ON "question_truefalse" ("falseanswer");--> statement-breakpoint
 CREATE INDEX "question_usages_instanceid_idx" ON "question_usages" ("instanceid");--> statement-breakpoint
 CREATE INDEX "question_usages_owningcontextid_idx" ON "question_usages" ("owningcontextid");--> statement-breakpoint
 CREATE INDEX "question_usages_userid_idx" ON "question_usages" ("userid");--> statement-breakpoint
 CREATE INDEX "question_versions_questionid_idx" ON "question_versions" ("questionid");--> statement-breakpoint
+CREATE INDEX "question_versions_stimulusid_idx" ON "question_versions" ("stimulusid");--> statement-breakpoint
+CREATE INDEX "stimuli_categoryid_idx" ON "stimuli" ("categoryid");--> statement-breakpoint
+CREATE INDEX "stimuli_createdby_idx" ON "stimuli" ("createdby");--> statement-breakpoint
 CREATE INDEX "message_conversationid_idx" ON "message" ("conversationid");--> statement-breakpoint
 CREATE INDEX "message_useridfrom_idx" ON "message" ("useridfrom");--> statement-breakpoint
 CREATE INDEX "message_contacts_contactid_idx" ON "message_contacts" ("contactid");--> statement-breakpoint
@@ -1457,7 +1523,11 @@ ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_scaleid_scales_id_fkey" FO
 ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_outcomeid_grade_outcomes_id_fkey" FOREIGN KEY ("outcomeid") REFERENCES "grade_outcomes"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_courseid_course_id_fkey" FOREIGN KEY ("courseid") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_scaleid_scales_id_fkey" FOREIGN KEY ("scaleid") REFERENCES "scales"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "qtype_essay_options" ADD CONSTRAINT "qtype_essay_options_questionversionid_question_versions_id_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "qtype_multichoice_options" ADD CONSTRAINT "qtype_multichoice_options_5ILBIK5w9ssS_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "qtype_shortanswer_options" ADD CONSTRAINT "qtype_shortanswer_options_r5Ff3LJya3l2_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question" ADD CONSTRAINT "question_category_question_categories_id_fkey" FOREIGN KEY ("category") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_answers" ADD CONSTRAINT "question_answers_questionversionid_question_versions_id_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempt_step_data" ADD CONSTRAINT "question_attempt_step_data_PuExrKs0UiDY_fkey" FOREIGN KEY ("attemptstepid") REFERENCES "question_attempt_steps"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempt_steps" ADD CONSTRAINT "question_attempt_steps_B0Bkky8ODQIB_fkey" FOREIGN KEY ("questionattemptid") REFERENCES "question_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_questionusageid_question_usages_id_fkey" FOREIGN KEY ("questionusageid") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1465,8 +1535,13 @@ ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_questionid_que
 ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_questionversionid_question_versions_id_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_q5y7hJDIZ8O0_fkey" FOREIGN KEY ("questioncategoryid") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_questionid_question_id_fkey" FOREIGN KEY ("questionid") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_questionversionid_question_versions_id_fkey" FOREIGN KEY ("questionversionid") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_trueanswer_question_answers_id_fkey" FOREIGN KEY ("trueanswer") REFERENCES "question_answers"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_falseanswer_question_answers_id_fkey" FOREIGN KEY ("falseanswer") REFERENCES "question_answers"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_F7JXlRlHryBB_fkey" FOREIGN KEY ("questionbankentryid") REFERENCES "question_bank_entries"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_questionid_question_id_fkey" FOREIGN KEY ("questionid") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulusid_stimuli_id_fkey" FOREIGN KEY ("stimulusid") REFERENCES "stimuli"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_categoryid_question_categories_id_fkey" FOREIGN KEY ("categoryid") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversationid_message_conversations_id_fkey" FOREIGN KEY ("conversationid") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_znrNvaanW0YP_fkey" FOREIGN KEY ("conversationid") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badgeid_badge_id_fkey" FOREIGN KEY ("badgeid") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint

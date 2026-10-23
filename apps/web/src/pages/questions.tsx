@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { QuestionCategory, QuestionUsage, QuestionView } from '@lms/contracts';
+import { extractRichTextPlainText, type QuestionCategory, type QuestionUsage, type QuestionView, type RichTextDocument } from '@lms/contracts';
 import { Button } from '@lms/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
 import { Input } from '@lms/ui/components/ui/input';
@@ -24,7 +24,7 @@ export function QuestionsPage() {
   const [questions, setQuestions] = useState<QuestionView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{
     questionId: string;
-    versions: { version: number; questiontext: string }[];
+    versions: { version: number; questiontext: RichTextDocument }[];
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [contextId, setContextId] = useState('1');
@@ -87,7 +87,7 @@ export function QuestionsPage() {
   }
 
   async function editQuestion(view: QuestionView) {
-    const newText = `${view.latestVersion.questiontext} (edited)`;
+    const newText = `${extractRichTextPlainText(view.latestVersion.questiontext)} (edited)`;
     try {
       const updated = await apiJson<QuestionView>(`/api/v1/questions/${view.question.id}`, {
         method: 'PATCH',
@@ -122,7 +122,7 @@ export function QuestionsPage() {
   }
 
   async function showVersions(view: QuestionView) {
-    const versions = await apiJson<{ version: number; questiontext: string }[]>(
+    const versions = await apiJson<{ version: number; questiontext: RichTextDocument }[]>(
       `/api/v1/questions/${view.question.id}/versions`,
     );
     setVersionsOf({ questionId: view.question.id, versions });
@@ -172,8 +172,8 @@ export function QuestionsPage() {
     {
       id: 'text',
       header: t('questionText'),
-      cell: (view) => <span className="text-sm text-muted-foreground">{view.latestVersion.questiontext}</span>,
-      filterValue: (view) => view.latestVersion.questiontext,
+      cell: (view) => <span className="text-sm text-muted-foreground">{extractRichTextPlainText(view.latestVersion.questiontext)}</span>,
+      filterValue: (view) => extractRichTextPlainText(view.latestVersion.questiontext),
     },
     {
       id: 'actions',
@@ -239,7 +239,7 @@ export function QuestionsPage() {
               <ul>
                 {versionsOf.versions.map((v) => (
                   <li key={v.version}>
-                    v{v.version} — {v.questiontext}
+                    v{v.version} — {extractRichTextPlainText(v.questiontext)}
                   </li>
                 ))}
               </ul>

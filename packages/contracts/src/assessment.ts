@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
+import { richTextDocumentSchema, richTextInputSchema } from './rich-text.js';
 
 /** Assessment contracts — the single shape source between api and web for grades & questions. */
 
@@ -140,17 +141,57 @@ export const questionCategorySchema = z.object({
 });
 export type QuestionCategory = z.infer<typeof questionCategorySchema>;
 
+/**
+ * Một phiên bản nội dung câu hỏi như API trả về: `questiontext`,
+ * `generalfeedback` và `guidance` luôn là tài liệu Tiptap (đầu vào dạng
+ * chuỗi đã được chuẩn hoá ở tầng nghiệp vụ). `guidance` là hướng dẫn mở
+ * rộng cho học viên — Moodle không có trường chuẩn tương đương.
+ * `stimulusid` trỏ tới ngữ liệu dùng chung mà phiên bản tham chiếu
+ * (`null` khi câu hỏi không gắn ngữ liệu); đáp án và options KHÔNG nằm ở
+ * đây mà tách ra ở cấp view (xem `questionViewSchema`).
+ */
 export const questionVersionSchema = z.object({
   id: uuidIdSchema,
   questionbankentryid: uuidIdSchema,
   questionid: uuidIdSchema,
   version: z.number().int(),
-  questiontext: z.string(),
+  questiontext: richTextDocumentSchema,
+  generalfeedback: richTextDocumentSchema.nullable(),
+  guidance: richTextDocumentSchema.nullable(),
   defaultmark: z.number(),
-  answerdata: z.record(z.string(), z.unknown()),
+  penalty: z.number(),
+  stimulusid: uuidIdSchema.nullable(),
 });
 export type QuestionVersion = z.infer<typeof questionVersionSchema>;
 
+/**
+ * Một đáp án của một phiên bản câu hỏi như API trả về (Moodle
+ * `question_answers` dùng chung mọi qtype): nội dung đáp án và feedback
+ * đều là tài liệu Tiptap; `fraction` là tỷ trọng đúng/sai tương đối trong
+ * nội bộ câu hỏi, không phải điểm tuyệt đối.
+ */
+export const questionAnswerViewSchema = z.object({
+  id: uuidIdSchema,
+  questionversionid: uuidIdSchema,
+  answer: richTextDocumentSchema,
+  fraction: z.number(),
+  feedback: richTextDocumentSchema.nullable(),
+  sortorder: z.number().int(),
+});
+export type QuestionAnswerView = z.infer<typeof questionAnswerViewSchema>;
+
+/**
+ * Options của một phiên bản câu hỏi ở view: bản ghi phẳng theo qtype do
+ * tầng nghiệp vụ dựng từ bảng options riêng của qtype đó (`null` khi
+ * phiên bản không có options).
+ */
+export const questionOptionsViewSchema = z.record(z.string(), z.unknown()).nullable();
+export type QuestionOptionsView = z.infer<typeof questionOptionsViewSchema>;
+
+/**
+ * View đầy đủ của một câu hỏi: định danh + phiên bản mới nhất, kèm danh
+ * sách đáp án và options của chính phiên bản đó.
+ */
 export const questionViewSchema = z.object({
   question: z.object({
     id: uuidIdSchema,
@@ -165,8 +206,24 @@ export const questionViewSchema = z.object({
     latestversion: z.number().int(),
   }),
   latestVersion: questionVersionSchema,
+  answers: z.array(questionAnswerViewSchema),
+  options: questionOptionsViewSchema,
 });
 export type QuestionView = z.infer<typeof questionViewSchema>;
+
+/**
+ * Một ngữ liệu dùng chung (stimulus) như API trả về: thực thể độc lập gắn
+ * với một question category, nội dung là một tài liệu Tiptap; nhiều phiên
+ * bản câu hỏi có thể cùng tham chiếu một stimulus qua `stimulusid`.
+ */
+export const stimulusViewSchema = z.object({
+  id: uuidIdSchema,
+  categoryid: uuidIdSchema,
+  createdby: uuidIdSchema.nullable(),
+  content: richTextDocumentSchema,
+  timecreated: z.string().optional(),
+});
+export type StimulusView = z.infer<typeof stimulusViewSchema>;
 
 export const QUESTION_STATES = [
   'notstarted', 'todo', 'incomplete', 'complete',
@@ -362,25 +419,106 @@ export const createQuestionCategorySchema = z.strictObject({
 });
 export type CreateQuestionCategory = z.infer<typeof createQuestionCategorySchema>;
 
-/** Payload tạo câu hỏi; `answer` là dữ liệu đáp án dùng chung theo loại câu hỏi (truefalse: {correct}; shortanswer: {answers, casesensitive?}). */
+/**
+ * Một đáp án trong payload tạo/sửa câu hỏi: nội dung rich text, `fraction`
+ * là tỷ trọng đúng/sai tương đối trong nội bộ câu hỏi (không phải điểm),
+ * `feedback` rich text tuỳ chọn hiện riêng cho đáp án này.
+ */
+export const questionAnswerInputSchema = z.strictObject({
+  text: richTextInputSchema,
+  fraction: z.number(),
+  feedback: richTextInputSchema.optional(),
+});
+export type QuestionAnswerInput = z.infer<typeof questionAnswerInputSchema>;
+
+/**
+ * Options theo qtype trong payload tạo/sửa câu hỏi — mọi trường đều tuỳ
+ * chọn, tầng nghiệp vụ chỉ lấy các trường thuộc về qtype của câu hỏi:
+ * multichoice (`single`, `shuffleanswers`, `answernumbering`,
+ * `shownumcorrect`, `showstandardinstruction`, ba feedback theo mức đúng),
+ * truefalse (`showstandardinstruction`), shortanswer (`usecase`), essay
+ * (`responseformat`, `responserequired`, `responsefieldlines`,
+ * `minwordlimit`, `maxwordlimit`, `graderinfo`, `responsetemplate`).
+ */
+export const questionOptionsInputSchema = z.strictObject({
+  single: z.boolean().optional(),
+  shuffleanswers: z.boolean().optional(),
+  answernumbering: z.string().optional(),
+  shownumcorrect: z.boolean().optional(),
+  showstandardinstruction: z.boolean().optional(),
+  usecase: z.boolean().optional(),
+  responseformat: z.string().optional(),
+  responserequired: z.boolean().optional(),
+  responsefieldlines: z.number().int().optional(),
+  minwordlimit: z.number().int().nullable().optional(),
+  maxwordlimit: z.number().int().nullable().optional(),
+  graderinfo: richTextInputSchema.optional(),
+  responsetemplate: richTextInputSchema.optional(),
+  correctfeedback: richTextInputSchema.optional(),
+  partiallycorrectfeedback: richTextInputSchema.optional(),
+  incorrectfeedback: richTextInputSchema.optional(),
+});
+export type QuestionOptionsInput = z.infer<typeof questionOptionsInputSchema>;
+
+/**
+ * Payload tạo câu hỏi theo bốn qtype chuẩn Moodle (`multichoice`,
+ * `truefalse`, `shortanswer`, `essay`): `questiontext` nhận chuỗi thuần
+ * hoặc tài liệu Tiptap; đáp án truyền qua `answers` + `options` theo
+ * qtype và được tầng nghiệp vụ bung ra các bảng đáp án/options riêng.
+ * Trường `answer` là dạng payload CŨ còn giữ để tương thích client/test
+ * hiện hữu (truefalse: {correct: boolean}; shortanswer: {answers:
+ * string[], casesensitive?: boolean}) — tầng nghiệp vụ ánh xạ nó sang
+ * `answers`/`options`. Tầng nghiệp vụ bắt buộc payload mang một trong hai
+ * dạng (`answers`/`options` mới hoặc `answer` cũ) tuỳ theo qtype.
+ */
 export const createQuestionSchema = z.strictObject({
   categoryId: uuidIdSchema,
-  qtype: z.string().min(1),
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
   name: z.string().min(1),
-  questiontext: z.string(),
+  questiontext: richTextInputSchema,
+  generalfeedback: richTextInputSchema.optional(),
+  guidance: richTextInputSchema.optional(),
   defaultmark: z.number().optional(),
-  answer: z.record(z.string(), z.unknown()),
+  penalty: z.number().optional(),
+  stimulusId: uuidIdSchema.optional(),
+  answers: z.array(questionAnswerInputSchema).optional(),
+  options: questionOptionsInputSchema.optional(),
+  answer: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreateQuestion = z.infer<typeof createQuestionSchema>;
 
-/** Payload sửa câu hỏi (tạo phiên bản mới ở tầng nghiệp vụ; mọi trường đều tuỳ chọn). */
+/**
+ * Payload sửa câu hỏi (tạo phiên bản mới ở tầng nghiệp vụ; mọi trường đều
+ * tuỳ chọn, ngữ nghĩa từng trường như payload tạo). `stimulusId` nhận
+ * `null` để gỡ gắn ngữ liệu khỏi phiên bản mới; `answer` là dạng payload
+ * cũ như ở payload tạo.
+ */
 export const updateQuestionSchema = z.strictObject({
   name: z.string().optional(),
-  questiontext: z.string().optional(),
+  questiontext: richTextInputSchema.optional(),
+  generalfeedback: richTextInputSchema.optional(),
+  guidance: richTextInputSchema.optional(),
   defaultmark: z.number().optional(),
+  penalty: z.number().optional(),
+  stimulusId: uuidIdSchema.nullable().optional(),
+  answers: z.array(questionAnswerInputSchema).optional(),
+  options: questionOptionsInputSchema.optional(),
   answer: z.record(z.string(), z.unknown()).optional(),
 });
 export type UpdateQuestion = z.infer<typeof updateQuestionSchema>;
+
+/** Payload tạo ngữ liệu dùng chung (stimulus) gắn với một question category; `content` nhận chuỗi thuần hoặc tài liệu Tiptap. */
+export const createStimulusSchema = z.strictObject({
+  categoryId: uuidIdSchema,
+  content: richTextInputSchema,
+});
+export type CreateStimulus = z.infer<typeof createStimulusSchema>;
+
+/** Payload sửa ngữ liệu dùng chung; chỉ nội dung được sửa (stimulus đã có câu hỏi tham chiếu là bất biến ở tầng nghiệp vụ). */
+export const updateStimulusSchema = z.strictObject({
+  content: richTextInputSchema,
+});
+export type UpdateStimulus = z.infer<typeof updateStimulusSchema>;
 
 /** Một slot trong một lượt sử dụng câu hỏi (question usage). */
 export const questionUsageSlotSchema = z.strictObject({

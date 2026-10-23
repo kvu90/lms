@@ -83,8 +83,10 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     const qId = (qRows.rows[0] as { id: string }).id;
     const entryRows = await db.execute(sql`insert into question_bank_entries (questioncategoryid, questionid, latestversion) values (${qCatId}, ${qId}, 2) returning id`);
     const entryId = (entryRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 1, 'v1')`);
-    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 2, 'v2')`);
+    const doc = (text: string) =>
+      JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 1, ${doc('v1')}::jsonb)`);
+    await db.execute(sql`insert into question_versions (questionbankentryid, questionid, version, questiontext) values (${entryId}, ${qId}, 2, ${doc('v2')}::jsonb)`);
     const badgeRows = await db.execute(sql`insert into badge (name, type, courseid, status) values (${`WK5 badge ${suffix}`}, 2, ${courseId}, 0) returning id`);
     const badgeId = (badgeRows.rows[0] as { id: string }).id;
     await db.execute(sql`insert into badge_criteria (badgeid, criteriatype, method, params) values (${badgeId}, 'overall', 1, '{}'::jsonb)`);
