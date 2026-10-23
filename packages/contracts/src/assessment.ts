@@ -546,3 +546,136 @@ export const submitQuestionResponseSchema = z.strictObject({
   finish: z.boolean().optional(),
 });
 export type SubmitQuestionResponse = z.infer<typeof submitQuestionResponseSchema>;
+
+// --- Quiz (mod_quiz) -----------------------------------------------------------
+
+/** Cách tính điểm bài khi học sinh có nhiều lượt làm (Moodle quiz grade method). */
+export const QUIZ_GRADE_METHODS = ['highest', 'average', 'first', 'last'] as const;
+export type QuizGradeMethod = (typeof QUIZ_GRADE_METHODS)[number];
+
+/** Trạng thái một lượt làm quiz: đang làm, đã nộp chờ chấm tay (còn essay), đã chốt. */
+export const QUIZ_ATTEMPT_STATES = ['inprogress', 'needsgrading', 'finished'] as const;
+export type QuizAttemptState = (typeof QUIZ_ATTEMPT_STATES)[number];
+
+/**
+ * Một slot trong đề quiz (Moodle `quiz_slots`): hoặc câu cố định
+ * (`questionId`), hoặc slot ngẫu nhiên rút từ một category (`categoryId`).
+ * `maxMark` là điểm của slot TRONG ĐỀ NÀY — nguồn điểm thật duy nhất;
+ * `default_mark` của câu trong ngân hàng chỉ là gợi ý lúc thêm slot.
+ */
+export const quizSlotViewSchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  slot: z.number().int(),
+  page: z.number().int(),
+  questionId: uuidIdSchema.nullable(),
+  categoryId: uuidIdSchema.nullable(),
+  maxMark: z.number(),
+});
+export type QuizSlotView = z.infer<typeof quizSlotViewSchema>;
+
+/**
+ * View một quiz (hoạt động trong khoá học): cấu hình đề + danh sách slot +
+ * tổng điểm các slot (`sumGrades` — mẫu số trước khi quy về thang `grade`).
+ * `cmId` là course module chứa hoạt động này.
+ */
+export const quizViewSchema = z.object({
+  id: uuidIdSchema,
+  courseId: uuidIdSchema,
+  cmId: uuidIdSchema.nullable(),
+  name: z.string(),
+  intro: z.string(),
+  timeOpen: z.string().nullable(),
+  timeClose: z.string().nullable(),
+  timeLimitSeconds: z.number().int().nullable(),
+  attemptsAllowed: z.number().int(),
+  gradeMethod: z.enum(QUIZ_GRADE_METHODS),
+  grade: z.number(),
+  shuffleAnswers: z.boolean(),
+  slots: z.array(quizSlotViewSchema),
+  sumGrades: z.number(),
+});
+export type QuizView = z.infer<typeof quizViewSchema>;
+
+/** Tóm tắt một lượt làm quiz trong danh sách (của học sinh hoặc của cả lớp). */
+export const quizAttemptSummarySchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  userId: uuidIdSchema,
+  attemptNumber: z.number().int(),
+  usageId: uuidIdSchema,
+  state: z.string(),
+  preview: z.boolean(),
+  timeStart: z.string(),
+  timeFinish: z.string().nullable(),
+  sumGrades: z.number().nullable(),
+  /** Điểm của riêng lượt này đã quy về thang điểm của quiz (null khi chưa chốt). */
+  grade: z.number().nullable(),
+});
+export type QuizAttemptSummary = z.infer<typeof quizAttemptSummarySchema>;
+
+/** Payload tạo quiz trong một section của khoá học (kèm course module + grade item ở tầng nghiệp vụ). */
+export const createQuizSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  intro: z.string().optional(),
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attemptsAllowed: z.number().int().min(0).optional(),
+  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
+  grade: z.number().positive().optional(),
+  shuffleAnswers: z.boolean().optional(),
+});
+export type CreateQuiz = z.infer<typeof createQuizSchema>;
+
+/** Payload sửa cài đặt quiz (mọi trường tuỳ chọn; `timeOpen`/`timeClose`/`timeLimitSeconds` nhận `null` để gỡ). */
+export const updateQuizSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attemptsAllowed: z.number().int().min(0).optional(),
+  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
+  grade: z.number().positive().optional(),
+  shuffleAnswers: z.boolean().optional(),
+});
+export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
+
+/** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). */
+export const addQuizSlotSchema = z.strictObject({
+  questionId: uuidIdSchema.optional(),
+  categoryId: uuidIdSchema.optional(),
+  maxMark: z.number().positive().optional(),
+  page: z.number().int().positive().optional(),
+});
+export type AddQuizSlot = z.infer<typeof addQuizSlotSchema>;
+
+/** Payload sửa một slot: đổi điểm, trang hoặc vị trí (số thứ tự) trong đề. */
+export const updateQuizSlotSchema = z.strictObject({
+  maxMark: z.number().positive().optional(),
+  page: z.number().int().positive().optional(),
+  slot: z.number().int().positive().optional(),
+});
+export type UpdateQuizSlot = z.infer<typeof updateQuizSlotSchema>;
+
+/** Payload bắt đầu lượt làm quiz; `preview` dành cho giáo viên xem trước đề (không tính lượt, không ghi điểm). */
+export const startQuizAttemptSchema = z.strictObject({
+  preview: z.boolean().optional(),
+});
+export type StartQuizAttempt = z.infer<typeof startQuizAttemptSchema>;
+
+/** Payload lưu câu trả lời của một câu trong lượt làm quiz (ủy quyền cho question engine). */
+export const submitQuizResponseSchema = z.strictObject({
+  questionAttemptId: uuidIdSchema,
+  response: z.string().nullable().optional(),
+});
+export type SubmitQuizResponse = z.infer<typeof submitQuizResponseSchema>;
+
+/** Payload chấm tay một câu (essay) trong lượt làm quiz: điểm tuyệt đối theo maxMark của slot, nhận xét tuỳ chọn. */
+export const manualGradeQuizSchema = z.strictObject({
+  mark: z.number().min(0),
+  comment: z.string().optional(),
+});
+export type ManualGradeQuiz = z.infer<typeof manualGradeQuizSchema>;

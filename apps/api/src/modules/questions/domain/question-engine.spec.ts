@@ -24,7 +24,13 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(canTransition('complete', 'gradedright')).toBe(true);
     expect(canTransition('complete', 'needsgrading')).toBe(true);
     expect(canTransition('gradedright', 'todo')).toBe(false);
-    expect(canTransition('needsgrading', 'gradedright')).toBe(false);
+    // Chấm tay: needsgrading rời sang graded* khi người chấm cho điểm
+    // (manual grading của Moodle); các đích khác vẫn bị cấm.
+    expect(canTransition('needsgrading', 'gradedright')).toBe(true);
+    expect(canTransition('needsgrading', 'gradedpartial')).toBe(true);
+    expect(canTransition('needsgrading', 'gradedwrong')).toBe(true);
+    expect(canTransition('needsgrading', 'todo')).toBe(false);
+    expect(canTransition('needsgrading', 'needsgrading')).toBe(false);
   });
 
   it('deferredfeedback: submitting records complete/incomplete without grading; grading happens at finish', () => {

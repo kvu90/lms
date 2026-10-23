@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import type {
   Cohort,
   Course,
@@ -35,6 +35,9 @@ export function CourseAdminPage() {
   const { id } = useParams();
   const courseId = id ?? '';
   const perms = usePermissions();
+  const navigate = useNavigate();
+  /** Tên bài kiểm tra (quiz) đang soạn theo từng section trong khu xây dựng. */
+  const [quizNames, setQuizNames] = useState<Record<string, string>>({});
   const [groups, setGroups] = useState<CourseGroup[]>([]);
   const [groupings, setGroupings] = useState<CourseGrouping[]>([]);
   const [groupName, setGroupName] = useState('');
@@ -443,6 +446,28 @@ export function CourseAdminPage() {
     }
   }
 
+  /**
+   * Tạo hoạt động Quiz trong một section qua POST /courses/:id/quizzes
+   * (API tự tạo course module + grade item) rồi chuyển thẳng tới trang
+   * quiz để giáo viên dựng đề và cài đặt.
+   */
+  async function createQuiz(event: FormEvent, sectionId: string) {
+    event.preventDefault();
+    const name = (quizNames[sectionId] ?? '').trim();
+    if (!name) return;
+    setBuilderMessage(null);
+    try {
+      const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/quizzes`, {
+        method: 'POST',
+        body: JSON.stringify({ sectionId, name }),
+      });
+      setQuizNames((prev) => ({ ...prev, [sectionId]: '' }));
+      await navigate(`/courses/${courseId}/quizzes/${created.id}`);
+    } catch {
+      setBuilderMessage(t('quizCreateFailed'));
+    }
+  }
+
   /** Lưu tên/hiển thị của một module qua PATCH /courses/:id/modules/:cmId (`updateCourseModuleSchema`). */
   async function saveModule(cmId: string) {
     const edit = moduleEdits[cmId];
@@ -787,6 +812,19 @@ export function CourseAdminPage() {
                       </div>
                       <Button type="submit" variant="outline">
                         {t('addModule')}
+                      </Button>
+                    </form>
+                    <form onSubmit={(e) => void createQuiz(e, section.id)} className="space-y-2">
+                      <div className="space-y-2">
+                        <Label htmlFor={`quiz-new-name-${section.id}`}>{t('quizName')}</Label>
+                        <Input
+                          id={`quiz-new-name-${section.id}`}
+                          value={quizNames[section.id] ?? ''}
+                          onChange={(e) => setQuizNames((prev) => ({ ...prev, [section.id]: e.target.value }))}
+                        />
+                      </div>
+                      <Button type="submit" variant="outline">
+                        {t('addQuiz')}
                       </Button>
                     </form>
                     <div className="space-y-2" data-testid={`section-availability-${section.id}`}>

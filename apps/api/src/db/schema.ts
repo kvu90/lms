@@ -16,6 +16,7 @@ export * from '../modules/enrol/schema';
 export * from '../modules/completion/schema';
 export * from '../modules/grades/schema';
 export * from '../modules/questions/schema';
+export * from '../modules/quiz/schema';
 export * from '../modules/messaging/schema';
 export * from '../modules/calendar/schema';
 export * from '../modules/badges/schema';

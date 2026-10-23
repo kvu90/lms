@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "9b0ce442-fc78-44f1-80e6-494519333d5c",
+  "id": "51fbe8f0-9f54-475d-91ec-c0161271f0e7",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1182,6 +1182,66 @@
         "n|rel|public.stimuli",
         "n|type|public.stimuli",
         "n|rel|public.stimuli_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_attempts"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_attempts",
+        "n|tbl|public.quiz_attempts",
+        "e|tbl|public.quiz_attempts",
+        "n|rel|public.quiz_attempts",
+        "n|type|public.quiz_attempts",
+        "n|rel|public.quiz_attempts_pkey",
+        "n|rel|public.quiz_attempts_usage_unique",
+        "n|rel|public.quiz_attempts_quiz_user_number_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_slots",
+        "n|tbl|public.quiz_slots",
+        "e|tbl|public.quiz_slots",
+        "n|rel|public.quiz_slots",
+        "n|type|public.quiz_slots",
+        "n|rel|public.quiz_slots_pkey",
+        "n|rel|public.quiz_slots_quiz_slot_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quizzes"
+      ],
+      "writes": [
+        "s|tbl|public.quizzes",
+        "n|tbl|public.quizzes",
+        "e|tbl|public.quizzes",
+        "n|rel|public.quizzes",
+        "n|type|public.quizzes",
+        "n|rel|public.quizzes_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -3715,6 +3775,126 @@
         "n|tbl|public.stimuli",
         "n|sch|public",
         "n|col|public.stimuli.created_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_attempts",
+        "quiz_attempts_quiz_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_attempts_quiz_id_idx",
+        "n|idx|public.quiz_attempts_quiz_id_idx",
+        "e|idx|public.quiz_attempts_quiz_id_idx",
+        "n|rel|public.quiz_attempts_quiz_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|col|public.quiz_attempts.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_attempts",
+        "quiz_attempts_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_attempts_user_id_idx",
+        "n|idx|public.quiz_attempts_user_id_idx",
+        "e|idx|public.quiz_attempts_user_id_idx",
+        "n|rel|public.quiz_attempts_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|col|public.quiz_attempts.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slots",
+        "quiz_slots_question_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_question_id_idx",
+        "n|idx|public.quiz_slots_question_id_idx",
+        "e|idx|public.quiz_slots_question_id_idx",
+        "n|rel|public.quiz_slots_question_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slots",
+        "quiz_slots_category_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_category_id_idx",
+        "n|idx|public.quiz_slots_category_id_idx",
+        "e|idx|public.quiz_slots_category_id_idx",
+        "n|rel|public.quiz_slots_category_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.category_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_course_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_course_idx",
+        "n|idx|public.quizzes_course_idx",
+        "e|idx|public.quizzes_course_idx",
+        "n|rel|public.quizzes_course_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.course"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_cm_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_cm_id_idx",
+        "n|idx|public.quizzes_cm_id_idx",
+        "e|idx|public.quizzes_cm_id_idx",
+        "n|rel|public.quizzes_cm_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.cm_id"
       ]
     },
     {
@@ -7127,6 +7307,144 @@
       "statementTarget": [
         "table",
         "public",
+        "quiz_attempts"
+      ],
+      "writes": [
+        "s|fk|public.quiz_attempts.quiz_attempts_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_attempts.quiz_attempts_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_attempts.quiz_attempts_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_attempts.quiz_attempts_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_attempts.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_attempts"
+      ],
+      "writes": [
+        "s|fk|public.quiz_attempts.quiz_attempts_usage_id_question_usages_id_fkey",
+        "n|fk|public.quiz_attempts.quiz_attempts_usage_id_question_usages_id_fkey",
+        "e|fk|public.quiz_attempts.quiz_attempts_usage_id_question_usages_id_fkey",
+        "n|con|public.quiz_attempts.quiz_attempts_usage_id_question_usages_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|tbl|public.question_usages",
+        "n|sch|public",
+        "n|col|public.quiz_attempts.usage_id",
+        "n|col|public.question_usages.id",
+        "e|uniqueness|public.question_usages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slots.quiz_slots_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_slots.quiz_slots_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_slots.quiz_slots_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_slots.quiz_slots_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_slots.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slots.quiz_slots_question_id_question_id_fkey",
+        "n|fk|public.quiz_slots.quiz_slots_question_id_question_id_fkey",
+        "e|fk|public.quiz_slots.quiz_slots_question_id_question_id_fkey",
+        "n|con|public.quiz_slots.quiz_slots_question_id_question_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|tbl|public.question",
+        "n|sch|public",
+        "n|col|public.quiz_slots.question_id",
+        "n|col|public.question.id",
+        "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slots.quiz_slots_category_id_question_categories_id_fkey",
+        "n|fk|public.quiz_slots.quiz_slots_category_id_question_categories_id_fkey",
+        "e|fk|public.quiz_slots.quiz_slots_category_id_question_categories_id_fkey",
+        "n|con|public.quiz_slots.quiz_slots_category_id_question_categories_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|tbl|public.question_categories",
+        "n|sch|public",
+        "n|col|public.quiz_slots.category_id",
+        "n|col|public.question_categories.id",
+        "e|uniqueness|public.question_categories.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_course_course_id_fkey",
+        "n|fk|public.quizzes.quizzes_course_course_id_fkey",
+        "e|fk|public.quizzes.quizzes_course_course_id_fkey",
+        "n|con|public.quizzes.quizzes_course_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.quizzes.course",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "message"
       ],
       "writes": [
@@ -8148,6 +8466,24 @@
     {
       "schema": "public",
       "name": "stimuli",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_attempts",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_slots",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quizzes",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -14990,6 +15326,461 @@
     {
       "schema": "public",
       "table": "stimuli",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "attempt_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "usage_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "state",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'inprogress'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "preview",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "time_start",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "time_finish",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "sum_grades",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "slot",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "page",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "category_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "max_mark",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "course",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "cm_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "intro",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_open",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_close",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_limit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "attempts_allowed",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "grade_method",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'highest'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "grade",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "shuffle_answers",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -22271,6 +23062,132 @@
     },
     {
       "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_quiz_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_question_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_category_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "category_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_course_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_cm_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "cm_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_id_idx",
       "nameExplicit": true,
@@ -25453,6 +26370,108 @@
     },
     {
       "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_usage_id_question_usages_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "usage_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_usages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_question_id_question_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_category_id_question_categories_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "category_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_categories",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_course_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_id_message_conversations_id_fkey",
       "nameExplicit": false,
@@ -26581,6 +27600,36 @@
     },
     {
       "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_pkey",
       "columns": [
@@ -27428,6 +28477,42 @@
       "columns": [
         "question_bank_entry_id",
         "version"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_usage_unique",
+      "nameExplicit": true,
+      "columns": [
+        "usage_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "quiz_attempts_quiz_user_number_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "user_id",
+        "attempt_number"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_quiz_slot_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "slot"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
