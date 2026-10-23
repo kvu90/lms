@@ -15,6 +15,13 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Pool vmThreads: môi trường jsdom chỉ tạo MỘT lần cho mỗi worker
+    // thay vì tạo lại theo từng file test (trước đây jsdom được tạo lại
+    // đúng số file, chiếm khoảng một phần tư tổng thời gian chạy test).
+    // Khác với `isolate: false`, mỗi file vẫn chạy trong VM context
+    // riêng nên độ cô lập giữa các file được giữ nguyên; đánh đổi duy
+    // nhất là các file trong cùng worker dùng chung một tiến trình.
+    pool: 'vmThreads',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts'],
     // Trần mặc định 5s quá sát cho test UI khi chạy song song dưới tải.
