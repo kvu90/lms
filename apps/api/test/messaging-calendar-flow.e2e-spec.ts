@@ -105,6 +105,26 @@ describe('Messaging & calendar', () => {
     expect(unreadA.body.conversations).toBe(0);
   });
 
+  it('conversations: the member named in memberIds at creation is a real member of the new conversation (not dropped)', async () => {
+    const { a, b, aToken, bToken } = await twoUsers();
+    // Contact gate (messagingallusers off by default): the recipient adds the sender as a contact first.
+    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
+      .send({ type: 1, memberIds: [b.id] });
+    expect(conv.status).toBe(201);
+    // The create response itself lists both the actor and the designated member.
+    expect(conv.body.members).toEqual(expect.arrayContaining([a.id, b.id]));
+    // The designated member can open the conversation (membership is enforced) and sees both members.
+    const view = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
+    expect(view.status).toBe(200);
+    expect(view.body.members).toEqual(expect.arrayContaining([a.id, b.id]));
+    // And the conversation appears in the designated member's own list, with both members attached.
+    const list = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${bToken}`);
+    const mine = (list.body as { id: string; members: string[] }[]).find((c) => c.id === conv.body.id);
+    expect(mine).toBeDefined();
+    expect(mine!.members).toEqual(expect.arrayContaining([a.id, b.id]));
+  });
+
   it('a sent message is immutable: the sender cannot edit or delete it through the API (§2#12)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Contact gate: the recipient adds the sender as a contact so the send itself succeeds.

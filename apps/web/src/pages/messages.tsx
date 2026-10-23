@@ -20,6 +20,10 @@ interface MessageView {
   fullMessage: string;
   createdAt: string;
 }
+/** Chi tiết conversation theo API: conversation kèm danh sách tin nhắn. */
+interface ConversationDetailView extends ConversationView {
+  messages: MessageView[];
+}
 
 /**
  * Messages: conversation list with unread count, message thread and
@@ -44,11 +48,11 @@ export function MessagesPage() {
   const reload = useCallback(async () => {
     const [list, count, blockedRes] = await Promise.all([
       apiJson<ConversationView[]>('/api/v1/messages/conversations'),
-      apiJson<{ unread: number }>('/api/v1/messages/unread-count'),
+      apiJson<{ conversations: number; notifications: number }>('/api/v1/messages/unread-count'),
       apiJson<{ blocked: string[] }>('/api/v1/messages/contacts/blocked'),
     ]);
     setConversations(list);
-    setUnread(count.unread);
+    setUnread(count.conversations);
     setBlocked(blockedRes.blocked);
   }, []);
 
@@ -87,8 +91,8 @@ export function MessagesPage() {
 
   async function open(conv: ConversationView) {
     setActive(conv);
-    const msgs = await apiJson<MessageView[]>(`/api/v1/messages/conversations/${conv.id}/messages`);
-    setMessages(msgs);
+    const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conv.id}`);
+    setMessages(detail.messages);
     await apiJson(`/api/v1/messages/conversations/${conv.id}/read`, { method: 'POST', body: '{}' }).catch(
       () => undefined,
     );
@@ -100,7 +104,7 @@ export function MessagesPage() {
     if (!active || !draft.trim()) return;
     await apiJson(`/api/v1/messages/conversations/${active.id}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ fullMessage: draft }),
+      body: JSON.stringify({ text: draft }),
     });
     setDraft('');
     await open(active);
@@ -110,7 +114,7 @@ export function MessagesPage() {
     event.preventDefault();
     const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
       method: 'POST',
-      body: JSON.stringify({ userids: [newUserId] }),
+      body: JSON.stringify({ memberIds: [newUserId] }),
     });
     setNewUserId('');
     await reload();

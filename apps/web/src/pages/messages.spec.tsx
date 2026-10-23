@@ -9,6 +9,8 @@ import { MessagesPage } from './messages';
  * Spec chặn liên lạc theo endpoint thật của messaging: chặn qua
  * POST /messages/contacts/:userId/block, danh sách đã chặn qua
  * GET /messages/contacts/blocked, bỏ chặn qua DELETE trên cùng đường block.
+ * Kèm spec hợp đồng tạo conversation: web phải gửi `memberIds` (đúng schema
+ * phía API/contracts) để người được chỉ định thật sự thành thành viên.
  */
 const ME_ID = '01900000-0000-7000-8000-0000000000a1';
 const OTHER_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -46,9 +48,11 @@ function stubFetch(calls: RecordedCall[]) {
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'POST')
+        return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] });
       if (url === '/api/v1/messages/conversations')
         return respond([{ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] }]);
-      if (url === '/api/v1/messages/unread-count') return respond({ unread: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
       if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: state.blocked });
       if (url === `/api/v1/messages/contacts/${OTHER_ID}/block` && method === 'POST') {
         state.blocked = [OTHER_ID];
@@ -58,7 +62,8 @@ function stubFetch(calls: RecordedCall[]) {
         state.blocked = [];
         return respond({ blocked: state.blocked });
       }
-      if (url === `/api/v1/messages/conversations/${CONV_ID}/messages`) return respond([]);
+      if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+        return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID], messages: [] });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({});
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
@@ -113,5 +118,36 @@ describe('Messages page — block and unblock contacts', () => {
       ),
     );
     await waitFor(() => expect(screen.queryByTestId(`blocked-${OTHER_ID}`)).not.toBeInTheDocument());
+  });
+});
+
+describe('Messages page — create conversation contract', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('posts memberIds when starting a conversation and opens it with the designated user as a member', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderMessages();
+
+    const input = await screen.findByLabelText('Hội thoại mới với ID người dùng');
+    await userEvent.type(input, OTHER_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu' }));
+
+    // Lời gọi tạo conversation phải mang đúng trường hợp đồng phía API
+    // (`memberIds`); gửi tên trường khác là thành viên bị rơi ở tầng validate.
+    await waitFor(() => {
+      const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');
+      expect(create).toBeDefined();
+      expect(create?.body).toEqual({ memberIds: [OTHER_ID] });
+    });
+
+    // Conversation vừa tạo mở ra với người được chỉ định là một thành viên:
+    // nút chặn dành cho thành viên đó xuất hiện trong khung trò chuyện.
+    expect(await screen.findByRole('button', { name: 'Chặn liên lạc' })).toBeInTheDocument();
   });
 });
