@@ -502,7 +502,12 @@ export class QuizService {
     }
     const existing = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
     const inProgress = existing.find((a) => a.state === 'inprogress' && a.preview === preview);
-    if (inProgress) return this.buildAttemptView(quiz, inProgress, false);
+    if (inProgress) {
+      // Tiếp tục lượt dở cũng chịu mốc quá hạn: đã quá hạn thì chốt
+      // lượt phía server ngay tại tương tác này thay vì trả lượt sống.
+      if (this.isOverdue(quiz, inProgress)) return this.finalizeAttempt(quiz, inProgress, true);
+      return this.buildAttemptView(quiz, inProgress, false);
+    }
 
     const now = new Date();
     if (!preview) {
@@ -530,27 +535,53 @@ export class QuizService {
       chosen.add(questionId);
       effective.push({ quizSlot: s, questionId });
     }
-    const attemptNumber = existing.filter((a) => a.preview === preview).length + 1;
+    // Moodle dùng MỘT dãy số lượt cho mỗi (quiz, user) — preview chỉ là
+    // cờ trên lượt, không phải dãy riêng: ràng buộc duy nhất của
+    // quiz_attempts là (quiz_id, user_id, attempt_number) không phân
+    // biệt preview, đánh số riêng theo cờ sẽ va chạm khi một người vừa
+    // preview vừa làm thật.
+    const attemptNumber = existing.length + 1;
     const usage = await this.questions.createUsage(actorId, {
       component: QUIZ_COMPONENT, instanceId: quiz.id, contextId: await this.cmContextId(quiz),
       slots: effective.map((e) => ({ questionId: e.questionId, maxMark: e.quizSlot.maxMark })),
     });
-    await this.questions.startUsage(actorId, usage.usage.id);
-    const row = await this.repo.insertAttempt({
-      quizId: quiz.id, userId: actorId, attemptNumber, usageId: usage.usage.id,
-      state: 'inprogress', preview, timeStart: now,
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'quiz_attempt_started',
-      payload: { quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: actorId, attemptNumber, preview, actorId },
-    });
-    return this.buildAttemptView(quiz, row, false);
+    try {
+      await this.questions.startUsage(actorId, usage.usage.id);
+      const row = await this.repo.insertAttempt({
+        quizId: quiz.id, userId: actorId, attemptNumber, usageId: usage.usage.id,
+        state: 'inprogress', preview, timeStart: now,
+      });
+      await this.outbox.enqueueStandalone({
+        aggregate: 'quiz', type: 'quiz_attempt_started',
+        payload: { quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: actorId, attemptNumber, preview, actorId },
+      });
+      return this.buildAttemptView(quiz, row, false);
+    } catch (err) {
+      // Dọn dẹp bù (cùng mẫu createQuiz): usage của engine đã tạo nhưng
+      // lượt không thành hình vì bất kỳ bước nào sau đó — xoá usage để
+      // không để lại question_usages mồ côi (hàng quiz_attempts, nếu đã
+      // chèn, cascade theo usage). Kiến trúc engine không nhận giao dịch
+      // ngoài nên không bọc transaction chung được.
+      await this.questions.deleteUsage(usage.usage.id).catch(() => undefined);
+      throw err;
+    }
   }
 
-  /** Hạn làm bài của một lượt (null khi quiz không giới hạn thời gian). */
+  /**
+   * Mốc quá hạn của một lượt (null khi không mốc nào áp dụng): mốc SỚM
+   * NHẤT giữa hạn theo giới hạn thời lượng tính từ lúc bắt đầu và giờ
+   * đóng của quiz. Chỉ xét giới hạn thời lượng là không đủ — một lượt
+   * bắt đầu trước giờ đóng vẫn phải bị chốt khi quiz đã đóng, nếu không
+   * học sinh cứ trả lời tiếp và được tính điểm sau timeClose.
+   */
   private attemptDeadline(quiz: QuizRow, row: QuizAttemptRow): Date | null {
-    if (!quiz.timeLimit) return null;
-    return new Date(row.timeStart.getTime() + quiz.timeLimit * 1000);
+    let deadline: number | null = null;
+    if (quiz.timeLimit) deadline = row.timeStart.getTime() + quiz.timeLimit * 1000;
+    if (quiz.timeClose) {
+      const close = quiz.timeClose.getTime();
+      deadline = deadline === null ? close : Math.min(deadline, close);
+    }
+    return deadline === null ? null : new Date(deadline);
   }
   private isOverdue(quiz: QuizRow, row: QuizAttemptRow): boolean {
     const deadline = this.attemptDeadline(quiz, row);
@@ -718,7 +749,15 @@ export class QuizService {
       this.logger.warn(`quiz ${quiz.id}: no grade item for cm ${quiz.cmId}; grade ${value} for user ${userId} not recorded`);
       return;
     }
-    await this.grades.recordActivityGrade(item.id, userId, value);
+    try {
+      await this.grades.recordActivityGrade(item.id, userId, value);
+    } catch (err) {
+      // Sổ điểm từ chối ghi (vd item bị khoá — grades.item_locked) KHÔNG
+      // được phép làm hỏng việc nộp bài/chấm của học sinh: lượt đã chốt
+      // thành công ở tầng quiz, lỗi ghi điểm chỉ được log cảnh báo tại
+      // đây (đúng ý đồ của hàm này) chứ không truyền ra response.
+      this.logger.warn(`quiz ${quiz.id}: could not record grade ${value} for user ${userId} on item ${item.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // --- báo cáo + chấm tay ---------------------------------------------------------

@@ -115,10 +115,10 @@ describe('Quiz activity (mod_quiz)', () => {
     return res.body as AttemptViewBody;
   }
   interface AttemptViewBody {
-    attempt: { id: string; state: string; sumGrades: number | null; grade: number | null; preview: boolean };
+    attempt: { id: string; state: string; sumGrades: number | null; grade: number | null; preview: boolean; attemptNumber: number };
     questions: {
       slot: number; page: number; questionAttemptId: string; questionId: string; qtype: string;
-      maxMark: number; state: string; fraction: number | null; mark: number | null;
+      maxMark: number; state: string; fraction: number | null; mark: number | null; response: string | null;
       answers: { id: string; text: unknown }[];
     }[];
     pendingManualCount: number;
@@ -366,5 +366,132 @@ describe('Quiz activity (mod_quiz)', () => {
     const denied = await http(app).patch(`/api/v1/quizzes/${quizId}/slots/${s1!.id}`).set('Authorization', `Bearer ${ctx.studentToken}`)
       .send({ maxMark: 9 });
     expect(denied.status).toBe(403);
+  });
+
+  it('regression F1: preview and real attempts share ONE numbering sequence — no collision, no orphan usage', async () => {
+    const ctx = await setup();
+    // Một người có cả hai quyền: giáo viên đã có editingteacher (preview);
+    // gán thêm role student tại context khoá để có mod/quiz:attempt.
+    const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
+    const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
+      .find((c) => c.contextLevel === 50 && c.instanceId === ctx.course.id)!;
+    await assignRole(app, admin, ctx.teacherId, await roleIdByShortname(app, admin, 'student'), courseCtx.id);
+
+    async function play(token: string, quizId: string, preview: boolean): Promise<AttemptViewBody> {
+      const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`)
+        .send(preview ? { preview: true } : {});
+      expect(start.status).toBe(201);
+      let view = start.body as AttemptViewBody;
+      view = await answerSlot(token, view.attempt.id, view, 1, 'true');
+      const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${token}`).send({});
+      expect(submit.status).toBe(201);
+      return submit.body as AttemptViewBody;
+    }
+    async function expectNoOrphanUsage(quizId: string) {
+      const usages = await pg.query("select count(*)::int as n from question_usages where instance_id::text = $1", [quizId]);
+      const attempts = await pg.query('select count(*)::int as n from quiz_attempts where quiz_id = $1', [quizId]);
+      expect((usages.rows[0] as { n: number }).n).toBe((attempts.rows[0] as { n: number }).n);
+    }
+
+    // Chiều 1: preview trước (số 1) rồi làm thật — bản cũ đánh số lượt
+    // thật là 1 theo dãy riêng của cờ preview=false ⇒ va chạm ràng buộc
+    // duy nhất ⇒ 500 và để lại usage mồ côi.
+    const quizARes = await createQuiz(ctx.teacher, ctx.course.id, { sectionId: ctx.sectionId, name: 'F1 quiz A', grade: 10 });
+    const quizA = quizARes.body.id as string;
+    await addSlot(ctx.teacher, quizA, { questionId: ctx.qTf, maxMark: 1 });
+    const previewFirst = await play(ctx.teacher, quizA, true);
+    expect(previewFirst.attempt.preview).toBe(true);
+    expect(previewFirst.attempt.attemptNumber).toBe(1);
+    const realAfter = await play(ctx.teacher, quizA, false);
+    expect(realAfter.attempt.preview).toBe(false);
+    expect(realAfter.attempt.attemptNumber).toBe(2);
+    await expectNoOrphanUsage(quizA);
+
+    // Chiều 2: làm thật trước (số 1) rồi preview — cũng phải bắt đầu
+    // được và mang số tiếp theo trong cùng dãy.
+    const quizBRes = await createQuiz(ctx.teacher, ctx.course.id, { sectionId: ctx.sectionId, name: 'F1 quiz B', grade: 10 });
+    const quizB = quizBRes.body.id as string;
+    await addSlot(ctx.teacher, quizB, { questionId: ctx.qTf, maxMark: 1 });
+    const realFirst = await play(ctx.teacher, quizB, false);
+    expect(realFirst.attempt.attemptNumber).toBe(1);
+    const previewAfter = await play(ctx.teacher, quizB, true);
+    expect(previewAfter.attempt.preview).toBe(true);
+    expect(previewAfter.attempt.attemptNumber).toBe(2);
+    await expectNoOrphanUsage(quizB);
+  });
+
+  it('regression F2: an answer submitted after timeClose is not saved — the attempt is closed server-side', async () => {
+    const ctx = await setup();
+    const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
+      sectionId: ctx.sectionId, name: 'Closing quiz', grade: 10,
+    });
+    const quiz = quizRes.body;
+    const quizId = quiz.id as string;
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qTf, maxMark: 1 });
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qSa, maxMark: 1 });
+
+    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
+    expect(start.status).toBe(201);
+    let view = start.body as AttemptViewBody;
+    const attemptId = view.attempt.id;
+    // Trả lời đúng slot 1 TRƯỚC giờ đóng — phần này được giữ và tính.
+    view = await answerSlot(ctx.studentToken, attemptId, view, 1, 'true');
+
+    // Giáo viên dời giờ đóng về quá khứ trong lúc học sinh đang làm.
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const patch = await http(app).patch(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.teacher}`).send({ timeClose: past });
+    expect(patch.status).toBe(200);
+
+    // Học sinh nộp thêm đáp án slot 2 (đáp án ĐÚNG) sau giờ đóng: bản cũ
+    // lưu và tính điểm (isOverdue chỉ xét timeLimit); bản sửa phải chốt
+    // lượt phía server, đáp án muộn không được lưu.
+    const slot2 = view.questions.find((q) => q.slot === 2)!;
+    const late = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/responses`).set('Authorization', `Bearer ${ctx.studentToken}`)
+      .send({ questionAttemptId: slot2.questionAttemptId, response: 'Hanoi' });
+    expect([200, 201]).toContain(late.status);
+    const closed = late.body as AttemptViewBody;
+    expect(closed.attempt.state).toBe('finished');
+    expect(closed.closedDueToTimeLimit).toBe(true);
+    const q2 = closed.questions.find((q) => q.slot === 2)!;
+    expect(q2.response).toBeNull();
+    expect(q2.mark ?? 0).toBe(0);
+    // Chỉ phần đã lưu trước giờ đóng được tính: 1/2 câu ⇒ điểm bài 5/10.
+    expect(closed.attempt.sumGrades).toBe(1);
+    expect(closed.attempt.grade).toBe(5);
+    expect(await gradeOfQuizItem(ctx.course.id, quiz.cmId, ctx.student.id)).toBe(5);
+  });
+
+  it('regression F3: a locked grade item must not fail the student submission', async () => {
+    const ctx = await setup();
+    const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
+      sectionId: ctx.sectionId, name: 'Locked item quiz', grade: 10,
+    });
+    const quiz = quizRes.body;
+    const quizId = quiz.id as string;
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qTf, maxMark: 1 });
+
+    // Khoá grade item của hoạt động qua API sổ điểm.
+    const items = await http(app).get(`/api/v1/courses/${ctx.course.id}/grades/items`).set('Authorization', `Bearer ${admin}`);
+    const item = (items.body as { id: string; itemType: string; itemInstance: string | null }[])
+      .find((i) => i.itemType === 'mod' && i.itemInstance === quiz.cmId)!;
+    expect(item).toBeTruthy();
+    const lock = await http(app).patch(`/api/v1/courses/grades/items/${item.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ locked: true });
+    expect(lock.status).toBe(200);
+
+    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
+    expect(start.status).toBe(201);
+    let view = start.body as AttemptViewBody;
+    const attemptId = view.attempt.id;
+    view = await answerSlot(ctx.studentToken, attemptId, view, 1, 'true');
+    // Bản cũ: lỗi grades.item_locked từ pushGrade truyền thẳng ra ⇒
+    // học sinh nhận 403 dù lượt đã chốt. Bản sửa: nộp vẫn 201, lượt
+    // finished, chỉ điểm là không ghi được vào item đang khoá.
+    const submit = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
+    expect(submit.status).toBe(201);
+    const submitted = submit.body as AttemptViewBody;
+    expect(submitted.attempt.state).toBe('finished');
+    expect(submitted.attempt.grade).toBe(10);
+    expect(await gradeOfQuizItem(ctx.course.id, quiz.cmId, ctx.student.id)).toBeNull();
   });
 });
