@@ -6,7 +6,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { CompletionRecalculateProcessor } from '../src/processors/completion-recalculate.processor';
 import { EnrolExpiryProcessor } from '../src/processors/enrol-expiry.processor';
 import {
-  courseCompletionCriteria, courseCompletions, courseCompletionSettings,
+  courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModulesCompletion, enrol, outboxEvents, userEnrolments,
 } from '../src/db/schema';
 import { WorkerModule } from '../src/worker.module';
@@ -85,5 +85,60 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
       .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, userId)));
     expect(cc.status).not.toBe('complete');
     expect(cc.timeCompleted).toBeNull();
+  });
+
+  it('completion-recalculate evaluates the remaining Moodle criteria types (course, self, duration, unenrol) like the API evaluator', async () => {
+    const processor = context.get(CompletionRecalculateProcessor);
+    const statusOf = async (uid: string) => {
+      const [row] = await db.select().from(courseCompletions)
+        .where(and(eq(courseCompletions.course, courseId), eq(courseCompletions.userId, uid)));
+      return row?.status as string | undefined;
+    };
+    const replaceCriteria = async (rows: Record<string, unknown>[]) => {
+      await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
+      for (const [i, r] of rows.entries()) {
+        await db.insert(courseCompletionCriteria).values({ course: courseId, sortOrder: i, ...r });
+      }
+    };
+
+    // course (prerequisite): incomplete until the prerequisite course's
+    // stored completion row is complete.
+    const prereqRows = await db.execute(sql`insert into course (category, full_name, short_name) values ((select category from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}) returning id`);
+    const prereqId = (prereqRows.rows[0] as { id: string }).id;
+    await replaceCriteria([{ criteriaType: 'course', courseInstance: prereqId }]);
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).not.toBe('complete');
+    await db.insert(courseCompletions).values({ userId: userId, course: prereqId, status: 'complete', timeCompleted: new Date() });
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).toBe('complete');
+
+    // self: needs a crit_compl evidence row for the criterion.
+    await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
+    const [selfCritRow] = await db.insert(courseCompletionCriteria)
+      .values({ course: courseId, criteriaType: 'self', sortOrder: 0 }).returning();
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).not.toBe('complete');
+    await db.insert(courseCompletionCritCompl).values({ criteriaId: selfCritRow.id, userId: userId, markedBy: userId });
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).toBe('complete');
+
+    // duration: anchored on the enrolment timeStart (10 days ago here).
+    const userIdC = `01900000-0000-7000-8000-${String(900200 + (suffix % 10000)).padStart(12, '0')}`;
+    await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdC, status: 0, timeStart: new Date(Date.now() - 10 * 86_400_000) });
+    await replaceCriteria([{ criteriaType: 'duration', enrolPeriodDays: 30 }]);
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userIdC)).not.toBe('complete');
+    await replaceCriteria([{ criteriaType: 'duration', enrolPeriodDays: 7 }]);
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userIdC)).toBe('complete');
+
+    // unenrol: a user with a stored completion row but no live enrolment.
+    const userIdD = `01900000-0000-7000-8000-${String(900300 + (suffix % 10000)).padStart(12, '0')}`;
+    await db.insert(courseCompletions).values({ userId: userIdD, course: courseId, status: 'in_progress', timeStarted: new Date() });
+    await replaceCriteria([{ criteriaType: 'unenrol' }]);
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userIdD)).toBe('complete');
+    // ...while a still-enrolled user does NOT satisfy it.
+    expect(await statusOf(userIdC)).not.toBe('complete');
   });
 });
