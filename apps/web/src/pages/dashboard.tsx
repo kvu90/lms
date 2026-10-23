@@ -192,7 +192,7 @@ function AdminSection() {
       <SectionHeading title={t('dashboard:adminSection')} />
       <SectionCards cards={cards} />
       {usersQuery.isPending ? (
-        <Skeleton className="mx-4 h-[352px] lg:mx-6" />
+        <Skeleton className="mx-4 h-[388px] lg:mx-6" />
       ) : (
         <ChartAreaInteractive
           title={t('dashboard:chartAdminTitle')}
@@ -203,7 +203,7 @@ function AdminSection() {
         />
       )}
       {usersQuery.isPending ? (
-        <Skeleton className="mx-4 h-64 lg:mx-6" />
+        <Skeleton className="mx-4 h-[300px] lg:mx-6" />
       ) : users ? (
         <DataTable
           title={t('dashboard:tableUsersTitle')}
@@ -537,7 +537,7 @@ export function DashboardPage() {
   const name = user ? `${user.firstname} ${user.lastname}`.trim() || user.username : '';
 
   return (
-    <main className="flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+    <main className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
       <h1 className="px-4 text-2xl font-semibold lg:px-6">
         {t('dashboard:welcome', { name })}
       </h1>

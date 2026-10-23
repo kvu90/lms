@@ -209,7 +209,15 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       access,
       canViewUsers,
       canManageRoles,
-      canAdminister: canViewUsers || canManageRoles,
+      // Cổng mở UI quản trị KHÔNG được tính moodle/user:viewdetails: đó
+      // là capability nền mà API phân giải cho mọi người dùng đã xác
+      // thực ở context hệ thống (để xem hồ sơ lẫn nhau), nên nếu tính
+      // cả nó thì mọi học viên đều thấy khối quản trị rồi bị 403 ở các
+      // endpoint con. Chỉ các capability quản trị thật (quản vai trò,
+      // cấu hình site) hoặc cờ site admin mới mở được khu vực này —
+      // API vẫn là nơi thực thi quyền thật ở từng endpoint.
+      canAdminister:
+        (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('moodle/site:config'),
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>
