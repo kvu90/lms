@@ -5,6 +5,7 @@ import { and, eq, lt, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { outboxEvents, userEnrolments } from '../db/schema';
+import { TaskLogService } from '../task-log.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -22,13 +23,18 @@ export interface EnrolExpiryResult { checkedAt: string; suspendedIds: string[] }
  * Xử lý job hết hạn ghi danh: quét các ghi danh quá hạn và áp hành động hết hạn của instance.
  */
 export class EnrolExpiryProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
 
   /**
-   * Xử lý một job của queue tương ứng.
+   * Xử lý một job của queue tương ứng. Mỗi lượt quét (tác vụ định kỳ 5 phút)
+   * được ghi vào task_log qua TaskLogService.
    */
   async process(_job: Job): Promise<EnrolExpiryResult> {
     void _job;
+    return this.taskLog.run('enrol-expiry', () => this.sweep(), (r) => `suspended ${r.suspendedIds.length} enrolment(s)`);
+  }
+
+  private async sweep(): Promise<EnrolExpiryResult> {
     const now = new Date();
     const expired = await this.db.select().from(userEnrolments)
       .where(and(eq(userEnrolments.status, 0), lt(userEnrolments.timeEnd, now)));

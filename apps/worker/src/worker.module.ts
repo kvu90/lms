@@ -9,7 +9,9 @@ import { I18nWorkerModule } from './i18n/i18n.config';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
+import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
+import { TaskLogService } from './task-log.service';
 import { BadgeAwardProcessor } from './processors/badge-award.processor';
 import { CalendarImportProcessor } from './processors/calendar-import.processor';
 import { CalendarReminderProcessor } from './processors/calendar-reminder.processor';
@@ -66,6 +68,6 @@ import {
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
+  providers: [SampleProcessor, FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
 })
 export class WorkerModule {}
