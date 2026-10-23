@@ -8,6 +8,8 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { OAuthController } from './oauth.controller';
+import { OAuthService } from './oauth.service';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
 import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
@@ -21,8 +23,8 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('JWT_SECRET') }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthRepository, AuthService, SessionService, TotpService, LocalAuthStrategy, JwtAuthStrategy],
+  controllers: [AuthController, OAuthController],
+  providers: [AuthRepository, AuthService, SessionService, TotpService, OAuthService, LocalAuthStrategy, JwtAuthStrategy],
   exports: [AuthService, SessionService],
 })
 /** Module xác thực và phiên. */

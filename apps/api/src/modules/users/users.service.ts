@@ -145,9 +145,43 @@ export class UsersService {
     return row;
   }
   /**
+   * Tạo tài khoản từ danh tính ngoài đã xác thực (đăng nhập xã hội —
+   * `create_new_confirmed_account` của auth_oauth2): nhà cung cấp đã chứng
+   * minh quyền sở hữu email nên tài khoản được xác nhận ngay, KHÔNG có mật
+   * khẩu khả dụng (`passwordHash = null` như tài khoản guest — đăng nhập
+   * bằng mật khẩu luôn thất bại cho tới khi user tự đặt mật khẩu qua các
+   * luồng thường). Username suy từ phần local của email, thêm hậu tố số
+   * khi trùng; email trùng một tài khoản sẵn có là lỗi của phía gọi (luồng
+   * OAuth phải khớp email trước khi tới đây).
+   */
+  async createExternalUser(input: { email: string; firstname?: string; lastname?: string }): Promise<UserRow> {
+    const email = normalizeIdentity(input.email);
+    if (await this.repo.getByEmail(email)) throw new ConflictException({ message: `Email ${email} is taken`, code: 'user.email_taken' });
+    const base = email.split('@')[0]!.replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '') || 'user';
+    let username = base;
+    for (let suffix = 2; await this.repo.getByUsername(username); suffix += 1) username = `${base}${suffix}`;
+    const user = await this.repo.dbHandle.transaction(async (tx) => {
+      const created = await this.repo.insertUser({
+        username, email, passwordHash: null,
+        firstname: input.firstname ?? '', lastname: input.lastname ?? '',
+        forcePasswordChange: false,
+      }, tx as never);
+      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
+      return created;
+    });
+    await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
+    return user;
+  }
+
+  /**
    * Lấy user theo username; ném user.not_found khi vắng.
    */
   async getByUsername(username: string): Promise<UserRow | undefined> { return this.repo.getByUsername(normalizeIdentity(username)); }
+  /**
+   * Lấy user theo email (đã chuẩn hoá); trả undefined khi không có — dùng
+   * cho việc khớp tài khoản khi đăng nhập xã hội.
+   */
+  async getByEmail(email: string): Promise<UserRow | undefined> { return this.repo.getByEmail(normalizeIdentity(email)); }
   /**
    * Lấy user theo id, trả undefined thay vì ném lỗi.
    */

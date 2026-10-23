@@ -33,6 +33,33 @@ export const envSchema = z.object({
   // Thời hạn của challenge token sau bước mật khẩu khi user bật MFA:
   // token này chỉ dùng được cho POST /auth/mfa/verify, không gọi API khác.
   MFA_CHALLENGE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  // Đăng nhập xã hội (auth_oauth2 của Moodle): client id/secret của từng
+  // issuer chỉ đọc từ biến môi trường — KHÔNG lưu vào site settings/DB vì
+  // API cấu hình site trả giá trị về cho quản trị. Issuer chỉ "bật" khi cả
+  // id lẫn secret đều có mặt; chưa cấu hình thì nút đăng nhập không hiện.
+  OAUTH_GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  OAUTH_GOOGLE_CLIENT_SECRET:
+    z.string().min(1).optional(),
+  OAUTH_FACEBOOK_CLIENT_ID: z.string().min(1).optional(),
+  OAUTH_FACEBOOK_CLIENT_SECRET:
+    z.string().min(1).optional(),
+  // Điểm cuối của nhà cung cấp: mặc định là URL thật trong OAuthService;
+  // các biến này chỉ dùng để trỏ vào máy chủ giả lập khi kiểm thử (mock ở
+  // biên HTTP của provider) hoặc khi provider đổi đường dẫn.
+  OAUTH_GOOGLE_AUTHORIZE_URL: z.string().min(1).optional(),
+  OAUTH_GOOGLE_TOKEN_URL: z.string().min(1).optional(),
+  OAUTH_GOOGLE_USERINFO_URL: z.string().min(1).optional(),
+  OAUTH_FACEBOOK_AUTHORIZE_URL: z.string().min(1).optional(),
+  OAUTH_FACEBOOK_TOKEN_URL: z.string().min(1).optional(),
+  OAUTH_FACEBOOK_USERINFO_URL: z.string().min(1).optional(),
+  // Thời hạn của state OAuth (chống CSRF, mang trong JWT đã ký) và của mã
+  // bàn giao một lần sau callback (đổi lấy cặp token ở phía SPA).
+  OAUTH_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  OAUTH_HANDOFF_TTL_SECONDS: z.coerce.number().int().positive().default(120),
+  // Origin công khai của web app để callback OAuth chuyển hướng về đúng
+  // SPA sau khi hoàn tất. Trống = cùng origin với API (bản triển khai gộp
+  // một tiến trình); môi trường dev tách cổng thì đặt http://localhost:5173.
+  WEB_APP_URL: z.string().optional(),
   // Giới hạn tốc độ theo IP (chống dò mật khẩu/phá hoại ở biên HTTP):
   // hạn mức chung cho mọi route và hạn mức chặt riêng cho các route
   // cấp token. Khoá tài khoản sau LOCKOUT_THRESHOLD lần sai vẫn là lớp
