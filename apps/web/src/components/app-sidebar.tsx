@@ -23,11 +23,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import { NavMain, type NavItem } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
-import { apiJson } from '@/lib/api';
-import { useNotificationUnreadStream } from '@/lib/notification-unread-stream';
-import { queryKeys } from '@/lib/query-keys';
+import { NavMain, type NavItem } from '#components/nav-main';
+import { NavUser } from '#components/nav-user';
+import { apiJson } from '#lib/api';
+import { useNotificationUnreadStream } from '#lib/notification-unread-stream';
+import { queryKeys } from '#lib/query-keys';
 import {
   Sidebar,
   SidebarContent,
@@ -37,7 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@lms/ui/components/sidebar';
-import { usePermissions } from '@/lib/permissions';
+import { usePermissions } from '#lib/permissions';
 import '../i18n';
 
 /**

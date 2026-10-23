@@ -3,7 +3,7 @@ import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
+import { apiJson } from '#lib/api';
 
 interface NotificationView {
   id: string;

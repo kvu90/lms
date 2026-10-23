@@ -9,9 +9,9 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { queryKeys } from '@/lib/query-keys';
+import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '#lib/api';
+import { useAuth } from '#lib/auth';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Map mã lỗi OAuth mà callback của backend gắn vào `?oauthError=` sang

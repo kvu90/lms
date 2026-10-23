@@ -7,8 +7,8 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { usePermissions } from '@/lib/permissions';
+import { apiJson } from '#lib/api';
+import { usePermissions } from '#lib/permissions';
 
 /**
  * Cây danh mục + danh sách khoá học cho mọi người dùng. Khu quản trị danh

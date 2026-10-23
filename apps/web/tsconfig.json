@@ -2,9 +2,6 @@
   "extends": "@lms/config/tsconfig/react.json",
   "compilerOptions": {
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
       "@lms/contracts": [
         "../../packages/contracts/src/index.ts"
       ]

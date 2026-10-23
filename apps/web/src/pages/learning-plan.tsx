@@ -4,12 +4,12 @@ import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { useAuth } from '@/lib/auth';
-import { usePermissions } from '@/lib/permissions';
+import { useAuth } from '#lib/auth';
+import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { DataTable, type DataColumn } from '#components/data-table';
 import '../i18n';
-import { apiJson, ApiError } from '@/lib/api';
+import { apiJson, ApiError } from '#lib/api';
 
 interface PlanView {
   id: string;

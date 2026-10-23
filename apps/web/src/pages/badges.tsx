@@ -3,10 +3,10 @@ import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { usePermissions } from '@/lib/permissions';
+import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
+import { apiJson } from '#lib/api';
 
 /** Huy hiệu (BadgeRow ở tầng API) như trang này cần để hiển thị. */
 interface BadgeView {

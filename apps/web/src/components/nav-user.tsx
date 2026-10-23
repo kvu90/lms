@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@lms/ui/components/sidebar';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '#lib/auth';
 import '../i18n';
 
 /** Chữ viết tắt từ họ tên để làm avatar khi người dùng chưa có ảnh đại diện. */

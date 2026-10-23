@@ -7,8 +7,8 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { apiJson } from '#lib/api';
+import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
  * Question bank: categories, questions with their CURRENT version

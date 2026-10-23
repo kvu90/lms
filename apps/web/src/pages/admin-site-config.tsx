@@ -8,7 +8,7 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
 import '../i18n';
-import { apiJson, ApiError } from '@/lib/api';
+import { apiJson, ApiError } from '#lib/api';
 
 /**
  * Các miền giá trị enum đã biết, đối chiếu registry phía backend

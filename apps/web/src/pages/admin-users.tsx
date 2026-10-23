@@ -8,9 +8,9 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { queryKeys } from '@/lib/query-keys';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { apiJson } from '#lib/api';
+import { queryKeys } from '#lib/query-keys';
+import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
  * Trang quản trị người dùng: danh sách do server phân trang và tìm kiếm

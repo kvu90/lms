@@ -18,10 +18,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { ApiError, apiJson, redirectToExternalUrl } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { describeUserAgent } from '@/lib/user-agent';
-import { queryKeys } from '@/lib/query-keys';
+import { ApiError, apiJson, redirectToExternalUrl } from '#lib/api';
+import { useAuth } from '#lib/auth';
+import { describeUserAgent } from '#lib/user-agent';
+import { queryKeys } from '#lib/query-keys';
 
 export function ProfilePage() {
   const { t } = useTranslation('app');

@@ -14,10 +14,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { DataTable, type DataColumn } from '#components/data-table';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { usePermissions } from '@/lib/permissions';
+import { apiJson } from '#lib/api';
+import { usePermissions } from '#lib/permissions';
 
 /**
  * Thang điểm tuỳ biến như API trả về (bảng `scales` phía grades service —
