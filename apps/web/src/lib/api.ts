@@ -1,5 +1,5 @@
-import type { LoginResponse, ProblemDetails, TokenPair } from '@lms/contracts';
-import { loginResponseSchema, problemDetailsSchema, tokenPairSchema } from '@lms/contracts';
+import type { LoginResponse, MfaChallengeResponse, ProblemDetails, TokenPair } from '@lms/contracts';
+import { loginResponseSchema, mfaChallengeResponseSchema, problemDetailsSchema, tokenPairSchema } from '@lms/contracts';
 
 const ACCESS_KEY = 'lms.accessToken';
 const REFRESH_KEY = 'lms.refreshToken';
@@ -21,9 +21,35 @@ export const tokenStore = {
   },
 };
 
+/**
+ * Chuyển hướng toàn trang tới một URL ngoài hệ thống (trang authorize
+ * của nhà cung cấp OAuth). Gói thành hàm riêng có tên để các luồng
+ * đăng nhập ngoài dùng chung một biên điều hướng — và để test thay
+ * được biên này, vì jsdom khoá cứng `window.location` (không mock
+ * trực tiếp được thuộc tính href).
+ */
+export function redirectToExternalUrl(url: string): void {
+  window.location.href = url;
+}
+
 export class ApiError extends Error {
   constructor(public readonly problem: ProblemDetails) {
     super(problem.detail ?? problem.title);
+  }
+}
+
+/**
+ * Lỗi kiểu riêng cho bước thách thức MFA: đáp ứng của POST /auth/token
+ * khi tài khoản đã bật xác thực hai lớp KHÔNG phải lỗi HTTP mà cũng
+ * chưa phải phiên đăng nhập — nó mang `challengeToken` ngắn hạn để
+ * trang login chuyển sang bước nhập mã TOTP rồi gọi
+ * `completeMfaLogin`. Tách thành class riêng để tầng giao diện phân
+ * biệt bằng `instanceof` thay vì dò hình dạng đáp ứng.
+ */
+export class MfaChallengeError extends Error {
+  constructor(public readonly challenge: MfaChallengeResponse) {
+    super('Multi-factor authentication is required to finish signing in');
+    this.name = 'MfaChallengeError';
   }
 }
 
@@ -78,11 +104,56 @@ export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<
   return (await res.json()) as T;
 }
 
+/**
+ * Đăng nhập bằng mật khẩu: đáp ứng thành công có HAI hình dạng theo
+ * hợp đồng — cặp token (đăng nhập xong ngay) hoặc thách thức MFA khi
+ * tài khoản đã bật hai lớp. Thách thức được nhận diện bằng schema
+ * riêng của contracts TRƯỚC khi thử parse cặp token, và được ném ra
+ * dưới dạng `MfaChallengeError` (không lưu token nào ở bước này).
+ */
 export async function loginWithPassword(username: string, password: string): Promise<LoginResponse> {
   const res = await fetch('/api/v1/auth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) throw await parseProblem(res);
+  const body: unknown = await res.json();
+  const challenge = mfaChallengeResponseSchema.safeParse(body);
+  if (challenge.success) throw new MfaChallengeError(challenge.data);
+  const parsed = loginResponseSchema.parse(body);
+  tokenStore.save(parsed);
+  return parsed;
+}
+
+/**
+ * Hoàn tất bước MFA: đổi `challengeToken` + mã TOTP 6 số lấy cặp token
+ * như đăng nhập thường (POST /auth/mfa/verify). Mã sai hoặc challenge
+ * hết hạn được API trả về dạng Problem Details như mọi lỗi khác.
+ */
+export async function verifyMfaChallenge(challengeToken: string, code: string): Promise<LoginResponse> {
+  const res = await fetch('/api/v1/auth/mfa/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeToken, code }),
+  });
+  if (!res.ok) throw await parseProblem(res);
+  const parsed = loginResponseSchema.parse(await res.json());
+  tokenStore.save(parsed);
+  return parsed;
+}
+
+/**
+ * Đổi mã bàn giao một lần (handoff) sau callback OAuth lấy cặp token
+ * như đăng nhập thường (POST /auth/oauth/handoff): callback của nhà
+ * cung cấp chỉ chuyển hướng về SPA kèm mã này, token không bao giờ đi
+ * qua URL.
+ */
+export async function loginWithOAuthHandoff(code: string): Promise<LoginResponse> {
+  const res = await fetch('/api/v1/auth/oauth/handoff', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
   });
   if (!res.ok) throw await parseProblem(res);
   const parsed = loginResponseSchema.parse(await res.json());

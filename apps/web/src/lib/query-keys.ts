@@ -26,4 +26,10 @@ export const queryKeys = {
   notificationUnreadCount: ['notifications', 'unread-count'] as const,
   /** Sự kiện lịch trong một khoảng ngày (ISO string đầu/cuối khoảng). */
   calendarEvents: (from: string, to: string) => ['calendar', 'events', from, to] as const,
+  /** Các nhà cung cấp đăng nhập ngoài đang bật (GET /auth/oauth/providers) — dùng chung cho trang login và thẻ liên kết ở hồ sơ. */
+  oauthProviders: ['auth', 'oauth', 'providers'] as const,
+  /** Các liên kết đăng nhập ngoài của chính người dùng (GET /auth/oauth/links). */
+  oauthLinks: ['auth', 'oauth', 'links'] as const,
+  /** Các phiên đang hoạt động của chính người dùng (GET /auth/sessions). */
+  mySessions: ['auth', 'sessions'] as const,
 };

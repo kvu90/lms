@@ -13,6 +13,7 @@ export default [
     index('routes/home-index.tsx'),
     route('health', 'pages/health.tsx'),
     route('login', 'pages/login.tsx'),
+    route('oauth/callback', 'pages/oauth-callback.tsx'),
     route('profile', 'pages/profile.tsx'),
     route('admin/users', 'pages/admin-users.tsx'),
     route('admin/roles', 'pages/admin-roles.tsx'),
