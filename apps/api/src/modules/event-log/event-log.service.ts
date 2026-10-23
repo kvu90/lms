@@ -57,7 +57,10 @@ export class EventLogService {
       {
         userId: query.userId, relatedUserId: query.relatedUserId, courseId: query.courseId,
         contextId: query.contextId, component: query.component, eventType: query.eventType,
-        from: query.from, to: query.to,
+        // Mốc thời gian trên đường truyền là chuỗi ISO 8601 (xem DTO) —
+        // chuyển sang Date tại biên service cho repository.
+        from: query.from ? new Date(query.from) : undefined,
+        to: query.to ? new Date(query.to) : undefined,
       },
       page,
       pageSize,
