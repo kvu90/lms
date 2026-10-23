@@ -23,38 +23,37 @@ import { useIsMobile } from '@lms/ui/hooks/use-mobile';
 import '@lms/ui/globals.css'; // chỉ import một lần ở root của app
 ```
 
-Import nội bộ package cũng dùng chính tên `@lms/ui/...` (tự tham
-chiếu) để file sinh ra giữ nguyên một dạng ở mọi ngữ cảnh biên dịch.
+Cấu trúc bao gói theo đúng mô hình monorepo chính thức của shadcn
+(https://ui.shadcn.com/docs/monorepo), không dựa vào `paths` trong
+tsconfig ở cả package lẫn app:
+
+- Bên ngoài package, app chỉ đi qua trường `exports` của
+  `package.json` (`./components/*`, `./lib/*`, `./hooks/*`,
+  `./globals.css`) nhờ symlink workspace của pnpm.
+- Import nội bộ package dùng alias cục bộ `#components/*`, `#lib/*`,
+  `#hooks/*` khai trong trường `imports` của `package.json` — ví dụ
+  `import { cn } from "#lib/utils"`. `components.json` khai cùng các
+  alias này để CLI sinh file mới đúng chuẩn đó.
+- `src/lib/utils.ts` là file thật chứa cài đặt `cn` chuẩn của shadcn
+  (`clsx` + `tailwind-merge` là dependency của chính package này).
 
 ## Đồng bộ với shadcn
 
 Chạy CLI ngay trong thư mục này (`components.json` đã trỏ alias và
-file CSS theo package). Sau khi đồng bộ: chạy `turbo run typecheck
-lint --filter=@lms/ui` và build + test của `@lms/web`, đối chiếu diff
-của `components.json` và `src/styles/globals.css` trước khi commit.
+file CSS theo package; `shadcn info` tại thư mục này nhận diện được
+cấu hình và resolve đủ alias mà không cần dấu hiệu framework nào).
+Sau khi đồng bộ: chạy `turbo run typecheck lint --filter=@lms/ui` và
+build + test của `@lms/web`, đối chiếu diff của `components.json` và
+`src/styles/globals.css` trước khi commit.
 
 ## Ngoại lệ so với bản shadcn sinh ra (kèm lý do)
 
-- `src/components/ui/sidebar.tsx`, `src/components/ui/toggle-group.tsx`:
-  các import nội bộ (`@/components/ui/*`, `@/hooks/use-mobile`) được
-  viết lại thành `@lms/ui/components/ui/*`, `@lms/ui/hooks/use-mobile`
-  — đổi đường dẫn thuần túy để package tự chứa, không đổi logic/mẫu.
 - `src/hooks/use-mobile.ts`: khởi tạo `useIsMobile` đồng bộ bằng
   `window.innerWidth` ngay ở render đầu (bản gốc để `undefined` rồi
   mới set trong effect, gây một nhịp đổi khung trên máy nhỏ).
 - `src/styles/globals.css`: thêm hai dòng `@source` trỏ tới cây nguồn
   của package và của `apps/web` — Tailwind v4 cần khai báo tường minh
   vì file CSS không còn nằm trong cây của app.
-- Các component dùng `import { cn } from "cn"` (package `cn`) thay
-  cho `@/lib/utils` như bản gốc — hiện trạng có từ trước khi tách
-  package, giữ nguyên để không lẫn thay đổi vào đợt tách. File
-  `src/lib/utils.ts` chỉ là shim `export { cn } from "cn"` do CLI tự
-  sinh khi áp preset, không chứa logic.
-- `vite.config.ts` rỗng + devDependency `vite`: shadcn CLI chỉ chạy
-  `init`/`apply` khi nhận diện được framework trong package.json —
-  hai dấu hiệu này giúp CLI làm việc ngay tại package thay vì phải
-  chạy từ app. Không ảnh hưởng bản build (app tự biên dịch package
-  qua exports).
 - `src/styles/globals.css`: khối `body { font-family: ui-sans-system
   ... }` của CSS thời tiền-package (không phải hàng shadcn) đã bị xoá
   khi áp preset Base Vega — khối đó không nằm trong layer nên thắng
