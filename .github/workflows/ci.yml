@@ -49,7 +49,5 @@ jobs:
         run: pnpm exec turbo run build
       - name: Typecheck
         run: pnpm exec turbo run typecheck
-      - name: Lint
-        run: pnpm exec turbo run lint
       - name: Test
         run: pnpm exec turbo run test

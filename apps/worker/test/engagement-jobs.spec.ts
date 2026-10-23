@@ -27,7 +27,6 @@ import { WorkerModule } from '../src/worker.module';
  */
 describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
   let context: INestApplicationContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now() % 100000;
   const userA = `01920000-0000-7000-8000-${String(920000 + suffix).padStart(12, '0')}`;

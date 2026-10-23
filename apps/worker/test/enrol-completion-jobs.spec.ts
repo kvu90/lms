@@ -21,7 +21,6 @@ import { WorkerModule } from '../src/worker.module';
  */
 describe('Worker enrol & completion: enrol-expiry + completion-recalculate processors', () => {
   let context: INestApplicationContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let db: any;
   const suffix = Date.now();
   const userId = `01900000-0000-7000-8000-${String(900000 + (suffix % 10000)).padStart(12, '0')}`;
