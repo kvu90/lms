@@ -261,6 +261,8 @@ describe('Question bank page', () => {
       expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v1'),
     );
     await userEvent.click(screen.getByRole('button', { name: /Sửa \(phiên bản mới\)/ }));
+    // Sửa mở editor theo dạng của câu hỏi; lưu trong editor mới tạo phiên bản mới.
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' }));
     await waitFor(() =>
       expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v2'),
     );
