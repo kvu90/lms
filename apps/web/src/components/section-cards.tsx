@@ -4,8 +4,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+} from "@lms/ui/components/ui/card"
+import { Skeleton } from "@lms/ui/components/ui/skeleton"
 
 /** Một thẻ thống kê: nhãn, giá trị lớn và dòng chú thích phụ — tất cả từ dữ liệu thật. */
 export interface StatCard {

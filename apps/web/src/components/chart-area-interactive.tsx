@@ -8,17 +8,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@lms/ui/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@/components/ui/chart"
+} from "@lms/ui/components/ui/chart"
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from "@/components/ui/toggle-group"
+} from "@lms/ui/components/ui/toggle-group"
 
 /** Một điểm dữ liệu của biểu đồ: trục hoành là nhãn, giá trị nằm ở khoá `value`. */
 export interface ChartPoint {

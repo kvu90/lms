@@ -32,7 +32,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@lms/ui/components/ui/sidebar"
 import { usePermissions } from "@/lib/permissions"
 import "../i18n"
 

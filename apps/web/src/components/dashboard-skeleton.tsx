@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@lms/ui/components/ui/skeleton';
 
 /**
  * Khung giữ chỗ cho nội dung trang tổng quan trong lúc chunk trang hoặc

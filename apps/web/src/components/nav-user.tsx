@@ -9,7 +9,7 @@ import { useNavigate } from "react-router"
 import {
   Avatar,
   AvatarFallback,
-} from "@/components/ui/avatar"
+} from "@lms/ui/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +17,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@lms/ui/components/ui/dropdown-menu"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
+} from "@lms/ui/components/ui/sidebar"
 import { useAuth } from "@/lib/auth"
 import "../i18n"
 

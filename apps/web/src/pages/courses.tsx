@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from '@lms/ui/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
+import { Input } from '@lms/ui/components/ui/input';
+import { Label } from '@lms/ui/components/ui/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';

@@ -13,7 +13,7 @@ import { AuthProvider } from './lib/auth';
 import { queryClient } from './lib/query-client';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
-import './index.css';
+import '@lms/ui/globals.css';
 
 /**
  * Vỏ tài liệu HTML của toàn app (React Router framework mode): root route

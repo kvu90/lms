@@ -1,0 +1,1 @@
+{"compilerOptions":{"paths":{"@/*":["./src/*"]},"types":[]},"extends":"@lms/config/tsconfig/react.json","include":["src"]}

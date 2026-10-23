@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@lms/ui/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';

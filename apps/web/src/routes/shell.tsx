@@ -1,13 +1,13 @@
 import { useState, type CSSProperties } from 'react';
 import { Link, Outlet } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Button } from '../components/ui/button';
+import { Button } from "@lms/ui/components/ui/button";
 import { useAuth } from '../lib/auth';
 import { PermissionsProvider } from '../lib/permissions';
 import { AppSidebar } from '../components/app-sidebar';
 import { AppShellSkeleton } from '../components/app-shell-skeleton';
 import { SiteHeader } from '../components/site-header';
-import { SidebarInset, SidebarProvider } from '../components/ui/sidebar';
+import { SidebarInset, SidebarProvider } from "@lms/ui/components/ui/sidebar";
 
 /**
  * Đọc trạng thái thu/mở sidebar người dùng đã chọn từ cookie

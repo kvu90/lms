@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Tailwind v4 tự quét nguồn theo vị trí file CSS; file này sống trong
+   package ui nên phải khai báo tường minh cả hai cây nguồn dùng chung
+   bộ token ở đây: component của package và mã nguồn của apps/web. */
+@source "../components";
+@source "../../../../apps/web/src";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

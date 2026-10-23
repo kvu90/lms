@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@lms/ui/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '@/lib/api';

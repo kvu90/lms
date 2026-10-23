@@ -8,7 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@lms/ui/components/ui/sidebar"
 
 /** Một mục điều hướng trong sidebar: nhãn đã dịch sẵn, đường dẫn route thật của app. */
 export interface NavItem {

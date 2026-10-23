@@ -27,13 +27,13 @@ import {
   type SortingState,
 } from "@tanstack/react-table"
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@lms/ui/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@lms/ui/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -41,7 +41,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@lms/ui/components/ui/table"
 
 // Bộ tính năng của bảng (TanStack Table v9 khai báo tường minh để
 // tree-shake), giữ đúng bộ khung của block dashboard-01.

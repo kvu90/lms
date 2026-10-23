@@ -14,15 +14,15 @@ import { usePermissions, type CourseAccess } from '@/lib/permissions';
 import { queryKeys } from '@/lib/query-keys';
 import { DashboardSkeleton } from '@/components/dashboard-skeleton';
 import { SectionCards, type StatCard } from '@/components/section-cards';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@lms/ui/components/ui/skeleton';
 import {
   ChartAreaInteractive,
   type ChartPoint,
 } from '@/components/chart-area-interactive';
 import { DataTable, type DataColumn } from '@/components/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@lms/ui/components/ui/badge';
+import { Button } from '@lms/ui/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
 
 /** Hình dạng sự kiện lịch mà trang này cần (khớp EventView của trang lịch). */
 interface CalendarEventView {

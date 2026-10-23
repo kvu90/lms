@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router"
 
-import { Separator } from "@/components/ui/separator"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Separator } from "@lms/ui/components/ui/separator"
+import { SidebarTrigger } from "@lms/ui/components/ui/sidebar"
 import "../i18n"
 
 /** Ánh xạ tiền tố đường dẫn → khoá i18n của tiêu đề trang, cho header trên cùng. */
