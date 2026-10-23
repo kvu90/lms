@@ -2,10 +2,25 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy as LocalStrategy } from 'passport-local';
-import { ExtractJwt, Strategy as JwtStrategy } from 'passport-jwt';
+import { ExtractJwt, Strategy as JwtStrategy, type JwtFromRequestFunction } from 'passport-jwt';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+
+/**
+ * Extractor dự phòng CHỈ cho stream SSE số thông báo chưa đọc: trình
+ * duyệt EventSource không đặt được header Authorization, nên riêng
+ * route này access token được phép đi qua query `access_token`. Mọi
+ * route khác extractor trả null — token qua URL không được chấp nhận
+ * ở bất kỳ đâu khác. Token vẫn qua đúng bước `validate` phía dưới
+ * (đúng loại access token, tài khoản còn hoạt động).
+ */
+const fromUnreadCountStreamQuery: JwtFromRequestFunction = (req) => {
+  const path = (req?.url ?? '').split('?')[0] ?? '';
+  if (!path.endsWith('/notifications/unread-count/stream')) return null;
+  const token = (req as { query?: Record<string, unknown> } | undefined)?.query?.access_token;
+  return typeof token === 'string' && token.length > 0 ? token : null;
+};
 
 @Injectable()
 /** Chiến lược xác thực cục bộ (username + mật khẩu) cho các guard cần kiểm tra thông tin đăng nhập trực tiếp. */
@@ -24,7 +39,7 @@ export interface JwtPayload { sub: string; username: string; sid: string; scope?
 export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
   constructor(config: ConfigService, private readonly users: UsersService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([ExtractJwt.fromAuthHeaderAsBearerToken(), fromUnreadCountStreamQuery]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
