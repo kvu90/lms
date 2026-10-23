@@ -2,6 +2,7 @@
 import {
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -81,6 +82,81 @@ export const userOauthLinks = pgTable('user_oauth_links', {
       index('user_oauth_links_user_id_idx').on(table.userId),
   ]);
 
+
+/**
+ * Các bảng lõi của Better Auth (issue #7, Giai đoạn 1) — tên vật lý dùng
+ * đúng tên chuẩn của Better Auth, không tiền tố: bảng `users` hiện hữu là
+ * bảng user của nó (thêm cột `email_verified`, `image` ở schema users);
+ * bốn bảng dưới đây do Drizzle adapter của Better Auth ghi qua ánh xạ ở
+ * `better-auth/better-auth.schema.ts`. Auth tự viết vẫn là đường chính
+ * cho tới cutover ở Giai đoạn 2 — các bảng này tồn tại song song.
+ */
+
+/** Phiên cookie phía server của Better Auth (model `session`). */
+export const authSession = pgTable('session', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  token: text('token').notNull().unique(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('session_user_id_idx').on(table.userId),
+  ]);
+
+/** Tài khoản đăng nhập của Better Auth (model `account`): dòng credential giữ hash mật khẩu, dòng OAuth giữ token của nhà cung cấp. */
+export const authAccount = pgTable('account', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('account_user_id_idx').on(table.userId),
+  ]);
+
+/** Mã xác thực dùng một lần của Better Auth (model `verification`): reset mật khẩu, xác thực email. */
+export const authVerification = pgTable('verification', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * TOTP + backup codes của plugin twoFactor của Better Auth (bảng
+ * `two_factor`): secret và backup codes do plugin quản; plugin bật ở
+ * Giai đoạn 2 — bảng có mặt trong baseline từ Giai đoạn 1 theo issue.
+ * Cột `two_factor_enabled` trên `users` thuộc plugin, đến cùng Giai đoạn 2.
+ */
+export const authTwoFactor = pgTable('two_factor', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  secret: text('secret').notNull(),
+  backupCodes: text('backup_codes').notNull(),
+  verified: boolean('verified').notNull().default(true),
+  failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('two_factor_user_id_idx').on(table.userId),
+  ]);
 
 /** Failed-login bookkeeping for lockout (Moodle authlib lockout semantics). */
 export const loginAttempts = pgTable('login_attempts', {

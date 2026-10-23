@@ -123,6 +123,8 @@ CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"username" text NOT NULL UNIQUE,
 	"email" text NOT NULL UNIQUE,
+	"email_verified" boolean DEFAULT false NOT NULL,
+	"image" text,
 	"password_hash" text,
 	"first_name" text DEFAULT '' NOT NULL,
 	"last_name" text DEFAULT '' NOT NULL,
@@ -131,6 +133,54 @@ CREATE TABLE "users" (
 	"force_password_change" boolean DEFAULT false NOT NULL,
 	"is_guest" boolean DEFAULT false NOT NULL,
 	"last_login" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "account" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"account_id" text NOT NULL,
+	"provider_id" text NOT NULL,
+	"user_id" uuid NOT NULL,
+	"access_token" text,
+	"refresh_token" text,
+	"id_token" text,
+	"access_token_expires_at" timestamp with time zone,
+	"refresh_token_expires_at" timestamp with time zone,
+	"scope" text,
+	"password" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "session" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"expires_at" timestamp with time zone NOT NULL,
+	"token" text NOT NULL UNIQUE,
+	"ip_address" text,
+	"user_agent" text,
+	"user_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "two_factor" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"user_id" uuid NOT NULL,
+	"secret" text NOT NULL,
+	"backup_codes" text NOT NULL,
+	"verified" boolean DEFAULT true NOT NULL,
+	"failed_verification_count" integer DEFAULT 0 NOT NULL,
+	"locked_until" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "verification" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"identifier" text NOT NULL,
+	"value" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1375,6 +1425,9 @@ CREATE INDEX "role_assignments_modifier_id_idx" ON "role_assignments" ("modifier
 CREATE INDEX "role_assignments_item_id_idx" ON "role_assignments" ("item_id");--> statement-breakpoint
 CREATE INDEX "role_capabilities_role_id_idx" ON "role_capabilities" ("role_id");--> statement-breakpoint
 CREATE INDEX "role_capabilities_modifier_id_idx" ON "role_capabilities" ("modifier_id");--> statement-breakpoint
+CREATE INDEX "account_user_id_idx" ON "account" ("user_id");--> statement-breakpoint
+CREATE INDEX "session_user_id_idx" ON "session" ("user_id");--> statement-breakpoint
+CREATE INDEX "two_factor_user_id_idx" ON "two_factor" ("user_id");--> statement-breakpoint
 CREATE INDEX "login_attempts_user_id_idx" ON "login_attempts" ("user_id");--> statement-breakpoint
 CREATE INDEX "refresh_token_family_user_id_idx" ON "refresh_token_family" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_oauth_links_user_id_idx" ON "user_oauth_links" ("user_id");--> statement-breakpoint
@@ -1559,6 +1612,9 @@ ALTER TABLE "role_assignments" ADD CONSTRAINT "role_assignments_context_id_conte
 ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_context_id_context_id_fkey" FOREIGN KEY ("context_id") REFERENCES "context"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_role_id_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "role"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "account" ADD CONSTRAINT "account_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "session" ADD CONSTRAINT "session_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "login_attempts" ADD CONSTRAINT "login_attempts_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "refresh_token_family" ADD CONSTRAINT "refresh_token_family_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_oauth_links" ADD CONSTRAINT "user_oauth_links_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -14,6 +14,11 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   username: text('username').notNull().unique(),
   email: text('email').notNull().unique(),
+  // Hai cột do Better Auth yêu cầu trên bảng user của nó (issue #7): trạng
+  // thái đã xác thực email và ảnh đại diện. `users` chính là bảng user của
+  // Better Auth qua Drizzle adapter — xem modules/auth/better-auth.
+  emailVerified: boolean('email_verified').notNull().default(false),
+  image: text('image'),
   passwordHash: text('password_hash'),
   firstName: text('first_name').notNull().default(''),
   lastName: text('last_name').notNull().default(''),
