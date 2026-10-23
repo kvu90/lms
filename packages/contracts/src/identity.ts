@@ -211,6 +211,12 @@ export const mfaTotpSetupResponseSchema = z.object({
 });
 export type MfaTotpSetupResponse = z.infer<typeof mfaTotpSetupResponseSchema>;
 
+/** Đáp ứng trạng thái MFA TOTP của chính người dùng: chỉ lộ cờ đã bật hay chưa, không lộ secret. */
+export const mfaStatusResponseSchema = z.object({
+  enabled: z.boolean(),
+});
+export type MfaStatusResponse = z.infer<typeof mfaStatusResponseSchema>;
+
 /** Nhà cung cấp danh tính ngoài được hỗ trợ (plugin lõi auth_oauth2 của Moodle: issuer dựng sẵn Google và Facebook). */
 export const oauthIssuerSchema = z.enum(['google', 'facebook']);
 export type OAuthIssuer = z.infer<typeof oauthIssuerSchema>;
