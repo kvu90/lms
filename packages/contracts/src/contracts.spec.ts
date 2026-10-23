@@ -41,8 +41,8 @@ describe('engagement contracts', () => {
       eventType: 'badge_awarded', timeRead: null, createdAt: new Date().toISOString(),
     });
     expect(notif.timeRead).toBeNull();
-    const pref = messagePreferenceSchema.parse({ provider: 'badge_awarded', channel: 'popup', loggedin: true, loggedoff: false });
-    expect(pref.loggedoff).toBe(false);
+    const pref = messagePreferenceSchema.parse({ provider: 'badge_awarded', component: 'core_badges', channel: 'popup', state: 'loggedin', enabled: true });
+    expect(pref.enabled).toBe(true);
   });
 
   it('parses calendar events, badges and rejects impossible shapes', () => {
