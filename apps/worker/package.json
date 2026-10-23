@@ -5,7 +5,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src test",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "start": "node dist/main.js"
@@ -28,15 +27,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@lms/config": "workspace:*",
     "@nestjs/testing": "^12.2.0",
     "@swc/core": "^1.16.18",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
-    "eslint": "catalog:",
     "typescript": "catalog:nest",
-    "typescript-eslint": "catalog:",
     "unplugin-swc": "^2.0.0",
     "vitest": "catalog:"
   }

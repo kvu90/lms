@@ -5,7 +5,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src test",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "start": "node dist/main.js",
@@ -50,7 +49,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@nestjs/testing": "^12.2.0",
     "@swc/core": "^1.16.18",
     "@types/compression": "^1.8.1",
@@ -61,10 +59,8 @@
     "@types/passport-local": "1.0.38",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
-    "eslint": "catalog:",
     "supertest": "^7.3.1",
     "typescript": "catalog:nest",
-    "typescript-eslint": "catalog:",
     "unplugin-swc": "^2.0.0",
     "vitest": "catalog:"
   }

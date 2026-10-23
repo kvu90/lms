@@ -19,10 +19,8 @@
     "@lms/config": "workspace:*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "eslint": "catalog:",
     "tailwindcss": "^4.3.3",
-    "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript": "catalog:"
   },
   "exports": {
     "./components/*": "./src/components/*.tsx",
@@ -38,7 +36,6 @@
   "name": "@lms/ui",
   "private": true,
   "scripts": {
-    "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "sideEffects": [

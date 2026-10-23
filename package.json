@@ -10,7 +10,6 @@
     "build": "turbo run build",
     "heroku-postbuild": "turbo run build --filter=@lms/api --filter=@lms/worker --filter=@lms/web",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint",
     "test": "turbo run test",
     "dev": "turbo run dev",
     "seed": "pnpm --filter @lms/api build && pnpm --filter @lms/api seed:review"
