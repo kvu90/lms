@@ -40,7 +40,7 @@ export class BadgesRepository {
    * Cập nhật badge.
    */
   async updateBadge(id: string, patch: Partial<BadgeRow>): Promise<void> {
-    await this.db.update(badge).set({ ...patch, timemodified: new Date() }).where(eq(badge.id, id));
+    await this.db.update(badge).set({ ...patch, updatedAt: new Date() }).where(eq(badge.id, id));
   }
 
   /**
@@ -52,14 +52,14 @@ export class BadgesRepository {
   /**
    * Tiêu chí của badge.
    */
-  async listCriteria(badgeid: string): Promise<CriteriaRow[]> {
-    return this.db.select().from(badgeCriteria).where(eq(badgeCriteria.badgeid, badgeid)).orderBy(asc(badgeCriteria.id));
+  async listCriteria(badgeId: string): Promise<CriteriaRow[]> {
+    return this.db.select().from(badgeCriteria).where(eq(badgeCriteria.badgeId, badgeId)).orderBy(asc(badgeCriteria.id));
   }
   /**
    * Xoá tiêu chí của badge.
    */
-  async deleteCriteria(badgeid: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(badgeCriteria).where(eq(badgeCriteria.badgeid, badgeid));
+  async deleteCriteria(badgeId: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(badgeCriteria).where(eq(badgeCriteria.badgeId, badgeId));
   }
 
   /**
@@ -67,10 +67,10 @@ export class BadgesRepository {
    */
   async insertIssued(v: typeof badgeIssued.$inferInsert, tx?: DbTx): Promise<IssuedRow> {
     const [row] = await (tx ?? this.db).insert(badgeIssued).values(v)
-      .onConflictDoNothing({ target: [badgeIssued.badgeid, badgeIssued.userid] }).returning();
+      .onConflictDoNothing({ target: [badgeIssued.badgeId, badgeIssued.userId] }).returning();
     if (row) return row;
     const [existing] = await this.db.select().from(badgeIssued)
-      .where(and(eq(badgeIssued.badgeid, v.badgeid), eq(badgeIssued.userid, v.userid)));
+      .where(and(eq(badgeIssued.badgeId, v.badgeId), eq(badgeIssued.userId, v.userId)));
     return existing!;
   }
   /**
@@ -82,28 +82,28 @@ export class BadgesRepository {
   /**
    * Tìm bản ghi cấp phát của user cho một badge.
    */
-  async findIssued(badgeid: string, userid: string): Promise<IssuedRow | undefined> {
+  async findIssued(badgeId: string, userId: string): Promise<IssuedRow | undefined> {
     const [row] = await this.db.select().from(badgeIssued)
-      .where(and(eq(badgeIssued.badgeid, badgeid), eq(badgeIssued.userid, userid)));
+      .where(and(eq(badgeIssued.badgeId, badgeId), eq(badgeIssued.userId, userId)));
     return row;
   }
   /**
    * Bản ghi cấp phát của một badge.
    */
-  async listIssuedForBadge(badgeid: string): Promise<IssuedRow[]> {
-    return this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeid, badgeid)).orderBy(asc(badgeIssued.id));
+  async listIssuedForBadge(badgeId: string): Promise<IssuedRow[]> {
+    return this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeId, badgeId)).orderBy(asc(badgeIssued.id));
   }
   /**
    * Huy hiệu đã cấp cho user.
    */
-  async listIssuedForUser(userid: string): Promise<IssuedRow[]> {
-    return this.db.select().from(badgeIssued).where(eq(badgeIssued.userid, userid)).orderBy(asc(badgeIssued.id));
+  async listIssuedForUser(userId: string): Promise<IssuedRow[]> {
+    return this.db.select().from(badgeIssued).where(eq(badgeIssued.userId, userId)).orderBy(asc(badgeIssued.id));
   }
   /**
    * Số lần badge đã được cấp.
    */
-  async countIssued(badgeid: string): Promise<number> {
-    const rows = await this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeid, badgeid));
+  async countIssued(badgeId: string): Promise<number> {
+    const rows = await this.db.select().from(badgeIssued).where(eq(badgeIssued.badgeId, badgeId));
     return rows.length;
   }
   /**
@@ -118,18 +118,18 @@ export class BadgesRepository {
    */
   async insertManualAward(v: typeof badgeManualAward.$inferInsert, tx?: DbTx): Promise<ManualAwardRow> {
     const [row] = await (tx ?? this.db).insert(badgeManualAward).values(v)
-      .onConflictDoNothing({ target: [badgeManualAward.badgeid, badgeManualAward.recipientid, badgeManualAward.issuerid] }).returning();
+      .onConflictDoNothing({ target: [badgeManualAward.badgeId, badgeManualAward.recipientId, badgeManualAward.issuerId] }).returning();
     if (row) return row;
     const [existing] = await this.db.select().from(badgeManualAward)
-      .where(and(eq(badgeManualAward.badgeid, v.badgeid), eq(badgeManualAward.recipientid, v.recipientid)));
+      .where(and(eq(badgeManualAward.badgeId, v.badgeId), eq(badgeManualAward.recipientId, v.recipientId)));
     return existing!;
   }
   /**
    * Tìm bản ghi cấp thủ công.
    */
-  async findManualAward(badgeid: string, recipientid: string): Promise<ManualAwardRow | undefined> {
+  async findManualAward(badgeId: string, recipientId: string): Promise<ManualAwardRow | undefined> {
     const [row] = await this.db.select().from(badgeManualAward)
-      .where(and(eq(badgeManualAward.badgeid, badgeid), eq(badgeManualAward.recipientid, recipientid)));
+      .where(and(eq(badgeManualAward.badgeId, badgeId), eq(badgeManualAward.recipientId, recipientId)));
     return row;
   }
 }

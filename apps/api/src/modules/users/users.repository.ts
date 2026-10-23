@@ -24,7 +24,7 @@ export class UsersRepository {
    * Cập nhật các trường hồ sơ của user.
    */
   async updateUser(id: string, v: Partial<typeof users.$inferInsert>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(users).set({ ...v, timemodified: new Date() }).where(eq(users.id, id));
+    await (tx ?? this.db).update(users).set({ ...v, updatedAt: new Date() }).where(eq(users.id, id));
   }
   /**
    * Lấy user theo id.
@@ -52,7 +52,7 @@ export class UsersRepository {
     if (!includeDeleted) conds.push(eq(users.deleted, false));
     if (search) {
       const pattern = `%${search}%`;
-      conds.push(or(ilike(users.username, pattern), ilike(users.email, pattern), ilike(users.firstname, pattern), ilike(users.lastname, pattern)));
+      conds.push(or(ilike(users.username, pattern), ilike(users.email, pattern), ilike(users.firstName, pattern), ilike(users.lastName, pattern)));
     }
     const where = conds.length ? and(...conds) : undefined;
     const rows = await this.db.select().from(users).where(where).orderBy(users.id).limit(pageSize).offset((page - 1) * pageSize);
@@ -62,16 +62,16 @@ export class UsersRepository {
   /**
    * Ghi tuỳ chọn cá nhân của user (upsert theo tên).
    */
-  async setPreference(userid: string, name: string, value: string | null): Promise<void> {
-    await this.db.insert(userPreferences).values({ userid, name, value })
-      .onConflictDoUpdate({ target: [userPreferences.userid, userPreferences.name], set: { value } });
+  async setPreference(userId: string, name: string, value: string | null): Promise<void> {
+    await this.db.insert(userPreferences).values({ userId, name, value })
+      .onConflictDoUpdate({ target: [userPreferences.userId, userPreferences.name], set: { value } });
   }
   /**
    * Đọc một tuỳ chọn cá nhân; undefined nếu chưa đặt.
    */
-  async getPreference(userid: string, name: string): Promise<string | null | undefined> {
+  async getPreference(userId: string, name: string): Promise<string | null | undefined> {
     const [row] = await this.db.select().from(userPreferences)
-      .where(and(eq(userPreferences.userid, userid), eq(userPreferences.name, name)));
+      .where(and(eq(userPreferences.userId, userId), eq(userPreferences.name, name)));
     return row?.value;
   }
 }

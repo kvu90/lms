@@ -27,8 +27,8 @@ export function ProfilePage() {
   const { t } = useTranslation('app');
   const { user, reload } = useAuth();
   const [form, setForm] = useState<{
-    firstname: string;
-    lastname: string;
+    firstName: string;
+    lastName: string;
     email: string;
     customFields: Record<string, string>;
   } | null>(null);
@@ -37,10 +37,10 @@ export function ProfilePage() {
   useEffect(() => {
     if (user) {
       setForm({
-        firstname: user.firstname,
-        lastname: user.lastname,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email ?? '',
-        customFields: Object.fromEntries(user.customFields.map((f) => [f.shortname, f.value ?? ''])),
+        customFields: Object.fromEntries(user.customFields.map((f) => [f.shortName, f.value ?? ''])),
       });
     }
   }, [user]);
@@ -59,8 +59,8 @@ export function ProfilePage() {
       const updated = await apiJson<UserProfile>(`/api/v1/users/${user!.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          firstname: form!.firstname,
-          lastname: form!.lastname,
+          firstName: form!.firstName,
+          lastName: form!.lastName,
           email: form!.email || undefined,
           customFields: form!.customFields,
         }),
@@ -89,16 +89,16 @@ export function ProfilePage() {
               <Label htmlFor="firstname">{t('firstName')}</Label>
               <Input
                 id="firstname"
-                value={form.firstname}
-                onChange={(e) => setForm({ ...form, firstname: e.target.value })}
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastname">{t('lastName')}</Label>
               <Input
                 id="lastname"
-                value={form.lastname}
-                onChange={(e) => setForm({ ...form, lastname: e.target.value })}
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -111,15 +111,15 @@ export function ProfilePage() {
               />
             </div>
             {user.customFields.map((field) => (
-              <div className="space-y-2" key={field.shortname}>
-                <Label htmlFor={`cf-${field.shortname}`}>
+              <div className="space-y-2" key={field.shortName}>
+                <Label htmlFor={`cf-${field.shortName}`}>
                   {field.name} ({field.type})
                 </Label>
                 <Input
-                  id={`cf-${field.shortname}`}
-                  value={form.customFields[field.shortname] ?? ''}
+                  id={`cf-${field.shortName}`}
+                  value={form.customFields[field.shortName] ?? ''}
                   onChange={(e) =>
-                    setForm({ ...form, customFields: { ...form.customFields, [field.shortname]: e.target.value } })
+                    setForm({ ...form, customFields: { ...form.customFields, [field.shortName]: e.target.value } })
                   }
                 />
               </div>

@@ -15,8 +15,8 @@ export class ContentBankController {
     return this.contentBank.create(actor.id, dto);
   }
   @Get()
-  async list(@Query('contextid') contextid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.contentBank.listFor(actor.id, contextid || undefined);
+  async list(@Query('contextId') contextId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.contentBank.listFor(actor.id, contextId || undefined);
   }
   @Get(':id')
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {

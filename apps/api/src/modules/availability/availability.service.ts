@@ -131,10 +131,10 @@ export class AvailabilityService {
     try {
       const profile = await this.users.getProfileView(ctx.userId, ctx.userId);
       if (field === 'username') actual = profile.username;
-      else if (field === 'firstname') actual = profile.firstname;
-      else if (field === 'lastname') actual = profile.lastname;
+      else if (field === 'firstName') actual = profile.firstName;
+      else if (field === 'lastName') actual = profile.lastName;
       else if (field === 'email') actual = profile.email;
-      else actual = profile.customFields.find((f) => f.shortname === field)?.value ?? undefined;
+      else actual = profile.customFields.find((f) => f.shortName === field)?.value ?? undefined;
     } catch {
       return { available: false, description: this.i18n.t('availability.profileField', { args: { field } }) };
     }

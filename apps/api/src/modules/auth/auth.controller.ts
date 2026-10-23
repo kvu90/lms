@@ -116,7 +116,7 @@ export class AuthController {
    */
   async mfaReset(@Param('userId', { schema: uuidIdSchema }) userId: string) {
     await this.auth.resetTotp(userId);
-    return { reset: true, userid: userId };
+    return { reset: true, userId: userId };
   }
 
   @Public()
@@ -146,7 +146,7 @@ export class AuthController {
    * POST /auth/login-as/:id — đăng nhập thay user khác (cần capability).
    */
   async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
-    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userid, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
+    const { user, tokens } = await this.auth.loginAs(actor.id, dto.userId, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
     return { user: { id: user.id, username: user.username }, ...tokens, loginAs: { byUserId: actor.id } };
   }
 

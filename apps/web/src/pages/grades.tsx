@@ -26,7 +26,7 @@ import { usePermissions } from '@/lib/permissions';
  */
 interface GradeScaleView {
   id: string;
-  courseid: string | null;
+  courseId: string | null;
   name: string;
   scale: string;
   description: string;
@@ -34,14 +34,14 @@ interface GradeScaleView {
 
 /**
  * Một grade outcome như API trả về (bảng `grade_outcomes` phía grades
- * service): `courseid` null nghĩa là outcome mức hệ thống dùng chung;
+ * service): `courseId` null nghĩa là outcome mức hệ thống dùng chung;
  * contracts chỉ có schema create/update nên trang khai báo view tại chỗ
  * như GradeScaleView.
  */
 interface GradeOutcomeView {
   id: string;
-  courseid: string | null;
-  scaleid: string;
+  courseId: string | null;
+  scaleId: string;
   name: string;
   description: string;
 }
@@ -54,19 +54,19 @@ interface GradeOutcomeView {
 interface GradeHistoryView {
   id: string;
   action: number;
-  itemid: string;
-  userid: string;
-  rawgrade: number | null;
-  finalgrade: number | null;
+  itemId: string;
+  userId: string;
+  rawGrade: number | null;
+  finalGrade: number | null;
   source: string | null;
-  timemodified: string;
-  loggeduser: string | null;
+  updatedAt: string;
+  loggedUser: string | null;
 }
 
 /** Một mốc chữ cái đang sửa trong form letters: giữ dạng chuỗi để nhập liệu trung thực, chỉ đổi sang số khi lưu. */
 interface LetterDraft {
   letter: string;
-  lowerboundary: string;
+  lowerBoundary: string;
 }
 
 /**
@@ -114,7 +114,7 @@ export function GradebookPage() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemMax, setNewItemMax] = useState('100');
   const [newItemCategoryId, setNewItemCategoryId] = useState('');
-  const [itemEdits, setItemEdits] = useState<Record<string, { itemname: string; grademax: string }>>({});
+  const [itemEdits, setItemEdits] = useState<Record<string, { itemName: string; gradeMax: string }>>({});
   const [letterDrafts, setLetterDrafts] = useState<LetterDraft[]>([]);
   const [scaleName, setScaleName] = useState('');
   const [scaleValues, setScaleValues] = useState('');
@@ -156,10 +156,10 @@ export function GradebookPage() {
     setAdminOutcomes(outcomes);
     setOutcomeEdits(Object.fromEntries(outcomes.map((o) => [o.id, o.name])));
     setAdminCategories(cats);
-    setCatEdits(Object.fromEntries(cats.map((c) => [c.id, c.fullname])));
+    setCatEdits(Object.fromEntries(cats.map((c) => [c.id, c.fullName])));
     setAdminItems(items);
-    setItemEdits(Object.fromEntries(items.map((i) => [i.id, { itemname: i.itemname, grademax: String(i.grademax) }])));
-    setLetterDrafts(letters.map((l) => ({ letter: l.letter, lowerboundary: String(l.lowerboundary) })));
+    setItemEdits(Object.fromEntries(items.map((i) => [i.id, { itemName: i.itemName, gradeMax: String(i.gradeMax) }])));
+    setLetterDrafts(letters.map((l) => ({ letter: l.letter, lowerBoundary: String(l.lowerBoundary) })));
     setAdminScales(scales);
   }, [courseId]);
 
@@ -173,7 +173,7 @@ export function GradebookPage() {
     try {
       await apiJson(`/api/v1/courses/grades/items/${gradeItemId}/grades`, {
         method: 'POST',
-        body: JSON.stringify({ userid: gradeUserId, rawgrade: Number(gradeValue) }),
+        body: JSON.stringify({ userId: gradeUserId, rawGrade: Number(gradeValue) }),
       });
       setMessage(t('gradeSaved'));
       await reload();
@@ -189,7 +189,7 @@ export function GradebookPage() {
     try {
       await apiJson(`/api/v1/courses/${courseId}/grades/categories`, {
         method: 'POST',
-        body: JSON.stringify({ fullname: newCatName, aggregation: newCatAggregation }),
+        body: JSON.stringify({ fullName: newCatName, aggregation: newCatAggregation }),
       });
       setNewCatName('');
       setAdminMessage(t('gradeCategoryCreated'));
@@ -205,7 +205,7 @@ export function GradebookPage() {
     try {
       await apiJson(`/api/v1/courses/grades/categories/${cat.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ fullname: catEdits[cat.id] ?? cat.fullname }),
+        body: JSON.stringify({ fullName: catEdits[cat.id] ?? cat.fullName }),
       });
       setAdminMessage(t('gradeCategoryUpdated'));
       await reloadAdmin();
@@ -216,7 +216,7 @@ export function GradebookPage() {
 
   /** Xoá hạng mục qua DELETE /courses/grades/categories/:categoryId sau khi xác nhận. */
   async function deleteGradeCategory(cat: GradeCategory) {
-    if (!window.confirm(t('confirmDeleteGradeCategory', { name: cat.fullname }))) return;
+    if (!window.confirm(t('confirmDeleteGradeCategory', { name: cat.fullName }))) return;
     setAdminMessage(null);
     try {
       await apiJson(`/api/v1/courses/grades/categories/${cat.id}`, { method: 'DELETE' });
@@ -229,8 +229,8 @@ export function GradebookPage() {
 
   /**
    * Tạo mục điểm thủ công qua POST /courses/:courseId/grades/items với
-   * đúng `createGradeItemSchema`: `itemname`, `grademax` dạng số và
-   * `categoryId` chỉ khi đã chọn hạng mục (`itemtype` bỏ qua — phía server
+   * đúng `createGradeItemSchema`: `itemName`, `gradeMax` dạng số và
+   * `categoryId` chỉ khi đã chọn hạng mục (`itemType` bỏ qua — phía server
    * mặc định là manual).
    */
   async function createGradeItem(event: FormEvent) {
@@ -240,8 +240,8 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/${courseId}/grades/items`, {
         method: 'POST',
         body: JSON.stringify({
-          itemname: newItemName,
-          grademax: Number(newItemMax),
+          itemName: newItemName,
+          gradeMax: Number(newItemMax),
           ...(newItemCategoryId ? { categoryId: newItemCategoryId } : {}),
         }),
       });
@@ -255,12 +255,12 @@ export function GradebookPage() {
 
   /** Sửa tên/điểm tối đa của mục điểm qua PATCH /courses/grades/items/:itemId (`updateGradeItemSchema`). */
   async function saveGradeItem(item: GradeItem) {
-    const edit = itemEdits[item.id] ?? { itemname: item.itemname, grademax: String(item.grademax) };
+    const edit = itemEdits[item.id] ?? { itemName: item.itemName, gradeMax: String(item.gradeMax) };
     setAdminMessage(null);
     try {
       await apiJson(`/api/v1/courses/grades/items/${item.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ itemname: edit.itemname, grademax: Number(edit.grademax) }),
+        body: JSON.stringify({ itemName: edit.itemName, gradeMax: Number(edit.gradeMax) }),
       });
       setAdminMessage(t('gradeItemUpdated'));
       await reloadAdmin();
@@ -271,7 +271,7 @@ export function GradebookPage() {
 
   /** Xoá mục điểm qua DELETE /courses/grades/items/:itemId sau khi xác nhận. */
   async function deleteGradeItem(item: GradeItem) {
-    if (!window.confirm(t('confirmDeleteGradeItem', { name: item.itemname }))) return;
+    if (!window.confirm(t('confirmDeleteGradeItem', { name: item.itemName }))) return;
     setAdminMessage(null);
     try {
       await apiJson(`/api/v1/courses/grades/items/${item.id}`, { method: 'DELETE' });
@@ -284,7 +284,7 @@ export function GradebookPage() {
 
   /**
    * Lưu toàn bộ thang điểm chữ qua PUT /courses/:courseId/grades/letters
-   * với đúng `setGradeLettersSchema`: `{ letters: [{ letter, lowerboundary }] }`
+   * với đúng `setGradeLettersSchema`: `{ letters: [{ letter, lowerBoundary }] }`
    * — mốc dưới đổi sang số tại lúc gửi.
    */
   async function saveLetters(event: FormEvent) {
@@ -294,7 +294,7 @@ export function GradebookPage() {
       await apiJson(`/api/v1/courses/${courseId}/grades/letters`, {
         method: 'PUT',
         body: JSON.stringify({
-          letters: letterDrafts.map((d) => ({ letter: d.letter, lowerboundary: Number(d.lowerboundary) })),
+          letters: letterDrafts.map((d) => ({ letter: d.letter, lowerBoundary: Number(d.lowerBoundary) })),
         }),
       });
       setAdminMessage(t('lettersSaved'));
@@ -364,7 +364,7 @@ export function GradebookPage() {
     }
   }
 
-  /** Xoá outcome qua DELETE /courses/grades/outcomes/:outcomeId (item đang gắn được gỡ outcomeid phía server). */
+  /** Xoá outcome qua DELETE /courses/grades/outcomes/:outcomeId (item đang gắn được gỡ outcomeId phía server). */
   async function deleteOutcome(outcome: GradeOutcomeView) {
     if (!window.confirm(t('confirmDeleteOutcome', { name: outcome.name }))) return;
     setAdminMessage(null);
@@ -412,13 +412,13 @@ export function GradebookPage() {
     return (
       <div key={view.category.id} className={CATEGORY_INDENT[Math.min(depth, 5)]}>
         <h3 className="font-medium">
-          {view.category.fullname || t('gradeCourseFallback')}{' '}
+          {view.category.fullName || t('gradeCourseFallback')}{' '}
           <span className="text-sm text-muted-foreground">({view.category.aggregation})</span>
-          {view.total?.grade?.finalgrade !== null && view.total?.grade ? (
+          {view.total?.grade?.finalGrade !== null && view.total?.grade ? (
             <span data-testid={`cat-total-${view.category.id}`}>
               {t('categoryTotal', {
-                grade: view.total.grade.finalgrade,
-                max: view.total.item.grademax,
+                grade: view.total.grade.finalGrade,
+                max: view.total.item.gradeMax,
                 letterSuffix: view.total.grade.letter ? t('letterSuffix', { letter: view.total.grade.letter }) : '',
               })}
             </span>
@@ -444,12 +444,12 @@ export function GradebookPage() {
             {view.items.map(({ item, grade }) => (
               <tr key={item.id} data-testid={`grade-item-${item.id}`}>
                 <td>
-                  {item.itemname}
-                  {item.extracredit ? ` ${t('extraCreditSuffix')}` : ''}
+                  {item.itemName}
+                  {item.extraCredit ? ` ${t('extraCreditSuffix')}` : ''}
                 </td>
-                <td>{grade?.finalgrade ?? '—'}</td>
+                <td>{grade?.finalGrade ?? '—'}</td>
                 <td>{grade?.letter ?? ''}</td>
-                <td>{item.grademax}</td>
+                <td>{item.gradeMax}</td>
               </tr>
             ))}
           </tbody>
@@ -479,8 +479,8 @@ export function GradebookPage() {
     {
       id: 'total',
       header: t('courseTotal'),
-      cell: (row) => row.finalgrade ?? '—',
-      sortValue: (row) => row.finalgrade ?? -1,
+      cell: (row) => row.finalGrade ?? '—',
+      sortValue: (row) => row.finalGrade ?? -1,
     },
     { id: 'letter', header: t('letter'), cell: (row) => row.letter ?? '' },
   ];
@@ -492,7 +492,7 @@ export function GradebookPage() {
           <CardTitle>{t('gradebook')}</CardTitle>
           <CardDescription>
             {t('courseTotalLine', {
-              grade: book.courseTotal?.grade?.finalgrade ?? '—',
+              grade: book.courseTotal?.grade?.finalGrade ?? '—',
               letterSuffix: book.courseTotal?.grade?.letter
                 ? t('letterSuffix', { letter: book.courseTotal.grade.letter })
                 : '',
@@ -578,7 +578,7 @@ export function GradebookPage() {
                       <Label htmlFor={`grade-cat-edit-${cat.id}`}>{t('gradeCategoryName')}</Label>
                       <Input
                         id={`grade-cat-edit-${cat.id}`}
-                        value={catEdits[cat.id] ?? cat.fullname}
+                        value={catEdits[cat.id] ?? cat.fullName}
                         onChange={(e) => setCatEdits((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                       />
                     </div>
@@ -628,7 +628,7 @@ export function GradebookPage() {
             <CardContent className="space-y-4">
               <ul className="space-y-3">
                 {adminItems.map((item) => {
-                  const edit = itemEdits[item.id] ?? { itemname: item.itemname, grademax: String(item.grademax) };
+                  const edit = itemEdits[item.id] ?? { itemName: item.itemName, gradeMax: String(item.gradeMax) };
                   return (
                     <li
                       key={item.id}
@@ -639,9 +639,9 @@ export function GradebookPage() {
                         <Label htmlFor={`grade-item-edit-name-${item.id}`}>{t('gradeItemName')}</Label>
                         <Input
                           id={`grade-item-edit-name-${item.id}`}
-                          value={edit.itemname}
+                          value={edit.itemName}
                           onChange={(e) =>
-                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemname: e.target.value } }))
+                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemName: e.target.value } }))
                           }
                         />
                       </div>
@@ -649,9 +649,9 @@ export function GradebookPage() {
                         <Label htmlFor={`grade-item-edit-max-${item.id}`}>{t('gradeItemMax')}</Label>
                         <Input
                           id={`grade-item-edit-max-${item.id}`}
-                          value={edit.grademax}
+                          value={edit.gradeMax}
                           onChange={(e) =>
-                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, grademax: e.target.value } }))
+                            setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, gradeMax: e.target.value } }))
                           }
                         />
                       </div>
@@ -687,7 +687,7 @@ export function GradebookPage() {
                     <option value="">{t('gradeItemNoCategory')}</option>
                     {adminCategories.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.fullname || t('gradeCourseFallback')}
+                        {c.fullName || t('gradeCourseFallback')}
                       </option>
                     ))}
                   </select>
@@ -722,10 +722,10 @@ export function GradebookPage() {
                       <Label htmlFor={`letter-boundary-${index}`}>{t('letterLowerBoundary')}</Label>
                       <Input
                         id={`letter-boundary-${index}`}
-                        value={draft.lowerboundary}
+                        value={draft.lowerBoundary}
                         onChange={(e) =>
                           setLetterDrafts((prev) =>
-                            prev.map((d, i) => (i === index ? { ...d, lowerboundary: e.target.value } : d)),
+                            prev.map((d, i) => (i === index ? { ...d, lowerBoundary: e.target.value } : d)),
                           )
                         }
                       />
@@ -743,7 +743,7 @@ export function GradebookPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setLetterDrafts((prev) => [...prev, { letter: '', lowerboundary: '' }])}
+                    onClick={() => setLetterDrafts((prev) => [...prev, { letter: '', lowerBoundary: '' }])}
                   >
                     {t('addLetter')}
                   </Button>
@@ -803,9 +803,9 @@ export function GradebookPage() {
                       onChange={(e) => setOutcomeEdits((prev) => ({ ...prev, [outcome.id]: e.target.value }))}
                     />
                     <span className="text-muted-foreground">
-                      {adminScales.find((s) => s.id === outcome.scaleid)?.name ?? outcome.scaleid}
+                      {adminScales.find((s) => s.id === outcome.scaleId)?.name ?? outcome.scaleId}
                     </span>
-                    {outcome.courseid === null ? (
+                    {outcome.courseId === null ? (
                       <span className="text-muted-foreground">{t('outcomeSiteBadge')}</span>
                     ) : null}
                     <Button type="button" variant="outline" size="sm" onClick={() => void updateOutcome(outcome)}>
@@ -871,7 +871,7 @@ export function GradebookPage() {
                     <option value="">{t('gradeItem')}</option>
                     {adminItems.map((i) => (
                       <option key={i.id} value={i.id}>
-                        {i.itemname}
+                        {i.itemName}
                       </option>
                     ))}
                   </select>
@@ -889,9 +889,9 @@ export function GradebookPage() {
                   {historyRows.map((row) => (
                     <li key={row.id}>
                       {t('historyLine', {
-                        time: row.timemodified,
-                        raw: row.rawgrade ?? '—',
-                        final: row.finalgrade ?? '—',
+                        time: row.updatedAt,
+                        raw: row.rawGrade ?? '—',
+                        final: row.finalGrade ?? '—',
                         action:
                           row.action === 1
                             ? t('historyActionInsert')

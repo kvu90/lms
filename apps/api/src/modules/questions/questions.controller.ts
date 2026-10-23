@@ -24,8 +24,8 @@ export class QuestionsController {
   /**
    * GET /questions/categories — liệt kê category theo context.
    */
-  async listCategories(@Query('contextid') contextid?: string) {
-    return this.questions.listCategories(contextid || undefined);
+  async listCategories(@Query('contextId') contextId?: string) {
+    return this.questions.listCategories(contextId || undefined);
   }
   @Get('categories/:id/questions')
   /**

@@ -29,8 +29,8 @@ export class TagsController {
     return this.tags.addItemTag(actor.id, dto);
   }
   @Get('items')
-  async list(@Query('component') component: string, @Query('itemtype') itemtype: string, @Query('itemid') itemid: string) {
-    return this.tags.listItemTags(component, itemtype, itemid);
+  async list(@Query('component') component: string, @Query('itemType') itemType: string, @Query('itemId') itemId: string) {
+    return this.tags.listItemTags(component, itemType, itemId);
   }
   @Get(':tagId/correlated')
   async correlated(@Param('tagId', { schema: uuidIdSchema }) tagId: string) {
@@ -50,9 +50,9 @@ export class CommentsController {
     return this.comments.addComment(actor.id, dto);
   }
   @Get()
-  async list(@Query('contextid') contextid: string, @Query('component') component: string,
-    @Query('commentarea') commentarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.comments.listComments(actor.id, { contextid, component, commentarea, itemid });
+  async list(@Query('contextId') contextId: string, @Query('component') component: string,
+    @Query('commentArea') commentArea: string, @Query('itemId') itemId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.comments.listComments(actor.id, { contextId, component, commentArea, itemId });
   }
   @Delete(':id')
   async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
@@ -72,14 +72,14 @@ export class RatingsController {
     return this.ratings.rate(actor.id, dto);
   }
   @Get('aggregate')
-  async aggregate(@Query('contextid') contextid: string, @Query('component') component: string,
-    @Query('ratingarea') ratingarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.ratings.aggregate(actor.id, { contextid, component, ratingarea, itemid });
+  async aggregate(@Query('contextId') contextId: string, @Query('component') component: string,
+    @Query('ratingArea') ratingArea: string, @Query('itemId') itemId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.ratings.aggregate(actor.id, { contextId, component, ratingArea, itemId });
   }
   @Get()
-  async list(@Query('contextid') contextid: string, @Query('component') component: string,
-    @Query('ratingarea') ratingarea: string, @Query('itemid') itemid: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.ratings.listRatings(actor.id, { contextid, component, ratingarea, itemid });
+  async list(@Query('contextId') contextId: string, @Query('component') component: string,
+    @Query('ratingArea') ratingArea: string, @Query('itemId') itemId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.ratings.listRatings(actor.id, { contextId, component, ratingArea, itemId });
   }
 }
 
@@ -95,11 +95,11 @@ export class BlogController {
     return this.blog.createPost(actor.id, dto);
   }
   @Get('posts')
-  async list(@Query('userid') userid: string | undefined, @Query('courseid') courseid: string | undefined,
+  async list(@Query('userId') userId: string | undefined, @Query('courseId') courseId: string | undefined,
     @Query('cmid') cmid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.listPosts(actor.id, {
-      userid: userid || undefined,
-      courseid: courseid || undefined,
+      userId: userId || undefined,
+      courseId: courseId || undefined,
       cmid: cmid || undefined,
     });
   }
@@ -134,8 +134,8 @@ export class NotesController {
     return this.notes.createNote(actor.id, dto);
   }
   @Get('user/:userId')
-  async listAbout(@Param('userId', { schema: uuidIdSchema }) userId: string, @Query('courseid') courseid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.notes.listNotesAbout(actor.id, userId, courseid || undefined);
+  async listAbout(@Param('userId', { schema: uuidIdSchema }) userId: string, @Query('courseId') courseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.notes.listNotesAbout(actor.id, userId, courseId || undefined);
   }
   @Get(':id')
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {

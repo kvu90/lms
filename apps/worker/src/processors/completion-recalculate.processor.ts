@@ -43,59 +43,59 @@ export class CompletionRecalculateProcessor extends WorkerHost {
 
     // Candidate users: everyone enrolled in the course (any instance) plus
     // anyone who already has a stored course completion.
-    const instances = await this.db.select().from(enrol).where(eq(enrol.courseid, courseId));
+    const instances = await this.db.select().from(enrol).where(eq(enrol.courseId, courseId));
     const userIds = new Set<string>();
     if (instances.length) {
       const ues = await this.db.select().from(userEnrolments)
-        .where(inArray(userEnrolments.enrolid, instances.map((i) => i.id)));
-      for (const ue of ues) userIds.add(ue.userid);
+        .where(inArray(userEnrolments.enrolId, instances.map((i) => i.id)));
+      for (const ue of ues) userIds.add(ue.userId);
     }
     const existingCompletions = await this.db.select().from(courseCompletions)
       .where(eq(courseCompletions.course, courseId));
-    for (const cc of existingCompletions) userIds.add(cc.userid);
+    for (const cc of existingCompletions) userIds.add(cc.userId);
 
     const cms = await this.db.select().from(courseModules).where(eq(courseModules.course, courseId));
     const completedUsers: string[] = [];
     for (const userId of userIds) {
       const results: boolean[] = [];
       for (const c of criteria) {
-        if (c.criteriatype === 'module' && c.moduleinstance) {
+        if (c.criteriaType === 'module' && c.moduleInstance) {
           const [row] = await this.db.select().from(courseModulesCompletion)
-            .where(and(eq(courseModulesCompletion.coursemoduleid, c.moduleinstance), eq(courseModulesCompletion.userid, userId)));
-          results.push(!!row && row.completionstate !== 0);
-        } else if (c.criteriatype === 'date' && c.date) {
+            .where(and(eq(courseModulesCompletion.courseModuleId, c.moduleInstance), eq(courseModulesCompletion.userId, userId)));
+          results.push(!!row && row.completionState !== 0);
+        } else if (c.criteriaType === 'date' && c.date) {
           results.push(now >= c.date);
-        } else if (c.criteriatype === 'grade') {
-          // Grades: course grade criterion — the course total meets the course item's gradepass.
+        } else if (c.criteriaType === 'grade') {
+          // Grades: course grade criterion — the course total meets the course item's gradePass.
           const [courseItem] = await this.db.select().from(gradeItems)
-            .where(and(eq(gradeItems.courseid, courseId), eq(gradeItems.itemtype, 'course')));
+            .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.itemType, 'course')));
           if (!courseItem) { results.push(false); continue; }
           const [g] = await this.db.select().from(gradeGrades)
-            .where(and(eq(gradeGrades.itemid, courseItem.id), eq(gradeGrades.userid, userId)));
-          results.push(!!g && g.finalgrade !== null && (courseItem.gradepass <= 0 || g.finalgrade >= courseItem.gradepass));
+            .where(and(eq(gradeGrades.itemId, courseItem.id), eq(gradeGrades.userId, userId)));
+          results.push(!!g && g.finalGrade !== null && (courseItem.gradePass <= 0 || g.finalGrade >= courseItem.gradePass));
         } else {
           results.push(false);
         }
       }
       const complete = criteria.length > 0 && (method === 2 ? results.some(Boolean) : results.every(Boolean));
-      const existing = existingCompletions.find((cc) => cc.userid === userId);
-      let started = !!existing?.timestarted;
+      const existing = existingCompletions.find((cc) => cc.userId === userId);
+      let started = !!existing?.timeStarted;
       if (!started && cms.length) {
         const rows = await this.db.select().from(courseModulesCompletion)
-          .where(and(eq(courseModulesCompletion.userid, userId), inArray(courseModulesCompletion.coursemoduleid, cms.map((c) => c.id))));
+          .where(and(eq(courseModulesCompletion.userId, userId), inArray(courseModulesCompletion.courseModuleId, cms.map((c) => c.id))));
         started = rows.length > 0;
       }
       const status = complete ? 'complete' : started || existing?.status === 'in_progress' ? 'in_progress' : 'not_started';
       if (complete) completedUsers.push(userId);
       await this.db.insert(courseCompletions).values({
-        userid: userId, course: courseId, status,
-        timeenrolled: existing?.timeenrolled ?? now,
-        timestarted: status === 'not_started' ? null : (existing?.timestarted ?? now),
-        timecompleted: complete ? (existing?.timecompleted ?? now) : null,
-        reaggregate: now,
+        userId: userId, course: courseId, status,
+        timeEnrolled: existing?.timeEnrolled ?? now,
+        timeStarted: status === 'not_started' ? null : (existing?.timeStarted ?? now),
+        timeCompleted: complete ? (existing?.timeCompleted ?? now) : null,
+        reAggregate: now,
       }).onConflictDoUpdate({
-        target: [courseCompletions.userid, courseCompletions.course],
-        set: { status, timecompleted: complete ? (existing?.timecompleted ?? now) : null, reaggregate: now },
+        target: [courseCompletions.userId, courseCompletions.course],
+        set: { status, timeCompleted: complete ? (existing?.timeCompleted ?? now) : null, reAggregate: now },
       });
     }
     return { courseId, users: userIds.size, completedUsers };

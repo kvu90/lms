@@ -15,51 +15,51 @@ interface PlanView {
   id: string;
   name: string;
   status: number;
-  templateid: string | null;
+  templateId: string | null;
 }
 interface PlanDetail {
   plan: PlanView;
   competencies: {
-    competency: { id: string; shortname: string };
+    competency: { id: string; shortName: string };
     usercomp: { id: string; grade: number | null; proficiency: boolean | null; status: number } | null;
   }[];
-  reviews: { action: string; timecreated: string }[];
+  reviews: { action: string; createdAt: string }[];
 }
 
 /**
  * Framework như API trả về (bản ghi `competency_framework`): thang đánh giá
- * nằm trong `scaleconfiguration` dạng `{ values, proficient }` — cùng hình
+ * nằm trong `scaleConfiguration` dạng `{ values, proficient }` — cùng hình
  * dạng `competencyScaleSchema` mà DTO tạo framework nhận ở trường `scale`.
  */
 interface FrameworkView {
   id: string;
-  shortname: string;
-  idnumber?: string;
+  shortName: string;
+  idNumber?: string;
   description?: string;
-  scaleconfiguration?: { values?: string[]; proficient?: number[] } | null;
+  scaleConfiguration?: { values?: string[]; proficient?: number[] } | null;
   visible?: boolean;
 }
-/** Competency như API trả về (bản ghi `competency`): cây qua `parentid`/`depth`/`path`. */
+/** Competency như API trả về (bản ghi `competency`): cây qua `parentId`/`depth`/`path`. */
 interface CompetencyView {
   id: string;
-  shortname: string;
-  idnumber?: string;
+  shortName: string;
+  idNumber?: string;
   description?: string;
-  parentid?: string | null;
+  parentId?: string | null;
   depth?: number;
 }
 /** Template như API trả về (bản ghi `competency_template`). */
 interface TemplateView {
   id: string;
-  shortname: string;
+  shortName: string;
   description?: string;
-  duedate?: string | null;
+  dueDate?: string | null;
 }
-/** User competency như API trả về (bản ghi `competency_usercomp`): `status` là trạng thái duyệt 0/1/2. */
+/** User competency như API trả về (bản ghi `competency_user_comp`): `status` là trạng thái duyệt 0/1/2. */
 interface UsercompView {
   id: string;
-  userid: string;
-  competencyid: string;
+  userId: string;
+  competencyId: string;
   status: number;
   grade: number | null;
   proficiency: boolean | null;
@@ -78,14 +78,14 @@ interface UserOption {
  *
  * Đối chiếu DTO ở `packages/contracts/src/engagement.ts` (bản ở worktree
  * này) và controller/service ở `apps/api/src/modules/competencies`:
- * - Tạo framework: `createCompetencyFrameworkSchema` = `{ shortname,
- *   idnumber?, description?, scale: { values: string[], proficient:
+ * - Tạo framework: `createCompetencyFrameworkSchema` = `{ shortName,
+ *   idNumber?, description?, scale: { values: string[], proficient:
  *   number[] }, visible? }` — form thu values/proficient dạng danh sách
  *   phân tách bằng dấu phẩy rồi đóng gói đúng hình dạng đó.
- * - Thêm competency: `createCompetencySchema` = `{ shortname, idnumber?,
+ * - Thêm competency: `createCompetencySchema` = `{ shortName, idNumber?,
  *   description?, parentId? }` vào `POST /frameworks/:id/competencies`.
- * - Tạo template: `createLearningPlanTemplateSchema` = `{ shortname,
- *   description?, duedate? }`; gắn competency/cohort lần lượt là
+ * - Tạo template: `createLearningPlanTemplateSchema` = `{ shortName,
+ *   description?, dueDate? }`; gắn competency/cohort lần lượt là
  *   `addTemplateCompetencySchema` = `{ competencyId }` và
  *   `addTemplateCohortSchema` = `{ cohortId }`; `create-plans` không có body.
  *
@@ -121,15 +121,15 @@ function CompetencyAdmin() {
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [fwDraft, setFwDraft] = useState({
-    shortname: '',
-    idnumber: '',
+    shortName: '',
+    idNumber: '',
     description: '',
     scaleValues: '',
     scaleProficient: '',
     visible: true,
   });
-  const [compDraft, setCompDraft] = useState({ shortname: '', idnumber: '', description: '', parentId: '' });
-  const [tplDraft, setTplDraft] = useState({ shortname: '', description: '', duedate: '' });
+  const [compDraft, setCompDraft] = useState({ shortName: '', idNumber: '', description: '', parentId: '' });
+  const [tplDraft, setTplDraft] = useState({ shortName: '', description: '', dueDate: '' });
   const [tplCompetencyId, setTplCompetencyId] = useState('');
   const [tplCohortId, setTplCohortId] = useState('');
   const [users, setUsers] = useState<UserOption[]>([]);
@@ -198,14 +198,14 @@ function CompetencyAdmin() {
       await apiJson('/api/v1/competencies/frameworks', {
         method: 'POST',
         body: JSON.stringify({
-          shortname: fwDraft.shortname,
-          ...(fwDraft.idnumber.trim() ? { idnumber: fwDraft.idnumber.trim() } : {}),
+          shortName: fwDraft.shortName,
+          ...(fwDraft.idNumber.trim() ? { idNumber: fwDraft.idNumber.trim() } : {}),
           ...(fwDraft.description.trim() ? { description: fwDraft.description.trim() } : {}),
           scale: { values, proficient },
           visible: fwDraft.visible,
         }),
       });
-      setFwDraft({ shortname: '', idnumber: '', description: '', scaleValues: '', scaleProficient: '', visible: true });
+      setFwDraft({ shortName: '', idNumber: '', description: '', scaleValues: '', scaleProficient: '', visible: true });
       setAdminMessage(t('compFrameworkCreated'));
       await reloadAdmin();
     } catch {
@@ -226,10 +226,10 @@ function CompetencyAdmin() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `framework-${fw.shortname || fw.id}.json`;
+      anchor.download = `framework-${fw.shortName || fw.id}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
-      setAdminMessage(t('compExported', { name: fw.shortname }));
+      setAdminMessage(t('compExported', { name: fw.shortName }));
     } catch {
       setAdminMessage(t('compExportFailed'));
     }
@@ -261,7 +261,7 @@ function CompetencyAdmin() {
       });
       setImportFile(null);
       setImportInputKey((k) => k + 1);
-      setAdminMessage(t('compImportSuccess', { name: created.shortname }));
+      setAdminMessage(t('compImportSuccess', { name: created.shortName }));
       await reloadAdmin();
     } catch (err) {
       setImportError(
@@ -281,13 +281,13 @@ function CompetencyAdmin() {
       await apiJson(`/api/v1/competencies/frameworks/${selectedFrameworkId}/competencies`, {
         method: 'POST',
         body: JSON.stringify({
-          shortname: compDraft.shortname,
-          ...(compDraft.idnumber.trim() ? { idnumber: compDraft.idnumber.trim() } : {}),
+          shortName: compDraft.shortName,
+          ...(compDraft.idNumber.trim() ? { idNumber: compDraft.idNumber.trim() } : {}),
           ...(compDraft.description.trim() ? { description: compDraft.description.trim() } : {}),
           ...(compDraft.parentId ? { parentId: compDraft.parentId } : {}),
         }),
       });
-      setCompDraft({ shortname: '', idnumber: '', description: '', parentId: '' });
+      setCompDraft({ shortName: '', idNumber: '', description: '', parentId: '' });
       setAdminMessage(t('compCompetencyCreated'));
       await loadCompetencies(selectedFrameworkId);
     } catch {
@@ -303,12 +303,12 @@ function CompetencyAdmin() {
       const created = await apiJson<TemplateView>('/api/v1/competencies/templates', {
         method: 'POST',
         body: JSON.stringify({
-          shortname: tplDraft.shortname,
+          shortName: tplDraft.shortName,
           ...(tplDraft.description.trim() ? { description: tplDraft.description.trim() } : {}),
-          ...(tplDraft.duedate ? { duedate: tplDraft.duedate } : {}),
+          ...(tplDraft.dueDate ? { dueDate: tplDraft.dueDate } : {}),
         }),
       });
-      setTplDraft({ shortname: '', description: '', duedate: '' });
+      setTplDraft({ shortName: '', description: '', dueDate: '' });
       setSelectedTemplateId(created.id);
       setAdminMessage(t('compTemplateCreated'));
       await reloadAdmin();
@@ -417,9 +417,9 @@ function CompetencyAdmin() {
             <ul className="space-y-1" aria-label={t('compFrameworksTitle')}>
               {frameworks.map((fw) => (
                 <li key={fw.id} className="flex items-center gap-3 text-sm">
-                  <span className="font-medium">{fw.shortname}</span>
-                  {fw.scaleconfiguration?.values?.length ? (
-                    <span>{fw.scaleconfiguration.values.join(', ')}</span>
+                  <span className="font-medium">{fw.shortName}</span>
+                  {fw.scaleConfiguration?.values?.length ? (
+                    <span>{fw.scaleConfiguration.values.join(', ')}</span>
                   ) : null}
                   <Button
                     type="button"
@@ -443,8 +443,8 @@ function CompetencyAdmin() {
                 <Label htmlFor="fw-shortname">{t('compFrameworkShortname')}</Label>
                 <Input
                   id="fw-shortname"
-                  value={fwDraft.shortname}
-                  onChange={(e) => setFwDraft({ ...fwDraft, shortname: e.target.value })}
+                  value={fwDraft.shortName}
+                  onChange={(e) => setFwDraft({ ...fwDraft, shortName: e.target.value })}
                   required
                 />
               </div>
@@ -452,8 +452,8 @@ function CompetencyAdmin() {
                 <Label htmlFor="fw-idnumber">{t('compFrameworkIdnumber')}</Label>
                 <Input
                   id="fw-idnumber"
-                  value={fwDraft.idnumber}
-                  onChange={(e) => setFwDraft({ ...fwDraft, idnumber: e.target.value })}
+                  value={fwDraft.idNumber}
+                  onChange={(e) => setFwDraft({ ...fwDraft, idNumber: e.target.value })}
                 />
               </div>
               <div className="space-y-1">
@@ -520,7 +520,7 @@ function CompetencyAdmin() {
                       key={c.id}
                       className={`text-sm ${COMPETENCY_INDENT[Math.min(Math.max(0, (c.depth ?? 1) - 1), 5)]}`}
                     >
-                      <span className="font-medium">{c.shortname}</span>
+                      <span className="font-medium">{c.shortName}</span>
                       {c.description ? <span> — {c.description}</span> : null}
                     </li>
                   ))}
@@ -531,8 +531,8 @@ function CompetencyAdmin() {
                     <Label htmlFor="comp-shortname">{t('compCompetencyShortname')}</Label>
                     <Input
                       id="comp-shortname"
-                      value={compDraft.shortname}
-                      onChange={(e) => setCompDraft({ ...compDraft, shortname: e.target.value })}
+                      value={compDraft.shortName}
+                      onChange={(e) => setCompDraft({ ...compDraft, shortName: e.target.value })}
                       required
                     />
                   </div>
@@ -540,8 +540,8 @@ function CompetencyAdmin() {
                     <Label htmlFor="comp-idnumber">{t('compCompetencyIdnumber')}</Label>
                     <Input
                       id="comp-idnumber"
-                      value={compDraft.idnumber}
-                      onChange={(e) => setCompDraft({ ...compDraft, idnumber: e.target.value })}
+                      value={compDraft.idNumber}
+                      onChange={(e) => setCompDraft({ ...compDraft, idNumber: e.target.value })}
                     />
                   </div>
                   <div className="space-y-1">
@@ -563,7 +563,7 @@ function CompetencyAdmin() {
                       <option value="">{t('compNoParent')}</option>
                       {competencies.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.shortname}
+                          {c.shortName}
                         </option>
                       ))}
                     </select>
@@ -586,7 +586,7 @@ function CompetencyAdmin() {
           <ul className="space-y-1" aria-label={t('compTemplatesTitle')}>
             {templates.map((tpl) => (
               <li key={tpl.id} className="flex items-center gap-3 text-sm">
-                <span className="font-medium">{tpl.shortname}</span>
+                <span className="font-medium">{tpl.shortName}</span>
                 {tpl.id === selectedTemplateId ? (
                   <Badge>{t('compSelectTemplate')}</Badge>
                 ) : (
@@ -603,8 +603,8 @@ function CompetencyAdmin() {
               <Label htmlFor="tpl-shortname">{t('compTemplateShortname')}</Label>
               <Input
                 id="tpl-shortname"
-                value={tplDraft.shortname}
-                onChange={(e) => setTplDraft({ ...tplDraft, shortname: e.target.value })}
+                value={tplDraft.shortName}
+                onChange={(e) => setTplDraft({ ...tplDraft, shortName: e.target.value })}
                 required
               />
             </div>
@@ -621,8 +621,8 @@ function CompetencyAdmin() {
               <Input
                 id="tpl-duedate"
                 type="date"
-                value={tplDraft.duedate}
-                onChange={(e) => setTplDraft({ ...tplDraft, duedate: e.target.value })}
+                value={tplDraft.dueDate}
+                onChange={(e) => setTplDraft({ ...tplDraft, dueDate: e.target.value })}
               />
             </div>
             <Button type="submit">{t('compCreateTemplate')}</Button>
@@ -743,7 +743,7 @@ function CompetencyAdmin() {
               <ul className="space-y-1" aria-label={t('compReviewUsercompsTitle')}>
                 {reviewUsercomps.map((uc) => (
                   <li key={uc.id} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium">{t('compUsercompCompetency', { id: uc.competencyid })}</span>
+                    <span className="font-medium">{t('compUsercompCompetency', { id: uc.competencyId })}</span>
                     <span>{REVIEW_STATUS[uc.status] ?? uc.status}</span>
                     <span>
                       {uc.proficiency == null
@@ -821,9 +821,9 @@ export function LearningPlanPage() {
     {
       id: 'competency',
       header: t('competency'),
-      cell: (row) => row.competency.shortname,
-      sortValue: (row) => row.competency.shortname,
-      filterValue: (row) => row.competency.shortname,
+      cell: (row) => row.competency.shortName,
+      sortValue: (row) => row.competency.shortName,
+      filterValue: (row) => row.competency.shortName,
     },
     {
       id: 'proficiency',

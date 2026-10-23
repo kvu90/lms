@@ -17,17 +17,17 @@ interface MyEnrolmentView {
 
 /**
  * Thanh toán của chính người dùng (GET /payments/me — PaymentRow ở tầng
- * API). Trang chỉ cần các trường để lọc theo `itemid` (chính là enrol
+ * API). Trang chỉ cần các trường để lọc theo `itemId` (chính là enrol
  * instance id của payment phí ghi danh) và hiển thị trạng thái thật.
  */
 interface MyPaymentView {
   id: string;
-  userid: string;
+  userId: string;
   amount: number;
   currency: string;
   status: string;
   component: string;
-  itemid: string | null;
+  itemId: string | null;
 }
 
 /** Một dòng tiến độ hoạt động trong GET /courses/:id/completion/me. */
@@ -40,15 +40,15 @@ interface CompletionActivityView {
 /**
  * Shape thật của GET /courses/:id/completion/me (completion.controller):
  * `{ activities, course }` — activities là trạng thái từng cm của chính
- * người xem, course là bản ghi hoàn thành khoá (mang userid của người xem,
- * dùng làm userid khi đánh dấu thủ công lúc chưa có enrolments/me).
+ * người xem, course là bản ghi hoàn thành khoá (mang userId của người xem,
+ * dùng làm userId khi đánh dấu thủ công lúc chưa có enrolments/me).
  */
 interface MyCompletionView {
   activities: CompletionActivityView[];
-  course: { id: string; userid: string; course: string; status: string; timecompleted: string | null };
+  course: { id: string; userId: string; course: string; status: string; timeCompleted: string | null };
 }
 
-/** Một course module trong nội dung khoá học (kiểu `CourseModule` của contracts, đã gồm `completionmanual`). */
+/** Một course module trong nội dung khoá học (kiểu `CourseModule` của contracts, đã gồm `completionManual`). */
 type CourseModuleView = CourseContent['sections'][number]['modules'][number];
 
 /** Tải một endpoint phụ một cách độc lập: lỗi thì trả null thay vì sập cả trang. */
@@ -64,10 +64,10 @@ async function probe<T>(path: string): Promise<T | null> {
  * Module có cho phép đánh dấu thủ công hay không — khớp đúng điều kiện
  * phía server (completion.service markManual): tracking phải bật
  * (completion ≠ 0) và module dùng hoàn thành thủ công
- * (completionmanual hoặc completion = 1).
+ * (completionManual hoặc completion = 1).
  */
 function allowsManualCompletion(cm: CourseModuleView): boolean {
-  return cm.completion !== 0 && (cm.completionmanual === true || cm.completion === 1);
+  return cm.completion !== 0 && (cm.completionManual === true || cm.completion === 1);
 }
 
 /**
@@ -170,13 +170,13 @@ export function CoursePage() {
 
   /**
    * Tự đánh dấu hoàn thành thủ công cho một module: body theo
-   * markManualCompletionSchema ({ userid, complete }) — userid lấy từ
+   * markManualCompletionSchema ({ userId, complete }) — userId lấy từ
    * ghi danh của tôi (hoặc từ bản ghi completion của tôi khi thiếu).
    * Lỗi từ server chỉ hiện thông điệp thân thiện, không sập trang.
    */
   async function toggleManualCompletion(cmId: string, complete: boolean) {
-    const userid = enrolment?.userId ?? completion?.course.userid;
-    if (!userid) {
+    const userId = enrolment?.userId ?? completion?.course.userId;
+    if (!userId) {
       setCompletionError(t('completionMarkFailed'));
       return;
     }
@@ -185,7 +185,7 @@ export function CoursePage() {
     try {
       await apiJson(`/api/v1/courses/${id}/modules/${cmId}/completion/manual`, {
         method: 'POST',
-        body: JSON.stringify({ userid, complete }),
+        body: JSON.stringify({ userId, complete }),
       });
       setCompletion(await probe<MyCompletionView>(`/api/v1/courses/${id}/completion/me`));
     } catch {
@@ -205,9 +205,9 @@ export function CoursePage() {
       <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
           <CardHeader>
-            <CardTitle>{content.course.fullname}</CardTitle>
+            <CardTitle>{content.course.fullName}</CardTitle>
             <CardDescription>
-              {content.course.shortname}
+              {content.course.shortName}
               {content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
             </CardDescription>
           </CardHeader>
@@ -285,10 +285,10 @@ export function CoursePage() {
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
         <CardHeader>
-          <CardTitle>{headerCourse ? headerCourse.fullname : t('enrolPanelTitle')}</CardTitle>
+          <CardTitle>{headerCourse ? headerCourse.fullName : t('enrolPanelTitle')}</CardTitle>
           {headerCourse ? (
             <CardDescription>
-              {headerCourse.shortname}
+              {headerCourse.shortName}
               {headerCourse.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
             </CardDescription>
           ) : null}
@@ -300,7 +300,7 @@ export function CoursePage() {
           {enrolOptions.length === 0 ? <p>{t('enrolNoOptions')}</p> : null}
           <ul className="space-y-3" aria-label={t('enrolPanelTitle')}>
             {enrolOptions.map((instance) => {
-              const myPayments = payments.filter((p) => p.itemid === instance.id);
+              const myPayments = payments.filter((p) => p.itemId === instance.id);
               const latestPayment = myPayments[myPayments.length - 1];
               return (
                 <li key={instance.id} className="rounded border p-3" data-testid={`enrol-instance-${instance.id}`}>

@@ -15,28 +15,28 @@ export class SearchRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
   get dbHandle(): Database { return this.db; }
 
-  /** Upsert một tài liệu theo (area, itemid). */
+  /** Upsert một tài liệu theo (area, itemId). */
   async upsert(v: typeof searchDocuments.$inferInsert): Promise<SearchDocRow> {
     const [row] = await this.db.insert(searchDocuments).values(v)
-      .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemid], set: { title: v.title, content: v.content, contextid: v.contextid, ownerid: v.ownerid ?? null, timemodified: new Date() } })
+      .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: v.title, content: v.content, contextId: v.contextId, ownerId: v.ownerId ?? null, updatedAt: new Date() } })
       .returning();
     return row!;
   }
-  async remove(area: string, itemid: string): Promise<void> {
-    await this.db.delete(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemid, itemid)));
+  async remove(area: string, itemId: string): Promise<void> {
+    await this.db.delete(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemId, itemId)));
   }
-  async removeByOwner(ownerid: string): Promise<void> {
-    await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerid, ownerid));
+  async removeByOwner(ownerId: string): Promise<void> {
+    await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerId, ownerId));
   }
-  async get(area: string, itemid: string): Promise<SearchDocRow | undefined> {
-    const [row] = await this.db.select().from(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemid, itemid)));
+  async get(area: string, itemId: string): Promise<SearchDocRow | undefined> {
+    const [row] = await this.db.select().from(searchDocuments).where(and(eq(searchDocuments.area, area), eq(searchDocuments.itemId, itemId)));
     return row;
   }
   async listAll(): Promise<SearchDocRow[]> { return this.db.select().from(searchDocuments); }
   /** Truy vấn engine Postgres: khớp tsvector, không lọc quyền ở đây — việc lọc là của service tại thời điểm truy vấn. */
   async queryEngine(q: string): Promise<SearchDocRow[]> {
     if (!q.trim()) return [];
-    const res = (await this.db.execute(sql`select * from search_documents where to_tsvector('simple', title || ' ' || content) @@ plainto_tsquery('simple', ${q}) order by id`)) as unknown as { rows: SearchDocRow[] };
+    const res = (await this.db.execute(sql`select id, area, item_id as "itemId", title, content, context_id as "contextId", owner_id as "ownerId", updated_at as "updatedAt" from search_documents where to_tsvector('simple', title || ' ' || content) @@ plainto_tsquery('simple', ${q}) order by id`)) as unknown as { rows: SearchDocRow[] };
     return res.rows;
   }
 }

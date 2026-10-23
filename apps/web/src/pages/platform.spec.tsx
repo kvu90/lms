@@ -32,8 +32,8 @@ describe('Search page (platform)', () => {
           {
             id: '01900000-0000-7000-8000-000000000001',
             area: 'courses',
-            itemid: '01900000-0000-7000-8000-000000000005',
-            contextid: '01900000-0000-7000-8000-000000000009',
+            itemId: '01900000-0000-7000-8000-000000000005',
+            contextId: '01900000-0000-7000-8000-000000000009',
             title: 'Visible Course',
             content: 'You may see this',
           },
@@ -61,7 +61,7 @@ describe('Privacy page (platform)', () => {
         posts.push(JSON.parse(String(init.body)));
         return {
           id: '01900000-0000-7000-8000-000000000007',
-          userid: '01900000-0000-7000-8000-000000000003',
+          userId: '01900000-0000-7000-8000-000000000003',
           type: 'export',
           status: 'pending',
         };
@@ -70,7 +70,7 @@ describe('Privacy page (platform)', () => {
         return [
           {
             id: '01900000-0000-7000-8000-000000000007',
-            userid: '01900000-0000-7000-8000-000000000003',
+            userId: '01900000-0000-7000-8000-000000000003',
             type: 'export',
             status: 'pending',
           },

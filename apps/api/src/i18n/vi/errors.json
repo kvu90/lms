@@ -5,7 +5,7 @@
     "invalid_permission": "Giá trị quyền (permission) không hợp lệ",
     "parent_context_not_found": "Không tìm thấy context cha",
     "role_not_found": "Không tìm thấy vai trò (role)",
-    "role_shortname_taken": "Tên ngắn (shortname) của vai trò đã tồn tại"
+    "role_shortname_taken": "Tên ngắn (shortName) của vai trò đã tồn tại"
   },
   "analytics": {
     "model_not_found": "Không tìm thấy model phân tích",
@@ -134,7 +134,7 @@
     "not_found": "Không tìm thấy khoá học",
     "section_course_mismatch": "Section không thuộc về khoá học này",
     "section_not_found": "Không tìm thấy section của khoá học",
-    "shortname_taken": "Tên ngắn (shortname) của khoá học đã được sử dụng"
+    "shortname_taken": "Tên ngắn (shortName) của khoá học đã được sử dụng"
   },
   "customfield": {
     "category_not_found": "Không tìm thấy danh mục trường tuỳ chỉnh",
@@ -167,14 +167,14 @@
   "grades": {
     "bad_aggregation": "Phương thức tổng hợp điểm không hợp lệ",
     "bad_itemtype": "Loại mục điểm này do hệ thống tự tạo",
-    "bad_range": "Điểm tối đa (grademax) phải lớn hơn điểm tối thiểu (grademin)",
+    "bad_range": "Điểm tối đa (gradeMax) phải lớn hơn điểm tối thiểu (gradeMin)",
     "calculated_item": "Điểm tổng của hạng mục/khoá học được tính tự động, không nhập trực tiếp",
     "calculation_cycle": "Công thức tính điểm có tham chiếu vòng",
     "calculation_invalid": "Công thức tính điểm không hợp lệ",
     "calculation_only_calculated": "Chỉ mục điểm loại calculated mới có công thức tính",
     "calculation_required": "Mục điểm loại calculated yêu cầu công thức tính",
     "calculation_unknown_function": "Hàm trong công thức tính điểm không được hỗ trợ",
-    "calculation_unknown_idnumber": "Công thức tính điểm tham chiếu idnumber không tồn tại",
+    "calculation_unknown_idnumber": "Công thức tính điểm tham chiếu idNumber không tồn tại",
     "category_course_mismatch": "Hạng mục điểm thuộc về khoá học khác",
     "category_not_empty": "Hạng mục điểm chưa rỗng",
     "category_not_found": "Không tìm thấy hạng mục điểm",
@@ -183,8 +183,8 @@
     "grade_locked": "Điểm này đã bị khoá",
     "grade_not_found": "Không tìm thấy điểm",
     "grade_overridden": "Điểm này đang bị ghi đè; hãy bỏ ghi đè trước khi nhập điểm",
-    "idnumber_in_use": "idnumber này đang được một công thức tính điểm tham chiếu",
-    "idnumber_taken": "idnumber đã được dùng cho mục điểm khác trong khoá học",
+    "idnumber_in_use": "idNumber này đang được một công thức tính điểm tham chiếu",
+    "idnumber_taken": "idNumber đã được dùng cho mục điểm khác trong khoá học",
     "item_exists_for_cm": "Hoạt động này đã có mục điểm",
     "item_locked": "Mục điểm này đã bị khoá",
     "item_not_found": "Không tìm thấy mục điểm",
@@ -192,7 +192,7 @@
     "outcome_grade_out_of_scale": "Điểm outcome phải là chỉ số nguyên trong thang của outcome",
     "outcome_not_found": "Không tìm thấy grade outcome",
     "outcome_scale_mismatch": "Scale không khớp với phạm vi của outcome hoặc của khoá học",
-    "override_needs_grade": "Ghi đè điểm yêu cầu điểm cuối (finalgrade)",
+    "override_needs_grade": "Ghi đè điểm yêu cầu điểm cuối (finalGrade)",
     "parent_course_mismatch": "Hạng mục cha thuộc về khoá học khác",
     "root_category": "Không thể xoá hạng mục điểm gốc của khoá học",
     "scale_not_found": "Không tìm thấy scale điểm",

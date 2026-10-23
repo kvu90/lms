@@ -6,7 +6,7 @@
  *
  * Semantics ported from Moodle's gradebook (Grade aggregation, MoodleDocs):
  *  - NORMALISE FIRST: every grade is converted to a fraction of its item's
- *    [grademin, grademax] BEFORE aggregation; the category result is that
+ *    [gradeMin, gradeMax] BEFORE aggregation; the category result is that
  *    fraction scaled onto the category's own range.
  *  - Natural (default): weights are relative to item max. The category max
  *    is the SUM of the (max-min) of its non-extra-credit children. When a
@@ -18,7 +18,7 @@
  *    the category max.
  *  - Empty grade ≠ 0: with aggregateOnlyGraded ("exclude empty grades") an
  *    ungraded item leaves BOTH numerator and denominator; without it, an
- *    empty grade counts as grademin in the numerator and keeps its max in
+ *    empty grade counts as gradeMin in the numerator and keeps its max in
  *    the denominator.
  *  - drop-the-lowest / keep-the-highest apply to the normalised grades of
  *    non-extra-credit items.
@@ -30,7 +30,7 @@
  *  - excluded grades never participate; hidden grades DO participate
  *    (hiding is a display rule in Moodle, not an aggregation rule).
  *  - overridden/locked handling lives in the service layer: an overridden
- *    finalgrade is never recomputed, so the service simply does not feed
+ *    finalGrade is never recomputed, so the service simply does not feed
  *    overridden category/course grades back through here.
  */
 
@@ -47,17 +47,17 @@ export const AGGREGATIONS: AggregationStrategy[] = [
 
 export interface CalcItemInput {
   itemId: string;
-  grademin: number;
-  grademax: number;
+  gradeMin: number;
+  gradeMax: number;
   /** The stored grade (raw for leaf items; already-aggregated final for subcategories). Null = empty. */
   grade: number | null;
   excluded?: boolean;
-  extracredit?: boolean;
+  extraCredit?: boolean;
   /** Natural: teacher-adjusted weight (percent) — only meaningful when weightOverride is true. */
   weightOverride?: boolean;
   weight?: number;
-  /** Weighted-mean weight (aggregationcoef); defaults to 1. */
-  aggregationcoef?: number;
+  /** Weighted-mean weight (aggregationCoef); defaults to 1. */
+  aggregationCoef?: number;
   multiplicator?: number;
   offset?: number;
   /** When true, `grade` is the frozen final grade and multiplicator/offset MUST be ignored. */
@@ -67,22 +67,22 @@ export interface CalcItemInput {
 export interface CategoryCalcInput {
   aggregation: AggregationStrategy;
   /** Category range for non-natural strategies (Moodle default 0..100). For natural the max is derived. */
-  grademin: number;
-  grademax: number;
-  droplow?: number;
-  keephigh?: number;
+  gradeMin: number;
+  gradeMax: number;
+  dropLow?: number;
+  keepHigh?: number;
   aggregateOnlyGraded?: boolean;
   items: CalcItemInput[];
 }
 
 export interface CategoryCalcResult {
   /** Null when there is nothing to aggregate (no usable grades). */
-  finalgrade: number | null;
-  grademin: number;
-  grademax: number;
+  finalGrade: number | null;
+  gradeMin: number;
+  gradeMax: number;
   /** Effective weight (percent, sums to 100 over non-extra items) per itemId — natural strategy. */
   weights: Record<string, number>;
-  /** Normalised fraction in [0,1] before scaling (null when finalgrade is null). */
+  /** Normalised fraction in [0,1] before scaling (null when finalGrade is null). */
   fraction: number | null;
 }
 
@@ -98,16 +98,16 @@ function clamp(v: number, lo: number, hi: number): number {
  */
 export function adjustedGrade(item: CalcItemInput): number | null {
   if (item.grade === null || item.grade === undefined) return null;
-  if (item.frozen) return clamp(item.grade, item.grademin, item.grademax);
+  if (item.frozen) return clamp(item.grade, item.gradeMin, item.gradeMax);
   const mult = item.multiplicator ?? 1;
   const off = item.offset ?? 0;
-  return clamp(item.grade * mult + off, item.grademin, item.grademax);
+  return clamp(item.grade * mult + off, item.gradeMin, item.gradeMax);
 }
 
 function norm(item: CalcItemInput, adjusted: number): number {
-  const range = item.grademax - item.grademin;
+  const range = item.gradeMax - item.gradeMin;
   if (range <= 0) return 0;
-  return (adjusted - item.grademin) / range;
+  return (adjusted - item.gradeMin) / range;
 }
 
 interface Prepared {
@@ -119,26 +119,26 @@ interface Prepared {
 
 /** Natural effective weights: overridden items keep their weight; the rest of 100% is split by (max-min). */
 /**
- * Trọng số tự nhiên theo (grademax - grademin) đã chuẩn hoá; extra credit không tăng mẫu số.
+ * Trọng số tự nhiên theo (gradeMax - gradeMin) đã chuẩn hoá; extra credit không tăng mẫu số.
  */
 export function naturalWeights(items: CalcItemInput[]): Record<string, number> {
-  const nonExtra = items.filter((i) => !i.extracredit);
+  const nonExtra = items.filter((i) => !i.extraCredit);
   const weights: Record<string, number> = {};
   const overridden = nonExtra.filter((i) => i.weightOverride);
   const rest = nonExtra.filter((i) => !i.weightOverride);
   const usedByOverride = overridden.reduce((s, i) => s + (i.weight ?? 0), 0);
   for (const i of overridden) weights[i.itemId] = i.weight ?? 0;
   const remaining = Math.max(0, 100 - usedByOverride);
-  const restRange = rest.reduce((s, i) => s + Math.max(0, i.grademax - i.grademin), 0);
+  const restRange = rest.reduce((s, i) => s + Math.max(0, i.gradeMax - i.gradeMin), 0);
   for (const i of rest) {
-    weights[i.itemId] = restRange > 0 ? (remaining * Math.max(0, i.grademax - i.grademin)) / restRange : (rest.length ? remaining / rest.length : 0);
+    weights[i.itemId] = restRange > 0 ? (remaining * Math.max(0, i.gradeMax - i.gradeMin)) / restRange : (rest.length ? remaining / rest.length : 0);
   }
   // Extra-credit items get an informational weight relative to the non-extra range (not part of the 100%).
-  const nonExtraRange = nonExtra.reduce((s, i) => s + Math.max(0, i.grademax - i.grademin), 0);
+  const nonExtraRange = nonExtra.reduce((s, i) => s + Math.max(0, i.gradeMax - i.gradeMin), 0);
   for (const i of items) {
-    if (i.extracredit) {
+    if (i.extraCredit) {
       weights[i.itemId] = i.weightOverride ? (i.weight ?? 0)
-        : nonExtraRange > 0 ? (100 * Math.max(0, i.grademax - i.grademin)) / nonExtraRange : 0;
+        : nonExtraRange > 0 ? (100 * Math.max(0, i.gradeMax - i.gradeMin)) / nonExtraRange : 0;
     }
   }
   return weights;
@@ -169,8 +169,8 @@ function mode(values: number[]): number {
  * Tính điểm category theo chiến lược tổng hợp — bản worker dùng khi tính lại điểm hàng loạt (regrade).
  */
 export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult {
-  const droplow = Math.max(0, input.droplow ?? 0);
-  const keephigh = Math.max(0, input.keephigh ?? 0);
+  const dropLow = Math.max(0, input.dropLow ?? 0);
+  const keepHigh = Math.max(0, input.keepHigh ?? 0);
 
   // 1. Prepare: drop excluded; resolve empties per policy; adjust + normalise.
   const prepared: Prepared[] = [];
@@ -179,16 +179,16 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
     const adjusted = adjustedGrade(item);
     if (adjusted === null) {
       if (input.aggregateOnlyGraded) continue; // empty leaves numerator AND denominator
-      // Empty counts as grademin (fraction 0) but keeps its weight/max.
-      prepared.push({ item, adjusted: item.grademin, fraction: 0, isExtra: !!item.extracredit });
+      // Empty counts as gradeMin (fraction 0) but keeps its weight/max.
+      prepared.push({ item, adjusted: item.gradeMin, fraction: 0, isExtra: !!item.extraCredit });
     } else {
-      prepared.push({ item, adjusted, fraction: norm(item, adjusted), isExtra: !!item.extracredit });
+      prepared.push({ item, adjusted, fraction: norm(item, adjusted), isExtra: !!item.extraCredit });
     }
   }
 
-  const nonExtraAll = input.items.filter((i) => !i.excluded && !i.extracredit);
+  const nonExtraAll = input.items.filter((i) => !i.excluded && !i.extraCredit);
   // Structural max for natural/sum: sum of (max-min) of every non-extra item (empty-excluded items still define the scale).
-  const structuralRange = nonExtraAll.reduce((s, i) => s + Math.max(0, i.grademax - i.grademin), 0);
+  const structuralRange = nonExtraAll.reduce((s, i) => s + Math.max(0, i.gradeMax - i.gradeMin), 0);
 
   let weights: Record<string, number> = {};
   if (input.aggregation === 'natural') {
@@ -196,35 +196,35 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
   }
 
   if (prepared.length === 0) {
-    const grademax = input.aggregation === 'natural' || input.aggregation === 'sum'
-      ? input.grademin + structuralRange : input.grademax;
-    return { finalgrade: null, grademin: input.grademin, grademax, weights, fraction: null };
+    const gradeMax = input.aggregation === 'natural' || input.aggregation === 'sum'
+      ? input.gradeMin + structuralRange : input.gradeMax;
+    return { finalGrade: null, gradeMin: input.gradeMin, gradeMax, weights, fraction: null };
   }
 
   // 2. Drop lowest / keep highest over non-extra normalised grades.
   let main = prepared.filter((p) => !p.isExtra);
   const extras = prepared.filter((p) => p.isExtra);
-  if (keephigh > 0 && main.length > keephigh) {
-    main = [...main].sort((a, b) => b.fraction - a.fraction).slice(0, keephigh);
+  if (keepHigh > 0 && main.length > keepHigh) {
+    main = [...main].sort((a, b) => b.fraction - a.fraction).slice(0, keepHigh);
   }
-  if (droplow > 0 && main.length > droplow) {
-    main = [...main].sort((a, b) => a.fraction - b.fraction).slice(droplow);
+  if (dropLow > 0 && main.length > dropLow) {
+    main = [...main].sort((a, b) => a.fraction - b.fraction).slice(dropLow);
   }
 
   // 3. Aggregate fractions by strategy.
   let fraction: number | null = null;
-  let grademax = input.grademax;
-  let grademin = input.grademin;
+  let gradeMax = input.gradeMax;
+  let gradeMin = input.gradeMin;
 
   switch (input.aggregation) {
     case 'natural': {
-      grademin = input.grademin;
-      grademax = input.grademin + structuralRange;
+      gradeMin = input.gradeMin;
+      gradeMax = input.gradeMin + structuralRange;
       const anyOverride = main.some((p) => p.item.weightOverride) || extras.some((p) => p.item.weightOverride);
       if (!anyOverride) {
-        const denom = main.reduce((s, p) => s + Math.max(0, p.item.grademax - p.item.grademin), 0);
-        const numer = main.reduce((s, p) => s + (p.adjusted - p.item.grademin), 0)
-          + extras.reduce((s, p) => s + (p.adjusted - p.item.grademin), 0);
+        const denom = main.reduce((s, p) => s + Math.max(0, p.item.gradeMax - p.item.gradeMin), 0);
+        const numer = main.reduce((s, p) => s + (p.adjusted - p.item.gradeMin), 0)
+          + extras.reduce((s, p) => s + (p.adjusted - p.item.gradeMin), 0);
         fraction = denom > 0 ? numer / denom : (extras.length ? 1 : null);
         // With exclude-empty, main only holds graded items: numer/denom is the
         // graded fraction, then scaled onto the structural max below.
@@ -239,14 +239,14 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
       break;
     }
     case 'sum': {
-      grademin = input.grademin;
-      grademax = input.grademin + structuralRange;
-      const total = main.reduce((s, p) => s + (p.adjusted - p.item.grademin), 0)
-        + extras.reduce((s, p) => s + (p.adjusted - p.item.grademin), 0);
+      gradeMin = input.gradeMin;
+      gradeMax = input.gradeMin + structuralRange;
+      const total = main.reduce((s, p) => s + (p.adjusted - p.item.gradeMin), 0)
+        + extras.reduce((s, p) => s + (p.adjusted - p.item.gradeMin), 0);
       fraction = structuralRange > 0 ? total / structuralRange : null;
       if (fraction !== null) {
-        const finalgrade = clamp(input.grademin + total, grademin, grademax);
-        return { finalgrade, grademin, grademax, weights, fraction: structuralRange > 0 ? (finalgrade - grademin) / structuralRange : 0 };
+        const finalGrade = clamp(input.gradeMin + total, gradeMin, gradeMax);
+        return { finalGrade, gradeMin, gradeMax, weights, fraction: structuralRange > 0 ? (finalGrade - gradeMin) / structuralRange : 0 };
       }
       break;
     }
@@ -255,16 +255,16 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
       break;
     }
     case 'weightedmean': {
-      const denom = main.reduce((s, p) => s + (p.item.aggregationcoef ?? p.item.weight ?? 1), 0);
+      const denom = main.reduce((s, p) => s + (p.item.aggregationCoef ?? p.item.weight ?? 1), 0);
       if (main.length && denom > 0) {
-        fraction = main.reduce((s, p) => s + p.fraction * (p.item.aggregationcoef ?? p.item.weight ?? 1), 0) / denom;
+        fraction = main.reduce((s, p) => s + p.fraction * (p.item.aggregationCoef ?? p.item.weight ?? 1), 0) / denom;
       }
       break;
     }
     case 'simpleweightedmean': {
-      const denom = main.reduce((s, p) => s + Math.max(0, p.item.grademax - p.item.grademin), 0);
+      const denom = main.reduce((s, p) => s + Math.max(0, p.item.gradeMax - p.item.gradeMin), 0);
       if (main.length && denom > 0) {
-        fraction = main.reduce((s, p) => s + p.fraction * Math.max(0, p.item.grademax - p.item.grademin), 0) / denom;
+        fraction = main.reduce((s, p) => s + p.fraction * Math.max(0, p.item.gradeMax - p.item.gradeMin), 0) / denom;
       }
       break;
     }
@@ -274,13 +274,13 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
     case 'mode': if (main.length) fraction = mode(main.map((p) => p.fraction)); break;
   }
 
-  if (fraction === null) return { finalgrade: null, grademin, grademax, weights, fraction: null };
+  if (fraction === null) return { finalGrade: null, gradeMin, gradeMax, weights, fraction: null };
   // Extra credit can push above 1 — the category max is a hard cap (except it
   // can never reduce a legitimately earned grade below the range).
   const capped = clamp(fraction, 0, 1);
-  const finalgrade = grademin + capped * (grademax - grademin);
+  const finalGrade = gradeMin + capped * (gradeMax - gradeMin);
   void EPS;
-  return { finalgrade, grademin, grademax, weights, fraction: capped };
+  return { finalGrade, gradeMin, gradeMax, weights, fraction: capped };
 }
 
 /** Letter for a grade: percentage of the item range matched against boundaries (highest boundary <= pct wins). */
@@ -288,14 +288,14 @@ export function calculateCategory(input: CategoryCalcInput): CategoryCalcResult 
  * Ánh xạ điểm phần trăm sang chữ cái theo bảng grade letters.
  */
 export function letterForGrade(
-  finalgrade: number, grademin: number, grademax: number,
-  letters: { letter: string; lowerboundary: number }[],
+  finalGrade: number, gradeMin: number, gradeMax: number,
+  letters: { letter: string; lowerBoundary: number }[],
 ): string | null {
-  if (!letters.length || grademax <= grademin) return null;
-  const pct = ((finalgrade - grademin) / (grademax - grademin)) * 100;
-  const sorted = [...letters].sort((a, b) => b.lowerboundary - a.lowerboundary);
+  if (!letters.length || gradeMax <= gradeMin) return null;
+  const pct = ((finalGrade - gradeMin) / (gradeMax - gradeMin)) * 100;
+  const sorted = [...letters].sort((a, b) => b.lowerBoundary - a.lowerBoundary);
   for (const l of sorted) {
-    if (pct >= l.lowerboundary - EPS) return l.letter;
+    if (pct >= l.lowerBoundary - EPS) return l.letter;
   }
   return null;
 }

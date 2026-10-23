@@ -44,16 +44,16 @@ export class AuthRepository {
   /**
    * Thu hồi mọi family của user (đổi mật khẩu, đình chỉ).
    */
-  async revokeAllForUser(userid: string): Promise<void> {
-    await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.userid, userid));
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.userId, userId));
   }
   /**
    * Các family đang hiệu lực của user (chưa thu hồi, chưa hết hạn) — nguồn
    * cho danh sách "phiên API" ở trang quản lý phiên của chính user.
    */
-  async listActiveFamiliesByUser(userid: string): Promise<RefreshFamilyRow[]> {
+  async listActiveFamiliesByUser(userId: string): Promise<RefreshFamilyRow[]> {
     return this.db.select().from(refreshTokenFamily).where(and(
-      eq(refreshTokenFamily.userid, userid),
+      eq(refreshTokenFamily.userId, userId),
       eq(refreshTokenFamily.revoked, false),
       gte(refreshTokenFamily.expiresAt, new Date()),
     )).orderBy(desc(refreshTokenFamily.createdAt));
@@ -69,8 +69,8 @@ export class AuthRepository {
    * Thu hồi mọi family đang hiệu lực của user ngoại trừ một family giữ lại
    * (phiên hiện tại); trả số family đã thu hồi.
    */
-  async revokeOthersForUser(userid: string, keepFamilyId?: string): Promise<number> {
-    const active = await this.listActiveFamiliesByUser(userid);
+  async revokeOthersForUser(userId: string, keepFamilyId?: string): Promise<number> {
+    const active = await this.listActiveFamiliesByUser(userId);
     const targets = active.filter((f) => f.familyId !== keepFamilyId);
     for (const family of targets) await this.revokeFamily(family.id);
     return targets.length;
@@ -95,12 +95,12 @@ export class AuthRepository {
   /**
    * Mọi liên kết đăng nhập ngoài của user, cũ nhất trước (trang Linked logins).
    */
-  async listOauthLinksByUser(userid: string): Promise<UserOauthLinkRow[]> {
+  async listOauthLinksByUser(userId: string): Promise<UserOauthLinkRow[]> {
     return this.db.select().from(userOauthLinks)
-      .where(eq(userOauthLinks.userid, userid)).orderBy(userOauthLinks.createdAt);
+      .where(eq(userOauthLinks.userId, userId)).orderBy(userOauthLinks.createdAt);
   }
   /**
-   * Tìm liên kết theo id (kèm userid ở phía gọi để kiểm tra sở hữu trước khi gỡ).
+   * Tìm liên kết theo id (kèm userId ở phía gọi để kiểm tra sở hữu trước khi gỡ).
    */
   async getOauthLinkById(id: string): Promise<UserOauthLinkRow | undefined> {
     const [row] = await this.db.select().from(userOauthLinks).where(eq(userOauthLinks.id, id));
@@ -116,19 +116,19 @@ export class AuthRepository {
   /**
    * Bản ghi TOTP của user (secret đã mã hoá), hoặc undefined nếu chưa setup.
    */
-  async getTotpByUserId(userid: string): Promise<UserTotpRow | undefined> {
-    const [row] = await this.db.select().from(userTotp).where(eq(userTotp.userid, userid));
+  async getTotpByUserId(userId: string): Promise<UserTotpRow | undefined> {
+    const [row] = await this.db.select().from(userTotp).where(eq(userTotp.userId, userId));
     return row;
   }
   /**
    * Ghi secret TOTP đang chờ xác nhận; setup lại thì thay secret cũ và đưa
    * trạng thái về chưa xác nhận (authenticator cũ ngừng hiệu lực ngay).
    */
-  async upsertPendingTotp(userid: string, secretEncrypted: string): Promise<UserTotpRow> {
+  async upsertPendingTotp(userId: string, secretEncrypted: string): Promise<UserTotpRow> {
     const [row] = await this.db.insert(userTotp)
-      .values({ userid, secretEncrypted, confirmed: false, confirmedAt: null })
+      .values({ userId, secretEncrypted, confirmed: false, confirmedAt: null })
       .onConflictDoUpdate({
-        target: userTotp.userid,
+        target: userTotp.userId,
         set: { secretEncrypted, confirmed: false, confirmedAt: null, createdAt: new Date() },
       })
       .returning();
@@ -137,14 +137,14 @@ export class AuthRepository {
   /**
    * Đánh dấu TOTP đã xác nhận (MFA bắt đầu chặn đăng nhập từ đây).
    */
-  async confirmTotp(userid: string): Promise<void> {
-    await this.db.update(userTotp).set({ confirmed: true, confirmedAt: new Date() }).where(eq(userTotp.userid, userid));
+  async confirmTotp(userId: string): Promise<void> {
+    await this.db.update(userTotp).set({ confirmed: true, confirmedAt: new Date() }).where(eq(userTotp.userId, userId));
   }
   /**
    * Xoá hẳn bản ghi TOTP của user (user tự tắt bằng mã đúng, hoặc quản trị reset).
    */
-  async deleteTotp(userid: string): Promise<void> {
-    await this.db.delete(userTotp).where(eq(userTotp.userid, userid));
+  async deleteTotp(userId: string): Promise<void> {
+    await this.db.delete(userTotp).where(eq(userTotp.userId, userId));
   }
 
   /**
@@ -155,17 +155,17 @@ export class AuthRepository {
   /**
    * Số lần đăng nhập thất bại gần đây của username — đầu vào của chính sách lockout.
    */
-  async recentFailedAttempts(userid: string, since: Date): Promise<(typeof loginAttempts.$inferSelect)[]> {
+  async recentFailedAttempts(userId: string, since: Date): Promise<(typeof loginAttempts.$inferSelect)[]> {
     return this.db.select().from(loginAttempts).where(and(
-      eq(loginAttempts.userid, userid), eq(loginAttempts.success, false), gte(loginAttempts.attemptedAt, since),
+      eq(loginAttempts.userId, userId), eq(loginAttempts.success, false), gte(loginAttempts.attemptedAt, since),
     )).orderBy(desc(loginAttempts.attemptedAt));
   }
   /**
    * Thời điểm đăng nhập thành công gần nhất.
    */
-  async lastSuccessfulAttemptAt(userid: string): Promise<Date | undefined> {
+  async lastSuccessfulAttemptAt(userId: string): Promise<Date | undefined> {
     const [row] = await this.db.select().from(loginAttempts).where(and(
-      eq(loginAttempts.userid, userid), eq(loginAttempts.success, true),
+      eq(loginAttempts.userId, userId), eq(loginAttempts.success, true),
     )).orderBy(desc(loginAttempts.attemptedAt)).limit(1);
     return row?.attemptedAt;
   }

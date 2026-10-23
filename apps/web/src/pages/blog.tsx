@@ -9,15 +9,15 @@ import { apiJson } from '@/lib/api';
 
 interface PostView {
   id: string;
-  userid: string;
+  userId: string;
   subject: string;
   content: string;
-  publishstate: string;
-  contextid: string;
+  publishState: string;
+  contextId: string;
 }
 interface CommentView {
   id: string;
-  userid: string;
+  userId: string;
   content: string;
 }
 interface TagView {
@@ -34,7 +34,7 @@ interface AggregateView {
  * Blog with the polymorphic social layer integrated: every post can
  * be tagged, commented on and rated through the SAME tag/comment/rating
  * APIs used for courses — the item is addressed by
- * (component, itemtype, itemid, contextid), never by a blog-specific API.
+ * (component, itemType, itemId, contextId), never by a blog-specific API.
  */
 export function BlogPage() {
   const { t } = useTranslation('app');
@@ -51,11 +51,11 @@ export function BlogPage() {
   const loadExtras = useCallback(async (post: PostView) => {
     const [cs, ts, agg] = await Promise.all([
       apiJson<{ comments: CommentView[] }>(
-        `/api/v1/comments?contextid=${post.contextid}&component=core_blog&commentarea=post&itemid=${post.id}`,
+        `/api/v1/comments?contextId=${post.contextId}&component=core_blog&commentArea=post&itemId=${post.id}`,
       ).catch(() => ({ comments: [] })),
-      apiJson<TagView[]>(`/api/v1/tags/items?component=core_blog&itemtype=post&itemid=${post.id}`).catch(() => []),
+      apiJson<TagView[]>(`/api/v1/tags/items?component=core_blog&itemType=post&itemId=${post.id}`).catch(() => []),
       apiJson<AggregateView>(
-        `/api/v1/ratings/aggregate?contextid=${post.contextid}&component=core_blog&ratingarea=post&itemid=${post.id}&scaleid=-5`,
+        `/api/v1/ratings/aggregate?contextId=${post.contextId}&component=core_blog&ratingArea=post&itemId=${post.id}&scaleId=-5`,
       ).catch(() => ({ count: 0, average: 0 })),
     ]);
     setComments((prev) => ({ ...prev, [post.id]: cs.comments }));
@@ -77,7 +77,7 @@ export function BlogPage() {
     event.preventDefault();
     await apiJson('/api/v1/blog/posts', {
       method: 'POST',
-      body: JSON.stringify({ subject, content, publishstate: 'site' }),
+      body: JSON.stringify({ subject, content, publishState: 'site' }),
     });
     setSubject('');
     setContent('');
@@ -90,10 +90,10 @@ export function BlogPage() {
     await apiJson('/api/v1/comments', {
       method: 'POST',
       body: JSON.stringify({
-        contextid: post.contextid,
+        contextId: post.contextId,
         component: 'core_blog',
-        commentarea: 'post',
-        itemid: post.id,
+        commentArea: 'post',
+        itemId: post.id,
         content: text,
       }),
     });
@@ -110,9 +110,9 @@ export function BlogPage() {
       method: 'POST',
       body: JSON.stringify({
         component: 'core_blog',
-        itemtype: 'post',
-        itemid: post.id,
-        contextid: post.contextid,
+        itemType: 'post',
+        itemId: post.id,
+        contextId: post.contextId,
         tags: names,
       }),
     });
@@ -123,11 +123,11 @@ export function BlogPage() {
     await apiJson('/api/v1/ratings', {
       method: 'POST',
       body: JSON.stringify({
-        contextid: post.contextid,
+        contextId: post.contextId,
         component: 'core_blog',
-        ratingarea: 'post',
-        itemid: post.id,
-        scaleid: -5,
+        ratingArea: 'post',
+        itemId: post.id,
+        scaleId: -5,
         rating: value,
       }),
     });
@@ -191,7 +191,7 @@ export function BlogPage() {
             <ul className="space-y-1" aria-label={t('commentsOnAria', { subject: post.subject })}>
               {(comments[post.id] ?? []).map((c) => (
                 <li key={c.id} className="text-sm">
-                  {c.content} <span className="text-muted-foreground">{t('commentByUser', { userId: c.userid })}</span>
+                  {c.content} <span className="text-muted-foreground">{t('commentByUser', { userId: c.userId })}</span>
                 </li>
               ))}
             </ul>

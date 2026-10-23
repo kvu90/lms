@@ -27,11 +27,11 @@ export type OverrideCapabilityDto = OverrideCapability;
 
 /**
  * Schema phía server cho query kiểm tra quyền — EXTEND từ schema nền ở
- * contracts: query string luôn là chuỗi nên `userid`/`contextid` ép kiểu bằng
+ * contracts: query string luôn là chuỗi nên `userId`/`contextId` ép kiểu bằng
  * `z.coerce` ở tầng server, schema nền vẫn giữ kiểu số cho bề mặt dùng chung.
  */
 export const hasCapabilityQueryServerSchema = hasCapabilityQuerySchema.extend({
-  userid: uuidIdSchema,
-  contextid: uuidIdSchema,
+  userId: uuidIdSchema,
+  contextId: uuidIdSchema,
 });
 export type HasCapabilityQueryDto = z.infer<typeof hasCapabilityQueryServerSchema>;

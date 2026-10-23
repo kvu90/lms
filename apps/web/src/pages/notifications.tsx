@@ -8,10 +8,10 @@ import { apiJson } from '@/lib/api';
 interface NotificationView {
   id: string;
   subject: string;
-  fullmessage: string;
-  eventtype: string;
-  timeread: string | null;
-  timecreated: string;
+  fullMessage: string;
+  eventType: string;
+  timeRead: string | null;
+  createdAt: string;
 }
 interface PreferenceView {
   provider: string;
@@ -74,12 +74,12 @@ export function NotificationsPage() {
           </Button>
           <ul className="space-y-2" aria-label={t('notificationsListLabel')}>
             {items.map((n) => (
-              <li key={n.id} className={`rounded border p-2 ${n.timeread ? 'opacity-60' : ''}`}>
+              <li key={n.id} className={`rounded border p-2 ${n.timeRead ? 'opacity-60' : ''}`}>
                 <p className="font-medium">{n.subject}</p>
-                <p className="text-sm">{n.fullmessage}</p>
+                <p className="text-sm">{n.fullMessage}</p>
                 <p className="text-xs text-muted-foreground">
-                  {n.eventtype} · {new Date(n.timecreated).toLocaleString()}
-                  {n.timeread ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}
+                  {n.eventType} · {new Date(n.createdAt).toLocaleString()}
+                  {n.timeRead ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}
                 </p>
               </li>
             ))}

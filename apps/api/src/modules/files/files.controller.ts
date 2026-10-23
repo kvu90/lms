@@ -25,13 +25,13 @@ export class FilesController {
    * POST /files — tải file lên (multipart; metadata kiểm bằng schema Zod phía server).
    */
   async upload(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body({ schema: uploadMetaServerSchema }) meta: UploadMetaDto, @CurrentUser() actor: AuthenticatedUser) {
-    await this.files.assertCanUpload(meta.contextid, actor);
+    await this.files.assertCanUpload(meta.contextId, actor);
     const row = await this.files.upload({
-      contextid: meta.contextid, component: meta.component, filearea: meta.filearea,
-      itemid: meta.itemid, filepath: meta.filepath,
-      filename: file.originalname, data: file.buffer, mimetype: file.mimetype, userid: actor.id,
+      contextId: meta.contextId, component: meta.component, fileArea: meta.fileArea,
+      itemId: meta.itemId, filePath: meta.filePath,
+      fileName: file.originalname, data: file.buffer, mimeType: file.mimetype, userId: actor.id,
     });
-    return { id: row.id, contenthash: row.contenthash, filesize: row.filesize, filename: row.filename, contextid: row.contextid };
+    return { id: row.id, contentHash: row.contentHash, fileSize: row.fileSize, fileName: row.fileName, contextId: row.contextId };
   }
 
   @Get(':id')
@@ -41,7 +41,7 @@ export class FilesController {
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
     await this.files.assertCanView(f, actor);
-    return { id: f.id, contenthash: f.contenthash, filesize: f.filesize, filename: f.filename, contextid: f.contextid, component: f.component, filearea: f.filearea, mimetype: f.mimetype };
+    return { id: f.id, contentHash: f.contentHash, fileSize: f.fileSize, fileName: f.fileName, contextId: f.contextId, component: f.component, fileArea: f.fileArea, mimeType: f.mimeType };
   }
 
   /** Ask for a short-lived signed download URL — denied (403 Problem Details) without the file-context capability. */
@@ -59,7 +59,7 @@ export class FilesController {
    */
   async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
-    await this.files.assertCanUpload(f.contextid, actor);
+    await this.files.assertCanUpload(f.contextId, actor);
     return this.files.deleteFile(id);
   }
 
@@ -72,8 +72,8 @@ export class FilesController {
   async download(@Param('id', { schema: uuidIdSchema }) id: string, @Query('sig') sig: string | undefined, @Res() res: Response) {
     this.files.verifySignature(id, sig);
     const { file, data } = await this.files.readContent(id);
-    res.setHeader('Content-Type', file.mimetype ?? 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${file.filename.replace(/"/g, '')}"`);
+    res.setHeader('Content-Type', file.mimeType ?? 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${file.fileName.replace(/"/g, '')}"`);
     res.send(data);
   }
 
@@ -87,7 +87,7 @@ export class FilesController {
     await this.files.createSignedUrl(id, actor.id, actor.username === 'guest'); // throws 403 when not allowed
     void probe;
     const { file, data } = await this.files.readContent(id);
-    res.setHeader('Content-Type', file.mimetype ?? 'application/octet-stream');
+    res.setHeader('Content-Type', file.mimeType ?? 'application/octet-stream');
     res.send(data);
   }
 }

@@ -10,15 +10,15 @@ import { ProfilePage } from './profile';
 const PROFILE = {
   id: '01900000-0000-7000-8000-000000000007',
   username: 'learner',
-  firstname: 'Learn',
-  lastname: 'Er',
+  firstName: 'Learn',
+  lastName: 'Er',
   email: 'learner@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 

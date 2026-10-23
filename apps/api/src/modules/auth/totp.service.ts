@@ -68,8 +68,8 @@ export class TotpService {
   }
 
   /** User có MFA TOTP đang bật hay không (đã setup VÀ đã xác nhận). */
-  async isEnabled(userid: string): Promise<boolean> {
-    const row = await this.repo.getTotpByUserId(userid);
+  async isEnabled(userId: string): Promise<boolean> {
+    const row = await this.repo.getTotpByUserId(userId);
     return row?.confirmed === true;
   }
 
@@ -78,9 +78,9 @@ export class TotpService {
    * nhận, và trả secret + otpauth URL — đây là lần duy nhất secret thô
    * rời khỏi server. Setup lại sẽ thay secret đang chờ/đang dùng.
    */
-  async setup(userid: string, username: string): Promise<{ secret: string; otpauthUrl: string }> {
+  async setup(userId: string, username: string): Promise<{ secret: string; otpauthUrl: string }> {
     const secret = generateSecret();
-    await this.repo.upsertPendingTotp(userid, this.encryptSecret(secret));
+    await this.repo.upsertPendingTotp(userId, this.encryptSecret(secret));
     const otpauthUrl = generateURI({ issuer: TOTP_ISSUER, label: username, secret });
     return { secret, otpauthUrl };
   }
@@ -89,40 +89,40 @@ export class TotpService {
    * Bước confirm: mã đúng với secret đang chờ ⇒ kích hoạt MFA cho user.
    * Chưa setup thì báo `auth.mfa_not_setup`; mã sai thì `auth.mfa_invalid_code`.
    */
-  async confirm(userid: string, code: string): Promise<void> {
-    const row = await this.repo.getTotpByUserId(userid);
+  async confirm(userId: string, code: string): Promise<void> {
+    const row = await this.repo.getTotpByUserId(userId);
     if (!row) throw new BadRequestException({ message: 'TOTP has not been set up for this account', code: 'auth.mfa_not_setup' });
     if (!(await this.verifyCode(this.decryptSecret(row.secretEncrypted), code))) {
       throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
     }
-    await this.repo.confirmTotp(userid);
+    await this.repo.confirmTotp(userId);
   }
 
   /**
    * Tắt MFA: chỉ chủ tài khoản có authenticator hiện tại (mã đúng với
    * secret đang bật) mới tắt được; tắt xong bản ghi secret bị xoá hẳn.
    */
-  async disable(userid: string, code: string): Promise<void> {
-    const row = await this.repo.getTotpByUserId(userid);
+  async disable(userId: string, code: string): Promise<void> {
+    const row = await this.repo.getTotpByUserId(userId);
     if (!row?.confirmed) throw new BadRequestException({ message: 'Two-factor authentication is not enabled for this account', code: 'auth.mfa_not_enabled' });
     if (!(await this.verifyCode(this.decryptSecret(row.secretEncrypted), code))) {
       throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
     }
-    await this.repo.deleteTotp(userid);
+    await this.repo.deleteTotp(userId);
   }
 
   /**
    * Kiểm chứng mã ở bước đăng nhập hai lớp: false khi user chưa bật MFA
    * hoặc mã sai.
    */
-  async verifyForUser(userid: string, code: string): Promise<boolean> {
-    const row = await this.repo.getTotpByUserId(userid);
+  async verifyForUser(userId: string, code: string): Promise<boolean> {
+    const row = await this.repo.getTotpByUserId(userId);
     if (!row?.confirmed) return false;
     return this.verifyCode(this.decryptSecret(row.secretEncrypted), code);
   }
 
   /** Quản trị gỡ MFA cho user (mất authenticator): xoá hẳn bản ghi TOTP. */
-  async resetForUser(userid: string): Promise<void> {
-    await this.repo.deleteTotp(userid);
+  async resetForUser(userId: string): Promise<void> {
+    await this.repo.deleteTotp(userId);
   }
 }

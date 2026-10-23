@@ -9,36 +9,36 @@ import { QuestionsPage, QuestionUsagePage } from './questions';
 
 const ITEM = {
   id: '01900000-0000-7000-8000-000000000005',
-  courseid: '01900000-0000-7000-8000-000000000010',
-  categoryid: '01900000-0000-7000-8000-000000000001',
-  itemname: 'Quiz 1',
-  itemtype: 'manual',
-  itemmodule: null,
-  iteminstance: null,
-  grademax: 100,
-  grademin: 0,
-  gradepass: 50,
-  weightoverride: false,
-  aggregationcoef: 0,
-  extracredit: false,
+  courseId: '01900000-0000-7000-8000-000000000010',
+  categoryId: '01900000-0000-7000-8000-000000000001',
+  itemName: 'Quiz 1',
+  itemType: 'manual',
+  itemModule: null,
+  itemInstance: null,
+  gradeMax: 100,
+  gradeMin: 0,
+  gradePass: 50,
+  weightOverride: false,
+  aggregationCoef: 0,
+  extraCredit: false,
   multiplicator: 1,
-  plusfactor: 0,
+  plusFactor: 0,
   hidden: false,
   locked: false,
 };
 const GRADE = {
   id: '01900000-0000-7000-8000-000000000002',
-  itemid: '01900000-0000-7000-8000-000000000005',
-  userid: '01900000-0000-7000-8000-000000000007',
-  rawgrade: 85,
-  finalgrade: 85,
+  itemId: '01900000-0000-7000-8000-000000000005',
+  userId: '01900000-0000-7000-8000-000000000007',
+  rawGrade: 85,
+  finalGrade: 85,
   hidden: false,
   locked: false,
   overridden: false,
   excluded: false,
   frozen: false,
   feedback: null,
-  aggregationweight: 100,
+  aggregationWeight: 100,
   letter: 'B',
 };
 const BOOK = {
@@ -48,13 +48,13 @@ const BOOK = {
     {
       category: {
         id: '01900000-0000-7000-8000-000000000001',
-        courseid: '01900000-0000-7000-8000-000000000010',
+        courseId: '01900000-0000-7000-8000-000000000010',
         parent: null,
-        fullname: '',
+        fullName: '',
         aggregation: 'natural',
-        droplow: 0,
-        keephigh: 0,
-        aggregateonlygraded: false,
+        dropLow: 0,
+        keepHigh: 0,
+        aggregateOnlyGraded: false,
         depth: 1,
         path: '/1',
         hidden: false,
@@ -63,15 +63,15 @@ const BOOK = {
         item: {
           ...ITEM,
           id: '01900000-0000-7000-8000-000000000009',
-          itemname: 'Course total',
-          itemtype: 'course',
-          iteminstance: '01900000-0000-7000-8000-000000000010',
+          itemName: 'Course total',
+          itemType: 'course',
+          itemInstance: '01900000-0000-7000-8000-000000000010',
         },
         grade: {
           ...GRADE,
           id: '01900000-0000-7000-8000-000000000003',
-          itemid: '01900000-0000-7000-8000-000000000009',
-          finalgrade: 85,
+          itemId: '01900000-0000-7000-8000-000000000009',
+          finalGrade: 85,
           letter: 'B',
         },
       },
@@ -80,13 +80,13 @@ const BOOK = {
         {
           category: {
             id: '01900000-0000-7000-8000-000000000002',
-            courseid: '01900000-0000-7000-8000-000000000010',
+            courseId: '01900000-0000-7000-8000-000000000010',
             parent: '01900000-0000-7000-8000-000000000001',
-            fullname: 'Quizzes',
+            fullName: 'Quizzes',
             aggregation: 'mean',
-            droplow: 0,
-            keephigh: 0,
-            aggregateonlygraded: false,
+            dropLow: 0,
+            keepHigh: 0,
+            aggregateOnlyGraded: false,
             depth: 2,
             path: '/1/2',
             hidden: false,
@@ -102,15 +102,15 @@ const BOOK = {
     item: {
       ...ITEM,
       id: '01900000-0000-7000-8000-000000000009',
-      itemname: 'Course total',
-      itemtype: 'course',
-      iteminstance: '01900000-0000-7000-8000-000000000010',
+      itemName: 'Course total',
+      itemType: 'course',
+      itemInstance: '01900000-0000-7000-8000-000000000010',
     },
     grade: {
       ...GRADE,
       id: '01900000-0000-7000-8000-000000000003',
-      itemid: '01900000-0000-7000-8000-000000000009',
-      finalgrade: 85,
+      itemId: '01900000-0000-7000-8000-000000000009',
+      finalGrade: 85,
       letter: 'B',
     },
   },
@@ -118,8 +118,8 @@ const BOOK = {
 const REPORT = {
   courseId: '01900000-0000-7000-8000-000000000010',
   rows: [
-    { userId: '01900000-0000-7000-8000-000000000007', finalgrade: 85, letter: 'B' },
-    { userId: '01900000-0000-7000-8000-000000000008', finalgrade: 40, letter: 'F' },
+    { userId: '01900000-0000-7000-8000-000000000007', finalGrade: 85, letter: 'B' },
+    { userId: '01900000-0000-7000-8000-000000000008', finalGrade: 40, letter: 'F' },
   ],
 };
 
@@ -197,27 +197,27 @@ describe('Question bank page', () => {
         category: '01900000-0000-7000-8000-000000000001',
         qtype: 'truefalse',
         name: 'Sky',
-        createdby: '01900000-0000-7000-8000-000000000001',
-        modifiedby: '01900000-0000-7000-8000-000000000001',
-        timecreated: 'x',
-        timemodified: 'x',
+        createdBy: '01900000-0000-7000-8000-000000000001',
+        modifiedBy: '01900000-0000-7000-8000-000000000001',
+        createdAt: 'x',
+        updatedAt: 'x',
       },
       entry: {
         id: '01900000-0000-7000-8000-000000000002',
-        questioncategoryid: '01900000-0000-7000-8000-000000000001',
-        questionid: '01900000-0000-7000-8000-000000000004',
-        latestversion: version,
+        questionCategoryId: '01900000-0000-7000-8000-000000000001',
+        questionId: '01900000-0000-7000-8000-000000000004',
+        latestVersion: version,
         status: 'ready',
-        timecreated: 'x',
-        timemodified: 'x',
+        createdAt: 'x',
+        updatedAt: 'x',
       },
       latestVersion: {
         id: '01900000-0000-7000-8000-000000000008',
-        questionbankentryid: '01900000-0000-7000-8000-000000000002',
-        questionid: '01900000-0000-7000-8000-000000000004',
+        questionBankEntryId: '01900000-0000-7000-8000-000000000002',
+        questionId: '01900000-0000-7000-8000-000000000004',
         version,
         status: 'ready',
-        questiontext: {
+        questionText: {
           type: 'doc',
           content: [
             {
@@ -226,8 +226,8 @@ describe('Question bank page', () => {
             },
           ],
         },
-        defaultmark: 1,
-        timecreated: 'x',
+        defaultMark: 1,
+        createdAt: 'x',
       },
     });
     stubFetch((url, init) => {
@@ -236,13 +236,13 @@ describe('Question bank page', () => {
           {
             id: '01900000-0000-7000-8000-000000000001',
             name: 'General',
-            contextid: '01900000-0000-7000-8000-000000000001',
+            contextId: '01900000-0000-7000-8000-000000000001',
             info: '',
             parent: null,
-            sortorder: 0,
+            sortOrder: 0,
             stamp: 's',
-            timecreated: 'x',
-            timemodified: 'x',
+            createdAt: 'x',
+            updatedAt: 'x',
           },
         ];
       if (url === '/api/v1/questions/categories/01900000-0000-7000-8000-000000000001/questions')
@@ -274,53 +274,53 @@ describe('Question bank page', () => {
           usage: {
             id: '01900000-0000-7000-8000-000000000009',
             component: 'mod_quiz',
-            instanceid: '01900000-0000-7000-8000-000000000042',
-            owningcontextid: null,
-            preferredbehaviour: 'deferredfeedback',
-            userid: '01900000-0000-7000-8000-000000000007',
-            timecreated: 'x',
-            timemodified: 'x',
+            instanceId: '01900000-0000-7000-8000-000000000042',
+            owningContextId: null,
+            preferredBehaviour: 'deferredfeedback',
+            userId: '01900000-0000-7000-8000-000000000007',
+            createdAt: 'x',
+            updatedAt: 'x',
           },
           state: 'finished',
           attempts: [
             {
               id: '01900000-0000-7000-8000-000000000011',
-              questionusageid: '01900000-0000-7000-8000-000000000009',
+              questionUsageId: '01900000-0000-7000-8000-000000000009',
               slot: 1,
               behaviour: 'deferredfeedback',
-              questionid: '01900000-0000-7000-8000-000000000004',
-              questionversionid: '01900000-0000-7000-8000-000000000008',
+              questionId: '01900000-0000-7000-8000-000000000004',
+              questionVersionId: '01900000-0000-7000-8000-000000000008',
               variant: 1,
-              maxmark: 1,
-              minfraction: 0,
-              maxfraction: 1,
+              maxMark: 1,
+              minFraction: 0,
+              maxFraction: 1,
               flagged: false,
-              questionsummary: 'Q',
-              responsesummary: 'true',
-              rightanswer: 'True',
+              questionSummary: 'Q',
+              responseSummary: 'true',
+              rightAnswer: 'True',
               state: 'gradedright',
               fraction: 1,
-              userid: '01900000-0000-7000-8000-000000000007',
-              timecreated: 'x',
-              timemodified: 'x',
+              userId: '01900000-0000-7000-8000-000000000007',
+              createdAt: 'x',
+              updatedAt: 'x',
               steps: [
                 {
                   id: '01900000-0000-7000-8000-000000000001',
-                  sequencenumber: 0,
+                  sequenceNumber: 0,
                   state: 'todo',
                   fraction: null,
                   data: {},
                 },
                 {
                   id: '01900000-0000-7000-8000-000000000002',
-                  sequencenumber: 1,
+                  sequenceNumber: 1,
                   state: 'complete',
                   fraction: null,
                   data: { answer: 'true' },
                 },
                 {
                   id: '01900000-0000-7000-8000-000000000003',
-                  sequencenumber: 2,
+                  sequenceNumber: 2,
                   state: 'gradedright',
                   fraction: 1,
                   data: {},
@@ -357,13 +357,13 @@ describe('Gradebook administration (teacher of the course)', () => {
   const STUDENT_ID = '01900000-0000-7000-8000-000000000007';
   const ADMIN_CAT = {
     id: '01900000-0000-7000-8000-000000000021',
-    courseid: COURSE_ID,
+    courseId: COURSE_ID,
     parent: null,
-    fullname: 'Quizzes',
+    fullName: 'Quizzes',
     aggregation: 'mean',
-    droplow: 0,
-    keephigh: 0,
-    aggregateonlygraded: false,
+    dropLow: 0,
+    keepHigh: 0,
+    aggregateOnlyGraded: false,
     depth: 1,
     path: '/1',
     hidden: false,
@@ -371,43 +371,43 @@ describe('Gradebook administration (teacher of the course)', () => {
   const LETTERS = [
     {
       id: '01900000-0000-7000-8000-000000000031',
-      contextid: '01900000-0000-7000-8000-000000000055',
-      lowerboundary: 90,
+      contextId: '01900000-0000-7000-8000-000000000055',
+      lowerBoundary: 90,
       letter: 'A',
     },
     {
       id: '01900000-0000-7000-8000-000000000032',
-      contextid: '01900000-0000-7000-8000-000000000055',
-      lowerboundary: 80,
+      contextId: '01900000-0000-7000-8000-000000000055',
+      lowerBoundary: 80,
       letter: 'B',
     },
   ];
   const COURSE = {
     id: COURSE_ID,
     category: '01900000-0000-7000-8000-000000000001',
-    fullname: 'Physics 101',
-    shortname: 'PHY101',
-    idnumber: '',
+    fullName: 'Physics 101',
+    shortName: 'PHY101',
+    idNumber: '',
     summary: '',
     format: 'topics',
     visible: true,
-    startdate: null,
-    enddate: null,
-    groupmode: 0,
-    enablecompletion: true,
+    startDate: null,
+    endDate: null,
+    groupMode: 0,
+    enableCompletion: true,
   };
   const PROFILE = {
     id: TEACHER_ID,
     username: 'teacher1',
-    firstname: 'Lan Anh',
-    lastname: 'Nguyễn',
+    firstName: 'Lan Anh',
+    lastName: 'Nguyễn',
     email: 'teacher1@example.com',
     suspended: false,
     deleted: false,
     isGuest: false,
     forcePasswordChange: false,
-    lastlogin: null,
-    timecreated: '2026-01-01T00:00:00.000Z',
+    lastLogin: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
     customFields: [],
   };
   const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
@@ -481,7 +481,7 @@ describe('Gradebook administration (teacher of the course)', () => {
         }
         if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) {
           if (method === 'POST')
-            return respond({ ...ITEM, id: '01900000-0000-7000-8000-000000000033', itemname: 'Midterm' });
+            return respond({ ...ITEM, id: '01900000-0000-7000-8000-000000000033', itemName: 'Midterm' });
           return respond([ITEM]);
         }
         if (url === `/api/v1/courses/${COURSE_ID}/grades/letters`) {
@@ -492,7 +492,7 @@ describe('Gradebook administration (teacher of the course)', () => {
           return respond([
             {
               id: '01900000-0000-7000-8000-000000000041',
-              courseid: COURSE_ID,
+              courseId: COURSE_ID,
               name: 'Pass scale',
               scale: 'Fail,Pass',
               description: '',
@@ -502,8 +502,8 @@ describe('Gradebook administration (teacher of the course)', () => {
           if (method === 'POST')
             return respond({
               id: '01900000-0000-7000-8000-000000000043',
-              courseid: COURSE_ID,
-              scaleid: '01900000-0000-7000-8000-000000000041',
+              courseId: COURSE_ID,
+              scaleId: '01900000-0000-7000-8000-000000000041',
               name: 'Teamwork',
               description: '',
             });
@@ -514,17 +514,17 @@ describe('Gradebook administration (teacher of the course)', () => {
             {
               id: '01900000-0000-7000-8000-000000000051',
               action: 2,
-              oldid: null,
-              itemid: ITEM.id,
-              userid: STUDENT_ID,
-              rawgrade: 85,
-              finalgrade: 85,
+              oldId: null,
+              itemId: ITEM.id,
+              userId: STUDENT_ID,
+              rawGrade: 85,
+              finalGrade: 85,
               overridden: false,
               excluded: false,
               frozen: false,
               source: 'manual',
-              timemodified: '2026-10-20T00:00:00.000Z',
-              loggeduser: TEACHER_ID,
+              updatedAt: '2026-10-20T00:00:00.000Z',
+              loggedUser: TEACHER_ID,
             },
           ]);
         }
@@ -562,8 +562,8 @@ describe('Gradebook administration (teacher of the course)', () => {
       ),
     );
     const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST');
-    // Đúng createGradeItemSchema: itemname + grademax dạng số; không chọn hạng mục thì không gửi categoryId.
-    expect(createCall?.body).toEqual({ itemname: 'Midterm', grademax: 100 });
+    // Đúng createGradeItemSchema: itemName + gradeMax dạng số; không chọn hạng mục thì không gửi categoryId.
+    expect(createCall?.body).toEqual({ itemName: 'Midterm', gradeMax: 100 });
   });
 
   it('creates a course outcome via POST /courses/:courseId/grades/outcomes with name and scaleId', async () => {
@@ -605,11 +605,11 @@ describe('Gradebook administration (teacher of the course)', () => {
       ),
     );
     const putCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/letters` && c.method === 'PUT');
-    // Đúng setGradeLettersSchema: PUT nguyên bộ { letters: [{ letter, lowerboundary }] } với mốc dưới dạng số.
+    // Đúng setGradeLettersSchema: PUT nguyên bộ { letters: [{ letter, lowerBoundary }] } với mốc dưới dạng số.
     expect(putCall?.body).toEqual({
       letters: [
-        { letter: 'A', lowerboundary: 95 },
-        { letter: 'B', lowerboundary: 80 },
+        { letter: 'A', lowerBoundary: 95 },
+        { letter: 'B', lowerBoundary: 80 },
       ],
     });
   });

@@ -115,7 +115,7 @@ export class AuthService {
       throw new UnauthorizedException({ message: 'Account is locked out due to failed login attempts', code: 'auth.locked_out' });
     }
     const ok = await this.users.verifyPassword(user, password);
-    await this.repo.recordAttempt({ userid: user.id, username: user.username, success: ok, ip });
+    await this.repo.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
     if (!ok) throw new UnauthorizedException({ message: 'Invalid username or password', code: 'auth.invalid_credentials' });
     if (user.suspended) throw new ForbiddenException({ message: 'Account is suspended', code: 'auth.account_suspended' });
     if (user.isGuest) throw new ForbiddenException({ message: 'The guest account cannot log in with a password', code: 'auth.guest_login_denied' });
@@ -235,7 +235,7 @@ export class AuthService {
       throw new UnauthorizedException({ message: 'Account is locked out due to failed login attempts', code: 'auth.locked_out' });
     }
     const ok = await this.totp.verifyForUser(user.id, code);
-    await this.repo.recordAttempt({ userid: user.id, username: user.username, success: ok, ip });
+    await this.repo.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
     if (!ok) {
       throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
     }
@@ -253,7 +253,7 @@ export class AuthService {
     const refreshToken = randomBytes(48).toString('base64url');
     const ttlDays = this.config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30;
     await this.repo.createFamily({
-      familyId, userid: user.id, currentTokenHash: hashToken(refreshToken),
+      familyId, userId: user.id, currentTokenHash: hashToken(refreshToken),
       ip: client?.ip ?? null, userAgent: client?.userAgent ?? null,
       expiresAt: new Date(Date.now() + ttlDays * 86_400_000),
     });
@@ -282,7 +282,7 @@ export class AuthService {
     if (family.currentTokenHash !== tokenHash) {
       throw new UnauthorizedException({ message: 'Refresh token is invalid', code: 'auth.refresh_invalid' });
     }
-    const user = await this.users.getUser(family.userid);
+    const user = await this.users.getUser(family.userId);
     if (user.deleted || user.suspended) {
       await this.repo.revokeFamily(family.id);
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
@@ -428,7 +428,7 @@ export class AuthService {
       return { revoked: 1 };
     }
     const family = await this.repo.getFamilyByFamilyId(sessionId);
-    if (!family || family.userid !== userId || family.revoked) {
+    if (!family || family.userId !== userId || family.revoked) {
       throw new NotFoundException({ message: 'Session not found', code: 'auth.session_not_found' });
     }
     await this.repo.revokeFamily(family.id);

@@ -14,7 +14,7 @@ import { TagsService } from './tags.service';
 /**
  * SocialModule — the five polymorphic sub-systems of report §2#16
  * (Tags / Comments / Ratings / Blog / Notes) sharing one repository over
- * (component, itemtype/area, itemid, contextid) tables with no hard FKs.
+ * (component, itemType/area, itemId, contextId) tables with no hard FKs.
  * Each sub-service is exported as its own facade.
  */
 @Module({

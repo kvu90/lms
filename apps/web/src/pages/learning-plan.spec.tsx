@@ -20,15 +20,15 @@ const PLAN_ID = '01900000-0000-7000-8000-0000000000p1'.replace('p', 'b');
 const PROFILE = {
   id: ADMIN_ID,
   username: 'admin',
-  firstname: 'Quản',
-  lastname: 'Trị',
+  firstName: 'Quản',
+  lastName: 'Trị',
   email: 'admin@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 const LEARNER = { ...PROFILE, id: LEARNER_ID, username: 'learner' };
@@ -61,18 +61,18 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === '/api/v1/competencies/frameworks' && method === 'POST') {
         return respond({
           id: '01900000-0000-7000-8000-0000000000f1'.replace('f', 'e'),
-          shortname: 'FW1',
-          scaleconfiguration: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
+          shortName: 'FW1',
+          scaleConfiguration: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
         });
       }
       if (url === '/api/v1/competencies/templates') return respond([]);
       if (url === `/api/v1/competencies/plans/user/${ADMIN_ID}`) return respond([]);
       if (url === `/api/v1/competencies/plans/user/${LEARNER_ID}`) {
-        return respond([{ id: PLAN_ID, name: 'Plan chờ duyệt', status: 3, templateid: null, userid: LEARNER_ID }]);
+        return respond([{ id: PLAN_ID, name: 'Plan chờ duyệt', status: 3, templateId: null, userId: LEARNER_ID }]);
       }
       if (url === `/api/v1/competencies/usercomp/user/${LEARNER_ID}`) return respond([]);
       if (url === `/api/v1/competencies/plans/${PLAN_ID}/approve` && method === 'POST') {
-        return respond({ id: PLAN_ID, name: 'Plan chờ duyệt', status: 1, templateid: null, userid: LEARNER_ID });
+        return respond({ id: PLAN_ID, name: 'Plan chờ duyệt', status: 1, templateId: null, userId: LEARNER_ID });
       }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
@@ -82,21 +82,21 @@ function stubFetch(calls: RecordedCall[]) {
 const FW_ID = '01900000-0000-7000-8000-00000000f001';
 const FW_ROW = {
   id: FW_ID,
-  shortname: 'FW1',
-  idnumber: 'fw1',
+  shortName: 'FW1',
+  idNumber: 'fw1',
   description: '',
-  scaleconfiguration: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
+  scaleConfiguration: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
   visible: true,
 };
 const EXPORT_DOC = {
-  framework: { shortname: 'FW1', idnumber: 'fw1', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } },
+  framework: { shortName: 'FW1', idNumber: 'fw1', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } },
   competencies: [],
 };
 
 /**
  * Stub cho khu import/export framework: danh sách có sẵn một framework,
  * export trả tài liệu mẫu, import tạo framework mới — riêng tài liệu có
- * shortname BROKEN bị API từ chối bằng Problem Details 400 mang `detail`
+ * shortName BROKEN bị API từ chối bằng Problem Details 400 mang `detail`
  * toàn vẹn để khẳng định trang hiện nguyên văn lỗi của API.
  */
 function stubFetchExport(calls: RecordedCall[]) {
@@ -119,8 +119,8 @@ function stubFetchExport(calls: RecordedCall[]) {
       if (url === '/api/v1/competencies/frameworks' && method === 'GET') return respond([FW_ROW]);
       if (url === `/api/v1/competencies/frameworks/${FW_ID}/export`) return respond(EXPORT_DOC);
       if (url === '/api/v1/competencies/frameworks/import' && method === 'POST') {
-        const body = JSON.parse(String(init?.body)) as { framework?: { shortname?: string } };
-        if (body.framework?.shortname === 'BROKEN') {
+        const body = JSON.parse(String(init?.body)) as { framework?: { shortName?: string } };
+        if (body.framework?.shortName === 'BROKEN') {
           return respond(
             {
               type: 'about:blank',
@@ -135,7 +135,7 @@ function stubFetchExport(calls: RecordedCall[]) {
         return respond({
           ...FW_ROW,
           id: '01900000-0000-7000-8000-00000000f002',
-          shortname: body.framework?.shortname ?? 'FW-NEW',
+          shortName: body.framework?.shortName ?? 'FW-NEW',
         });
       }
       if (url === '/api/v1/competencies/templates') return respond([]);
@@ -182,7 +182,7 @@ describe('Learning plan page — competency administration', () => {
     );
     const post = calls.find((c) => c.url === '/api/v1/competencies/frameworks' && c.method === 'POST');
     expect(post?.body).toEqual({
-      shortname: 'FW1',
+      shortName: 'FW1',
       scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] },
       visible: true,
     });
@@ -217,7 +217,7 @@ describe('Learning plan page — competency administration', () => {
     renderPage();
 
     const doc = {
-      framework: { shortname: 'FW-NEW', idnumber: 'fwn', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } },
+      framework: { shortName: 'FW-NEW', idNumber: 'fwn', scale: { values: ['Chưa đạt', 'Đạt'], proficient: [1] } },
       competencies: [],
     };
     const file = new File([JSON.stringify(doc)], 'fw.json', { type: 'application/json' });
@@ -238,7 +238,7 @@ describe('Learning plan page — competency administration', () => {
     stubFetchExport(calls);
     renderPage();
 
-    const file = new File([JSON.stringify({ framework: { shortname: 'BROKEN' } })], 'broken.json', {
+    const file = new File([JSON.stringify({ framework: { shortName: 'BROKEN' } })], 'broken.json', {
       type: 'application/json',
     });
     await userEvent.upload(await screen.findByLabelText(/File JSON framework/), file);

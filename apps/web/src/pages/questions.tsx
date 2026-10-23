@@ -24,7 +24,7 @@ export function QuestionsPage() {
   const [questions, setQuestions] = useState<QuestionView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{
     questionId: string;
-    versions: { version: number; questiontext: RichTextDocument }[];
+    versions: { version: number; questionText: RichTextDocument }[];
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [contextId, setContextId] = useState('1');
@@ -56,7 +56,7 @@ export function QuestionsPage() {
     try {
       await apiJson('/api/v1/questions/categories', {
         method: 'POST',
-        body: JSON.stringify({ name: catName, contextid: contextId }),
+        body: JSON.stringify({ name: catName, contextId: contextId }),
       });
       setCatName('');
       await reload();
@@ -74,7 +74,7 @@ export function QuestionsPage() {
           categoryId: qCategory,
           qtype: 'truefalse',
           name: qName,
-          questiontext: qText,
+          questionText: qText,
           answer: { correct: qCorrect === 'true' },
         }),
       });
@@ -87,13 +87,13 @@ export function QuestionsPage() {
   }
 
   async function editQuestion(view: QuestionView) {
-    const newText = `${extractRichTextPlainText(view.latestVersion.questiontext)} (edited)`;
+    const newText = `${extractRichTextPlainText(view.latestVersion.questionText)} (edited)`;
     try {
       const updated = await apiJson<QuestionView>(`/api/v1/questions/${view.question.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ questiontext: newText }),
+        body: JSON.stringify({ questionText: newText }),
       });
-      setMessage(t('questionSavedAsVersion', { version: updated.entry.latestversion }));
+      setMessage(t('questionSavedAsVersion', { version: updated.entry.latestVersion }));
       await loadQuestions(view.question.category);
     } catch {
       setMessage(t('questionEditFailed'));
@@ -122,7 +122,7 @@ export function QuestionsPage() {
   }
 
   async function showVersions(view: QuestionView) {
-    const versions = await apiJson<{ version: number; questiontext: RichTextDocument }[]>(
+    const versions = await apiJson<{ version: number; questionText: RichTextDocument }[]>(
       `/api/v1/questions/${view.question.id}/versions`,
     );
     setVersionsOf({ questionId: view.question.id, versions });
@@ -164,16 +164,16 @@ export function QuestionsPage() {
       header: t('version'),
       cell: (view) => (
         <span data-testid={`version-badge-${view.question.id}`} className="rounded bg-secondary px-2 py-0.5 text-xs">
-          v{view.entry.latestversion}
+          v{view.entry.latestVersion}
         </span>
       ),
-      sortValue: (view) => view.entry.latestversion,
+      sortValue: (view) => view.entry.latestVersion,
     },
     {
       id: 'text',
       header: t('questionText'),
-      cell: (view) => <span className="text-sm text-muted-foreground">{extractRichTextPlainText(view.latestVersion.questiontext)}</span>,
-      filterValue: (view) => extractRichTextPlainText(view.latestVersion.questiontext),
+      cell: (view) => <span className="text-sm text-muted-foreground">{extractRichTextPlainText(view.latestVersion.questionText)}</span>,
+      filterValue: (view) => extractRichTextPlainText(view.latestVersion.questionText),
     },
     {
       id: 'actions',
@@ -239,7 +239,7 @@ export function QuestionsPage() {
               <ul>
                 {versionsOf.versions.map((v) => (
                   <li key={v.version}>
-                    v{v.version} — {extractRichTextPlainText(v.questiontext)}
+                    v{v.version} — {extractRichTextPlainText(v.questionText)}
                   </li>
                 ))}
               </ul>
@@ -381,7 +381,7 @@ export function QuestionUsagePage() {
                   <div>
                     {t('slotLine', { slot: a.slot })} <strong>{a.state}</strong>
                     {a.fraction !== null ? ` ${t('fractionSuffix', { fraction: a.fraction })}` : ''}
-                    {a.questionversionid ? ` ${t('pinnedVersionSuffix', { versionId: a.questionversionid })}` : ''}
+                    {a.questionVersionId ? ` ${t('pinnedVersionSuffix', { versionId: a.questionVersionId })}` : ''}
                     <span className="block text-sm text-muted-foreground">
                       {t('stepsLine', { steps: a.steps.map((s) => s.state).join(' → ') || t('stepsNone') })}
                     </span>

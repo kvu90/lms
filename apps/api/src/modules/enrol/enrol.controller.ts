@@ -48,7 +48,7 @@ export class EnrolController {
    * POST /courses/:courseId/enrol/instances/:instanceId/enrol — ghi danh thủ công.
    */
   async enrolUser(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @Body({ schema: enrolUserSchema }) dto: EnrolUserDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.enrol.enrolUser(actor.id, instanceId, dto.userid, { timestart: dto.timestart, timeend: dto.timeend });
+    return this.enrol.enrolUser(actor.id, instanceId, dto.userId, { timeStart: dto.timeStart, timeEnd: dto.timeEnd });
   }
   @Post(':courseId/enrol/instances/:instanceId/self-enrol')
   /**

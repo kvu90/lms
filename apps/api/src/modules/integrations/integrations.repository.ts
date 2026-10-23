@@ -25,8 +25,8 @@ export class IntegrationsRepository {
   async insertToken(v: typeof externalTokens.$inferInsert): Promise<TokenRow> {
     const [row] = await this.db.insert(externalTokens).values(v).returning(); return row!;
   }
-  async getTokenByHash(tokenhash: string): Promise<TokenRow | undefined> {
-    const [row] = await this.db.select().from(externalTokens).where(eq(externalTokens.tokenhash, tokenhash)); return row;
+  async getTokenByHash(tokenHash: string): Promise<TokenRow | undefined> {
+    const [row] = await this.db.select().from(externalTokens).where(eq(externalTokens.tokenHash, tokenHash)); return row;
   }
   async getToken(id: string): Promise<TokenRow | undefined> {
     const [row] = await this.db.select().from(externalTokens).where(eq(externalTokens.id, id)); return row;

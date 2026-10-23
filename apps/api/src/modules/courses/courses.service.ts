@@ -27,7 +27,7 @@ export interface EnrolChecker {
 export interface CourseContentView {
   course: CourseRow;
   contextId: string;
-  customFields: { shortname: string; value: string | null }[];
+  customFields: { shortName: string; value: string | null }[];
   sections: (SectionRow & {
     availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] };
     modules: (CmRow & { contextId?: string; availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] } })[];
@@ -108,7 +108,7 @@ export class CoursesService {
   /**
    * Tạo category (kiểm capability tại context cha, tính path).
    */
-  async createCategory(actorId: string, input: { name: string; idnumber?: string; description?: string; parent?: string; visible?: boolean }): Promise<CategoryRow> {
+  async createCategory(actorId: string, input: { name: string; idNumber?: string; description?: string; parent?: string; visible?: boolean }): Promise<CategoryRow> {
     const parent = input.parent ?? null;
     let parentCtxId: string;
     if (parent === null) {
@@ -118,10 +118,10 @@ export class CoursesService {
       parentCtxId = await this.categoryContextId(parentCat.id);
     }
     await this.evaluator.requireCapability(actorId, 'moodle/category:manage', parentCtxId);
-    const sortorder = await this.repo.countSiblingCategories(parent);
+    const sortOrder = await this.repo.countSiblingCategories(parent);
     const cat = await this.repo.insertCategory({
-      name: input.name, idnumber: input.idnumber ?? null, description: input.description ?? '',
-      parent, sortorder, visible: input.visible ?? true, path: '', depth: 1,
+      name: input.name, idNumber: input.idNumber ?? null, description: input.description ?? '',
+      parent, sortOrder, visible: input.visible ?? true, path: '', depth: 1,
     });
     const parentRow = parent === null ? null : await this.getCategory(parent);
     const path = parentRow ? `${parentRow.path}/${cat.id}` : `/${cat.id}`;
@@ -163,7 +163,7 @@ export class CoursesService {
   /**
    * Cập nhật category; đổi cha sẽ viết lại path cây con.
    */
-  async updateCategory(actorId: string, id: string, input: { name?: string; idnumber?: string; description?: string; visible?: boolean; parent?: string }): Promise<CategoryRow> {
+  async updateCategory(actorId: string, id: string, input: { name?: string; idNumber?: string; description?: string; visible?: boolean; parent?: string }): Promise<CategoryRow> {
     const cat = await this.getCategory(id);
     await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
     if (input.parent !== undefined && input.parent !== cat.parent) {
@@ -171,7 +171,7 @@ export class CoursesService {
     }
     const patch: Partial<CategoryRow> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.idnumber !== undefined) patch.idnumber = input.idnumber;
+    if (input.idNumber !== undefined) patch.idNumber = input.idNumber;
     if (input.description !== undefined) patch.description = input.description;
     if (input.visible !== undefined) patch.visible = input.visible;
     if (Object.keys(patch).length) await this.repo.updateCategory(id, patch);
@@ -255,31 +255,31 @@ export class CoursesService {
    * Tạo khoá học trong category, kèm context và category điểm gốc được tạo ở tầng grades qua hook.
    */
   async createCourse(actorId: string, input: {
-    fullname: string; shortname: string; category: string; idnumber?: string; summary?: string;
-    format?: string; visible?: boolean; startdate?: string; enddate?: string; groupmode?: number; groupmodeforce?: boolean;
+    fullName: string; shortName: string; category: string; idNumber?: string; summary?: string;
+    format?: string; visible?: boolean; startDate?: string; endDate?: string; groupMode?: number; groupModeForce?: boolean;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const category = await this.getCategory(input.category);
     const categoryCtxId = await this.categoryContextId(category.id);
     // Creating a course requires the capability in the CATEGORY context (Moodle rule).
     await this.evaluator.requireCapability(actorId, 'moodle/course:create', categoryCtxId);
-    const shortname = input.shortname.trim();
-    if (await this.repo.getCourseByShortname(shortname)) {
-      throw new ConflictException({ message: `Course shortname ${shortname} is taken`, code: 'course.shortname_taken' });
+    const shortName = input.shortName.trim();
+    if (await this.repo.getCourseByShortname(shortName)) {
+      throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });
     }
-    if (input.startdate && input.enddate && new Date(input.enddate) < new Date(input.startdate)) {
+    if (input.startDate && input.endDate && new Date(input.endDate) < new Date(input.startDate)) {
       throw new BadRequestException({ message: 'Course end date is before its start date', code: 'course.invalid_dates' });
     }
     if (input.customFields) await this.customFields.validateValuesForInstance(COURSE_COMPONENT, COURSE_AREA, input.customFields);
     const siblings = await this.repo.listCourses(category.id);
     const created = await this.repo.dbHandle.transaction(async (tx) => {
       const row = await this.repo.insertCourse({
-        category: category.id, fullname: input.fullname, shortname,
-        idnumber: input.idnumber ?? '', summary: input.summary ?? '',
+        category: category.id, fullName: input.fullName, shortName,
+        idNumber: input.idNumber ?? '', summary: input.summary ?? '',
         format: input.format ?? 'topics', visible: input.visible ?? true,
-        startdate: input.startdate ? new Date(input.startdate) : null,
-        enddate: input.enddate ? new Date(input.enddate) : null,
-        groupmode: input.groupmode ?? GROUPMODE_NOGROUPS, groupmodeforce: input.groupmodeforce ?? false, sortorder: siblings.length,
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+        groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id } });
       return row;
@@ -317,38 +317,38 @@ export class CoursesService {
   /**
    * Giá trị trường tuỳ biến của khoá học.
    */
-  async getCourseCustomFields(courseId: string): Promise<{ shortname: string; value: string | null }[]> {
+  async getCourseCustomFields(courseId: string): Promise<{ shortName: string; value: string | null }[]> {
     const values = await this.customFields.getValuesForInstance(COURSE_COMPONENT, COURSE_AREA, courseId);
-    return values.map((v) => ({ shortname: v.field.shortname, value: v.value }));
+    return values.map((v) => ({ shortName: v.field.shortName, value: v.value }));
   }
 
   /**
-   * Cập nhật khoá học (shortname giữ duy nhất).
+   * Cập nhật khoá học (shortName giữ duy nhất).
    */
   async updateCourse(actorId: string, id: string, input: {
-    fullname?: string; shortname?: string; category?: string; idnumber?: string; summary?: string;
-    format?: string; visible?: boolean; startdate?: string | null; enddate?: string | null; groupmode?: number; groupmodeforce?: boolean;
+    fullName?: string; shortName?: string; category?: string; idNumber?: string; summary?: string;
+    format?: string; visible?: boolean; startDate?: string | null; endDate?: string | null; groupMode?: number; groupModeForce?: boolean;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(id));
-    if (input.shortname !== undefined && input.shortname.trim() !== existing.shortname) {
-      if (await this.repo.getCourseByShortname(input.shortname.trim())) {
-        throw new ConflictException({ message: `Course shortname ${input.shortname} is taken`, code: 'course.shortname_taken' });
+    if (input.shortName !== undefined && input.shortName.trim() !== existing.shortName) {
+      if (await this.repo.getCourseByShortname(input.shortName.trim())) {
+        throw new ConflictException({ message: `Course shortName ${input.shortName} is taken`, code: 'course.shortname_taken' });
       }
     }
     if (input.customFields) await this.customFields.validateValuesForInstance(COURSE_COMPONENT, COURSE_AREA, input.customFields);
     const patch: Partial<CourseRow> = {};
-    if (input.fullname !== undefined) patch.fullname = input.fullname;
-    if (input.shortname !== undefined) patch.shortname = input.shortname.trim();
-    if (input.idnumber !== undefined) patch.idnumber = input.idnumber;
+    if (input.fullName !== undefined) patch.fullName = input.fullName;
+    if (input.shortName !== undefined) patch.shortName = input.shortName.trim();
+    if (input.idNumber !== undefined) patch.idNumber = input.idNumber;
     if (input.summary !== undefined) patch.summary = input.summary;
     if (input.format !== undefined) patch.format = input.format;
     if (input.visible !== undefined) patch.visible = input.visible;
-    if (input.startdate !== undefined) patch.startdate = input.startdate ? new Date(input.startdate) : null;
-    if (input.enddate !== undefined) patch.enddate = input.enddate ? new Date(input.enddate) : null;
-    if (input.groupmode !== undefined) patch.groupmode = input.groupmode;
-    if (input.groupmodeforce !== undefined) patch.groupmodeforce = input.groupmodeforce;
+    if (input.startDate !== undefined) patch.startDate = input.startDate ? new Date(input.startDate) : null;
+    if (input.endDate !== undefined) patch.endDate = input.endDate ? new Date(input.endDate) : null;
+    if (input.groupMode !== undefined) patch.groupMode = input.groupMode;
+    if (input.groupModeForce !== undefined) patch.groupModeForce = input.groupModeForce;
     if (input.category !== undefined && input.category !== existing.category) {
       const newCategory = await this.getCategory(input.category);
       patch.category = newCategory.id;
@@ -474,9 +474,9 @@ export class CoursesService {
    * Thêm course module (hoạt động/tài nguyên) vào section.
    */
   async createCm(actorId: string, courseId: string, input: {
-    sectionId: string; component: string; instanceid?: string; name?: string; visible?: boolean; groupmode?: number;
-    availability?: unknown; completion?: number; completionview?: boolean; completionusegrade?: boolean;
-    completionmanual?: boolean; completionexpected?: string;
+    sectionId: string; component: string; instanceId?: string; name?: string; visible?: boolean; groupMode?: number;
+    availability?: unknown; completion?: number; completionView?: boolean; completionUseGrade?: boolean;
+    completionManual?: boolean; completionExpected?: string;
   }): Promise<CmRow> {
     const courseRow = await this.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(courseId));
@@ -484,17 +484,17 @@ export class CoursesService {
     if (section.course !== courseId) throw new BadRequestException({ message: 'Section does not belong to this course', code: 'course.section_course_mismatch' });
     if (input.availability !== undefined) this.availability.parse(input.availability);
     const cm = await this.repo.insertCm({
-      course: courseId, section: section.id, component: input.component, instanceid: input.instanceid ?? null,
-      name: input.name ?? '', visible: input.visible ?? true, groupmode: input.groupmode ?? 0,
+      course: courseId, section: section.id, component: input.component, instanceId: input.instanceId ?? null,
+      name: input.name ?? '', visible: input.visible ?? true, groupMode: input.groupMode ?? 0,
       availability: (input.availability ?? null) as never,
-      completion: input.completion ?? (input.completionmanual ? 1 : 0),
-      completionview: input.completionview ?? false, completionusegrade: input.completionusegrade ?? false,
-      completionmanual: input.completionmanual ?? false,
-      completionexpected: input.completionexpected ? new Date(input.completionexpected) : null,
+      completion: input.completion ?? (input.completionManual ? 1 : 0),
+      completionView: input.completionView ?? false, completionUseGrade: input.completionUseGrade ?? false,
+      completionManual: input.completionManual ?? false,
+      completionExpected: input.completionExpected ? new Date(input.completionExpected) : null,
     });
     const courseCtxId = await this.courseContextId(courseId);
     await this.contexts.createContext(CONTEXT_LEVELS.MODULE, cm.id, courseCtxId);
-    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_created', payload: { cmId: cm.id, courseId, component: cm.component, instanceid: cm.instanceid } });
+    await this.outbox.enqueueStandalone({ aggregate: 'course_module', type: 'cm_created', payload: { cmId: cm.id, courseId, component: cm.component, instanceId: cm.instanceId } });
     void courseRow;
     return cm;
   }
@@ -514,8 +514,8 @@ export class CoursesService {
    * Cập nhật cm (gồm availability và completion kỳ vọng).
    */
   async updateCm(actorId: string, id: string, input: {
-    name?: string; visible?: boolean; groupmode?: number; availability?: unknown; completion?: number;
-    completionview?: boolean; completionusegrade?: boolean; completionmanual?: boolean; completionexpected?: string | null; sectionId?: string;
+    name?: string; visible?: boolean; groupMode?: number; availability?: unknown; completion?: number;
+    completionView?: boolean; completionUseGrade?: boolean; completionManual?: boolean; completionExpected?: string | null; sectionId?: string;
   }): Promise<CmRow> {
     const cm = await this.getCm(id);
     await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(cm.course));
@@ -523,13 +523,13 @@ export class CoursesService {
     const patch: Partial<CmRow> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.visible !== undefined) patch.visible = input.visible;
-    if (input.groupmode !== undefined) patch.groupmode = input.groupmode;
+    if (input.groupMode !== undefined) patch.groupMode = input.groupMode;
     if (input.availability !== undefined) patch.availability = input.availability as never;
     if (input.completion !== undefined) patch.completion = input.completion;
-    if (input.completionview !== undefined) patch.completionview = input.completionview;
-    if (input.completionusegrade !== undefined) patch.completionusegrade = input.completionusegrade;
-    if (input.completionmanual !== undefined) patch.completionmanual = input.completionmanual;
-    if (input.completionexpected !== undefined) patch.completionexpected = input.completionexpected ? new Date(input.completionexpected) : null;
+    if (input.completionView !== undefined) patch.completionView = input.completionView;
+    if (input.completionUseGrade !== undefined) patch.completionUseGrade = input.completionUseGrade;
+    if (input.completionManual !== undefined) patch.completionManual = input.completionManual;
+    if (input.completionExpected !== undefined) patch.completionExpected = input.completionExpected ? new Date(input.completionExpected) : null;
     if (input.sectionId !== undefined) {
       const section = await this.getSection(input.sectionId);
       if (section.course !== cm.course) throw new BadRequestException({ message: 'Section does not belong to this course', code: 'course.section_course_mismatch' });
@@ -544,11 +544,11 @@ export class CoursesService {
     const contextId = await this.cmContextId(cm.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'course_module', type: 'cm_deleted',
-      payload: { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceid: cm.instanceid },
+      payload: { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId },
     });
     // In-process delivery for the owning modules' handlers (completion, files);
     // handlers are idempotent, so the durable outbox relay may replay safely.
-    await this.emitter.emitAsync('cm_deleted', { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceid: cm.instanceid });
+    await this.emitter.emitAsync('cm_deleted', { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId });
     if (contextId) await this.contexts.deleteContext(contextId);
   }
 
@@ -568,7 +568,7 @@ export class CoursesService {
   /**
    * Record that a user viewed a cm: enqueues the durable `cm_viewed` outbox
    * event AND delivers it in-process so CompletionModule's listener writes
-   * the completionview state (handlers are idempotent).
+   * the completionView state (handlers are idempotent).
    */
   /**
    * Ghi nhận lượt xem cm — đầu vào của completion theo lượt xem.

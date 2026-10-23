@@ -21,10 +21,10 @@ export const AGGREGATION_ANY = 2;
 /**
  * CompletionModule facade (Moodle core_completion), activity part:
  *  - Completion state is STORED data (course_modules_completion) driven by
- *    criteria declared up-front on the cm: completionview, completionmanual,
- *    completionexpected, completionusegrade (declared; grade evaluation is
+ *    criteria declared up-front on the cm: completionView, completionManual,
+ *    completionExpected, completionUseGrade (declared; grade evaluation is
  *    the Grades hook — a cm requiring a grade cannot complete without one).
- *  - `cm_viewed` events (from CoursesService) drive completionview.
+ *  - `cm_viewed` events (from CoursesService) drive completionView.
  *  - Course completion aggregates criteria (module completions + date)
  *    with the course method ALL(AND)/ANY(OR) into course_completions.
  *  - Changing criteria after data exists flags reaggregation and enqueues
@@ -108,7 +108,7 @@ export class CompletionService implements OnModuleInit {
       if (!cmId) return { available: false, description: this.i18n.t('availability.completionMissingCm') };
       const row = await this.repo.getCmCompletion(cmId, ctx.userId);
       const state = Number(leaf.state ?? COMPLETION_COMPLETE);
-      const available = !!row && row.completionstate >= state && row.completionstate !== COMPLETION_INCOMPLETE;
+      const available = !!row && row.completionState >= state && row.completionState !== COMPLETION_INCOMPLETE;
       return { available, description: this.i18n.t('availability.activityMustComplete', { args: { cmId } }) };
     });
     // Enrol unenrol probe: completion records are related data that must survive unenrol.
@@ -127,28 +127,28 @@ export class CompletionService implements OnModuleInit {
   async computeCmState(cmId: string, userId: string): Promise<number> {
     const cm = await this.courses.getCm(cmId);
     const row = await this.repo.getCmCompletion(cmId, userId);
-    if (cm.completion === 0) return row?.completionstate ?? COMPLETION_INCOMPLETE;
-    if (cm.completionmanual || cm.completion === 1) {
-      return row?.completionstate ?? COMPLETION_INCOMPLETE;
+    if (cm.completion === 0) return row?.completionState ?? COMPLETION_INCOMPLETE;
+    if (cm.completionManual || cm.completion === 1) {
+      return row?.completionState ?? COMPLETION_INCOMPLETE;
     }
     // Automatic (completion=2): every declared criterion must hold.
     let gradeState: number | null = null;
-    if (cm.completionusegrade) {
+    if (cm.completionUseGrade) {
       // Grades: real grade evaluation through the GradesModule-registered evaluator.
       gradeState = this.gradeEvaluator ? await this.gradeEvaluator(cmId, userId) : null;
       if (gradeState === null) return COMPLETION_INCOMPLETE; // no grade yet
       if (gradeState === COMPLETION_COMPLETE_FAIL) return COMPLETION_COMPLETE_FAIL;
     }
-    if (cm.completionview && !row?.viewed) return COMPLETION_INCOMPLETE;
-    if (cm.completionexpected && new Date() < cm.completionexpected) return COMPLETION_INCOMPLETE;
+    if (cm.completionView && !row?.viewed) return COMPLETION_INCOMPLETE;
+    if (cm.completionExpected && new Date() < cm.completionExpected) return COMPLETION_INCOMPLETE;
     if (gradeState !== null) return gradeState; // 2 (pass) or 1 (graded, no pass mark)
-    const anyCriterion = cm.completionview || !!cm.completionexpected;
-    return anyCriterion ? COMPLETION_COMPLETE : (row?.completionstate ?? COMPLETION_INCOMPLETE);
+    const anyCriterion = cm.completionView || !!cm.completionExpected;
+    return anyCriterion ? COMPLETION_COMPLETE : (row?.completionState ?? COMPLETION_INCOMPLETE);
   }
 
   /**
    * Called by GradesModule after a regrade (facade call): recompute the
-   * stored completion state of a grade-driven cm and reaggregate the course.
+   * stored completion state of a grade-driven cm and reAggregate the course.
    * Emits cm_completion_changed through the outbox when the state moves.
    */
   /**
@@ -156,14 +156,14 @@ export class CompletionService implements OnModuleInit {
    */
   async refreshGradeCompletion(cmId: string, userId: string): Promise<void> {
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
-    if (!cm || cm.completion === 0 || !cm.completionusegrade) return;
+    if (!cm || cm.completion === 0 || !cm.completionUseGrade) return;
     const state = await this.computeCmState(cmId, userId);
     const existing = await this.repo.getCmCompletion(cmId, userId);
-    if (existing && existing.completionstate === state) return;
+    if (existing && existing.completionState === state) return;
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.upsertCmCompletion({
-        coursemoduleid: cmId, userid: userId, completionstate: state,
-        viewed: existing?.viewed ?? false, overrideby: existing?.overrideby ?? null,
+        courseModuleId: cmId, userId: userId, completionState: state,
+        viewed: existing?.viewed ?? false, overrideBy: existing?.overrideBy ?? null,
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'completion', type: 'cm_completion_changed',
@@ -180,8 +180,8 @@ export class CompletionService implements OnModuleInit {
     if (cm && cm.completion !== 0) {
       const existing = await this.repo.getCmCompletion(cmId, userId);
       // Manual marks are authoritative until toggled; only auto-refresh non-manual cms or view-only updates.
-      if (!cm.completionmanual) {
-        await this.repo.upsertCmCompletion({ coursemoduleid: cmId, userid: userId, completionstate: state, viewed: existing?.viewed ?? false, overrideby: existing?.overrideby ?? null });
+      if (!cm.completionManual) {
+        await this.repo.upsertCmCompletion({ courseModuleId: cmId, userId: userId, completionState: state, viewed: existing?.viewed ?? false, overrideBy: existing?.overrideBy ?? null });
       }
     }
     return state;
@@ -196,9 +196,9 @@ export class CompletionService implements OnModuleInit {
     if (!cm || cm.completion === 0) return;
     const existing = await this.repo.getCmCompletion(payload.cmId, payload.userId);
     await this.repo.upsertCmCompletion({
-      coursemoduleid: payload.cmId, userid: payload.userId,
-      completionstate: existing?.completionstate ?? COMPLETION_INCOMPLETE,
-      viewed: true, overrideby: existing?.overrideby ?? null,
+      courseModuleId: payload.cmId, userId: payload.userId,
+      completionState: existing?.completionState ?? COMPLETION_INCOMPLETE,
+      viewed: true, overrideBy: existing?.overrideBy ?? null,
     });
     const state = await this.refreshCmState(payload.cmId, payload.userId);
     await this.fireCmCompletion(payload.cmId, payload.courseId, payload.userId, state);
@@ -220,8 +220,8 @@ export class CompletionService implements OnModuleInit {
    */
   async getCmCompletion(cmId: string, userId: string): Promise<{ cmId: string; userId: string; state: number; viewed: boolean }> {
     const row = await this.repo.getCmCompletion(cmId, userId);
-    const state = await this.computeCmState(cmId, userId).catch(() => row?.completionstate ?? 0);
-    return { cmId, userId, state: row && row.completionstate !== COMPLETION_INCOMPLETE ? row.completionstate : state, viewed: row?.viewed ?? false };
+    const state = await this.computeCmState(cmId, userId).catch(() => row?.completionState ?? 0);
+    return { cmId, userId, state: row && row.completionState !== COMPLETION_INCOMPLETE ? row.completionState : state, viewed: row?.viewed ?? false };
   }
 
   /**
@@ -231,13 +231,13 @@ export class CompletionService implements OnModuleInit {
     const cms = await this.courses.listCms(courseId);
     const rows = await this.repo.listCmCompletionsForUser(userId, cms.map((c) => c.id));
     return cms.map((cm) => {
-      const row = rows.find((r) => r.coursemoduleid === cm.id);
-      return { cmId: cm.id, state: row?.completionstate ?? COMPLETION_INCOMPLETE, viewed: row?.viewed ?? false };
+      const row = rows.find((r) => r.courseModuleId === cm.id);
+      return { cmId: cm.id, state: row?.completionState ?? COMPLETION_INCOMPLETE, viewed: row?.viewed ?? false };
     });
   }
 
   /**
-   * Manual marking (completionmanual / completion=1): the user themselves,
+   * Manual marking (completionManual / completion=1): the user themselves,
    * or an actor with lms/completion:markothers at the course context.
    */
   /**
@@ -246,7 +246,7 @@ export class CompletionService implements OnModuleInit {
   async markManual(actorId: string, cmId: string, targetUserId: string, complete: boolean): Promise<{ cmId: string; userId: string; state: number }> {
     const cm = await this.courses.getCm(cmId);
     if (cm.completion === 0) throw new BadRequestException({ message: 'Completion tracking is not enabled for this activity', code: 'completion.not_enabled' });
-    if (!cm.completionmanual && cm.completion !== 1) {
+    if (!cm.completionManual && cm.completion !== 1) {
       throw new BadRequestException({ message: 'This activity does not use manual completion', code: 'completion.not_manual' });
     }
     if (actorId !== targetUserId) {
@@ -258,8 +258,8 @@ export class CompletionService implements OnModuleInit {
     const state = complete ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.upsertCmCompletion({
-        coursemoduleid: cmId, userid: targetUserId, completionstate: state,
-        viewed: existing?.viewed ?? false, overrideby: actorId !== targetUserId ? actorId : null,
+        courseModuleId: cmId, userId: targetUserId, completionState: state,
+        viewed: existing?.viewed ?? false, overrideBy: actorId !== targetUserId ? actorId : null,
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'completion', type: 'cm_completion_changed',
@@ -278,7 +278,7 @@ export class CompletionService implements OnModuleInit {
    */
   async setCriteria(actorId: string, courseId: string, input: {
     method?: number;
-    criteria: { criteriatype: string; moduleinstance?: string; date?: string }[];
+    criteria: { criteriaType: string; moduleInstance?: string; date?: string }[];
   }): Promise<{ method: number; criteria: unknown[] }> {
     await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
@@ -287,25 +287,25 @@ export class CompletionService implements OnModuleInit {
       throw new BadRequestException({ message: `Unknown aggregation method ${method}`, code: 'completion.bad_method' });
     }
     for (const c of input.criteria) {
-      if (!['module', 'date', 'grade'].includes(c.criteriatype)) {
-        throw new BadRequestException({ message: `Unknown criteria type ${c.criteriatype}`, code: 'completion.bad_criteria_type' });
+      if (!['module', 'date', 'grade'].includes(c.criteriaType)) {
+        throw new BadRequestException({ message: `Unknown criteria type ${c.criteriaType}`, code: 'completion.bad_criteria_type' });
       }
-      if (c.criteriatype === 'module' && !c.moduleinstance) {
-        throw new BadRequestException({ message: 'Module criteria require moduleinstance (a cm id)', code: 'completion.criteria_cm_required' });
+      if (c.criteriaType === 'module' && !c.moduleInstance) {
+        throw new BadRequestException({ message: 'Module criteria require moduleInstance (a cm id)', code: 'completion.criteria_cm_required' });
       }
-      if (c.criteriatype === 'date' && !c.date) {
+      if (c.criteriaType === 'date' && !c.date) {
         throw new BadRequestException({ message: 'Date criteria require a date', code: 'completion.criteria_date_required' });
       }
     }
     const existing = await this.repo.listCriteria(courseId);
     const hadData = (await this.repo.listCourseCompletions(courseId)).length > 0;
     for (const old of existing) await this.repo.deleteCriteria(old.id);
-    let sortorder = 0;
+    let sortOrder = 0;
     for (const c of input.criteria) {
       await this.repo.insertCriteria({
-        course: courseId, criteriatype: c.criteriatype,
-        moduleinstance: c.moduleinstance ?? null,
-        date: c.date ? new Date(c.date) : null, sortorder: sortorder++,
+        course: courseId, criteriaType: c.criteriaType,
+        moduleInstance: c.moduleInstance ?? null,
+        date: c.date ? new Date(c.date) : null, sortOrder: sortOrder++,
       });
     }
     await this.repo.setSettings(courseId, method);
@@ -314,10 +314,10 @@ export class CompletionService implements OnModuleInit {
       // flag every stored completion for recalculation and enqueue the worker job.
       const completions = await this.repo.listCourseCompletions(courseId);
       for (const cc of completions) {
-        await this.repo.upsertCourseCompletion({ ...cc, reaggregate: new Date() });
+        await this.repo.upsertCourseCompletion({ ...cc, reAggregate: new Date() });
       }
       await this.recalcQueue.add('recalculate', { courseId }, { jobId: `completion-recalc-${courseId}-${Date.now()}`, attempts: 3 });
-      await this.outbox.enqueueStandalone({ aggregate: 'completion', type: 'completion_criteria_changed', payload: { courseId, reaggregate: true } });
+      await this.outbox.enqueueStandalone({ aggregate: 'completion', type: 'completion_criteria_changed', payload: { courseId, reAggregate: true } });
     }
     return { method, criteria: await this.repo.listCriteria(courseId) };
   }
@@ -339,12 +339,12 @@ export class CompletionService implements OnModuleInit {
     const { method } = await this.repo.getSettings(courseId);
     const results: boolean[] = [];
     for (const c of criteria) {
-      if (c.criteriatype === 'module' && c.moduleinstance) {
-        const row = await this.repo.getCmCompletion(c.moduleinstance, userId);
-        results.push(!!row && row.completionstate !== COMPLETION_INCOMPLETE);
-      } else if (c.criteriatype === 'date' && c.date) {
+      if (c.criteriaType === 'module' && c.moduleInstance) {
+        const row = await this.repo.getCmCompletion(c.moduleInstance, userId);
+        results.push(!!row && row.completionState !== COMPLETION_INCOMPLETE);
+      } else if (c.criteriaType === 'date' && c.date) {
         results.push(now >= c.date);
-      } else if (c.criteriatype === 'grade') {
+      } else if (c.criteriaType === 'grade') {
         // Grades: course grade criterion via the GradesModule-registered checker.
         results.push(this.courseGradeChecker ? await this.courseGradeChecker(courseId, userId) : false);
       } else {
@@ -366,12 +366,12 @@ export class CompletionService implements OnModuleInit {
     const criteria = await this.repo.listCriteria(courseId);
     let status = existing?.status ?? 'not_started';
     if (complete) status = 'complete';
-    else if (criteria.length && (existing?.timestarted || (await this.hasStarted(userId, courseId)))) status = 'in_progress';
+    else if (criteria.length && (existing?.timeStarted || (await this.hasStarted(userId, courseId)))) status = 'in_progress';
     const row = await this.repo.upsertCourseCompletion({
-      userid: userId, course: courseId, status,
-      timeenrolled: existing?.timeenrolled ?? new Date(),
-      timestarted: status === 'not_started' ? null : (existing?.timestarted ?? new Date()),
-      timecompleted: complete ? (existing?.timecompleted ?? new Date()) : null,
+      userId: userId, course: courseId, status,
+      timeEnrolled: existing?.timeEnrolled ?? new Date(),
+      timeStarted: status === 'not_started' ? null : (existing?.timeStarted ?? new Date()),
+      timeCompleted: complete ? (existing?.timeCompleted ?? new Date()) : null,
     });
     if (complete && existing?.status !== 'complete') {
       for (const hook of this.courseCompletionHooks) {
@@ -391,10 +391,10 @@ export class CompletionService implements OnModuleInit {
    */
   async recalculateCourse(courseId: string): Promise<{ courseId: string; users: number }> {
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
-    const userIds = [...new Set(enrolments.map((e) => e.userid))];
+    const userIds = [...new Set(enrolments.map((e) => e.userId))];
     // Also include users who already have a stored course completion.
     for (const cc of await this.repo.listCourseCompletions(courseId)) {
-      if (!userIds.includes(cc.userid)) userIds.push(cc.userid);
+      if (!userIds.includes(cc.userId)) userIds.push(cc.userId);
     }
     for (const userId of userIds) await this.reaggregateCourseCompletion(userId, courseId);
     return { courseId, users: userIds.length };

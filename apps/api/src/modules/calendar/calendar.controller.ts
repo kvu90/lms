@@ -35,18 +35,18 @@ export class CalendarController {
    * GET /calendar/events — sự kiện của tôi trong khoảng thời gian.
    */
   async list(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
-    @Query('eventtype') eventtype: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.calendar.listEventsForUser(actor.id, { from, to, eventtype });
+    @Query('eventType') eventType: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.calendar.listEventsForUser(actor.id, { from, to, eventType });
   }
   @Get('export.ics')
   /**
    * GET /calendar/export.ics — tải file .ics chứa đúng các sự kiện tôi được
-   * thấy trong khoảng from/to (tuỳ chọn eventtype), cùng luật hiển thị với
+   * thấy trong khoảng from/to (tuỳ chọn eventType), cùng luật hiển thị với
    * GET /calendar/events.
    */
   async exportMine(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
-    @Query('eventtype') eventtype: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
-    this.sendIcs(res, await this.calendar.exportIcsForUser(actor.id, { from, to, eventtype }));
+    @Query('eventType') eventType: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    this.sendIcs(res, await this.calendar.exportIcsForUser(actor.id, { from, to, eventType }));
   }
   @Post('export-token')
   /**
@@ -79,10 +79,10 @@ export class CalendarController {
    * GET /calendar/export/:token.ics — tải .ics của chủ token mà không cần
    * đăng nhập; token sai/đã đổi/đã thu hồi trả 401.
    */
-  async exportByToken(@Param('filename') filename: string, @Query('from') from: string | undefined,
-    @Query('to') to: string | undefined, @Query('eventtype') eventtype: string | undefined, @Res() res: Response) {
-    const token = filename.endsWith('.ics') ? filename.slice(0, -'.ics'.length) : filename;
-    this.sendIcs(res, await this.calendar.exportIcsByToken(token, { from, to, eventtype }));
+  async exportByToken(@Param('filename') fileName: string, @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined, @Query('eventType') eventType: string | undefined, @Res() res: Response) {
+    const token = fileName.endsWith('.ics') ? fileName.slice(0, -'.ics'.length) : fileName;
+    this.sendIcs(res, await this.calendar.exportIcsByToken(token, { from, to, eventType }));
   }
   @Get('events/:id')
   /**

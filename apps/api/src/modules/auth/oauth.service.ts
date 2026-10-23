@@ -28,8 +28,8 @@ interface ProviderProfile {
   email: string;
   /** Provider có khẳng định email đã xác thực không (Google: `email_verified`; Facebook không công bố cờ này — email trả về từ Graph API được coi là đã xác thực, giống issuer dựng sẵn của Moodle). */
   emailVerified: boolean;
-  firstname: string;
-  lastname: string;
+  firstName: string;
+  lastName: string;
 }
 
 /** Định nghĩa một issuer dựng sẵn: điểm cuối mặc định (URL thật của provider) + scope xin tối thiểu để lấy email và họ tên. */
@@ -202,16 +202,16 @@ export class OAuthService {
         subject: String(raw.sub ?? ''),
         email,
         emailVerified: raw.email_verified === true,
-        firstname: typeof raw.given_name === 'string' ? raw.given_name : '',
-        lastname: typeof raw.family_name === 'string' ? raw.family_name : '',
+        firstName: typeof raw.given_name === 'string' ? raw.given_name : '',
+        lastName: typeof raw.family_name === 'string' ? raw.family_name : '',
       };
     }
     return {
       subject: String(raw.id ?? ''),
       email,
       emailVerified: true,
-      firstname: typeof raw.first_name === 'string' ? raw.first_name : '',
-      lastname: typeof raw.last_name === 'string' ? raw.last_name : '',
+      firstName: typeof raw.first_name === 'string' ? raw.first_name : '',
+      lastName: typeof raw.last_name === 'string' ? raw.last_name : '',
     };
   }
 
@@ -223,14 +223,14 @@ export class OAuthService {
   private async ensureLink(user: UserRow, issuer: OAuthIssuer, profile: ProviderProfile): Promise<UserOauthLinkRow> {
     const existing = await this.repo.getOauthLinkBySubject(issuer, profile.subject);
     if (existing) {
-      if (existing.userid !== user.id) throw new OAuthFlowException('auth.oauth_link_conflict');
+      if (existing.userId !== user.id) throw new OAuthFlowException('auth.oauth_link_conflict');
       return existing;
     }
     try {
-      return await this.repo.createOauthLink({ userid: user.id, issuer, issuerUserId: profile.subject, email: profile.email });
+      return await this.repo.createOauthLink({ userId: user.id, issuer, issuerUserId: profile.subject, email: profile.email });
     } catch {
       const raced = await this.repo.getOauthLinkBySubject(issuer, profile.subject);
-      if (raced && raced.userid === user.id) return raced;
+      if (raced && raced.userId === user.id) return raced;
       throw new OAuthFlowException('auth.oauth_link_conflict');
     }
   }
@@ -257,7 +257,7 @@ export class OAuthService {
     let user: UserRow;
     const linked = await this.repo.getOauthLinkBySubject(issuer, profile.subject);
     if (linked) {
-      user = await this.users.getUser(linked.userid);
+      user = await this.users.getUser(linked.userId);
     } else if (state.linkUserId) {
       // User đang đăng nhập xin liên kết: chính họ vừa chứng minh quyền
       // sở hữu tài khoản provider qua luồng authorize, nên liên kết được
@@ -271,7 +271,7 @@ export class OAuthService {
         await this.ensureLink(user, issuer, profile);
       } else {
         user = await this.users.createExternalUser({
-          email: profile.email, firstname: profile.firstname, lastname: profile.lastname,
+          email: profile.email, firstName: profile.firstName, lastName: profile.lastName,
         });
         await this.ensureLink(user, issuer, profile);
       }
@@ -324,7 +324,7 @@ export class OAuthService {
    */
   async unlink(userId: string, linkId: string): Promise<void> {
     const link = await this.repo.getOauthLinkById(linkId);
-    if (!link || link.userid !== userId) {
+    if (!link || link.userId !== userId) {
       throw new NotFoundException({ message: 'Linked login not found', code: 'auth.oauth_link_not_found' });
     }
     const user = await this.users.getUser(userId);

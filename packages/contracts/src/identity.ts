@@ -20,7 +20,7 @@ export const loginResponseSchema = tokenPairSchema.extend({
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 
 export const customFieldValueSchema = z.object({
-  shortname: z.string(),
+  shortName: z.string(),
   name: z.string(),
   type: z.string(),
   value: z.string().nullable(),
@@ -31,15 +31,15 @@ export type CustomFieldValue = z.infer<typeof customFieldValueSchema>;
 export const userProfileSchema = z.object({
   id: uuidIdSchema,
   username: z.string(),
-  firstname: z.string(),
-  lastname: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
   email: z.string().optional(),
   suspended: z.boolean(),
   deleted: z.boolean(),
   isGuest: z.boolean(),
   forcePasswordChange: z.boolean(),
-  lastlogin: z.string().nullable(),
-  timecreated: z.string(),
+  lastLogin: z.string().nullable(),
+  createdAt: z.string(),
   customFields: z.array(customFieldValueSchema),
 });
 export type UserProfile = z.infer<typeof userProfileSchema>;
@@ -55,7 +55,7 @@ export type UserListResponse = z.infer<typeof userListResponseSchema>;
 export const roleSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  shortname: z.string(),
+  shortName: z.string(),
   description: z.string(),
   archetype: z.string().nullable(),
 });
@@ -64,8 +64,8 @@ export type Role = z.infer<typeof roleSchema>;
 export const capabilitySchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  captype: z.string(),
-  contextlevel: z.number().int(),
+  capType: z.string(),
+  contextLevel: z.number().int(),
   component: z.string(),
 });
 export type Capability = z.infer<typeof capabilitySchema>;
@@ -78,8 +78,8 @@ export const CAP = { PROHIBIT: -1000, PREVENT: -1, INHERIT: 0, ALLOW: 1 } as con
 
 /** Payload tạo context truy cập (cây context của hệ thống phân quyền). */
 export const createContextSchema = z.strictObject({
-  contextlevel: z.number().int(),
-  instanceid: uuidIdSchema,
+  contextLevel: z.number().int(),
+  instanceId: uuidIdSchema,
   parentId: uuidIdSchema.optional(),
 });
 export type CreateContext = z.infer<typeof createContextSchema>;
@@ -87,7 +87,7 @@ export type CreateContext = z.infer<typeof createContextSchema>;
 /** Payload tạo role. */
 export const createRoleSchema = z.strictObject({
   name: z.string().min(1),
-  shortname: z.string().min(1),
+  shortName: z.string().min(1),
   description: z.string().optional(),
   archetype: z.string().optional(),
 });
@@ -102,26 +102,26 @@ export type UpdateRole = z.infer<typeof updateRoleSchema>;
 
 /** Payload gán role cho người dùng trong một context. */
 export const assignRoleSchema = z.strictObject({
-  userid: uuidIdSchema,
-  roleid: uuidIdSchema,
-  contextid: uuidIdSchema,
+  userId: uuidIdSchema,
+  roleId: uuidIdSchema,
+  contextId: uuidIdSchema,
 });
 export type AssignRole = z.infer<typeof assignRoleSchema>;
 
 /** Payload ghi đè quyền (capability override) của một role trong một context. */
 export const overrideCapabilitySchema = z.strictObject({
-  roleid: uuidIdSchema,
+  roleId: uuidIdSchema,
   capability: z.string(),
-  contextid: uuidIdSchema,
+  contextId: uuidIdSchema,
   permission: z.number().int(),
 });
 export type OverrideCapability = z.infer<typeof overrideCapabilitySchema>;
 
 /** Query kiểm tra quyền: người dùng có capability trong context hay không (dạng nền — phía server ép kiểu từ query string). */
 export const hasCapabilityQuerySchema = z.strictObject({
-  userid: uuidIdSchema,
+  userId: uuidIdSchema,
   capability: z.string(),
-  contextid: uuidIdSchema,
+  contextId: uuidIdSchema,
 });
 export type HasCapabilityQuery = z.infer<typeof hasCapabilityQuerySchema>;
 
@@ -130,8 +130,8 @@ export const createUserSchema = z.strictObject({
   username: z.string().min(1),
   email: z.email(),
   password: z.string().min(1),
-  firstname: z.string().optional(),
-  lastname: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   forcePasswordChange: z.boolean().optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
@@ -140,8 +140,8 @@ export type CreateUser = z.infer<typeof createUserSchema>;
 /** Payload sửa người dùng (mọi trường đều tuỳ chọn). */
 export const updateUserSchema = z.strictObject({
   email: z.email().optional(),
-  firstname: z.string().optional(),
-  lastname: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   password: z.string().optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
@@ -184,7 +184,7 @@ export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
 /** Payload đăng nhập thay (login-as) — chỉ quản trị viên có quyền mới dùng được. */
 export const loginAsSchema = z.strictObject({
-  userid: uuidIdSchema,
+  userId: uuidIdSchema,
 });
 export type LoginAs = z.infer<typeof loginAsSchema>;
 
@@ -344,12 +344,12 @@ export const createCustomFieldCategorySchema = z.strictObject({
 });
 export type CreateCustomFieldCategory = z.infer<typeof createCustomFieldCategorySchema>;
 
-/** Payload tạo trường tuỳ chỉnh; `configdata` là cấu hình riêng theo loại trường. */
+/** Payload tạo trường tuỳ chỉnh; `configData` là cấu hình riêng theo loại trường. */
 export const createCustomFieldSchema = z.strictObject({
-  categoryid: uuidIdSchema,
-  shortname: z.string(),
+  categoryId: uuidIdSchema,
+  shortName: z.string(),
   name: z.string(),
   type: z.string(),
-  configdata: z.record(z.string(), z.unknown()).optional(),
+  configData: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreateCustomField = z.infer<typeof createCustomFieldSchema>;

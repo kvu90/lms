@@ -69,7 +69,7 @@ export class PermissionEvaluator {
   private async evaluate(userId: string, capability: string, pathContexts: { id: string }[], opts?: { isGuest?: boolean }): Promise<boolean> {
     const pathIds = pathContexts.map((c) => c.id); // leaf → root
     const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
-    const roleIds = new Set<string>(assignments.map((a) => a.roleid));
+    const roleIds = new Set<string>(assignments.map((a) => a.roleId));
     // Moodle adds virtual default-role assignments: `user` for any logged-in
     // user, `guest` for the guest account — both anchored at the system context.
     const systemId = pathIds[pathIds.length - 1];
@@ -82,7 +82,7 @@ export class PermissionEvaluator {
     for (const roleId of roleIds) {
       const points: RoleOverridePoint[] = [];
       for (const contextId of pathIds) {
-        const o = overrides.find((x) => x.roleid === roleId && x.contextid === contextId);
+        const o = overrides.find((x) => x.roleId === roleId && x.contextId === contextId);
         if (o) points.push({ contextId, permission: o.permission });
       }
       roleResults.push(evaluateSingleRole(points));
@@ -115,10 +115,10 @@ export class PermissionEvaluator {
     const roleIds = new Set<string>();
     for (const a of assignments) {
       if (opts?.excludeArchetypes?.length) {
-        const roleRow = await this.repo.getRoleById(a.roleid);
+        const roleRow = await this.repo.getRoleById(a.roleId);
         if (roleRow?.archetype && opts.excludeArchetypes.includes(roleRow.archetype)) continue;
       }
-      roleIds.add(a.roleid);
+      roleIds.add(a.roleId);
     }
     if (roleIds.size === 0) return false;
     const overrides = await this.repo.getOverridesForRoles([...roleIds], capability, pathIds);
@@ -126,7 +126,7 @@ export class PermissionEvaluator {
     for (const roleId of roleIds) {
       const points: RoleOverridePoint[] = [];
       for (const cid of pathIds) {
-        const o = overrides.find((x) => x.roleid === roleId && x.contextid === cid);
+        const o = overrides.find((x) => x.roleId === roleId && x.contextId === cid);
         if (o) points.push({ contextId: cid, permission: o.permission });
       }
       roleResults.push(evaluateSingleRole(points));

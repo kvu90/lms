@@ -6,23 +6,23 @@ import { SocialRepository, type TagRow } from './social.repository';
 
 export interface TagAreaDefinition {
   component: string;
-  itemtype: string;
+  itemType: string;
   collection: string;
 }
 
 /**
  * Tag AREAS are registered in code (like Moodle's db/tag.php): an area says
- * which (component, itemtype) pairs may be tagged and in which collection.
+ * which (component, itemType) pairs may be tagged and in which collection.
  * Anything not registered is refused — the polymorphic API is open in SHAPE
  * but closed in vocabulary.
  */
 export const TAG_AREAS: TagAreaDefinition[] = [
-  { component: 'core', itemtype: 'course', collection: 'default' },
-  { component: 'core', itemtype: 'user', collection: 'default' },
-  { component: 'core', itemtype: 'course_modules', collection: 'default' },
-  { component: 'core_blog', itemtype: 'post', collection: 'default' },
-  { component: 'core_badges', itemtype: 'badge', collection: 'default' },
-  { component: 'core_competency', itemtype: 'competency', collection: 'default' },
+  { component: 'core', itemType: 'course', collection: 'default' },
+  { component: 'core', itemType: 'user', collection: 'default' },
+  { component: 'core', itemType: 'course_modules', collection: 'default' },
+  { component: 'core_blog', itemType: 'post', collection: 'default' },
+  { component: 'core_badges', itemType: 'badge', collection: 'default' },
+  { component: 'core_competency', itemType: 'competency', collection: 'default' },
 ];
 
 export function normalizeTagName(raw: string): string {
@@ -31,7 +31,7 @@ export function normalizeTagName(raw: string): string {
 
 /**
  * TagsModule (Moodle core_tag): tags + tag instances + correlations,
- * polymorphic over (component, itemtype, itemid, contextid) with NO foreign
+ * polymorphic over (component, itemType, itemId, contextId) with NO foreign
  * key to the tagged thing (report §2#16). Ordering is per item (oracle:
  * taglib_test test_add_tag_ordering_calculation). Correlations are the set
  * of tags co-occurring with a tag on the same items, recomputed on write.
@@ -56,12 +56,12 @@ export class TagsService {
    * actor must ALSO have real course access (enrolled or staff) — the same
    * enrol gate CoursesService enforces everywhere else.
    */
-  private async assertItemAccess(actorId: string, contextid: string): Promise<void> {
-    const ctx = await this.contexts.getContext(contextid).catch(() => undefined);
+  private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
+    const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
     if (!ctx) return;
-    if (ctx.contextlevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceid!);
-    if (ctx.contextlevel === 70) {
-      const cm = await this.courses.getCm(ctx.instanceid!);
+    if (ctx.contextLevel === 50) await this.courses.assertCourseAccess(actorId, ctx.instanceId!);
+    if (ctx.contextLevel === 70) {
+      const cm = await this.courses.getCm(ctx.instanceId!);
       await this.courses.assertCourseAccess(actorId, cm.course);
     }
   }
@@ -78,21 +78,21 @@ export class TagsService {
     return this.repo.listCollections();
   }
 
-  private assertArea(component: string, itemtype: string): void {
-    if (!TAG_AREAS.some((a) => a.component === component && a.itemtype === itemtype)) {
+  private assertArea(component: string, itemType: string): void {
+    if (!TAG_AREAS.some((a) => a.component === component && a.itemType === itemType)) {
       throw new BadRequestException({
-        message: `No tag area registered for ${component}/${itemtype}`,
+        message: `No tag area registered for ${component}/${itemType}`,
         code: 'tags.area_not_registered',
       });
     }
   }
 
-  private async getOrCreateTag(actorId: string, rawname: string): Promise<TagRow> {
+  private async getOrCreateTag(actorId: string, rawName: string): Promise<TagRow> {
     const collId = await this.repo.ensureDefaultCollection();
-    const name = normalizeTagName(rawname);
+    const name = normalizeTagName(rawName);
     const existing = await this.repo.findTag(collId, name);
     if (existing) return existing;
-    return this.repo.insertTag({ userid: actorId, tagcollid: collId, name, rawname: rawname.trim() });
+    return this.repo.insertTag({ userId: actorId, tagCollId: collId, name, rawName: rawName.trim() });
   }
 
   /** set_item_tags: replace the tag set of one item (oracle: taglib_test test_add_remove_item_tag). */
@@ -100,12 +100,12 @@ export class TagsService {
    * Đặt toàn bộ tag của item (thay thế).
    */
   async setItemTags(actorId: string, input: {
-    component: string; itemtype: string; itemid: string; contextid: string; tags: string[];
+    component: string; itemType: string; itemId: string; contextId: string; tags: string[];
   }): Promise<{ tags: (TagRow & { ordering: number })[] }> {
-    this.assertArea(input.component, input.itemtype);
-    await this.evaluator.requireCapability(actorId, 'moodle/tag:edit', input.contextid);
-    await this.assertItemAccess(actorId, input.contextid);
-    await this.repo.deleteInstancesForItem(input.component, input.itemtype, input.itemid, input.contextid);
+    this.assertArea(input.component, input.itemType);
+    await this.evaluator.requireCapability(actorId, 'moodle/tag:edit', input.contextId);
+    await this.assertItemAccess(actorId, input.contextId);
+    await this.repo.deleteInstancesForItem(input.component, input.itemType, input.itemId, input.contextId);
     const seen = new Set<string>();
     const result: (TagRow & { ordering: number })[] = [];
     let ordering = 0;
@@ -116,8 +116,8 @@ export class TagsService {
       ordering += 1;
       const tagRow = await this.getOrCreateTag(actorId, raw);
       const instance = await this.repo.insertInstance({
-        tagid: tagRow.id, component: input.component, itemtype: input.itemtype,
-        itemid: input.itemid, contextid: input.contextid, tiuserid: null, ordering,
+        tagId: tagRow.id, component: input.component, itemType: input.itemType,
+        itemId: input.itemId, contextId: input.contextId, tiUserId: null, ordering,
       });
       result.push({ ...tagRow, ordering: instance.ordering });
     }
@@ -129,8 +129,8 @@ export class TagsService {
   /**
    * Gắn thêm một tag vào item.
    */
-  async addItemTag(actorId: string, input: { component: string; itemtype: string; itemid: string; contextid: string; tag: string }) {
-    const current = await this.listItemTags(input.component, input.itemtype, input.itemid);
+  async addItemTag(actorId: string, input: { component: string; itemType: string; itemId: string; contextId: string; tag: string }) {
+    const current = await this.listItemTags(input.component, input.itemType, input.itemId);
     const names = current.map((t) => t.name);
     if (!names.includes(normalizeTagName(input.tag))) names.push(normalizeTagName(input.tag));
     return this.setItemTags(actorId, { ...input, tags: names });
@@ -139,11 +139,11 @@ export class TagsService {
   /**
    * Tag của item.
    */
-  async listItemTags(component: string, itemtype: string, itemid: string): Promise<(TagRow & { ordering: number })[]> {
-    const instances = await this.repo.listInstancesForItem(component, itemtype, itemid);
+  async listItemTags(component: string, itemType: string, itemId: string): Promise<(TagRow & { ordering: number })[]> {
+    const instances = await this.repo.listInstancesForItem(component, itemType, itemId);
     const out: (TagRow & { ordering: number })[] = [];
     for (const instance of instances) {
-      const tagRow = await this.repo.getTag(instance.tagid);
+      const tagRow = await this.repo.getTag(instance.tagId);
       if (tagRow) out.push({ ...tagRow, ordering: instance.ordering });
     }
     return out;
@@ -152,9 +152,9 @@ export class TagsService {
   /**
    * Gỡ một tag khỏi item.
    */
-  async removeItemTag(actorId: string, input: { component: string; itemtype: string; itemid: string; contextid: string; tag: string }) {
-    const current = await this.listItemTags(input.component, input.itemtype, input.itemid);
-    const remaining = current.filter((t) => t.name !== normalizeTagName(input.tag)).map((t) => t.rawname);
+  async removeItemTag(actorId: string, input: { component: string; itemType: string; itemId: string; contextId: string; tag: string }) {
+    const current = await this.listItemTags(input.component, input.itemType, input.itemId);
+    const remaining = current.filter((t) => t.name !== normalizeTagName(input.tag)).map((t) => t.rawName);
     return this.setItemTags(actorId, { ...input, tags: remaining });
   }
 
@@ -164,9 +164,9 @@ export class TagsService {
       const instances = await this.repo.listInstancesForTag(tagId);
       const correlated = new Set<string>();
       for (const instance of instances) {
-        const siblings = await this.repo.listInstancesForItem(instance.component, instance.itemtype, instance.itemid);
+        const siblings = await this.repo.listInstancesForItem(instance.component, instance.itemType, instance.itemId);
         for (const sibling of siblings) {
-          if (sibling.tagid !== tagId) correlated.add(sibling.tagid);
+          if (sibling.tagId !== tagId) correlated.add(sibling.tagId);
         }
       }
       await this.repo.upsertCorrelation(tagId, [...correlated].sort().join(','));
@@ -176,13 +176,13 @@ export class TagsService {
   /**
    * Tag liên quan (đồng xuất hiện nhiều) với tag cho trước.
    */
-  async getCorrelated(tagId: string): Promise<{ tagid: string; correlatedtags: string[] }> {
+  async getCorrelated(tagId: string): Promise<{ tagId: string; correlatedTags: string[] }> {
     const tagRow = await this.repo.getTag(tagId);
     if (!tagRow) throw new NotFoundException({ message: `Tag ${tagId} not found`, code: 'tags.not_found' });
     const row = await this.repo.getCorrelation(tagId);
     return {
-      tagid: tagId,
-      correlatedtags: row?.correlatedtags ? row.correlatedtags.split(',').filter(Boolean) : [],
+      tagId: tagId,
+      correlatedTags: row?.correlatedTags ? row.correlatedTags.split(',').filter(Boolean) : [],
     };
   }
 }

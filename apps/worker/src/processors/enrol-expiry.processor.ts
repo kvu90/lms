@@ -11,7 +11,7 @@ type Database = NodePgDatabase<typeof relations>;
 export interface EnrolExpiryResult { checkedAt: string; suspendedIds: string[] }
 
 /**
- * Enrolment expiry: ACTIVE user_enrolments whose timeend has passed
+ * Enrolment expiry: ACTIVE user_enrolments whose timeEnd has passed
  * are flipped to SUSPENDED and a user_enrolment_suspended outbox event is
  * written in the same transaction per row. Access is ALSO denied at read
  * time by the API's isEnrolled(onlyActive) time-window check, so a delayed
@@ -31,14 +31,14 @@ export class EnrolExpiryProcessor extends WorkerHost {
     void _job;
     const now = new Date();
     const expired = await this.db.select().from(userEnrolments)
-      .where(and(eq(userEnrolments.status, 0), lt(userEnrolments.timeend, now)));
+      .where(and(eq(userEnrolments.status, 0), lt(userEnrolments.timeEnd, now)));
     const suspendedIds: string[] = [];
     for (const ue of expired) {
       await this.db.transaction(async (tx) => {
-        await tx.update(userEnrolments).set({ status: 1, timemodified: now }).where(eq(userEnrolments.id, ue.id));
+        await tx.update(userEnrolments).set({ status: 1, updatedAt: now }).where(eq(userEnrolments.id, ue.id));
         await tx.insert(outboxEvents).values({
           aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { userId: ue.userid, enrolmentId: ue.id, enrolid: ue.enrolid, reason: 'expired' },
+          payload: { userId: ue.userId, enrolmentId: ue.id, enrolId: ue.enrolId, reason: 'expired' },
         });
       });
       suspendedIds.push(ue.id);

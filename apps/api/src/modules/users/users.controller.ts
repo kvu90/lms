@@ -21,7 +21,7 @@ export class UsersController {
    */
   async create(@Body({ schema: createUserSchema }) dto: CreateUserDto) {
     const user = await this.users.createUser(dto);
-    return { id: user.id, username: user.username, email: user.email, firstname: user.firstname, lastname: user.lastname };
+    return { id: user.id, username: user.username, email: user.email, firstName: user.firstName, lastName: user.lastName };
   }
 
   @Get()

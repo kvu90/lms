@@ -10,28 +10,28 @@ import { apiJson } from '@/lib/api';
 interface SearchDoc {
   id: string;
   area: string;
-  itemid: string;
+  itemId: string;
   title: string;
   content: string;
 }
 interface ServiceView {
   id: string;
   name: string;
-  shortname: string;
+  shortName: string;
   enabled: boolean;
   functions: string[];
 }
 interface TokenView {
   id: string;
-  userid: string;
-  serviceid: string;
+  userId: string;
+  serviceId: string;
   revoked: boolean;
 }
 interface BackupJob {
   id: string;
   type: string;
-  courseid: string;
-  targetcourseid: string | null;
+  courseId: string;
+  targetCourseId: string | null;
   mode: string;
   status: string;
 }
@@ -42,26 +42,26 @@ interface BackupStep {
 }
 interface InsightView {
   id: string;
-  userid: string;
+  userId: string;
   heading: string;
-  courseid: string;
+  courseId: string;
 }
 interface ReportView {
   id: string;
   name: string;
-  datasource: string;
+  dataSource: string;
   columns: string[];
 }
 interface ContentView {
   id: string;
   name: string;
   visibility: string;
-  contextid: string;
-  fileid: string | null;
+  contextId: string;
+  fileId: string | null;
 }
 interface PrivacyRequestView {
   id: string;
-  userid: string;
+  userId: string;
   type: string;
   status: string;
 }
@@ -105,7 +105,7 @@ export function SearchPage() {
               <li key={d.id} className="rounded border p-2">
                 <p className="font-medium">{d.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  {d.area} · item {d.itemid}
+                  {d.area} · item {d.itemId}
                 </p>
                 <p className="text-sm">{d.content}</p>
               </li>
@@ -140,16 +140,16 @@ export function TokensPage() {
     event.preventDefault();
     await apiJson('/api/v1/webservice/services', {
       method: 'POST',
-      body: JSON.stringify({ name, shortname: `svc${Date.now()}`, functions: ['core_course_get_courses'] }),
+      body: JSON.stringify({ name, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses'] }),
     });
     setName('');
     await reload();
   }
-  async function createToken(serviceid: string) {
+  async function createToken(serviceId: string) {
     const me = await apiJson<{ id: string }>('/api/v1/users/me');
     const created = await apiJson<{ token: string }>('/api/v1/webservice/tokens', {
       method: 'POST',
-      body: JSON.stringify({ userid: me.id, serviceid }),
+      body: JSON.stringify({ userId: me.id, serviceId }),
     });
     setCreatedToken(created.token);
     await reload();
@@ -193,7 +193,7 @@ export function TokensPage() {
             {tokens.map((t) => (
               <li key={t.id} className="flex items-center gap-3 rounded border p-2">
                 <span>
-                  Token #{t.id} for user {t.userid} {t.revoked ? '(revoked)' : ''}
+                  Token #{t.id} for user {t.userId} {t.revoked ? '(revoked)' : ''}
                 </span>
                 {!t.revoked ? (
                   <Button type="button" variant="outline" onClick={() => void revoke(t.id)}>
@@ -256,8 +256,8 @@ export function BackupPage() {
             {jobs.map((j) => (
               <li key={j.id} className="flex items-center gap-3 rounded border p-2">
                 <span>
-                  {t('jobLine', { type: j.type, id: j.id, courseid: j.courseid, status: j.status })}
-                  {j.targetcourseid ? ` → ${j.targetcourseid}` : ''}
+                  {t('jobLine', { type: j.type, id: j.id, courseId: j.courseId, status: j.status })}
+                  {j.targetCourseId ? ` → ${j.targetCourseId}` : ''}
                 </span>
                 <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>
                   {t('steps')}
@@ -304,7 +304,7 @@ export function InsightsPage() {
               <li key={i.id} className="rounded border p-2">
                 <p className="font-medium">{i.heading}</p>
                 <p className="text-sm">
-                  Student {i.userid} · course {i.courseid}
+                  Student {i.userId} · course {i.courseId}
                 </p>
               </li>
             ))}
@@ -316,12 +316,12 @@ export function InsightsPage() {
   );
 }
 
-/** Report builder tối thiểu (platform services): chọn datasource/column, xem kết quả, đặt lịch. */
+/** Report builder tối thiểu (platform services): chọn dataSource/column, xem kết quả, đặt lịch. */
 export function ReportsPage() {
   const { t: t } = useTranslation();
   const [reports, setReports] = useState<ReportView[]>([]);
   const [name, setName] = useState('');
-  const [datasource, setDatasource] = useState('enrolments');
+  const [dataSource, setDatasource] = useState('enrolments');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const reload = useCallback(async () => {
     setReports(await apiJson<ReportView[]>('/api/v1/reports'));
@@ -333,7 +333,7 @@ export function ReportsPage() {
     event.preventDefault();
     await apiJson('/api/v1/reports', {
       method: 'POST',
-      body: JSON.stringify({ name, datasource, columns: ['userId', 'courseId', 'status'], filters: {} }),
+      body: JSON.stringify({ name, dataSource, columns: ['userId', 'courseId', 'status'], filters: {} }),
     });
     setName('');
     await reload();
@@ -363,9 +363,9 @@ export function ReportsPage() {
               placeholder={t('reportName')}
             />
             <Label htmlFor="report-datasource" className="sr-only">
-              {t('datasource')}
+              {t('dataSource')}
             </Label>
-            <select id="report-datasource" value={datasource} onChange={(e) => setDatasource(e.target.value)}>
+            <select id="report-datasource" value={dataSource} onChange={(e) => setDatasource(e.target.value)}>
               <option value="enrolments">{t('dsEnrolments')}</option>
               <option value="grades">{t('dsGrades')}</option>
               <option value="completion">{t('dsCompletion')}</option>
@@ -376,7 +376,7 @@ export function ReportsPage() {
             {reports.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded border p-2">
                 <span>
-                  {r.name} ({r.datasource})
+                  {r.name} ({r.dataSource})
                 </span>
                 <Button type="button" variant="outline" onClick={() => void run(r.id)}>
                   {t('run')}
@@ -406,7 +406,7 @@ export function ContentBankPage() {
   const [name, setName] = useState('');
   const [contextId, setContextId] = useState('');
   const reload = useCallback(async () => {
-    const path = contextId ? `/api/v1/contentbank?contextid=${contextId}` : '/api/v1/contentbank';
+    const path = contextId ? `/api/v1/contentbank?contextId=${contextId}` : '/api/v1/contentbank';
     setItems(await apiJson<ContentView[]>(path));
   }, [contextId]);
   useEffect(() => {
@@ -416,7 +416,7 @@ export function ContentBankPage() {
     event.preventDefault();
     await apiJson('/api/v1/contentbank', {
       method: 'POST',
-      body: JSON.stringify({ name, contextid: contextId, visibility: 'public' }),
+      body: JSON.stringify({ name, contextId: contextId, visibility: 'public' }),
     });
     setName('');
     await reload();
@@ -425,9 +425,9 @@ export function ContentBankPage() {
     await apiJson(`/api/v1/contentbank/${id}/file`, {
       method: 'POST',
       body: JSON.stringify({
-        filename: 'file.txt',
+        fileName: 'file.txt',
         contentBase64: btoa('content bank upload'),
-        mimetype: 'text/plain',
+        mimeType: 'text/plain',
       }),
     });
     await reload();
@@ -518,7 +518,7 @@ export function PrivacyPage() {
           <ul aria-label={t('privacyRequests')} className="space-y-2">
             {requests.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded border p-2">
-                <span>{t('requestLine', { id: r.id, userid: r.userid, type: r.type, status: r.status })}</span>
+                <span>{t('requestLine', { id: r.id, userId: r.userId, type: r.type, status: r.status })}</span>
                 {r.status === 'pending' ? (
                   <>
                     <Button type="button" variant="outline" onClick={() => void decide(r.id, 'approved')}>

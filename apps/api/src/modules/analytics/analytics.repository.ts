@@ -34,7 +34,7 @@ export class AnalyticsRepository {
     const [row] = await this.db.insert(insights).values(v).returning(); return row!;
   }
   async listInsights(): Promise<InsightRow[]> { return this.db.select().from(insights); }
-  async listInsightsForRecipient(recipientid: string): Promise<InsightRow[]> {
-    return this.db.select().from(insights).where(eq(insights.recipientid, recipientid));
+  async listInsightsForRecipient(recipientId: string): Promise<InsightRow[]> {
+    return this.db.select().from(insights).where(eq(insights.recipientId, recipientId));
   }
 }

@@ -35,13 +35,13 @@ export class CoursesRepository {
    * Liệt kê mọi category.
    */
   async listCategories(): Promise<CategoryRow[]> {
-    return this.db.select().from(courseCategories).orderBy(asc(courseCategories.sortorder), asc(courseCategories.id));
+    return this.db.select().from(courseCategories).orderBy(asc(courseCategories.sortOrder), asc(courseCategories.id));
   }
   /**
    * Các category con trực tiếp của một category.
    */
   async childrenOf(parent: string): Promise<CategoryRow[]> {
-    return this.db.select().from(courseCategories).where(eq(courseCategories.parent, parent)).orderBy(asc(courseCategories.sortorder));
+    return this.db.select().from(courseCategories).where(eq(courseCategories.parent, parent)).orderBy(asc(courseCategories.sortOrder));
   }
   /** Category and all descendants via path prefix (path is like /1/4/9). */
   /**
@@ -55,7 +55,7 @@ export class CoursesRepository {
    * Cập nhật category.
    */
   async updateCategory(id: string, v: Partial<typeof courseCategories.$inferInsert>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(courseCategories).set({ ...v, timemodified: new Date() }).where(eq(courseCategories.id, id));
+    await (tx ?? this.db).update(courseCategories).set({ ...v, updatedAt: new Date() }).where(eq(courseCategories.id, id));
   }
   /**
    * Viết lại path/depth khi di chuyển category.
@@ -70,7 +70,7 @@ export class CoursesRepository {
     await (tx ?? this.db).delete(courseCategories).where(eq(courseCategories.id, id));
   }
   /**
-   * Số category anh em (phục vụ sortorder).
+   * Số category anh em (phục vụ sortOrder).
    */
   async countSiblingCategories(parent: string | null): Promise<number> {
     const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(courseCategories).where(parent === null ? isNull(courseCategories.parent) : eq(courseCategories.parent, parent));
@@ -91,10 +91,10 @@ export class CoursesRepository {
     const [row] = await this.db.select().from(course).where(eq(course.id, id)); return row;
   }
   /**
-   * Lấy khoá học theo shortname duy nhất.
+   * Lấy khoá học theo shortName duy nhất.
    */
-  async getCourseByShortname(shortname: string): Promise<CourseRow | undefined> {
-    const [row] = await this.db.select().from(course).where(eq(course.shortname, shortname)); return row;
+  async getCourseByShortname(shortName: string): Promise<CourseRow | undefined> {
+    const [row] = await this.db.select().from(course).where(eq(course.shortName, shortName)); return row;
   }
   /**
    * Liệt kê khoá học.
@@ -102,7 +102,7 @@ export class CoursesRepository {
   async listCourses(categoryId?: string): Promise<CourseRow[]> {
     return this.db.select().from(course)
       .where(categoryId !== undefined ? eq(course.category, categoryId) : undefined)
-      .orderBy(asc(course.sortorder), asc(course.id));
+      .orderBy(asc(course.sortOrder), asc(course.id));
   }
   /**
    * Khoá học thuộc các category cho trước.
@@ -117,7 +117,7 @@ export class CoursesRepository {
    * Cập nhật khoá học.
    */
   async updateCourse(id: string, v: Partial<typeof course.$inferInsert>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(course).set({ ...v, timemodified: new Date() }).where(eq(course.id, id));
+    await (tx ?? this.db).update(course).set({ ...v, updatedAt: new Date() }).where(eq(course.id, id));
   }
   /**
    * Xoá khoá học.
@@ -149,7 +149,7 @@ export class CoursesRepository {
    * Cập nhật section (tên, summary, availability JSON).
    */
   async updateSection(id: string, v: Partial<typeof courseSections.$inferInsert>): Promise<void> {
-    await this.db.update(courseSections).set({ ...v, timemodified: new Date() }).where(eq(courseSections.id, id));
+    await this.db.update(courseSections).set({ ...v, updatedAt: new Date() }).where(eq(courseSections.id, id));
   }
   /**
    * Xoá section.
@@ -173,13 +173,13 @@ export class CoursesRepository {
    * Liệt kê mọi cm của khoá học.
    */
   async listCms(courseId: string): Promise<CmRow[]> {
-    return this.db.select().from(courseModules).where(and(eq(courseModules.course, courseId), eq(courseModules.deletioninprogress, false))).orderBy(asc(courseModules.id));
+    return this.db.select().from(courseModules).where(and(eq(courseModules.course, courseId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.id));
   }
   /**
    * Cm trong một section.
    */
   async listCmsInSection(sectionId: string): Promise<CmRow[]> {
-    return this.db.select().from(courseModules).where(and(eq(courseModules.section, sectionId), eq(courseModules.deletioninprogress, false))).orderBy(asc(courseModules.id));
+    return this.db.select().from(courseModules).where(and(eq(courseModules.section, sectionId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.id));
   }
   /**
    * Cập nhật cm.
@@ -198,27 +198,27 @@ export class CoursesRepository {
   /**
    * Ghi một tuỳ chọn định dạng khoá học (format option).
    */
-  async setFormatOption(courseid: string, format: string, name: string, value: string | null, sectionid: string | null = null): Promise<void> {
-    if (sectionid === null) {
-      // sectionid NULL không tham gia unique conflict (NULL luôn khác nhau trong PostgreSQL) nên upsert thủ công cho tuỳ chọn cấp khoá học.
+  async setFormatOption(courseId: string, format: string, name: string, value: string | null, sectionId: string | null = null): Promise<void> {
+    if (sectionId === null) {
+      // sectionId NULL không tham gia unique conflict (NULL luôn khác nhau trong PostgreSQL) nên upsert thủ công cho tuỳ chọn cấp khoá học.
       const [existing] = await this.db.select().from(courseFormatOptions).where(and(
-        eq(courseFormatOptions.courseid, courseid), eq(courseFormatOptions.format, format),
-        isNull(courseFormatOptions.sectionid), eq(courseFormatOptions.name, name),
+        eq(courseFormatOptions.courseId, courseId), eq(courseFormatOptions.format, format),
+        isNull(courseFormatOptions.sectionId), eq(courseFormatOptions.name, name),
       ));
       if (existing) {
         await this.db.update(courseFormatOptions).set({ value }).where(eq(courseFormatOptions.id, existing.id));
         return;
       }
-      await this.db.insert(courseFormatOptions).values({ courseid, format, name, value, sectionid });
+      await this.db.insert(courseFormatOptions).values({ courseId, format, name, value, sectionId });
       return;
     }
-    await this.db.insert(courseFormatOptions).values({ courseid, format, name, value, sectionid })
-      .onConflictDoUpdate({ target: [courseFormatOptions.courseid, courseFormatOptions.format, courseFormatOptions.sectionid, courseFormatOptions.name], set: { value } });
+    await this.db.insert(courseFormatOptions).values({ courseId, format, name, value, sectionId })
+      .onConflictDoUpdate({ target: [courseFormatOptions.courseId, courseFormatOptions.format, courseFormatOptions.sectionId, courseFormatOptions.name], set: { value } });
   }
   /**
    * Đọc các tuỳ chọn định dạng của khoá học.
    */
-  async listFormatOptions(courseid: string): Promise<(typeof courseFormatOptions.$inferSelect)[]> {
-    return this.db.select().from(courseFormatOptions).where(eq(courseFormatOptions.courseid, courseid));
+  async listFormatOptions(courseId: string): Promise<(typeof courseFormatOptions.$inferSelect)[]> {
+    return this.db.select().from(courseFormatOptions).where(eq(courseFormatOptions.courseId, courseId));
   }
 }

@@ -31,17 +31,17 @@ export class BlogService {
   /**
    * Tạo bài blog.
    */
-  async createPost(actorId: string, input: { subject: string; summary?: string; content: string; publishstate?: string }): Promise<BlogPostRow> {
+  async createPost(actorId: string, input: { subject: string; summary?: string; content: string; publishState?: string }): Promise<BlogPostRow> {
     const userCtx = await this.contexts.getByLevelInstance(30, actorId);
     const systemCtx = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'moodle/blog:create', userCtx?.id ?? systemCtx.id);
-    const publishstate = input.publishstate ?? 'draft';
-    if (!['draft', 'site'].includes(publishstate)) {
-      throw new ForbiddenException({ message: `Unknown publishstate ${publishstate}`, code: 'blog.bad_publishstate' });
+    const publishState = input.publishState ?? 'draft';
+    if (!['draft', 'site'].includes(publishState)) {
+      throw new ForbiddenException({ message: `Unknown publishState ${publishState}`, code: 'blog.bad_publishstate' });
     }
     return this.repo.insertPost({
-      userid: actorId, subject: input.subject, summary: input.summary ?? '',
-      content: input.content, publishstate,
+      userId: actorId, subject: input.subject, summary: input.summary ?? '',
+      content: input.content, publishState,
     });
   }
 
@@ -57,22 +57,22 @@ export class BlogService {
   /**
    * Liên kết bài với khoá học/module.
    */
-  async associate(actorId: string, postId: string, input: { assoctype: 'course' | 'coursemodule'; associd: string }): Promise<{ postId: string; associations: unknown }> {
+  async associate(actorId: string, postId: string, input: { assocType: 'course' | 'coursemodule'; assocId: string }): Promise<{ postId: string; associations: unknown }> {
     const post = await this.getPost(postId);
-    if (post.userid !== actorId) {
-      const userCtx = await this.contexts.getByLevelInstance(30, post.userid);
+    if (post.userId !== actorId) {
+      const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
       const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can associate this post', code: 'blog.associate_forbidden' });
     }
-    let contextid: string;
-    if (input.assoctype === 'course') {
-      await this.courses.getCourse(input.associd);
-      contextid = await this.courses.courseContextId(input.associd);
+    let contextId: string;
+    if (input.assocType === 'course') {
+      await this.courses.getCourse(input.assocId);
+      contextId = await this.courses.courseContextId(input.assocId);
     } else {
-      const cm = await this.courses.getCm(input.associd);
-      contextid = (await this.courses.cmContextId(cm.id)) ?? await this.courses.courseContextId(cm.course);
+      const cm = await this.courses.getCm(input.assocId);
+      contextId = (await this.courses.cmContextId(cm.id)) ?? await this.courses.courseContextId(cm.course);
     }
-    await this.repo.addAssociation({ blogid: postId, contextid, assoctype: input.assoctype, associd: input.associd });
+    await this.repo.addAssociation({ blogId: postId, contextId, assocType: input.assocType, assocId: input.assocId });
     return { postId, associations: await this.repo.listAssociations(postId) };
   }
 
@@ -80,17 +80,17 @@ export class BlogService {
    * User có được xem bài này hay không.
    */
   async canView(post: BlogPostRow, viewerId: string): Promise<boolean> {
-    if (post.userid === viewerId) return true;
+    if (post.userId === viewerId) return true;
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
-    if (post.publishstate === 'draft') return false;
+    if (post.publishState === 'draft') return false;
     const systemCtx = await this.contexts.ensureSystemContext();
     if (!(await this.evaluator.hasCapability(viewerId, 'moodle/blog:view', systemCtx.id))) return false;
     const associations = await this.repo.listAssociations(post.id);
-    const courseAssociations = associations.filter((a) => a.assoctype === 'course');
+    const courseAssociations = associations.filter((a) => a.assocType === 'course');
     if (!courseAssociations.length) return true;
     // Course-associated public posts narrow the audience to course members.
     for (const assoc of courseAssociations) {
-      if (await this.enrol.isEnrolled(assoc.associd, viewerId, { onlyActive: true })) return true;
+      if (await this.enrol.isEnrolled(assoc.assocId, viewerId, { onlyActive: true })) return true;
     }
     return false;
   }
@@ -98,34 +98,34 @@ export class BlogService {
   /**
    * Liệt kê bài blog được phép xem.
    */
-  async listPosts(viewerId: string, filter: { userid?: string; courseid?: string; cmid?: string }): Promise<(BlogPostRow & { associations: unknown; contextid: string | null })[]> {
+  async listPosts(viewerId: string, filter: { userId?: string; courseId?: string; cmid?: string }): Promise<(BlogPostRow & { associations: unknown; contextId: string | null })[]> {
     let candidates: BlogPostRow[];
-    if (filter.courseid) {
-      const assocs = await this.repo.listAssociationsForTarget('course', filter.courseid);
+    if (filter.courseId) {
+      const assocs = await this.repo.listAssociationsForTarget('course', filter.courseId);
       candidates = [];
       for (const a of assocs) {
-        const post = await this.repo.getPost(a.blogid);
+        const post = await this.repo.getPost(a.blogId);
         if (post) candidates.push(post);
       }
     } else if (filter.cmid) {
       const assocs = await this.repo.listAssociationsForTarget('coursemodule', filter.cmid);
       candidates = [];
       for (const a of assocs) {
-        const post = await this.repo.getPost(a.blogid);
+        const post = await this.repo.getPost(a.blogId);
         if (post) candidates.push(post);
       }
-    } else if (filter.userid) {
-      candidates = await this.repo.listPostsByUser(filter.userid);
+    } else if (filter.userId) {
+      candidates = await this.repo.listPostsByUser(filter.userId);
     } else {
       candidates = await this.repo.listPosts();
     }
-    const out: (BlogPostRow & { associations: unknown; contextid: string | null })[] = [];
+    const out: (BlogPostRow & { associations: unknown; contextId: string | null })[] = [];
     for (const post of candidates) {
       if (await this.canView(post, viewerId)) {
-        // contextid = the author's user context, so polymorphic consumers
+        // contextId = the author's user context, so polymorphic consumers
         // (tags/comments/ratings) can address the post without guessing.
-        const authorCtx = await this.contexts.getByLevelInstance(30, post.userid);
-        out.push({ ...post, associations: await this.repo.listAssociations(post.id), contextid: authorCtx?.id ?? null });
+        const authorCtx = await this.contexts.getByLevelInstance(30, post.userId);
+        out.push({ ...post, associations: await this.repo.listAssociations(post.id), contextId: authorCtx?.id ?? null });
       }
     }
     return out;
@@ -134,10 +134,10 @@ export class BlogService {
   /**
    * Cập nhật bài của chính mình.
    */
-  async updatePost(actorId: string, id: string, input: { subject?: string; summary?: string; content?: string; publishstate?: string }): Promise<BlogPostRow> {
+  async updatePost(actorId: string, id: string, input: { subject?: string; summary?: string; content?: string; publishState?: string }): Promise<BlogPostRow> {
     const post = await this.getPost(id);
-    if (post.userid !== actorId) {
-      const userCtx = await this.contexts.getByLevelInstance(30, post.userid);
+    if (post.userId !== actorId) {
+      const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
       const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can edit this post', code: 'blog.edit_forbidden' });
     }
@@ -145,7 +145,7 @@ export class BlogService {
     if (input.subject !== undefined) patch.subject = input.subject;
     if (input.summary !== undefined) patch.summary = input.summary;
     if (input.content !== undefined) patch.content = input.content;
-    if (input.publishstate !== undefined) patch.publishstate = input.publishstate;
+    if (input.publishState !== undefined) patch.publishState = input.publishState;
     await this.repo.updatePost(id, patch);
     return this.getPost(id);
   }
@@ -155,8 +155,8 @@ export class BlogService {
    */
   async deletePost(actorId: string, id: string): Promise<{ deleted: boolean }> {
     const post = await this.getPost(id);
-    if (post.userid !== actorId) {
-      const userCtx = await this.contexts.getByLevelInstance(30, post.userid);
+    if (post.userId !== actorId) {
+      const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
       const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can delete this post', code: 'blog.delete_forbidden' });
     }

@@ -37,7 +37,7 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
   if (!user) return null;
-  const name = `${user.firstname} ${user.lastname}`.trim() || user.username;
+  const name = `${user.firstName} ${user.lastName}`.trim() || user.username;
   return (
     <SidebarMenu>
       <SidebarMenuItem>

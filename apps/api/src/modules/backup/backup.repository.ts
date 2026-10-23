@@ -26,24 +26,24 @@ export class BackupRepository {
   async insertStep(v: typeof backupJobSteps.$inferInsert): Promise<StepRow> {
     const [row] = await this.db.insert(backupJobSteps).values(v).returning(); return row!;
   }
-  async listSteps(jobid: string): Promise<StepRow[]> {
-    return this.db.select().from(backupJobSteps).where(eq(backupJobSteps.jobid, jobid));
+  async listSteps(jobId: string): Promise<StepRow[]> {
+    return this.db.select().from(backupJobSteps).where(eq(backupJobSteps.jobId, jobId));
   }
   async updateStep(id: string, v: Partial<typeof backupJobSteps.$inferInsert>): Promise<void> {
     await this.db.update(backupJobSteps).set(v).where(eq(backupJobSteps.id, id));
   }
   async insertMapping(v: typeof backupIdMappings.$inferInsert): Promise<MappingRow> {
     const [row] = await this.db.insert(backupIdMappings).values(v)
-      .onConflictDoUpdate({ target: [backupIdMappings.jobid, backupIdMappings.itemtype, backupIdMappings.oldid], set: { newid: v.newid } })
+      .onConflictDoUpdate({ target: [backupIdMappings.jobId, backupIdMappings.itemType, backupIdMappings.oldId], set: { newId: v.newId } })
       .returning();
     return row!;
   }
-  async listMappings(jobid: string): Promise<MappingRow[]> {
-    return this.db.select().from(backupIdMappings).where(eq(backupIdMappings.jobid, jobid));
+  async listMappings(jobId: string): Promise<MappingRow[]> {
+    return this.db.select().from(backupIdMappings).where(eq(backupIdMappings.jobId, jobId));
   }
-  async getMapping(jobid: string, itemtype: string, oldid: string): Promise<MappingRow | undefined> {
+  async getMapping(jobId: string, itemType: string, oldId: string): Promise<MappingRow | undefined> {
     const [row] = await this.db.select().from(backupIdMappings)
-      .where(and(eq(backupIdMappings.jobid, jobid), eq(backupIdMappings.itemtype, itemtype), eq(backupIdMappings.oldid, oldid)));
+      .where(and(eq(backupIdMappings.jobId, jobId), eq(backupIdMappings.itemType, itemType), eq(backupIdMappings.oldId, oldId)));
     return row;
   }
 }

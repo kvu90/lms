@@ -4,14 +4,14 @@ import { eq, sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SearchRepository, type SearchDocRow } from './search.repository';
-import { blogPosts, contentbankContent, course, users } from '../../db/schema';
+import { blogPosts, contentBankContent, course, users } from '../../db/schema';
 
 /** Một Search Area đăng ký vào registry: biết cách lấy tài liệu gốc để indexer lập chỉ mục và để re-check. */
 export interface SearchArea {
   name: string;
   /** Trả về tài liệu của một item, hoặc null nếu item không còn/không nên index. */
-  fetch(itemid: string): Promise<{ title: string; content: string; contextid: string; ownerid?: string } | null>;
-  /** Liệt kê mọi itemid hiện có của area (dùng cho reindex toàn bộ). */
+  fetch(itemId: string): Promise<{ title: string; content: string; contextId: string; ownerId?: string } | null>;
+  /** Liệt kê mọi itemId hiện có của area (dùng cho reindex toàn bộ). */
   listIds(): Promise<string[]>;
 }
 
@@ -56,58 +56,58 @@ export class SearchService {
     // Area: courses — tiêu đề + summary của khoá, context là course context.
     this.registerArea({
       name: 'courses',
-      fetch: async (itemid) => {
-        const [c] = await db.select().from(course).where(eq(course.id, itemid));
+      fetch: async (itemId) => {
+        const [c] = await db.select().from(course).where(eq(course.id, itemId));
         if (!c || !c.visible) return null;
-        const ctx = await this.contexts.getByLevelInstance(50, itemid);
+        const ctx = await this.contexts.getByLevelInstance(50, itemId);
         if (!ctx) return null;
-        return { title: c.fullname, content: `${c.shortname} ${c.summary}`, contextid: ctx.id };
+        return { title: c.fullName, content: `${c.shortName} ${c.summary}`, contextId: ctx.id };
       },
       listIds: async () => (await db.select().from(course)).map((r) => r.id),
     });
     // Area: users — hồ sơ công khai; user suspended/deleted không được index.
     this.registerArea({
       name: 'users',
-      fetch: async (itemid) => {
-        const [u] = await db.select().from(users).where(eq(users.id, itemid));
+      fetch: async (itemId) => {
+        const [u] = await db.select().from(users).where(eq(users.id, itemId));
         if (!u || u.suspended || u.deleted || u.isGuest) return null;
-        const ctx = await this.contexts.getByLevelInstance(30, itemid);
+        const ctx = await this.contexts.getByLevelInstance(30, itemId);
         const sys = ctx ?? (await this.contexts.ensureSystemContext());
-        return { title: `${u.firstname} ${u.lastname}`.trim() || u.username, content: `${u.username} ${u.email}`, contextid: sys.id, ownerid: u.id };
+        return { title: `${u.firstName} ${u.lastName}`.trim() || u.username, content: `${u.username} ${u.email}`, contextId: sys.id, ownerId: u.id };
       },
       listIds: async () => (await db.select().from(users)).filter((u) => !u.suspended && !u.deleted).map((r) => r.id),
     });
     // Area: contentbank — chỉ nội dung public mới vào index.
     this.registerArea({
       name: 'contentbank',
-      fetch: async (itemid) => {
-        const [c] = await db.select().from(contentbankContent).where(eq(contentbankContent.id, itemid));
+      fetch: async (itemId) => {
+        const [c] = await db.select().from(contentBankContent).where(eq(contentBankContent.id, itemId));
         if (!c || c.visibility !== 'public') return null;
-        return { title: c.name, content: `${c.name} ${c.contenttype}`, contextid: c.contextid, ownerid: c.creatorid };
+        return { title: c.name, content: `${c.name} ${c.contentType}`, contextId: c.contextId, ownerId: c.creatorId };
       },
-      listIds: async () => (await db.select().from(contentbankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
+      listIds: async () => (await db.select().from(contentBankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
     });
     // Area: blog — bài public (site) thuộc user context của tác giả.
     this.registerArea({
       name: 'blog',
-      fetch: async (itemid) => {
-        const [p] = await db.select().from(blogPosts).where(eq(blogPosts.id, itemid));
-        if (!p || p.publishstate !== 'site') return null;
-        const ctx = await this.contexts.getByLevelInstance(30, p.userid);
+      fetch: async (itemId) => {
+        const [p] = await db.select().from(blogPosts).where(eq(blogPosts.id, itemId));
+        if (!p || p.publishState !== 'site') return null;
+        const ctx = await this.contexts.getByLevelInstance(30, p.userId);
         const sys = ctx ?? (await this.contexts.ensureSystemContext());
-        return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextid: sys.id, ownerid: p.userid };
+        return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextId: sys.id, ownerId: p.userId };
       },
-      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.publishstate === 'site').map((r) => r.id),
+      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.publishState === 'site').map((r) => r.id),
     });
   }
 
   /** Lập chỉ mục một item: fetch từ area; null ⇒ gỡ khỏi index. */
-  async indexItem(area: string, itemid: string): Promise<boolean> {
+  async indexItem(area: string, itemId: string): Promise<boolean> {
     const provider = this.areas.get(area);
     if (!provider) return false;
-    const doc = await provider.fetch(itemid);
-    if (!doc) { await this.repo.remove(area, itemid); return false; }
-    await this.repo.upsert({ area, itemid, title: doc.title, content: doc.content, contextid: doc.contextid, ownerid: doc.ownerid ?? null });
+    const doc = await provider.fetch(itemId);
+    if (!doc) { await this.repo.remove(area, itemId); return false; }
+    await this.repo.upsert({ area, itemId, title: doc.title, content: doc.content, contextId: doc.contextId, ownerId: doc.ownerId ?? null });
     return true;
   }
 
@@ -121,7 +121,7 @@ export class SearchService {
   }
 
   /** Gỡ mọi tài liệu thuộc về một user (suspended/deleted) khỏi index. */
-  async purgeOwner(ownerid: string): Promise<void> { await this.repo.removeByOwner(ownerid); }
+  async purgeOwner(ownerId: string): Promise<void> { await this.repo.removeByOwner(ownerId); }
 
   /** Indexer nghe sự kiện miền qua EventEmitter/outbox relay trong process. */
   @OnEvent('course_created')
@@ -155,7 +155,7 @@ export class SearchService {
       const capability = areaCapability[doc.area] ?? 'moodle/course:view';
       let allowed = false;
       try {
-        allowed = await this.evaluator.hasCapability(userId, capability, doc.contextid);
+        allowed = await this.evaluator.hasCapability(userId, capability, doc.contextId);
       } catch (err) {
         if (!(err instanceof NotFoundException)) throw err;
       }
@@ -163,9 +163,9 @@ export class SearchService {
       // Lớp 2 (re-check): bản ghi gốc còn hợp lệ không?
       const provider = this.areas.get(doc.area);
       if (provider) {
-        const fresh = await provider.fetch(doc.itemid);
+        const fresh = await provider.fetch(doc.itemId);
         if (!fresh) continue;
-        if (fresh.contextid !== doc.contextid) continue;
+        if (fresh.contextId !== doc.contextId) continue;
       }
       out.push(doc);
     }
@@ -173,10 +173,10 @@ export class SearchService {
   }
 
   /** Chèn thẳng một tài liệu vào index (dùng cho indexer/test khi cần mô phỏng index sót). */
-  async indexRaw(v: { area: string; itemid: string; title: string; content: string; contextid: string; ownerid?: string }): Promise<SearchDocRow> {
+  async indexRaw(v: { area: string; itemId: string; title: string; content: string; contextId: string; ownerId?: string }): Promise<SearchDocRow> {
     return this.repo.upsert(v);
   }
-  async removeDoc(area: string, itemid: string): Promise<void> { return this.repo.remove(area, itemid); }
+  async removeDoc(area: string, itemId: string): Promise<void> { return this.repo.remove(area, itemId); }
   async listDocs(): Promise<SearchDocRow[]> { return this.repo.listAll(); }
   async countDocs(): Promise<number> { return (await this.repo.listAll()).length; }
   /** Truy vấn SQL thô phục vụ chẩn đoán — không dùng trong luồng nghiệp vụ. */

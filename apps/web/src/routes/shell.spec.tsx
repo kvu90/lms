@@ -37,15 +37,15 @@ const SAMPLE_ID = '01900000-0000-7000-8000-000000000001';
 const PROFILE = {
   id: ADMIN_ID,
   username: 'admin',
-  firstname: 'Quản',
-  lastname: 'Trị',
+  firstName: 'Quản',
+  lastName: 'Trị',
   email: 'admin@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 

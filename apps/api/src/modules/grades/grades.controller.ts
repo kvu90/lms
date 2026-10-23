@@ -78,7 +78,7 @@ export class GradesController {
    * POST /courses/grades/items/:itemId/grades — nhập điểm cho user.
    */
   async setGrade(@Param('itemId', { schema: uuidIdSchema }) itemId: string, @Body({ schema: setGradeSchema }) dto: SetGradeDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.grades.setGrade(actor.id, itemId, dto.userid, dto);
+    return this.grades.setGrade(actor.id, itemId, dto.userId, dto);
   }
   @Patch('grades/grades/:gradeId')
   /**
@@ -95,7 +95,7 @@ export class GradesController {
     const item = await this.grades.getItem(itemId);
     if (actor.id !== userId) {
       // History of another user requires moodle/grade:viewall at the course context.
-      await this.grades.getReport(actor.id, item.courseid);
+      await this.grades.getReport(actor.id, item.courseId);
     }
     return this.grades.listHistory(itemId, userId);
   }
@@ -104,8 +104,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/gradebook — sổ điểm của user (mặc định là chính mình).
    */
-  async gradebook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('userid') userid: string | undefined, @CurrentUser() viewer: AuthenticatedUser) {
-    const target = userid || viewer.id;
+  async gradebook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('userId') userId: string | undefined, @CurrentUser() viewer: AuthenticatedUser) {
+    const target = userId || viewer.id;
     return this.grades.getGradebook(viewer.id, courseId, target);
   }
   @Get(':courseId/grades/report')

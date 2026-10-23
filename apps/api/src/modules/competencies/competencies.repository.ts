@@ -3,19 +3,19 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  competency, competencyCoursecomp, competencyEvidence, competencyFramework,
-  competencyModulecomp, competencyPlancomp, competencyPlanReview, competencyTemplate,
-  competencyTemplatecohort, competencyTemplatecomp, competencyUsercomp, learningPlans,
+  competency, competencyCourseComp, competencyEvidence, competencyFramework,
+  competencyModuleComp, competencyPlanComp, competencyPlanReview, competencyTemplate,
+  competencyTemplateCohort, competencyTemplateComp, competencyUserComp, learningPlans,
 } from '../../db/schema';
 
 export type FrameworkRow = typeof competencyFramework.$inferSelect;
 export type CompetencyRow = typeof competency.$inferSelect;
 export type TemplateRow = typeof competencyTemplate.$inferSelect;
 export type PlanRow = typeof learningPlans.$inferSelect;
-export type UsercompRow = typeof competencyUsercomp.$inferSelect;
+export type UsercompRow = typeof competencyUserComp.$inferSelect;
 export type EvidenceRow = typeof competencyEvidence.$inferSelect;
-export type CourseLinkRow = typeof competencyCoursecomp.$inferSelect;
-export type ModuleLinkRow = typeof competencyModulecomp.$inferSelect;
+export type CourseLinkRow = typeof competencyCourseComp.$inferSelect;
+export type ModuleLinkRow = typeof competencyModuleComp.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -42,7 +42,7 @@ export class CompetenciesRepository {
    * Liệt kê framework.
    */
   async listFrameworks(): Promise<FrameworkRow[]> {
-    return this.db.select().from(competencyFramework).orderBy(asc(competencyFramework.sortorder), asc(competencyFramework.id));
+    return this.db.select().from(competencyFramework).orderBy(asc(competencyFramework.sortOrder), asc(competencyFramework.id));
   }
 
   /**
@@ -54,8 +54,8 @@ export class CompetenciesRepository {
   /**
    * Các competency con TRỰC TIẾP của một competency (dùng để kiểm tra rule points).
    */
-  async listChildren(parentid: string): Promise<CompetencyRow[]> {
-    return this.db.select().from(competency).where(eq(competency.parentid, parentid)).orderBy(asc(competency.sortorder), asc(competency.id));
+  async listChildren(parentId: string): Promise<CompetencyRow[]> {
+    return this.db.select().from(competency).where(eq(competency.parentId, parentId)).orderBy(asc(competency.sortOrder), asc(competency.id));
   }
   /**
    * Lấy competency theo id.
@@ -66,43 +66,43 @@ export class CompetenciesRepository {
   /**
    * Competency trong framework.
    */
-  async listCompetencies(frameworkid: string): Promise<CompetencyRow[]> {
-    return this.db.select().from(competency).where(eq(competency.frameworkid, frameworkid)).orderBy(asc(competency.path), asc(competency.sortorder));
+  async listCompetencies(frameworkId: string): Promise<CompetencyRow[]> {
+    return this.db.select().from(competency).where(eq(competency.frameworkId, frameworkId)).orderBy(asc(competency.path), asc(competency.sortOrder));
   }
   /**
    * Cập nhật competency.
    */
   async updateCompetency(id: string, patch: Partial<CompetencyRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(competency).set({ ...patch, timemodified: new Date() }).where(eq(competency.id, id));
+    await (tx ?? this.db).update(competency).set({ ...patch, updatedAt: new Date() }).where(eq(competency.id, id));
   }
 
   /**
    * Liên kết competency với khoá học.
    */
-  async insertCourseLink(v: typeof competencyCoursecomp.$inferInsert): Promise<CourseLinkRow> {
-    const [row] = await this.db.insert(competencyCoursecomp).values(v)
-      .onConflictDoUpdate({ target: [competencyCoursecomp.courseid, competencyCoursecomp.competencyid], set: { ruleoutcome: v.ruleoutcome } })
+  async insertCourseLink(v: typeof competencyCourseComp.$inferInsert): Promise<CourseLinkRow> {
+    const [row] = await this.db.insert(competencyCourseComp).values(v)
+      .onConflictDoUpdate({ target: [competencyCourseComp.courseId, competencyCourseComp.competencyId], set: { ruleOutcome: v.ruleOutcome } })
       .returning(); return row!;
   }
   /**
    * Liên kết của khoá học.
    */
-  async listCourseLinks(courseid: string): Promise<CourseLinkRow[]> {
-    return this.db.select().from(competencyCoursecomp).where(eq(competencyCoursecomp.courseid, courseid));
+  async listCourseLinks(courseId: string): Promise<CourseLinkRow[]> {
+    return this.db.select().from(competencyCourseComp).where(eq(competencyCourseComp.courseId, courseId));
   }
   /**
    * Liên kết competency với course module.
    */
-  async insertModuleLink(v: typeof competencyModulecomp.$inferInsert): Promise<ModuleLinkRow> {
-    const [row] = await this.db.insert(competencyModulecomp).values(v)
-      .onConflictDoUpdate({ target: [competencyModulecomp.coursemoduleid, competencyModulecomp.competencyid], set: { ruleoutcome: v.ruleoutcome } })
+  async insertModuleLink(v: typeof competencyModuleComp.$inferInsert): Promise<ModuleLinkRow> {
+    const [row] = await this.db.insert(competencyModuleComp).values(v)
+      .onConflictDoUpdate({ target: [competencyModuleComp.courseModuleId, competencyModuleComp.competencyId], set: { ruleOutcome: v.ruleOutcome } })
       .returning(); return row!;
   }
   /**
    * Liên kết của module.
    */
-  async listModuleLinks(coursemoduleid: string): Promise<ModuleLinkRow[]> {
-    return this.db.select().from(competencyModulecomp).where(eq(competencyModulecomp.coursemoduleid, coursemoduleid));
+  async listModuleLinks(courseModuleId: string): Promise<ModuleLinkRow[]> {
+    return this.db.select().from(competencyModuleComp).where(eq(competencyModuleComp.courseModuleId, courseModuleId));
   }
 
   /**
@@ -126,17 +126,17 @@ export class CompetenciesRepository {
   /**
    * Thêm competency vào template.
    */
-  async addTemplateCompetency(templateid: string, competencyid: string): Promise<void> {
-    await this.db.insert(competencyTemplatecomp).values({ templateid, competencyid }).onConflictDoNothing();
+  async addTemplateCompetency(templateId: string, competencyId: string): Promise<void> {
+    await this.db.insert(competencyTemplateComp).values({ templateId, competencyId }).onConflictDoNothing();
   }
   /**
    * Competency của template.
    */
-  async listTemplateCompetencies(templateid: string): Promise<CompetencyRow[]> {
-    const links = await this.db.select().from(competencyTemplatecomp).where(eq(competencyTemplatecomp.templateid, templateid)).orderBy(asc(competencyTemplatecomp.sortorder));
+  async listTemplateCompetencies(templateId: string): Promise<CompetencyRow[]> {
+    const links = await this.db.select().from(competencyTemplateComp).where(eq(competencyTemplateComp.templateId, templateId)).orderBy(asc(competencyTemplateComp.sortOrder));
     const out: CompetencyRow[] = [];
     for (const link of links) {
-      const c = await this.getCompetency(link.competencyid);
+      const c = await this.getCompetency(link.competencyId);
       if (c) out.push(c);
     }
     return out;
@@ -144,15 +144,15 @@ export class CompetenciesRepository {
   /**
    * Gắn cohort vào template (để sinh plan hàng loạt).
    */
-  async addTemplateCohort(templateid: string, cohortid: string): Promise<void> {
-    await this.db.insert(competencyTemplatecohort).values({ templateid, cohortid }).onConflictDoNothing();
+  async addTemplateCohort(templateId: string, cohortId: string): Promise<void> {
+    await this.db.insert(competencyTemplateCohort).values({ templateId, cohortId }).onConflictDoNothing();
   }
   /**
    * Cohort của template.
    */
-  async listTemplateCohorts(templateid: string): Promise<string[]> {
-    const rows = await this.db.select().from(competencyTemplatecohort).where(eq(competencyTemplatecohort.templateid, templateid));
-    return rows.map((r) => r.cohortid);
+  async listTemplateCohorts(templateId: string): Promise<string[]> {
+    const rows = await this.db.select().from(competencyTemplateCohort).where(eq(competencyTemplateCohort.templateId, templateId));
+    return rows.map((r) => r.cohortId);
   }
 
   /**
@@ -170,35 +170,35 @@ export class CompetenciesRepository {
   /**
    * Plan của user.
    */
-  async listPlansForUser(userid: string): Promise<PlanRow[]> {
-    return this.db.select().from(learningPlans).where(eq(learningPlans.userid, userid)).orderBy(asc(learningPlans.id));
+  async listPlansForUser(userId: string): Promise<PlanRow[]> {
+    return this.db.select().from(learningPlans).where(eq(learningPlans.userId, userId)).orderBy(asc(learningPlans.id));
   }
   /**
    * Plan đã sinh từ template cho user (chống trùng).
    */
-  async findPlanFromTemplate(userid: string, templateid: string): Promise<PlanRow | undefined> {
+  async findPlanFromTemplate(userId: string, templateId: string): Promise<PlanRow | undefined> {
     const [row] = await this.db.select().from(learningPlans)
-      .where(and(eq(learningPlans.userid, userid), eq(learningPlans.templateid, templateid)));
+      .where(and(eq(learningPlans.userId, userId), eq(learningPlans.templateId, templateId)));
     return row;
   }
   /**
    * Cập nhật plan (trạng thái, reviewer…).
    */
   async updatePlan(id: string, patch: Partial<PlanRow>): Promise<void> {
-    await this.db.update(learningPlans).set({ ...patch, timemodified: new Date() }).where(eq(learningPlans.id, id));
+    await this.db.update(learningPlans).set({ ...patch, updatedAt: new Date() }).where(eq(learningPlans.id, id));
   }
   /**
    * Thêm competency vào plan.
    */
-  async addPlanCompetency(planid: string, competencyid: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).insert(competencyPlancomp).values({ planid, competencyid }).onConflictDoNothing();
+  async addPlanCompetency(planId: string, competencyId: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).insert(competencyPlanComp).values({ planId, competencyId }).onConflictDoNothing();
   }
   /**
    * Competency id trong plan.
    */
-  async listPlanCompetencyIds(planid: string): Promise<string[]> {
-    const rows = await this.db.select().from(competencyPlancomp).where(eq(competencyPlancomp.planid, planid)).orderBy(asc(competencyPlancomp.sortorder));
-    return rows.map((r) => r.competencyid);
+  async listPlanCompetencyIds(planId: string): Promise<string[]> {
+    const rows = await this.db.select().from(competencyPlanComp).where(eq(competencyPlanComp.planId, planId)).orderBy(asc(competencyPlanComp.sortOrder));
+    return rows.map((r) => r.competencyId);
   }
   /**
    * Ghi một vòng review của plan.
@@ -209,18 +209,18 @@ export class CompetenciesRepository {
   /**
    * Các vòng review của plan.
    */
-  async listPlanReviews(planid: string) {
-    return this.db.select().from(competencyPlanReview).where(eq(competencyPlanReview.planid, planid)).orderBy(asc(competencyPlanReview.id));
+  async listPlanReviews(planId: string) {
+    return this.db.select().from(competencyPlanReview).where(eq(competencyPlanReview.planId, planId)).orderBy(asc(competencyPlanReview.id));
   }
 
   /**
    * Tìm bản ghi năng lực của user (usercomp) theo user + competency.
    */
-  async findUsercomp(userid: string, competencyid: string, planid: string | null, courseid: string | null): Promise<UsercompRow | undefined> {
-    const [row] = await this.db.select().from(competencyUsercomp).where(and(
-      eq(competencyUsercomp.userid, userid), eq(competencyUsercomp.competencyid, competencyid),
-      planid === null ? isNull(competencyUsercomp.planid) : eq(competencyUsercomp.planid, planid),
-      courseid === null ? isNull(competencyUsercomp.courseid) : eq(competencyUsercomp.courseid, courseid),
+  async findUsercomp(userId: string, competencyId: string, planId: string | null, courseId: string | null): Promise<UsercompRow | undefined> {
+    const [row] = await this.db.select().from(competencyUserComp).where(and(
+      eq(competencyUserComp.userId, userId), eq(competencyUserComp.competencyId, competencyId),
+      planId === null ? isNull(competencyUserComp.planId) : eq(competencyUserComp.planId, planId),
+      courseId === null ? isNull(competencyUserComp.courseId) : eq(competencyUserComp.courseId, courseId),
     ));
     return row;
   }
@@ -228,32 +228,32 @@ export class CompetenciesRepository {
    * Lấy usercomp theo id.
    */
   async getUsercomp(id: string): Promise<UsercompRow | undefined> {
-    const [row] = await this.db.select().from(competencyUsercomp).where(eq(competencyUsercomp.id, id)); return row;
+    const [row] = await this.db.select().from(competencyUserComp).where(eq(competencyUserComp.id, id)); return row;
   }
   /**
    * Chèn usercomp.
    */
-  async insertUsercomp(v: typeof competencyUsercomp.$inferInsert, tx?: DbTx): Promise<UsercompRow> {
-    const [row] = await (tx ?? this.db).insert(competencyUsercomp).values(v).returning(); return row!;
+  async insertUsercomp(v: typeof competencyUserComp.$inferInsert, tx?: DbTx): Promise<UsercompRow> {
+    const [row] = await (tx ?? this.db).insert(competencyUserComp).values(v).returning(); return row!;
   }
   /**
    * Cập nhật usercomp (proficiency, review status, grader).
    */
   async updateUsercomp(id: string, patch: Partial<UsercompRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(competencyUsercomp).set({ ...patch, timemodified: new Date() }).where(eq(competencyUsercomp.id, id));
+    await (tx ?? this.db).update(competencyUserComp).set({ ...patch, updatedAt: new Date() }).where(eq(competencyUserComp.id, id));
   }
   /**
    * Usercomp thuộc các competency của plan.
    */
-  async listUsercompsForPlan(planid: string, userid: string): Promise<UsercompRow[]> {
-    return this.db.select().from(competencyUsercomp)
-      .where(and(eq(competencyUsercomp.planid, planid), eq(competencyUsercomp.userid, userid)));
+  async listUsercompsForPlan(planId: string, userId: string): Promise<UsercompRow[]> {
+    return this.db.select().from(competencyUserComp)
+      .where(and(eq(competencyUserComp.planId, planId), eq(competencyUserComp.userId, userId)));
   }
   /**
    * Mọi usercomp của user.
    */
-  async listUsercompsForUser(userid: string): Promise<UsercompRow[]> {
-    return this.db.select().from(competencyUsercomp).where(eq(competencyUsercomp.userid, userid)).orderBy(asc(competencyUsercomp.id));
+  async listUsercompsForUser(userId: string): Promise<UsercompRow[]> {
+    return this.db.select().from(competencyUserComp).where(eq(competencyUserComp.userId, userId)).orderBy(asc(competencyUserComp.id));
   }
 
   /**
@@ -265,7 +265,7 @@ export class CompetenciesRepository {
   /**
    * Bằng chứng của usercomp.
    */
-  async listEvidence(usercompetencyid: string): Promise<EvidenceRow[]> {
-    return this.db.select().from(competencyEvidence).where(eq(competencyEvidence.usercompetencyid, usercompetencyid)).orderBy(asc(competencyEvidence.id));
+  async listEvidence(userCompetencyId: string): Promise<EvidenceRow[]> {
+    return this.db.select().from(competencyEvidence).where(eq(competencyEvidence.userCompetencyId, userCompetencyId)).orderBy(asc(competencyEvidence.id));
   }
 }

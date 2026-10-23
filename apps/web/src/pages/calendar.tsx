@@ -11,11 +11,11 @@ interface EventView {
   id: string;
   name: string;
   description: string;
-  eventtype: string;
-  timestart: string;
-  timeduration: number;
-  repeatid: string;
-  isexception: boolean;
+  eventType: string;
+  timeStart: string;
+  timeDuration: number;
+  repeatId: string;
+  isException: boolean;
 }
 
 /** Một đăng ký lịch ngoài (hàng của GET /calendar/subscriptions phía server). */
@@ -23,8 +23,8 @@ interface SubscriptionView {
   id: string;
   name: string;
   url: string | null;
-  eventtype: string;
-  pollinterval: number;
+  eventType: string;
+  pollInterval: number;
 }
 
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
@@ -90,13 +90,13 @@ export function CalendarPage() {
         body: JSON.stringify({
           name: evName,
           ...(evDescription ? { description: evDescription } : {}),
-          eventtype: evType,
-          timestart: new Date(evStart).toISOString(),
-          ...(evDuration ? { timeduration: Number(evDuration) } : {}),
+          eventType: evType,
+          timeStart: new Date(evStart).toISOString(),
+          ...(evDuration ? { timeDuration: Number(evDuration) } : {}),
           ...(evLocation ? { location: evLocation } : {}),
-          ...(evType === 'course' || evType === 'group' ? { courseid: evCourseId } : {}),
-          ...(evType === 'group' ? { groupid: evGroupId } : {}),
-          ...(evType === 'category' ? { categoryid: evCategoryId } : {}),
+          ...(evType === 'course' || evType === 'group' ? { courseId: evCourseId } : {}),
+          ...(evType === 'group' ? { groupId: evGroupId } : {}),
+          ...(evType === 'category' ? { categoryId: evCategoryId } : {}),
         }),
       });
       setEvName('');
@@ -146,7 +146,7 @@ export function CalendarPage() {
     try {
       await apiJson('/api/v1/calendar/subscriptions', {
         method: 'POST',
-        body: JSON.stringify({ name: subName, url: subUrl, eventtype: 'user' }),
+        body: JSON.stringify({ name: subName, url: subUrl, eventType: 'user' }),
       });
       setSubName('');
       setSubUrl('');
@@ -213,13 +213,13 @@ export function CalendarPage() {
     }
   }
 
-  const visible = events.filter((e) => typeFilter === 'all' || e.eventtype === typeFilter);
+  const visible = events.filter((e) => typeFilter === 'all' || e.eventType === typeFilter);
   // Gom sự kiện theo ngày địa phương; tiêu đề ngày và giờ sự kiện luôn
   // định dạng theo ngôn ngữ giao diện (i18n.language) thay vì mặc định
   // trình duyệt, để trang không lẫn định dạng tiếng Anh khi locale là vi.
   const byDay = new Map<string, { date: Date; events: EventView[] }>();
   for (const e of visible) {
-    const start = new Date(e.timestart);
+    const start = new Date(e.timeStart);
     const key = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`;
     const group = byDay.get(key) ?? { date: start, events: [] };
     group.events.push(e);
@@ -265,13 +265,13 @@ export function CalendarPage() {
                     <span className="font-medium">{e.name}</span>
                     <span className="text-muted-foreground">
                       {' '}
-                      · {e.eventtype} · {timeLabel(e.timestart)}
+                      · {e.eventType} · {timeLabel(e.timeStart)}
                     </span>
-                    {e.isexception ? <span> {t('adjustedOccurrence')}</span> : null}
+                    {e.isException ? <span> {t('adjustedOccurrence')}</span> : null}
                     <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
                       {t('remindOneHour')}
                     </Button>
-                    {e.eventtype === 'user' ? (
+                    {e.eventType === 'user' ? (
                       <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>
                         {t('deleteEvent')}
                       </Button>

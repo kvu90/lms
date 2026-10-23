@@ -6,7 +6,7 @@ import { FilesService } from '../files/files.service';
 import { UsersService } from '../users/users.service';
 import { PrivacyRepository, type PrivacyRequestRow } from './privacy.repository';
 import {
-  badgeIssued, blogPosts, calendarEvents, comments, competencyUsercomp, contentbankContent,
+  badgeIssued, blogPosts, calendarEvents, comments, competencyUserComp, contentBankContent,
   courseCompletions, courseModulesCompletion, files as filesTable, gradeGrades, learningPlans,
   message, notes, notifications, payments, rating, searchDocuments, tagInstance,
   userEnrolments, userPreferences, users,
@@ -72,102 +72,102 @@ export class PrivacyService {
       delete: async (userId) => ({ deleted: await deleteFn(userId) }),
     });
 
-    simple('users', ['users.username/email/firstname/lastname', 'user_preferences'],
+    simple('users', ['users.username/email/first_name/last_name', 'user_preferences'],
       async (userId) => {
         const [u] = await db.select().from(users).where(eq(users.id, userId));
-        const prefs = await db.select().from(userPreferences).where(eq(userPreferences.userid, userId));
-        return { user: u ? { id: u.id, username: u.username, email: u.email, firstname: u.firstname, lastname: u.lastname } : null, preferences: prefs };
+        const prefs = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+        return { user: u ? { id: u.id, username: u.username, email: u.email, firstName: u.firstName, lastName: u.lastName } : null, preferences: prefs };
       },
       async (userId) => {
-        await db.delete(userPreferences).where(eq(userPreferences.userid, userId));
+        await db.delete(userPreferences).where(eq(userPreferences.userId, userId));
         // Anonymize/soft-delete danh tính — provider khác vẫn chạy độc lập sau đó.
         await this.usersService.deleteUser(userId).catch(() => undefined);
         return 1;
       });
-    simple('enrol', ['user_enrolments.userid'],
-      async (userId) => db.select().from(userEnrolments).where(eq(userEnrolments.userid, userId)),
-      async (userId) => (await db.delete(userEnrolments).where(eq(userEnrolments.userid, userId)).returning()).length);
-    simple('grades', ['grade_grades.userid/finalgrade/feedback'],
-      async (userId) => db.select().from(gradeGrades).where(eq(gradeGrades.userid, userId)),
-      async (userId) => (await db.delete(gradeGrades).where(eq(gradeGrades.userid, userId)).returning()).length);
-    simple('completion', ['course_modules_completion.userid', 'course_completions.userid'],
+    simple('enrol', ['user_enrolments.user_id'],
+      async (userId) => db.select().from(userEnrolments).where(eq(userEnrolments.userId, userId)),
+      async (userId) => (await db.delete(userEnrolments).where(eq(userEnrolments.userId, userId)).returning()).length);
+    simple('grades', ['grade_grades.user_id/final_grade/feedback'],
+      async (userId) => db.select().from(gradeGrades).where(eq(gradeGrades.userId, userId)),
+      async (userId) => (await db.delete(gradeGrades).where(eq(gradeGrades.userId, userId)).returning()).length);
+    simple('completion', ['course_modules_completion.user_id', 'course_completions.user_id'],
       async (userId) => ({
-        cm: await db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.userid, userId)),
-        course: await db.select().from(courseCompletions).where(eq(courseCompletions.userid, userId)),
+        cm: await db.select().from(courseModulesCompletion).where(eq(courseModulesCompletion.userId, userId)),
+        course: await db.select().from(courseCompletions).where(eq(courseCompletions.userId, userId)),
       }),
       async (userId) => {
-        const a = (await db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.userid, userId)).returning()).length;
-        const b = (await db.delete(courseCompletions).where(eq(courseCompletions.userid, userId)).returning()).length;
+        const a = (await db.delete(courseModulesCompletion).where(eq(courseModulesCompletion.userId, userId)).returning()).length;
+        const b = (await db.delete(courseCompletions).where(eq(courseCompletions.userId, userId)).returning()).length;
         return a + b;
       });
-    simple('files', ['files.userid'],
-      async (userId) => db.select().from(filesTable).where(eq(filesTable.userid, userId)),
+    simple('files', ['files.user_id'],
+      async (userId) => db.select().from(filesTable).where(eq(filesTable.userId, userId)),
       async (userId) => {
-        const rows = await db.select().from(filesTable).where(eq(filesTable.userid, userId));
+        const rows = await db.select().from(filesTable).where(eq(filesTable.userId, userId));
         for (const f of rows) await this.files.deleteFile(f.id).catch(() => undefined);
         return rows.length;
       });
-    simple('messaging', ['message.useridfrom', 'notifications.useridto'],
+    simple('messaging', ['message.user_id_from', 'notifications.user_id_to'],
       async (userId) => ({
-        sent: await db.select().from(message).where(eq(message.useridfrom, userId)),
-        notifications: await db.select().from(notifications).where(eq(notifications.useridto, userId)),
+        sent: await db.select().from(message).where(eq(message.userIdFrom, userId)),
+        notifications: await db.select().from(notifications).where(eq(notifications.userIdTo, userId)),
       }),
       async (userId) => {
-        const a = (await db.delete(notifications).where(eq(notifications.useridto, userId)).returning()).length;
-        const b = (await db.delete(message).where(eq(message.useridfrom, userId)).returning()).length;
+        const a = (await db.delete(notifications).where(eq(notifications.userIdTo, userId)).returning()).length;
+        const b = (await db.delete(message).where(eq(message.userIdFrom, userId)).returning()).length;
         return a + b;
       });
-    simple('calendar', ['calendar_events.userid'],
-      async (userId) => db.select().from(calendarEvents).where(eq(calendarEvents.userid, userId)),
-      async (userId) => (await db.delete(calendarEvents).where(eq(calendarEvents.userid, userId)).returning()).length);
-    simple('badges', ['badge_issued.userid'],
-      async (userId) => db.select().from(badgeIssued).where(eq(badgeIssued.userid, userId)),
-      async (userId) => (await db.delete(badgeIssued).where(eq(badgeIssued.userid, userId)).returning()).length);
-    simple('competencies', ['competency_usercomp.userid', 'learning_plans.userid'],
+    simple('calendar', ['calendar_events.user_id'],
+      async (userId) => db.select().from(calendarEvents).where(eq(calendarEvents.userId, userId)),
+      async (userId) => (await db.delete(calendarEvents).where(eq(calendarEvents.userId, userId)).returning()).length);
+    simple('badges', ['badge_issued.user_id'],
+      async (userId) => db.select().from(badgeIssued).where(eq(badgeIssued.userId, userId)),
+      async (userId) => (await db.delete(badgeIssued).where(eq(badgeIssued.userId, userId)).returning()).length);
+    simple('competencies', ['competency_user_comp.user_id', 'learning_plans.user_id'],
       async (userId) => ({
-        usercomp: await db.select().from(competencyUsercomp).where(eq(competencyUsercomp.userid, userId)),
-        plans: await db.select().from(learningPlans).where(eq(learningPlans.userid, userId)),
+        usercomp: await db.select().from(competencyUserComp).where(eq(competencyUserComp.userId, userId)),
+        plans: await db.select().from(learningPlans).where(eq(learningPlans.userId, userId)),
       }),
       async (userId) => {
-        const a = (await db.delete(competencyUsercomp).where(eq(competencyUsercomp.userid, userId)).returning()).length;
-        const b = (await db.delete(learningPlans).where(eq(learningPlans.userid, userId)).returning()).length;
+        const a = (await db.delete(competencyUserComp).where(eq(competencyUserComp.userId, userId)).returning()).length;
+        const b = (await db.delete(learningPlans).where(eq(learningPlans.userId, userId)).returning()).length;
         return a + b;
       });
-    simple('social', ['comments.userid', 'rating.userid', 'blog_posts.userid', 'notes.userid/createdby', 'tag_instance.tiuserid'],
+    simple('social', ['comments.user_id', 'rating.user_id', 'blog_posts.user_id', 'notes.user_id/created_by', 'tag_instance.ti_user_id'],
       async (userId) => ({
-        comments: await db.select().from(comments).where(eq(comments.userid, userId)),
-        ratings: await db.select().from(rating).where(eq(rating.userid, userId)),
-        blogPosts: await db.select().from(blogPosts).where(eq(blogPosts.userid, userId)),
-        notesAbout: await db.select().from(notes).where(eq(notes.userid, userId)),
-        tags: await db.select().from(tagInstance).where(eq(tagInstance.tiuserid, userId)),
+        comments: await db.select().from(comments).where(eq(comments.userId, userId)),
+        ratings: await db.select().from(rating).where(eq(rating.userId, userId)),
+        blogPosts: await db.select().from(blogPosts).where(eq(blogPosts.userId, userId)),
+        notesAbout: await db.select().from(notes).where(eq(notes.userId, userId)),
+        tags: await db.select().from(tagInstance).where(eq(tagInstance.tiUserId, userId)),
       }),
       async (userId) => {
         let n = 0;
-        n += (await db.delete(comments).where(eq(comments.userid, userId)).returning()).length;
-        n += (await db.delete(rating).where(eq(rating.userid, userId)).returning()).length;
-        n += (await db.delete(blogPosts).where(eq(blogPosts.userid, userId)).returning()).length;
-        n += (await db.delete(notes).where(eq(notes.userid, userId)).returning()).length;
-        n += (await db.delete(notes).where(eq(notes.createdby, userId)).returning()).length;
-        n += (await db.delete(tagInstance).where(eq(tagInstance.tiuserid, userId)).returning()).length;
+        n += (await db.delete(comments).where(eq(comments.userId, userId)).returning()).length;
+        n += (await db.delete(rating).where(eq(rating.userId, userId)).returning()).length;
+        n += (await db.delete(blogPosts).where(eq(blogPosts.userId, userId)).returning()).length;
+        n += (await db.delete(notes).where(eq(notes.userId, userId)).returning()).length;
+        n += (await db.delete(notes).where(eq(notes.createdBy, userId)).returning()).length;
+        n += (await db.delete(tagInstance).where(eq(tagInstance.tiUserId, userId)).returning()).length;
         return n;
       });
-    simple('search', ['search_documents.ownerid'],
-      async (userId) => db.select().from(searchDocuments).where(eq(searchDocuments.ownerid, userId)),
-      async (userId) => (await db.delete(searchDocuments).where(eq(searchDocuments.ownerid, userId)).returning()).length);
-    simple('contentbank', ['contentbank_content.creatorid'],
-      async (userId) => db.select().from(contentbankContent).where(eq(contentbankContent.creatorid, userId)),
-      async (userId) => (await db.delete(contentbankContent).where(eq(contentbankContent.creatorid, userId)).returning()).length);
-    simple('payments', ['payments.userid/amount/currency'],
-      async (userId) => db.select().from(payments).where(eq(payments.userid, userId)),
-      // Dữ liệu tài chính được ẩn danh hoá (userid → 0) thay vì xoá cứng để giữ vết đối soát; danh tính không còn truy được.
-      async (userId) => (await db.update(payments).set({ userid: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userid, userId)).returning()).length);
+    simple('search', ['search_documents.owner_id'],
+      async (userId) => db.select().from(searchDocuments).where(eq(searchDocuments.ownerId, userId)),
+      async (userId) => (await db.delete(searchDocuments).where(eq(searchDocuments.ownerId, userId)).returning()).length);
+    simple('contentbank', ['content_bank_content.creator_id'],
+      async (userId) => db.select().from(contentBankContent).where(eq(contentBankContent.creatorId, userId)),
+      async (userId) => (await db.delete(contentBankContent).where(eq(contentBankContent.creatorId, userId)).returning()).length);
+    simple('payments', ['payments.user_id/amount/currency'],
+      async (userId) => db.select().from(payments).where(eq(payments.userId, userId)),
+      // Dữ liệu tài chính được ẩn danh hoá (userId → 0) thay vì xoá cứng để giữ vết đối soát; danh tính không còn truy được.
+      async (userId) => (await db.update(payments).set({ userId: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userId, userId)).returning()).length);
   }
 
   // --- vòng đời yêu cầu -------------------------------------------------------
 
   /** Người dùng tự gửi yêu cầu cho chính mình; admin có manage có thể gửi hộ. */
-  async createRequest(actorId: string, input: { type: 'export' | 'delete'; userid?: string }): Promise<PrivacyRequestRow> {
-    const target = input.userid ?? actorId;
+  async createRequest(actorId: string, input: { type: 'export' | 'delete'; userId?: string }): Promise<PrivacyRequestRow> {
+    const target = input.userId ?? actorId;
     if (target !== actorId) {
       const sys = await this.contexts.ensureSystemContext();
       await this.evaluator.requireCapability(actorId, 'lms/privacy:manage', sys.id);
@@ -175,7 +175,7 @@ export class PrivacyService {
     if (!['export', 'delete'].includes(input.type)) throw new BadRequestException({ message: 'Unknown privacy request type', code: 'privacy.bad_type' });
     const user = await this.usersService.getByIdOrUndefined(target);
     if (!user) throw new NotFoundException({ message: `User ${target} not found`, code: 'privacy.user_not_found' });
-    return this.repo.insertRequest({ userid: target, type: input.type, requestedby: actorId, status: 'pending' });
+    return this.repo.insertRequest({ userId: target, type: input.type, requestedBy: actorId, status: 'pending' });
   }
   async getRequest(id: string): Promise<PrivacyRequestRow> {
     const row = await this.repo.getRequest(id);
@@ -195,10 +195,10 @@ export class PrivacyService {
     const req = await this.getRequest(id);
     if (req.status !== 'pending') throw new BadRequestException({ message: `Request is ${req.status}, not pending`, code: 'privacy.not_pending' });
     if (decision === 'rejected') {
-      await this.repo.updateRequest(id, { status: 'rejected', approvedby: actorId });
+      await this.repo.updateRequest(id, { status: 'rejected', approvedBy: actorId });
       return this.getRequest(id);
     }
-    await this.repo.updateRequest(id, { status: 'approved', approvedby: actorId });
+    await this.repo.updateRequest(id, { status: 'approved', approvedBy: actorId });
     return this.processRequest(id);
   }
 
@@ -218,20 +218,20 @@ export class PrivacyService {
     try {
       if (req.type === 'export') {
         const bundle: Record<string, unknown> = {};
-        for (const p of this.providers.values()) bundle[p.subsystem] = await p.export(req.userid);
-        const manifest = { requestId: id, userid: req.userid, subsystems: Object.keys(bundle), format: 'lms-privacy-export', version: 1 };
+        for (const p of this.providers.values()) bundle[p.subsystem] = await p.export(req.userId);
+        const manifest = { requestId: id, userId: req.userId, subsystems: Object.keys(bundle), format: 'lms-privacy-export', version: 1 };
         const sys = await this.contexts.ensureSystemContext();
         const file = await this.files.upload({
-          contextid: sys.id, component: 'core_privacy', filearea: 'export', itemid: id,
-          filename: `privacy-export-${id}.json`, data: Buffer.from(JSON.stringify({ manifest, data: bundle }, null, 2)),
-          mimetype: 'application/json', userid: req.userid,
+          contextId: sys.id, component: 'core_privacy', fileArea: 'export', itemId: id,
+          fileName: `privacy-export-${id}.json`, data: Buffer.from(JSON.stringify({ manifest, data: bundle }, null, 2)),
+          mimeType: 'application/json', userId: req.userId,
         });
-        await this.repo.insertExportFile({ requestid: id, fileid: file.id, subsystem: 'all', manifest });
+        await this.repo.insertExportFile({ requestId: id, fileId: file.id, subsystem: 'all', manifest });
         await this.repo.updateRequest(id, { status: 'completed', result: { manifest, fileId: file.id, subsystems: Object.keys(bundle) } });
       } else {
         const perSubsystem: Record<string, number> = {};
         for (const p of this.providers.values()) {
-          const { deleted } = await p.delete(req.userid);
+          const { deleted } = await p.delete(req.userId);
           perSubsystem[p.subsystem] = deleted;
         }
         await this.repo.updateRequest(id, { status: 'completed', result: { deleted: perSubsystem, subsystems: Object.keys(perSubsystem) } });

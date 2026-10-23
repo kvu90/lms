@@ -49,9 +49,9 @@ export class QuestionsRepository {
    */
   async listCategories(contextId?: string): Promise<QCategoryRow[]> {
     const rows = contextId !== undefined
-      ? await this.db.select().from(questionCategories).where(eq(questionCategories.contextid, contextId))
+      ? await this.db.select().from(questionCategories).where(eq(questionCategories.contextId, contextId))
       : await this.db.select().from(questionCategories);
-    return rows.sort((a, b) => a.timecreated.getTime() - b.timecreated.getTime() || a.id.localeCompare(b.id));
+    return rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id));
   }
 
   /**
@@ -70,7 +70,7 @@ export class QuestionsRepository {
    * Cập nhật question.
    */
   async updateQuestion(id: string, patch: Partial<QuestionRow>): Promise<void> {
-    await this.db.update(question).set({ ...patch, timemodified: new Date() }).where(eq(question.id, id));
+    await this.db.update(question).set({ ...patch, updatedAt: new Date() }).where(eq(question.id, id));
   }
   /**
    * Câu hỏi trong category.
@@ -80,7 +80,7 @@ export class QuestionsRepository {
   }
 
   /**
-   * Chèn question entry (liên kết category ↔ question, giữ latestversion).
+   * Chèn question entry (liên kết category ↔ question, giữ latestVersion).
    */
   async insertEntry(v: typeof questionBankEntries.$inferInsert, tx?: DbTx): Promise<EntryRow> {
     const [row] = await (tx ?? this.db).insert(questionBankEntries).values(v).returning(); return row!;
@@ -89,13 +89,13 @@ export class QuestionsRepository {
    * Entry của một question.
    */
   async getEntryByQuestion(questionId: string): Promise<EntryRow | undefined> {
-    const [row] = await this.db.select().from(questionBankEntries).where(eq(questionBankEntries.questionid, questionId)); return row;
+    const [row] = await this.db.select().from(questionBankEntries).where(eq(questionBankEntries.questionId, questionId)); return row;
   }
   /**
-   * Cập nhật entry (latestversion).
+   * Cập nhật entry (latestVersion).
    */
   async updateEntry(id: string, patch: Partial<EntryRow>): Promise<void> {
-    await this.db.update(questionBankEntries).set({ ...patch, timemodified: new Date() }).where(eq(questionBankEntries.id, id));
+    await this.db.update(questionBankEntries).set({ ...patch, updatedAt: new Date() }).where(eq(questionBankEntries.id, id));
   }
 
   /**
@@ -115,14 +115,14 @@ export class QuestionsRepository {
    */
   async getVersionByNumber(entryId: string, version: number): Promise<VersionRow | undefined> {
     const [row] = await this.db.select().from(questionVersions)
-      .where(and(eq(questionVersions.questionbankentryid, entryId), eq(questionVersions.version, version)));
+      .where(and(eq(questionVersions.questionBankEntryId, entryId), eq(questionVersions.version, version)));
     return row;
   }
   /**
    * Mọi version của question (lịch sử).
    */
   async listVersions(entryId: string): Promise<VersionRow[]> {
-    return this.db.select().from(questionVersions).where(eq(questionVersions.questionbankentryid, entryId)).orderBy(asc(questionVersions.version));
+    return this.db.select().from(questionVersions).where(eq(questionVersions.questionBankEntryId, entryId)).orderBy(asc(questionVersions.version));
   }
 
   // --- stimuli -----------------------------------------------------------------
@@ -143,14 +143,14 @@ export class QuestionsRepository {
    * Ngữ liệu thuộc một category (phạm vi chia sẻ của stimulus).
    */
   async listStimuliInCategory(categoryId: string): Promise<StimulusRow[]> {
-    return this.db.select().from(stimuli).where(eq(stimuli.categoryid, categoryId)).orderBy(asc(stimuli.id));
+    return this.db.select().from(stimuli).where(eq(stimuli.categoryId, categoryId)).orderBy(asc(stimuli.id));
   }
   /**
    * Cập nhật nội dung ngữ liệu — chỉ hợp lệ khi chưa có version nào tham
    * chiếu (bất biến do service bảo đảm trước khi gọi).
    */
   async updateStimulus(id: string, patch: Partial<StimulusRow>): Promise<void> {
-    await this.db.update(stimuli).set({ ...patch, timemodified: new Date() }).where(eq(stimuli.id, id));
+    await this.db.update(stimuli).set({ ...patch, updatedAt: new Date() }).where(eq(stimuli.id, id));
   }
   /**
    * Xoá ngữ liệu — chỉ hợp lệ khi chưa có version nào tham chiếu.
@@ -163,7 +163,7 @@ export class QuestionsRepository {
    */
   async countVersionsReferencingStimulus(stimulusId: string): Promise<number> {
     const rows = await this.db.select({ id: questionVersions.id }).from(questionVersions)
-      .where(eq(questionVersions.stimulusid, stimulusId));
+      .where(eq(questionVersions.stimulusId, stimulusId));
     return rows.length;
   }
 
@@ -176,12 +176,12 @@ export class QuestionsRepository {
     const [row] = await (tx ?? this.db).insert(questionAnswers).values(v).returning(); return row!;
   }
   /**
-   * Mọi đáp án của một version theo sortorder (thứ tự chấm của shortanswer).
+   * Mọi đáp án của một version theo sortOrder (thứ tự chấm của shortanswer).
    */
   async listAnswers(versionId: string): Promise<AnswerRow[]> {
     return this.db.select().from(questionAnswers)
-      .where(eq(questionAnswers.questionversionid, versionId))
-      .orderBy(asc(questionAnswers.sortorder), asc(questionAnswers.id));
+      .where(eq(questionAnswers.questionVersionId, versionId))
+      .orderBy(asc(questionAnswers.sortOrder), asc(questionAnswers.id));
   }
 
   /**
@@ -194,7 +194,7 @@ export class QuestionsRepository {
    * Options multichoice của version.
    */
   async getMultichoiceOptions(versionId: string): Promise<MultichoiceOptionsRow | undefined> {
-    const [row] = await this.db.select().from(qtypeMultichoiceOptions).where(eq(qtypeMultichoiceOptions.questionversionid, versionId)); return row;
+    const [row] = await this.db.select().from(qtypeMultichoiceOptions).where(eq(qtypeMultichoiceOptions.questionVersionId, versionId)); return row;
   }
   /**
    * Chèn options truefalse của version (trỏ vào 2 dòng đáp án đúng/sai).
@@ -206,7 +206,7 @@ export class QuestionsRepository {
    * Options truefalse của version.
    */
   async getTruefalseOptions(versionId: string): Promise<TruefalseOptionsRow | undefined> {
-    const [row] = await this.db.select().from(questionTruefalse).where(eq(questionTruefalse.questionversionid, versionId)); return row;
+    const [row] = await this.db.select().from(questionTruefalse).where(eq(questionTruefalse.questionVersionId, versionId)); return row;
   }
   /**
    * Chèn options shortanswer của version.
@@ -218,7 +218,7 @@ export class QuestionsRepository {
    * Options shortanswer của version.
    */
   async getShortanswerOptions(versionId: string): Promise<ShortanswerOptionsRow | undefined> {
-    const [row] = await this.db.select().from(qtypeShortanswerOptions).where(eq(qtypeShortanswerOptions.questionversionid, versionId)); return row;
+    const [row] = await this.db.select().from(qtypeShortanswerOptions).where(eq(qtypeShortanswerOptions.questionVersionId, versionId)); return row;
   }
   /**
    * Chèn options essay của version.
@@ -230,7 +230,7 @@ export class QuestionsRepository {
    * Options essay của version.
    */
   async getEssayOptions(versionId: string): Promise<EssayOptionsRow | undefined> {
-    const [row] = await this.db.select().from(qtypeEssayOptions).where(eq(qtypeEssayOptions.questionversionid, versionId)); return row;
+    const [row] = await this.db.select().from(qtypeEssayOptions).where(eq(qtypeEssayOptions.questionVersionId, versionId)); return row;
   }
 
   /**
@@ -261,13 +261,13 @@ export class QuestionsRepository {
    * Attempt của usage.
    */
   async listAttempts(usageId: string): Promise<AttemptRow[]> {
-    return this.db.select().from(questionAttempts).where(eq(questionAttempts.questionusageid, usageId)).orderBy(asc(questionAttempts.slot));
+    return this.db.select().from(questionAttempts).where(eq(questionAttempts.questionUsageId, usageId)).orderBy(asc(questionAttempts.slot));
   }
   /**
    * Cập nhật attempt (trạng thái, fraction, version đã pin).
    */
   async updateAttempt(id: string, patch: Partial<AttemptRow>): Promise<void> {
-    await this.db.update(questionAttempts).set({ ...patch, timemodified: new Date() }).where(eq(questionAttempts.id, id));
+    await this.db.update(questionAttempts).set({ ...patch, updatedAt: new Date() }).where(eq(questionAttempts.id, id));
   }
 
   /**
@@ -280,7 +280,7 @@ export class QuestionsRepository {
    * Các bước của attempt theo thứ tự.
    */
   async listSteps(attemptId: string): Promise<StepRow[]> {
-    return this.db.select().from(questionAttemptSteps).where(eq(questionAttemptSteps.questionattemptid, attemptId)).orderBy(asc(questionAttemptSteps.sequencenumber));
+    return this.db.select().from(questionAttemptSteps).where(eq(questionAttemptSteps.questionAttemptId, attemptId)).orderBy(asc(questionAttemptSteps.sequenceNumber));
   }
   /**
    * Ghi dữ liệu của một bước (câu trả lời đã nộp).
@@ -292,6 +292,6 @@ export class QuestionsRepository {
    * Dữ liệu các bước của attempt.
    */
   async listStepData(stepId: string): Promise<(typeof questionAttemptStepData.$inferSelect)[]> {
-    return this.db.select().from(questionAttemptStepData).where(eq(questionAttemptStepData.attemptstepid, stepId));
+    return this.db.select().from(questionAttemptStepData).where(eq(questionAttemptStepData.attemptStepId, stepId));
   }
 }

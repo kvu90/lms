@@ -13,11 +13,11 @@ export const USER_COMPONENT = 'core_user';
 export const USER_AREA = 'user';
 
 export interface UserProfileView {
-  id: string; username: string; firstname: string; lastname: string;
+  id: string; username: string; firstName: string; lastName: string;
   email?: string; // identity field — only present when the viewer may see it
   suspended: boolean; deleted: boolean; isGuest: boolean; forcePasswordChange: boolean;
-  lastlogin: Date | null; timecreated: Date;
-  customFields: { shortname: string; name: string; type: string; value: string | null }[];
+  lastLogin: Date | null; createdAt: Date;
+  customFields: { shortName: string; name: string; type: string; value: string | null }[];
 }
 
 export function normalizeIdentity(value: string): string { return value.trim().toLowerCase(); }
@@ -53,27 +53,27 @@ export class UsersService {
    */
   async getMyAccess(userId: string, opts?: { isGuest?: boolean }): Promise<MyAccessView> {
     const isSiteAdmin = await this.evaluator.isSiteAdmin(userId);
-    const assignmentRows = (await this.roles.listAssignments({ userid: userId })) as {
-      id: string; roleid: string; contextid: string;
+    const assignmentRows = (await this.roles.listAssignments({ userId: userId })) as {
+      id: string; roleId: string; contextId: string;
     }[];
     const roleById = new Map((await this.roles.listRoles()).map((r) => [r.id, r]));
 
     const assignments: MyAccessView['assignments'] = [];
-    const relatedContexts = new Map<string, { id: string; contextlevel: number; path: string }>();
+    const relatedContexts = new Map<string, { id: string; contextLevel: number; path: string }>();
     const system = await this.contexts.ensureSystemContext();
     relatedContexts.set(system.id, system);
     for (const row of assignmentRows) {
-      const ctx = await this.contexts.getContext(row.contextid);
-      const role = roleById.get(row.roleid);
+      const ctx = await this.contexts.getContext(row.contextId);
+      const role = roleById.get(row.roleId);
       assignments.push({
         id: row.id,
-        roleId: row.roleid,
-        roleShortname: role?.shortname ?? '',
+        roleId: row.roleId,
+        roleShortname: role?.shortName ?? '',
         roleName: role?.name ?? '',
         contextId: ctx.id,
-        contextLevel: ctx.contextlevel,
+        contextLevel: ctx.contextLevel,
         contextPath: ctx.path,
-        instanceId: ctx.instanceid,
+        instanceId: ctx.instanceId,
       });
       for (const pathCtx of await this.contexts.getPathContexts(ctx)) {
         relatedContexts.set(pathCtx.id, pathCtx);
@@ -90,7 +90,7 @@ export class UsersService {
       }
       contexts.push({
         contextId: ctx.id,
-        contextLevel: ctx.contextlevel,
+        contextLevel: ctx.contextLevel,
         contextPath: ctx.path,
         capabilities,
       });
@@ -101,7 +101,7 @@ export class UsersService {
   /**
    * Tạo user: kiểm chính sách mật khẩu, hash, chống trùng username/email (user.username_taken, user.email_taken).
    */
-  async createUser(input: { username: string; email: string; password: string; firstname?: string; lastname?: string; forcePasswordChange?: boolean; customFields?: Record<string, string> }): Promise<UserRow> {
+  async createUser(input: { username: string; email: string; password: string; firstName?: string; lastName?: string; forcePasswordChange?: boolean; customFields?: Record<string, string> }): Promise<UserRow> {
     const username = normalizeIdentity(input.username);
     const email = normalizeIdentity(input.email);
     if (await this.repo.getByUsername(username)) throw new ConflictException({ message: `Username ${username} is taken`, code: 'user.username_taken' });
@@ -113,7 +113,7 @@ export class UsersService {
     const user = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertUser({
         username, email, passwordHash,
-        firstname: input.firstname ?? '', lastname: input.lastname ?? '',
+        firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: input.forcePasswordChange ?? false,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
@@ -131,7 +131,7 @@ export class UsersService {
   async ensureGuestUser(): Promise<UserRow> {
     const existing = await this.repo.getByUsername('guest');
     if (existing) return existing;
-    const guest = await this.repo.insertUser({ username: 'guest', email: 'guest@localhost', passwordHash: null, firstname: 'Guest', lastname: 'User', isGuest: true });
+    const guest = await this.repo.insertUser({ username: 'guest', email: 'guest@localhost', passwordHash: null, firstName: 'Guest', lastName: 'User', isGuest: true });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, guest.id, (await this.contexts.ensureSystemContext()).id);
     return guest;
   }
@@ -154,7 +154,7 @@ export class UsersService {
    * khi trùng; email trùng một tài khoản sẵn có là lỗi của phía gọi (luồng
    * OAuth phải khớp email trước khi tới đây).
    */
-  async createExternalUser(input: { email: string; firstname?: string; lastname?: string }): Promise<UserRow> {
+  async createExternalUser(input: { email: string; firstName?: string; lastName?: string }): Promise<UserRow> {
     const email = normalizeIdentity(input.email);
     if (await this.repo.getByEmail(email)) throw new ConflictException({ message: `Email ${email} is taken`, code: 'user.email_taken' });
     const base = email.split('@')[0]!.replace(/[^a-z0-9._-]+/g, '.').replace(/^\.+|\.+$/g, '') || 'user';
@@ -163,7 +163,7 @@ export class UsersService {
     const user = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertUser({
         username, email, passwordHash: null,
-        firstname: input.firstname ?? '', lastname: input.lastname ?? '',
+        firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: false,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
@@ -198,7 +198,7 @@ export class UsersService {
   /**
    * Cập nhật hồ sơ (họ tên, email, …) với kiểm tra trùng email.
    */
-  async updateUser(id: string, input: { email?: string; firstname?: string; lastname?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
+  async updateUser(id: string, input: { email?: string; firstName?: string; lastName?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
     const user = await this.getUser(id);
     if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     if (user.deleted) throw new BadRequestException({ message: 'Cannot update a deleted user', code: 'user.deleted' });
@@ -209,8 +209,8 @@ export class UsersService {
       if (clash && clash.id !== id) throw new ConflictException({ message: `Email ${email} is taken`, code: 'user.email_taken' });
       patch.email = email;
     }
-    if (input.firstname !== undefined) patch.firstname = input.firstname;
-    if (input.lastname !== undefined) patch.lastname = input.lastname;
+    if (input.firstName !== undefined) patch.firstName = input.firstName;
+    if (input.lastName !== undefined) patch.lastName = input.lastName;
     if (input.password !== undefined) {
       const errors = this.passwords.validatePolicy(input.password);
       if (errors.length) throw new BadRequestException({ message: errors.join('; '), code: 'user.password_policy' });
@@ -259,7 +259,7 @@ export class UsersService {
   /**
    * Ghi nhận lần đăng nhập thành công (first/last access, IP).
    */
-  async recordLogin(id: string): Promise<void> { await this.repo.updateUser(id, { lastlogin: new Date() }); }
+  async recordLogin(id: string): Promise<void> { await this.repo.updateUser(id, { lastLogin: new Date() }); }
   /**
    * Gỡ cờ bắt buộc đổi mật khẩu sau khi user đã đổi.
    */
@@ -274,11 +274,11 @@ export class UsersService {
   /**
    * Ghi tuỳ chọn cá nhân.
    */
-  async setPreference(userid: string, name: string, value: string | null): Promise<void> { return this.repo.setPreference(userid, name, value); }
+  async setPreference(userId: string, name: string, value: string | null): Promise<void> { return this.repo.setPreference(userId, name, value); }
   /**
    * Đọc tuỳ chọn cá nhân.
    */
-  async getPreference(userid: string, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userid, name); }
+  async getPreference(userId: string, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userId, name); }
 
   /**
    * Profile view with Moodle's privacy-by-capability rule: identity fields
@@ -297,11 +297,11 @@ export class UsersService {
       || (await this.evaluator.hasCapability(viewerId, 'moodle/site:viewuseridentity', systemCtx.id));
     const custom = await this.customFields.getValuesForInstance(USER_COMPONENT, USER_AREA, targetId);
     return {
-      id: user.id, username: user.username, firstname: user.firstname, lastname: user.lastname,
+      id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName,
       ...(canSeeIdentity ? { email: user.email } : {}),
       suspended: user.suspended, deleted: user.deleted, isGuest: user.isGuest,
-      forcePasswordChange: user.forcePasswordChange, lastlogin: user.lastlogin, timecreated: user.timecreated,
-      customFields: custom.map((c) => ({ shortname: c.field.shortname, name: c.field.name, type: c.field.type, value: c.value })),
+      forcePasswordChange: user.forcePasswordChange, lastLogin: user.lastLogin, createdAt: user.createdAt,
+      customFields: custom.map((c) => ({ shortName: c.field.shortName, name: c.field.name, type: c.field.type, value: c.value })),
     };
   }
 

@@ -32,13 +32,13 @@ export class GroupsRepository {
    * Liệt kê nhóm của khoá học.
    */
   async listGroups(courseId: string): Promise<GroupRow[]> {
-    return this.db.select().from(courseGroups).where(eq(courseGroups.courseid, courseId)).orderBy(courseGroups.id);
+    return this.db.select().from(courseGroups).where(eq(courseGroups.courseId, courseId)).orderBy(courseGroups.id);
   }
   /**
    * Cập nhật nhóm.
    */
   async updateGroup(id: string, v: Partial<typeof courseGroups.$inferInsert>): Promise<void> {
-    await this.db.update(courseGroups).set({ ...v, timemodified: new Date() }).where(eq(courseGroups.id, id));
+    await this.db.update(courseGroups).set({ ...v, updatedAt: new Date() }).where(eq(courseGroups.id, id));
   }
   /**
    * Xoá nhóm.
@@ -48,43 +48,43 @@ export class GroupsRepository {
   /**
    * Thêm thành viên vào nhóm.
    */
-  async addMember(groupid: string, userid: string, component = '', itemid: string | null = null): Promise<void> {
-    await this.db.insert(groupsMembers).values({ groupid, userid, component, itemid }).onConflictDoNothing();
+  async addMember(groupId: string, userId: string, component = '', itemId: string | null = null): Promise<void> {
+    await this.db.insert(groupsMembers).values({ groupId, userId, component, itemId }).onConflictDoNothing();
   }
   /**
    * Gỡ thành viên khỏi nhóm.
    */
-  async removeMember(groupid: string, userid: string): Promise<void> {
-    await this.db.delete(groupsMembers).where(and(eq(groupsMembers.groupid, groupid), eq(groupsMembers.userid, userid)));
+  async removeMember(groupId: string, userId: string): Promise<void> {
+    await this.db.delete(groupsMembers).where(and(eq(groupsMembers.groupId, groupId), eq(groupsMembers.userId, userId)));
   }
   /**
    * Thành viên của một nhóm.
    */
-  async listMembers(groupid: string): Promise<(typeof groupsMembers.$inferSelect)[]> {
-    return this.db.select().from(groupsMembers).where(eq(groupsMembers.groupid, groupid)).orderBy(groupsMembers.id);
+  async listMembers(groupId: string): Promise<(typeof groupsMembers.$inferSelect)[]> {
+    return this.db.select().from(groupsMembers).where(eq(groupsMembers.groupId, groupId)).orderBy(groupsMembers.id);
   }
   /**
    * Thành viên của nhiều nhóm (gộp).
    */
   async listMembersOfGroups(groupIds: string[]): Promise<(typeof groupsMembers.$inferSelect)[]> {
     if (!groupIds.length) return [];
-    return this.db.select().from(groupsMembers).where(inArray(groupsMembers.groupid, groupIds));
+    return this.db.select().from(groupsMembers).where(inArray(groupsMembers.groupId, groupIds));
   }
   /**
    * Các nhóm user thuộc về trong khoá học.
    */
-  async groupsOfUser(courseId: string, userid: string): Promise<GroupRow[]> {
-    const memberRows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userid, userid));
-    const ids = memberRows.map((m) => m.groupid);
+  async groupsOfUser(courseId: string, userId: string): Promise<GroupRow[]> {
+    const memberRows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userId, userId));
+    const ids = memberRows.map((m) => m.groupId);
     if (!ids.length) return [];
-    const rows = await this.db.select().from(courseGroups).where(and(eq(courseGroups.courseid, courseId), inArray(courseGroups.id, ids)));
+    const rows = await this.db.select().from(courseGroups).where(and(eq(courseGroups.courseId, courseId), inArray(courseGroups.id, ids)));
     return rows;
   }
   /**
    * User có là thành viên nhóm hay không.
    */
-  async isMember(groupid: string, userid: string): Promise<boolean> {
-    const [row] = await this.db.select().from(groupsMembers).where(and(eq(groupsMembers.groupid, groupid), eq(groupsMembers.userid, userid)));
+  async isMember(groupId: string, userId: string): Promise<boolean> {
+    const [row] = await this.db.select().from(groupsMembers).where(and(eq(groupsMembers.groupId, groupId), eq(groupsMembers.userId, userId)));
     return !!row;
   }
 
@@ -104,7 +104,7 @@ export class GroupsRepository {
    * Liệt kê grouping của khoá học.
    */
   async listGroupings(courseId: string): Promise<GroupingRow[]> {
-    return this.db.select().from(groupings).where(eq(groupings.courseid, courseId)).orderBy(groupings.id);
+    return this.db.select().from(groupings).where(eq(groupings.courseId, courseId)).orderBy(groupings.id);
   }
   /**
    * Xoá grouping.
@@ -113,22 +113,22 @@ export class GroupsRepository {
   /**
    * Đưa nhóm vào grouping.
    */
-  async addGroupToGrouping(groupingid: string, groupid: string): Promise<void> {
-    await this.db.insert(groupingsGroups).values({ groupingid, groupid }).onConflictDoNothing();
+  async addGroupToGrouping(groupingId: string, groupId: string): Promise<void> {
+    await this.db.insert(groupingsGroups).values({ groupingId, groupId }).onConflictDoNothing();
   }
   /**
    * Gỡ nhóm khỏi grouping.
    */
-  async removeGroupFromGrouping(groupingid: string, groupid: string): Promise<void> {
-    await this.db.delete(groupingsGroups).where(and(eq(groupingsGroups.groupingid, groupingid), eq(groupingsGroups.groupid, groupid)));
+  async removeGroupFromGrouping(groupingId: string, groupId: string): Promise<void> {
+    await this.db.delete(groupingsGroups).where(and(eq(groupingsGroups.groupingId, groupingId), eq(groupingsGroups.groupId, groupId)));
   }
   /**
    * Các nhóm thuộc grouping.
    */
-  async groupsInGrouping(groupingid: string): Promise<GroupRow[]> {
-    const links = await this.db.select().from(groupingsGroups).where(eq(groupingsGroups.groupingid, groupingid));
+  async groupsInGrouping(groupingId: string): Promise<GroupRow[]> {
+    const links = await this.db.select().from(groupingsGroups).where(eq(groupingsGroups.groupingId, groupingId));
     if (!links.length) return [];
-    return this.db.select().from(courseGroups).where(inArray(courseGroups.id, links.map((l) => l.groupid)));
+    return this.db.select().from(courseGroups).where(inArray(courseGroups.id, links.map((l) => l.groupId)));
   }
 
   /**
@@ -151,7 +151,7 @@ export class GroupsRepository {
    * Cập nhật cohort.
    */
   async updateCohort(id: string, v: Partial<typeof cohort.$inferInsert>): Promise<void> {
-    await this.db.update(cohort).set({ ...v, timemodified: new Date() }).where(eq(cohort.id, id));
+    await this.db.update(cohort).set({ ...v, updatedAt: new Date() }).where(eq(cohort.id, id));
   }
   /**
    * Xoá cohort.
@@ -160,28 +160,28 @@ export class GroupsRepository {
   /**
    * Thêm thành viên cohort.
    */
-  async addCohortMember(cohortid: string, userid: string): Promise<boolean> {
-    const inserted = await this.db.insert(cohortMembers).values({ cohortid, userid }).onConflictDoNothing().returning();
+  async addCohortMember(cohortId: string, userId: string): Promise<boolean> {
+    const inserted = await this.db.insert(cohortMembers).values({ cohortId, userId }).onConflictDoNothing().returning();
     return inserted.length > 0;
   }
   /**
    * Gỡ thành viên cohort.
    */
-  async removeCohortMember(cohortid: string, userid: string): Promise<boolean> {
-    const deleted = await this.db.delete(cohortMembers).where(and(eq(cohortMembers.cohortid, cohortid), eq(cohortMembers.userid, userid))).returning();
+  async removeCohortMember(cohortId: string, userId: string): Promise<boolean> {
+    const deleted = await this.db.delete(cohortMembers).where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId))).returning();
     return deleted.length > 0;
   }
   /**
    * Thành viên của cohort.
    */
-  async listCohortMembers(cohortid: string): Promise<(typeof cohortMembers.$inferSelect)[]> {
-    return this.db.select().from(cohortMembers).where(eq(cohortMembers.cohortid, cohortid)).orderBy(cohortMembers.timeadded);
+  async listCohortMembers(cohortId: string): Promise<(typeof cohortMembers.$inferSelect)[]> {
+    return this.db.select().from(cohortMembers).where(eq(cohortMembers.cohortId, cohortId)).orderBy(cohortMembers.timeAdded);
   }
   /**
    * User có thuộc cohort hay không.
    */
-  async isCohortMember(cohortid: string, userid: string): Promise<boolean> {
-    const [row] = await this.db.select().from(cohortMembers).where(and(eq(cohortMembers.cohortid, cohortid), eq(cohortMembers.userid, userid)));
+  async isCohortMember(cohortId: string, userId: string): Promise<boolean> {
+    const [row] = await this.db.select().from(cohortMembers).where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId)));
     return !!row;
   }
 }

@@ -39,44 +39,44 @@ export class MessagingRepository {
   /**
    * Thêm thành viên conversation.
    */
-  async addMember(conversationid: string, userid: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).insert(messageConversationMembers).values({ conversationid, userid }).onConflictDoNothing();
+  async addMember(conversationId: string, userId: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).insert(messageConversationMembers).values({ conversationId, userId }).onConflictDoNothing();
   }
   /**
    * Gỡ một thành viên khỏi conversation (dùng cho đồng bộ group conversation:
    * người rời group thì rời conversation, tin nhắn cũ giữ nguyên).
    */
-  async removeMember(conversationid: string, userid: string): Promise<void> {
+  async removeMember(conversationId: string, userId: string): Promise<void> {
     await this.db.delete(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationid, conversationid), eq(messageConversationMembers.userid, userid)));
+      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
   }
   /**
    * Thành viên của conversation.
    */
-  async listMembers(conversationid: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.conversationid, conversationid));
-    return rows.map((r) => r.userid);
+  async listMembers(conversationId: string): Promise<string[]> {
+    const rows = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.conversationId, conversationId));
+    return rows.map((r) => r.userId);
   }
   /**
    * User có thuộc conversation hay không.
    */
-  async isMember(conversationid: string, userid: string): Promise<boolean> {
+  async isMember(conversationId: string, userId: string): Promise<boolean> {
     const rows = await this.db.select().from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationid, conversationid), eq(messageConversationMembers.userid, userid)));
+      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
     return rows.length > 0;
   }
   /**
    * Conversation của user, mới nhất trước.
    */
-  async listConversationsForUser(userid: string): Promise<ConversationRow[]> {
-    const memberships = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.userid, userid));
+  async listConversationsForUser(userId: string): Promise<ConversationRow[]> {
+    const memberships = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.userId, userId));
     if (!memberships.length) return [];
     const rows: ConversationRow[] = [];
     for (const m of memberships) {
-      const c = await this.getConversation(m.conversationid);
+      const c = await this.getConversation(m.conversationId);
       if (c) rows.push(c);
     }
-    return rows.sort((a, b) => b.timemodified.getTime() - a.timemodified.getTime());
+    return rows.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
   /** Find the individual conversation whose member set is exactly {a, b}. */
   /**
@@ -95,7 +95,7 @@ export class MessagingRepository {
    * Cập nhật mốc hoạt động của conversation khi có tin mới.
    */
   async touchConversation(id: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(messageConversations).set({ timemodified: new Date() }).where(eq(messageConversations.id, id));
+    await (tx ?? this.db).update(messageConversations).set({ updatedAt: new Date() }).where(eq(messageConversations.id, id));
   }
 
   /**
@@ -113,15 +113,15 @@ export class MessagingRepository {
   /**
    * Tin nhắn của conversation.
    */
-  async listMessages(conversationid: string): Promise<MessageRow[]> {
-    return this.db.select().from(message).where(eq(message.conversationid, conversationid)).orderBy(asc(message.id));
+  async listMessages(conversationId: string): Promise<MessageRow[]> {
+    return this.db.select().from(message).where(eq(message.conversationId, conversationId)).orderBy(asc(message.id));
   }
   /**
    * Đánh dấu user đã đọc conversation tới thời điểm hiện tại.
    */
-  async markConversationRead(conversationid: string, readerId: string): Promise<number> {
-    const rows = await this.db.update(message).set({ timeread: new Date() })
-      .where(and(eq(message.conversationid, conversationid), ne(message.useridfrom, readerId), isNull(message.timeread)))
+  async markConversationRead(conversationId: string, readerId: string): Promise<number> {
+    const rows = await this.db.update(message).set({ timeRead: new Date() })
+      .where(and(eq(message.conversationId, conversationId), ne(message.userIdFrom, readerId), isNull(message.timeRead)))
       .returning();
     return rows.length;
   }
@@ -129,12 +129,12 @@ export class MessagingRepository {
   /**
    * Số conversation có tin chưa đọc của user.
    */
-  async countUnreadConversations(userid: string): Promise<number> {
-    const convs = await this.listConversationsForUser(userid);
+  async countUnreadConversations(userId: string): Promise<number> {
+    const convs = await this.listConversationsForUser(userId);
     let count = 0;
     for (const c of convs) {
       const unread = await this.db.select().from(message)
-        .where(and(eq(message.conversationid, c.id), ne(message.useridfrom, userid), isNull(message.timeread)));
+        .where(and(eq(message.conversationId, c.id), ne(message.userIdFrom, userId), isNull(message.timeRead)));
       if (unread.length) count += 1;
     }
     return count;
@@ -143,30 +143,30 @@ export class MessagingRepository {
   /**
    * Chặn liên lạc từ một user.
    */
-  async block(userid: string, blockeduserid: string): Promise<void> {
-    await this.db.insert(messageUsersBlocked).values({ userid, blockeduserid }).onConflictDoNothing();
+  async block(userId: string, blockedUserId: string): Promise<void> {
+    await this.db.insert(messageUsersBlocked).values({ userId, blockedUserId }).onConflictDoNothing();
   }
   /**
    * Bỏ chặn.
    */
-  async unblock(userid: string, blockeduserid: string): Promise<void> {
+  async unblock(userId: string, blockedUserId: string): Promise<void> {
     await this.db.delete(messageUsersBlocked)
-      .where(and(eq(messageUsersBlocked.userid, userid), eq(messageUsersBlocked.blockeduserid, blockeduserid)));
+      .where(and(eq(messageUsersBlocked.userId, userId), eq(messageUsersBlocked.blockedUserId, blockedUserId)));
   }
   /**
    * A có chặn B hay không.
    */
-  async isBlocked(userid: string, blockeduserid: string): Promise<boolean> {
+  async isBlocked(userId: string, blockedUserId: string): Promise<boolean> {
     const rows = await this.db.select().from(messageUsersBlocked)
-      .where(and(eq(messageUsersBlocked.userid, userid), eq(messageUsersBlocked.blockeduserid, blockeduserid)));
+      .where(and(eq(messageUsersBlocked.userId, userId), eq(messageUsersBlocked.blockedUserId, blockedUserId)));
     return rows.length > 0;
   }
   /**
    * Danh sách user bị chặn.
    */
-  async listBlocked(userid: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userid, userid));
-    return rows.map((r) => r.blockeduserid);
+  async listBlocked(userId: string): Promise<string[]> {
+    const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userId, userId));
+    return rows.map((r) => r.blockedUserId);
   }
 
   // --- contacts -------------------------------------------------------------
@@ -174,30 +174,30 @@ export class MessagingRepository {
   /**
    * Thêm một liên hệ vào danh bạ của user (trùng cặp thì bỏ qua).
    */
-  async addContact(userid: string, contactid: string): Promise<void> {
-    await this.db.insert(messageContacts).values({ userid, contactid }).onConflictDoNothing();
+  async addContact(userId: string, contactId: string): Promise<void> {
+    await this.db.insert(messageContacts).values({ userId, contactId }).onConflictDoNothing();
   }
   /**
    * Gỡ một liên hệ khỏi danh bạ của user.
    */
-  async removeContact(userid: string, contactid: string): Promise<void> {
+  async removeContact(userId: string, contactId: string): Promise<void> {
     await this.db.delete(messageContacts)
-      .where(and(eq(messageContacts.userid, userid), eq(messageContacts.contactid, contactid)));
+      .where(and(eq(messageContacts.userId, userId), eq(messageContacts.contactId, contactId)));
   }
   /**
-   * Danh bạ của user (các contactid user đã thêm).
+   * Danh bạ của user (các contactId user đã thêm).
    */
-  async listContacts(userid: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageContacts).where(eq(messageContacts.userid, userid));
-    return rows.map((r) => r.contactid);
+  async listContacts(userId: string): Promise<string[]> {
+    const rows = await this.db.select().from(messageContacts).where(eq(messageContacts.userId, userId));
+    return rows.map((r) => r.contactId);
   }
   /**
-   * Owner có contactid trong danh bạ hay không. Cổng liên lạc dùng hướng
+   * Owner có contactId trong danh bạ hay không. Cổng liên lạc dùng hướng
    * (người nhận, người gửi): người nhận đã thêm người gửi làm liên hệ.
    */
   async isContact(ownerId: string, contactId: string): Promise<boolean> {
     const rows = await this.db.select().from(messageContacts)
-      .where(and(eq(messageContacts.userid, ownerId), eq(messageContacts.contactid, contactId)));
+      .where(and(eq(messageContacts.userId, ownerId), eq(messageContacts.contactId, contactId)));
     return rows.length > 0;
   }
 
@@ -205,24 +205,24 @@ export class MessagingRepository {
   // Đọc trực tiếp bảng enrol/user_enrolments qua định nghĩa bảng dùng chung
   // (barrel schema) — Messaging KHÔNG import EnrolModule để tránh vòng lặp
   // module; ngữ nghĩa "đang active" chép đúng EnrolService.isEnrolled
-  // (instance enabled, ghi danh ACTIVE, now trong [timestart, timeend]).
+  // (instance enabled, ghi danh ACTIVE, now trong [timeStart, timeEnd]).
 
   /**
    * Các khoá mà user có ghi danh đang hiệu lực (instance enabled + ghi danh
    * ACTIVE + trong cửa sổ thời gian).
    */
-  async activeCourseIds(userid: string): Promise<string[]> {
+  async activeCourseIds(userId: string): Promise<string[]> {
     const now = new Date();
-    const rows = await this.db.select({ courseid: enrol.courseid }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolid, enrol.id))
+    const rows = await this.db.select({ courseId: enrol.courseId }).from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
       .where(and(
-        eq(userEnrolments.userid, userid),
+        eq(userEnrolments.userId, userId),
         eq(userEnrolments.status, 0),
         eq(enrol.status, 0),
-        lte(userEnrolments.timestart, now),
-        or(isNull(userEnrolments.timeend), gte(userEnrolments.timeend, now)),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
       ));
-    return rows.map((r) => r.courseid);
+    return rows.map((r) => r.courseId);
   }
   /**
    * Hai user có ít nhất một khoá học cùng ghi danh đang hiệu lực hay không.
@@ -239,7 +239,7 @@ export class MessagingRepository {
   // GroupsModule): đồng bộ lười phía messaging, không cần hook bên groups.
 
   /**
-   * Lấy một course group theo id (kèm courseid để resolve context/staff).
+   * Lấy một course group theo id (kèm courseId để resolve context/staff).
    */
   async getCourseGroup(groupId: string): Promise<CourseGroupRow | undefined> {
     const [row] = await this.db.select().from(courseGroups).where(eq(courseGroups.id, groupId));
@@ -249,17 +249,17 @@ export class MessagingRepository {
    * Thành viên hiện tại của một course group.
    */
   async listGroupMemberIds(groupId: string): Promise<string[]> {
-    const rows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.groupid, groupId));
-    return rows.map((r) => r.userid);
+    const rows = await this.db.select().from(groupsMembers).where(eq(groupsMembers.groupId, groupId));
+    return rows.map((r) => r.userId);
   }
   /**
-   * Conversation gắn với một course group qua (component, itemtype, itemid).
+   * Conversation gắn với một course group qua (component, itemType, itemId).
    */
   async findGroupConversation(groupId: string): Promise<ConversationRow | undefined> {
     const [row] = await this.db.select().from(messageConversations).where(and(
       eq(messageConversations.component, 'core_group'),
-      eq(messageConversations.itemtype, 'groups'),
-      eq(messageConversations.itemid, groupId),
+      eq(messageConversations.itemType, 'groups'),
+      eq(messageConversations.itemId, groupId),
     ));
     return row;
   }
@@ -268,13 +268,13 @@ export class MessagingRepository {
    * để thao tác liệt kê cũng kích hoạt đồng bộ (người mới vào group thấy
    * conversation ngay cả khi chưa từng là thành viên conversation).
    */
-  async listGroupConversationsForGroupMember(userid: string): Promise<ConversationRow[]> {
-    const memberships = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userid, userid));
+  async listGroupConversationsForGroupMember(userId: string): Promise<ConversationRow[]> {
+    const memberships = await this.db.select().from(groupsMembers).where(eq(groupsMembers.userId, userId));
     if (!memberships.length) return [];
     return this.db.select().from(messageConversations).where(and(
       eq(messageConversations.component, 'core_group'),
-      eq(messageConversations.itemtype, 'groups'),
-      inArray(messageConversations.itemid, memberships.map((m) => m.groupid)),
+      eq(messageConversations.itemType, 'groups'),
+      inArray(messageConversations.itemId, memberships.map((m) => m.groupId)),
     ));
   }
 
@@ -287,31 +287,31 @@ export class MessagingRepository {
   /**
    * Notification của user.
    */
-  async listNotifications(useridto: string): Promise<NotificationRow[]> {
-    return this.db.select().from(notifications).where(eq(notifications.useridto, useridto)).orderBy(desc(notifications.id));
+  async listNotifications(userIdTo: string): Promise<NotificationRow[]> {
+    return this.db.select().from(notifications).where(eq(notifications.userIdTo, userIdTo)).orderBy(desc(notifications.id));
   }
   /**
    * Số notification chưa đọc.
    */
-  async countUnreadNotifications(useridto: string): Promise<number> {
+  async countUnreadNotifications(userIdTo: string): Promise<number> {
     const rows = await this.db.select().from(notifications)
-      .where(and(eq(notifications.useridto, useridto), isNull(notifications.timeread)));
+      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead)));
     return rows.length;
   }
   /**
    * Đánh dấu một notification đã đọc.
    */
-  async markNotificationRead(id: string, useridto: string): Promise<boolean> {
-    const rows = await this.db.update(notifications).set({ timeread: new Date() })
-      .where(and(eq(notifications.id, id), eq(notifications.useridto, useridto))).returning();
+  async markNotificationRead(id: string, userIdTo: string): Promise<boolean> {
+    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
+      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
     return rows.length > 0;
   }
   /**
    * Đánh dấu mọi notification đã đọc.
    */
-  async markAllNotificationsRead(useridto: string): Promise<number> {
-    const rows = await this.db.update(notifications).set({ timeread: new Date() })
-      .where(and(eq(notifications.useridto, useridto), isNull(notifications.timeread))).returning();
+  async markAllNotificationsRead(userIdTo: string): Promise<number> {
+    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
+      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead))).returning();
     return rows.length;
   }
 
@@ -320,16 +320,16 @@ export class MessagingRepository {
    */
   async insertDispatchLog(v: typeof notificationDispatchLog.$inferInsert, tx?: DbTx): Promise<DispatchLogRow> {
     const [row] = await (tx ?? this.db).insert(notificationDispatchLog).values(v)
-      .onConflictDoNothing({ target: notificationDispatchLog.dedupekey }).returning();
+      .onConflictDoNothing({ target: notificationDispatchLog.dedupeKey }).returning();
     if (row) return row;
     const [existing] = await this.db.select().from(notificationDispatchLog)
-      .where(eq(notificationDispatchLog.dedupekey, v.dedupekey!));
+      .where(eq(notificationDispatchLog.dedupeKey, v.dedupeKey!));
     return existing!;
   }
   /**
    * Nhật ký dispatch (kiểm chứng gửi).
    */
-  async listDispatchLog(userid: string): Promise<DispatchLogRow[]> {
-    return this.db.select().from(notificationDispatchLog).where(eq(notificationDispatchLog.userid, userid)).orderBy(asc(notificationDispatchLog.id));
+  async listDispatchLog(userId: string): Promise<DispatchLogRow[]> {
+    return this.db.select().from(notificationDispatchLog).where(eq(notificationDispatchLog.userId, userId)).orderBy(asc(notificationDispatchLog.id));
   }
 }

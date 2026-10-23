@@ -51,7 +51,7 @@ export interface AvailabilityOption {
 
 const OPS: AvailabilityOp[] = ['&', '|', '!&', '!|'];
 const LEAF_TYPES = ['date', 'grade', 'completion', 'group', 'grouping', 'profile'] as const;
-const STANDARD_PROFILE_FIELDS = ['username', 'firstname', 'lastname', 'email'] as const;
+const STANDARD_PROFILE_FIELDS = ['username', 'firstName', 'lastName', 'email'] as const;
 
 const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs';
 
@@ -80,9 +80,9 @@ function normalizeLeaf(raw: Record<string, unknown>): AvailabilityLeafModel {
     case 'completion':
       return { type: 'completion', id: String(raw.id ?? raw.cmid ?? raw.cm ?? ''), state: Number(raw.state ?? 1) };
     case 'group':
-      return { type: 'group', id: String(raw.id ?? raw.groupid ?? '') };
+      return { type: 'group', id: String(raw.id ?? raw.groupId ?? '') };
     case 'grouping':
-      return { type: 'grouping', id: String(raw.id ?? raw.groupingid ?? '') };
+      return { type: 'grouping', id: String(raw.id ?? raw.groupingId ?? '') };
     case 'profile': {
       const leaf: AvailabilityLeafModel = {
         type: 'profile',
@@ -348,8 +348,8 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
               onChange={(e) => onChange({ ...leaf, field: e.target.value === '__custom' ? '' : e.target.value })}
             >
               <option value="username">{t('availabilityProfileUsername')}</option>
-              <option value="firstname">{t('availabilityProfileFirstname')}</option>
-              <option value="lastname">{t('availabilityProfileLastname')}</option>
+              <option value="firstName">{t('availabilityProfileFirstname')}</option>
+              <option value="lastName">{t('availabilityProfileLastname')}</option>
               <option value="email">{t('availabilityProfileEmail')}</option>
               <option value="__custom">{t('availabilityProfileCustomOption')}</option>
             </select>

@@ -20,7 +20,7 @@ export class ContextsService {
   async ensureSystemContext(): Promise<ContextRow> {
     const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, null);
     if (existing) return existing;
-    const row = await this.repo.insertContext({ contextlevel: CONTEXT_LEVELS.SYSTEM, instanceid: null, path: '', depth: 0 });
+    const row = await this.repo.insertContext({ contextLevel: CONTEXT_LEVELS.SYSTEM, instanceId: null, path: '', depth: 0 });
     const path = `/${row.id}`;
     await this.repo.updateContextPath(row.id, path, 1);
     return { ...row, path, depth: 1 };
@@ -29,14 +29,14 @@ export class ContextsService {
   /**
    * Tạo context con dưới một context cha, tính path/depth; cha không tồn tại → lỗi access.parent_context_not_found.
    */
-  async createContext(contextlevel: number, instanceid: string, parentId?: string): Promise<ContextRow> {
-    const existing = await this.repo.getContextByLevelInstance(contextlevel, instanceid);
+  async createContext(contextLevel: number, instanceId: string, parentId?: string): Promise<ContextRow> {
+    const existing = await this.repo.getContextByLevelInstance(contextLevel, instanceId);
     if (existing) return existing;
-    const parent = contextlevel === CONTEXT_LEVELS.SYSTEM
+    const parent = contextLevel === CONTEXT_LEVELS.SYSTEM
       ? undefined
       : await this.repo.getContextById(parentId ?? (await this.ensureSystemContext()).id);
-    if (contextlevel !== CONTEXT_LEVELS.SYSTEM && !parent) throw new BadRequestException({ message: 'Parent context not found', code: 'access.parent_context_not_found' });
-    const row = await this.repo.insertContext({ contextlevel, instanceid, path: '', depth: 0 });
+    if (contextLevel !== CONTEXT_LEVELS.SYSTEM && !parent) throw new BadRequestException({ message: 'Parent context not found', code: 'access.parent_context_not_found' });
+    const row = await this.repo.insertContext({ contextLevel, instanceId, path: '', depth: 0 });
     const path = parent ? `${parent.path}/${row.id}` : `/${row.id}`;
     const depth = parent ? parent.depth + 1 : 1;
     await this.repo.updateContextPath(row.id, path, depth);
@@ -56,16 +56,16 @@ export class ContextsService {
   }
   /**
    * Lấy context theo (level, instance); undefined nếu chưa được tạo.
-   * Cột `instanceid` là uuid nên một giá trị không phải UUID chắc chắn
+   * Cột `instanceId` là uuid nên một giá trị không phải UUID chắc chắn
    * không khớp context nào — trả undefined thay vì để DB ném lỗi cú pháp
    * uuid. Điểm này bắt buộc vì CapabilityGuard chạy TRƯỚC pipe validate:
    * param thô trên URL (vd `:id` của user) tới được đây khi chưa qua
    * kiểm tra định dạng, và hợp đồng API đòi id sai định dạng → 400 ở
    * pipe chứ không phải 500 ở guard (ADR-013, nhóm test hợp đồng API).
    */
-  async getByLevelInstance(contextlevel: number, instanceid: string): Promise<ContextRow | undefined> {
-    if (!uuidIdSchema.safeParse(instanceid).success) return undefined;
-    return this.repo.getContextByLevelInstance(contextlevel, instanceid);
+  async getByLevelInstance(contextLevel: number, instanceId: string): Promise<ContextRow | undefined> {
+    if (!uuidIdSchema.safeParse(instanceId).success) return undefined;
+    return this.repo.getContextByLevelInstance(contextLevel, instanceId);
   }
   /**
    * Liệt kê toàn bộ context.
@@ -79,8 +79,8 @@ export class ContextsService {
   /**
    * Xoá context theo (level, instance) — dùng khi entity chủ (khoá học/module) bị xoá.
    */
-  async deleteByLevelInstance(contextlevel: number, instanceid: string): Promise<void> {
-    const row = await this.repo.getContextByLevelInstance(contextlevel, instanceid);
+  async deleteByLevelInstance(contextLevel: number, instanceId: string): Promise<void> {
+    const row = await this.repo.getContextByLevelInstance(contextLevel, instanceId);
     if (row) await this.repo.deleteContext(row.id);
   }
 

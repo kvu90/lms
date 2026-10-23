@@ -28,7 +28,7 @@ export class SocialRepository {
   async ensureDefaultCollection(): Promise<string> {
     const [existing] = await this.db.select().from(tagCollection).where(eq(tagCollection.name, 'Default collection'));
     if (existing) return existing.id;
-    const [row] = await this.db.insert(tagCollection).values({ name: 'Default collection', isstandard: true }).returning();
+    const [row] = await this.db.insert(tagCollection).values({ name: 'Default collection', isStandard: true }).returning();
     return row!.id;
   }
   /**
@@ -38,8 +38,8 @@ export class SocialRepository {
   /**
    * Tìm tag theo tên trong collection.
    */
-  async findTag(tagcollid: string, name: string): Promise<TagRow | undefined> {
-    const [row] = await this.db.select().from(tag).where(and(eq(tag.tagcollid, tagcollid), eq(tag.name, name)));
+  async findTag(tagCollId: string, name: string): Promise<TagRow | undefined> {
+    const [row] = await this.db.select().from(tag).where(and(eq(tag.tagCollId, tagCollId), eq(tag.name, name)));
     return row;
   }
   /**
@@ -57,52 +57,52 @@ export class SocialRepository {
   /**
    * Tag instance gắn với một item.
    */
-  async listInstancesForItem(component: string, itemtype: string, itemid: string): Promise<TagInstanceRow[]> {
+  async listInstancesForItem(component: string, itemType: string, itemId: string): Promise<TagInstanceRow[]> {
     return this.db.select().from(tagInstance)
-      .where(and(eq(tagInstance.component, component), eq(tagInstance.itemtype, itemtype), eq(tagInstance.itemid, itemid)))
+      .where(and(eq(tagInstance.component, component), eq(tagInstance.itemType, itemType), eq(tagInstance.itemId, itemId)))
       .orderBy(asc(tagInstance.ordering));
   }
   /**
    * Item đã gắn một tag.
    */
-  async listInstancesForTag(tagid: string): Promise<TagInstanceRow[]> {
-    return this.db.select().from(tagInstance).where(eq(tagInstance.tagid, tagid));
+  async listInstancesForTag(tagId: string): Promise<TagInstanceRow[]> {
+    return this.db.select().from(tagInstance).where(eq(tagInstance.tagId, tagId));
   }
   /**
    * Gắn tag vào item.
    */
   async insertInstance(v: typeof tagInstance.$inferInsert): Promise<TagInstanceRow> {
     const [row] = await this.db.insert(tagInstance).values(v)
-      .onConflictDoNothing({ target: [tagInstance.tagid, tagInstance.component, tagInstance.itemtype, tagInstance.itemid, tagInstance.contextid, tagInstance.tiuserid] })
+      .onConflictDoNothing({ target: [tagInstance.tagId, tagInstance.component, tagInstance.itemType, tagInstance.itemId, tagInstance.contextId, tagInstance.tiUserId] })
       .returning();
     if (row) return row;
     const [existing] = await this.db.select().from(tagInstance).where(and(
-      eq(tagInstance.tagid, v.tagid), eq(tagInstance.component, v.component), eq(tagInstance.itemtype, v.itemtype),
-      eq(tagInstance.itemid, v.itemid), eq(tagInstance.contextid, v.contextid), v.tiuserid ? eq(tagInstance.tiuserid, v.tiuserid) : isNull(tagInstance.tiuserid),
+      eq(tagInstance.tagId, v.tagId), eq(tagInstance.component, v.component), eq(tagInstance.itemType, v.itemType),
+      eq(tagInstance.itemId, v.itemId), eq(tagInstance.contextId, v.contextId), v.tiUserId ? eq(tagInstance.tiUserId, v.tiUserId) : isNull(tagInstance.tiUserId),
     ));
     return existing!;
   }
   /**
    * Gỡ mọi tag của item.
    */
-  async deleteInstancesForItem(component: string, itemtype: string, itemid: string, contextid: string): Promise<void> {
+  async deleteInstancesForItem(component: string, itemType: string, itemId: string, contextId: string): Promise<void> {
     await this.db.delete(tagInstance).where(and(
-      eq(tagInstance.component, component), eq(tagInstance.itemtype, itemtype),
-      eq(tagInstance.itemid, itemid), eq(tagInstance.contextid, contextid),
+      eq(tagInstance.component, component), eq(tagInstance.itemType, itemType),
+      eq(tagInstance.itemId, itemId), eq(tagInstance.contextId, contextId),
     ));
   }
   /**
    * Ghi độ tương quan giữa hai tag (tag liên quan).
    */
-  async upsertCorrelation(tagid: string, correlatedtags: string): Promise<void> {
-    await this.db.insert(tagCorrelation).values({ tagid, correlatedtags })
-      .onConflictDoUpdate({ target: tagCorrelation.tagid, set: { correlatedtags } });
+  async upsertCorrelation(tagId: string, correlatedTags: string): Promise<void> {
+    await this.db.insert(tagCorrelation).values({ tagId, correlatedTags })
+      .onConflictDoUpdate({ target: tagCorrelation.tagId, set: { correlatedTags } });
   }
   /**
    * Độ tương quan đã lưu của một tag.
    */
-  async getCorrelation(tagid: string) {
-    const [row] = await this.db.select().from(tagCorrelation).where(eq(tagCorrelation.tagid, tagid));
+  async getCorrelation(tagId: string) {
+    const [row] = await this.db.select().from(tagCorrelation).where(eq(tagCorrelation.tagId, tagId));
     return row;
   }
 
@@ -122,17 +122,17 @@ export class SocialRepository {
   /**
    * Comment của một item theo context.
    */
-  async listComments(component: string, commentarea: string, itemid: string, contextid: string): Promise<CommentRow[]> {
+  async listComments(component: string, commentArea: string, itemId: string, contextId: string): Promise<CommentRow[]> {
     return this.db.select().from(comments).where(and(
-      eq(comments.component, component), eq(comments.commentarea, commentarea),
-      eq(comments.itemid, itemid), eq(comments.contextid, contextid), isNull(comments.timedeleted),
+      eq(comments.component, component), eq(comments.commentArea, commentArea),
+      eq(comments.itemId, itemId), eq(comments.contextId, contextId), isNull(comments.timeDeleted),
     )).orderBy(desc(comments.id));
   }
   /**
    * Xoá mềm comment.
    */
   async softDeleteComment(id: string): Promise<void> {
-    await this.db.update(comments).set({ timedeleted: new Date() }).where(eq(comments.id, id));
+    await this.db.update(comments).set({ timeDeleted: new Date() }).where(eq(comments.id, id));
   }
 
   // ratings
@@ -141,18 +141,18 @@ export class SocialRepository {
    */
   async upsertRating(v: typeof rating.$inferInsert): Promise<RatingRow> {
     const [row] = await this.db.insert(rating).values(v).onConflictDoUpdate({
-      target: [rating.contextid, rating.component, rating.ratingarea, rating.itemid, rating.userid],
-      set: { rating: v.rating, scaleid: v.scaleid, timemodified: new Date() },
+      target: [rating.contextId, rating.component, rating.ratingArea, rating.itemId, rating.userId],
+      set: { rating: v.rating, scaleId: v.scaleId, updatedAt: new Date() },
     }).returning();
     return row!;
   }
   /**
    * Rating của một item.
    */
-  async listRatings(component: string, ratingarea: string, itemid: string, contextid: string): Promise<RatingRow[]> {
+  async listRatings(component: string, ratingArea: string, itemId: string, contextId: string): Promise<RatingRow[]> {
     return this.db.select().from(rating).where(and(
-      eq(rating.component, component), eq(rating.ratingarea, ratingarea),
-      eq(rating.itemid, itemid), eq(rating.contextid, contextid),
+      eq(rating.component, component), eq(rating.ratingArea, ratingArea),
+      eq(rating.itemId, itemId), eq(rating.contextId, contextId),
     )).orderBy(asc(rating.id));
   }
 
@@ -178,14 +178,14 @@ export class SocialRepository {
   /**
    * Bài blog của user.
    */
-  async listPostsByUser(userid: string): Promise<BlogPostRow[]> {
-    return this.db.select().from(blogPosts).where(eq(blogPosts.userid, userid)).orderBy(desc(blogPosts.id));
+  async listPostsByUser(userId: string): Promise<BlogPostRow[]> {
+    return this.db.select().from(blogPosts).where(eq(blogPosts.userId, userId)).orderBy(desc(blogPosts.id));
   }
   /**
    * Cập nhật bài blog.
    */
   async updatePost(id: string, patch: Partial<BlogPostRow>): Promise<void> {
-    await this.db.update(blogPosts).set({ ...patch, lastmodified: new Date() }).where(eq(blogPosts.id, id));
+    await this.db.update(blogPosts).set({ ...patch, lastModified: new Date() }).where(eq(blogPosts.id, id));
   }
   /**
    * Xoá bài blog.
@@ -202,15 +202,15 @@ export class SocialRepository {
   /**
    * Association của bài blog.
    */
-  async listAssociations(blogid: string) {
-    return this.db.select().from(blogAssociation).where(eq(blogAssociation.blogid, blogid));
+  async listAssociations(blogId: string) {
+    return this.db.select().from(blogAssociation).where(eq(blogAssociation.blogId, blogId));
   }
   /**
    * Bài blog gắn với một khoá học/module.
    */
-  async listAssociationsForTarget(assoctype: string, associd: string) {
+  async listAssociationsForTarget(assocType: string, assocId: string) {
     return this.db.select().from(blogAssociation)
-      .where(and(eq(blogAssociation.assoctype, assoctype), eq(blogAssociation.associd, associd)));
+      .where(and(eq(blogAssociation.assocType, assocType), eq(blogAssociation.assocId, assocId)));
   }
 
   // notes
@@ -229,8 +229,8 @@ export class SocialRepository {
   /**
    * Note viết về một user.
    */
-  async listNotesAbout(userid: string): Promise<NoteRow[]> {
-    return this.db.select().from(notes).where(eq(notes.userid, userid)).orderBy(desc(notes.id));
+  async listNotesAbout(userId: string): Promise<NoteRow[]> {
+    return this.db.select().from(notes).where(eq(notes.userId, userId)).orderBy(desc(notes.id));
   }
   /**
    * Xoá note.

@@ -36,7 +36,7 @@ export class CustomFieldsController {
   /**
    * POST /custom-fields/categories/:id/fields — thêm field vào category.
    */
-  async createField(@Body({ schema: createCustomFieldSchema }) dto: CreateFieldDto) { return this.service.createField(dto.categoryid, { ...dto, configdata: dto.configdata as FieldConfig | undefined }); }
+  async createField(@Body({ schema: createCustomFieldSchema }) dto: CreateFieldDto) { return this.service.createField(dto.categoryId, { ...dto, configData: dto.configData as FieldConfig | undefined }); }
   @Get('fields')
   @RequireCapability('lms/customfield:manage')
   /**

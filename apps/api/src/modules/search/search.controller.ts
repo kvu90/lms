@@ -17,13 +17,13 @@ export class SearchController {
   @Get('areas')
   async areas() { return this.search.listAreas(); }
   @Post('index')
-  async index(@Body({ schema: searchIndexItemSchema }) dto: IndexItemDto) { return { indexed: await this.search.indexItem(dto.area, dto.itemid) }; }
+  async index(@Body({ schema: searchIndexItemSchema }) dto: IndexItemDto) { return { indexed: await this.search.indexItem(dto.area, dto.itemId) }; }
   @Post('index-raw')
   async indexRaw(@Body({ schema: indexRawDocumentSchema }) dto: IndexRawDto) { return this.search.indexRaw(dto); }
   @Post('reindex')
   async reindex() { return this.search.reindexAll(); }
-  @Delete(':area/:itemid')
-  async remove(@Param('area') area: string, @Param('itemid', { schema: uuidIdSchema }) itemid: string) {
-    await this.search.removeDoc(area, itemid); return { deleted: true };
+  @Delete(':area/:itemId')
+  async remove(@Param('area') area: string, @Param('itemId', { schema: uuidIdSchema }) itemId: string) {
+    await this.search.removeDoc(area, itemId); return { deleted: true };
   }
 }

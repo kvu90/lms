@@ -28,7 +28,7 @@ export class CapabilityGuard {
     switch (req.contextResolver) {
       case 'param:contextId': return http.params.contextId!;
       case 'query:contextId': return http.query.contextId ?? (await this.contexts.ensureSystemContext()).id;
-      case 'body:contextId': return String(http.body?.contextId ?? http.body?.contextid ?? (await this.contexts.ensureSystemContext()).id);
+      case 'body:contextId': return String(http.body?.contextId ?? http.body?.contextId ?? (await this.contexts.ensureSystemContext()).id);
       case 'param:userId:userctx': {
         const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, http.params.id!);
         if (ctx) return ctx.id;

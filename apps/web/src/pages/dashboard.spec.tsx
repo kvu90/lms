@@ -16,31 +16,31 @@ const CATEGORY_ID = '01900000-0000-7000-8000-000000000001';
 const COURSE = {
   id: COURSE_ID,
   category: CATEGORY_ID,
-  fullname: 'Khoá học mẫu',
-  shortname: 'DEMO101',
-  idnumber: '',
+  fullName: 'Khoá học mẫu',
+  shortName: 'DEMO101',
+  idNumber: '',
   summary: '',
   format: 'topics',
   visible: true,
-  startdate: null,
-  enddate: null,
-  groupmode: 0,
-  enablecompletion: true,
+  startDate: null,
+  endDate: null,
+  groupMode: 0,
+  enableCompletion: true,
 };
 
-function profile(id: string, username: string, firstname: string, lastname: string) {
+function profile(id: string, username: string, firstName: string, lastName: string) {
   return {
     id,
     username,
-    firstname,
-    lastname,
+    firstName,
+    lastName,
     email: `${username}@example.com`,
     suspended: false,
     deleted: false,
     isGuest: false,
     forcePasswordChange: false,
-    lastlogin: null,
-    timecreated: '2026-10-01T00:00:00.000Z',
+    lastLogin: null,
+    createdAt: '2026-10-01T00:00:00.000Z',
     customFields: [],
   };
 }
@@ -56,16 +56,16 @@ const GRADEBOOK = {
   userId: STUDENT_ID,
   categories: [],
   courseTotal: {
-    item: { id: '01900000-0000-7000-8000-000000000090', grademax: 10 },
-    grade: { finalgrade: 8.5, letter: 'A' },
+    item: { id: '01900000-0000-7000-8000-000000000090', gradeMax: 10 },
+    grade: { finalGrade: 8.5, letter: 'A' },
   },
 };
 
 const REPORT = {
   courseId: COURSE_ID,
   rows: [
-    { userId: STUDENT_ID, finalgrade: 8.5, letter: 'A' },
-    { userId: '01900000-0000-7000-8000-0000000000a4', finalgrade: null, letter: null },
+    { userId: STUDENT_ID, finalGrade: 8.5, letter: 'A' },
+    { userId: '01900000-0000-7000-8000-0000000000a4', finalGrade: null, letter: null },
   ],
 };
 
@@ -191,14 +191,14 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
             {
               id: '01900000-0000-7000-8000-0000000000b1',
               name: 'Quản lý',
-              shortname: 'manager',
+              shortName: 'manager',
               description: '',
               archetype: 'manager',
             },
             {
               id: '01900000-0000-7000-8000-0000000000b2',
               name: 'Học viên',
-              shortname: 'student',
+              shortName: 'student',
               description: '',
               archetype: 'student',
             },
@@ -213,10 +213,10 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
           ...COURSE,
           id: CATEGORY_ID,
           name: 'Danh mục mẫu',
-          idnumber: null,
+          idNumber: null,
           description: '',
           parent: null,
-          sortorder: 0,
+          sortOrder: 0,
           path: '/1',
           depth: 1,
           visible: true,
@@ -238,13 +238,13 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
     if (url === '/api/v1/badges/mine') return ok([{ id: 'x' }, { id: 'y' }]);
     if (url === '/api/v1/notifications') {
       return ok([
-        { id: 'n1', timeread: null },
-        { id: 'n2', timeread: '2026-10-20T00:00:00.000Z' },
+        { id: 'n1', timeRead: null },
+        { id: 'n2', timeRead: '2026-10-20T00:00:00.000Z' },
       ]);
     }
     if (url.startsWith('/api/v1/calendar/events')) {
       const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
-      return ok([{ id: 'e1', name: 'Sự kiện mẫu', timestart: tomorrow }]);
+      return ok([{ id: 'e1', name: 'Sự kiện mẫu', timeStart: tomorrow }]);
     }
     return undefined;
   };

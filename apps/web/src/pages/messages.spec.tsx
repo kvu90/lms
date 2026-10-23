@@ -17,15 +17,15 @@ const CONV_ID = '01900000-0000-7000-8000-0000000000c3';
 const PROFILE = {
   id: ME_ID,
   username: 'me',
-  firstname: 'Tôi',
-  lastname: 'Đây',
+  firstName: 'Tôi',
+  lastName: 'Đây',
   email: 'me@example.com',
   suspended: false,
   deleted: false,
   isGuest: false,
   forcePasswordChange: false,
-  lastlogin: null,
-  timecreated: '2026-01-01T00:00:00.000Z',
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
   customFields: [],
 };
 

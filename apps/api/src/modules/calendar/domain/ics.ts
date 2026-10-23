@@ -14,9 +14,9 @@ export interface IcsExportEvent {
   name: string;
   description: string;
   location: string;
-  timestart: Date;
-  timeduration: number;
-  timemodified: Date;
+  timeStart: Date;
+  timeDuration: number;
+  updatedAt: Date;
 }
 
 /**
@@ -44,7 +44,7 @@ export function escapeIcsText(value: string): string {
  * Serialize danh sách sự kiện thành nội dung file .ics hoàn chỉnh
  * (VCALENDAR bọc các VEVENT, ngắt dòng CRLF). UID ổn định theo id của
  * sự kiện (`<id>@lms`) nên xuất lại nhiều lần không đổi danh tính sự kiện;
- * DTEND luôn có mặt: bằng DTSTART cộng timeduration (giây).
+ * DTEND luôn có mặt: bằng DTSTART cộng timeDuration (giây).
  */
 export function serializeCalendar(events: IcsExportEvent[], options: { calName?: string } = {}): string {
   const lines: string[] = [
@@ -56,11 +56,11 @@ export function serializeCalendar(events: IcsExportEvent[], options: { calName?:
   ];
   if (options.calName) lines.push(`X-WR-CALNAME:${escapeIcsText(options.calName)}`);
   for (const event of events) {
-    const end = new Date(event.timestart.getTime() + Math.max(0, event.timeduration) * 1000);
+    const end = new Date(event.timeStart.getTime() + Math.max(0, event.timeDuration) * 1000);
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.id}@lms`);
-    lines.push(`DTSTAMP:${formatIcsDate(event.timemodified)}`);
-    lines.push(`DTSTART:${formatIcsDate(event.timestart)}`);
+    lines.push(`DTSTAMP:${formatIcsDate(event.updatedAt)}`);
+    lines.push(`DTSTART:${formatIcsDate(event.timeStart)}`);
     lines.push(`DTEND:${formatIcsDate(end)}`);
     lines.push(`SUMMARY:${escapeIcsText(event.name)}`);
     if (event.description) lines.push(`DESCRIPTION:${escapeIcsText(event.description)}`);

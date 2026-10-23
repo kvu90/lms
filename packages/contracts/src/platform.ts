@@ -7,8 +7,8 @@ import { uuidIdSchema } from './ids.js';
 export const searchDocumentSchema = z.object({
   id: uuidIdSchema,
   area: z.enum(['courses', 'users', 'contentbank', 'blog']),
-  itemid: uuidIdSchema,
-  contextid: uuidIdSchema,
+  itemId: uuidIdSchema,
+  contextId: uuidIdSchema,
   title: z.string(),
   content: z.string(),
 });
@@ -18,7 +18,7 @@ export type SearchDocument = z.infer<typeof searchDocumentSchema>;
 export const externalServiceSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  shortname: z.string(),
+  shortName: z.string(),
   enabled: z.boolean(),
   functions: z.array(z.string()),
 });
@@ -28,21 +28,21 @@ export const externalTokenCreatedSchema = z.object({
   /** Token thô chỉ xuất hiện đúng một lần trong response tạo token. */
   token: z.string().length(64),
   id: uuidIdSchema,
-  userid: uuidIdSchema,
-  serviceid: uuidIdSchema,
+  userId: uuidIdSchema,
+  serviceId: uuidIdSchema,
 });
 export type ExternalTokenCreated = z.infer<typeof externalTokenCreatedSchema>;
 
 /* ---- Backup ---- */
 export const BACKUP_FORMAT_VERSION = 1;
-/** Phạm vi sao lưu: `course` gắn với một khoá học; `site` là sao lưu mức hệ thống (không gắn khoá, courseid = null). */
+/** Phạm vi sao lưu: `course` gắn với một khoá học; `site` là sao lưu mức hệ thống (không gắn khoá, courseId = null). */
 export const BACKUP_SCOPES = ['course', 'site'] as const;
 export const backupJobSchema = z.object({
   id: uuidIdSchema,
   type: z.enum(['backup', 'restore']),
   scope: z.enum(BACKUP_SCOPES),
-  courseid: uuidIdSchema.nullable(),
-  targetcourseid: uuidIdSchema.nullable(),
+  courseId: uuidIdSchema.nullable(),
+  targetCourseId: uuidIdSchema.nullable(),
   mode: z.enum(['new', 'merge', 'replace']),
   status: z.enum(['pending', 'running', 'completed', 'failed']),
   anonymize: z.boolean(),
@@ -51,21 +51,21 @@ export type BackupJob = z.infer<typeof backupJobSchema>;
 
 export const backupIdMappingSchema = z.object({
   id: uuidIdSchema,
-  jobid: uuidIdSchema,
-  itemtype: z.string(),
-  oldid: uuidIdSchema,
-  newid: uuidIdSchema,
-}).refine((m) => m.newid !== m.oldid, { message: 'restore must remap ids, never keep the original id' });
+  jobId: uuidIdSchema,
+  itemType: z.string(),
+  oldId: uuidIdSchema,
+  newId: uuidIdSchema,
+}).refine((m) => m.newId !== m.oldId, { message: 'restore must remap ids, never keep the original id' });
 export type BackupIdMapping = z.infer<typeof backupIdMappingSchema>;
 
 /* ---- Analytics ---- */
 export const insightSchema = z.object({
   id: uuidIdSchema,
-  modelid: uuidIdSchema,
-  userid: uuidIdSchema,
-  recipientid: uuidIdSchema,
-  contextid: uuidIdSchema,
-  courseid: uuidIdSchema,
+  modelId: uuidIdSchema,
+  userId: uuidIdSchema,
+  recipientId: uuidIdSchema,
+  contextId: uuidIdSchema,
+  courseId: uuidIdSchema,
   heading: z.string(),
 });
 export type Insight = z.infer<typeof insightSchema>;
@@ -75,9 +75,9 @@ export const REPORT_DATASOURCES = ['enrolments', 'grades', 'completion'] as cons
 export const reportSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  datasource: z.enum(REPORT_DATASOURCES),
+  dataSource: z.enum(REPORT_DATASOURCES),
   columns: z.array(z.string()),
-  createdby: uuidIdSchema,
+  createdBy: uuidIdSchema,
 });
 export type Report = z.infer<typeof reportSchema>;
 
@@ -85,19 +85,19 @@ export type Report = z.infer<typeof reportSchema>;
 export const contentBankContentSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  contenttype: z.string(),
-  contextid: uuidIdSchema,
-  creatorid: uuidIdSchema,
+  contentType: z.string(),
+  contextId: uuidIdSchema,
+  creatorId: uuidIdSchema,
   visibility: z.enum(['draft', 'public']),
-  fileid: uuidIdSchema.nullable(),
+  fileId: uuidIdSchema.nullable(),
 });
 export type ContentBankContent = z.infer<typeof contentBankContentSchema>;
 
 /* ---- Payments ---- */
 export const paymentSchema = z.object({
   id: uuidIdSchema,
-  accountid: uuidIdSchema,
-  userid: uuidIdSchema,
+  accountId: uuidIdSchema,
+  userId: uuidIdSchema,
   /** Số tiền nguyên ở đơn vị nhỏ nhất — không bao giờ là float. */
   amount: z.number().int().positive(),
   currency: z.string().length(3),
@@ -109,7 +109,7 @@ export type Payment = z.infer<typeof paymentSchema>;
 /* ---- Privacy ---- */
 export const privacyRequestSchema = z.object({
   id: uuidIdSchema,
-  userid: uuidIdSchema,
+  userId: uuidIdSchema,
   type: z.enum(['export', 'delete']),
   status: z.enum(['pending', 'approved', 'rejected', 'completed', 'failed']),
 });
@@ -121,14 +121,14 @@ export type PrivacyRequest = z.infer<typeof privacyRequestSchema>;
 /** Payload lập chỉ mục một item của một search area đã đăng ký. */
 export const searchIndexItemSchema = z.strictObject({
   area: z.string().min(1),
-  itemid: uuidIdSchema,
+  itemId: uuidIdSchema,
 });
 export type SearchIndexItem = z.infer<typeof searchIndexItemSchema>;
 
 /** Payload tạo external service. */
 export const createExternalServiceSchema = z.strictObject({
   name: z.string().min(1),
-  shortname: z.string().min(1),
+  shortName: z.string().min(1),
   enabled: z.boolean().optional(),
   functions: z.array(z.string()).optional(),
 });
@@ -140,10 +140,10 @@ export type SetExternalServiceEnabled = z.infer<typeof setExternalServiceEnabled
 
 /** Payload tạo external token cho một user trong một service. */
 export const createExternalTokenSchema = z.strictObject({
-  userid: uuidIdSchema,
-  serviceid: uuidIdSchema,
-  validuntil: z.string().optional(),
-  iprestriction: z.string().optional(),
+  userId: uuidIdSchema,
+  serviceId: uuidIdSchema,
+  validUntil: z.string().optional(),
+  ipRestriction: z.string().optional(),
 });
 export type CreateExternalToken = z.infer<typeof createExternalTokenSchema>;
 
@@ -188,10 +188,10 @@ export type RestoreCourse = z.infer<typeof restoreCourseSchema>;
 export const runAnalyticsModelSchema = z.strictObject({ courseId: uuidIdSchema });
 export type RunAnalyticsModel = z.infer<typeof runAnalyticsModelSchema>;
 
-/** Payload tạo báo cáo: datasource là entity đã đăng ký, columns/filters là cấu hình (không nới quyền). */
+/** Payload tạo báo cáo: dataSource là entity đã đăng ký, columns/filters là cấu hình (không nới quyền). */
 export const createReportSchema = z.strictObject({
   name: z.string().min(1),
-  datasource: z.enum(['enrolments', 'grades', 'completion']),
+  dataSource: z.enum(['enrolments', 'grades', 'completion']),
   columns: z.array(z.string()).optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
   audienceUserIds: z.array(uuidIdSchema).optional(),
@@ -206,25 +206,25 @@ export type CreateReportSchedule = z.infer<typeof createReportScheduleSchema>;
 /** Payload tạo nội dung Content Bank (loại nội dung là extension point, mặc định file-based). */
 export const createContentBankContentSchema = z.strictObject({
   name: z.string().min(1),
-  contextid: uuidIdSchema,
-  contenttype: z.string().optional(),
+  contextId: uuidIdSchema,
+  contentType: z.string().optional(),
   visibility: z.enum(['draft', 'public']).optional(),
-  fileid: uuidIdSchema.optional(),
+  fileId: uuidIdSchema.optional(),
 });
 export type CreateContentBankContent = z.infer<typeof createContentBankContentSchema>;
 
 /** Payload sửa nội dung Content Bank. */
 export const updateContentBankContentSchema = createContentBankContentSchema
-  .omit({ contextid: true })
+  .omit({ contextId: true })
   .partial()
-  .extend({ fileid: uuidIdSchema.optional() });
+  .extend({ fileId: uuidIdSchema.optional() });
 export type UpdateContentBankContent = z.infer<typeof updateContentBankContentSchema>;
 
 /** Payload upload file cho một nội dung (nội dung file dạng base64 qua JSON để giữ envelope thống nhất). */
 export const uploadContentBankFileSchema = z.strictObject({
-  filename: z.string().min(1),
+  fileName: z.string().min(1),
   contentBase64: z.string(),
-  mimetype: z.string().optional(),
+  mimeType: z.string().optional(),
 });
 export type UploadContentBankFile = z.infer<typeof uploadContentBankFileSchema>;
 
@@ -237,11 +237,11 @@ export type CreatePaymentAccount = z.infer<typeof createPaymentAccountSchema>;
 
 /** Payload tạo thanh toán: amount là số nguyên đơn vị nhỏ nhất (không float). */
 export const createPaymentSchema = z.strictObject({
-  accountid: uuidIdSchema,
+  accountId: uuidIdSchema,
   amount: z.number().int().min(1),
   currency: z.string().min(3),
   component: z.string().optional(),
-  itemid: uuidIdSchema.optional(),
+  itemId: uuidIdSchema.optional(),
 });
 export type CreatePayment = z.infer<typeof createPaymentSchema>;
 
@@ -276,10 +276,10 @@ export type DecidePrivacyRequest = z.infer<typeof decidePrivacyRequestSchema>;
 
 /** Payload metadata đi kèm upload file (dạng nền — phía server ép kiểu số vì multipart/form-data luôn là chuỗi). */
 export const uploadFileMetaSchema = z.strictObject({
-  contextid: uuidIdSchema,
+  contextId: uuidIdSchema,
   component: z.string(),
-  filearea: z.string(),
-  itemid: uuidIdSchema.optional(),
-  filepath: z.string().optional(),
+  fileArea: z.string(),
+  itemId: uuidIdSchema.optional(),
+  filePath: z.string().optional(),
 });
 export type UploadFileMeta = z.infer<typeof uploadFileMetaSchema>;

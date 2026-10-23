@@ -8,8 +8,8 @@ export type FileRow = typeof files.$inferSelect;
 
 @Injectable()
 /**
- * Kho dữ liệu metadata file (bảng files kiểu Moodle): mỗi bản ghi là một file tại (context, component, filearea, itemid, filepath, filename).
- * Nội dung vật lý được deduplicate theo contenthash; refcount suy ra từ số bản ghi cùng hash.
+ * Kho dữ liệu metadata file (bảng files kiểu Moodle): mỗi bản ghi là một file tại (context, component, fileArea, itemId, filePath, fileName).
+ * Nội dung vật lý được deduplicate theo contentHash; refcount suy ra từ số bản ghi cùng hash.
  */
 export class FilesRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
@@ -29,18 +29,18 @@ export class FilesRepository {
    * Xoá bản ghi theo id.
    */
   async deleteById(id: string): Promise<void> { await this.db.delete(files).where(eq(files.id, id)); }
-  /** Refcount = number of logical records pointing at a contenthash (Moodle semantics: physical lives while refcount > 0). */
+  /** Refcount = number of logical records pointing at a contentHash (Moodle semantics: physical lives while refcount > 0). */
   /**
-   * Đếm bản ghi cùng contenthash (refcount nội dung vật lý).
+   * Đếm bản ghi cùng contentHash (refcount nội dung vật lý).
    */
-  async countByHash(contenthash: string): Promise<number> {
-    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contenthash, contenthash));
+  async countByHash(contentHash: string): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contentHash, contentHash));
     return row?.n ?? 0;
   }
   /**
    * Liệt kê file trong một context.
    */
-  async listByContext(contextid: string): Promise<FileRow[]> {
-    return this.db.select().from(files).where(eq(files.contextid, contextid)).orderBy(files.id);
+  async listByContext(contextId: string): Promise<FileRow[]> {
+    return this.db.select().from(files).where(eq(files.contextId, contextId)).orderBy(files.id);
   }
 }

@@ -9,8 +9,8 @@ import { Inject } from '@nestjs/common';
 
 export const FILE_CLEANUP_QUEUE = 'file-cleanup';
 export interface UploadInput {
-  contextid: string; component: string; filearea: string; itemid?: string;
-  filepath?: string; filename: string; data: Buffer; mimetype?: string; userid?: string;
+  contextId: string; component: string; fileArea: string; itemId?: string;
+  filePath?: string; fileName: string; data: Buffer; mimeType?: string; userId?: string;
 }
 
 /**
@@ -22,7 +22,7 @@ export interface UploadInput {
  */
 @Injectable()
 /**
- * Dịch vụ file kiểu Moodle: upload, dedup theo contenthash, tải xuống theo quyền context,
+ * Dịch vụ file kiểu Moodle: upload, dedup theo contentHash, tải xuống theo quyền context,
  * URL ký tạm thời và dọn nội dung vật lý khi refcount về 0.
  * Đối chiếu Moodle: lib/filelib.php và files/classes (file_storage).
  */
@@ -39,15 +39,15 @@ export class FilesService {
    * Tải file lên: kiểm quyền tại context, tính hash, lưu nội dung (dedup) + metadata.
    */
   async upload(input: UploadInput): Promise<FileRow> {
-    if (!input.filename || input.filename.includes('/') || input.filename.includes('\\')) {
+    if (!input.fileName || input.fileName.includes('/') || input.fileName.includes('\\')) {
       throw new BadRequestException({ message: 'Invalid filename', code: 'file.invalid_filename' });
     }
-    const contenthash = sha256Hex(input.data);
-    await this.storage.put(contenthash, input.data); // put() is a no-op when the hash already exists (dedup)
+    const contentHash = sha256Hex(input.data);
+    await this.storage.put(contentHash, input.data); // put() is a no-op when the hash already exists (dedup)
     return this.repo.insert({
-      contenthash, contextid: input.contextid, component: input.component, filearea: input.filearea,
-      itemid: input.itemid ?? null, filepath: input.filepath ?? '/', filename: input.filename,
-      userid: input.userid, filesize: input.data.length, mimetype: input.mimetype,
+      contentHash, contextId: input.contextId, component: input.component, fileArea: input.fileArea,
+      itemId: input.itemId ?? null, filePath: input.filePath ?? '/', fileName: input.fileName,
+      userId: input.userId, fileSize: input.data.length, mimeType: input.mimeType,
     });
   }
 
@@ -62,15 +62,15 @@ export class FilesService {
   /**
    * Số bản ghi đang tham chiếu cùng nội dung vật lý.
    */
-  async refcount(contenthash: string): Promise<number> { return this.repo.countByHash(contenthash); }
+  async refcount(contentHash: string): Promise<number> { return this.repo.countByHash(contentHash); }
   /**
-   * Khoá lưu trữ vật lý suy từ contenthash.
+   * Khoá lưu trữ vật lý suy từ contentHash.
    */
-  physicalKey(contenthash: string): string { return this.storage.keyFor(contenthash); }
+  physicalKey(contentHash: string): string { return this.storage.keyFor(contentHash); }
   /**
    * Nội dung vật lý còn trên kho lưu trữ hay không.
    */
-  async physicalExists(contenthash: string): Promise<boolean> { return this.storage.exists(contenthash); }
+  async physicalExists(contentHash: string): Promise<boolean> { return this.storage.exists(contentHash); }
 
   /**
    * Deleting a record NEVER deletes bytes while other records reference the
@@ -80,23 +80,23 @@ export class FilesService {
   /**
    * Xoá bản ghi file; xoá nội dung vật lý khi refcount về 0.
    */
-  async deleteFile(id: string): Promise<{ deleted: true; contenthash: string; refcount: number }> {
+  async deleteFile(id: string): Promise<{ deleted: true; contentHash: string; refcount: number }> {
     const row = await this.getFile(id);
     await this.repo.deleteById(id);
-    const refcount = await this.repo.countByHash(row.contenthash);
+    const refcount = await this.repo.countByHash(row.contentHash);
     if (refcount === 0) {
-      await this.cleanupQueue.add('cleanup-orphan', { contenthash: row.contenthash }, { jobId: `orphan-${row.contenthash}`, attempts: 3 });
+      await this.cleanupQueue.add('cleanup-orphan', { contentHash: row.contentHash }, { jobId: `orphan-${row.contentHash}`, attempts: 3 });
     }
-    return { deleted: true, contenthash: row.contenthash, refcount };
+    return { deleted: true, contentHash: row.contentHash, refcount };
   }
 
   /** Worker-side: remove physical bytes only if the hash is still unreferenced at execution time. */
   /**
    * Dọn một nội dung vật lý mồ côi theo hash (worker file-cleanup gọi).
    */
-  async cleanupOrphan(contenthash: string): Promise<boolean> {
-    if ((await this.repo.countByHash(contenthash)) > 0) return false;
-    await this.storage.delete(contenthash);
+  async cleanupOrphan(contentHash: string): Promise<boolean> {
+    if ((await this.repo.countByHash(contentHash)) > 0) return false;
+    await this.storage.delete(contentHash);
     return true;
   }
 
@@ -104,13 +104,13 @@ export class FilesService {
    * Kiểm quyền xem file tại context của nó.
    */
   async assertCanView(file: FileRow, actor: { id: string; username?: string }): Promise<void> {
-    await this.evaluator.requireCapability(actor.id, 'lms/files:view', file.contextid, { isGuest: actor.username === 'guest' });
+    await this.evaluator.requireCapability(actor.id, 'lms/files:view', file.contextId, { isGuest: actor.username === 'guest' });
   }
   /**
    * Kiểm quyền tải file lên context đích.
    */
-  async assertCanUpload(contextid: string, actor: { id: string; username?: string }): Promise<void> {
-    await this.evaluator.requireCapability(actor.id, 'lms/files:upload', contextid, { isGuest: actor.username === 'guest' });
+  async assertCanUpload(contextId: string, actor: { id: string; username?: string }): Promise<void> {
+    await this.evaluator.requireCapability(actor.id, 'lms/files:upload', contextId, { isGuest: actor.username === 'guest' });
   }
 
   /** Capability-checked signed URL issuance: the check happens HERE (server), the signature only transports the result briefly. */
@@ -119,7 +119,7 @@ export class FilesService {
    */
   async createSignedUrl(fileId: string, userId: string, isGuest = false): Promise<{ url: string; expiresAt: number }> {
     const file = await this.getFile(fileId);
-    await this.evaluator.requireCapability(userId, 'lms/files:view', file.contextid, { isGuest });
+    await this.evaluator.requireCapability(userId, 'lms/files:view', file.contextId, { isGuest });
     const { token, expiresAt } = this.signing.sign(fileId);
     return { url: `/api/v1/files/${fileId}/download?sig=${encodeURIComponent(token)}`, expiresAt };
   }
@@ -132,11 +132,11 @@ export class FilesService {
    */
   async readContent(fileId: string): Promise<{ file: FileRow; data: Buffer }> {
     const file = await this.getFile(fileId);
-    const data = await this.storage.get(file.contenthash);
+    const data = await this.storage.get(file.contentHash);
     return { file, data };
   }
   /**
    * Liệt kê file trong context.
    */
-  async listByContext(contextid: string): Promise<FileRow[]> { return this.repo.listByContext(contextid); }
+  async listByContext(contextId: string): Promise<FileRow[]> { return this.repo.listByContext(contextId); }
 }

@@ -48,27 +48,27 @@ export class AnalyticsService {
 
   private registerBuiltinIndicators(): void {
     const db = this.repo.dbHandle;
-    // Indicator: không truy cập gần đây — 1 nếu lastlogin cũ hơn 14 ngày hoặc chưa từng đăng nhập.
+    // Indicator: không truy cập gần đây — 1 nếu lastLogin cũ hơn 14 ngày hoặc chưa từng đăng nhập.
     this.registerIndicator({
       name: 'no_recent_access',
       calculate: async (userId) => {
         const [u] = await db.select().from(users).where(eq(users.id, userId));
-        if (!u || !u.lastlogin) return 1;
-        return Date.now() - u.lastlogin.getTime() > 14 * 24 * 3600 * 1000 ? 1 : 0;
+        if (!u || !u.lastLogin) return 1;
+        return Date.now() - u.lastLogin.getTime() > 14 * 24 * 3600 * 1000 ? 1 : 0;
       },
     });
     // Indicator: điểm thấp — tỉ lệ (1 - trung bình phần trăm điểm) của user trong khoá.
     this.registerIndicator({
       name: 'low_grade',
       calculate: async (userId, courseId) => {
-        const items = await db.select().from(gradeItems).where(eq(gradeItems.courseid, courseId));
+        const items = await db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
         if (!items.length) return 0;
         const grades = await db.select().from(gradeGrades);
-        const mine = grades.filter((g) => g.userid === userId && items.some((i) => i.id === g.itemid) && g.finalgrade !== null);
+        const mine = grades.filter((g) => g.userId === userId && items.some((i) => i.id === g.itemId) && g.finalGrade !== null);
         if (!mine.length) return 0.5; // chưa có điểm: tín hiệu trung bình
         const pct = mine.reduce((sum, g) => {
-          const item = items.find((i) => i.id === g.itemid)!;
-          return sum + (item.grademax > 0 ? (g.finalgrade ?? 0) / item.grademax : 0);
+          const item = items.find((i) => i.id === g.itemId)!;
+          return sum + (item.gradeMax > 0 ? (g.finalGrade ?? 0) / item.gradeMax : 0);
         }, 0) / mine.length;
         return pct < 0.5 ? 1 - pct : 0;
       },
@@ -101,7 +101,7 @@ export class AnalyticsService {
     const db = this.repo.dbHandle;
     const ctxId = await this.courses.courseContextId(courseId);
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
-    const activeUserIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userid))];
+    const activeUserIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userId))];
     // Recipients: mọi user (không suspended/deleted) có analytics:viewinsights ở course context.
     const recipients: string[] = [];
     const allUsers = await db.select().from(users);
@@ -124,13 +124,13 @@ export class AnalyticsService {
       score = providerDef.indicators.length ? score / providerDef.indicators.length : 0;
       if (score < 0.6) continue;
       const prediction = await this.repo.insertPrediction({
-        modelid: model.id, userid: userId, contextid: ctxId, courseid: courseId, score, data: values,
+        modelId: model.id, userId: userId, contextId: ctxId, courseId: courseId, score, data: values,
       });
       predictions++;
-      for (const recipientid of recipients) {
+      for (const recipientId of recipients) {
         await this.repo.insertInsight({
-          modelid: model.id, predictionid: prediction.id, userid: userId, recipientid,
-          contextid: ctxId, courseid: courseId, heading: 'Student at risk', data: { score, indicators: values },
+          modelId: model.id, predictionId: prediction.id, userId: userId, recipientId,
+          contextId: ctxId, courseId: courseId, heading: 'Student at risk', data: { score, indicators: values },
         });
         insightCount++;
       }
@@ -143,7 +143,7 @@ export class AnalyticsService {
     const rows = await this.repo.listInsightsForRecipient(userId);
     const out: InsightRow[] = [];
     for (const row of rows) {
-      if (await this.evaluator.hasCapability(userId, 'moodle/analytics:viewinsights', row.contextid)) out.push(row);
+      if (await this.evaluator.hasCapability(userId, 'moodle/analytics:viewinsights', row.contextId)) out.push(row);
     }
     return out;
   }
