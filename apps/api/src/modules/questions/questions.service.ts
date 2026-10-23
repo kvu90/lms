@@ -3,7 +3,7 @@ import { extractRichTextPlainText, toRichTextDocument, type RichTextDocument, ty
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { BEHAVIOURS, canTransition, usageState, type GradingData, type QuestionState } from './domain/question-engine';
+import { BEHAVIOURS, canTransition, gradedStateForFraction, usageState, type GradingData, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
   type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
@@ -595,6 +595,22 @@ export class QuestionsService {
   }
 
   /**
+   * Id các câu hỏi trong một category (dạng nhẹ cho hoạt động cần rút câu,
+   * vd slot ngẫu nhiên của quiz — không nạp nội dung từng câu).
+   */
+  async listQuestionIdsInCategory(categoryId: string): Promise<string[]> {
+    const rows = await this.repo.listQuestionsInCategory(categoryId);
+    return rows.map((r) => r.id);
+  }
+  /**
+   * Xoá một usage cùng mọi attempt/step của nó (hoạt động sở hữu usage
+   * chịu trách nhiệm gọi khi instance bị xoá).
+   */
+  async deleteUsage(usageId: string): Promise<void> {
+    await this.repo.deleteUsage(usageId);
+  }
+
+  /**
    * Lấy usage kèm các attempt và trạng thái tổng.
    */
   async getUsage(id: string): Promise<UsageView> {
@@ -763,6 +779,34 @@ export class QuestionsService {
       payload: { usageId, userId, actorId: userId, state: after.state, attempts: after.attempts.map((a) => ({ attemptId: a.id, state: a.state, fraction: a.fraction })) },
     });
     return after;
+  }
+
+  /**
+   * Chấm tay một attempt đang ở needsgrading (Moodle manual grading, dùng
+   * cho essay): người chấm cho ĐIỂM TUYỆT ĐỐI theo maxMark của attempt;
+   * fraction = mark / maxMark, trạng thái graded* suy từ fraction. Việc
+   * chấm được ghi thành một step mang theo mark (và comment nếu có) trong
+   * step data — đúng cách Moodle ghi bước chấm tay vào lịch sử attempt.
+   */
+  async manualGradeAttempt(graderId: string, attemptId: string, mark: number, comment?: string): Promise<AttemptView> {
+    const attempt = await this.getAttempt(attemptId);
+    if (attempt.state !== 'needsgrading') {
+      throw new BadRequestException({ message: `Question attempt ${attemptId} is not waiting for manual grading (state ${attempt.state})`, code: 'question.not_needs_grading' });
+    }
+    if (!(mark >= 0) || attempt.maxMark <= 0 || mark > attempt.maxMark + 1e-9) {
+      throw new BadRequestException({ message: `Manual mark must be between 0 and the attempt max mark (${attempt.maxMark})`, code: 'question.manual_mark_out_of_range' });
+    }
+    const fraction = Math.min(1, Math.max(0, mark / attempt.maxMark));
+    const state = gradedStateForFraction(fraction);
+    await this.transition(attempt, state);
+    await this.repo.updateAttempt(attempt.id, { state, fraction, userId: attempt.userId ?? graderId });
+    const updated = await this.getAttempt(attempt.id);
+    const data: Record<string, string> = { mark: String(mark) };
+    if (comment) data.comment = comment;
+    data.gradedBy = graderId;
+    await this.appendStep(updated, graderId, state, fraction, data);
+    const usage = await this.getUsage(attempt.questionUsageId);
+    return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
   /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -240,7 +240,11 @@ export function CoursePage() {
                       aria-disabled={locked || undefined}
                       className={locked ? 'opacity-50' : undefined}
                     >
-                      <span>{cm.name || cm.component}</span>
+                      {cm.component === 'mod_quiz' && cm.instanceId && !locked ? (
+                        <Link to={`/courses/${id}/quizzes/${cm.instanceId}`}>{cm.name || cm.component}</Link>
+                      ) : (
+                        <span>{cm.name || cm.component}</span>
+                      )}
                       {locked && (
                         <span role="note">
                           {' '}

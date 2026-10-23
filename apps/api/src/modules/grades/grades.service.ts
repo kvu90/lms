@@ -573,6 +573,56 @@ export class GradesService implements OnModuleInit {
     return (await this.repo.getGrade(itemId, userId))!;
   }
 
+  /**
+   * Grade item của một course module (item_type 'mod'), nếu hoạt động đã có.
+   */
+  async getItemForCm(courseId: string, cmId: string): Promise<ItemRow | undefined> {
+    return this.repo.findItemForCm(courseId, cmId);
+  }
+
+  /**
+   * Đường ghi điểm CỦA HOẠT ĐỘNG (Moodle grade_update từ mod, vd mod_quiz
+   * ghi điểm bài sau khi chốt lượt làm): không qua capability của người
+   * dùng vì chủ thể ghi là chính hoạt động — lượt làm tự chốt phía server
+   * (hết giờ, đủ điểm) kể cả khi không có thao tác của giáo viên. Vẫn tôn
+   * trọng các khoá của sổ điểm như setGrade: item bị khoá thì từ chối,
+   * grade đã bị giáo viên ghi đè (overridden) hoặc khoá thì GIỮ NGUYÊN
+   * (hoạt động không đè quyết định của giáo viên — trả về grade hiện có).
+   * Ghi history với source là tên hoạt động để truy vết.
+   */
+  async recordActivityGrade(itemId: string, userId: string, rawGrade: number | null, source = 'mod/quiz'): Promise<GradeRow | undefined> {
+    const item = await this.getItem(itemId);
+    if (item.itemType === 'course' || item.itemType === 'category' || item.itemType === 'calculated') {
+      throw new BadRequestException({ message: 'Category/course totals and calculated items are calculated, not entered', code: 'grades.calculated_item' });
+    }
+    if (item.locked) throw new ForbiddenException({ message: 'This grade item is locked', code: 'grades.item_locked' });
+    const existing = await this.repo.getGrade(itemId, userId);
+    if (existing?.locked || existing?.overridden) return existing;
+    const raw = rawGrade === null ? null : Math.min(item.gradeMax, Math.max(item.gradeMin, rawGrade));
+    const { finalGrade, frozen } = this.leafFinal(item, raw, existing);
+    await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.upsertGrade({
+        itemId: itemId, userId: userId, rawGrade: raw, rawGradeMin: item.gradeMin, rawGradeMax: item.gradeMax,
+        finalGrade, feedback: existing?.feedback ?? null,
+        hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
+        overridden: false, excluded: existing?.excluded ?? false, frozen,
+        aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
+      }, tx as never);
+      await this.repo.insertHistory({
+        action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
+        rawGrade: raw, finalGrade, overridden: false, excluded: existing?.excluded ?? false,
+        frozen, source, loggedUser: null,
+      }, tx as never);
+      await this.outbox.enqueue(tx as never, {
+        aggregate: 'grades', type: 'grade_updated',
+        payload: { courseId: item.courseId, itemId, userId, rawGrade: raw, finalGrade, source },
+      });
+    });
+    await this.regradeUser(item.courseId, userId);
+    await this.refreshCompletionForUser(item.courseId, userId);
+    return this.repo.getGrade(itemId, userId);
+  }
+
   /** Override / lock / exclude / hide / unfreeze a single grade, then regrade the user. */
   /**
    * Sửa một bản ghi điểm đã có (kèm lịch sử).

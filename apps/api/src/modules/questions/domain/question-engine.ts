@@ -46,7 +46,11 @@ const TRANSITIONS: Record<string, QuestionState[]> = {
   todo: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
   incomplete: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
   complete: ['complete', 'incomplete', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
-  gradedright: [], gradedpartial: [], gradedwrong: [], gaveup: [], finished: [], needsgrading: [],
+  gradedright: [], gradedpartial: [], gradedwrong: [], gaveup: [], finished: [],
+  // Chấm tay (manual grading của Moodle): người chấm cho điểm một attempt
+  // đang chờ ở needsgrading — attempt rời needsgrading sang trạng thái
+  // graded* suy từ fraction được cho, kèm một step ghi lại việc chấm.
+  needsgrading: ['gradedright', 'gradedpartial', 'gradedwrong'],
 };
 
 /**

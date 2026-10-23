@@ -705,6 +705,52 @@ CREATE TABLE "stimuli" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "quiz_attempts" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"attempt_number" integer NOT NULL,
+	"usage_id" uuid NOT NULL CONSTRAINT "quiz_attempts_usage_unique" UNIQUE,
+	"state" text DEFAULT 'inprogress' NOT NULL,
+	"preview" boolean DEFAULT false NOT NULL,
+	"time_start" timestamp with time zone DEFAULT now() NOT NULL,
+	"time_finish" timestamp with time zone,
+	"sum_grades" double precision,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_attempts_quiz_user_number_unique" UNIQUE("quiz_id","user_id","attempt_number")
+);
+--> statement-breakpoint
+CREATE TABLE "quiz_slots" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"slot" integer NOT NULL,
+	"page" integer DEFAULT 1 NOT NULL,
+	"question_id" uuid,
+	"category_id" uuid,
+	"max_mark" double precision DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_slots_quiz_slot_unique" UNIQUE("quiz_id","slot")
+);
+--> statement-breakpoint
+CREATE TABLE "quizzes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course" uuid NOT NULL,
+	"cm_id" uuid,
+	"name" text NOT NULL,
+	"intro" text DEFAULT '' NOT NULL,
+	"time_open" timestamp with time zone,
+	"time_close" timestamp with time zone,
+	"time_limit" integer,
+	"attempts_allowed" integer DEFAULT 0 NOT NULL,
+	"grade_method" text DEFAULT 'highest' NOT NULL,
+	"grade" double precision DEFAULT 10 NOT NULL,
+	"shuffle_answers" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "message" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"conversation_id" uuid NOT NULL,
@@ -1395,6 +1441,12 @@ CREATE INDEX "question_versions_question_id_idx" ON "question_versions" ("questi
 CREATE INDEX "question_versions_stimulus_id_idx" ON "question_versions" ("stimulus_id");--> statement-breakpoint
 CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statement-breakpoint
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
+CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
+CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
+CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
+CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
+CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
 CREATE INDEX "message_contacts_contact_id_idx" ON "message_contacts" ("contact_id");--> statement-breakpoint
@@ -1557,6 +1609,12 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_1NDKL1LfCtcc_f
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_stimuli_id_fkey" FOREIGN KEY ("stimulus_id") REFERENCES "stimuli"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint

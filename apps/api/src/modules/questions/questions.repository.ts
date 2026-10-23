@@ -246,6 +246,13 @@ export class QuestionsRepository {
     const [row] = await this.db.select().from(questionUsages).where(eq(questionUsages.id, id)); return row;
   }
   /**
+   * Xoá usage (attempts/steps cascade theo khoá ngoại) — dùng khi hoạt
+   * động sở hữu usage bị xoá (vd quiz bị xoá kéo theo các lượt làm).
+   */
+  async deleteUsage(id: string): Promise<void> {
+    await this.db.delete(questionUsages).where(eq(questionUsages.id, id));
+  }
+  /**
    * Chèn question attempt (một câu trong một usage).
    */
   async insertAttempt(v: typeof questionAttempts.$inferInsert): Promise<AttemptRow> {

@@ -49,6 +49,13 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'moodle/question:add', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'moodle/question:editall', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'moodle/question:useall', capType: 'read', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // Quiz activity (mod_quiz) — capability tại context của course module như db/access.php của Moodle.
+  { name: 'mod/quiz:view', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
+  { name: 'mod/quiz:attempt', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { student: CAP_ALLOW } },
+  { name: 'mod/quiz:manage', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'mod/quiz:grade', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'mod/quiz:viewreports', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'mod/quiz:preview', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   // Communication & Engagement
   { name: 'moodle/site:sendmessage', capType: 'write', contextLevel: 30, component: 'core_message', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   { name: 'moodle/calendar:manageentries', capType: 'write', contextLevel: 50, component: 'core_calendar', archetypes: { ...ALL_STAFF } },
