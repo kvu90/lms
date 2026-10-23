@@ -57,9 +57,9 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
-    // 109 bảng nghiệp vụ: 106 trước đây + quizzes, quiz_slots,
-    // quiz_attempts (đợt hoạt động Quiz, issue #30 chặng 1).
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(109);
+    // 113 bảng nghiệp vụ: 109 trước đây + session, account, verification,
+    // two_factor (đợt Better Auth giai đoạn 1, issue #7).
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(113);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -74,7 +74,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(109);
+    expect(defaults.rows.length).toBe(113);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261023140452_baseline/snapshot.json
-  "id": "51fbe8f0-9f54-475d-91ec-c0161271f0e7",
-========
-  "id": "e3b6e6f5-b440-482d-adcf-624d1840436e",
->>>>>>>> 7ce8a72 (feat(api): extend baseline with Better Auth tables and user columns):apps/api/drizzle/20261023120342_baseline/snapshot.json
+  "id": "f5a34be1-8e2b-4e43-bb9e-f3e26648470a",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
