@@ -6,21 +6,33 @@
  * attempts; attempts start in `notstarted`, a deferred-feedback attempt is
  * started → answered → finished/graded, and EVERY transition is a step).
  *
- * States follow Moodle `question_state` names (subset the core supports):
+ * States follow Moodle `question_state` names:
  *   notstarted → todo → complete | incomplete → gradedright | gradedpartial
- *   | gradedwrong; finishing an unanswered attempt ⇒ gaveup.
+ *   | gradedwrong | needsgrading; finishing an unanswered attempt ⇒ gaveup.
+ *   needsgrading is where manually graded qtypes (essay) land at finish.
  *
  * Behaviours are an internal EXTENSION POINT (interface + registry in the
  * service). `deferredfeedback` is the only behaviour shipped in core:
  * responses are stored as steps and graded only when the usage finishes,
- * against the answer data of the PINNED question version. qtypes are
- * plugins (out of scope): the version carries generic correct-answer data
- * for the two minimal data-level types, truefalse and shortanswer.
+ * against the answer/options rows of the PINNED question version.
+ *
+ * Grading follows each standard qtype's grade_response
+ * (question/type/<qtype>/question.php):
+ *   - truefalse: fraction 1 when the response matches the correct side.
+ *   - shortanswer: the FIRST answer (in stored order) whose pattern matches
+ *     via compare_string_with_wildcard (`*` wildcard, `\*` literal) decides
+ *     the fraction; case sensitivity follows the usecase option.
+ *   - multichoice single: the chosen answer's fraction; multiple: the sum
+ *     of the chosen answers' fractions clamped to [0, 1].
+ *   - essay: never auto-graded — the attempt goes to needsgrading.
+ * The graded state derives from the fraction with Moodle's thresholds
+ * (question/engine/states.php graded_state_for_fraction): below 0.000001 is
+ * gradedwrong, above 0.999999 is gradedright, in between gradedpartial.
  */
 
 export const QUESTION_STATES = [
   'notstarted', 'todo', 'incomplete', 'complete',
-  'gradedright', 'gradedpartial', 'gradedwrong', 'gaveup', 'finished',
+  'gradedright', 'gradedpartial', 'gradedwrong', 'gaveup', 'finished', 'needsgrading',
 ] as const;
 /**
  * Trạng thái của một question attempt theo máy trạng thái của Moodle question engine: todo, complete, needsgrading, finished, gaveup, gradedright/gradedwrong/gradedpartial…
@@ -31,10 +43,10 @@ export const GRADED_STATES: QuestionState[] = ['gradedright', 'gradedpartial', '
 
 const TRANSITIONS: Record<string, QuestionState[]> = {
   notstarted: ['todo'],
-  todo: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong'],
-  incomplete: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong'],
-  complete: ['complete', 'incomplete', 'gradedright', 'gradedpartial', 'gradedwrong'],
-  gradedright: [], gradedpartial: [], gradedwrong: [], gaveup: [], finished: [],
+  todo: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
+  incomplete: ['complete', 'incomplete', 'gaveup', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
+  complete: ['complete', 'incomplete', 'gradedright', 'gradedpartial', 'gradedwrong', 'needsgrading'],
+  gradedright: [], gradedpartial: [], gradedwrong: [], gaveup: [], finished: [], needsgrading: [],
 };
 
 /**
@@ -44,51 +56,131 @@ export function canTransition(from: string, to: QuestionState): boolean {
   return (TRANSITIONS[from] ?? []).includes(to);
 }
 /**
- * Trạng thái đã kết thúc (không nhận thêm thao tác) hay chưa.
+ * Trạng thái đã kết thúc (không nhận thêm thao tác) hay chưa. needsgrading
+ * được tính là đã kết thúc ở tầng usage như Moodle: lượt làm đã chốt, chỉ
+ * còn chờ người chấm cho điểm.
  */
 export function isFinishedState(state: string): boolean {
-  return GRADED_STATES.includes(state as QuestionState) || state === 'gaveup' || state === 'finished';
+  return GRADED_STATES.includes(state as QuestionState) || state === 'gaveup' || state === 'finished' || state === 'needsgrading';
 }
 
-/** The generic correct-answer payload stored on a question VERSION. */
-export type AnswerData =
-  | { kind: 'truefalse'; correct: boolean }
-  | { kind: 'shortanswer'; answers: string[]; casesensitive?: boolean }
-  | Record<string, unknown>;
+/** Một đáp án đã trích text thuần từ tài liệu Tiptap, kèm tỷ trọng của nó. */
+export interface GradableAnswer {
+  id: string;
+  text: string;
+  fraction: number;
+}
+
+/**
+ * Dữ liệu chấm của một version đã pin, do service dựng từ question_answers +
+ * bảng options của qtype tương ứng. fraction của đáp án là tỷ trọng trong
+ * nội bộ câu (0..1, có thể âm ở lựa chọn sai của multichoice nhiều đáp án),
+ * không phải điểm tuyệt đối.
+ */
+export interface GradingData {
+  answers: GradableAnswer[];
+  multichoice?: { single: boolean };
+  truefalse?: { trueanswerId: string; falseanswerId: string };
+  shortanswer?: { usecase: boolean };
+}
 
 export interface GradeOutcome {
-  fraction: number; // 0..1
-  state: QuestionState; // gradedright | gradedpartial | gradedwrong
+  fraction: number | null; // null khi chờ chấm tay (essay)
+  state: QuestionState; // gradedright | gradedpartial | gradedwrong | needsgrading
   rightAnswer: string;
 }
 
-/** Grade one response against a version's answer data. Pure and total. */
 /**
- * Chấm một câu trả lời theo qtype (truefalse, multichoice, shortanswer, numerical, essay…): trả fraction 0..1 và trạng thái graded*; essay và các type cần người chấm trả needsgrading.
- * Đối chiếu Moodle: question/type/<type>/question.php (grade_response).
+ * Suy trạng thái graded* từ fraction theo ngưỡng của Moodle
+ * (question/engine/states.php::graded_state_for_fraction).
  */
-export function gradeAnswer(qtype: string, answerdata: Record<string, unknown>, response: string | null): GradeOutcome {
-  if (qtype === 'truefalse') {
-    const correct = answerdata.correct === true || answerdata.correct === 'true';
-    const rightAnswer = correct ? 'True' : 'False';
-    const given = (response ?? '').trim().toLowerCase();
-    const givenBool = given === 'true' || given === '1' ? true : given === 'false' || given === '0' ? false : null;
-    const fraction = givenBool !== null && givenBool === correct ? 1 : 0;
-    return { fraction, state: fraction === 1 ? 'gradedright' : 'gradedwrong', rightAnswer };
+export function gradedStateForFraction(fraction: number): QuestionState {
+  if (fraction < 0.000001) return 'gradedwrong';
+  if (fraction > 0.999999) return 'gradedright';
+  return 'gradedpartial';
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * So khớp đáp án học viên với mẫu có ký tự đại diện `*` của shortanswer
+ * (qtype_shortanswer_question::compare_string_with_wildcard): `*` khớp mọi
+ * dãy ký tự, `\*` là dấu sao thường; hai đầu chuỗi được cắt khoảng trắng;
+ * ignorecase tương ứng nghịch đảo của tuỳ chọn usecase.
+ */
+export function compareStringWithWildcard(value: string, pattern: string, ignoreCase: boolean): boolean {
+  const bits = pattern.trim().split(/(?<!\\)\*+/).map((bit) => escapeRegExp(bit.replace(/\\\*/g, '*')));
+  const regexp = new RegExp(`^${bits.join('.*')}$`, ignoreCase ? 'iu' : 'u');
+  return regexp.test(value.trim());
+}
+
+function gradeTruefalse(data: GradingData, response: string | null): GradeOutcome {
+  const trueRow = data.answers.find((a) => a.id === data.truefalse?.trueanswerId);
+  // Moodle: phía đúng là dòng đáp án mang fraction 1 (question_truefalse trỏ
+  // vào hai dòng, đáp án đúng có fraction 1, đáp án sai có fraction 0).
+  const correctIsTrue = (trueRow?.fraction ?? 0) >= 1;
+  const rightAnswer = correctIsTrue ? 'True' : 'False';
+  const given = (response ?? '').trim().toLowerCase();
+  const givenBool = given === 'true' || given === '1' ? true : given === 'false' || given === '0' ? false : null;
+  const fraction = givenBool !== null && givenBool === correctIsTrue ? 1 : 0;
+  return { fraction, state: gradedStateForFraction(fraction), rightAnswer };
+}
+
+function gradeShortanswer(data: GradingData, response: string | null): GradeOutcome {
+  const ignoreCase = !(data.shortanswer?.usecase ?? false);
+  const given = response ?? '';
+  let fraction = 0;
+  for (const answer of data.answers) {
+    if (given.trim() !== '' && compareStringWithWildcard(given, answer.text, ignoreCase)) {
+      fraction = answer.fraction;
+      break; // Chiến lược khớp đầu tiên: đáp án khớp đầu tiên theo thứ tự lưu quyết định fraction.
+    }
   }
-  if (qtype === 'shortanswer') {
-    const answers = Array.isArray(answerdata.answers) ? answerdata.answers.map(String) : [];
-    const caseSensitive = answerdata.casesensitive === true;
-    const normalise = (s: string) => {
-      const t = s.trim().replace(/\s+/g, ' ');
-      return caseSensitive ? t : t.toLowerCase();
-    };
-    const given = normalise(response ?? '');
-    const fraction = given !== '' && answers.some((a) => normalise(a) === given) ? 1 : 0;
-    return { fraction, state: fraction === 1 ? 'gradedright' : 'gradedwrong', rightAnswer: answers[0] ?? '' };
+  const best = data.answers.reduce<GradableAnswer | undefined>(
+    (acc, a) => (acc === undefined || a.fraction > acc.fraction ? a : acc), undefined);
+  return { fraction, state: gradedStateForFraction(fraction), rightAnswer: best?.text ?? '' };
+}
+
+function gradeMultichoice(data: GradingData, response: string | null): GradeOutcome {
+  const single = data.multichoice?.single ?? true;
+  const selectedIds = new Set((response ?? '').split(',').map((s) => s.trim()).filter((s) => s !== ''));
+  const selected = data.answers.filter((a) => selectedIds.has(a.id));
+  let fraction: number;
+  if (single) {
+    fraction = selected[0]?.fraction ?? 0;
+  } else {
+    fraction = Math.min(Math.max(0, selected.reduce((sum, a) => sum + a.fraction, 0)), 1);
   }
-  // Unknown data-level type: cannot be auto-graded by the core engine.
-  return { fraction: 0, state: 'gradedwrong', rightAnswer: '' };
+  const rightAnswer = single
+    ? (data.answers.reduce<GradableAnswer | undefined>((acc, a) => (acc === undefined || a.fraction > acc.fraction ? a : acc), undefined)?.text ?? '')
+    : data.answers.filter((a) => a.fraction > 0).map((a) => a.text).join(', ');
+  return { fraction, state: gradedStateForFraction(fraction), rightAnswer };
+}
+
+/** Grade one response against a pinned version's answers/options. Pure and total. */
+/**
+ * Chấm một câu trả lời theo qtype chuẩn Moodle (truefalse, multichoice,
+ * shortanswer, essay): trả fraction và trạng thái graded*; essay không tự
+ * chấm — trả needsgrading với fraction null chờ người chấm.
+ * Đối chiếu Moodle: question/type/<qtype>/question.php (grade_response).
+ *
+ * Quy ước response dạng chuỗi (lưu trong step data `answer`):
+ * truefalse — 'true'/'false'; shortanswer/essay — văn bản trả lời;
+ * multichoice — id của đáp án đã chọn, nhiều id ngăn bằng dấu phẩy khi
+ * câu cho chọn nhiều đáp án.
+ */
+export function gradeAnswer(qtype: string, data: GradingData, response: string | null): GradeOutcome {
+  switch (qtype) {
+    case 'truefalse': return gradeTruefalse(data, response);
+    case 'shortanswer': return gradeShortanswer(data, response);
+    case 'multichoice': return gradeMultichoice(data, response);
+    case 'essay': return { fraction: null, state: 'needsgrading', rightAnswer: '' };
+    default:
+      // Qtype lạ: engine lõi không tự chấm được.
+      return { fraction: 0, state: 'gradedwrong', rightAnswer: '' };
+  }
 }
 
 /**
@@ -102,7 +194,7 @@ export function gradeAnswer(qtype: string, answerdata: Record<string, unknown>, 
 export interface QuestionBehaviour {
   readonly name: string;
   stateAfterSubmit(response: string | null): QuestionState;
-  gradeAtFinish(qtype: string, answerdata: Record<string, unknown>, response: string | null): GradeOutcome | null;
+  gradeAtFinish(qtype: string, data: GradingData, response: string | null): GradeOutcome | null;
 }
 
 /**
@@ -114,9 +206,9 @@ export class DeferredFeedbackBehaviour implements QuestionBehaviour {
   stateAfterSubmit(response: string | null): QuestionState {
     return response !== null && response.trim() !== '' ? 'complete' : 'incomplete';
   }
-  gradeAtFinish(qtype: string, answerdata: Record<string, unknown>, response: string | null): GradeOutcome | null {
+  gradeAtFinish(qtype: string, data: GradingData, response: string | null): GradeOutcome | null {
     if (response === null || response.trim() === '') return null; // → gaveup
-    return gradeAnswer(qtype, answerdata, response);
+    return gradeAnswer(qtype, data, response);
   }
 }
 

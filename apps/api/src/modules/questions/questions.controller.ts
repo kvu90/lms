@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionsService } from './questions.service';
-import { createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, submitQuestionResponseSchema, updateQuestionSchema, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto } from './dto/questions.dto';
+import { createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionSchema, updateStimulusSchema, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateStimulusDto } from './dto/questions.dto';
 
 @ApiTags('questions')
 @Controller({ path: 'questions', version: '1' })
@@ -61,6 +61,53 @@ export class QuestionsController {
    */
   async versions(@Param('id', { schema: uuidIdSchema }) id: string) {
     return this.questions.listVersions(id);
+  }
+}
+
+@ApiTags('stimuli')
+@Controller({ path: 'stimuli', version: '1' })
+/**
+ * API ngữ liệu dùng chung (stimulus): tạo/đọc/sửa/xoá theo category.
+ * Stimulus đã có version câu hỏi tham chiếu thì bất biến (stimulus_in_use).
+ */
+export class StimuliController {
+  constructor(private readonly questions: QuestionsService) {}
+
+  @Post()
+  /**
+   * POST /stimuli — tạo ngữ liệu trong một category.
+   */
+  async create(@Body({ schema: createStimulusSchema }) dto: CreateStimulusDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.createStimulus(actor.id, dto);
+  }
+  @Get()
+  /**
+   * GET /stimuli?categoryId= — ngữ liệu của một category.
+   */
+  async list(@Query('categoryId', { schema: uuidIdSchema }) categoryId: string) {
+    return this.questions.listStimuli(categoryId);
+  }
+  @Get(':id')
+  /**
+   * GET /stimuli/:id — chi tiết ngữ liệu.
+   */
+  async get(@Param('id', { schema: uuidIdSchema }) id: string) {
+    return this.questions.getStimulus(id);
+  }
+  @Patch(':id')
+  /**
+   * PATCH /stimuli/:id — sửa nội dung (chỉ khi chưa được tham chiếu).
+   */
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateStimulusSchema }) dto: UpdateStimulusDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.updateStimulus(actor.id, id, dto);
+  }
+  @Delete(':id')
+  /**
+   * DELETE /stimuli/:id — xoá ngữ liệu (chỉ khi chưa được tham chiếu).
+   */
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.deleteStimulus(actor.id, id);
+    return { deleted: true };
   }
 }
 

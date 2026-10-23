@@ -11,7 +11,8 @@ import {
   course, courseCompletions, courseCompletionCriteria, courseCompletionSettings,
   courseGroups, courseModules, courseModulesCompletion, courseSections, enrol, files as filesTable,
   gradeCategories, gradeGrades, gradeItems, groupings, groupingsGroups, groupsMembers,
-  question, questionBankEntries, questionCategories, questionVersions,
+  question, questionAnswers, questionBankEntries, questionCategories, questionTruefalse, questionVersions,
+  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli,
   userEnrolments, users,
 } from '../../db/schema';
 
@@ -363,19 +364,32 @@ export class BackupService {
         const ctxId = courseId
           ? (await this.contexts.getByLevelInstance(50, courseId))?.id
           : (await this.contexts.ensureSystemContext()).id;
-        if (!ctxId) return { categories: [], questions: [], entries: [], versions: [] };
+        if (!ctxId) return { categories: [], questions: [], entries: [], versions: [], stimuli: [], answers: [], multichoiceOptions: [], truefalseOptions: [], shortanswerOptions: [], essayOptions: [] };
         const categories = await db.select().from(questionCategories).where(eq(questionCategories.contextid, ctxId));
         const catIds = categories.map((c) => c.id);
         const questions = catIds.length ? await db.select().from(question).where(inArray(question.category, catIds)) : [];
         const entries = catIds.length ? await db.select().from(questionBankEntries).where(inArray(questionBankEntries.questioncategoryid, catIds)) : [];
         const entryIds = entries.map((e) => e.id);
         const versions = entryIds.length ? await db.select().from(questionVersions).where(inArray(questionVersions.questionbankentryid, entryIds)) : [];
-        return { categories, questions, entries, versions };
+        const versionIds = versions.map((v) => v.id);
+        // Nội dung chấm của version (answers + options từng qtype) và ngữ
+        // liệu của category đi cùng archive — thiếu chúng thì bản restore
+        // mất toàn bộ dữ liệu chấm.
+        const stimuliRows = catIds.length ? await db.select().from(stimuli).where(inArray(stimuli.categoryid, catIds)) : [];
+        const answers = versionIds.length ? await db.select().from(questionAnswers).where(inArray(questionAnswers.questionversionid, versionIds)) : [];
+        const multichoiceOptions = versionIds.length ? await db.select().from(qtypeMultichoiceOptions).where(inArray(qtypeMultichoiceOptions.questionversionid, versionIds)) : [];
+        const truefalseOptions = versionIds.length ? await db.select().from(questionTruefalse).where(inArray(questionTruefalse.questionversionid, versionIds)) : [];
+        const shortanswerOptions = versionIds.length ? await db.select().from(qtypeShortanswerOptions).where(inArray(qtypeShortanswerOptions.questionversionid, versionIds)) : [];
+        const essayOptions = versionIds.length ? await db.select().from(qtypeEssayOptions).where(inArray(qtypeEssayOptions.questionversionid, versionIds)) : [];
+        return { categories, questions, entries, versions, stimuli: stimuliRows, answers, multichoiceOptions, truefalseOptions, shortanswerOptions, essayOptions };
       },
       import: async (targetCourseId, data, mapping) => {
         const d = data as {
           categories: (typeof questionCategories.$inferSelect)[]; questions: (typeof question.$inferSelect)[];
           entries: (typeof questionBankEntries.$inferSelect)[]; versions: (typeof questionVersions.$inferSelect)[];
+          stimuli?: (typeof stimuli.$inferSelect)[]; answers?: (typeof questionAnswers.$inferSelect)[];
+          multichoiceOptions?: (typeof qtypeMultichoiceOptions.$inferSelect)[]; truefalseOptions?: (typeof questionTruefalse.$inferSelect)[];
+          shortanswerOptions?: (typeof qtypeShortanswerOptions.$inferSelect)[]; essayOptions?: (typeof qtypeEssayOptions.$inferSelect)[];
         };
         if (!d.categories?.length && !d.questions?.length) return;
         const targetCtxId = targetCourseId
@@ -424,15 +438,70 @@ export class BackupService {
           const created = row ?? (await db.select().from(questionBankEntries).where(eq(questionBankEntries.questionid, newQuestion)))[0];
           if (created) await mapping.map('question_bank_entry', e.id, created.id);
         }
+        for (const s of d.stimuli ?? []) {
+          const newCategory = mapping.get('question_category', s.categoryid);
+          if (!newCategory) continue;
+          const [row] = await db.insert(stimuli).values({
+            categoryid: newCategory, createdby: s.createdby, content: s.content,
+          }).returning();
+          await mapping.map('stimulus', s.id, row!.id);
+        }
         for (const v of [...(d.versions ?? [])].sort((a, b) => a.version - b.version)) {
           const newEntry = mapping.get('question_bank_entry', v.questionbankentryid);
           const newQuestion = mapping.get('question', v.questionid);
           if (!newEntry || !newQuestion) continue;
           const [row] = await db.insert(questionVersions).values({
             questionbankentryid: newEntry, questionid: newQuestion, version: v.version, status: v.status,
-            questiontext: v.questiontext, defaultmark: v.defaultmark, answerdata: v.answerdata,
+            questiontext: v.questiontext, generalfeedback: v.generalfeedback, guidance: v.guidance,
+            defaultmark: v.defaultmark, penalty: v.penalty,
+            stimulusid: v.stimulusid ? (mapping.get('stimulus', v.stimulusid) ?? null) : null,
           }).onConflictDoNothing().returning();
           if (row) await mapping.map('question_version', v.id, row.id);
+        }
+        for (const a of d.answers ?? []) {
+          const newVersion = mapping.get('question_version', a.questionversionid);
+          if (!newVersion) continue;
+          const [row] = await db.insert(questionAnswers).values({
+            questionversionid: newVersion, answer: a.answer, fraction: a.fraction,
+            feedback: a.feedback, sortorder: a.sortorder,
+          }).returning();
+          await mapping.map('question_answer', a.id, row!.id);
+        }
+        for (const o of d.multichoiceOptions ?? []) {
+          const newVersion = mapping.get('question_version', o.questionversionid);
+          if (!newVersion) continue;
+          await db.insert(qtypeMultichoiceOptions).values({
+            questionversionid: newVersion, single: o.single, shuffleanswers: o.shuffleanswers,
+            answernumbering: o.answernumbering, correctfeedback: o.correctfeedback,
+            partiallycorrectfeedback: o.partiallycorrectfeedback, incorrectfeedback: o.incorrectfeedback,
+            shownumcorrect: o.shownumcorrect, showstandardinstruction: o.showstandardinstruction,
+          }).onConflictDoNothing();
+        }
+        for (const o of d.truefalseOptions ?? []) {
+          const newVersion = mapping.get('question_version', o.questionversionid);
+          const newTrue = mapping.get('question_answer', o.trueanswer);
+          const newFalse = mapping.get('question_answer', o.falseanswer);
+          if (!newVersion || !newTrue || !newFalse) continue;
+          await db.insert(questionTruefalse).values({
+            questionversionid: newVersion, trueanswer: newTrue, falseanswer: newFalse,
+            showstandardinstruction: o.showstandardinstruction,
+          }).onConflictDoNothing();
+        }
+        for (const o of d.shortanswerOptions ?? []) {
+          const newVersion = mapping.get('question_version', o.questionversionid);
+          if (!newVersion) continue;
+          await db.insert(qtypeShortanswerOptions).values({
+            questionversionid: newVersion, usecase: o.usecase,
+          }).onConflictDoNothing();
+        }
+        for (const o of d.essayOptions ?? []) {
+          const newVersion = mapping.get('question_version', o.questionversionid);
+          if (!newVersion) continue;
+          await db.insert(qtypeEssayOptions).values({
+            questionversionid: newVersion, responseformat: o.responseformat, responserequired: o.responserequired,
+            responsefieldlines: o.responsefieldlines, minwordlimit: o.minwordlimit, maxwordlimit: o.maxwordlimit,
+            graderinfo: o.graderinfo, responsetemplate: o.responsetemplate,
+          }).onConflictDoNothing();
         }
       },
     });

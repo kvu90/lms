@@ -212,9 +212,25 @@ describe('Grades & questions', () => {
     expect(edit.body.latestVersion.version).toBe(2);
     const versions = await http(app).get(`/api/v1/questions/${qid}/versions`).set('Authorization', `Bearer ${admin}`);
     expect(versions.body).toHaveLength(2);
-    expect(versions.body[0].questiontext).toBe('The sky is blue.');
-    expect(versions.body[0].answerdata.correct).toBe(true);
-    expect(versions.body[1].answerdata.correct).toBe(false);
+    // questiontext nay là tài liệu Tiptap (jsonb): text thuần nằm ở node text đầu tiên.
+    const docText = (doc: { content: { content?: { text?: string }[] }[] }) => doc.content[0]?.content?.[0]?.text;
+    expect(docText(versions.body[0].questiontext)).toBe('The sky is blue.');
+    expect(docText(versions.body[1].questiontext)).toBe('The sky is green.');
+    // Đáp án đã tách sang question_answers: v1 giữ nguyên (True fraction 1),
+    // v2 mang đáp án đã sửa (False fraction 1) — kiểm chứng thẳng ở DB.
+    const v1Answers = await pg.query(
+      `select a.fraction from question_answers a join question_versions v on v.id = a.questionversionid
+        where v.id = $1 and a.answer->'content'->0->'content'->0->>'text' = 'True'`,
+      [versions.body[0].id]);
+    expect((v1Answers.rows[0] as { fraction: number }).fraction).toBe(1);
+    const view = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
+    const trueRowV2 = (view.body.answers as { answer: unknown; fraction: number }[])
+      .find((a) => docText(a.answer as never) === 'True');
+    const falseRowV2 = (view.body.answers as { answer: unknown; fraction: number }[])
+      .find((a) => docText(a.answer as never) === 'False');
+    expect(trueRowV2?.fraction).toBe(0);
+    expect(falseRowV2?.fraction).toBe(1);
+    expect(view.body.options.trueanswer).toBe((view.body.answers as { id: string }[]).find((a) => docText(a.answer as never) === 'True')?.id);
   });
 
   it('INVARIANT: an attempt started on version 1 is graded by version 1 even after the question is edited to version 2', async () => {
