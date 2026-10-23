@@ -1,4 +1,3 @@
-import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { reactRouter } from '@react-router/dev/vite';
 import { defineConfig } from 'vite';
@@ -11,9 +10,6 @@ import { defineConfig } from 'vite';
  */
 export default defineConfig({
   plugins: [reactRouter(), tailwindcss()],
-  resolve: {
-    alias: { '@': path.resolve(import.meta.dirname, './src') },
-  },
   server: {
     port: 5173,
     // Cho phép mở bản dev qua đường hầm công khai khi review từ xa.
