@@ -14,14 +14,19 @@ import {
   createFilteredRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
+  filterFn_includesString,
   FlexRender,
+  globalFilteringFeature,
   rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_text,
   tableFeatures,
   useTable,
   type ColumnFiltersState,
   type ColumnVisibilityState,
+  type OnChangeFn,
   type PaginationState,
   type RowSelectionState,
   type SortingState,
@@ -34,19 +39,27 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@lms/ui/components/ui/dropdown-menu';
+import { Input } from '@lms/ui/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/ui/table';
 
 // Bộ tính năng của bảng (TanStack Table v9 khai báo tường minh để
-// tree-shake), giữ đúng bộ khung của block dashboard-01.
+// tree-shake), giữ đúng bộ khung của block dashboard-01 và hướng dẫn
+// data-table chính thức của shadcn: sắp xếp, lọc theo cột, lọc toàn
+// bảng, ẩn/hiện cột, phân trang, chọn hàng — kèm các hàm lọc/sắp xếp
+// tích hợp mà cột dựa vào (includesString cho lọc, text/alphanumeric
+// cho sắp xếp chuỗi).
 const features = tableFeatures({
   columnFilteringFeature,
   columnVisibilityFeature,
+  globalFilteringFeature,
   rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
   filteredRowModel: createFilteredRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   sortedRowModel: createSortedRowModel(),
+  filterFns: { includesString: filterFn_includesString },
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
 });
 
 /** Định nghĩa một cột theo ngôn ngữ nghiệp vụ của trang gọi, không lộ chi tiết TanStack. */
@@ -56,6 +69,11 @@ export interface DataColumn<T extends Record<string, any>> {
   cell: (row: T) => React.ReactNode;
   /** Giá trị để sắp xếp; bỏ qua thì cột không sắp xếp được. */
   sortValue?: (row: T) => string | number;
+  /**
+   * Chuỗi đại diện của hàng cho bộ lọc toàn bảng (ô lọc ở thanh công
+   * cụ quét qua giá trị này của mọi cột); bỏ qua thì dùng sortValue.
+   */
+  filterValue?: (row: T) => string;
 }
 
 /** Các nhãn đã dịch do trang gọi truyền vào — component không chứa chuỗi cứng. */
@@ -65,13 +83,22 @@ export interface DataTableLabels {
   next: string;
   empty: string;
   pageInfo: (page: number, pages: number) => string;
+  /** Placeholder của ô lọc toàn bảng; bỏ qua thì không hiện ô lọc (ví dụ bảng lọc phía server). */
+  filterPlaceholder?: string;
 }
 
 /**
- * Bảng dữ liệu dùng chung cho trang tổng quan, khung theo block
- * dashboard-01 (thanh công cụ với nút tuỳ biến cột, bảng viền bo góc, chân
- * phân trang). Dữ liệu và cột do trang gọi cung cấp — luôn là dữ liệu thật
- * của vai trò tương ứng; component không biết gì về nghiệp vụ.
+ * Bảng dữ liệu dùng chung của toàn app (trang tổng quan, quản trị người
+ * dùng, ngân hàng câu hỏi, sổ điểm, ma trận vai trò…), khung theo block
+ * dashboard-01 và hướng dẫn data-table chính thức của shadcn: thanh công
+ * cụ có ô lọc toàn bảng + nút tuỳ biến cột, bảng viền bo góc, chân phân
+ * trang. Mọi cơ chế bảng (sắp xếp, lọc, ẩn/hiện cột, phân trang, chọn
+ * hàng) do TanStack Table đảm nhiệm — không trang nào tự chế lại. Hai
+ * chế độ dữ liệu: mặc định trang gọi đưa toàn bộ hàng và bảng tự sắp
+ * xếp/lọc/phân trang phía client; khi dữ liệu đã phân trang phía server
+ * thì bật manualPagination và giữ trạng thái trang ở trang gọi (bảng
+ * không tự cắt trang). Dữ liệu và cột do trang gọi cung cấp — luôn là
+ * dữ liệu thật của vai trò tương ứng; component không biết nghiệp vụ.
  *
  * Chi tiết kiểu: TanStack v9 chỉ suy luận chặt khi mảng cột được bọc qua
  * `columnHelper.columns(...)` với kiểu hàng cụ thể, nên phần nội bộ làm
@@ -86,6 +113,11 @@ export function DataTable<T extends Record<string, any>>({
   labels,
   getRowId,
   pageSize = 10,
+  manualPagination = false,
+  pageCount,
+  pagination: paginationProp,
+  onPaginationChange,
+  rowTestId,
 }: {
   title?: string;
   data: T[];
@@ -93,27 +125,47 @@ export function DataTable<T extends Record<string, any>>({
   labels: DataTableLabels;
   getRowId: (row: T) => string;
   pageSize?: number;
+  /**
+   * Phân trang phía server: dữ liệu truyền vào đã là đúng một trang,
+   * bảng chỉ giữ trạng thái trang và báo lên trang gọi qua
+   * onPaginationChange; tổng số trang lấy từ pageCount.
+   */
+  manualPagination?: boolean;
+  /** Tổng số trang khi manualPagination (suy từ tổng bản ghi phía server). */
+  pageCount?: number;
+  /** Trạng thái phân trang do trang gọi giữ (bắt buộc khi manualPagination). */
+  pagination?: PaginationState;
+  onPaginationChange?: OnChangeFn<PaginationState>;
+  /** data-testid cho từng hàng — giữ tay cầm kiểm thử/điều hướng của trang gọi. */
+  rowTestId?: (row: T) => string;
 }) {
   type AnyRow = Record<string, any>;
   const [columnVisibility, setColumnVisibility] = React.useState<ColumnVisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = React.useState('');
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [pagination, setPagination] = React.useState<PaginationState>({
+  const [internalPagination, setInternalPagination] = React.useState<PaginationState>({
     pageIndex: 0,
     pageSize,
   });
+  const pagination = paginationProp ?? internalPagination;
+  const handlePaginationChange: OnChangeFn<PaginationState> = onPaginationChange ?? setInternalPagination;
 
   const tableColumns = React.useMemo(() => {
     const helper = createColumnHelper<typeof features, AnyRow>();
     return helper.columns(
       columns.map((col) =>
-        helper.accessor((row: AnyRow): string | number => (col.sortValue ? col.sortValue(row as T) : ''), {
-          id: col.id,
-          header: col.header,
-          enableSorting: Boolean(col.sortValue),
-          cell: (info) => col.cell(info.row.original as T),
-        }),
+        helper.accessor(
+          (row: AnyRow): string | number =>
+            col.filterValue ? col.filterValue(row as T) : col.sortValue ? col.sortValue(row as T) : '',
+          {
+            id: col.id,
+            header: col.header,
+            enableSorting: Boolean(col.sortValue),
+            cell: (info) => col.cell(info.row.original as T),
+          },
+        ),
       ),
     );
   }, [columns]);
@@ -122,20 +174,34 @@ export function DataTable<T extends Record<string, any>>({
     features,
     data: data as AnyRow[],
     columns: tableColumns,
-    state: { columnVisibility, rowSelection, columnFilters, sorting, pagination },
+    state: { columnVisibility, rowSelection, columnFilters, globalFilter, sorting, pagination },
     getRowId: (row) => getRowId(row as T),
     enableRowSelection: true,
+    manualPagination,
+    pageCount,
     onRowSelectionChange: setRowSelection,
     onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onSortingChange: setSorting,
-    onPaginationChange: setPagination,
+    onPaginationChange: handlePaginationChange,
   });
 
   return (
     <div className="flex w-full flex-col gap-4 px-4 lg:px-6">
-      <div className="flex items-center justify-between">
-        {title ? <h3 className="text-base font-semibold">{title}</h3> : <span />}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {title ? <h3 className="text-base font-semibold">{title}</h3> : null}
+          {labels.filterPlaceholder ? (
+            <Input
+              aria-label={labels.filterPlaceholder}
+              placeholder={labels.filterPlaceholder}
+              value={globalFilter}
+              onChange={(event) => table.setGlobalFilter(event.target.value)}
+              className="max-w-sm"
+            />
+          ) : null}
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
             <IconLayoutColumns />
@@ -187,7 +253,7 @@ export function DataTable<T extends Record<string, any>>({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} data-testid={rowTestId?.(row.original as T)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <FlexRender cell={cell} />

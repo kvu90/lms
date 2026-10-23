@@ -1665,6 +1665,7 @@ export const dashboardResources = {
       tablePrevious: 'Trước',
       tableNext: 'Sau',
       tableColumns: 'Cột',
+      tableFilterPlaceholder: 'Lọc trong bảng…',
     },
   },
   en: {
@@ -1733,6 +1734,7 @@ export const dashboardResources = {
       tablePrevious: 'Previous',
       tableNext: 'Next',
       tableColumns: 'Columns',
+      tableFilterPlaceholder: 'Filter in table…',
     },
   },
 } as const;

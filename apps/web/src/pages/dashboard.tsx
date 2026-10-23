@@ -204,6 +204,7 @@ function AdminSection() {
             previous: t('dashboard:tablePrevious'),
             next: t('dashboard:tableNext'),
             empty: t('dashboard:emptyTable'),
+            filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
             pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
           }}
         />
@@ -324,6 +325,7 @@ function TeacherSection() {
           previous: t('tablePrevious'),
           next: t('tableNext'),
           empty: t('emptyTable'),
+          filterPlaceholder: t('tableFilterPlaceholder'),
           pageInfo: (page, pages) => t('tablePageInfo', { page, pages }),
         }}
       />
@@ -488,6 +490,7 @@ function StudentSection() {
           previous: t('tablePrevious'),
           next: t('tableNext'),
           empty: t('emptyTable'),
+          filterPlaceholder: t('tableFilterPlaceholder'),
           pageInfo: (page, pages) => t('tablePageInfo', { page, pages }),
         }}
       />
