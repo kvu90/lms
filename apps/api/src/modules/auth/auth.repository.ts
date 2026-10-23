@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, desc, eq, gte, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { loginAttempts, refreshTokenFamily, userTotp } from '../../db/schema';
+import { loginAttempts, refreshTokenFamily, userOauthLinks, userTotp } from '../../db/schema';
 
 export type RefreshFamilyRow = typeof refreshTokenFamily.$inferSelect;
 export type UserTotpRow = typeof userTotp.$inferSelect;
+export type UserOauthLinkRow = typeof userOauthLinks.$inferSelect;
 
 @Injectable()
 /**
@@ -45,6 +46,71 @@ export class AuthRepository {
    */
   async revokeAllForUser(userid: string): Promise<void> {
     await this.db.update(refreshTokenFamily).set({ revoked: true }).where(eq(refreshTokenFamily.userid, userid));
+  }
+  /**
+   * Các family đang hiệu lực của user (chưa thu hồi, chưa hết hạn) — nguồn
+   * cho danh sách "phiên API" ở trang quản lý phiên của chính user.
+   */
+  async listActiveFamiliesByUser(userid: string): Promise<RefreshFamilyRow[]> {
+    return this.db.select().from(refreshTokenFamily).where(and(
+      eq(refreshTokenFamily.userid, userid),
+      eq(refreshTokenFamily.revoked, false),
+      gte(refreshTokenFamily.expiresAt, new Date()),
+    )).orderBy(desc(refreshTokenFamily.createdAt));
+  }
+  /**
+   * Tìm family theo định danh family công khai (`family_id` — cũng là `sid` trong access token).
+   */
+  async getFamilyByFamilyId(familyId: string): Promise<RefreshFamilyRow | undefined> {
+    const [row] = await this.db.select().from(refreshTokenFamily).where(eq(refreshTokenFamily.familyId, familyId));
+    return row;
+  }
+  /**
+   * Thu hồi mọi family đang hiệu lực của user ngoại trừ một family giữ lại
+   * (phiên hiện tại); trả số family đã thu hồi.
+   */
+  async revokeOthersForUser(userid: string, keepFamilyId?: string): Promise<number> {
+    const active = await this.listActiveFamiliesByUser(userid);
+    const targets = active.filter((f) => f.familyId !== keepFamilyId);
+    for (const family of targets) await this.revokeFamily(family.id);
+    return targets.length;
+  }
+  // --- OAuth linked logins (auth_oauth2) ------------------------------------
+  /**
+   * Tạo liên kết đăng nhập ngoài cho user; ràng buộc duy nhất ở DB chặn
+   * một tài khoản provider nối hai user hoặc một user hai liên kết/issuer.
+   */
+  async createOauthLink(v: typeof userOauthLinks.$inferInsert): Promise<UserOauthLinkRow> {
+    const [row] = await this.db.insert(userOauthLinks).values(v).returning(); return row!;
+  }
+  /**
+   * Tìm liên kết theo tài khoản provider (issuer + định danh chủ thể) — bước khớp đầu tiên ở callback OAuth.
+   */
+  async getOauthLinkBySubject(issuer: string, issuerUserId: string): Promise<UserOauthLinkRow | undefined> {
+    const [row] = await this.db.select().from(userOauthLinks).where(and(
+      eq(userOauthLinks.issuer, issuer), eq(userOauthLinks.issuerUserId, issuerUserId),
+    ));
+    return row;
+  }
+  /**
+   * Mọi liên kết đăng nhập ngoài của user, cũ nhất trước (trang Linked logins).
+   */
+  async listOauthLinksByUser(userid: string): Promise<UserOauthLinkRow[]> {
+    return this.db.select().from(userOauthLinks)
+      .where(eq(userOauthLinks.userid, userid)).orderBy(userOauthLinks.createdAt);
+  }
+  /**
+   * Tìm liên kết theo id (kèm userid ở phía gọi để kiểm tra sở hữu trước khi gỡ).
+   */
+  async getOauthLinkById(id: string): Promise<UserOauthLinkRow | undefined> {
+    const [row] = await this.db.select().from(userOauthLinks).where(eq(userOauthLinks.id, id));
+    return row;
+  }
+  /**
+   * Xoá một liên kết đăng nhập ngoài (gỡ liên kết ở trang Linked logins).
+   */
+  async deleteOauthLink(id: string): Promise<void> {
+    await this.db.delete(userOauthLinks).where(eq(userOauthLinks.id, id));
   }
   // --- MFA TOTP ---------------------------------------------------------------
   /**

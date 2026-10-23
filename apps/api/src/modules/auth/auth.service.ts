@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -22,6 +22,28 @@ export interface TokenPair { accessToken: string; refreshToken: string; expiresI
 export type PasswordLoginOutcome =
   | { mfaRequired: false; user: UserRow; tokens: TokenPair }
   | { mfaRequired: true; user: UserRow; challengeToken: string };
+
+/**
+ * Kết quả đăng nhập phiên cookie: hoặc phiên đã tạo xong, hoặc bị chặn ở
+ * bước MFA với challenge của luồng session (chưa tạo phiên nào).
+ */
+export type SessionLoginOutcome =
+  | { mfaRequired: false; user: UserRow; sessionId: string }
+  | { mfaRequired: true; user: UserRow; challengeToken: string };
+
+/** Định danh các phiên "hiện tại" theo ngữ cảnh của người gọi: `familyId` là `sid` trong access token, `webSessionId` là id phiên trong cookie. */
+export interface CurrentSessionRefs { familyId?: string; webSessionId?: string }
+
+/** Một phiên đang hoạt động trong danh sách quản lý phiên của chính user (report_usersessions). */
+export interface MySessionView {
+  id: string;
+  kind: 'web' | 'api';
+  createdAt: string;
+  lastActivityAt: string;
+  ip: string | null;
+  userAgent: string | null;
+  current: boolean;
+}
 
 function hashToken(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
@@ -107,7 +129,7 @@ export class AuthService {
    */
   async completePasswordLogin(user: UserRow): Promise<PasswordLoginOutcome> {
     if (await this.totp.isEnabled(user.id)) {
-      const challengeToken = await this.signMfaChallenge(user);
+      const challengeToken = await this.signMfaChallenge(user, 'token');
       return { mfaRequired: true, user, challengeToken };
     }
     await this.users.recordLogin(user.id);
@@ -118,12 +140,16 @@ export class AuthService {
   /**
    * Ký challenge token cho bước MFA: JWT ngắn hạn mang `scope:
    * 'mfa_challenge'` và KHÔNG mang `sid` phiên — JwtAuthStrategy từ chối
-   * nó nên không thể dùng để gọi bất kỳ API thường nào.
+   * nó nên không thể dùng để gọi bất kỳ API thường nào. Claim `flow` phân
+   * biệt đích hoàn tất: `token` chỉ đổi được ở POST /auth/mfa/verify (cấp
+   * cặp token), `session` chỉ đổi được ở POST /auth/session/mfa/verify
+   * (tạo phiên cookie) — challenge của luồng này không dùng chéo sang
+   * luồng kia được.
    */
-  private async signMfaChallenge(user: UserRow): Promise<string> {
+  private async signMfaChallenge(user: UserRow, flow: 'token' | 'session'): Promise<string> {
     const ttl = this.config.get<number>('MFA_CHALLENGE_TTL_SECONDS') ?? 300;
     return this.jwt.signAsync(
-      { sub: user.id, username: user.username, scope: 'mfa_challenge' },
+      { sub: user.id, username: user.username, scope: 'mfa_challenge', flow },
       { expiresIn: ttl },
     );
   }
@@ -159,13 +185,30 @@ export class AuthService {
    * cặp token + phiên như đăng nhập thường.
    */
   async verifyMfa(challengeToken: string, code: string, ip?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
-    let payload: { sub?: string; scope?: string };
+    const user = await this.passMfaChallenge(challengeToken, code, ip, 'token');
+    await this.users.recordLogin(user.id);
+    const tokens = await this.issueTokens(user);
+    return { user, tokens };
+  }
+
+  /**
+   * Lõi dùng chung của bước hai MFA cho cả hai luồng hoàn tất: kiểm
+   * challenge token (chữ ký, hạn, scope và đúng `flow` đích), trạng thái
+   * tài khoản, lockout, rồi kiểm mã TOTP. Mã sai bị ghi như một lần đăng
+   * nhập thất bại nên dùng chung cơ chế lockout sẵn có. Trả user đã qua
+   * thử thách; việc ghi nhận đăng nhập + cấp phiên/token thuộc về từng
+   * luồng hoàn tất phía trên.
+   */
+  private async passMfaChallenge(challengeToken: string, code: string, ip: string | undefined, flow: 'token' | 'session'): Promise<UserRow> {
+    let payload: { sub?: string; scope?: string; flow?: string };
     try {
-      payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string }>(challengeToken);
+      payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string; flow?: string }>(challengeToken);
     } catch {
       throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
     }
-    if (payload.scope !== 'mfa_challenge' || !payload.sub) {
+    // Challenge ký trước khi có claim `flow` được hiểu là của luồng token.
+    const challengeFlow = payload.flow ?? 'token';
+    if (payload.scope !== 'mfa_challenge' || !payload.sub || challengeFlow !== flow) {
       throw new UnauthorizedException({ message: 'MFA challenge is invalid or expired', code: 'auth.mfa_challenge_invalid' });
     }
     const user = await this.users.getByIdOrUndefined(payload.sub);
@@ -180,9 +223,7 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
     }
-    await this.users.recordLogin(user.id);
-    const tokens = await this.issueTokens(user);
-    return { user, tokens };
+    return user;
   }
 
   /** Issue a fresh refresh-token family + access token (used after the local strategy validated credentials). */
@@ -279,12 +320,30 @@ export class AuthService {
 
   // --- web sessions -----------------------------------------------------------
   /**
-   * Đăng nhập kiểu session-cookie cho các luồng cần cookie (tương đương token login nhưng đặt cookie).
+   * Đăng nhập kiểu session-cookie: bước mật khẩu dùng chung
+   * `validateCredentials`; user đã bật MFA thì dừng ở challenge của
+   * luồng session (bản sửa lỗ hổng cũ — route này từng đi thẳng qua MFA),
+   * phiên chỉ được tạo sau khi POST /auth/session/mfa/verify qua được.
    */
-  async sessionLogin(username: string, password: string, oldSessionId?: string, ip?: string): Promise<{ sessionId: string; user: UserRow }> {
+  async sessionLogin(username: string, password: string, oldSessionId?: string, ip?: string, userAgent?: string): Promise<SessionLoginOutcome> {
     const user = await this.validateCredentials(username, password, ip);
+    if (await this.totp.isEnabled(user.id)) {
+      const challengeToken = await this.signMfaChallenge(user, 'session');
+      return { mfaRequired: true, user, challengeToken };
+    }
     await this.users.recordLogin(user.id);
-    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username });
+    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
+    return { mfaRequired: false, sessionId, user };
+  }
+  /**
+   * Bước hai của đăng nhập phiên cookie: qua thử thách MFA (dùng chung
+   * lõi với luồng token) mới ghi nhận đăng nhập và tạo phiên — phiên
+   * được xoay từ id cũ như đăng nhập trực tiếp để chống fixation.
+   */
+  async verifyMfaSession(challengeToken: string, code: string, oldSessionId?: string, ip?: string, userAgent?: string): Promise<{ sessionId: string; user: UserRow }> {
+    const user = await this.passMfaChallenge(challengeToken, code, ip, 'session');
+    await this.users.recordLogin(user.id);
+    const sessionId = await this.sessions.rotate(oldSessionId, { userId: user.id, username: user.username, ip, userAgent });
     return { sessionId, user };
   }
   /**
@@ -299,10 +358,72 @@ export class AuthService {
       await this.sessions.destroy(sessionId);
       throw new UnauthorizedException({ message: 'Account is not active; session invalidated', code: 'auth.account_inactive' });
     }
+    await this.sessions.touch(sessionId);
     return user;
   }
   /**
    * Huỷ session hiện tại.
    */
   async sessionLogout(sessionId: string | undefined): Promise<void> { if (sessionId) await this.sessions.destroy(sessionId); }
+
+  // --- my sessions (report_usersessions) --------------------------------------
+  /**
+   * Mọi phiên đang hoạt động của chính user: phiên web (bản ghi trong kho
+   * phiên) gộp với phiên API (họ refresh token đang hiệu lực), đánh dấu
+   * phiên hiện tại theo ngữ cảnh của người gọi — `currentFamilyId` là
+   * `sid` trong access token, `currentWebSessionId` là id trong cookie.
+   * Sắp xếp theo hoạt động gần nhất lên đầu như bảng của Moodle.
+   */
+  async listMySessions(userId: string, current: CurrentSessionRefs = {}): Promise<MySessionView[]> {
+    const web = await this.sessions.listForUser(userId);
+    const families = await this.repo.listActiveFamiliesByUser(userId);
+    const views: MySessionView[] = [
+      ...web.map(({ id, session }): MySessionView => ({
+        id, kind: 'web',
+        createdAt: session.createdAt, lastActivityAt: session.lastActivityAt,
+        ip: session.ip ?? null, userAgent: session.userAgent ?? null,
+        current: current.webSessionId !== undefined && id === current.webSessionId,
+      })),
+      ...families.map((family): MySessionView => ({
+        id: family.familyId, kind: 'api',
+        createdAt: family.createdAt.toISOString(), lastActivityAt: family.rotatedAt.toISOString(),
+        ip: null, userAgent: null,
+        current: current.familyId !== undefined && family.familyId === current.familyId,
+      })),
+    ];
+    return views.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
+  }
+  /**
+   * Thu hồi MỘT phiên khác của chính user (phiên web bị huỷ, phiên API bị
+   * thu hồi cả family). Thu hồi chính phiên hiện tại bị từ chối — muốn
+   * kết thúc phiên hiện tại phải dùng đăng xuất; phiên không tồn tại
+   * hoặc thuộc user khác đều trả về không tìm thấy như nhau để không lộ
+   * thông tin phiên của người khác.
+   */
+  async revokeMySession(userId: string, sessionId: string, current: CurrentSessionRefs = {}): Promise<{ revoked: number }> {
+    if (sessionId === current.webSessionId || sessionId === current.familyId) {
+      throw new BadRequestException({ message: 'The current session cannot be revoked here; use logout instead', code: 'auth.cannot_revoke_current_session' });
+    }
+    const web = await this.sessions.get(sessionId);
+    if (web) {
+      if (web.userId !== userId) throw new NotFoundException({ message: 'Session not found', code: 'auth.session_not_found' });
+      await this.sessions.destroy(sessionId);
+      return { revoked: 1 };
+    }
+    const family = await this.repo.getFamilyByFamilyId(sessionId);
+    if (!family || family.userid !== userId || family.revoked) {
+      throw new NotFoundException({ message: 'Session not found', code: 'auth.session_not_found' });
+    }
+    await this.repo.revokeFamily(family.id);
+    return { revoked: 1 };
+  }
+  /**
+   * Thu hồi MỌI phiên khác, giữ lại phiên hiện tại của người gọi (cả hai
+   * loại phiên); trả tổng số phiên đã thu hồi.
+   */
+  async revokeMyOtherSessions(userId: string, current: CurrentSessionRefs = {}): Promise<{ revoked: number }> {
+    const webRevoked = await this.sessions.destroyOthersForUser(userId, current.webSessionId);
+    const apiRevoked = await this.repo.revokeOthersForUser(userId, current.familyId);
+    return { revoked: webRevoked + apiRevoked };
+  }
 }

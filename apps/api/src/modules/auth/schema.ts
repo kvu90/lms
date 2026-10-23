@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -45,6 +46,30 @@ export const userTotp = pgTable('user_totp', {
 },
   (table) => [
       index('user_totp_userid_idx').on(table.userid),
+  ]);
+
+
+/**
+ * Liên kết đăng nhập ngoài theo user (bảng `auth_oauth2_linked_login` của
+ * Moodle): mỗi dòng nối một tài khoản nhà cung cấp (issuer + định danh chủ
+ * thể phía provider) với một user nội bộ. Một user có tối đa một liên kết
+ * mỗi issuer và một tài khoản provider chỉ nối được với một user — hai
+ * ràng buộc duy nhất đó là nền của việc khớp tài khoản ở callback OAuth.
+ * `email` là ảnh chụp email của provider tại thời điểm liên kết (phục vụ
+ * hiển thị ở trang Linked logins, không dùng để khớp lại sau này).
+ */
+export const userOauthLinks = pgTable('user_oauth_links', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userid: uuid('userid').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  issuer: text('issuer').notNull(),
+  issuerUserId: text('issuer_user_id').notNull(),
+  email: text('email').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('user_oauth_links_issuer_subject_unique').on(table.issuer, table.issuerUserId),
+      unique('user_oauth_links_user_issuer_unique').on(table.userid, table.issuer),
+      index('user_oauth_links_userid_idx').on(table.userid),
   ]);
 
 

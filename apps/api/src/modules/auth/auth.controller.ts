@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
@@ -145,10 +145,27 @@ export class AuthController {
   @Public()
   @Post('session/login')
   /**
-   * POST /auth/session/login — đăng nhập đặt cookie phiên.
+   * POST /auth/session/login — đăng nhập đặt cookie phiên. User đã bật
+   * MFA thì KHÔNG đặt cookie nào: đáp ứng là challenge của luồng session,
+   * phiên chỉ sinh sau POST /auth/session/mfa/verify (đúng nghĩa chặn của
+   * tool_mfa — trước đây route này đi thẳng, bỏ qua MFA).
    */
   async sessionLogin(@Body({ schema: loginSchema }) dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const { sessionId, user } = await this.auth.sessionLogin(dto.username, dto.password, sessionCookieOf(req), req.ip);
+    const outcome = await this.auth.sessionLogin(dto.username, dto.password, sessionCookieOf(req), req.ip, req.headers['user-agent']);
+    if (outcome.mfaRequired) {
+      return { mfaRequired: true as const, challengeToken: outcome.challengeToken, user: { id: outcome.user.id, username: outcome.user.username } };
+    }
+    res.cookie(SESSION_COOKIE, outcome.sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
+    return { user: { id: outcome.user.id, username: outcome.user.username, forcePasswordChange: outcome.user.forcePasswordChange }, sessionId: outcome.sessionId };
+  }
+  @Public()
+  @Post('session/mfa/verify')
+  /**
+   * POST /auth/session/mfa/verify — bước hai của đăng nhập phiên cookie:
+   * challenge của luồng session + mã TOTP ⇒ tạo phiên và đặt cookie.
+   */
+  async sessionMfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { sessionId, user } = await this.auth.verifyMfaSession(dto.challengeToken, dto.code, sessionCookieOf(req), req.ip, req.headers['user-agent']);
     res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
     return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, sessionId };
   }
@@ -170,5 +187,33 @@ export class AuthController {
     await this.auth.sessionLogout(sessionCookieOf(req) ?? (req.headers['x-session-id'] as string | undefined));
     res.clearCookie(SESSION_COOKIE, { path: '/' });
     return { loggedOut: true };
+  }
+
+  // --- My sessions (report_usersessions: my profile navigation) -------------
+  @Get('sessions')
+  /**
+   * GET /auth/sessions — mọi phiên đang hoạt động của chính người gọi
+   * (phiên web + phiên API), phiên hiện tại được đánh dấu `current`:
+   * theo `sid` của access token và theo cookie phiên nếu request có mang.
+   */
+  async mySessions(@CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    const sessions = await this.auth.listMySessions(actor.id, { familyId: actor.sessionId, webSessionId: sessionCookieOf(req) });
+    return { sessions };
+  }
+  @Delete('sessions/others')
+  /**
+   * DELETE /auth/sessions/others — thu hồi mọi phiên khác, giữ phiên hiện tại của người gọi.
+   */
+  async revokeMyOtherSessions(@CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    return this.auth.revokeMyOtherSessions(actor.id, { familyId: actor.sessionId, webSessionId: sessionCookieOf(req) });
+  }
+  @Delete('sessions/:sessionId')
+  /**
+   * DELETE /auth/sessions/:sessionId — thu hồi một phiên khác của chính
+   * người gọi (`sessionId` là id trong danh sách GET /auth/sessions: id
+   * phiên web hoặc family id của phiên API).
+   */
+  async revokeMySession(@Param('sessionId', { schema: uuidIdSchema }) sessionId: string, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    return this.auth.revokeMySession(actor.id, sessionId, { familyId: actor.sessionId, webSessionId: sessionCookieOf(req) });
   }
 }
