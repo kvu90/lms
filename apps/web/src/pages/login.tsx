@@ -3,15 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { OAuthIssuer } from '@lms/contracts';
 import { oauthAuthorizeResponseSchema, oauthProvidersResponseSchema } from '@lms/contracts';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { queryKeys } from '@/lib/query-keys';
+import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '#lib/api';
+import { useAuth } from '#lib/auth';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Map mã lỗi OAuth mà callback của backend gắn vào `?oauthError=` sang

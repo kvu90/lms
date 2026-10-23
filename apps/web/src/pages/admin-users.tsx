@@ -2,15 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { PaginationState } from '@tanstack/react-table';
 import type { UserListResponse, UserProfile } from '@lms/contracts';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { queryKeys } from '@/lib/query-keys';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { apiJson } from '#lib/api';
+import { queryKeys } from '#lib/query-keys';
+import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
  * Trang quản trị người dùng: danh sách do server phân trang và tìm kiếm

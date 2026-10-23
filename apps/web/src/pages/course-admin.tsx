@@ -11,15 +11,15 @@ import type {
   GradeItem,
   UserEnrolment,
 } from '@lms/contracts';
-import { AvailabilityEditor } from '@/components/availability-editor';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { AvailabilityEditor } from '#components/availability-editor';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { usePermissions } from '@/lib/permissions';
+import { apiJson } from '#lib/api';
+import { usePermissions } from '#lib/permissions';
 
 /**
  * Quản trị khoá học: nhóm, cohort, ghi danh thủ công kèm tạm khoá/kích hoạt

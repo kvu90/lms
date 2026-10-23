@@ -3,8 +3,8 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/lib/auth';
-import { createQueryClient } from '@/lib/query-client';
+import { AuthProvider } from '#lib/auth';
+import { createQueryClient } from '#lib/query-client';
 import { ProfilePage } from './profile';
 
 const PROFILE = {

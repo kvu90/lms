@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from '@/lib/auth';
-import { PermissionsProvider } from '@/lib/permissions';
-import { createQueryClient } from '@/lib/query-client';
+import { AuthProvider } from '#lib/auth';
+import { PermissionsProvider } from '#lib/permissions';
+import { createQueryClient } from '#lib/query-client';
 
 /**
  * Bộ provider cho test, mô phỏng đúng cây provider của root.tsx

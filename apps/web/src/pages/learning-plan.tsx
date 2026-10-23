@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Badge } from '@lms/ui/components/ui/badge';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
-import { useAuth } from '@/lib/auth';
-import { usePermissions } from '@/lib/permissions';
+import { Badge } from '@lms/ui/components/badge';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
+import { useAuth } from '#lib/auth';
+import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { DataTable, type DataColumn } from '#components/data-table';
 import '../i18n';
-import { apiJson, ApiError } from '@/lib/api';
+import { apiJson, ApiError } from '#lib/api';
 
 interface PlanView {
   id: string;

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
+import { apiJson } from '#lib/api';
 
 /** Ghi danh của chính người dùng trong khoá (GET /courses/:id/enrolments/me). */
 interface MyEnrolmentView {

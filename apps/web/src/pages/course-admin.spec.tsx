@@ -2,8 +2,8 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TestProviders } from '@/test/providers';
-import { PermissionsProvider } from '@/lib/permissions';
+import { TestProviders } from '#test/providers';
+import { PermissionsProvider } from '#lib/permissions';
 import { CourseAdminPage } from './course-admin';
 
 /**

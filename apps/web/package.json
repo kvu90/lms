@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#components/*": "./src/components/*.tsx",
+    "#hooks/*": "./src/hooks/*.ts",
+    "#lib/*": "./src/lib/*.ts",
+    "#lib/auth": "./src/lib/auth.tsx",
+    "#lib/permissions": "./src/lib/permissions.tsx",
+    "#test/*": "./src/test/*.ts",
+    "#test/providers": "./src/test/providers.tsx"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && react-router build",
     "typecheck": "tsc -p tsconfig.json --noEmit",

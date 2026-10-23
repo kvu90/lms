@@ -1,10 +1,10 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestProviders } from '@/test/providers';
-import { PermissionsProvider } from '@/lib/permissions';
-import { AppSidebar } from '@/components/app-sidebar';
-import { SidebarProvider } from '@lms/ui/components/ui/sidebar';
+import { TestProviders } from '#test/providers';
+import { PermissionsProvider } from '#lib/permissions';
+import { AppSidebar } from '#components/app-sidebar';
+import { SidebarProvider } from '@lms/ui/components/sidebar';
 import { DashboardPage } from './dashboard';
 
 const ADMIN_ID = '01900000-0000-7000-8000-0000000000a1';

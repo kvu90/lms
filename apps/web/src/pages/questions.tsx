@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { extractRichTextPlainText, type QuestionCategory, type QuestionUsage, type QuestionView, type RichTextDocument } from '@lms/contracts';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '@/lib/api';
-import { DataTable, type DataColumn } from '@/components/data-table';
+import { apiJson } from '#lib/api';
+import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
  * Question bank: categories, questions with their CURRENT version

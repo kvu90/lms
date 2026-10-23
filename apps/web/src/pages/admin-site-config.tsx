@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge } from '@lms/ui/components/ui/badge';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/ui/card';
-import { Checkbox } from '@lms/ui/components/ui/checkbox';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
+import { Badge } from '@lms/ui/components/badge';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Checkbox } from '@lms/ui/components/checkbox';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
 import '../i18n';
-import { apiJson, ApiError } from '@/lib/api';
+import { apiJson, ApiError } from '#lib/api';
 
 /**
  * Các miền giá trị enum đã biết, đối chiếu registry phía backend

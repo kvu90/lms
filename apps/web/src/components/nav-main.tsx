@@ -1,7 +1,7 @@
 import type { Icon } from '@tabler/icons-react';
 import { Link, useLocation } from 'react-router';
 
-import { Badge } from '@lms/ui/components/ui/badge';
+import { Badge } from '@lms/ui/components/badge';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,7 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@lms/ui/components/ui/sidebar';
+} from '@lms/ui/components/sidebar';
 
 /** Một mục điều hướng trong sidebar: nhãn đã dịch sẵn, đường dẫn route thật của app. */
 export interface NavItem {

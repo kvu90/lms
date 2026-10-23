@@ -3,17 +3,17 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { redirectToExternalUrl } from '@/lib/api';
-import { AuthProvider } from '@/lib/auth';
-import { createQueryClient } from '@/lib/query-client';
+import { redirectToExternalUrl } from '#lib/api';
+import { AuthProvider } from '#lib/auth';
+import { createQueryClient } from '#lib/query-client';
 import { LoginPage } from './login';
 import { ProfilePage } from './profile';
 
 // Chỉ thay biên điều hướng ra ngoài (jsdom khoá cứng window.location
 // nên không quan sát được việc gán href); mọi hàm API còn lại giữ
 // nguyên bản thật để test vẫn đi qua hợp đồng fetch như thường.
-vi.mock('@/lib/api', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/lib/api')>();
+vi.mock('#lib/api', async (importOriginal) => {
+  const original = await importOriginal<typeof import('#lib/api')>();
   return { ...original, redirectToExternalUrl: vi.fn() };
 });
 

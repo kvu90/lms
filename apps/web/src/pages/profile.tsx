@@ -9,19 +9,19 @@ import {
   oauthLinksResponseSchema,
   oauthProvidersResponseSchema,
 } from '@lms/contracts';
-import { Badge } from '@lms/ui/components/ui/badge';
-import { Button } from '@lms/ui/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/ui/card';
-import { Input } from '@lms/ui/components/ui/input';
-import { Label } from '@lms/ui/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/ui/table';
+import { Badge } from '@lms/ui/components/badge';
+import { Button } from '@lms/ui/components/button';
+import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { ApiError, apiJson, redirectToExternalUrl } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
-import { describeUserAgent } from '@/lib/user-agent';
-import { queryKeys } from '@/lib/query-keys';
+import { ApiError, apiJson, redirectToExternalUrl } from '#lib/api';
+import { useAuth } from '#lib/auth';
+import { describeUserAgent } from '#lib/user-agent';
+import { queryKeys } from '#lib/query-keys';
 
 export function ProfilePage() {
   const { t } = useTranslation('app');
