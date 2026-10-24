@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
-import { QuestionsPage, QuestionUsagePage } from './questions';
+import { QuestionCategoryNewPage, QuestionsPage, QuestionUsagePage } from './questions';
 
 /**
  * Spec flow làm bài theo endpoint thật của question engine: tạo usage từ
@@ -221,18 +221,28 @@ describe('Question usage flow — real endpoints', () => {
     expect(screen.getByTestId(`attempt-${ATTEMPT_ID}`)).toHaveTextContent('hệ số 1');
   });
 
-  it('creates a category through the context select, defaulting to the system context (issue #55)', async () => {
+  it('creates a category on its own screen through the context select, defaulting to the system context (issue #55, §9)', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
-    });
+    const router = createMemoryRouter(
+      [
+        { path: '/questions', element: <QuestionsPage /> },
+        { path: '/questions/categories/new', element: <QuestionCategoryNewPage /> },
+      ],
+      { initialEntries: ['/questions'] },
+    );
     render(
       <TestProviders>
         <RouterProvider router={router} />
       </TestProviders>,
     );
+
+    // §9: trang danh sách KHÔNG còn form tạo danh mục inline — chỉ có
+    // liên kết sang màn tạo riêng.
+    await screen.findByText('General');
+    expect(screen.queryByRole('button', { name: 'Tạo danh mục' })).toBeNull();
+    await userEvent.click(screen.getByRole('link', { name: 'Danh mục mới' }));
 
     // Ngữ cảnh là một Select tử tế của @lms/ui (không còn ô gõ ID thô
     // điền sẵn "1"), mặc định ngữ cảnh hệ thống: trigger hiện nhãn "Hệ
@@ -253,6 +263,9 @@ describe('Question usage flow — real endpoints', () => {
     );
     const createCall = calls.find((c) => c.url === '/api/v1/questions/categories' && c.method === 'POST');
     expect(createCall?.body).toEqual({ name: 'Danh mục mới của tôi', contextId: SYSTEM_CTX_ID });
+
+    // Tạo xong quay về danh sách và danh mục mới hiện ngay trong danh sách.
+    expect(await screen.findByText('Danh mục mới của tôi')).toBeInTheDocument();
   });
 });
 

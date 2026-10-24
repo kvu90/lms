@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -321,9 +322,6 @@ export function QuestionsPage() {
     versions: { version: number; questionText: RichTextDocument }[];
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [contextId, setContextId] = useState('');
-  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
-  const [catName, setCatName] = useState('');
   const [qCategory, setQCategory] = useState('');
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
@@ -365,68 +363,6 @@ export function QuestionsPage() {
       .catch(() => setMessage(t('questionBankLoadFailed')))
       .finally(() => setLoading(false));
   }, [reload, perms.ready, perms.canUseQuestionBank]);
-
-  /**
-   * Ngữ cảnh cho form "Danh mục mới" (issue #55 mục 2): control chọn tử
-   * tế thay ô gõ ID thô điền sẵn "1" — chỉ liệt kê ngữ cảnh người dùng
-   * thật sự có question:managecategory (theo ảnh chụp quyền; site admin
-   * thì mọi ngữ cảnh hệ thống/danh mục/khoá), mặc định ngữ cảnh hệ
-   * thống nếu có trong danh sách, không thì ngữ cảnh đầu tiên.
-   */
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
-          '/api/v1/access/contexts',
-        );
-        const manageable = new Set(
-          (perms.access?.contexts ?? [])
-            .filter((c) => c.capabilities.includes('question:managecategory'))
-            .map((c) => c.contextId),
-        );
-        const courseName = (instanceId: string) =>
-          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
-        const options: ContextOption[] = contexts
-          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
-          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
-          .map((c) => ({
-            id: c.id,
-            level: c.contextLevel,
-            label:
-              c.contextLevel === 10
-                ? t('contextSystem')
-                : c.contextLevel === 50
-                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
-                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
-          }));
-        if (cancelled) return;
-        setContextOptions(options);
-        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
-      } catch {
-        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
-        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
-
-  async function createCategory(event: FormEvent) {
-    event.preventDefault();
-    try {
-      await apiJson('/api/v1/questions/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name: catName, contextId: contextId }),
-      });
-      setCatName('');
-      await reload();
-    } catch (err) {
-      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
-    }
-  }
 
   async function submitStimulus(event: FormEvent) {
     event.preventDefault();
@@ -636,9 +572,14 @@ export function QuestionsPage() {
         title={t('questionBank')}
         description={t('questionBankDescription')}
         actions={
-          <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
-            {t('newQuestion')}
-          </Button>
+          <>
+            <Button type="button" variant="outline" render={<Link to="/questions/categories/new" />}>
+              {t('newCategory')}
+            </Button>
+            <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
+              {t('newQuestion')}
+            </Button>
+          </>
         }
       />
       {message ? (
@@ -722,8 +663,177 @@ export function QuestionsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('newCategory')}</CardTitle>
+          <CardTitle>{t('stimuli')}</CardTitle>
+          <CardDescription>{t('stimuliDescription')}</CardDescription>
         </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2">
+            {stimuli.map((stimulus) => (
+              <li key={stimulus.id} data-testid={`stimulus-row-${stimulus.id}`} className="flex items-start gap-2">
+                <span className="flex-1 text-sm">{plainText(stimulus.content)}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingStimulus(stimulus);
+                    setStimulusContent(plainText(stimulus.content));
+                  }}
+                >
+                  {t('editStimulus')}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => void deleteStimulus(stimulus)}>
+                  {t('deleteStimulus')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <form onSubmit={(e) => void submitStimulus(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="stimulus-content">
+                  {editingStimulus ? t('stimulusContent') : t('newStimulus')}
+                </FieldLabel>
+                <Textarea
+                  id="stimulus-content"
+                  rows={4}
+                  value={stimulusContent}
+                  onChange={(e) => setStimulusContent(e.target.value)}
+                />
+              </Field>
+              <div className="flex gap-2">
+                <Button type="submit">{editingStimulus ? t('saveStimulus') : t('createStimulus')}</Button>
+                {editingStimulus && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingStimulus(null);
+                      setStimulusContent('');
+                    }}
+                  >
+                    {t('cancelStimulusEdit')}
+                  </Button>
+                )}
+              </div>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
+    </PageShell>
+  );
+}
+
+/**
+ * Màn tạo danh mục câu hỏi RIÊNG theo chuẩn §9 (route
+ * /questions/categories/new): trước đây form này nhồi ngay dưới danh
+ * sách ngân hàng trong cùng một trang (§9: tạo mới là màn riêng, không
+ * nhồi form vào danh sách). Ngữ cảnh vẫn là control Select của @lms/ui
+ * chỉ liệt kê ngữ cảnh người dùng thật sự có question:managecategory
+ * (issue #55 mục 2), mặc định ngữ cảnh hệ thống. Tạo xong quay về danh
+ * sách ngân hàng (trang danh sách tự nạp lại khi mở).
+ */
+export function QuestionCategoryNewPage() {
+  const { t } = useTranslation('app');
+  const navigate = useNavigate();
+  const perms = usePermissions();
+  const [catName, setCatName] = useState('');
+  const [contextId, setContextId] = useState('');
+  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!perms.ready || !perms.canUseQuestionBank) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
+          '/api/v1/access/contexts',
+        );
+        const manageable = new Set(
+          (perms.access?.contexts ?? [])
+            .filter((c) => c.capabilities.includes('question:managecategory'))
+            .map((c) => c.contextId),
+        );
+        const courseName = (instanceId: string) =>
+          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
+        const options: ContextOption[] = contexts
+          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
+          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            level: c.contextLevel,
+            label:
+              c.contextLevel === 10
+                ? t('contextSystem')
+                : c.contextLevel === 50
+                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
+                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
+          }));
+        if (cancelled) return;
+        setContextOptions(options);
+        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
+      } catch {
+        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
+        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
+
+  async function createCategory(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await apiJson('/api/v1/questions/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: catName, contextId: contextId }),
+      });
+      navigate('/questions');
+    } catch (err) {
+      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
+    }
+  }
+
+  if (!perms.ready) {
+    return (
+      <PageShell width="medium">
+        <PageHeader title={t('newCategory')} />
+        <div className="space-y-2" aria-label={t('loading')}>
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </PageShell>
+    );
+  }
+  if (!perms.canUseQuestionBank) {
+    return (
+      <PageShell width="medium">
+        <PageHeader title={t('newCategory')} />
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('questionBank')}</CardTitle>
+            <CardDescription>{t('questionBankForbidden')}</CardDescription>
+          </CardHeader>
+        </Card>
+        <p>
+          <Link to="/questions" className="text-sm underline">
+            {t('backToQuestionBankList')}
+          </Link>
+        </p>
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell width="medium">
+      <PageHeader title={t('newCategory')} />
+      {message ? (
+        <Alert role="status">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      <Card>
         <CardContent>
           <form onSubmit={(e) => void createCategory(e)}>
             <FieldGroup>
@@ -759,66 +869,11 @@ export function QuestionsPage() {
           </form>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('stimuli')}</CardTitle>
-          <CardDescription>{t('stimuliDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ul className="space-y-2">
-            {stimuli.map((stimulus) => (
-              <li key={stimulus.id} data-testid={`stimulus-row-${stimulus.id}`} className="flex items-start gap-2">
-                <span className="flex-1 text-sm">{plainText(stimulus.content)}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingStimulus(stimulus);
-                    setStimulusContent(plainText(stimulus.content));
-                  }}
-                >
-                  {t('editStimulus')}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void deleteStimulus(stimulus)}>
-                  {t('deleteStimulus')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <form onSubmit={(e) => void submitStimulus(e)}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="stimulus-content">
-                  {editingStimulus ? t('stimulusContent') : t('newStimulus')}
-                </FieldLabel>
-                <textarea
-                  id="stimulus-content"
-                  className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
-                  rows={4}
-                  value={stimulusContent}
-                  onChange={(e) => setStimulusContent(e.target.value)}
-                />
-              </Field>
-              <div className="flex gap-2">
-                <Button type="submit">{editingStimulus ? t('saveStimulus') : t('createStimulus')}</Button>
-                {editingStimulus && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingStimulus(null);
-                      setStimulusContent('');
-                    }}
-                  >
-                    {t('cancelStimulusEdit')}
-                  </Button>
-                )}
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+      <p>
+        <Link to="/questions" className="text-sm underline">
+          {t('backToQuestionBankList')}
+        </Link>
+      </p>
     </PageShell>
   );
 }

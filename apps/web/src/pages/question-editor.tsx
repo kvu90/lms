@@ -8,6 +8,8 @@ import { Checkbox } from '@lms/ui/components/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { RadioGroup, RadioGroupItem } from '@lms/ui/components/radio-group';
+import { Textarea } from '@lms/ui/components/textarea';
 import {
   Select,
   SelectContent,
@@ -347,6 +349,57 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     );
   }
 
+  // Các hàng đáp án trắc nghiệm: dùng chung cho hai cách bọc — khi bật
+  // "chỉ một đáp án đúng" thì các radio chọn đáp án đúng phải nằm trong
+  // cùng một RadioGroup của @lms/ui (primitive thay radio native).
+  const mcChoiceRows = form.mcChoices.map((choice, index) => (
+    <div key={index} className="space-y-2 rounded-md border p-3">
+      <Field>
+        <FieldLabel htmlFor={`q-choice-${index}`}>{t('choiceText', { index: index + 1 })}</FieldLabel>
+        <Input
+          id={`q-choice-${index}`}
+          value={choice.text}
+          onChange={(e) =>
+            patchForm({
+              mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, text: e.target.value } : c)),
+            })
+          }
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`q-choice-fraction-${index}`}>{t('choiceFraction', { index: index + 1 })}</FieldLabel>
+        <Input
+          id={`q-choice-fraction-${index}`}
+          type="number"
+          step="0.05"
+          min="-1"
+          max="1"
+          value={choice.fraction}
+          onChange={(e) =>
+            patchForm({
+              mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, fraction: e.target.value } : c)),
+            })
+          }
+        />
+      </Field>
+      {form.mcSingle && (
+        <div className="flex items-center gap-2">
+          <RadioGroupItem id={`q-choice-correct-${index}`} value={String(index)} />
+          <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
+        </div>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        disabled={form.mcChoices.length <= 2}
+        onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
+      >
+        {t('removeChoice', { index: index + 1 })}
+      </Button>
+    </div>
+  ));
+  const mcCorrectIndex = form.mcChoices.findIndex((c) => Number(c.fraction) === 1);
+
   return (
     <PageShell width="medium">
       <PageHeader title={editing ? t('editQuestionTitle', { name: editing.question.name }) : t('newQuestion')} />
@@ -428,69 +481,25 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     />
                     <Label htmlFor="q-mc-single">{t('singleAnswerOnly')}</Label>
                   </div>
-                  {form.mcChoices.map((choice, index) => (
-                    <div key={index} className="space-y-2 rounded-md border p-3">
-                      <Field>
-                        <FieldLabel htmlFor={`q-choice-${index}`}>{t('choiceText', { index: index + 1 })}</FieldLabel>
-                        <Input
-                          id={`q-choice-${index}`}
-                          value={choice.text}
-                          onChange={(e) =>
-                            patchForm({
-                              mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, text: e.target.value } : c)),
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor={`q-choice-fraction-${index}`}>
-                          {t('choiceFraction', { index: index + 1 })}
-                        </FieldLabel>
-                        <Input
-                          id={`q-choice-fraction-${index}`}
-                          type="number"
-                          step="0.05"
-                          min="-1"
-                          max="1"
-                          value={choice.fraction}
-                          onChange={(e) =>
-                            patchForm({
-                              mcChoices: form.mcChoices.map((c, i) =>
-                                i === index ? { ...c, fraction: e.target.value } : c,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      {form.mcSingle && (
-                        <div className="flex items-center gap-2">
-                          <input
-                            id={`q-choice-correct-${index}`}
-                            type="radio"
-                            name="q-correct-choice"
-                            checked={Number(choice.fraction) === 1}
-                            onChange={() =>
-                              patchForm({
-                                mcChoices: form.mcChoices.map((c, i) => ({
-                                  ...c,
-                                  fraction: i === index ? '1' : '0',
-                                })),
-                              })
-                            }
-                          />
-                          <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
-                        </div>
-                      )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={form.mcChoices.length <= 2}
-                        onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
-                      >
-                        {t('removeChoice', { index: index + 1 })}
-                      </Button>
-                    </div>
-                  ))}
+                  {form.mcSingle ? (
+                    <RadioGroup
+                      name="q-correct-choice"
+                      value={mcCorrectIndex >= 0 ? String(mcCorrectIndex) : undefined}
+                      onValueChange={(value) => {
+                        const picked = Number(value);
+                        patchForm({
+                          mcChoices: form.mcChoices.map((c, i) => ({
+                            ...c,
+                            fraction: i === picked ? '1' : '0',
+                          })),
+                        });
+                      }}
+                    >
+                      {mcChoiceRows}
+                    </RadioGroup>
+                  ) : (
+                    mcChoiceRows
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -503,26 +512,21 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
               {form.qtype === 'truefalse' && (
                 <fieldset className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="q-tf-true"
-                      type="radio"
-                      name="q-tf-correct"
-                      checked={form.tfCorrect}
-                      onChange={() => patchForm({ tfCorrect: true })}
-                    />
-                    <Label htmlFor="q-tf-true">{t('correctAnswerIsTrue')}</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="q-tf-false"
-                      type="radio"
-                      name="q-tf-correct"
-                      checked={!form.tfCorrect}
-                      onChange={() => patchForm({ tfCorrect: false })}
-                    />
-                    <Label htmlFor="q-tf-false">{t('correctAnswerIsFalse')}</Label>
-                  </div>
+                  <RadioGroup
+                    name="q-tf-correct"
+                    className="gap-2"
+                    value={form.tfCorrect ? 'true' : 'false'}
+                    onValueChange={(value) => patchForm({ tfCorrect: value === 'true' })}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="q-tf-true" value="true" />
+                      <Label htmlFor="q-tf-true">{t('correctAnswerIsTrue')}</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="q-tf-false" value="false" />
+                      <Label htmlFor="q-tf-false">{t('correctAnswerIsFalse')}</Label>
+                    </div>
+                  </RadioGroup>
                 </fieldset>
               )}
 
@@ -651,9 +655,8 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="q-essay-graderinfo">{t('graderInfo')}</FieldLabel>
-                    <textarea
+                    <Textarea
                       id="q-essay-graderinfo"
-                      className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
                       rows={3}
                       value={form.essayGraderInfo}
                       onChange={(e) => patchForm({ essayGraderInfo: e.target.value })}
@@ -661,9 +664,8 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="q-essay-template">{t('responseTemplate')}</FieldLabel>
-                    <textarea
+                    <Textarea
                       id="q-essay-template"
-                      className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
                       rows={3}
                       value={form.essayResponseTemplate}
                       onChange={(e) => patchForm({ essayResponseTemplate: e.target.value })}
