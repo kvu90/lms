@@ -75,33 +75,30 @@ jobs:
       - name: Test api-3c1 unread-stream
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts
-      - name: Test micro P0 empty
+      - name: Test probe Q0 tzname
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P0 empty groups ok"
-      - name: Test micro P1 unread
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q0 tz name resolves"
+      - name: Test probe Q1 tochar
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P1 unread five"
-      - name: Test micro P2 groups4
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q1 to_char day expression"
+      - name: Test probe Q2 arrayagg
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P2 groups four"
-      - name: Test micro P3 bulk
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q2 array_agg uuid order"
+      - name: Test probe Q3 fullsql
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P3 bulk latest"
-      - name: Test micro P4 items
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q3 full group sql"
+      - name: Test probe Q4 is500
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P4 items pages"
-      - name: Test micro P5 filters
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q4 groups endpoint is 500"
+      - name: Test probe Q5 is200wrong
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P5 group filters"
-      - name: Test micro P6 readgroup
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q5 groups endpoint is 200 wrong length"
+      - name: Test probe Q6 itemsnoday
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P6 read group"
-      - name: Test micro P7 paging
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q6 items without day filter ok"
+      - name: Test probe Q7 itemsday500
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P7 pagination five"
-      - name: Test micro P8 badcursor
-        if: always()
-        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P8 bad cursor"
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-q.e2e-spec.ts -t "Q7 items with day filter is 500"
       - name: Test api-3c3 providers
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notifications-providers-flow.e2e-spec.ts
