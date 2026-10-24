@@ -42,6 +42,8 @@ export default [
     route('courses/:id/quizzes/:quizId/results', 'pages/quiz-results.tsx'),
     route('quiz-attempts/:attemptId', 'pages/quiz-attempt.tsx'),
     route('questions', 'pages/questions.tsx'),
+    route('questions/new', 'routes/question-new.tsx'),
+    route('questions/:questionId/edit', 'routes/question-edit.tsx'),
     route('question-usages/:id', 'routes/question-usage.tsx'),
     route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
