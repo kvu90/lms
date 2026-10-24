@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
-import { courseSectionFrameSchema, courseSectionBookFrameSchema } from './curriculum.js';
+import { courseSectionFrameSchema } from './curriculum.js';
+import { courseSectionBookFrameSchema } from './books.js';
 
 /** Course & Enrolment contracts — the single shape source between api and web. */
 

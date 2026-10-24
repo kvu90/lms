@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { BooksService } from './books.service';
+import { BookService } from './books.service';
 import {
   importBookDatasetSchema,
   type ImportBookDatasetDto,
@@ -19,7 +19,7 @@ import {
  * vụ chọn khung nhận thêm `forCourseId` như bề mặt chương trình.
  */
 export class BooksController {
-  constructor(private readonly booksService: BooksService) {}
+  constructor(private readonly booksService: BookService) {}
 
   @Get('dataset-import')
   /** GET /books/dataset-import — trạng thái nạp của từng dataset sách đã kiểm chứng. */
