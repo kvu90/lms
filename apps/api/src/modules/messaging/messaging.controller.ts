@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -265,10 +265,21 @@ export class NotificationsController {
 
   @Get()
   /**
-   * GET /notifications — danh sách thông báo.
+   * GET /notifications — trung tâm thông báo v2 (issue #51): danh
+   * sách GỘP theo (loại × nguồn × ngày), phân trang con trỏ, lọc
+   * theo 3 nhóm (`group`) và trạng thái chưa đọc (`unreadOnly`).
    */
-  async list(@CurrentUser() actor: AuthenticatedUser) {
-    return this.messaging.listNotifications(actor.id);
+  async list(@Query({ schema: listNotificationGroupsQueryServerSchema }) query: ListNotificationGroupsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listNotificationGroups(actor.id, query);
+  }
+  @Get('items')
+  /**
+   * GET /notifications/items — danh sách PHẲNG phân trang con trỏ:
+   * mở chi tiết một dòng gộp bằng bộ lọc (eventType + contextUrl +
+   * day), hoặc lọc theo nhóm/chưa đọc.
+   */
+  async items(@Query({ schema: listNotificationItemsQueryServerSchema }) query: ListNotificationItemsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listNotificationItems(actor.id, query);
   }
   @Get('unread-count')
   async unread(@CurrentUser() actor: AuthenticatedUser) {
@@ -306,11 +317,34 @@ export class NotificationsController {
   async readAll(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markAllNotificationsRead(actor.id);
   }
+  @Post('read-group')
+  /**
+   * POST /notifications/read-group — đánh dấu đã đọc HÀNG LOẠT theo
+   * khoá gộp (loại × nguồn × ngày) của trung tâm v2.
+   */
+  async readGroup(@Body({ schema: readNotificationGroupSchema }) dto: ReadNotificationGroupDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.markNotificationGroupRead(actor.id, dto);
+  }
+  @Post('clear-read')
+  /**
+   * POST /notifications/clear-read — dọn mọi thông báo ĐÃ ĐỌC của tôi.
+   */
+  async clearRead(@CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.clearReadNotifications(actor.id);
+  }
   @Post(':id/read')
   /**
    * POST /notifications/:id/read — đánh dấu một thông báo đã đọc.
    */
   async read(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markNotificationRead(actor.id, id);
+  }
+  @Delete(':id')
+  /**
+   * DELETE /notifications/:id — xoá một thông báo của chính mình
+   * (trung tâm v2); thông báo của người khác trả 404 như không tồn tại.
+   */
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.deleteNotification(actor.id, id);
   }
 }

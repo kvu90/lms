@@ -101,8 +101,8 @@ describe('Badges & competencies', () => {
     evaluation = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect(evaluation.body.satisfied).toBe(true);
     // And the award produced a badge_awarded notification for the student.
-    const notifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${studentToken}`);
-    expect((notifications.body as { eventType: string }[]).some((n) => n.eventType === 'badge_awarded')).toBe(true);
+    const notifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${studentToken}`);
+    expect((notifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'badge_awarded')).toBe(true);
   });
 
   it('badge freeze after issuance + duplicate-to-edit + revoke keeps the assertion (§2#14)', async () => {

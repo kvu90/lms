@@ -120,7 +120,7 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
 
   it('notifications: nút hành động chính nằm ở PageHeader, rỗng hiện Empty', async () => {
     stubJsonFetch((url) => {
-      if (url === '/api/v1/notifications') return [];
+      if (url.startsWith('/api/v1/notifications?')) return { items: [], nextCursor: null };
       if (url === '/api/v1/messages/preferences') return [];
       return undefined;
     });
