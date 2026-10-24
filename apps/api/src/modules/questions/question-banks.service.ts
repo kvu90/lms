@@ -328,16 +328,15 @@ export class QuestionBanksService {
     return bank;
   }
 
-  /** Bộ capability của actor tại context của bank. Bank ma trận (MB-1) đọc bộ quiz:viewmatrix/quiz:managematrix + matrix:* — use/copy/share/moderate mang nghĩa ma trận, các trường question:* không áp dụng để false. */
+  /** Bộ capability của actor tại context của bank. Bank ma trận (MB-1) đọc bộ quyền bank-local (vai chuyên dụng tại context bank — xem bankLocalMatrixCaps): use/copy/share/moderate mang nghĩa ma trận, các trường question:* không áp dụng để false. */
   async bankCapabilities(actorId: string, bank: QuestionBankRow): Promise<BankCapabilitiesView> {
     const at = async (cap: string) => this.evaluator.hasCapability(actorId, cap, bank.contextId);
     if (bank.bankKind === 'matrix') {
-      const [view, manage, copy, share, moderate] = await Promise.all([
-        at('quiz:viewmatrix'), at('quiz:managematrix'), at('matrix:copy'), at('matrix:share'), at('matrix:moderate'),
-      ]);
+      const caps = await this.bankLocalMatrixCaps(actorId, bank);
       return {
-        use: view, add: false, edit: false, manageCategory: false, copy, share, moderate,
-        matrixView: view, matrixManage: manage, matrixCopy: copy, matrixShare: share, matrixModerate: moderate,
+        use: caps.view, add: false, edit: false, manageCategory: false,
+        copy: caps.copy, share: caps.share, moderate: caps.moderate,
+        matrixView: caps.view, matrixManage: caps.manage, matrixCopy: caps.copy, matrixShare: caps.share, matrixModerate: caps.moderate,
       };
     }
     const [use, add, edit, manageCategory, copy, share, moderate] = await Promise.all([
@@ -368,13 +367,20 @@ export class QuestionBanksService {
 
   /**
    * Cổng "vào được bank" THEO LOẠI MÓN (MB-1): bank ma trận gác bằng
-   * quiz:viewmatrix tại context bank thay cho question:useall — quyền
-   * của mỗi loại món vẫn MỘT nguồn duy nhất là context của bank (E-8).
+   * quyền bank-local (vai chuyên dụng tại context bank — xem
+   * bankLocalMatrixCaps) thay cho question:useall — quyền của mỗi loại
+   * món vẫn MỘT nguồn duy nhất là context của bank (E-8).
    */
   async assertCanUseBankForKind(actorId: string, bank: QuestionBankRow): Promise<void> {
     await this.syncMembership(bank);
-    const cap = bank.bankKind === 'matrix' ? 'quiz:viewmatrix' : 'question:useall';
-    if (!(await this.evaluator.hasCapability(actorId, cap, bank.contextId))) {
+    if (bank.bankKind === 'matrix') {
+      const caps = await this.bankLocalMatrixCaps(actorId, bank);
+      if (!caps.view) {
+        throw new ForbiddenException({ message: `No access to question bank ${bank.id}`, code: 'question.bank_forbidden' });
+      }
+      return;
+    }
+    if (!(await this.evaluator.hasCapability(actorId, 'question:useall', bank.contextId))) {
       throw new ForbiddenException({ message: `No access to question bank ${bank.id}`, code: 'question.bank_forbidden' });
     }
   }
@@ -395,6 +401,33 @@ export class QuestionBanksService {
   }
 
   /**
+   * Bộ quyền MA TRẬN của actor tại một bank ma trận (MB-1) — tính từ
+   * HAI VAI CHUYÊN DỤNG TẠI CHÍNH CONTEXT BANK (qbankmember/qbanklead,
+   * đã đồng bộ từ cohort/trường/chủ sở hữu), KHÔNG qua PermissionEvaluator:
+   * evaluator kế thừa mặc định archetype từ mọi context tổ tiên, nên một
+   * giáo viên được gán vai ở context hệ thống sẽ "lọt" mọi cổng bank dù
+   * không phải thành viên — phá vỡ nguyên tắc ngân hàng kín của tổ.
+   * Quyền tại bank chỉ từ tư cách thành viên bank (đúng nghĩa "MỘT
+   * nguồn duy nhất là bank", E-8); site admin vẫn toàn quyền.
+   */
+  async bankLocalMatrixCaps(actorId: string, bank: QuestionBankRow): Promise<{
+    view: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
+  }> {
+    const none = { view: false, manage: false, copy: false, share: false, moderate: false };
+    if (await this.evaluator.isSiteAdmin(actorId)) return { view: true, manage: true, copy: true, share: true, moderate: true };
+    const assignments = await this.roles.listAssignments({ userId: actorId, contextId: bank.contextId });
+    if (!assignments.length) return none;
+    const roleIds = new Set(assignments.map((a) => (a as { roleId: string }).roleId));
+    const [memberRole, leadRole] = await Promise.all([
+      this.roles.getRoleByShortname(QBANK_MEMBER_ROLE), this.roles.getRoleByShortname(QBANK_LEAD_ROLE),
+    ]);
+    const isLead = leadRole ? roleIds.has(leadRole.id) : false;
+    const isMember = memberRole ? roleIds.has(memberRole.id) : false;
+    if (!isLead && !isMember) return none;
+    return { view: true, manage: isLead, copy: true, share: isLead, moderate: isLead };
+  }
+
+  /**
    * Danh sách bank actor vào được: bank cá nhân của chính mình + bank
    * trường (nếu là giáo viên) + bank tổ mình thuộc về + bank các khoá
    * mình có quyền dùng câu. Bank cá nhân và bank trường được đảm bảo tồn
@@ -408,15 +441,20 @@ export class QuestionBanksService {
     if (isStaff) await this.ensurePersonalBank(actorId, kind);
     if (isStaff) await this.ensureSchoolBank(actorId, kind);
     const all = (await this.repo.listBanks()).filter((b) => b.bankKind === kind);
-    // Cổng vào theo loại món: bank ma trận (MB-1) nhìn thấy bằng quiz:viewmatrix tại context bank.
-    const entryCap = kind === 'matrix' ? 'quiz:viewmatrix' : 'question:useall';
     const out: BankView[] = [];
     for (const bank of all) {
       // Hàng tồn từ trước khi có cổng: bank cá nhân của chính người
       // không đủ tư cách cũng không liệt kê cho họ nữa.
       if (bank.scope === 'personal' && bank.ownerId === actorId && !isStaff) continue;
       await this.syncMembership(bank);
-      if (await this.evaluator.hasCapability(actorId, entryCap, bank.contextId)) {
+      // Cổng vào theo loại món: bank câu hỏi dùng question:useall tại
+      // context bank (kế thừa cây context như QB); bank ma trận (MB-1)
+      // dùng quyền bank-local — GV ngoài tổ không thấy bank tổ kể cả
+      // khi có vai archetype ở context tổ tiên.
+      const canEnter = kind === 'matrix'
+        ? (await this.bankLocalMatrixCaps(actorId, bank)).view
+        : await this.evaluator.hasCapability(actorId, 'question:useall', bank.contextId);
+      if (canEnter) {
         out.push(await this.bankView(actorId, bank));
       }
     }

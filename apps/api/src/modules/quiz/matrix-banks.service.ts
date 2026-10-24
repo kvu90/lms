@@ -60,16 +60,28 @@ export class MatrixBanksService {
     return row;
   }
 
-  /** Context nguồn quyền của một ma trận: context của bank khi ma trận thuộc bank, ngược lại context môn (khớp resolver của QuizService). */
-  private async sourceContextOf(matrix: ExamMatrixRow): Promise<string> {
+  /**
+   * Bộ quyền của actor trên một ma trận NGUỒN: ma trận thuộc bank thì
+   * đọc quyền bank-local của bank đó (vai chuyên dụng tại context
+   * bank); ma trận chưa thuộc bank thì đọc PermissionEvaluator tại
+   * context môn (hành vi Chặng 3).
+   */
+  private async sourceCapsOf(actorId: string, matrix: ExamMatrixRow): Promise<{
+    view: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
+  }> {
     if (matrix.bankId) {
       const bank = await this.banks.findBankById(matrix.bankId);
       if (bank) {
         await this.banks.syncBankMembership(bank);
-        return bank.contextId;
+        return this.banks.bankLocalMatrixCaps(actorId, bank);
       }
     }
-    return matrix.contextId;
+    const at = async (cap: string) => this.evaluator.hasCapability(actorId, cap, matrix.contextId);
+    const [view, manage, copy, share, moderate] = await Promise.all([
+      at(MATRIX_BANK_CAPS.view), at(MATRIX_BANK_CAPS.manage), at(MATRIX_BANK_CAPS.copy),
+      at(MATRIX_BANK_CAPS.share), at(MATRIX_BANK_CAPS.moderate),
+    ]);
+    return { view, manage, copy, share, moderate };
   }
 
   /**
@@ -124,24 +136,22 @@ export class MatrixBanksService {
   // --- danh sách ma trận trong bank ---------------------------------------------
 
   /**
-   * Các ma trận của một bank ma trận: cổng vào là quiz:viewmatrix tại
-   * context bank (người ngoài bank — kể cả gọi API trực tiếp — nhận
-   * 403, khớp tiêu chí "không thấy bank tổ"). Ma trận ready thấy cho
-   * mọi người vào được bank; draft/hidden chỉ chủ sở hữu, người có
-   * quiz:managematrix tại bank và site admin thấy.
+   * Các ma trận của một bank ma trận: cổng vào là quyền XEM bank-local
+   * (thành viên/phụ trách bank — người ngoài bank, kể cả gọi API trực
+   * tiếp, nhận 403, khớp tiêu chí "không thấy bank tổ"). Ma trận ready
+   * thấy cho mọi người vào được bank; draft/hidden chỉ chủ sở hữu,
+   * người phụ trách bank và site admin thấy.
    */
   async listBankMatrices(actorId: string, bankId: string): Promise<ExamMatrixView[]> {
     const bank = await this.getMatrixBankOrThrow(bankId);
     await this.banks.syncBankMembership(bank);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.view, bank.contextId))) {
+    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+    if (!caps.view) {
       throw new ForbiddenException({ message: `No access to matrix bank ${bankId}`, code: 'quiz.matrix_bank_forbidden' });
     }
-    const [canManage, isAdmin] = await Promise.all([
-      this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.manage, bank.contextId),
-      this.evaluator.isSiteAdmin(actorId),
-    ]);
+    const isAdmin = await this.evaluator.isSiteAdmin(actorId);
     const rows = await this.repo.listMatricesByBank(bank.id);
-    const visible = rows.filter((r) => r.status === 'ready' || r.createdBy === actorId || canManage || isAdmin);
+    const visible = rows.filter((r) => r.status === 'ready' || r.createdBy === actorId || caps.manage || isAdmin);
     const out: ExamMatrixView[] = [];
     for (const row of visible) out.push(await this.quiz.viewMatrixRow(row));
     return out;
@@ -151,25 +161,26 @@ export class MatrixBanksService {
 
   /**
    * Copy một ma trận về bank đích (mặc định bank ma trận cá nhân của
-   * người copy): cổng nguồn là matrix:copy tại context nguồn (bank
-   * nguồn hoặc context môn), cổng đích là quiz:managematrix tại bank
-   * đích. Ma trận hidden chỉ chủ sở hữu/người duyệt mới copy được.
+   * người copy): cổng nguồn là matrix:copy trên nguồn (bank-local khi
+   * nguồn trong bank), cổng đích là quyền phụ trách bank đích
+   * (bank-local). Ma trận hidden chỉ chủ sở hữu/người duyệt mới copy
+   * được.
    */
   async copyMatrix(actorId: string, matrixId: string, input: CopyExamMatrixDto): Promise<ExamMatrixView> {
     const source = await this.getMatrixRow(matrixId);
-    const sourceCtx = await this.sourceContextOf(source);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.copy, sourceCtx))) {
+    const sourceCaps = await this.sourceCapsOf(actorId, source);
+    if (!sourceCaps.copy) {
       throw new ForbiddenException({ message: 'No matrix:copy on the source matrix', code: 'quiz.matrix_copy_source_forbidden' });
     }
-    if (source.status === 'hidden' && source.createdBy !== actorId
-      && !(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.moderate, sourceCtx))) {
+    if (source.status === 'hidden' && source.createdBy !== actorId && !sourceCaps.moderate) {
       throw new ForbiddenException({ message: 'Hidden matrices can only be copied by their owner or a moderator', code: 'quiz.matrix_hidden' });
     }
     const target = input.targetBankId
       ? await this.getMatrixBankOrThrow(input.targetBankId)
       : await this.banks.ensurePersonalBank(actorId, 'matrix', { forCopy: true });
     await this.banks.syncBankMembership(target);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.manage, target.contextId))) {
+    const targetCaps = await this.banks.bankLocalMatrixCaps(actorId, target);
+    if (!targetCaps.manage) {
       throw new ForbiddenException({ message: 'No quiz:managematrix on the target matrix bank', code: 'quiz.matrix_copy_target_forbidden' });
     }
     const copy = await this.deepCopyMatrix(actorId, source, target, { status: 'draft', isTemplate: false, name: input.name });
@@ -197,11 +208,11 @@ export class MatrixBanksService {
     if (source.status !== 'ready') {
       throw new BadRequestException({ message: 'Only a ready matrix can be proposed as a contribution', code: 'quiz.matrix_contribution_source_not_ready' });
     }
-    const sourceCtx = await this.sourceContextOf(source);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.view, sourceCtx))) {
+    const sourceCaps = await this.sourceCapsOf(actorId, source);
+    if (!sourceCaps.view) {
       throw new ForbiddenException({ message: 'No access to the source matrix', code: 'quiz.matrix_contribution_source_forbidden' });
     }
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.share, sourceCtx))) {
+    if (!sourceCaps.share) {
       throw new ForbiddenException({ message: 'No matrix:share on the source matrix', code: 'quiz.matrix_share_forbidden' });
     }
     const pending = await this.repo.findPendingMatrixContribution(source.id, target.id, actorId);
@@ -219,19 +230,19 @@ export class MatrixBanksService {
   }
 
   /**
-   * Hàng chờ đóng góp của một bank: người có matrix:moderate tại bank
+   * Hàng chờ đóng góp của một bank: người duyệt (bank-local moderate)
    * thấy tất cả; thành viên thường chỉ thấy đề xuất của chính mình (để
    * xem kết quả duyệt và lý do từ chối).
    */
   async listContributions(actorId: string, bankId: string, status?: string): Promise<ExamMatrixContributionView[]> {
     const bank = await this.getMatrixBankOrThrow(bankId);
     await this.banks.syncBankMembership(bank);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.view, bank.contextId))) {
+    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+    if (!caps.view) {
       throw new ForbiddenException({ message: `No access to matrix bank ${bankId}`, code: 'quiz.matrix_bank_forbidden' });
     }
-    const canModerate = await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.moderate, bank.contextId);
     let rows = await this.repo.listMatrixContributions(bank.id, status);
-    if (!canModerate) rows = rows.filter((r) => r.proposerId === actorId);
+    if (!caps.moderate) rows = rows.filter((r) => r.proposerId === actorId);
     const out: ExamMatrixContributionView[] = [];
     for (const row of rows) out.push(await this.contributionView(row));
     return out;
@@ -256,10 +267,11 @@ export class MatrixBanksService {
     return row;
   }
 
-  /** Cổng duyệt: matrix:moderate tại context của bank đích (sau đồng bộ thành viên). */
+  /** Cổng duyệt: quyền moderate bank-local tại bank đích (sau đồng bộ thành viên). */
   private async requireModerator(actorId: string, bank: QuestionBankRow): Promise<void> {
     await this.banks.syncBankMembership(bank);
-    if (!(await this.evaluator.hasCapability(actorId, MATRIX_BANK_CAPS.moderate, bank.contextId))) {
+    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+    if (!caps.moderate) {
       throw new ForbiddenException({ message: 'No matrix:moderate on the target matrix bank', code: 'quiz.matrix_moderate_forbidden' });
     }
   }

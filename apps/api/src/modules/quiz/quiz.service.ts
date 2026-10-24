@@ -979,27 +979,31 @@ export class QuizService {
    * ĐIỂM NEO QUYỀN DUY NHẤT của ma trận (MB-0, điểm E-8 của hồ sơ ngân
    * hàng đề/ma trận): mọi kiểm tra quyền trên ma trận đều đi qua đây.
    * Nguồn quyền chốt là BANK — ma trận nằm trong bank nào thì quyền
-   * theo context của bank đó (cùng khuôn ngân hàng câu hỏi); context
-   * môn (matrix.contextId) chỉ là PHẠM VI DỮ LIỆU. MB-1 (issue #111)
-   * đã cắm bank: ma trận có bank_id thì phân giải sang context của
-   * bank (đồng bộ tư cách thành viên trước để vai qbankmember/
-   * qbanklead tại context bank là hiện hành); bank đã bị xoá (FK set
-   * null khi xoá bank — nhưng bank_id treo vẫn có thể sót ở dữ liệu
-   * cũ) thì rơi về context môn. Ma trận chưa thuộc bank nào giữ hành
-   * vi Chặng 3: quyền tại context môn.
+   * theo bank đó; context môn (matrix.contextId) chỉ là PHẠM VI DỮ
+   * LIỆU. MB-1 (issue #111) đã cắm bank, với hai lưu ý thực thi:
+   * - Quyền tại bank đọc từ HAI VAI CHUYÊN DỤNG tại context bank
+   *   (QuestionBanksService.bankLocalMatrixCaps: quiz:viewmatrix ↔
+   *   thành viên + phụ trách; quiz:managematrix ↔ phụ trách), KHÔNG
+   *   qua PermissionEvaluator — evaluator kế thừa mặc định archetype
+   *   từ mọi context tổ tiên nên giáo viên có vai ở context hệ thống
+   *   sẽ lọt cổng bank kín của tổ dù không phải thành viên.
+   * - Ma trận chưa thuộc bank nào (hoặc bank đã bị xoá) giữ hành vi
+   *   Chặng 3: PermissionEvaluator tại context môn.
    */
-  private async matrixPermissionContext(matrix: ExamMatrixRow): Promise<string> {
+  private async requireMatrixCap(actorId: string, matrix: ExamMatrixRow, capability: string): Promise<void> {
     if (matrix.bankId) {
       const bank = await this.banks.findBankById(matrix.bankId);
       if (bank) {
         await this.banks.syncBankMembership(bank);
-        return bank.contextId;
+        const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+        const ok = capability === QUIZ_CAPABILITIES.viewMatrix ? caps.view : caps.manage;
+        if (!ok) {
+          throw new ForbiddenException({ message: `Missing capability ${capability} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+        }
+        return;
       }
     }
-    return matrix.contextId;
-  }
-  private async requireMatrixCap(actorId: string, matrix: ExamMatrixRow, capability: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, capability, await this.matrixPermissionContext(matrix));
+    await this.evaluator.requireCapability(actorId, capability, matrix.contextId);
   }
   private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
     return {
@@ -1057,7 +1061,11 @@ export class QuizService {
         throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
       }
       await this.banks.syncBankMembership(bank);
-      await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, bank.contextId);
+      // Ghi vào bank = quyền phụ trách bank (bank-local, xem requireMatrixCap).
+      const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+      if (!caps.manage) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+      }
     } else {
       await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
     }
@@ -1114,7 +1122,10 @@ export class QuizService {
         throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
       }
       await this.banks.syncBankMembership(target);
-      await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, target.contextId);
+      const targetCaps = await this.banks.bankLocalMatrixCaps(actorId, target);
+      if (!targetCaps.manage) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${target.id}`, code: 'access.capability_denied' });
+      }
     }
     if (input.levelSet === 'three' && row.levelSet !== 'three') {
       const cells = await this.repo.listMatrixCells(row.id);
