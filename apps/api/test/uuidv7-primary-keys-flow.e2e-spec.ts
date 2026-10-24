@@ -57,7 +57,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
-    // 131 bảng nghiệp vụ: 109 trước đây + session, account, verification,
+    // 143 bảng nghiệp vụ: 109 trước đây + session, account, verification,
     // two_factor (đợt Better Auth giai đoạn 1, issue #7) + subjects,
     // curricula, curriculum_nodes, learning_outcomes (đợt GDPT 2018, issue #20)
     // + course_completion_crit_compl (đợt đủ 8 loại tiêu chí completion, issue #23)
@@ -70,8 +70,15 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + books, book_nodes,
     // book_mappings, book_records,
     // course_section_book_anchors, course_section_book_items,
-    // course_section_book_item_outcomes (đợt K0b tầng SGK, issue #67).
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(131);
+    // course_section_book_item_outcomes (đợt K0b tầng SGK, issue #67)
+    // + 12 bảng đợt C2 Bài tập nộp tệp/ảnh (issue #88): assignments,
+    // assign_submissions, assign_submission_files, assign_grades,
+    // assign_annotations, assign_rubrics, assign_rubric_criteria,
+    // assign_rubric_levels, assign_rubric_evaluations,
+    // assign_grade_revisions, assign_feedback_messages, teacher_comment_bank.
+    // (Đếm lại trên baseline hợp nhất của PR #92 sau rebase lên main đã gồm
+    // PR #79: 151 bảng tổng, 143 bảng có PK mặc định uuidv7().)
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(143);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -86,7 +93,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(131);
+    expect(defaults.rows.length).toBe(143);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

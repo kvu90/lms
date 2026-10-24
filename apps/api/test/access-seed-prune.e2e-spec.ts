@@ -69,10 +69,11 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     );
     expect(Number(staleOverrides.rows[0].n)).toBe(0);
 
-    // The registry itself is intact: 88 definitions, every one prefix-free,
+    // The registry itself is intact: 93 definitions (88 gốc + 5 quyền
+    // assign:* của mod_assign, issue #88), every one prefix-free,
     // and the renamed defaults were re-seeded at the system context.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    expect(Number(defs.rows[0].n)).toBe(88);
+    expect(Number(defs.rows[0].n)).toBe(93);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],

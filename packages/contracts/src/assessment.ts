@@ -724,3 +724,371 @@ export const manualGradeQuizSchema = z.strictObject({
   comment: z.string().optional(),
 });
 export type ManualGradeQuiz = z.infer<typeof manualGradeQuizSchema>;
+
+/** Trạng thái bài nộp của một học sinh trong hoạt động Bài tập nộp tệp/ảnh (mod_assign). */
+export const ASSIGN_SUBMISSION_STATUSES = ['none', 'draft', 'submitted', 'graded'] as const;
+export type AssignSubmissionStatus = (typeof ASSIGN_SUBMISSION_STATUSES)[number];
+
+/**
+ * Chế độ kết quả của bài tập theo TT 22/2021 Điều 5: 'score' = chỉ điểm;
+ * 'level' = chỉ mức Đạt/Chưa đạt + nhận xét (nhóm môn chỉ đánh giá bằng
+ * nhận xét); 'score_feedback' = điểm kết hợp nhận xét.
+ */
+export const ASSIGN_RESULT_MODES = ['score', 'level', 'score_feedback'] as const;
+export type AssignResultMode = (typeof ASSIGN_RESULT_MODES)[number];
+
+/** Mức kết quả của bài ở chế độ chỉ-nhận-xét (Đạt / Chưa đạt). */
+export const ASSIGN_GRADE_LEVELS = ['dat', 'chua_dat'] as const;
+export type AssignGradeLevel = (typeof ASSIGN_GRADE_LEVELS)[number];
+
+/** Trạng thái công bố của gói chấm: 'draft' = nháp (HS chưa thấy gì), 'released' = đã trả bài. */
+export const ASSIGN_GRADE_STATUSES = ['draft', 'released'] as const;
+export type AssignGradeStatus = (typeof ASSIGN_GRADE_STATUSES)[number];
+
+/** Loại dấu chấm vector trên bề mặt bài nộp: đúng / sai / vẽ tay / ghi chú / tô đoạn / khoanh vùng. */
+export const ASSIGN_ANNOTATION_KINDS = ['correct', 'incorrect', 'draw', 'note', 'highlight', 'frame'] as const;
+export type AssignAnnotationKind = (typeof ASSIGN_ANNOTATION_KINDS)[number];
+
+/** Nhóm của một câu trong ngân hàng lời phê cá nhân, theo cấu trúc lời phê 3 ô + tiến bộ. */
+export const ASSIGN_COMMENT_BANK_CATEGORIES = ['strengths', 'weaknesses', 'improvement', 'progress', 'general'] as const;
+export type AssignCommentBankCategory = (typeof ASSIGN_COMMENT_BANK_CATEGORIES)[number];
+
+/** View một hoạt động Bài tập nộp tệp/ảnh (mod_assign): cấu hình bài + hạn nộp + quy tắc tệp. */
+export const assignmentViewSchema = z.object({
+  id: uuidIdSchema,
+  courseId: uuidIdSchema,
+  cmId: uuidIdSchema.nullable(),
+  name: z.string(),
+  intro: z.string(),
+  /** Hạn nộp (ISO); null = không đặt hạn. Nộp sau hạn vẫn nhận nhưng bị đánh dấu trễ. */
+  dueDate: z.string().nullable(),
+  /** Số tệp tối đa trong một bài nộp. */
+  maxFiles: z.number().int(),
+  /** Danh sách đuôi tệp cho phép, cách nhau bằng dấu phẩy (vd "jpg,png,pdf"); null = mọi loại tệp. */
+  acceptedFileTypes: z.string().nullable(),
+  /** Thang điểm của bài (điểm giáo viên nhập nằm trong [0, grade]). */
+  grade: z.number(),
+  /** Chế độ kết quả của bài (chỉ điểm / chỉ mức / điểm + nhận xét). */
+  resultMode: z.enum(ASSIGN_RESULT_MODES),
+});
+export type AssignmentView = z.infer<typeof assignmentViewSchema>;
+
+/** Một tệp trong bài nộp: metadata + URL tải đã ký tạm thời để xem toàn màn. */
+export const assignSubmissionFileViewSchema = z.object({
+  fileId: uuidIdSchema,
+  fileName: z.string(),
+  fileSize: z.number().int(),
+  mimeType: z.string().nullable(),
+  contentHash: z.string(),
+  signedUrl: z.string(),
+  signedUrlExpiresAt: z.number().int(),
+});
+export type AssignSubmissionFileView = z.infer<typeof assignSubmissionFileViewSchema>;
+
+/**
+ * Gói chấm của giáo viên cho bài nộp: điểm/mức + lời phê cấu trúc 3 ô
+ * theo TT 22 Điều 5 (tiến bộ / ưu điểm nổi bật / hạn chế chủ yếu) + ô
+ * nhận xét chung. status 'draft' = bản nháp chấm (chỉ giáo viên thấy);
+ * 'released' = đã trả bài (học sinh thấy, điểm đã vào sổ điểm).
+ */
+export const assignGradeViewSchema = z.object({
+  grade: z.number().nullable(),
+  level: z.enum(ASSIGN_GRADE_LEVELS).nullable(),
+  feedback: z.string().nullable(),
+  feedbackProgress: z.string().nullable(),
+  feedbackStrengths: z.string().nullable(),
+  feedbackWeaknesses: z.string().nullable(),
+  graderId: uuidIdSchema,
+  gradedAt: z.string(),
+  attemptNumber: z.number().int(),
+  status: z.enum(ASSIGN_GRADE_STATUSES),
+  releasedAt: z.string().nullable(),
+});
+export type AssignGradeView = z.infer<typeof assignGradeViewSchema>;
+
+/**
+ * Một dấu chấm VECTOR trên bề mặt bài nộp: neo theo (tệp, trang, toạ độ
+ * % so với khổ trang); 'draw' mang points là dãy điểm % của nét vẽ.
+ * Ảnh gốc không bị đốt dấu — client render lớp dấu đè lên ảnh khi xem.
+ */
+export const assignAnnotationViewSchema = z.object({
+  id: uuidIdSchema,
+  submissionId: uuidIdSchema,
+  fileId: uuidIdSchema,
+  page: z.number().int(),
+  x: z.number(),
+  y: z.number(),
+  kind: z.enum(ASSIGN_ANNOTATION_KINDS),
+  color: z.string().nullable(),
+  text: z.string().nullable(),
+  points: z.array(z.object({ x: z.number(), y: z.number() })).nullable(),
+  authorId: uuidIdSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AssignAnnotationView = z.infer<typeof assignAnnotationViewSchema>;
+
+/** Một mức thể hiện trong tiêu chí dạng rubric (nhãn + điểm của mức — cấu hình của bài). */
+export const assignRubricLevelViewSchema = z.object({
+  id: uuidIdSchema,
+  label: z.string(),
+  score: z.number(),
+});
+export type AssignRubricLevelView = z.infer<typeof assignRubricLevelViewSchema>;
+
+/**
+ * Một tiêu chí của bảng chấm: chế độ 'levels' (chọn mức rubric) hoặc
+ * 'score' (marking guide — nhập điểm trong [0, maxScore]); neo YCCĐ qua
+ * outcomeId + outcomeText (bản chụp nguyên văn). descriptionForGrader
+ * chỉ hiện với người có quyền chấm/quản lý.
+ */
+export const assignRubricCriterionViewSchema = z.object({
+  id: uuidIdSchema,
+  name: z.string(),
+  descriptionForStudent: z.string().nullable(),
+  descriptionForGrader: z.string().nullable(),
+  mode: z.enum(['levels', 'score']),
+  maxScore: z.number().nullable(),
+  outcomeId: z.string().nullable(),
+  outcomeText: z.string().nullable(),
+  levels: z.array(assignRubricLevelViewSchema),
+});
+export type AssignRubricCriterionView = z.infer<typeof assignRubricCriterionViewSchema>;
+
+/** Bảng chấm của một bài tập (tối đa một bảng/bài), công khai cho học sinh trước khi nộp. */
+export const assignRubricViewSchema = z.object({
+  id: uuidIdSchema,
+  assignmentId: uuidIdSchema,
+  title: z.string().nullable(),
+  criteria: z.array(assignRubricCriterionViewSchema),
+});
+export type AssignRubricView = z.infer<typeof assignRubricViewSchema>;
+
+/** Kết quả chấm theo một tiêu chí trong gói chấm: mức đã chọn / điểm đã nhập + nhận xét riêng. */
+export const assignRubricEvaluationViewSchema = z.object({
+  criterionId: uuidIdSchema,
+  levelId: uuidIdSchema.nullable(),
+  score: z.number().nullable(),
+  note: z.string().nullable(),
+});
+export type AssignRubricEvaluationView = z.infer<typeof assignRubricEvaluationViewSchema>;
+
+/** Một dòng vết kiểm toán khi gói chấm đã trả bị sửa: giá trị điểm/mức trước và sau. */
+export const assignGradeRevisionViewSchema = z.object({
+  id: uuidIdSchema,
+  actorId: uuidIdSchema,
+  createdAt: z.string(),
+  previousGrade: z.number().nullable(),
+  newGrade: z.number().nullable(),
+  previousLevel: z.enum(ASSIGN_GRADE_LEVELS).nullable(),
+  newLevel: z.enum(ASSIGN_GRADE_LEVELS).nullable(),
+});
+export type AssignGradeRevisionView = z.infer<typeof assignGradeRevisionViewSchema>;
+
+/** Một tin nhắn trong hội thoại phản hồi trên bài đã trả (học sinh ↔ giáo viên). */
+export const assignFeedbackMessageViewSchema = z.object({
+  id: uuidIdSchema,
+  authorId: uuidIdSchema,
+  body: z.string(),
+  createdAt: z.string(),
+});
+export type AssignFeedbackMessageView = z.infer<typeof assignFeedbackMessageViewSchema>;
+
+/**
+ * Bài nộp của chính người xem: trạng thái theo hạn, các tệp và — CHỈ KHI
+ * đã trả bài — gói chấm + annotation + kết quả rubric + hội thoại phản
+ * hồi. Khi giáo viên còn chấm nháp, các trường này rỗng/null.
+ */
+export const assignOwnSubmissionViewSchema = z.object({
+  submissionId: uuidIdSchema.nullable(),
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  /** Đã nộp nhưng sau hạn nộp. */
+  late: z.boolean(),
+  files: z.array(assignSubmissionFileViewSchema),
+  grade: assignGradeViewSchema.nullable(),
+  annotations: z.array(assignAnnotationViewSchema),
+  rubricEvaluations: z.array(assignRubricEvaluationViewSchema),
+  feedbackMessages: z.array(assignFeedbackMessageViewSchema),
+});
+export type AssignOwnSubmissionView = z.infer<typeof assignOwnSubmissionViewSchema>;
+
+/** View bài tập cho một người xem: cấu hình + bài nộp của chính mình + bảng chấm công khai + các cờ quyền đã phân giải tại context của module. */
+export const assignmentForUserViewSchema = z.object({
+  assignment: assignmentViewSchema,
+  mySubmission: assignOwnSubmissionViewSchema,
+  rubric: assignRubricViewSchema.nullable(),
+  canSubmit: z.boolean(),
+  canManage: z.boolean(),
+  canGrade: z.boolean(),
+  canViewAllSubmissions: z.boolean(),
+});
+export type AssignmentForUserView = z.infer<typeof assignmentForUserViewSchema>;
+
+/** Một dòng trong danh sách bài nộp của giáo viên: mọi học sinh đã ghi danh, kể cả người chưa nộp. */
+export const assignSubmissionSummarySchema = z.object({
+  userId: uuidIdSchema,
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  late: z.boolean(),
+  fileCount: z.number().int(),
+  grade: z.number().nullable(),
+  level: z.enum(ASSIGN_GRADE_LEVELS).nullable(),
+  feedback: z.string().nullable(),
+  /** Trạng thái gói chấm phía giáo viên: chưa chấm / đang nháp / đã trả bài. */
+  gradeStatus: z.enum(['none', 'draft', 'released']),
+});
+export type AssignSubmissionSummary = z.infer<typeof assignSubmissionSummarySchema>;
+
+/** Chi tiết một bài nộp cho giáo viên chấm: tệp kèm URL đã ký + gói chấm (kể cả nháp) + annotation + rubric + vết sửa sau trả + hội thoại. */
+export const assignSubmissionDetailSchema = z.object({
+  userId: uuidIdSchema,
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  late: z.boolean(),
+  files: z.array(assignSubmissionFileViewSchema),
+  grade: assignGradeViewSchema.nullable(),
+  annotations: z.array(assignAnnotationViewSchema),
+  rubricEvaluations: z.array(assignRubricEvaluationViewSchema),
+  revisions: z.array(assignGradeRevisionViewSchema),
+  feedbackMessages: z.array(assignFeedbackMessageViewSchema),
+});
+export type AssignSubmissionDetail = z.infer<typeof assignSubmissionDetailSchema>;
+
+/** Payload tạo bài tập nộp tệp/ảnh trong một section (kèm course module + grade item ở tầng nghiệp vụ). */
+export const createAssignmentSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  intro: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+  maxFiles: z.number().int().min(1).max(50).optional(),
+  acceptedFileTypes: z.string().nullable().optional(),
+  grade: z.number().positive().optional(),
+  resultMode: z.enum(ASSIGN_RESULT_MODES).optional(),
+});
+export type CreateAssignment = z.infer<typeof createAssignmentSchema>;
+
+/** Payload sửa cài đặt bài tập (mọi trường tuỳ chọn; `dueDate`/`acceptedFileTypes` nhận `null` để gỡ). */
+export const updateAssignmentSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+  maxFiles: z.number().int().min(1).max(50).optional(),
+  acceptedFileTypes: z.string().nullable().optional(),
+  grade: z.number().positive().optional(),
+  resultMode: z.enum(ASSIGN_RESULT_MODES).optional(),
+});
+export type UpdateAssignment = z.infer<typeof updateAssignmentSchema>;
+
+/** Kết quả chấm theo một tiêu chí trong payload lưu gói chấm. */
+export const assignRubricEvaluationInputSchema = z.strictObject({
+  criterionId: uuidIdSchema,
+  levelId: uuidIdSchema.nullable().optional(),
+  score: z.number().min(0).nullable().optional(),
+  note: z.string().nullable().optional(),
+});
+export type AssignRubricEvaluationInput = z.infer<typeof assignRubricEvaluationInputSchema>;
+
+/**
+ * Payload LƯU gói chấm (bản nháp — chưa công bố): điểm (theo thang bài)
+ * hoặc mức (chế độ chỉ-nhận-xét), lời phê cấu trúc 3 ô + nhận xét chung,
+ * kết quả theo tiêu chí rubric. Mọi trường tuỳ chọn: nháp được phép dở
+ * dang; tính đầy đủ theo chế độ kết quả chỉ bắt buộc tại thời điểm TRẢ
+ * BÀI. Nếu có evaluations mà không gửi grade, điểm được suy từ rubric
+ * (tổng điểm tiêu chí quy về thang bài) — giáo viên vẫn ghi đè được.
+ */
+export const gradeAssignmentSubmissionSchema = z.strictObject({
+  grade: z.number().min(0).optional(),
+  level: z.enum(ASSIGN_GRADE_LEVELS).nullable().optional(),
+  feedback: z.string().optional(),
+  feedbackProgress: z.string().nullable().optional(),
+  feedbackStrengths: z.string().nullable().optional(),
+  feedbackWeaknesses: z.string().nullable().optional(),
+  evaluations: z.array(assignRubricEvaluationInputSchema).optional(),
+});
+export type GradeAssignmentSubmission = z.infer<typeof gradeAssignmentSubmissionSchema>;
+
+/** Payload trả bài theo đợt: không gửi userIds = trả mọi gói chấm nháp đã đầy đủ của bài. */
+export const releaseAssignmentGradesSchema = z.strictObject({
+  userIds: z.array(uuidIdSchema).optional(),
+});
+export type ReleaseAssignmentGrades = z.infer<typeof releaseAssignmentGradesSchema>;
+
+/** Kết quả một đợt trả bài: số gói chấm đã công bố + các học sinh bị bỏ qua (nháp chưa đầy đủ/chưa chấm). */
+export const releaseAssignmentResultSchema = z.object({
+  releasedCount: z.number().int(),
+  skippedUserIds: z.array(uuidIdSchema),
+});
+export type ReleaseAssignmentResult = z.infer<typeof releaseAssignmentResultSchema>;
+
+/** Payload tạo một dấu chấm vector trên tệp của bài nộp (toạ độ % so với khổ trang). */
+export const createAssignAnnotationSchema = z.strictObject({
+  fileId: uuidIdSchema,
+  page: z.number().int().min(1).optional(),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  kind: z.enum(ASSIGN_ANNOTATION_KINDS),
+  color: z.string().nullable().optional(),
+  text: z.string().nullable().optional(),
+  points: z.array(z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) })).max(2000).nullable().optional(),
+});
+export type CreateAssignAnnotation = z.infer<typeof createAssignAnnotationSchema>;
+
+/** Payload sửa một dấu chấm (dời vị trí, đổi nội dung/màu/nét vẽ). */
+export const updateAssignAnnotationSchema = z.strictObject({
+  page: z.number().int().min(1).optional(),
+  x: z.number().min(0).max(100).optional(),
+  y: z.number().min(0).max(100).optional(),
+  color: z.string().nullable().optional(),
+  text: z.string().nullable().optional(),
+  points: z.array(z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) })).max(2000).nullable().optional(),
+});
+export type UpdateAssignAnnotation = z.infer<typeof updateAssignAnnotationSchema>;
+
+/** Một tiêu chí trong payload dựng bảng chấm (thay toàn bộ bảng — replace-all). */
+export const assignRubricCriterionInputSchema = z.strictObject({
+  name: z.string().min(1),
+  descriptionForStudent: z.string().nullable().optional(),
+  descriptionForGrader: z.string().nullable().optional(),
+  mode: z.enum(['levels', 'score']),
+  maxScore: z.number().positive().nullable().optional(),
+  outcomeId: z.string().nullable().optional(),
+  outcomeText: z.string().nullable().optional(),
+  levels: z.array(z.strictObject({
+    label: z.string().min(1),
+    score: z.number().min(0),
+  })).optional(),
+});
+export type AssignRubricCriterionInput = z.infer<typeof assignRubricCriterionInputSchema>;
+
+/** Payload dựng/cập nhật bảng chấm của bài (tiêu chí phải tồn tại trước khi chấm — TT 22 Điều 7). */
+export const upsertAssignRubricSchema = z.strictObject({
+  title: z.string().nullable().optional(),
+  criteria: z.array(assignRubricCriterionInputSchema).min(1).max(30),
+});
+export type UpsertAssignRubric = z.infer<typeof upsertAssignRubricSchema>;
+
+/** Payload gửi một tin nhắn trong hội thoại phản hồi trên bài đã trả. */
+export const createAssignFeedbackMessageSchema = z.strictObject({
+  body: z.string().min(1),
+});
+export type CreateAssignFeedbackMessage = z.infer<typeof createAssignFeedbackMessageSchema>;
+
+/** Một câu trong ngân hàng lời phê cá nhân của giáo viên. */
+export const teacherCommentBankEntryViewSchema = z.object({
+  id: uuidIdSchema,
+  category: z.enum(ASSIGN_COMMENT_BANK_CATEGORIES).nullable(),
+  text: z.string(),
+  createdAt: z.string(),
+});
+export type TeacherCommentBankEntryView = z.infer<typeof teacherCommentBankEntryViewSchema>;
+
+/** Payload thêm một câu vào ngân hàng lời phê cá nhân (kể cả lưu nhanh từ câu vừa gõ khi chấm). */
+export const createTeacherCommentBankEntrySchema = z.strictObject({
+  text: z.string().min(1),
+  category: z.enum(ASSIGN_COMMENT_BANK_CATEGORIES).nullable().optional(),
+});
+export type CreateTeacherCommentBankEntry = z.infer<typeof createTeacherCommentBankEntrySchema>;
