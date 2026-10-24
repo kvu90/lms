@@ -96,7 +96,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
 
   async function setStatus(token: string, paperId: string, status: string) {
     const res = await http(app).post(`/api/v1/exam-papers/${paperId}/status`).set(bearer(token)).send({ status });
-    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body as PaperBody;
   }
 

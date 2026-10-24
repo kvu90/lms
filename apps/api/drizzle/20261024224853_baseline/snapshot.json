@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "cae77542-2963-4a44-afb0-6a3519f0f0aa",
+  "id": "2736e28f-650d-4f35-9200-91325921a4c9",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -6063,6 +6063,26 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_paper_versions",
+        "exam_paper_versions_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_versions_matrix_idx",
+        "n|idx|public.exam_paper_versions_matrix_idx",
+        "e|idx|public.exam_paper_versions_matrix_idx",
+        "n|rel|public.exam_paper_versions_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "exam_papers",
         "exam_papers_bank_id_idx"
       ],
@@ -6536,6 +6556,46 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_paper_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_paper_idx",
+        "n|idx|public.quizzes_paper_idx",
+        "e|idx|public.quizzes_paper_idx",
+        "n|rel|public.quizzes_paper_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_paper_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_paper_version_idx",
+        "n|idx|public.quizzes_paper_version_idx",
+        "e|idx|public.quizzes_paper_version_idx",
+        "n|rel|public.quizzes_paper_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_version_id"
       ]
     },
     {
@@ -39236,6 +39296,27 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_papers",
       "name": "exam_papers_bank_id_idx",
       "nameExplicit": true,
@@ -39725,6 +39806,48 @@
       "columns": [
         {
           "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_version_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,

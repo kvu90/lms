@@ -2359,6 +2359,7 @@ CREATE INDEX "exam_paper_slots_question_idx" ON "exam_paper_slots" ("question_id
 CREATE INDEX "exam_paper_slots_cluster_idx" ON "exam_paper_slots" ("cluster_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_versions_paper_idx" ON "exam_paper_versions" ("paper_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_versions_subject_idx" ON "exam_paper_versions" ("subject_id");--> statement-breakpoint
+CREATE INDEX "exam_paper_versions_matrix_idx" ON "exam_paper_versions" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_papers_bank_id_idx" ON "exam_papers" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_papers_status_idx" ON "exam_papers" ("status");--> statement-breakpoint
 CREATE INDEX "exam_papers_created_by_idx" ON "exam_papers" ("created_by");--> statement-breakpoint
@@ -2383,6 +2384,8 @@ CREATE INDEX "quiz_slots_cluster_id_idx" ON "quiz_slots" ("cluster_id");--> stat
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "quizzes_paper_idx" ON "quizzes" ("paper_id");--> statement-breakpoint
+CREATE INDEX "quizzes_paper_version_idx" ON "quizzes" ("paper_version_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint

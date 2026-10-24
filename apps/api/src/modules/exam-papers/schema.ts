@@ -91,6 +91,7 @@ export const examPaperVersions = pgTable('exam_paper_versions', {
   (table) => [
       index('exam_paper_versions_paper_idx').on(table.paperId),
       index('exam_paper_versions_subject_idx').on(table.subjectId),
+      index('exam_paper_versions_matrix_idx').on(table.matrixId),
       unique('exam_paper_versions_paper_version_unique').on(table.paperId, table.version),
       check('exam_paper_versions_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'midterm', 'final', 'mock', 'practice')`),
   ]);

@@ -224,6 +224,8 @@ export const quizzes = pgTable('quizzes', {
       index('quizzes_course_idx').on(table.course),
       index('quizzes_cm_id_idx').on(table.cmId),
       index('quizzes_matrix_idx').on(table.matrixId),
+      index('quizzes_paper_idx').on(table.paperId),
+      index('quizzes_paper_version_idx').on(table.paperVersionId),
       check('quizzes_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'periodic', 'mock')`),
   ]);
 
