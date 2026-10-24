@@ -136,3 +136,77 @@ export const updateQuestionOutcomeLinkSchema = z.strictObject({
   cognitiveLevel: cognitiveLevelSchema,
 });
 export type UpdateQuestionOutcomeLink = z.infer<typeof updateQuestionOutcomeLinkSchema>;
+
+/**
+ * Nạp dữ liệu chương trình chuẩn (K0a): dataset là một file bản ghi đã
+ * kiểm chứng nguyên văn với văn bản ban hành kèm Thông tư 32/2018 (ví dụ
+ * Toán, Ngữ văn). `datasetKey` là khoá ổn định của dataset trong manifest
+ * phía máy chủ — môn nào có dataset đã kiểm chứng mới nạp được môn đó.
+ */
+export const importProgramDatasetSchema = z.strictObject({
+  datasetKey: z.string().min(1),
+});
+export type ImportProgramDataset = z.infer<typeof importProgramDatasetSchema>;
+
+/** Trạng thái nạp của một dataset: đã nạp bao nhiêu trên tổng số bản ghi đã kiểm chứng. */
+export const programDatasetStatusSchema = z.object({
+  datasetKey: z.string(),
+  subjectName: z.string(),
+  slug: z.string(),
+  grades: z.array(z.number().int()),
+  totalRecords: z.number().int(),
+  importedRecords: z.number().int(),
+  subjectId: uuidIdSchema.nullable(),
+  lastImportedAt: z.string().nullable(),
+});
+export type ProgramDatasetStatus = z.infer<typeof programDatasetStatusSchema>;
+
+/** Kết quả một lượt nạp dataset: tạo mới / cập nhật (dataset đính chính) / bỏ qua (đã khớp). */
+export const programImportResultSchema = z.object({
+  datasetKey: z.string(),
+  subjectId: uuidIdSchema,
+  totalRecords: z.number().int(),
+  created: z.number().int(),
+  updated: z.number().int(),
+  skipped: z.number().int(),
+  outcomesWritten: z.number().int(),
+});
+export type ProgramImportResult = z.infer<typeof programImportResultSchema>;
+
+/**
+ * Một YCCĐ chụp trong neo khung của section: nội dung chép nguyên văn
+ * tại thời điểm nạp (hiển thị trong khoá từ bản chụp này, không đọc lại
+ * cây chương trình); `outcomeId` là truy vết về YCCĐ gốc, null khi gốc
+ * đã bị xoá.
+ */
+export const courseSectionFrameOutcomeSchema = z.object({
+  outcomeId: uuidIdSchema.nullable(),
+  content: z.string(),
+});
+export type CourseSectionFrameOutcome = z.infer<typeof courseSectionFrameOutcomeSchema>;
+
+/**
+ * Neo khung chương trình của một section (K0a): section là bản sao độc
+ * lập, neo ghi node nguồn + tựa chụp; sửa cây chương trình sau đó không
+ * đổi section đã nạp.
+ */
+export const courseSectionFrameSchema = z.object({
+  nodeId: uuidIdSchema.nullable(),
+  nodeTitle: z.string(),
+  outcomes: z.array(courseSectionFrameOutcomeSchema),
+});
+export type CourseSectionFrame = z.infer<typeof courseSectionFrameSchema>;
+
+/**
+ * Payload nạp khung chương trình vào khoá: mỗi node được chọn (đơn vị
+ * chủ đề/mạch — node không phải `lesson`) thành một section mang toàn bộ
+ * YCCĐ trong subtree của nó, theo thứ tự cây. `insertAtSection` là số
+ * thứ tự section muốn chèn vào trước (≥ 1; section 0 là section chung
+ * không bị đẩy); bỏ trống = nối vào cuối outline.
+ */
+export const applyCurriculumFrameSchema = z.strictObject({
+  curriculumId: uuidIdSchema,
+  nodeIds: z.array(uuidIdSchema).min(1),
+  insertAtSection: z.number().int().min(1).optional(),
+});
+export type ApplyCurriculumFrame = z.infer<typeof applyCurriculumFrameSchema>;

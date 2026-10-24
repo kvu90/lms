@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, type OnModuleInit } from '@nestjs/common';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { CoursesService } from '../courses/courses.service';
 import {
   CurriculumRepository, type CurriculumNodeRow, type CurriculumRow, type LearningOutcomeRow, type SubjectRow,
 } from './curriculum.repository';
@@ -42,12 +43,23 @@ function isUniqueViolation(err: unknown): boolean {
  * `curriculum:manage` tại context đó qua PermissionEvaluator — không
  * theo sở hữu cá nhân. Site admin bỏ qua kiểm tra như mọi bounded context.
  */
-export class CurriculumService {
+export class CurriculumService implements OnModuleInit {
   constructor(
     private readonly repo: CurriculumRepository,
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
+    private readonly courses: CoursesService,
   ) {}
+
+  /**
+   * Khởi tạo: đăng ký nguồn đơn vị khung cho cơ chế nạp khung vào khoá
+   * của Courses (dependency inversion — Courses không import Curriculum).
+   */
+  onModuleInit(): void {
+    this.courses.registerCurriculumFrameProvider({
+      getFrameUnits: (actorId, curriculumId) => this.getFrameUnits(actorId, curriculumId),
+    });
+  }
 
   private async contextOrSystem(contextId: string) {
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
@@ -230,6 +242,35 @@ export class CurriculumService {
       if (parent) parent.children.push(view); else roots.push(view);
     }
     return { curriculum, subject, nodes: roots };
+  }
+
+  /**
+   * Các đơn vị khung chọn được để nạp vào khoá (K0a): mọi node không
+   * phải `lesson` của cây, kèm toàn bộ YCCĐ trong subtree của nó theo
+   * đúng thứ tự cây (node cha trước, node con theo position, YCCĐ theo
+   * position). Đây là hình dạng Courses dùng để dựng section bản sao có
+   * neo; quyền đọc cây được kiểm ngay tại đây (curriculum:view).
+   */
+  async getFrameUnits(actorId: string, curriculumId: string): Promise<{
+    nodeId: string; title: string; kind: string;
+    outcomes: { outcomeId: string; content: string }[];
+  }[]> {
+    const tree = await this.getTree(actorId, curriculumId);
+    const units: { nodeId: string; title: string; kind: string; outcomes: { outcomeId: string; content: string }[] }[] = [];
+    const collectOutcomes = (node: CurriculumNodeView, acc: { outcomeId: string; content: string }[]): void => {
+      for (const o of node.outcomes) acc.push({ outcomeId: o.id, content: o.content });
+      for (const child of node.children) collectOutcomes(child, acc);
+    };
+    const walk = (node: CurriculumNodeView): void => {
+      if (node.kind !== 'lesson') {
+        const outcomes: { outcomeId: string; content: string }[] = [];
+        collectOutcomes(node, outcomes);
+        units.push({ nodeId: node.id, title: node.title, kind: node.kind, outcomes });
+      }
+      for (const child of node.children) walk(child);
+    };
+    for (const root of tree.nodes) walk(root);
+    return units;
   }
 
   // --- outcomes ---------------------------------------------------------------------

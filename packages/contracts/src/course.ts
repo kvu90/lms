@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
+import { courseSectionFrameSchema } from './curriculum.js';
 
 /** Course & Enrolment contracts — the single shape source between api and web. */
 
@@ -44,6 +45,10 @@ export const courseSchema = z.object({
   /** Ép chế độ nhóm của khoá lên mọi activity (Moodle `groupmodeforce`); mặc định false cho payload cũ chưa mang trường này. */
   groupModeForce: z.boolean().default(false),
   enableCompletion: z.boolean(),
+  /** Môn chương trình GDPT 2018 của khoá (K0a); mặc định null cho payload cũ. */
+  subjectId: uuidIdSchema.nullable().default(null),
+  /** Khối lớp (1–12) của khoá theo chương trình (K0a); mặc định null cho payload cũ. */
+  grade: z.number().int().nullable().default(null),
 });
 export type Course = z.infer<typeof courseSchema>;
 
@@ -82,6 +87,8 @@ export const courseSectionSchema = z.object({
   visible: z.boolean(),
   availability: z.unknown().nullable(),
   availabilityResult: availabilityResultSchema.optional(),
+  /** Neo khung chương trình đã nạp (K0a) — null khi section không xuất phát từ khung. */
+  frame: courseSectionFrameSchema.nullable().optional(),
   modules: z.array(courseModuleSchema),
 });
 export type CourseSection = z.infer<typeof courseSectionSchema>;
@@ -205,6 +212,9 @@ export const createCourseSchema = z.strictObject({
   endDate: z.string().optional(),
   groupMode: z.number().int().optional(),
   groupModeForce: z.boolean().optional(),
+  /** Môn × khối theo chương trình GDPT 2018 (K0a) — căn cứ chọn khung khi nạp khung vào khoá. */
+  subjectId: uuidIdSchema.nullable().optional(),
+  grade: z.number().int().min(1).max(12).nullable().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
@@ -223,6 +233,9 @@ export const updateCourseSchema = z.strictObject({
   endDate: z.string().nullable().optional(),
   groupMode: z.number().int().optional(),
   groupModeForce: z.boolean().optional(),
+  /** Môn × khối theo chương trình GDPT 2018 (K0a); đặt null để gỡ neo môn/khối khỏi khoá. */
+  subjectId: uuidIdSchema.nullable().optional(),
+  grade: z.number().int().min(1).max(12).nullable().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });

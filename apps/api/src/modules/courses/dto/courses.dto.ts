@@ -1,4 +1,5 @@
 import {
+  applyCurriculumFrameSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
@@ -7,6 +8,7 @@ import {
   updateCourseModuleSchema,
   updateCourseSchema,
   updateCourseSectionSchema,
+  type ApplyCurriculumFrame,
   type CreateCourse,
   type CreateCourseCategory,
   type CreateCourseModule,
@@ -22,6 +24,7 @@ import {
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
 export {
+  applyCurriculumFrameSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
@@ -31,6 +34,7 @@ export {
   updateCourseSchema,
   updateCourseSectionSchema,
 };
+export type ApplyFrameDto = ApplyCurriculumFrame;
 export type CreateCategoryDto = CreateCourseCategory;
 export type UpdateCategoryDto = UpdateCourseCategory;
 export type CreateCourseDto = CreateCourse;

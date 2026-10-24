@@ -3,6 +3,7 @@ import {
   createCurriculumSchema,
   createLearningOutcomeSchema,
   createSubjectSchema,
+  importProgramDatasetSchema,
   updateCurriculumNodeSchema,
   updateCurriculumSchema,
   updateLearningOutcomeSchema,
@@ -11,6 +12,7 @@ import {
   type CreateCurriculumNode,
   type CreateLearningOutcome,
   type CreateSubject,
+  type ImportProgramDataset,
   type UpdateCurriculum,
   type UpdateCurriculumNode,
   type UpdateLearningOutcome,
@@ -26,11 +28,13 @@ export {
   createCurriculumSchema,
   createLearningOutcomeSchema,
   createSubjectSchema,
+  importProgramDatasetSchema,
   updateCurriculumNodeSchema,
   updateCurriculumSchema,
   updateLearningOutcomeSchema,
   updateSubjectSchema,
 };
+export type ImportProgramDatasetDto = ImportProgramDataset;
 export type CreateSubjectDto = CreateSubject;
 export type UpdateSubjectDto = UpdateSubject;
 export type CreateCurriculumDto = CreateCurriculum;

@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, isNull, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { course, courseCategories, courseFormatOptions, courseModules, courseSections } from '../../db/schema';
+import {
+  course, courseCategories, courseFormatOptions, courseModules, courseSectionAnchorOutcomes, courseSectionAnchors,
+  courseSections, subjects,
+} from '../../db/schema';
 
 export type CategoryRow = typeof courseCategories.$inferSelect;
 export type CourseRow = typeof course.$inferSelect;
 export type SectionRow = typeof courseSections.$inferSelect;
 export type CmRow = typeof courseModules.$inferSelect;
+export type SectionAnchorRow = typeof courseSectionAnchors.$inferSelect;
+export type SectionAnchorOutcomeRow = typeof courseSectionAnchorOutcomes.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -130,8 +135,44 @@ export class CoursesRepository {
   /**
    * Chèn section.
    */
-  async insertSection(v: typeof courseSections.$inferInsert): Promise<SectionRow> {
-    const [row] = await this.db.insert(courseSections).values(v).returning(); return row!;
+  async insertSection(v: typeof courseSections.$inferInsert, tx?: DbTx): Promise<SectionRow> {
+    const [row] = await (tx ?? this.db).insert(courseSections).values(v).returning(); return row!;
+  }
+  /** Lấy môn học theo id (đối chiếu neo môn × khối của khoá — K0a). */
+  async getSubjectById(id: string): Promise<{ id: string } | undefined> {
+    const [row] = await this.db.select({ id: subjects.id }).from(subjects).where(eq(subjects.id, id)); return row;
+  }
+  /**
+   * Dịch số thứ tự của các section từ `fromSection` trở đi trong một
+   * khoá (phục vụ chèn khung tại vị trí): cộng `delta` vào số section —
+   * lượt chèn chạy hai pass qua vùng đệm lớn để không vi phạm unique
+   * (course, section) giữa chừng.
+   */
+  async shiftSections(tx: DbTx, courseId: string, fromSection: number, delta: number): Promise<void> {
+    await tx.update(courseSections)
+      .set({ section: sql`${courseSections.section} + ${delta}`, updatedAt: new Date() })
+      .where(and(eq(courseSections.course, courseId), sql`${courseSections.section} >= ${fromSection}`));
+  }
+  /** Ghi neo khung cho một section vừa tạo từ khung chương trình. */
+  async insertSectionAnchor(v: typeof courseSectionAnchors.$inferInsert, tx?: DbTx): Promise<SectionAnchorRow> {
+    const [row] = await (tx ?? this.db).insert(courseSectionAnchors).values(v).returning(); return row!;
+  }
+  /** Ghi các YCCĐ chụp kèm một neo khung (đúng thứ tự position truyền vào). */
+  async insertSectionAnchorOutcomes(v: (typeof courseSectionAnchorOutcomes.$inferInsert)[], tx?: DbTx): Promise<void> {
+    if (v.length === 0) return;
+    await (tx ?? this.db).insert(courseSectionAnchorOutcomes).values(v);
+  }
+  /** Toàn bộ neo khung của nhiều section (dựng khung hiển thị trong nội dung khoá). */
+  async listAnchorsForSections(sectionIds: string[]): Promise<SectionAnchorRow[]> {
+    if (sectionIds.length === 0) return [];
+    return this.db.select().from(courseSectionAnchors).where(inArray(courseSectionAnchors.sectionId, sectionIds));
+  }
+  /** Toàn bộ YCCĐ chụp của nhiều neo khung, theo position. */
+  async listAnchorOutcomes(anchorIds: string[]): Promise<SectionAnchorOutcomeRow[]> {
+    if (anchorIds.length === 0) return [];
+    return this.db.select().from(courseSectionAnchorOutcomes)
+      .where(inArray(courseSectionAnchorOutcomes.anchorId, anchorIds))
+      .orderBy(asc(courseSectionAnchorOutcomes.position), asc(courseSectionAnchorOutcomes.createdAt));
   }
   /**
    * Lấy section theo id.

@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { question, questionBankEntries } from '../questions/schema';
-import { curricula, curriculumNodes, learningOutcomes, questionLearningOutcomes, subjects } from './schema';
+import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from './schema';
 
 export type SubjectRow = typeof subjects.$inferSelect;
 export type CurriculumRow = typeof curricula.$inferSelect;
 export type CurriculumNodeRow = typeof curriculumNodes.$inferSelect;
 export type LearningOutcomeRow = typeof learningOutcomes.$inferSelect;
+export type ProgramRecordRow = typeof curriculumProgramRecords.$inferSelect;
+
+/** Transaction Drizzle đang mở (mẫu của CoursesRepository). */
+export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**
@@ -19,11 +23,18 @@ export type LearningOutcomeRow = typeof learningOutcomes.$inferSelect;
 export class CurriculumRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
+  /** Handle DB gốc — tầng service mở transaction khi cần ghi nguyên tử nhiều bảng (nạp dataset). */
+  get dbHandle(): Database { return this.db; }
+
   // --- subjects -------------------------------------------------------------
 
   /** Chèn môn học. */
-  async insertSubject(v: typeof subjects.$inferInsert): Promise<SubjectRow> {
-    const [row] = await this.db.insert(subjects).values(v).returning(); return row!;
+  async insertSubject(v: typeof subjects.$inferInsert, tx?: DbTx): Promise<SubjectRow> {
+    const [row] = await (tx ?? this.db).insert(subjects).values(v).returning(); return row!;
+  }
+  /** Lấy môn học theo slug (định danh đường dẫn duy nhất toàn hệ). */
+  async getSubjectBySlug(slug: string): Promise<SubjectRow | undefined> {
+    const [row] = await this.db.select().from(subjects).where(eq(subjects.slug, slug)); return row;
   }
   /** Lấy môn học theo id. */
   async getSubject(id: string): Promise<SubjectRow | undefined> {
@@ -46,8 +57,8 @@ export class CurriculumRepository {
   // --- curricula --------------------------------------------------------------
 
   /** Chèn chương trình (môn + khối). */
-  async insertCurriculum(v: typeof curricula.$inferInsert): Promise<CurriculumRow> {
-    const [row] = await this.db.insert(curricula).values(v).returning(); return row!;
+  async insertCurriculum(v: typeof curricula.$inferInsert, tx?: DbTx): Promise<CurriculumRow> {
+    const [row] = await (tx ?? this.db).insert(curricula).values(v).returning(); return row!;
   }
   /** Lấy chương trình theo id. */
   async getCurriculum(id: string): Promise<CurriculumRow | undefined> {
@@ -70,8 +81,8 @@ export class CurriculumRepository {
   // --- nodes ------------------------------------------------------------------
 
   /** Chèn node nội dung. */
-  async insertNode(v: typeof curriculumNodes.$inferInsert): Promise<CurriculumNodeRow> {
-    const [row] = await this.db.insert(curriculumNodes).values(v).returning(); return row!;
+  async insertNode(v: typeof curriculumNodes.$inferInsert, tx?: DbTx): Promise<CurriculumNodeRow> {
+    const [row] = await (tx ?? this.db).insert(curriculumNodes).values(v).returning(); return row!;
   }
   /** Lấy node theo id. */
   async getNode(id: string): Promise<CurriculumNodeRow | undefined> {
@@ -83,19 +94,23 @@ export class CurriculumRepository {
       .orderBy(asc(curriculumNodes.position), asc(curriculumNodes.createdAt));
   }
   /** Sửa node. */
-  async updateNode(id: string, v: Partial<typeof curriculumNodes.$inferInsert>): Promise<void> {
-    await this.db.update(curriculumNodes).set({ ...v, updatedAt: new Date() }).where(eq(curriculumNodes.id, id));
+  async updateNode(id: string, v: Partial<typeof curriculumNodes.$inferInsert>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(curriculumNodes).set({ ...v, updatedAt: new Date() }).where(eq(curriculumNodes.id, id));
   }
   /** Xoá node; node con và outcomes bị xoá theo cascade. */
-  async deleteNode(id: string): Promise<void> {
-    await this.db.delete(curriculumNodes).where(eq(curriculumNodes.id, id));
+  async deleteNode(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(curriculumNodes).where(eq(curriculumNodes.id, id));
   }
 
   // --- outcomes -----------------------------------------------------------------
 
   /** Chèn yêu cầu cần đạt. */
-  async insertOutcome(v: typeof learningOutcomes.$inferInsert): Promise<LearningOutcomeRow> {
-    const [row] = await this.db.insert(learningOutcomes).values(v).returning(); return row!;
+  async insertOutcome(v: typeof learningOutcomes.$inferInsert, tx?: DbTx): Promise<LearningOutcomeRow> {
+    const [row] = await (tx ?? this.db).insert(learningOutcomes).values(v).returning(); return row!;
+  }
+  /** Xoá toàn bộ yêu cầu cần đạt của một node (dùng khi nạp lại một bản ghi đã đính chính: thay cả bộ YCCĐ). */
+  async deleteOutcomesForNode(nodeId: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(learningOutcomes).where(eq(learningOutcomes.nodeId, nodeId));
   }
   /** Lấy yêu cầu cần đạt theo id. */
   async getOutcome(id: string): Promise<LearningOutcomeRow | undefined> {
@@ -139,5 +154,29 @@ export class CurriculumRepository {
   /** Xoá yêu cầu cần đạt. */
   async deleteOutcome(id: string): Promise<void> {
     await this.db.delete(learningOutcomes).where(eq(learningOutcomes.id, id));
+  }
+
+  // --- sổ đăng ký nạp dữ liệu chuẩn (K0a) --------------------------------
+
+  /** Tra một bản ghi đã nạp theo định danh ổn định (dataset, mã bản ghi). */
+  async getProgramRecord(datasetKey: string, recordId: string): Promise<ProgramRecordRow | undefined> {
+    const [row] = await this.db.select().from(curriculumProgramRecords)
+      .where(and(eq(curriculumProgramRecords.datasetKey, datasetKey), eq(curriculumProgramRecords.recordId, recordId)));
+    return row;
+  }
+  /** Toàn bộ dòng sổ của một dataset (phục vụ trạng thái nạp + đối chiếu). */
+  async listProgramRecords(datasetKey: string): Promise<ProgramRecordRow[]> {
+    return this.db.select().from(curriculumProgramRecords)
+      .where(eq(curriculumProgramRecords.datasetKey, datasetKey))
+      .orderBy(asc(curriculumProgramRecords.recordId));
+  }
+  /** Ghi một dòng sổ khi nạp mới một bản ghi. */
+  async insertProgramRecord(v: typeof curriculumProgramRecords.$inferInsert, tx?: DbTx): Promise<ProgramRecordRow> {
+    const [row] = await (tx ?? this.db).insert(curriculumProgramRecords).values(v).returning(); return row!;
+  }
+  /** Cập nhật một dòng sổ khi bản ghi được nạp lại sau đính chính nguồn. */
+  async updateProgramRecord(id: string, v: Partial<typeof curriculumProgramRecords.$inferInsert>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(curriculumProgramRecords).set({ ...v, updatedAt: new Date() })
+      .where(eq(curriculumProgramRecords.id, id));
   }
 }

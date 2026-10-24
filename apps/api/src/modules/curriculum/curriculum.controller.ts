@@ -3,10 +3,13 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CurriculumService } from './curriculum.service';
+import { ProgramImportService } from './program-import.service';
 import {
   createCurriculumNodeSchema, createCurriculumSchema, createLearningOutcomeSchema, createSubjectSchema,
+  importProgramDatasetSchema,
   updateCurriculumNodeSchema, updateCurriculumSchema, updateLearningOutcomeSchema, updateSubjectSchema,
   type CreateCurriculumDto, type CreateCurriculumNodeDto, type CreateLearningOutcomeDto, type CreateSubjectDto,
+  type ImportProgramDatasetDto,
   type UpdateCurriculumDto, type UpdateCurriculumNodeDto, type UpdateLearningOutcomeDto, type UpdateSubjectDto,
 } from './dto/curriculum.dto';
 
@@ -19,7 +22,23 @@ import {
  * context của môn học (qua PermissionEvaluator, trong service).
  */
 export class CurriculumController {
-  constructor(private readonly curriculum: CurriculumService) {}
+  constructor(
+    private readonly curriculum: CurriculumService,
+    private readonly programImport: ProgramImportService,
+  ) {}
+
+  // --- nạp dữ liệu chương trình chuẩn (K0a) -------------------------------------
+
+  @Get('program-import')
+  /** GET /curriculum/program-import — trạng thái nạp của từng dataset đã kiểm chứng. */
+  async listProgramImportStatus(@CurrentUser() actor: AuthenticatedUser) {
+    return this.programImport.listDatasetStatus(actor.id);
+  }
+  @Post('program-import')
+  /** POST /curriculum/program-import — nạp/nạp lại một dataset vào cây chương trình (idempotent theo sổ đăng ký). */
+  async importProgramDataset(@Body({ schema: importProgramDatasetSchema }) dto: ImportProgramDatasetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.programImport.importDataset(actor.id, dto.datasetKey);
+  }
 
   // --- subjects ---------------------------------------------------------------
 

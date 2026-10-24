@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "5830b818-49e0-49d2-9f04-e5f7f7472458",
+  "id": "561b8fbe-f8c4-474c-a2cb-063d06866521",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -593,6 +593,45 @@
         "n|rel|public.course_modules",
         "n|type|public.course_modules",
         "n|rel|public.course_modules_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchor_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.course_section_anchor_outcomes",
+        "n|tbl|public.course_section_anchor_outcomes",
+        "e|tbl|public.course_section_anchor_outcomes",
+        "n|rel|public.course_section_anchor_outcomes",
+        "n|type|public.course_section_anchor_outcomes",
+        "n|rel|public.course_section_anchor_outcomes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchors"
+      ],
+      "writes": [
+        "s|tbl|public.course_section_anchors",
+        "n|tbl|public.course_section_anchors",
+        "e|tbl|public.course_section_anchors",
+        "n|rel|public.course_section_anchors",
+        "n|type|public.course_section_anchors",
+        "n|rel|public.course_section_anchors_pkey",
+        "n|rel|public.course_section_anchors_section_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -1379,6 +1418,26 @@
         "n|type|public.curriculum_nodes",
         "n|rel|public.curriculum_nodes_pkey",
         "n|rel|public.curriculum_nodes_curriculum_id_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_program_records"
+      ],
+      "writes": [
+        "s|tbl|public.curriculum_program_records",
+        "n|tbl|public.curriculum_program_records",
+        "e|tbl|public.curriculum_program_records",
+        "n|rel|public.curriculum_program_records",
+        "n|type|public.curriculum_program_records",
+        "n|rel|public.curriculum_program_records_pkey",
+        "n|rel|public.curriculum_program_records_dataset_record_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -2997,6 +3056,26 @@
       "statementTarget": [
         "index",
         "public",
+        "course",
+        "course_subject_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_subject_id_idx",
+        "n|idx|public.course_subject_id_idx",
+        "e|idx|public.course_subject_id_idx",
+        "n|rel|public.course_subject_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.course.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "course_categories",
         "course_categories_parent_idx"
       ],
@@ -3090,6 +3169,87 @@
         "n|tbl|public.course_modules",
         "n|sch|public",
         "n|col|public.course_modules.section"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_anchor_outcomes",
+        "course_section_anchor_outcomes_anchor_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_anchor_outcomes_anchor_idx",
+        "n|idx|public.course_section_anchor_outcomes_anchor_idx",
+        "e|idx|public.course_section_anchor_outcomes_anchor_idx",
+        "n|rel|public.course_section_anchor_outcomes_anchor_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchor_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_anchor_outcomes.anchor_id",
+        "n|col|public.course_section_anchor_outcomes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_anchor_outcomes",
+        "course_section_anchor_outcomes_outcome_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_anchor_outcomes_outcome_id_idx",
+        "n|idx|public.course_section_anchor_outcomes_outcome_id_idx",
+        "e|idx|public.course_section_anchor_outcomes_outcome_id_idx",
+        "n|rel|public.course_section_anchor_outcomes_outcome_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchor_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_anchor_outcomes.outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_anchors",
+        "course_section_anchors_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_anchors_node_id_idx",
+        "n|idx|public.course_section_anchors_node_id_idx",
+        "e|idx|public.course_section_anchors_node_id_idx",
+        "n|rel|public.course_section_anchors_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_anchors.node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_anchors",
+        "course_section_anchors_curriculum_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_anchors_curriculum_id_idx",
+        "n|idx|public.course_section_anchors_curriculum_id_idx",
+        "e|idx|public.course_section_anchors_curriculum_id_idx",
+        "n|rel|public.course_section_anchors_curriculum_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_anchors.curriculum_id"
       ]
     },
     {
@@ -3309,27 +3469,6 @@
       "reads": [
         "n|tbl|public.user_enrolments",
         "n|sch|public",
-        "n|col|public.user_enrolments.user_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "user_enrolments",
-        "user_enrolments_enrol_id_user_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.user_enrolments_enrol_id_user_id_idx",
-        "n|idx|public.user_enrolments_enrol_id_user_id_idx",
-        "e|idx|public.user_enrolments_enrol_id_user_id_idx",
-        "n|rel|public.user_enrolments_enrol_id_user_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.user_enrolments",
-        "n|sch|public",
-        "n|col|public.user_enrolments.enrol_id",
         "n|col|public.user_enrolments.user_id"
       ]
     },
@@ -4333,6 +4472,66 @@
         "n|col|public.curriculum_nodes.curriculum_id",
         "n|col|public.curriculum_nodes.parent_id",
         "n|col|public.curriculum_nodes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curriculum_program_records",
+        "curriculum_program_records_subject_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.curriculum_program_records_subject_id_idx",
+        "n|idx|public.curriculum_program_records_subject_id_idx",
+        "e|idx|public.curriculum_program_records_subject_id_idx",
+        "n|rel|public.curriculum_program_records_subject_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curriculum_program_records",
+        "curriculum_program_records_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.curriculum_program_records_node_id_idx",
+        "n|idx|public.curriculum_program_records_node_id_idx",
+        "e|idx|public.curriculum_program_records_node_id_idx",
+        "n|rel|public.curriculum_program_records_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curriculum_program_records",
+        "curriculum_program_records_curriculum_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.curriculum_program_records_curriculum_id_idx",
+        "n|idx|public.curriculum_program_records_curriculum_id_idx",
+        "e|idx|public.curriculum_program_records_curriculum_id_idx",
+        "n|rel|public.curriculum_program_records_curriculum_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.curriculum_id"
       ]
     },
     {
@@ -7048,6 +7247,29 @@
       "statementTarget": [
         "table",
         "public",
+        "course"
+      ],
+      "writes": [
+        "s|fk|public.course.course_subject_id_subjects_id_fkey",
+        "n|fk|public.course.course_subject_id_subjects_id_fkey",
+        "e|fk|public.course.course_subject_id_subjects_id_fkey",
+        "n|con|public.course.course_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.course.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "course_format_options"
       ],
       "writes": [
@@ -7110,6 +7332,121 @@
         "n|col|public.course_modules.section",
         "n|col|public.course_sections.id",
         "e|uniqueness|public.course_sections.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchor_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_XIdfo0CZfh3M_fkey",
+        "n|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_XIdfo0CZfh3M_fkey",
+        "e|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_XIdfo0CZfh3M_fkey",
+        "n|con|public.course_section_anchor_outcomes.course_section_anchor_outcomes_XIdfo0CZfh3M_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchor_outcomes",
+        "n|sch|public",
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_anchor_outcomes.anchor_id",
+        "n|col|public.course_section_anchors.id",
+        "e|uniqueness|public.course_section_anchors.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchor_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_sjLzNL8BlDa3_fkey",
+        "n|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_sjLzNL8BlDa3_fkey",
+        "e|fk|public.course_section_anchor_outcomes.course_section_anchor_outcomes_sjLzNL8BlDa3_fkey",
+        "n|con|public.course_section_anchor_outcomes.course_section_anchor_outcomes_sjLzNL8BlDa3_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchor_outcomes",
+        "n|sch|public",
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_anchor_outcomes.outcome_id",
+        "n|col|public.learning_outcomes.id",
+        "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_anchors.course_section_anchors_section_id_course_sections_id_fkey",
+        "n|fk|public.course_section_anchors.course_section_anchors_section_id_course_sections_id_fkey",
+        "e|fk|public.course_section_anchors.course_section_anchors_section_id_course_sections_id_fkey",
+        "n|con|public.course_section_anchors.course_section_anchors_section_id_course_sections_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|tbl|public.course_sections",
+        "n|sch|public",
+        "n|col|public.course_section_anchors.section_id",
+        "n|col|public.course_sections.id",
+        "e|uniqueness|public.course_sections.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_anchors.course_section_anchors_node_id_curriculum_nodes_id_fkey",
+        "n|fk|public.course_section_anchors.course_section_anchors_node_id_curriculum_nodes_id_fkey",
+        "e|fk|public.course_section_anchors.course_section_anchors_node_id_curriculum_nodes_id_fkey",
+        "n|con|public.course_section_anchors.course_section_anchors_node_id_curriculum_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.course_section_anchors.node_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_anchors.course_section_anchors_curriculum_id_curricula_id_fkey",
+        "n|fk|public.course_section_anchors.course_section_anchors_curriculum_id_curricula_id_fkey",
+        "e|fk|public.course_section_anchors.course_section_anchors_curriculum_id_curricula_id_fkey",
+        "n|con|public.course_section_anchors.course_section_anchors_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_anchors",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.course_section_anchors.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
       ]
     },
     {
@@ -8315,6 +8652,75 @@
       "statementTarget": [
         "table",
         "public",
+        "curriculum_program_records"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_program_records.curriculum_program_records_subject_id_subjects_id_fkey",
+        "n|fk|public.curriculum_program_records.curriculum_program_records_subject_id_subjects_id_fkey",
+        "e|fk|public.curriculum_program_records.curriculum_program_records_subject_id_subjects_id_fkey",
+        "n|con|public.curriculum_program_records.curriculum_program_records_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_program_records"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_program_records.curriculum_program_records_curriculum_id_curricula_id_fkey",
+        "n|fk|public.curriculum_program_records.curriculum_program_records_curriculum_id_curricula_id_fkey",
+        "e|fk|public.curriculum_program_records.curriculum_program_records_curriculum_id_curricula_id_fkey",
+        "n|con|public.curriculum_program_records.curriculum_program_records_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_program_records"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_program_records.curriculum_program_records_node_id_curriculum_nodes_id_fkey",
+        "n|fk|public.curriculum_program_records.curriculum_program_records_node_id_curriculum_nodes_id_fkey",
+        "e|fk|public.curriculum_program_records.curriculum_program_records_node_id_curriculum_nodes_id_fkey",
+        "n|con|public.curriculum_program_records.curriculum_program_records_node_id_curriculum_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_program_records",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.curriculum_program_records.node_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "learning_outcomes"
       ],
       "writes": [
@@ -9322,6 +9728,18 @@
     },
     {
       "schema": "public",
+      "name": "course_section_anchor_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "course_section_anchors",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "course_sections",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -9557,6 +9975,12 @@
     {
       "schema": "public",
       "name": "curriculum_nodes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "curriculum_program_records",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -12652,6 +13076,32 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
+      "name": "grade",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "sort_order",
       "type": "integer",
       "typeSchema": null,
@@ -13095,6 +13545,162 @@
       "schema": "public",
       "table": "course_modules",
       "name": "added",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "anchor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "content",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "section_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "node_title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -17683,6 +18289,136 @@
     {
       "schema": "public",
       "table": "curriculum_nodes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "dataset_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "record_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "content_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "source",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -24418,6 +25154,27 @@
     },
     {
       "schema": "public",
+      "table": "course",
+      "name": "course_subject_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "course_categories",
       "name": "course_categories_parent_idx",
       "nameExplicit": true,
@@ -24508,6 +25265,97 @@
       "columns": [
         {
           "value": "section",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_anchor_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "anchor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_outcome_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_curriculum_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -24737,34 +25585,6 @@
       "name": "user_enrolments_user_id_idx",
       "nameExplicit": true,
       "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "user_enrolments",
-      "name": "user_enrolments_enrol_id_user_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "enrol_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
         {
           "value": "user_id",
           "isExpression": false,
@@ -25831,6 +26651,69 @@
         },
         {
           "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_subject_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_curriculum_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -28600,6 +29483,23 @@
     },
     {
       "schema": "public",
+      "table": "course",
+      "name": "course_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "course_format_options",
       "name": "course_format_options_course_id_course_id_fkey",
       "nameExplicit": false,
@@ -28647,6 +29547,91 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_XIdfo0CZfh3M_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "anchor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_section_anchors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_sjLzNL8BlDa3_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "outcome_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_section_id_course_sections_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "section_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_sections",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_node_id_curriculum_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curriculum_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
       "entityType": "fks"
     },
     {
@@ -29529,6 +30514,57 @@
       "tableTo": "curriculum_nodes",
       "columnsTo": [
         "curriculum_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_node_id_curriculum_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curriculum_nodes",
+      "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
@@ -30515,6 +31551,26 @@
     },
     {
       "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "course_sections",
       "name": "course_sections_pkey",
       "columns": [
@@ -30887,6 +31943,16 @@
       "schema": "public",
       "table": "curriculum_nodes",
       "name": "curriculum_nodes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_pkey",
       "columns": [
         "id"
       ],
@@ -31559,6 +32625,17 @@
     },
     {
       "schema": "public",
+      "table": "course_section_anchors",
+      "name": "course_section_anchors_section_unique",
+      "nameExplicit": true,
+      "columns": [
+        "section_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "course_sections",
       "name": "course_sections_course_section_unique",
       "nameExplicit": true,
@@ -31864,6 +32941,18 @@
       "columns": [
         "curriculum_id",
         "id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_program_records",
+      "name": "curriculum_program_records_dataset_record_unique",
+      "nameExplicit": true,
+      "columns": [
+        "dataset_key",
+        "record_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
@@ -32327,6 +33416,20 @@
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "course",
+      "name": "course_grade_check",
+      "value": "\"grade\" is null or (\"grade\" between 1 and 12)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_anchor_outcomes",
+      "name": "course_section_anchor_outcomes_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
     },
     {
       "schema": "public",

@@ -154,6 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             icon: IconSettings,
             children: [
               { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
+              { title: t('app:navCurriculum'), url: '/admin/curriculum', icon: IconNotebook },
               { title: t('app:navReports'), url: '/reports', icon: IconReport },
               { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
               { title: t('app:navContentBank'), url: '/contentbank', icon: IconDatabase },
