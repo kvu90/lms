@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLoaderData } from 'react-router';
 import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
+import { healthStatusSchema } from '@lms/contracts';
 import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
+import { fetchApiJson } from '#lib/server-api';
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; health: HealthStatus };
 
-export function HealthPage() {
+/**
+ * Loader phía server (SSR, Giai đoạn 3 của issue #7): trạng thái hệ
+ * thống là dữ liệu công khai (endpoint @Public) nên lấy ngay trong
+ * loader qua API nội bộ — HTML trả về đã chứa kết quả kiểm tra thay vì
+ * khung giữ chỗ. API không với tới được → trả null, trang rơi về luồng
+ * fetch phía client như trước.
+ */
+export async function loader(): Promise<{ health: HealthStatus | null }> {
+  const body = await fetchApiJson('/api/v1/health');
+  const parsed = healthStatusSchema.safeParse(body);
+  return { health: parsed.success ? parsed.data : null };
+}
+
+export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | null } = {}) {
   const { t } = useTranslation('app');
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  const [state, setState] = useState<State>(() =>
+    initialHealth ? { kind: 'ready', health: initialHealth } : { kind: 'loading' },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -80,5 +98,13 @@ export function HealthPage() {
   );
 }
 
-/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default HealthPage;
+/**
+ * Export mặc định cho route module React Router framework mode (xem
+ * src/routes.ts): bọc mỏng đọc dữ liệu loader rồi truyền xuống
+ * HealthPage thuần — test render trực tiếp HealthPage vẫn chạy như
+ * trước.
+ */
+export default function HealthRoute() {
+  const loaderData = useLoaderData<typeof loader>();
+  return <HealthPage initialHealth={loaderData?.health ?? null} />;
+}
