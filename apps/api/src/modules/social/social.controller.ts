@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { BlogMigrationService } from './blog-migration.service';
 import { BlogService } from './blog.service';
 import { CommentsService } from './comments.service';
 import { NotesService } from './notes.service';
@@ -89,10 +90,37 @@ export class RatingsController {
  * API blog: bài viết và liên kết với khoá học/module.
  */
 export class BlogController {
-  constructor(private readonly blog: BlogService) {}
+  constructor(
+    private readonly blog: BlogService,
+    private readonly migration: BlogMigrationService,
+  ) {}
   @Post('posts')
   async create(@Body({ schema: createBlogPostSchema }) dto: CreatePostDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.blog.createPost(actor.id, dto);
+  }
+  @Get('feed')
+  async feed(@Query('spaceType') spaceType: string | undefined, @Query('spaceId') spaceId: string | undefined,
+    @Query('authorId') authorId: string | undefined, @Query('kind') kind: string | undefined,
+    @Query('status') status: string | undefined, @Query('tag') tag: string | undefined,
+    @Query('cursor') cursor: string | undefined, @Query('limit') limit: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser) {
+    // Feed theo space (BL1): phân trang con trỏ + lọc kind/tag/status;
+    // audience lọc theo viewer ở service.
+    return this.blog.feed(actor.id, {
+      spaceType: spaceType || undefined,
+      spaceId: spaceId || undefined,
+      authorId: authorId || undefined,
+      kind: kind || undefined,
+      status: status || undefined,
+      tag: tag || undefined,
+      cursor: cursor || undefined,
+      limit: limit ? Number.parseInt(limit, 10) || undefined : undefined,
+    });
+  }
+  @Post('migrations/space-model')
+  async runSpaceMigration(@CurrentUser() actor: AuthenticatedUser) {
+    // Backfill di trú dữ liệu cũ sang mô hình space (BL1) — site admin.
+    return this.migration.runAsAdmin(actor.id);
   }
   @Get('posts')
   async list(@Query('userId') userId: string | undefined, @Query('courseId') courseId: string | undefined,
