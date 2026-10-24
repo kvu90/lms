@@ -75,9 +75,18 @@ jobs:
       - name: Test api-3c1 unread-stream
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts
-      - name: Test api-3c2 center-v2
+      - name: Test api-3c2a center-v2 test1 gop-30
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts
+        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "30 thông báo điểm"
+      - name: Test api-3c2b center-v2 test2 loc-nhom
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "lọc theo 3 nhóm"
+      - name: Test api-3c2c center-v2 test3 phan-trang
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "phân trang con trỏ của danh sách gộp"
+      - name: Test api-3c2d center-v2 test4 xoa-muc
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "xoá từng mục"
       - name: Test api-3c3 providers
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notifications-providers-flow.e2e-spec.ts
