@@ -55,5 +55,23 @@ jobs:
         run: pnpm exec turbo run build
       - name: Typecheck
         run: pnpm exec turbo run typecheck
-      - name: Test
-        run: pnpm exec turbo run test
+      # PROBE CHẨN ĐOÁN (chỉ cho PR thăm dò, không áp cho PR thật): tách
+      # bước Test thành nhiều bước con để đọc kết luận từng nhóm qua API.
+      - name: Test api-0 unit src
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run src
+      - name: Test api-1 access..cohort
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/access-capability.e2e-spec.ts test/access-seed-prune.e2e-spec.ts test/app.e2e-spec.ts test/auth-flow.e2e-spec.ts test/auth-social-sessions-flow.e2e-spec.ts test/availability-completion-flow.e2e-spec.ts test/badges-competency-flow.e2e-spec.ts test/behat-retro-flow.e2e-spec.ts test/better-auth-disabled.e2e-spec.ts test/better-auth-flow.e2e-spec.ts test/blog-read-gate.e2e-spec.ts test/client-ip-flow.e2e-spec.ts test/cohort-members-gate.e2e-spec.ts
+      - name: Test api-2 completion..grades
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/completion-criteria-full-flow.e2e-spec.ts test/courses-flow.e2e-spec.ts test/curriculum-flow.e2e-spec.ts test/curriculum-frame-apply-flow.e2e-spec.ts test/curriculum-frame-course-teacher-flow.e2e-spec.ts test/curriculum-program-import-flow.e2e-spec.ts test/curriculum-question-links-flow.e2e-spec.ts test/custom-fields-flow.e2e-spec.ts test/enrol-groups-flow.e2e-spec.ts test/enrolments-list-gate.e2e-spec.ts test/event-log-flow.e2e-spec.ts test/files-flow.e2e-spec.ts test/grades-export-import-flow.e2e-spec.ts test/grades-questions-flow.e2e-spec.ts test/grades-vnedu-export-flow.e2e-spec.ts
+      - name: Test api-3 messaging+notifications
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/messaging-block-visibility.e2e-spec.ts test/messaging-calendar-flow.e2e-spec.ts test/messaging-domain-flow.e2e-spec.ts test/messaging-presence-flow.e2e-spec.ts test/messaging-realtime-flow.e2e-spec.ts test/messaging-roster-flow.e2e-spec.ts test/notification-unread-stream-flow.e2e-spec.ts test/notifications-center-v2-flow.e2e-spec.ts test/notifications-providers-flow.e2e-spec.ts
+      - name: Test api-4 openapi..uuidv7
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/openapi-document.e2e-spec.ts test/platform-backup-payments-privacy-flow.e2e-spec.ts test/platform-hardening.e2e-spec.ts test/platform-i18n-flow.e2e-spec.ts test/platform-search-webservice-flow.e2e-spec.ts test/platform-user-journeys-flow.e2e-spec.ts test/question-bank-read-gate.e2e-spec.ts test/question-types-stimulus-flow.e2e-spec.ts test/question-usage-owner-gate.e2e-spec.ts test/quiz-flow.e2e-spec.ts test/site-config-flow.e2e-spec.ts test/social-flow.e2e-spec.ts test/users-flow.e2e-spec.ts test/uuidv7-primary-keys-flow.e2e-spec.ts
+      - name: Test rest (worker/web/contracts/editor/config/ui)
+        if: always()
+        run: pnpm exec turbo run test --filter=@lms/worker --filter=@lms/web --filter=@lms/contracts --filter=@lms/editor --filter=@lms/config --filter=@lms/ui
