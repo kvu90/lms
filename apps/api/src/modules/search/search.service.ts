@@ -96,20 +96,20 @@ export class SearchService {
       },
       listIds: async () => (await db.select().from(contentBankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
     });
-    // Area: blog — bài public (site) thuộc user context của tác giả.
-    // Audience của bài (thu hẹp theo khoá liên kết) KHÔNG nằm trong
+    // Area: blog — bài đã published (mô hình BL1 thay publishState hai
+    // mức bằng status). Audience của bài (theo space) KHÔNG nằm trong
     // capability tại context — search phải re-check bằng chính cổng
     // BlogService.canView theo từng người tìm (issue #48).
     this.registerArea({
       name: 'blog',
       fetch: async (itemId) => {
         const [p] = await db.select().from(blogPosts).where(eq(blogPosts.id, itemId));
-        if (!p || p.publishState !== 'site') return null;
+        if (!p || p.status !== 'published') return null;
         const ctx = await this.contexts.getByLevelInstance(30, p.userId);
         const sys = ctx ?? (await this.contexts.ensureSystemContext());
         return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextId: sys.id, ownerId: p.userId };
       },
-      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.publishState === 'site').map((r) => r.id),
+      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.status === 'published').map((r) => r.id),
       audienceCheck: async (itemId, userId) => {
         const post = await this.blog.getPost(itemId).catch(() => null);
         if (!post) return false;

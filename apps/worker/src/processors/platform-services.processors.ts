@@ -169,7 +169,7 @@ export class SearchReindexProcessor extends WorkerHost {
     }
     const posts = await this.db.select().from(blogPosts);
     for (const p of posts) {
-      if (p.publishState !== 'site') continue;
+      if (p.status !== 'published') continue;
       const ctx = ctxFor(30, p.userId) ?? contexts.find((c) => c.contextLevel === 10);
       if (!ctx) continue;
       await this.db.insert(searchDocuments).values({ area: 'blog', itemId: p.id, contextId: ctx.id, title: p.subject, content: `${p.subject} ${p.content}`, ownerId: p.userId })

@@ -3,6 +3,7 @@ import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
 import { EnrolModule } from '../enrol/enrol.module';
 import { GradesModule } from '../grades/grades.module';
+import { BlogMigrationService } from './blog-migration.service';
 import { BlogService } from './blog.service';
 import { CommentsService } from './comments.service';
 import { NotesService } from './notes.service';
@@ -20,8 +21,8 @@ import { TagsService } from './tags.service';
 @Module({
   imports: [AccessModule, CoursesModule, EnrolModule, GradesModule],
   controllers: [TagsController, CommentsController, RatingsController, BlogController, NotesController],
-  providers: [SocialRepository, TagsService, CommentsService, RatingsService, BlogService, NotesService],
-  exports: [TagsService, CommentsService, RatingsService, BlogService, NotesService],
+  providers: [SocialRepository, TagsService, CommentsService, RatingsService, BlogService, BlogMigrationService, NotesService],
+  exports: [TagsService, CommentsService, RatingsService, BlogService, BlogMigrationService, NotesService],
 })
 /** Module xã hội: tag, bình luận, đánh giá, blog, ghi chú. */
 export class SocialModule {}

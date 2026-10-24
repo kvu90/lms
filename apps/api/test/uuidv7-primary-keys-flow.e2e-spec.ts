@@ -57,7 +57,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
-    // 148 bảng nghiệp vụ: 109 trước đây + session, account, verification,
+    // 150 bảng nghiệp vụ: 109 trước đây + session, account, verification,
     // two_factor (đợt Better Auth giai đoạn 1, issue #7) + subjects,
     // curricula, curriculum_nodes, learning_outcomes (đợt GDPT 2018, issue #20)
     // + course_completion_crit_compl (đợt đủ 8 loại tiêu chí completion, issue #23)
@@ -77,10 +77,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // assign_rubric_levels, assign_rubric_evaluations,
     // assign_grade_revisions, assign_feedback_messages, teacher_comment_bank
     // + pages, resources, course_last_access, course_module_progress,
-    // learning_records (đợt K2 player + tiến độ học, issue #85).
-    // (Đếm lại trên baseline hợp nhất sau rebase lên main 787ffac:
-    // 156 bảng tổng, 148 bảng có PK mặc định uuidv7().)
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(148);
+    // learning_records (đợt K2 player + tiến độ học, issue #85)
+    // + blog_post_placements, blog_post_references (đợt BL1 mô hình
+    // space/status blog, issue #87).
+    // (Đếm lại trên baseline hợp nhất sau rebase lên main b120956:
+    // 158 bảng tổng, 150 bảng có PK mặc định uuidv7().)
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(150);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -95,7 +97,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(148);
+    expect(defaults.rows.length).toBe(150);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

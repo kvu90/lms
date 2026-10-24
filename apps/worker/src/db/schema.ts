@@ -768,6 +768,8 @@ export const blogPosts = pgTable('blog_posts', {
   summary: text('summary').notNull().default(''),
   content: text('content').notNull().default(''),
   publishState: text('publish_state').notNull().default('draft'),
+  // BL1: vòng đời tách khỏi audience — worker chỉ cần status để index.
+  status: text('status').notNull().default('draft'),
 },
   (table) => [
       index('blog_posts_user_id_idx').on(table.userId),

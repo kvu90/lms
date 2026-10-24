@@ -180,7 +180,7 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     void ctxId;
   });
 
-  it('blog: drafts are author-only; public posts are site-visible; course association narrows the audience to course members (blog lib_test filters)', async () => {
+  it('blog: drafts are author-only; public posts are site-visible; a course-space post is visible to course members only (blog lib_test filters)', async () => {
     const { course, student, studentToken } = await courseWithStudent();
     const draft = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
       .send({ subject: 'Draft thoughts', content: 'secret', publishState: 'draft' });
@@ -194,16 +194,20 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     expect(subjects).toContain('Public post');
     expect(subjects).not.toContain('Draft thoughts');
 
-    // Associate the public post with the course: now only course members see it in the course filter,
-    // and the outsider loses it from the author's listing rule (association narrows audience).
-    const assoc = await http(app).post(`/api/v1/blog/posts/${pub.body.id}/associations`).set('Authorization', `Bearer ${studentToken}`)
-      .send({ assocType: 'course', assocId: course.id });
-    expect(assoc.status).toBe(201);
+    // Từ BL1 (issue #87) audience do SPACE của bài quyết định (association
+    // cũ chỉ còn là liên kết hiển thị): bài đăng thẳng vào space khoá thì
+    // chỉ thành viên khoá thấy — trong bộ lọc khoá lẫn danh sách tác giả.
+    const coursePost = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
+      .send({ subject: 'Course post', content: 'for the class', spaceType: 'course', spaceId: course.id, status: 'published' });
+    expect(coursePost.status).toBe(201);
     const courseList = await http(app).get('/api/v1/blog/posts').query({ courseId: course.id }).set('Authorization', `Bearer ${studentToken}`);
-    expect((courseList.body as { subject: string }[]).map((p) => p.subject)).toContain('Public post');
+    expect((courseList.body as { subject: string }[]).map((p) => p.subject)).toContain('Course post');
     const otherCourseList = await http(app).get('/api/v1/blog/posts').query({ courseId: course.id }).set('Authorization', `Bearer ${otherToken}`);
-    expect((otherCourseList.body as { subject: string }[]).map((p) => p.subject)).not.toContain('Public post');
+    expect((otherCourseList.body as { subject: string }[]).map((p) => p.subject)).not.toContain('Course post');
+    const otherAuthorList = await http(app).get('/api/v1/blog/posts').query({ userId: student.id }).set('Authorization', `Bearer ${otherToken}`);
+    expect((otherAuthorList.body as { subject: string }[]).map((p) => p.subject)).not.toContain('Course post');
     void draft;
+    void pub;
   });
 
   it('notes: draft is creator-only, course notes are visible to the course teacher (not fellow students, not the subject), site notes to system-level viewers', async () => {
