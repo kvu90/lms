@@ -44,6 +44,8 @@ export class EnrolService implements OnModuleInit {
   /** Probe registered by CompletionModule: does this user have completion data in this course? */
   /** Related-data probes (Completion, Grades, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
   private relatedDataProbes: ((courseId: string, userId: string) => Promise<boolean>)[] = [];
+  /** Unenrol hooks (CompletionModule: the Moodle 'unenrol' course criterion must be re-evaluated the moment a user leaves a course). */
+  private unenrolHooks: ((e: { courseId: string; userId: string; instanceId: string }) => Promise<void>)[] = [];
 
   constructor(
     private readonly repo: EnrolRepository,
@@ -69,6 +71,13 @@ export class EnrolService implements OnModuleInit {
    */
   registerRelatedDataProbe(probe: (courseId: string, userId: string) => Promise<boolean>): void {
     this.relatedDataProbes.push(probe);
+  }
+  /**
+   * Đăng ký hook chạy sau khi một user bị huỷ ghi danh khỏi khoá học
+   * (module khác cắm vào, cùng mẫu registerRelatedDataProbe).
+   */
+  registerUnenrolHook(fn: (e: { courseId: string; userId: string; instanceId: string }) => Promise<void>): void {
+    this.unenrolHooks.push(fn);
   }
   /**
    * User còn dữ liệu liên quan (điểm/bài nộp) trong khoá học hay không — quyết định rút hẳn hay chỉ đình chỉ khi rời cohort.
@@ -454,6 +463,11 @@ export class EnrolService implements OnModuleInit {
       for (const a of assignments as { id: string; roleId: string }[]) {
         if (a.roleId === instance.roleId) await this.roles.unassignRole(a.id);
       }
+    }
+    // Downstream hooks (completion 'unenrol' criterion re-evaluation). A
+    // failing hook must not fail the unenrol itself.
+    for (const hook of this.unenrolHooks) {
+      await hook({ courseId: instance.courseId, userId, instanceId: instance.id }).catch(() => undefined);
     }
     return { withdrawn: hasRelated };
   }

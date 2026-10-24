@@ -4,10 +4,12 @@ import { I18nService } from '@nestjs/i18n';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { Queue } from 'bullmq';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { RolesService } from '../access/roles.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { CoursesService } from '../courses/courses.service';
-import { EnrolService } from '../enrol/enrol.service';
+import { ENROL_WITHDRAWN, EnrolService } from '../enrol/enrol.service';
 import { CompletionRepository, type CourseCompletionRow } from './completion.repository';
 
 export const COMPLETION_INCOMPLETE = 0;
@@ -25,8 +27,16 @@ export const AGGREGATION_ANY = 2;
  *    completionExpected, completionUseGrade (declared; grade evaluation is
  *    the Grades hook — a cm requiring a grade cannot complete without one).
  *  - `cm_viewed` events (from CoursesService) drive completionView.
- *  - Course completion aggregates criteria (module completions + date)
+ *  - Course completion aggregates criteria — all 8 Moodle types: module,
+ *    date, grade, self, course (prerequisite), duration, role, unenrol —
  *    with the course method ALL(AND)/ANY(OR) into course_completions.
+ *    Manual types (self, role) are evidenced by course_completion_crit_compl
+ *    rows; the rest are evaluated from live data. Re-evaluation triggers:
+ *    cm events, grade refresh, self/role marks, unenrol (Enrol hook), a
+ *    prerequisite course flipping to complete (dependent reaggregation),
+ *    criteria changes and explicit/bulk recalculation (date/duration are
+ *    time-based and take effect on the next reaggregation, like Moodle's
+ *    cron-driven aggregation).
  *  - Changing criteria after data exists flags reaggregation and enqueues
  *    the worker's completion-recalculate job (controlled recalculation,
  *    report §2#9) — never a silent in-place rewrite.
@@ -90,6 +100,8 @@ export class CompletionService implements OnModuleInit {
     private readonly repo: CompletionRepository,
     private readonly courses: CoursesService,
     private readonly enrol: EnrolService,
+    private readonly roles: RolesService,
+    private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly availability: AvailabilityService,
     private readonly outbox: OutboxService,
@@ -115,6 +127,11 @@ export class CompletionService implements OnModuleInit {
     this.enrol.registerRelatedDataProbe(async (courseId, userId) => {
       const cms = await this.courses.listCms(courseId);
       return this.repo.hasAnyCmCompletion(userId, cms.map((c) => c.id));
+    });
+    // Unenrol trigger: leaving a course can itself complete it (Moodle
+    // 'unenrol' criterion), so re-evaluate that user right away.
+    this.enrol.registerUnenrolHook(async ({ courseId, userId }) => {
+      await this.reaggregateCourseCompletion(userId, courseId);
     });
   }
 
@@ -274,11 +291,18 @@ export class CompletionService implements OnModuleInit {
   // --- course completion ---------------------------------------------------------
 
   /**
-   * Đặt bộ tiêu chí hoàn thành khoá học (thay thế toàn bộ).
+   * Đặt bộ tiêu chí hoàn thành khoá học (thay thế toàn bộ). Đủ 8 loại của
+   * Moodle; tham số bắt buộc theo từng loại được kiểm tại đây (module →
+   * moduleInstance, date → date, course → courseInstance trỏ tới khoá khác
+   * có thật, duration → enrolPeriodDays, role → roleId có thật; self,
+   * grade, unenrol không tham số).
    */
   async setCriteria(actorId: string, courseId: string, input: {
     method?: number;
-    criteria: { criteriaType: string; moduleInstance?: string; date?: string }[];
+    criteria: {
+      criteriaType: string; moduleInstance?: string; date?: string;
+      courseInstance?: string; enrolPeriodDays?: number; roleId?: string;
+    }[];
   }): Promise<{ method: number; criteria: unknown[] }> {
     await this.courses.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
@@ -287,7 +311,7 @@ export class CompletionService implements OnModuleInit {
       throw new BadRequestException({ message: `Unknown aggregation method ${method}`, code: 'completion.bad_method' });
     }
     for (const c of input.criteria) {
-      if (!['module', 'date', 'grade'].includes(c.criteriaType)) {
+      if (!['module', 'date', 'grade', 'self', 'course', 'duration', 'role', 'unenrol'].includes(c.criteriaType)) {
         throw new BadRequestException({ message: `Unknown criteria type ${c.criteriaType}`, code: 'completion.bad_criteria_type' });
       }
       if (c.criteriaType === 'module' && !c.moduleInstance) {
@@ -295,6 +319,28 @@ export class CompletionService implements OnModuleInit {
       }
       if (c.criteriaType === 'date' && !c.date) {
         throw new BadRequestException({ message: 'Date criteria require a date', code: 'completion.criteria_date_required' });
+      }
+      if (c.criteriaType === 'course') {
+        if (!c.courseInstance) {
+          throw new BadRequestException({ message: 'Course criteria require courseInstance (the prerequisite course id)', code: 'completion.criteria_course_required' });
+        }
+        if (c.courseInstance === courseId) {
+          throw new BadRequestException({ message: 'A course cannot be its own completion prerequisite', code: 'completion.criteria_course_self_reference' });
+        }
+        await this.courses.getCourse(c.courseInstance).catch(() => {
+          throw new BadRequestException({ message: `Prerequisite course ${c.courseInstance} does not exist`, code: 'completion.criteria_course_not_found' });
+        });
+      }
+      if (c.criteriaType === 'duration' && (c.enrolPeriodDays === undefined || c.enrolPeriodDays === null)) {
+        throw new BadRequestException({ message: 'Duration criteria require enrolPeriodDays (days after enrolment)', code: 'completion.criteria_duration_required' });
+      }
+      if (c.criteriaType === 'role') {
+        if (!c.roleId) {
+          throw new BadRequestException({ message: 'Role criteria require roleId (the role allowed to mark completion)', code: 'completion.criteria_role_required' });
+        }
+        await this.roles.getRole(c.roleId).catch(() => {
+          throw new BadRequestException({ message: `Role ${c.roleId} does not exist`, code: 'completion.criteria_role_not_found' });
+        });
       }
     }
     const existing = await this.repo.listCriteria(courseId);
@@ -305,7 +351,11 @@ export class CompletionService implements OnModuleInit {
       await this.repo.insertCriteria({
         course: courseId, criteriaType: c.criteriaType,
         moduleInstance: c.moduleInstance ?? null,
-        date: c.date ? new Date(c.date) : null, sortOrder: sortOrder++,
+        date: c.date ? new Date(c.date) : null,
+        courseInstance: c.courseInstance ?? null,
+        enrolPeriodDays: c.enrolPeriodDays ?? null,
+        roleId: c.roleId ?? null,
+        sortOrder: sortOrder++,
       });
     }
     await this.repo.setSettings(courseId, method);
@@ -333,10 +383,26 @@ export class CompletionService implements OnModuleInit {
   /** Evaluate every criterion for a user. Returns per-criterion results + aggregate. */
   /**
    * Đánh giá bộ tiêu chí cho một user: đạt tất cả/bất kỳ theo cấu hình tổng hợp.
+   * Ngữ nghĩa từng loại theo Moodle: module = cm đã hoàn thành; date = đã tới
+   * ngày; grade = qua checker của Grades; self/role = có dấu crit_compl;
+   * course = bản ghi hoàn thành của khoá tiên quyết ở trạng thái complete;
+   * duration = đã ghi danh đủ số ngày (neo vào timeStart ghi danh sớm nhất
+   * chưa rút); unenrol = user hiện không còn ghi danh trong khoá.
    */
   async evaluateCriteria(courseId: string, userId: string, now = new Date()): Promise<{ results: boolean[]; complete: boolean; method: number }> {
     const criteria = await this.repo.listCriteria(courseId);
     const { method } = await this.repo.getSettings(courseId);
+    // Manual criteria (self/role) evidence: load the user's crit_compl marks once.
+    const manualIds = criteria.filter((c) => c.criteriaType === 'self' || c.criteriaType === 'role').map((c) => c.id);
+    const marks = manualIds.length ? await this.repo.listCritComplForUser(manualIds, userId) : [];
+    const markedCriteria = new Set(marks.map((m) => m.criteriaId));
+    // Duration anchor: earliest enrolment start among the user's live
+    // (not withdrawn) enrolments in this course; loaded at most once.
+    const needsEnrolments = criteria.some((c) => c.criteriaType === 'duration');
+    const enrolments = needsEnrolments ? await this.enrol.listEnrolmentsForCourse(courseId) : [];
+    const enrolAnchor = enrolments
+      .filter((e) => e.userId === userId && e.status !== ENROL_WITHDRAWN)
+      .reduce<Date | null>((min, e) => (min === null || e.timeStart < min ? e.timeStart : min), null);
     const results: boolean[] = [];
     for (const c of criteria) {
       if (c.criteriaType === 'module' && c.moduleInstance) {
@@ -347,6 +413,18 @@ export class CompletionService implements OnModuleInit {
       } else if (c.criteriaType === 'grade') {
         // Grades: course grade criterion via the GradesModule-registered checker.
         results.push(this.courseGradeChecker ? await this.courseGradeChecker(courseId, userId) : false);
+      } else if (c.criteriaType === 'self' || c.criteriaType === 'role') {
+        results.push(markedCriteria.has(c.id));
+      } else if (c.criteriaType === 'course' && c.courseInstance) {
+        // Prerequisite: read the prerequisite course's STORED completion
+        // (never recursive evaluation — dependent courses are reaggregated
+        // when the prerequisite flips to complete, see below).
+        const prereq = await this.repo.getCourseCompletion(userId, c.courseInstance);
+        results.push(prereq?.status === 'complete');
+      } else if (c.criteriaType === 'duration' && c.enrolPeriodDays !== null && c.enrolPeriodDays !== undefined) {
+        results.push(!!enrolAnchor && enrolAnchor.getTime() + c.enrolPeriodDays * 86_400_000 <= now.getTime());
+      } else if (c.criteriaType === 'unenrol') {
+        results.push(!(await this.enrol.isEnrolled(courseId, userId)));
       } else {
         results.push(false);
       }
@@ -383,8 +461,78 @@ export class CompletionService implements OnModuleInit {
       for (const hook of this.courseCompletionHooks) {
         await hook({ courseId, userId }).catch((err) => this.logger.warn(`course completion hook failed: ${String(err)}`));
       }
+      // Prerequisite propagation: courses listing THIS course as a 'course'
+      // criterion may now complete for their users. Only a flip INTO
+      // complete triggers this, and a dependent can only flip the same way,
+      // so prerequisite cycles settle instead of looping.
+      const dependentIds = await this.repo.listDependentCourseIds(courseId);
+      for (const dependentId of dependentIds) {
+        if (dependentId === courseId) continue;
+        await this.recalculateCourse(dependentId)
+          .catch((err) => this.logger.warn(`dependent course reaggregation failed for ${dependentId}: ${String(err)}`));
+      }
     }
     return row;
+  }
+
+  // --- manual course criteria (self / role) -----------------------------------
+
+  /**
+   * Self completion (Moodle completion_criteria_self): the learner marks
+   * THEMSELVES complete for the course's self criterion/criteria. The mark
+   * is a crit_compl row (who + when recorded); unmarking removes it. The
+   * learner must have course access; a course without a self criterion
+   * rejects the call.
+   */
+  /**
+   * Học viên tự đánh dấu hoàn thành khoá học (tiêu chí self).
+   */
+  async markSelfCompletion(actorId: string, courseId: string, complete: boolean): Promise<{ courseId: string; userId: string; complete: boolean; status: string }> {
+    await this.courses.getCourse(courseId);
+    await this.courses.assertCourseAccess(actorId, courseId);
+    const selfCriteria = (await this.repo.listCriteria(courseId)).filter((c) => c.criteriaType === 'self');
+    if (!selfCriteria.length) {
+      throw new BadRequestException({ message: 'This course has no self completion criterion', code: 'completion.no_self_criterion' });
+    }
+    for (const c of selfCriteria) {
+      if (complete) await this.repo.upsertCritCompl({ criteriaId: c.id, userId: actorId, markedBy: actorId });
+      else await this.repo.deleteCritCompl(c.id, actorId);
+    }
+    const row = await this.reaggregateCourseCompletion(actorId, courseId);
+    return { courseId, userId: actorId, complete, status: row.status };
+  }
+
+  /**
+   * Manual completion by others (Moodle completion_criteria_role): a user
+   * holding the criterion's role marks a learner complete (or removes the
+   * mark). The mark is a crit_compl row recording who marked whom, and
+   * when. Role assignments inherit down the context tree (Moodle
+   * role_assign semantics), so holding the role at the course context OR
+   * at any ancestor context (category, system) authorises the mark — the
+   * same ancestor-path lookup PermissionEvaluator performs; assignments
+   * in unrelated branches do not count. Role assignment is the
+   * permission, per Moodle.
+   */
+  /**
+   * Người giữ vai trò trong tiêu chí role (tại context khoá học hoặc bất kỳ context tổ tiên nào) đánh dấu hoàn thành cho học viên.
+   */
+  async markCriterionByRole(actorId: string, courseId: string, criteriaId: string, targetUserId: string, complete: boolean): Promise<{ courseId: string; criteriaId: string; userId: string; complete: boolean; status: string }> {
+    await this.courses.getCourse(courseId);
+    const criterion = await this.repo.getCriteria(criteriaId);
+    if (!criterion || criterion.course !== courseId || criterion.criteriaType !== 'role' || !criterion.roleId) {
+      throw new BadRequestException({ message: 'Criterion is not a role criterion of this course', code: 'completion.criteria_not_role' });
+    }
+    const contextId = await this.courses.courseContextId(courseId);
+    const courseContext = await this.contexts.getContext(contextId);
+    const pathIds = (await this.contexts.getPathContexts(courseContext)).map((c) => c.id);
+    const assignments = await this.roles.listAssignmentsInContexts(actorId, pathIds);
+    if (!assignments.some((a) => a.roleId === criterion.roleId)) {
+      throw new ForbiddenException({ message: 'Only holders of the role named by this criterion may mark completion', code: 'completion.role_marker_forbidden' });
+    }
+    if (complete) await this.repo.upsertCritCompl({ criteriaId, userId: targetUserId, markedBy: actorId });
+    else await this.repo.deleteCritCompl(criteriaId, targetUserId);
+    const row = await this.reaggregateCourseCompletion(targetUserId, courseId);
+    return { courseId, criteriaId, userId: targetUserId, complete, status: row.status };
   }
   private async hasStarted(userId: string, courseId: string): Promise<boolean> {
     const cms = await this.courses.listCms(courseId);

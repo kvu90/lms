@@ -122,6 +122,13 @@ export class RolesService {
   async listAssignments(filter: { userId?: string; contextId?: string }): Promise<unknown[]> {
     return this.repo.listAssignments(filter);
   }
+  /** Assignments of one user across a set of contexts — e.g. every context on a target's ancestor path. This is the lookup PermissionEvaluator builds on: role assignments inherit down the context tree, so ancestor assignments are effective at the leaf. */
+  /**
+   * Lấy mọi gán role của user tại một tập context (vd toàn bộ đường tổ tiên của context khoá học) — cùng phép tra cứu mà PermissionEvaluator dùng để thừa hưởng gán từ context tổ tiên.
+   */
+  async listAssignmentsInContexts(userId: string, contextIds: string[]): Promise<{ roleId: string; contextId: string }[]> {
+    return this.repo.getAssignmentsForUserInContexts(userId, contextIds);
+  }
 
   /** Set (or clear, with CAP_INHERIT) a capability override for a role at a context; dirties the whole subtree. */
   /**

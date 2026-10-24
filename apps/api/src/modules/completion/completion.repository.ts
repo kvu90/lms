@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { courseCompletionCriteria, courseCompletions, courseCompletionSettings, courseModulesCompletion } from '../../db/schema';
+import { courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings, courseModulesCompletion } from '../../db/schema';
 
 export type CmCompletionRow = typeof courseModulesCompletion.$inferSelect;
 export type CriteriaRow = typeof courseCompletionCriteria.$inferSelect;
+export type CritComplRow = typeof courseCompletionCritCompl.$inferSelect;
 export type CourseCompletionRow = typeof courseCompletions.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -82,6 +83,60 @@ export class CompletionRepository {
    */
   async deleteCriteria(id: string): Promise<void> {
     await this.db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.id, id));
+  }
+  /**
+   * Một tiêu chí theo id (kèm kiểm tra thuộc khoá học ở tầng nghiệp vụ).
+   */
+  async getCriteria(id: string): Promise<CriteriaRow | undefined> {
+    const [row] = await this.db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.id, id));
+    return row;
+  }
+  /**
+   * Các khoá học có tiêu chí 'course' trỏ vào khoá học này (khoá phụ thuộc
+   * vào khoá tiên quyết) — dùng để đánh giá lại khi khoá tiên quyết hoàn thành.
+   */
+  async listDependentCourseIds(prerequisiteCourseId: string): Promise<string[]> {
+    const rows = await this.db.select({ course: courseCompletionCriteria.course }).from(courseCompletionCriteria)
+      .where(and(eq(courseCompletionCriteria.criteriaType, 'course'), eq(courseCompletionCriteria.courseInstance, prerequisiteCourseId)));
+    return [...new Set(rows.map((r) => r.course))];
+  }
+
+  /**
+   * Dấu hoàn thành thủ công (crit_compl) của một tiêu chí cho một user:
+   * có dòng = tiêu chí thủ công (self/role) đã đạt.
+   */
+  async getCritCompl(criteriaId: string, userId: string): Promise<CritComplRow | undefined> {
+    const [row] = await this.db.select().from(courseCompletionCritCompl)
+      .where(and(eq(courseCompletionCritCompl.criteriaId, criteriaId), eq(courseCompletionCritCompl.userId, userId)));
+    return row;
+  }
+  /**
+   * Mọi dấu hoàn thành thủ công của user trong tập tiêu chí cho trước
+   * (nạp một lần cho tầng đánh giá).
+   */
+  async listCritComplForUser(criteriaIds: string[], userId: string): Promise<CritComplRow[]> {
+    if (!criteriaIds.length) return [];
+    return this.db.select().from(courseCompletionCritCompl)
+      .where(and(eq(courseCompletionCritCompl.userId, userId), inArray(courseCompletionCritCompl.criteriaId, criteriaIds)));
+  }
+  /**
+   * Ghi dấu hoàn thành thủ công cho một tiêu chí (ghi lại thì cập nhật
+   * người đánh dấu và thời điểm).
+   */
+  async upsertCritCompl(v: typeof courseCompletionCritCompl.$inferInsert): Promise<CritComplRow> {
+    const [row] = await this.db.insert(courseCompletionCritCompl).values(v)
+      .onConflictDoUpdate({
+        target: [courseCompletionCritCompl.criteriaId, courseCompletionCritCompl.userId],
+        set: { markedBy: v.markedBy, timeCompleted: new Date() },
+      }).returning();
+    return row!;
+  }
+  /**
+   * Xoá dấu hoàn thành thủ công (bỏ đánh dấu).
+   */
+  async deleteCritCompl(criteriaId: string, userId: string): Promise<void> {
+    await this.db.delete(courseCompletionCritCompl)
+      .where(and(eq(courseCompletionCritCompl.criteriaId, criteriaId), eq(courseCompletionCritCompl.userId, userId)));
   }
   /**
    * Cấu hình completion của khoá học.

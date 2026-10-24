@@ -448,12 +448,24 @@ CREATE TABLE "user_enrolments" (
 	CONSTRAINT "user_enrolments_unique" UNIQUE("enrol_id","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "course_completion_crit_compl" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"criteria_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"marked_by" uuid,
+	"time_completed" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "course_completion_crit_compl_unique" UNIQUE("criteria_id","user_id")
+);
+--> statement-breakpoint
 CREATE TABLE "course_completion_criteria" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"course" uuid NOT NULL,
 	"criteria_type" text NOT NULL,
 	"module_instance" uuid,
 	"date" timestamp with time zone,
+	"course_instance" uuid,
+	"enrol_period_days" integer,
+	"role_id" uuid,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1506,8 +1518,11 @@ CREATE INDEX "enrol_custom_int2_idx" ON "enrol" ("custom_int2");--> statement-br
 CREATE INDEX "enrol_payment_account_id_idx" ON "enrol" ("payment_account_id");--> statement-breakpoint
 CREATE INDEX "user_enrolments_user_id_idx" ON "user_enrolments" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_enrolments_modifier_id_idx" ON "user_enrolments" ("modifier_id");--> statement-breakpoint
+CREATE INDEX "course_completion_crit_compl_user_id_idx" ON "course_completion_crit_compl" ("user_id");--> statement-breakpoint
 CREATE INDEX "course_completion_criteria_course_idx" ON "course_completion_criteria" ("course");--> statement-breakpoint
 CREATE INDEX "course_completion_criteria_module_instance_idx" ON "course_completion_criteria" ("module_instance");--> statement-breakpoint
+CREATE INDEX "course_completion_criteria_course_instance_idx" ON "course_completion_criteria" ("course_instance");--> statement-breakpoint
+CREATE INDEX "course_completion_criteria_role_id_idx" ON "course_completion_criteria" ("role_id");--> statement-breakpoint
 CREATE INDEX "course_completions_course_idx" ON "course_completions" ("course");--> statement-breakpoint
 CREATE INDEX "course_modules_completion_user_id_idx" ON "course_modules_completion" ("user_id");--> statement-breakpoint
 CREATE INDEX "grade_categories_course_id_idx" ON "grade_categories" ("course_id");--> statement-breakpoint
@@ -1688,7 +1703,10 @@ ALTER TABLE "groupings_groups" ADD CONSTRAINT "groupings_groups_group_id_course_
 ALTER TABLE "groups_members" ADD CONSTRAINT "groups_members_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "enrol" ADD CONSTRAINT "enrol_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_enrolments" ADD CONSTRAINT "user_enrolments_enrol_id_enrol_id_fkey" FOREIGN KEY ("enrol_id") REFERENCES "enrol"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_completion_crit_compl" ADD CONSTRAINT "course_completion_crit_compl_us1SEGOfYz6U_fkey" FOREIGN KEY ("criteria_id") REFERENCES "course_completion_criteria"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_completion_criteria" ADD CONSTRAINT "course_completion_criteria_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_completion_criteria" ADD CONSTRAINT "course_completion_criteria_course_instance_course_id_fkey" FOREIGN KEY ("course_instance") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_completion_criteria" ADD CONSTRAINT "course_completion_criteria_role_id_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "role"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "course_completion_settings" ADD CONSTRAINT "course_completion_settings_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_completions" ADD CONSTRAINT "course_completions_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_modules_completion" ADD CONSTRAINT "course_modules_completion_flWxjSj7LKhz_fkey" FOREIGN KEY ("course_module_id") REFERENCES "course_modules"("id") ON DELETE CASCADE;--> statement-breakpoint

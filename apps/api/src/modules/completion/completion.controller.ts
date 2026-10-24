@@ -4,7 +4,10 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService } from '../courses/courses.service';
 import { CompletionService } from './completion.service';
-import { markManualCompletionSchema, setCompletionCriteriaSchema, type MarkManualDto, type SetCriteriaDto } from './dto/completion.dto';
+import {
+  markCourseCriteriaCompletionSchema, markCourseSelfCompletionSchema, markManualCompletionSchema,
+  setCompletionCriteriaSchema, type MarkCriteriaDto, type MarkManualDto, type MarkSelfDto, type SetCriteriaDto,
+} from './dto/completion.dto';
 
 @ApiTags('completion')
 @Controller({ path: 'courses', version: '1' })
@@ -77,5 +80,24 @@ export class CompletionController {
   async recalculate(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.completion.requireCompletionManage(actor.id, courseId);
     return this.completion.recalculateCourse(courseId);
+  }
+
+  @Post(':courseId/completion/self')
+  /**
+   * POST /courses/:courseId/completion/self — học viên tự đánh dấu/bỏ đánh
+   * dấu hoàn thành khoá học (tiêu chí self của Moodle).
+   */
+  async markSelf(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: markCourseSelfCompletionSchema }) dto: MarkSelfDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.completion.markSelfCompletion(actor.id, courseId, dto.complete);
+  }
+
+  @Post(':courseId/completion/criteria/:criteriaId/mark')
+  /**
+   * POST /courses/:courseId/completion/criteria/:criteriaId/mark — người
+   * giữ vai trò của tiêu chí role đánh dấu/bỏ đánh dấu hoàn thành cho một
+   * học viên (manual completion by others của Moodle).
+   */
+  async markCriterion(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('criteriaId', { schema: uuidIdSchema }) criteriaId: string, @Body({ schema: markCourseCriteriaCompletionSchema }) dto: MarkCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.completion.markCriterionByRole(actor.id, courseId, criteriaId, dto.userId, dto.complete);
   }
 }

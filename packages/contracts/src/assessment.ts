@@ -267,11 +267,22 @@ export type QuestionUsage = z.infer<typeof questionUsageSchema>;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
 
-/** Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại. */
+/**
+ * Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại
+ * (đủ 8 loại của Moodle: module, date, grade, self, course, duration, role,
+ * unenrol). `courseInstance` là khoá tiên quyết của loại `course`;
+ * `enrolPeriodDays` là số ngày sau ghi danh của loại `duration`; `roleId`
+ * là vai trò được quyền duyệt hoàn thành của loại `role`. Loại `self` và
+ * `unenrol` không có tham số. Tính bắt buộc của từng tham số do tầng nghiệp
+ * vụ kiểm (theo loại), không nằm ở schema này.
+ */
 export const completionCriterionSchema = z.strictObject({
   criteriaType: z.string(),
   moduleInstance: uuidIdSchema.optional(),
   date: z.string().optional(),
+  courseInstance: uuidIdSchema.optional(),
+  enrolPeriodDays: z.number().int().min(0).optional(),
+  roleId: uuidIdSchema.optional(),
 });
 export type CompletionCriterion = z.infer<typeof completionCriterionSchema>;
 
@@ -281,6 +292,22 @@ export const setCompletionCriteriaSchema = z.strictObject({
   criteria: z.array(completionCriterionSchema),
 });
 export type SetCompletionCriteria = z.infer<typeof setCompletionCriteriaSchema>;
+
+/** Payload học viên tự đánh dấu/bỏ đánh dấu hoàn thành khoá học (tiêu chí `self` của Moodle). */
+export const markCourseSelfCompletionSchema = z.strictObject({
+  complete: z.boolean(),
+});
+export type MarkCourseSelfCompletion = z.infer<typeof markCourseSelfCompletionSchema>;
+
+/**
+ * Payload người giữ vai trò chỉ định trong tiêu chí `role` đánh dấu/bỏ đánh
+ * dấu hoàn thành cho một học viên (manual completion by others của Moodle).
+ */
+export const markCourseCriteriaCompletionSchema = z.strictObject({
+  userId: uuidIdSchema,
+  complete: z.boolean(),
+});
+export type MarkCourseCriteriaCompletion = z.infer<typeof markCourseCriteriaCompletionSchema>;
 
 /** Payload đánh dấu hoàn thành thủ công cho một course module. */
 export const markManualCompletionSchema = z.strictObject({

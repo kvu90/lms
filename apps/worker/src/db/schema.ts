@@ -102,12 +102,25 @@ export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   criteriaType: text('criteria_type').notNull(),
   moduleInstance: uuid('module_instance'),
   date: timestamp('date', { withTimezone: true }),
+  courseInstance: uuid('course_instance'),
+  enrolPeriodDays: integer('enrol_period_days'),
+  roleId: uuid('role_id'),
   sortOrder: integer('sort_order').notNull().default(0),
 },
   (table) => [
       index('course_completion_criteria_course_idx').on(table.course),
       index('course_completion_criteria_module_instance_idx').on(table.moduleInstance),
   ]);
+
+/** Manual-mark evidence for the self/role criteria types (canonical schema in apps/api). */
+export const courseCompletionCritCompl = pgTable('course_completion_crit_compl', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  criteriaId: uuid('criteria_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  markedBy: uuid('marked_by'),
+  timeCompleted: timestamp('time_completed', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+      index('course_completion_crit_compl_user_id_idx').on(t.userId),unique('cccc_unique_worker').on(t.criteriaId, t.userId)]);
 
 
 export const courseCompletionSettings = pgTable('course_completion_settings', {
