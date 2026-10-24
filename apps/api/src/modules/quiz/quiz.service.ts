@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -312,13 +313,48 @@ export class QuizService {
   /**
    * Đồng bộ tổng điểm của một lượt từ usage của engine: tổng các câu ĐÃ có
    * fraction (essay chưa chấm đóng góp 0) + số câu còn chờ chấm tay.
+   * Ngoại lệ Chặng 3 (mục C.4): các slot thuộc một CHÙM Đ–S (cluster_id)
+   * không cộng tuyến tính — điểm chùm tra thang lũy tiến theo SỐ Ý ĐÚNG
+   * (fraction = 1) trên tổng max_mark danh nghĩa của chùm; thang hiệu
+   * lực là thang của quiz (chụp từ ô khi generate) hoặc mặc định QĐ 764.
+   * Engine và question_attempts.max_mark không đổi — chùm hoá chỉ nằm ở
+   * tầng tổng hợp này. Chùm còn câu chờ chấm tay thì phần đã chấm tính
+   * tuyến tính như thường (không xảy ra với truefalse tự chấm).
    */
-  private syncFromUsage(usage: UsageView): { sumGrades: number; pendingManual: number } {
+  private syncFromUsage(usage: UsageView, quiz?: QuizRow, slots?: QuizSlotRow[]): { sumGrades: number; pendingManual: number } {
     let sum = 0;
     let pending = 0;
+    const clusterBySlot = new Map<number, string>();
+    if (quiz && slots) {
+      for (const s of slots) if (s.clusterId) clusterBySlot.set(s.slot, s.clusterId);
+    }
+    const clusterMembers = new Map<string, UsageView['attempts']>();
     for (const a of usage.attempts) {
+      const clusterId = clusterBySlot.get(a.slot);
+      if (clusterId) {
+        const list = clusterMembers.get(clusterId) ?? [];
+        list.push(a);
+        clusterMembers.set(clusterId, list);
+        continue;
+      }
       if (a.state === 'needsgrading') pending += 1;
       else if (a.fraction !== null && a.fraction !== undefined) sum += a.fraction * a.maxMark;
+    }
+    if (clusterMembers.size && quiz) {
+      const scale = effectiveTfScale(quiz.tfScale);
+      for (const members of clusterMembers.values()) {
+        const pendingMembers = members.filter((a) => a.state === 'needsgrading');
+        if (pendingMembers.length) {
+          pending += pendingMembers.length;
+          for (const a of members) {
+            if (a.state !== 'needsgrading' && a.fraction !== null && a.fraction !== undefined) sum += a.fraction * a.maxMark;
+          }
+          continue;
+        }
+        const correct = members.filter((a) => a.fraction === 1).length;
+        const totalMax = members.reduce((s, a) => s + a.maxMark, 0);
+        sum += (scale[Math.min(correct, 4)]! / 100) * totalMax;
+      }
     }
     return { sumGrades: sum, pendingManual: pending };
   }
@@ -1031,6 +1067,324 @@ export class QuizService {
     return { matrixId: matrix.id, cells: out, sufficient: out.every((c) => c.deficit === 0) };
   }
 
+  /** Trộn ngẫu nhiên một bản sao của mảng (Fisher–Yates) cho các phép rút câu. */
+  private shuffled<T>(items: T[]): T[] {
+    const out = [...items];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j]!, out[i]!];
+    }
+    return out;
+  }
+
+  /** Chi tiết thiếu câu theo từng ô cho lỗi cứng của generate (mục C.3 bước 1). */
+  private async matrixDeficits(actorId: string, cells: ExamMatrixCellRow[]): Promise<{
+    deficits: { cellId: string; learningOutcomeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[];
+    pools: Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>;
+  }> {
+    const deficits: { cellId: string; learningOutcomeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[] = [];
+    const pools = new Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>();
+    for (const cell of cells) {
+      const candidates = await this.cellCandidatesForUser(actorId, cell);
+      const clusters = cell.qtype === 'truefalse' ? this.tfClustersOf(candidates) : [];
+      pools.set(cell.id, { candidates, clusters });
+      const available = cell.qtype === 'truefalse' ? clusters.length : candidates.length;
+      if (available < cell.questionCount) {
+        deficits.push({
+          cellId: cell.id, learningOutcomeId: cell.learningOutcomeId,
+          cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
+          required: cell.questionCount, available, deficit: cell.questionCount - available,
+        });
+      }
+    }
+    return { deficits, pools };
+  }
+
+  /**
+   * Sinh đề từ ma trận (mục C.3): thiếu câu ở BẤT KỲ ô nào → 422
+   * `quiz.matrix_insufficient_questions` kèm chi tiết từng ô, không
+   * sinh một phần. Đủ câu → tạo quiz bằng cơ chế Chặng 1 (course module
+   * + grade item, quyền khoá do đường đó kiểm), ghi matrix_id + chụp
+   * thang Đ–S hiệu lực vào quiz, rồi tạo slots: fixed rút câu ngay
+   * (không lặp trong toàn đề), per_student chỉ ghi ô nguồn để rút lúc
+   * bắt đầu từng lượt. Ô truefalse sinh 4 slot/chùm cùng cluster_id,
+   * mỗi slot mang điểm danh nghĩa = điểm chùm / 4. Tạo slots lỗi giữa
+   * chừng thì xoá quiz bù như createQuiz vẫn làm với cm.
+   */
+  async generateQuizFromMatrix(actorId: string, matrixId: string, input: GenerateFromMatrixDto): Promise<QuizView> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
+    const cells = await this.repo.listMatrixCells(matrix.id);
+    if (!cells.length) {
+      throw new BadRequestException({ message: 'This matrix has no cells yet', code: 'quiz.matrix_empty' });
+    }
+    const { deficits, pools } = await this.matrixDeficits(actorId, cells);
+    if (deficits.length) {
+      throw new UnprocessableEntityException({
+        message: 'The question bank does not have enough questions for every matrix cell',
+        code: 'quiz.matrix_insufficient_questions',
+        details: { cells: deficits },
+      });
+    }
+    const totalMinutes = cells.reduce((s, c) => s + (c.minutes ?? 0), 0);
+    const timeLimitSeconds = input.timeLimitSeconds !== undefined && input.timeLimitSeconds !== null
+      ? input.timeLimitSeconds
+      : (totalMinutes > 0 ? totalMinutes * 60 : null);
+    // Thang Đ–S hiệu lực của đề: thang riêng đầu tiên có đặt trong các
+    // ô (mọi chùm trong đề dùng chung một thang — mục C.4).
+    const cellScale = cells.find((c) => c.tfScale !== null)?.tfScale ?? null;
+    const created = await this.createQuiz(actorId, input.courseId, {
+      sectionId: input.sectionId, name: input.name,
+      timeLimitSeconds, grade: matrix.totalScore, tfScale: cellScale,
+    });
+    const quiz = await this.getQuiz(created.id);
+    try {
+      await this.repo.updateQuiz(quiz.id, { matrixId: matrix.id });
+      const chosen = new Set<string>();
+      let slotNo = 0;
+      let page = 0;
+      for (const cell of cells) {
+        page += 1;
+        const pool = pools.get(cell.id)!;
+        const perUnit = cell.cellScore / cell.questionCount;
+        if (cell.qtype === 'truefalse') {
+          const pickedClusters = input.drawMode === 'fixed' ? this.shuffled(pool.clusters).slice(0, cell.questionCount) : [];
+          for (let u = 0; u < cell.questionCount; u++) {
+            const clusterId = randomUUID();
+            const members = input.drawMode === 'fixed' ? pickedClusters[u]! : [];
+            for (let k = 0; k < 4; k++) {
+              const member = members[k];
+              await this.repo.insertSlot({
+                quizId: quiz.id, slot: ++slotNo, page,
+                questionId: member ? member.question.id : null,
+                categoryId: null,
+                matrixCellId: input.drawMode === 'fixed' || member ? cell.id : cell.id,
+                clusterId, maxMark: perUnit / 4,
+              });
+              if (member) chosen.add(member.question.id);
+            }
+          }
+        } else {
+          let picked: QuestionView[] = [];
+          if (input.drawMode === 'fixed') {
+            const fresh = this.shuffled(pool.candidates.filter((v) => !chosen.has(v.question.id)));
+            picked = fresh.slice(0, cell.questionCount);
+            if (picked.length < cell.questionCount) {
+              // Pool giao nhau giữa các ô: phần còn thiếu rút nốt từ pool
+              // của chính ô (chỉ tránh trùng trong nội bộ ô).
+              const rest = this.shuffled(pool.candidates.filter((v) => !picked.some((p) => p.question.id === v.question.id)));
+              picked = [...picked, ...rest.slice(0, cell.questionCount - picked.length)];
+            }
+          }
+          for (let u = 0; u < cell.questionCount; u++) {
+            const member = picked[u];
+            await this.repo.insertSlot({
+              quizId: quiz.id, slot: ++slotNo, page,
+              questionId: member ? member.question.id : null,
+              categoryId: null, matrixCellId: cell.id,
+              clusterId: null, maxMark: perUnit,
+            });
+            if (member) chosen.add(member.question.id);
+          }
+        }
+      }
+    } catch (err) {
+      await this.deleteQuiz(actorId, quiz.id).catch(() => undefined);
+      throw err;
+    }
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'quiz_generated_from_matrix',
+      payload: { quizId: quiz.id, courseId: quiz.course, matrixId: matrix.id, drawMode: input.drawMode, actorId },
+    });
+    return this.quizView(await this.getQuiz(quiz.id));
+  }
+
+  /** Đề đã có lượt làm thật thì cấu trúc slots đóng băng (đúng ngữ nghĩa Chặng 1: attempt đã pin câu). */
+  private async assertNoRealAttempts(quiz: QuizRow): Promise<void> {
+    const attempts = await this.repo.listAttempts(quiz.id);
+    if (attempts.some((a) => !a.preview)) {
+      throw new BadRequestException({ message: 'This quiz already has real attempts; its slots are frozen', code: 'quiz.slots_frozen' });
+    }
+  }
+
+  /**
+   * Đổi câu/ô của một slot sinh từ ma trận (quiz:manage; chỉ khi chưa
+   * có lượt thật): slot cố định đổi sang một ứng viên KHÁC CÙNG Ô và
+   * không trùng câu trong đề; slot per_student đổi ô nguồn (ô đích
+   * phải cùng ma trận; slot thuộc chùm thì đổi cả 4 slot của chùm và ô
+   * đích phải là ô truefalse). Slot thuộc chùm không đổi lẻ từng câu.
+   */
+  async swapSlot(actorId: string, quizId: string, slotId: string, input: SwapQuizSlotDto): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    const slot = await this.repo.getSlot(slotId);
+    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
+    await this.assertNoRealAttempts(quiz);
+    if (slot.clusterId && slot.questionId) {
+      throw new BadRequestException({ message: 'A cluster member cannot be swapped on its own; regenerate the quiz or uncluster first', code: 'quiz.slot_cluster_swap' });
+    }
+    if (slot.questionId) {
+      if (!input.questionId) {
+        throw new BadRequestException({ message: 'questionId is required to swap a fixed slot', code: 'quiz.swap_question_required' });
+      }
+      if (slot.matrixCellId) {
+        const cell = await this.repo.getMatrixCell(slot.matrixCellId);
+        if (!cell) throw new NotFoundException({ message: `Matrix cell ${slot.matrixCellId} not found`, code: 'quiz.matrix_cell_not_found' });
+        const candidates = await this.cellCandidates(cell);
+        if (!candidates.some((v) => v.question.id === input.questionId)) {
+          throw new BadRequestException({ message: 'The candidate question is not in the pool of this slot\'s matrix cell', code: 'quiz.swap_candidate_out_of_cell' });
+        }
+      } else {
+        await this.questions.getQuestion(input.questionId);
+      }
+      const slots = await this.repo.listSlots(quiz.id);
+      if (slots.some((s) => s.id !== slot.id && s.questionId === input.questionId)) {
+        throw new BadRequestException({ message: 'The candidate question is already in this quiz', code: 'quiz.swap_candidate_duplicate' });
+      }
+      await this.repo.updateSlot(slot.id, { questionId: input.questionId });
+    } else if (slot.matrixCellId) {
+      if (!input.matrixCellId) {
+        throw new BadRequestException({ message: 'matrixCellId is required to swap the source cell of a per-student slot', code: 'quiz.swap_cell_required' });
+      }
+      const target = await this.repo.getMatrixCell(input.matrixCellId);
+      if (!target || !quiz.matrixId || target.matrixId !== quiz.matrixId) {
+        throw new BadRequestException({ message: 'The target cell does not belong to the matrix of this quiz', code: 'quiz.swap_cell_mismatch' });
+      }
+      const slots = await this.repo.listSlots(quiz.id);
+      const targets = slot.clusterId ? slots.filter((s) => s.clusterId === slot.clusterId) : [slot];
+      if (slot.clusterId && target.qtype !== 'truefalse') {
+        throw new BadRequestException({ message: 'A cluster slot can only move to a truefalse cell', code: 'quiz.swap_cell_mismatch' });
+      }
+      const perUnit = target.cellScore / target.questionCount;
+      for (const s of targets) {
+        await this.repo.updateSlot(s.id, { matrixCellId: target.id, maxMark: slot.clusterId ? perUnit / 4 : perUnit });
+      }
+    } else {
+      throw new BadRequestException({ message: 'Only matrix-generated slots can be swapped', code: 'quiz.swap_not_supported' });
+    }
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_swapped', payload: { quizId: quiz.id, courseId: quiz.course, slotId, actorId } });
+    return this.quizView(quiz);
+  }
+
+  /**
+   * Rút lại các slot do ma trận sinh (quiz:manage; chỉ khi chưa có
+   * lượt thật): slot cố định rút câu mới từ pool của ô (theo quyền của
+   * người gọi), slot thuộc chùm rút lại cả chùm; slot per_student giữ
+   * nguyên ô nguồn nên không đổi.
+   */
+  async regenerateQuiz(actorId: string, quizId: string): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    if (!quiz.matrixId) {
+      throw new BadRequestException({ message: 'This quiz was not generated from a matrix', code: 'quiz.regenerate_not_from_matrix' });
+    }
+    await this.assertNoRealAttempts(quiz);
+    const slots = await this.repo.listSlots(quiz.id);
+    const fixed = slots.filter((s) => s.matrixCellId && s.questionId);
+    const cellIds = [...new Set(fixed.map((s) => s.matrixCellId!))];
+    const cells: ExamMatrixCellRow[] = [];
+    for (const id of cellIds) {
+      const cell = await this.repo.getMatrixCell(id);
+      if (cell) cells.push(cell);
+    }
+    const { deficits, pools } = await this.matrixDeficits(actorId, cells);
+    if (deficits.length) {
+      throw new UnprocessableEntityException({
+        message: 'The question bank does not have enough questions to regenerate every matrix cell',
+        code: 'quiz.matrix_insufficient_questions',
+        details: { cells: deficits },
+      });
+    }
+    const chosen = new Set<string>();
+    // Slot không do ma trận sinh (dựng tay thêm vào) giữ nguyên câu —
+    // các câu đó cũng bị loại khỏi pool rút lại để không trùng.
+    for (const s of slots) if (!s.matrixCellId && s.questionId) chosen.add(s.questionId);
+    const clusterGroups = new Map<string, QuizSlotRow[]>();
+    for (const s of fixed) {
+      if (!s.clusterId) continue;
+      const list = clusterGroups.get(s.clusterId) ?? [];
+      list.push(s);
+      clusterGroups.set(s.clusterId, list);
+    }
+    const clusteredSlotIds = new Set([...clusterGroups.values()].flatMap((g) => g.map((s) => s.id)));
+    for (const group of clusterGroups.values()) {
+      const pool = pools.get(group[0]!.matrixCellId!)!;
+      const picked = this.shuffled(pool.clusters)[0]!;
+      const ordered = [...group].sort((a, b) => a.slot - b.slot);
+      for (let i = 0; i < ordered.length; i++) {
+        await this.repo.updateSlot(ordered[i]!.id, { questionId: picked[i]!.question.id });
+        chosen.add(picked[i]!.question.id);
+      }
+    }
+    for (const s of fixed) {
+      if (clusteredSlotIds.has(s.id)) continue;
+      const pool = pools.get(s.matrixCellId!)!;
+      const fresh = pool.candidates.filter((v) => !chosen.has(v.question.id));
+      const candidates = fresh.length ? fresh : pool.candidates;
+      const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
+      await this.repo.updateSlot(s.id, { questionId: picked.question.id });
+      chosen.add(picked.question.id);
+    }
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_regenerated', payload: { quizId: quiz.id, courseId: quiz.course, matrixId: quiz.matrixId, actorId } });
+    return this.quizView(quiz);
+  }
+
+  /**
+   * Gom 4 slot truefalse cùng một stimulus thành một chùm Đ–S cho đề
+   * dựng tay (quiz:manage; chỉ khi chưa có lượt thật). Điểm của chùm
+   * tính theo thang của quiz ở tầng tổng hợp, các slot giữ max_mark
+   * danh nghĩa như cũ (tổng max của chùm không đổi).
+   */
+  async clusterSlots(actorId: string, quizId: string, input: { slotIds: string[] }): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    await this.assertNoRealAttempts(quiz);
+    if (input.slotIds.length !== 4 || new Set(input.slotIds).size !== 4) {
+      throw new BadRequestException({ message: 'A true/false cluster needs exactly 4 distinct slots', code: 'quiz.cluster_size' });
+    }
+    const slots = await this.repo.listSlots(quiz.id);
+    const picked = input.slotIds.map((id) => slots.find((s) => s.id === id));
+    if (picked.some((s) => !s)) {
+      throw new NotFoundException({ message: 'One of the slots does not belong to this quiz', code: 'quiz.slot_not_found' });
+    }
+    if (picked.some((s) => s!.clusterId)) {
+      throw new BadRequestException({ message: 'One of the slots is already in a cluster; uncluster it first', code: 'quiz.cluster_exists' });
+    }
+    if (picked.some((s) => !s!.questionId)) {
+      throw new BadRequestException({ message: 'Only fixed true/false question slots can be clustered', code: 'quiz.cluster_not_fixed' });
+    }
+    let stimulusId: string | null = null;
+    for (const s of picked) {
+      const view = await this.questions.getQuestion(s!.questionId!);
+      if (view.question.qtype !== 'truefalse' || !view.stimulus) {
+        throw new BadRequestException({ message: 'Cluster members must be true/false questions sharing one stimulus', code: 'quiz.cluster_not_truefalse_cluster' });
+      }
+      if (stimulusId === null) stimulusId = view.stimulus.id;
+      else if (view.stimulus.id !== stimulusId) {
+        throw new BadRequestException({ message: 'Cluster members must share the same stimulus', code: 'quiz.cluster_stimulus_mismatch' });
+      }
+    }
+    const clusterId = randomUUID();
+    for (const s of picked) await this.repo.updateSlot(s!.id, { clusterId });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slots_clustered', payload: { quizId: quiz.id, courseId: quiz.course, clusterId, actorId } });
+    return this.quizView(quiz);
+  }
+
+  /** Gỡ chùm khỏi các slot (quiz:manage; chỉ khi chưa có lượt thật) — điểm quay về cộng tuyến tính. */
+  async unclusterSlots(actorId: string, quizId: string, input: { slotIds: string[] }): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    await this.assertNoRealAttempts(quiz);
+    const slots = await this.repo.listSlots(quiz.id);
+    for (const id of input.slotIds) {
+      const slot = slots.find((s) => s.id === id);
+      if (!slot) throw new NotFoundException({ message: `Quiz slot ${id} not found`, code: 'quiz.slot_not_found' });
+      if (slot.clusterId) await this.repo.updateSlot(slot.id, { clusterId: null });
+    }
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slots_unclustered', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
+    return this.quizView(quiz);
+  }
+
   // --- thông tin cho người xem ---------------------------------------------------
 
   /**
@@ -1300,8 +1654,57 @@ export class QuizService {
 
     const chosen = new Set<string>();
     const resolvedSlots: { quizSlot: QuizSlotRow; questionId: string }[] = [];
+    // Slot nguồn ô ma trận (per_student) rút câu từ pool của ô lúc bắt
+    // đầu lượt; slot thuộc một chùm Đ–S rút CẢ CHÙM (4 câu cùng
+    // stimulus) cho đủ 4 slot của chùm, không rút lẻ từng câu.
+    const cellPoolCache = new Map<string, { cell: ExamMatrixCellRow; candidates: QuestionView[] }>();
+    const poolForCell = async (cellId: string) => {
+      let entry = cellPoolCache.get(cellId);
+      if (!entry) {
+        const cell = await this.repo.getMatrixCell(cellId);
+        if (!cell) throw new BadRequestException({ message: `Matrix cell ${cellId} no longer exists`, code: 'quiz.matrix_cell_missing' });
+        entry = { cell, candidates: await this.cellCandidates(cell) };
+        cellPoolCache.set(cellId, entry);
+      }
+      return entry;
+    };
+    const clusterAssignment = new Map<string, string>();
+    const usedStimuli = new Set<string>();
+    const clusterGroups = new Map<string, QuizSlotRow[]>();
+    for (const s of slots) {
+      if (s.matrixCellId && s.clusterId && !s.questionId) {
+        const list = clusterGroups.get(s.clusterId) ?? [];
+        list.push(s);
+        clusterGroups.set(s.clusterId, list);
+      }
+    }
+    for (const group of clusterGroups.values()) {
+      const { candidates } = await poolForCell(group[0]!.matrixCellId!);
+      const clusters = this.tfClustersOf(candidates)
+        .filter((c) => !usedStimuli.has(c[0]!.stimulus!.id));
+      if (!clusters.length) {
+        throw new UnprocessableEntityException({ message: 'The question bank no longer has a full true/false cluster for a matrix cell of this quiz', code: 'quiz.matrix_insufficient_questions' });
+      }
+      const picked = clusters[Math.floor(Math.random() * clusters.length)]!;
+      usedStimuli.add(picked[0]!.stimulus!.id);
+      group.sort((a, b) => a.slot - b.slot).forEach((s, i) => {
+        clusterAssignment.set(s.id, picked[i]!.question.id);
+      });
+    }
     for (const s of slots) {
       let questionId = s.questionId;
+      if (!questionId && clusterAssignment.has(s.id)) {
+        questionId = clusterAssignment.get(s.id)!;
+      }
+      if (!questionId && s.matrixCellId) {
+        const { candidates } = await poolForCell(s.matrixCellId);
+        const fresh = candidates.filter((v) => !chosen.has(v.question.id));
+        const pool = fresh.length ? fresh : candidates;
+        if (!pool.length) {
+          throw new UnprocessableEntityException({ message: 'The question bank no longer has questions for a matrix cell of this quiz', code: 'quiz.matrix_insufficient_questions' });
+        }
+        questionId = pool[Math.floor(Math.random() * pool.length)]!.question.id;
+      }
       if (!questionId) {
         questionId = await this.pickRandomQuestion(s.categoryId!, chosen);
       }
@@ -1470,7 +1873,7 @@ export class QuizService {
         generalFeedback: aspectOn(quiz.reviewGeneralFeedback) ? generalFeedback : null,
       });
     }
-    const { pendingManual } = this.syncFromUsage(usage);
+    const { pendingManual } = this.syncFromUsage(usage, quiz, slots);
     return {
       attempt: await this.attemptSummary(quiz, row),
       quiz: await this.quizView(quiz),
@@ -1542,7 +1945,7 @@ export class QuizService {
   private async finalizeAttempt(quiz: QuizRow, row: QuizAttemptRow, closedDueToTimeLimit: boolean): Promise<QuizAttemptView> {
     if (row.state !== 'inprogress') return this.buildAttemptView(quiz, row, false);
     const finishedUsage = await this.questions.finishUsage(row.userId, row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage);
+    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage, quiz, await this.repo.listSlots(quiz.id));
     const state = pendingManual > 0 ? 'needsgrading' : 'finished';
     await this.repo.updateAttempt(row.id, { state, timeFinish: new Date(), sumGrades });
     const updated = await this.getAttemptRow(row.id);
@@ -1734,7 +2137,7 @@ export class QuizService {
     }
     await this.questions.manualGradeAttempt(actorId, input.questionAttemptId, input.mark, input.comment);
     const after = await this.questions.getUsage(row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(after);
+    const { sumGrades, pendingManual } = this.syncFromUsage(after, quiz, await this.repo.listSlots(quiz.id));
     const wasSubmitted = row.state === 'needsgrading' || row.state === 'finished';
     const nextState = row.state === 'inprogress' ? row.state : (pendingManual > 0 ? 'needsgrading' : 'finished');
     await this.repo.updateAttempt(row.id, { sumGrades, ...(wasSubmitted ? { state: nextState } : {}) });

@@ -6,10 +6,10 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
 import {
-  addQuizSlotSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizOverrideSchema, createQuizSchema, manualGradeQuizSchema, startQuizAttemptSchema,
-  submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
-  type AddQuizSlotDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizOverrideDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
-  type SubmitQuizResponseDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
+  addQuizSlotSchema, clusterQuizSlotsSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizOverrideSchema, createQuizSchema, generateFromMatrixSchema, manualGradeQuizSchema, startQuizAttemptSchema,
+  submitQuizResponseSchema, swapQuizSlotSchema, updateExamMatrixCellSchema, updateExamMatrixSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
+  type AddQuizSlotDto, type ClusterQuizSlotsDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizOverrideDto, type GenerateFromMatrixDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
+  type SubmitQuizResponseDto, type SwapQuizSlotDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
 } from './dto/quiz.dto';
 
 @ApiTags('quizzes')
@@ -95,6 +95,38 @@ export class QuizzesController {
    */
   async upgradeSlotVersion(@Param('id', { schema: uuidIdSchema }) id: string, @Param('slotId', { schema: uuidIdSchema }) slotId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.upgradeSlotVersion(actor.id, id, slotId);
+  }
+  @Post(':id/slots/:slotId/swap')
+  /**
+   * POST /quizzes/:id/slots/:slotId/swap — đổi câu (slot cố định, ứng
+   * viên cùng ô) hoặc đổi ô nguồn (slot per-student) cho slot sinh từ
+   * ma trận; chỉ khi đề chưa có lượt làm thật.
+   */
+  async swapSlot(@Param('id', { schema: uuidIdSchema }) id: string, @Param('slotId', { schema: uuidIdSchema }) slotId: string, @Body({ schema: swapQuizSlotSchema }) dto: SwapQuizSlotDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.swapSlot(actor.id, id, slotId, dto);
+  }
+  @Post(':id/regenerate')
+  /**
+   * POST /quizzes/:id/regenerate — rút lại các slot do ma trận sinh
+   * (chỉ khi đề chưa có lượt làm thật).
+   */
+  async regenerate(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.regenerateQuiz(actor.id, id);
+  }
+  @Post(':id/slots/cluster')
+  /**
+   * POST /quizzes/:id/slots/cluster — gom đúng 4 slot truefalse cùng
+   * stimulus thành một chùm Đ–S (đề dựng tay).
+   */
+  async clusterSlots(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: clusterQuizSlotsSchema }) dto: ClusterQuizSlotsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.clusterSlots(actor.id, id, dto);
+  }
+  @Post(':id/slots/uncluster')
+  /**
+   * POST /quizzes/:id/slots/uncluster — gỡ chùm khỏi các slot đã cho.
+   */
+  async unclusterSlots(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: clusterQuizSlotsSchema }) dto: ClusterQuizSlotsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.unclusterSlots(actor.id, id, dto);
   }
   @Get(':id/attempts')
   /**
@@ -231,6 +263,14 @@ export class ExamMatricesController {
    */
   async availability(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.matrixAvailability(actor.id, id);
+  }
+  @Post(':id/generate')
+  /**
+   * POST /exam-matrices/:id/generate — sinh quiz + slots từ ma trận vào
+   * một khoá học; thiếu câu ở bất kỳ ô nào trả 422 kèm chi tiết từng ô.
+   */
+  async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.generateQuizFromMatrix(actor.id, id, dto);
   }
 }
 
