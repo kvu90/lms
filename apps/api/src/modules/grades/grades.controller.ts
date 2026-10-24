@@ -5,7 +5,8 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
-import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, exportGradesVneduSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type ExportGradesVneduDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
+import { VnGradebooksService } from './vn-gradebooks.service';
+import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnGradebookSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, setGradeLettersSchema, setGradeSchema, setVnCommentResultSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnGradebookDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type SetGradeDto, type SetLettersDto, type SetVnCommentResultDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -223,6 +224,116 @@ export class GradesController {
   async deleteOutcome(@Param('outcomeId', { schema: uuidIdSchema }) outcomeId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.grades.deleteOutcome(actor.id, outcomeId);
     return { deleted: true };
+  }
+}
+
+@ApiTags('grades')
+@Controller({ path: 'courses', version: '1' })
+/**
+ * API sổ điểm VN (GB-VN-1, issue #95): mở sổ TT 22 cho khoá học × học kì,
+ * tính/chốt kết quả học kì và cả năm, ghi kết quả môn chỉ-nhận-xét.
+ */
+export class VnGradebooksController {
+  constructor(private readonly vn: VnGradebooksService) {}
+
+  /** Kiểm sổ thuộc đúng khoá học trên đường dẫn; lệch khoá thì coi như không tồn tại. */
+  private async bookInCourse(courseId: string, bookId: string) {
+    const book = await this.vn.getBook(bookId);
+    if (book.courseId !== courseId) {
+      throw new BadRequestException({ message: 'VN gradebook belongs to another course', code: 'grades.vn_book_course_mismatch' });
+    }
+    return book;
+  }
+
+  @Post(':courseId/grades/vn-books')
+  /**
+   * POST /courses/:courseId/grades/vn-books — mở sổ VN (tự sinh cột theo quota số tiết với môn điểm số).
+   */
+  async createBook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createVnGradebookSchema }) dto: CreateVnGradebookDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.createBook(actor.id, courseId, dto);
+  }
+  @Get(':courseId/grades/vn-books')
+  /**
+   * GET /courses/:courseId/grades/vn-books — các sổ VN của khoá học kèm cột.
+   */
+  async listBooks(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
+    return this.vn.listBooks(courseId);
+  }
+  @Get(':courseId/grades/vn-books/:bookId')
+  /**
+   * GET /courses/:courseId/grades/vn-books/:bookId — một sổ VN kèm cột.
+   */
+  async getBook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.getBookView(bookId);
+  }
+  @Get(':courseId/grades/vn-books/:bookId/results/:userId')
+  /**
+   * GET .../results/:userId — tính kết quả học kì trực tiếp từ điểm cột hiện tại (chưa chốt).
+   */
+  async computeResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.computeTermResult(bookId, userId);
+  }
+  @Get(':courseId/grades/vn-books/:bookId/results/:userId/snapshots')
+  /**
+   * GET .../results/:userId/snapshots — các bản chốt kết quả đã ghi cho học sinh trong sổ.
+   */
+  async listSnapshots(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.listTermResults(bookId, userId);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/results/:userId/finalize')
+  /**
+   * POST .../results/:userId/finalize — chốt kết quả học kì (ĐTBmhk) thành bản snapshot mới.
+   */
+  async finalizeResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: finalizeVnTermResultSchema }) dto: FinalizeVnTermResultDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.finalizeTermResult(actor.id, bookId, userId, dto.comment);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/results/:userId/comment-result')
+  /**
+   * POST .../results/:userId/comment-result — ghi kết quả Đạt/Chưa đạt cho môn chỉ-nhận-xét.
+   */
+  async setCommentResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: setVnCommentResultSchema }) dto: SetVnCommentResultDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.setCommentResult(actor.id, bookId, userId, dto);
+  }
+  @Post(':courseId/grades/vn-year-results/:userId/finalize')
+  /**
+   * POST /courses/:courseId/grades/vn-year-results/:userId/finalize — chốt ĐTBmcn từ hai bản chốt học kì.
+   */
+  async finalizeYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: finalizeVnYearResultSchema }) dto: FinalizeVnYearResultDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.finalizeYearResult(actor.id, courseId, userId, dto.comment);
+  }
+  @Get(':courseId/grades/vn-year-results/:userId')
+  /**
+   * GET /courses/:courseId/grades/vn-year-results/:userId — bản chốt cả năm mới nhất của học sinh trong khoá.
+   */
+  async latestYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
+    return (await this.vn.latestYearResult(courseId, userId)) ?? null;
+  }
+}
+
+@ApiTags('grades')
+@Controller({ path: 'grades/vn', version: '1' })
+/**
+ * API xếp mức học tập chung theo Điều 9 TT 22 trên các bản chốt của mọi sổ VN.
+ */
+export class VnClassificationController {
+  constructor(private readonly vn: VnGradebooksService) {}
+
+  @Get('students/:userId/classification')
+  /**
+   * GET /grades/vn/students/:userId/classification?period=hk1|hk2|year — mức Tốt/Khá/Đạt/Chưa đạt
+   * (kèm mức gốc và môn gây điều chỉnh 9.3 nếu có).
+   */
+  async classification(@Param('userId', { schema: uuidIdSchema }) userId: string, @Query('period') period: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    const p = period ?? 'hk1';
+    if (p !== 'hk1' && p !== 'hk2' && p !== 'year') {
+      throw new BadRequestException({ message: `Unknown period ${p}`, code: 'grades.vn_bad_period' });
+    }
+    return this.vn.getStudentClassification(actor.id, userId, p);
   }
 }
 

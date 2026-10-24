@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "c784b634-0d1a-4b6c-8241-7d52216d25a7",
+  "id": "cd6d0cb0-0760-426c-8a1e-a81c38d021ac",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1102,6 +1102,45 @@
         "n|rel|public.scales",
         "n|type|public.scales",
         "n|rel|public.scales_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_gradebooks"
+      ],
+      "writes": [
+        "s|tbl|public.vn_gradebooks",
+        "n|tbl|public.vn_gradebooks",
+        "e|tbl|public.vn_gradebooks",
+        "n|rel|public.vn_gradebooks",
+        "n|type|public.vn_gradebooks",
+        "n|rel|public.vn_gradebooks_pkey",
+        "n|rel|public.vn_gradebooks_course_term_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_term_results"
+      ],
+      "writes": [
+        "s|tbl|public.vn_term_results",
+        "n|tbl|public.vn_term_results",
+        "e|tbl|public.vn_term_results",
+        "n|rel|public.vn_term_results",
+        "n|type|public.vn_term_results",
+        "n|rel|public.vn_term_results_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -4449,6 +4488,26 @@
         "index",
         "public",
         "grade_items",
+        "grade_items_vn_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_items_vn_book_id_idx",
+        "n|idx|public.grade_items_vn_book_id_idx",
+        "e|idx|public.grade_items_vn_book_id_idx",
+        "n|rel|public.grade_items_vn_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.grade_items.vn_book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_items",
         "grade_items_item_instance_idx"
       ],
       "writes": [
@@ -4561,6 +4620,106 @@
         "n|tbl|public.scales",
         "n|sch|public",
         "n|col|public.scales.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_gradebooks",
+        "vn_gradebooks_course_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_gradebooks_course_id_idx",
+        "n|idx|public.vn_gradebooks_course_id_idx",
+        "e|idx|public.vn_gradebooks_course_id_idx",
+        "n|rel|public.vn_gradebooks_course_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.vn_gradebooks.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_gradebooks",
+        "vn_gradebooks_category_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_gradebooks_category_id_idx",
+        "n|idx|public.vn_gradebooks_category_id_idx",
+        "e|idx|public.vn_gradebooks_category_id_idx",
+        "n|rel|public.vn_gradebooks_category_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.vn_gradebooks.category_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_term_results",
+        "vn_term_results_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_term_results_book_id_idx",
+        "n|idx|public.vn_term_results_book_id_idx",
+        "e|idx|public.vn_term_results_book_id_idx",
+        "n|rel|public.vn_term_results_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_term_results",
+        "n|sch|public",
+        "n|col|public.vn_term_results.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_term_results",
+        "vn_term_results_course_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_term_results_course_id_idx",
+        "n|idx|public.vn_term_results_course_id_idx",
+        "e|idx|public.vn_term_results_course_id_idx",
+        "n|rel|public.vn_term_results_course_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_term_results",
+        "n|sch|public",
+        "n|col|public.vn_term_results.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_term_results",
+        "vn_term_results_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_term_results_user_id_idx",
+        "n|idx|public.vn_term_results_user_id_idx",
+        "e|idx|public.vn_term_results_user_id_idx",
+        "n|rel|public.vn_term_results_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_term_results",
+        "n|sch|public",
+        "n|col|public.vn_term_results.user_id"
       ]
     },
     {
@@ -9639,6 +9798,29 @@
       "statementTarget": [
         "table",
         "public",
+        "grade_items"
+      ],
+      "writes": [
+        "s|fk|public.grade_items.grade_items_vn_book_id_vn_gradebooks_id_fkey",
+        "n|fk|public.grade_items.grade_items_vn_book_id_vn_gradebooks_id_fkey",
+        "e|fk|public.grade_items.grade_items_vn_book_id_vn_gradebooks_id_fkey",
+        "n|con|public.grade_items.grade_items_vn_book_id_vn_gradebooks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.grade_items.vn_book_id",
+        "n|col|public.vn_gradebooks.id",
+        "e|uniqueness|public.vn_gradebooks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "grade_outcomes"
       ],
       "writes": [
@@ -9678,6 +9860,98 @@
         "n|col|public.grade_outcomes.scale_id",
         "n|col|public.scales.id",
         "e|uniqueness|public.scales.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_gradebooks"
+      ],
+      "writes": [
+        "s|fk|public.vn_gradebooks.vn_gradebooks_course_id_course_id_fkey",
+        "n|fk|public.vn_gradebooks.vn_gradebooks_course_id_course_id_fkey",
+        "e|fk|public.vn_gradebooks.vn_gradebooks_course_id_course_id_fkey",
+        "n|con|public.vn_gradebooks.vn_gradebooks_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.vn_gradebooks.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_gradebooks"
+      ],
+      "writes": [
+        "s|fk|public.vn_gradebooks.vn_gradebooks_category_id_grade_categories_id_fkey",
+        "n|fk|public.vn_gradebooks.vn_gradebooks_category_id_grade_categories_id_fkey",
+        "e|fk|public.vn_gradebooks.vn_gradebooks_category_id_grade_categories_id_fkey",
+        "n|con|public.vn_gradebooks.vn_gradebooks_category_id_grade_categories_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|tbl|public.grade_categories",
+        "n|sch|public",
+        "n|col|public.vn_gradebooks.category_id",
+        "n|col|public.grade_categories.id",
+        "e|uniqueness|public.grade_categories.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_term_results"
+      ],
+      "writes": [
+        "s|fk|public.vn_term_results.vn_term_results_book_id_vn_gradebooks_id_fkey",
+        "n|fk|public.vn_term_results.vn_term_results_book_id_vn_gradebooks_id_fkey",
+        "e|fk|public.vn_term_results.vn_term_results_book_id_vn_gradebooks_id_fkey",
+        "n|con|public.vn_term_results.vn_term_results_book_id_vn_gradebooks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_term_results",
+        "n|sch|public",
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.vn_term_results.book_id",
+        "n|col|public.vn_gradebooks.id",
+        "e|uniqueness|public.vn_gradebooks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_term_results"
+      ],
+      "writes": [
+        "s|fk|public.vn_term_results.vn_term_results_course_id_course_id_fkey",
+        "n|fk|public.vn_term_results.vn_term_results_course_id_course_id_fkey",
+        "e|fk|public.vn_term_results.vn_term_results_course_id_course_id_fkey",
+        "n|con|public.vn_term_results.vn_term_results_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_term_results",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.vn_term_results.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
       ]
     },
     {
@@ -12296,6 +12570,18 @@
     {
       "schema": "public",
       "name": "scales",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "vn_gradebooks",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "vn_term_results",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -18808,6 +19094,45 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "vn_book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "vn_role",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "vn_ordinal",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -19029,6 +19354,357 @@
     {
       "schema": "public",
       "table": "scales",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "term",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "regime",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'tt22'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "assessment_mode",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'score'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "subject_periods_per_year",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "dgtx_quota",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "category_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'open'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "closed_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "closed_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "close_note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "scope",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'term'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "dtb_hk",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "dtb_year",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "comment_result",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "comment",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "replaced_by_result_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -31722,6 +32398,27 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "grade_items_vn_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "vn_book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "grade_items_item_instance_idx",
       "nameExplicit": true,
       "columns": [
@@ -31832,6 +32529,111 @@
       "columns": [
         {
           "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_course_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_category_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "category_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_course_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -36864,6 +37666,23 @@
     },
     {
       "schema": "public",
+      "table": "grade_items",
+      "name": "grade_items_vn_book_id_vn_gradebooks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "vn_book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_gradebooks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "grade_outcomes",
       "name": "grade_outcomes_course_id_course_id_fkey",
       "nameExplicit": false,
@@ -36894,6 +37713,74 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_category_id_grade_categories_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "category_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_categories",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_book_id_vn_gradebooks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_gradebooks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "entityType": "fks"
     },
     {
@@ -39191,6 +40078,26 @@
     },
     {
       "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_term_results",
+      "name": "vn_term_results_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "qtype_essay_options",
       "name": "qtype_essay_options_pkey",
       "columns": [
@@ -40461,6 +41368,18 @@
       "columns": [
         "context_id",
         "lower_boundary"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "vn_gradebooks",
+      "name": "vn_gradebooks_course_term_unique",
+      "nameExplicit": true,
+      "columns": [
+        "course_id",
+        "term"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
