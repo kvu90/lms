@@ -24,11 +24,7 @@ interface CalendarEventView {
   timeStart: string;
 }
 
-/** Hình dạng thông báo mà trang này cần (khớp NotificationView của trang thông báo). */
-interface NotificationLite {
-  id: string;
-  timeRead: string | null;
-}
+
 
 /** Lỗi có phải 403 hay không — để hiện thông báo thân thiện thay vì lỗi thô. */
 function isForbidden(error: unknown): boolean {
@@ -351,9 +347,12 @@ function StudentSection() {
     queryKey: queryKeys.myBadges,
     queryFn: () => apiJson<unknown[]>('/api/v1/badges/mine'),
   });
+  // Chỉ cần SỐ chưa đọc cho thẻ thống kê: dùng endpoint đếm riêng,
+  // không tải toàn bộ lịch sử thông báo về rồi lọc phía client nữa
+  // (trung tâm thông báo v2, issue #51).
   const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications,
-    queryFn: () => apiJson<NotificationLite[]>('/api/v1/notifications'),
+    queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
   });
   const eventRange = useMemo(() => {
     const from = new Date();
@@ -366,7 +365,7 @@ function StudentSection() {
   });
 
   const badgeCount = badgesQuery.data ? badgesQuery.data.length : null;
-  const unread = notificationsQuery.data ? notificationsQuery.data.filter((n) => n.timeRead === null).length : null;
+  const unread = notificationsQuery.data ? notificationsQuery.data.unread : null;
   const events = eventsQuery.data ?? [];
 
   const gradedTotals: { grade: number; max: number }[] = [];

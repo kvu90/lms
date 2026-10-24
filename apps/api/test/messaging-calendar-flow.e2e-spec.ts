@@ -222,9 +222,9 @@ describe('Messaging & calendar', () => {
       .send({ userId: user.id, provider: 'badge_awarded', subject: 'Badge!', body: 'You earned a badge' });
     expect(first.body.channels.popup).toBe('delivered');
     expect(first.body.channels.email).toBe('queued');
-    let list = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${accessToken}`);
-    expect(list.body).toHaveLength(1);
-    expect(list.body[0].eventType).toBe('badge_awarded');
+    let list = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${accessToken}`);
+    expect(list.body.items).toHaveLength(1);
+    expect(list.body.items[0].eventType).toBe('badge_awarded');
     // Notifications are NOT messages: no conversation was created.
     const convs = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${accessToken}`);
     expect(convs.body).toHaveLength(0);
@@ -238,8 +238,8 @@ describe('Messaging & calendar', () => {
       .send({ userId: user.id, provider: 'badge_awarded', subject: 'Badge 2', body: 'Another badge' });
     expect(second.body.channels.popup).toBe('skipped-preference');
     expect(second.body.channels.email).toBe('queued');
-    list = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${accessToken}`);
-    expect(list.body).toHaveLength(1);
+    list = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${accessToken}`);
+    expect(list.body.items).toHaveLength(1);
     const log = await http(app).get('/api/v1/notifications/dispatch-log').set('Authorization', `Bearer ${accessToken}`);
     const entries = log.body as { provider: string; channel: string; status: string }[];
     expect(entries.some((e) => e.provider === 'badge_awarded' && e.channel === 'popup' && e.status === 'delivered')).toBe(true);
