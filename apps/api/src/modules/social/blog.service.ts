@@ -13,7 +13,9 @@ import { SocialRepository, type BlogPostRow } from './social.repository';
  * posts are readable by blog:view holders — but when a post is associated
  * with a course, readers must also belong to that course (the association
  * narrows the audience, exactly like blog_listing's course filter in
- * blog/tests/lib_test test_overrides).
+ * blog/tests/lib_test test_overrides). An association with a course
+ * MODULE narrows the audience the same way, to the course containing
+ * the module — a module belongs to exactly one course (issue #48, F1).
  */
 @Injectable()
 /**
@@ -104,11 +106,32 @@ export class BlogService {
     const systemCtx = await this.contexts.ensureSystemContext();
     if (!(await this.evaluator.hasCapability(viewerId, 'blog:view', systemCtx.id))) return false;
     const associations = await this.repo.listAssociations(post.id);
-    const courseAssociations = associations.filter((a) => a.assocType === 'course');
-    if (!courseAssociations.length) return true;
-    // Course-associated public posts narrow the audience to course members.
-    for (const assoc of courseAssociations) {
-      if (await this.isCourseMember(assoc.assocId, viewerId)) return true;
+    if (!associations.length) return true;
+    // Mọi association đều thu hẹp audience về (các) khoá liên kết: liên
+    // kết trực tiếp với khoá ('course') hoặc qua module ('coursemodule'
+    // → khoá chứa module đó — một module chỉ thuộc đúng một khoá, nên
+    // bỏ qua loại này như trước F1 là để bài thoát cổng thành bài site).
+    // Nhiều association (gồm cả hai loại, khác khoá nhau): giữ đúng ngữ
+    // nghĩa hiện tại của nhiều liên kết 'course' — viewer thuộc BẤT KỲ
+    // khoá liên kết nào thì xem được (audience là hợp của các khoá).
+    // Association không phân giải được khoá (module đã bị xoá) KHÔNG
+    // mở rộng audience: bài vẫn bị thu hẹp (fail closed) — việc xoá
+    // module không được biến bài gắn khoá thành bài toàn site.
+    const courseIds = new Set<string>();
+    for (const assoc of associations) {
+      if (assoc.assocType === 'course') {
+        courseIds.add(assoc.assocId);
+      } else if (assoc.assocType === 'coursemodule') {
+        try {
+          const cm = await this.courses.getCm(assoc.assocId);
+          courseIds.add(cm.course);
+        } catch {
+          // Module không còn tồn tại: giữ thu hẹp, không cộng khoá nào.
+        }
+      }
+    }
+    for (const courseId of courseIds) {
+      if (await this.isCourseMember(courseId, viewerId)) return true;
     }
     return false;
   }
