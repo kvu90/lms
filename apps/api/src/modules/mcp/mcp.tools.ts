@@ -76,6 +76,12 @@ const FIELDPATH_BY_CODE: Record<string, string> = {
  */
 async function auditCall(deps: McpToolDeps, actor: McpActor, tool: string, details: Record<string, unknown>): Promise<void> {
   try {
+    // objectId: khoá chuẩn hoá của EventLogWriter cho aggregate lạ —
+    // trỏ tới đối tượng chính của lần gọi (câu hỏi trước, bank sau).
+    const objectId =
+      (typeof details.questionId === 'string' ? details.questionId : null) ??
+      (typeof details.existingQuestionId === 'string' ? details.existingQuestionId : null) ??
+      (typeof details.bankId === 'string' ? details.bankId : null);
     await deps.outbox.enqueueStandalone({
       aggregate: 'mcp',
       type: 'mcp_tool_called',
@@ -86,6 +92,7 @@ async function auditCall(deps: McpToolDeps, actor: McpActor, tool: string, detai
         ip: actor.ip,
         era: actor.era,
         tool,
+        ...(objectId ? { objectId } : {}),
         ...details,
       },
     });
