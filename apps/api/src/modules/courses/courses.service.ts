@@ -680,6 +680,9 @@ export class CoursesService {
    * chèn trước section mang số đó (đẩy các section từ đó xuống cuối
    * đoạn chèn), bỏ trống thì nối cuối outline. Sửa cây chương trình sau
    * đó không đổi các section đã nạp vì chúng đọc từ bản chụp.
+   * Nạp lại là IDEMPOTENT theo node: node đã có section neo trong khoá
+   * (từ chính khung này) thì bỏ qua — không sinh section trùng, không
+   * dịch outline — và kết quả chỉ gồm các section thật sự vừa tạo.
    * Quyền: course:update tại context khoá đích là cổng duy nhất của
    * đường nạp khung (provider khung tin cậy cổng này — xem
    * CurriculumFrameProvider).
@@ -704,6 +707,14 @@ export class CoursesService {
       });
     }
     const existing = await this.repo.listSections(courseId);
+    // Idempotent theo node: node đã neo vào một section của khoá này
+    // (từ chính khung đang nạp) thì bỏ qua, không tạo section trùng.
+    const existingAnchors = await this.repo.listAnchorsForSections(existing.map((s) => s.id));
+    const alreadyApplied = new Set(
+      existingAnchors.filter((a) => a.curriculumId === input.curriculumId).map((a) => a.nodeId),
+    );
+    const fresh = selected.filter((u) => !alreadyApplied.has(u.nodeId));
+    if (fresh.length === 0) return [];
     const maxSection = existing.length ? Math.max(...existing.map((s) => s.section)) : -1;
     const insertAt = input.insertAtSection ?? maxSection + 1;
     if (insertAt > maxSection + 1) {
@@ -712,7 +723,7 @@ export class CoursesService {
         code: 'course.frame_insert_beyond_end',
       });
     }
-    const count = selected.length;
+    const count = fresh.length;
     const created: (SectionRow & { frame: SectionFrameView })[] = [];
     await this.repo.dbHandle.transaction(async (tx) => {
       const handle = tx as never;
@@ -721,7 +732,7 @@ export class CoursesService {
         await this.repo.shiftSections(handle, courseId, insertAt, 100000);
         await this.repo.shiftSections(handle, courseId, insertAt + 100000, count - 100000);
       }
-      for (const [i, unit] of selected.entries()) {
+      for (const [i, unit] of fresh.entries()) {
         const section = await this.repo.insertSection({
           course: courseId, section: insertAt + i, name: unit.title, summary: '', visible: true,
         }, handle);
