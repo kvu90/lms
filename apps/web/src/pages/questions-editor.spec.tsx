@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { QuestionsPage, QuestionUsagePage } from './questions';
 
 /**
@@ -16,6 +17,22 @@ const VERSION_ID = '01900000-0000-7000-8000-000000000008';
 const STIMULUS_ID = '01900000-0000-7000-8000-000000000031';
 const USAGE_ID = '01900000-0000-7000-8000-000000000009';
 const ATTEMPT_ID = '01900000-0000-7000-8000-000000000011';
+const SYSTEM_CTX_ID = '01900000-0000-7000-8000-0000000000a1';
+
+const PROFILE = {
+  id: '01900000-0000-7000-8000-0000000000a9',
+  username: 'teacher1',
+  firstName: 'Lan Anh',
+  lastName: 'Nguyễn',
+  email: 'teacher1@example.com',
+  suspended: false,
+  deleted: false,
+  isGuest: false,
+  forcePasswordChange: false,
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  customFields: [],
+};
 
 const doc = (text: string) => ({
   type: 'doc',
@@ -60,7 +77,7 @@ function multichoiceView(overrides: Record<string, unknown> = {}) {
 }
 
 /** Stub fetch mô phỏng ngân hàng câu hỏi + ngữ liệu trong bộ nhớ. */
-function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = []) {
+function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = [], failCreateDetail?: string) {
   const state = {
     questions: [...initialQuestions] as Record<string, unknown>[],
     stimuli: [] as Record<string, unknown>[],
@@ -72,6 +89,12 @@ function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = []) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities')
+        return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+      if (url === '/api/v1/courses') return respond([]);
+      if (url === '/api/v1/access/contexts')
+        return respond([{ id: SYSTEM_CTX_ID, contextLevel: 10, instanceId: SYSTEM_CTX_ID }]);
       if (url === '/api/v1/questions/categories')
         return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond(state.questions);
@@ -88,6 +111,18 @@ function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = []) {
         return respond(created);
       }
       if (url === '/api/v1/questions' && method === 'POST') {
+        if (failCreateDetail) {
+          return new Response(
+            JSON.stringify({
+              type: 'about:blank',
+              title: 'Bad Request',
+              status: 400,
+              code: 'question.bad_answer_data',
+              detail: failCreateDetail,
+            }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
         const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
         const created = multichoiceView({
           question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: body.qtype, name: body.name },
@@ -122,16 +157,22 @@ function questionForm(submitName = 'Tạo câu hỏi') {
 }
 
 function renderBank() {
+  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
     initialEntries: ['/questions'],
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Question editor — four qtypes', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('creates a multichoice question with choices, fractions and the marked correct choice', async () => {
@@ -160,6 +201,23 @@ describe('Question editor — four qtypes', () => {
       ],
       options: { single: true },
     });
+  });
+
+  it('shows the real API reason when question creation fails (issue #55)', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, [], 'multichoice positive fractions must add up to 1 (100%)');
+    renderBank();
+
+    await screen.findByText('General');
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu lỗi');
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Câu hỏi sai tỷ trọng.');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'A');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'B');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent('Không thể tạo câu hỏi.');
+    expect(status).toHaveTextContent('multichoice positive fractions must add up to 1 (100%)');
   });
 
   it('creates a truefalse question with the legacy answer payload', async () => {
@@ -433,6 +491,10 @@ describe('Stimulus in the question bank UI', () => {
         calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond(PROFILE);
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
         if (url === `/api/v1/question-usages/${USAGE_ID}`) {
           return respond({
             usage: { id: USAGE_ID, component: 'mod_quiz', instanceId: null, preferredBehaviour: 'deferredfeedback' },
@@ -480,10 +542,15 @@ describe('Stimulus in the question bank UI', () => {
         return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       }),
     );
+    localStorage.setItem('lms.accessToken', 'test-token');
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
       initialEntries: [`/question-usages/${USAGE_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     const block = await screen.findByTestId(`attempt-stimulus-${ATTEMPT_ID}`);
     expect(block).toHaveTextContent('Đoạn văn về thủ đô Hà Nội.');

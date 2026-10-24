@@ -1,7 +1,8 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { QuestionsPage, QuestionUsagePage } from './questions';
 
 /**
@@ -14,6 +15,23 @@ const USAGE_ID = '01900000-0000-7000-8000-000000000009';
 const ATTEMPT_ID = '01900000-0000-7000-8000-000000000011';
 const QUESTION_ID = '01900000-0000-7000-8000-000000000004';
 const CATEGORY_ID = '01900000-0000-7000-8000-000000000001';
+const SYSTEM_CTX_ID = '01900000-0000-7000-8000-0000000000a1';
+const NEW_CATEGORY_ID = '01900000-0000-7000-8000-000000000051';
+
+const PROFILE = {
+  id: '01900000-0000-7000-8000-0000000000a9',
+  username: 'teacher1',
+  firstName: 'Lan Anh',
+  lastName: 'Nguyễn',
+  email: 'teacher1@example.com',
+  suspended: false,
+  deleted: false,
+  isGuest: false,
+  forcePasswordChange: false,
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  customFields: [],
+};
 
 interface RecordedCall {
   url: string;
@@ -23,6 +41,7 @@ interface RecordedCall {
 
 /** Stub fetch ghi lời gọi và mô phỏng máy trạng thái attempt ở phía server. */
 function stubFetch(calls: RecordedCall[]) {
+  const categories = [{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }];
   const state = {
     attempt: 'notstarted',
     fraction: null as number | null,
@@ -60,8 +79,19 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      if (url === '/api/v1/questions/categories')
-        return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities')
+        return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+      if (url === '/api/v1/courses') return respond([]);
+      if (url === '/api/v1/access/contexts')
+        return respond([{ id: SYSTEM_CTX_ID, contextLevel: 10, instanceId: SYSTEM_CTX_ID }]);
+      if (url === '/api/v1/questions/categories' && method === 'POST') {
+        const body = JSON.parse(String(init?.body)) as { name: string; contextId: string };
+        const created = { id: NEW_CATEGORY_ID, name: body.name, contextId: body.contextId, info: '', parent: null };
+        categories.push(created);
+        return respond(created);
+      }
+      if (url === '/api/v1/questions/categories') return respond(categories);
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) {
         return respond([
           {
@@ -123,9 +153,11 @@ describe('Question usage flow — real endpoints', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('creates a usage from selected questions and navigates to the usage page', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(
@@ -135,7 +167,11 @@ describe('Question usage flow — real endpoints', () => {
       ],
       { initialEntries: ['/questions'] },
     );
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     await userEvent.click(await screen.findByRole('checkbox', { name: /Chọn câu hỏi Sky/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu làm bài' }));
@@ -149,12 +185,17 @@ describe('Question usage flow — real endpoints', () => {
   });
 
   it('submits an answer via POST submit and only shows the fraction after POST finish', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
       initialEntries: [`/question-usages/${USAGE_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Bắt đầu lượt làm' }));
     const answer = await screen.findByLabelText('Câu trả lời cho ô 1');
@@ -178,5 +219,88 @@ describe('Question usage flow — real endpoints', () => {
     );
     await waitFor(() => expect(screen.getByTestId(`attempt-${ATTEMPT_ID}`)).toHaveTextContent('gradedright'));
     expect(screen.getByTestId(`attempt-${ATTEMPT_ID}`)).toHaveTextContent('hệ số 1');
+  });
+
+  it('creates a category through the context select, defaulting to the system context (issue #55)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    // Ngữ cảnh là một <select> tử tế (không còn ô gõ ID thô điền sẵn "1"),
+    // mặc định ngữ cảnh hệ thống.
+    const contextSelect = (await screen.findByLabelText('Ngữ cảnh')) as HTMLSelectElement;
+    expect(contextSelect.tagName).toBe('SELECT');
+    expect(contextSelect.value).toBe(SYSTEM_CTX_ID);
+    expect(within(contextSelect).getByRole('option', { name: 'Hệ thống' })).toBeInTheDocument();
+
+    const createButton = screen.getByRole('button', { name: 'Tạo danh mục' });
+    const form = createButton.closest('form');
+    if (!form) throw new Error('category form not found');
+    await userEvent.type(within(form).getByLabelText('Tên'), 'Danh mục mới của tôi');
+    await userEvent.click(createButton);
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/questions/categories' && c.method === 'POST')).toBe(true),
+    );
+    const createCall = calls.find((c) => c.url === '/api/v1/questions/categories' && c.method === 'POST');
+    expect(createCall?.body).toEqual({ name: 'Danh mục mới của tôi', contextId: SYSTEM_CTX_ID });
+  });
+});
+
+describe('Question bank page — role gate (issue #55)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('renders no bank data and calls no bank endpoint for a role without question capabilities', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'student1' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({
+            userId: PROFILE.id,
+            isSiteAdmin: false,
+            assignments: [],
+            contexts: [{ contextId: SYSTEM_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: [] }],
+          });
+        if (url === '/api/v1/courses') return respond([]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    // waitFor với truy vấn tươi mỗi nhịp: chịu được việc cây React bị dựng
+    // lại khi máy kiểm thử quá tải (findByText giữ phần tử của cây cũ).
+    await waitFor(
+      () => expect(screen.getByText('Bạn không có quyền truy cập ngân hàng câu hỏi.')).toBeInTheDocument(),
+      { timeout: 15_000 },
+    );
+    expect(screen.queryByText('Danh mục mới')).toBeNull();
+    expect(calls.some((c) => c.url.startsWith('/api/v1/questions'))).toBe(false);
+    expect(calls.some((c) => c.url.startsWith('/api/v1/stimuli'))).toBe(false);
   });
 });

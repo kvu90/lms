@@ -14,8 +14,29 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import { apiJson, ApiError } from '#lib/api';
+import { usePermissions } from '#lib/permissions';
 import { DataTable, type DataColumn } from '#components/data-table';
+
+/**
+ * Thông báo lỗi kèm lý do thật từ API (ProblemDetails.detail) — trước
+ * đây các catch nuốt lỗi gốc và chỉ hiện câu chung chung, giáo viên
+ * không biết sai ở đâu (issue #55 mục 3).
+ */
+function withApiReason(fallback: string, err: unknown): string {
+  if (err instanceof ApiError) {
+    const reason = err.problem.detail ?? err.problem.title;
+    if (reason) return `${fallback} ${reason}`;
+  }
+  return fallback;
+}
+
+/** Một lựa chọn ngữ cảnh cho form danh mục mới. */
+interface ContextOption {
+  id: string;
+  level: number;
+  label: string;
+}
 
 const QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
 type Qtype = (typeof QTYPES)[number];
@@ -272,6 +293,7 @@ function formContent(form: QuestionFormState, preserveExistingOptions = false): 
 export function QuestionsPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
+  const perms = usePermissions();
   const [selected, setSelected] = useState<string[]>([]);
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [questions, setQuestions] = useState<QuestionView[]>([]);
@@ -281,7 +303,8 @@ export function QuestionsPage() {
     versions: { version: number; questionText: RichTextDocument }[];
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [contextId, setContextId] = useState('1');
+  const [contextId, setContextId] = useState('');
+  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
   const [catName, setCatName] = useState('');
   const [qCategory, setQCategory] = useState('');
   const [form, setForm] = useState<QuestionFormState>(() => emptyForm('multichoice'));
@@ -322,8 +345,59 @@ export function QuestionsPage() {
   }, [loadQuestions, loadStimuli, qCategory, t]);
 
   useEffect(() => {
+    // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
+    // trang render trạng thái không-có-quyền ở dưới (issue #55 mục 1).
+    if (!perms.ready || !perms.canUseQuestionBank) return;
     void reload().catch(() => setMessage(t('questionBankLoadFailed')));
-  }, [reload]);
+  }, [reload, perms.ready, perms.canUseQuestionBank]);
+
+  /**
+   * Ngữ cảnh cho form "Danh mục mới" (issue #55 mục 2): control chọn tử
+   * tế thay ô gõ ID thô điền sẵn "1" — chỉ liệt kê ngữ cảnh người dùng
+   * thật sự có question:managecategory (theo ảnh chụp quyền; site admin
+   * thì mọi ngữ cảnh hệ thống/danh mục/khoá), mặc định ngữ cảnh hệ
+   * thống nếu có trong danh sách, không thì ngữ cảnh đầu tiên.
+   */
+  useEffect(() => {
+    if (!perms.ready || !perms.canUseQuestionBank) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
+          '/api/v1/access/contexts',
+        );
+        const manageable = new Set(
+          (perms.access?.contexts ?? [])
+            .filter((c) => c.capabilities.includes('question:managecategory'))
+            .map((c) => c.contextId),
+        );
+        const courseName = (instanceId: string) =>
+          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
+        const options: ContextOption[] = contexts
+          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
+          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            level: c.contextLevel,
+            label:
+              c.contextLevel === 10
+                ? t('contextSystem')
+                : c.contextLevel === 50
+                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
+                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
+          }));
+        if (cancelled) return;
+        setContextOptions(options);
+        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
+      } catch {
+        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
+        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
 
   async function createCategory(event: FormEvent) {
     event.preventDefault();
@@ -334,8 +408,8 @@ export function QuestionsPage() {
       });
       setCatName('');
       await reload();
-    } catch {
-      setMessage(t('categoryCreateFailedShort'));
+    } catch (err) {
+      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
     }
   }
 
@@ -354,8 +428,8 @@ export function QuestionsPage() {
         setEditing(null);
         setForm(emptyForm('multichoice'));
         await loadQuestions(editing.question.category);
-      } catch {
-        setMessage(t('questionEditFailed'));
+      } catch (err) {
+        setMessage(withApiReason(t('questionEditFailed'), err));
       }
       return;
     }
@@ -371,8 +445,8 @@ export function QuestionsPage() {
       });
       setForm((prev) => ({ ...emptyForm(prev.qtype), stimulusId: prev.stimulusId }));
       await loadQuestions(qCategory);
-    } catch {
-      setMessage(t('questionCreateFailed'));
+    } catch (err) {
+      setMessage(withApiReason(t('questionCreateFailed'), err));
     }
   }
 
@@ -699,6 +773,29 @@ export function QuestionsPage() {
     },
   ];
 
+  // Chặn trang theo vai (issue #55 mục 1): sidebar đã ẩn mục điều hướng
+  // với vai không có capability ngân hàng, trang chặn nốt khi vào thẳng
+  // bằng URL — không render danh mục/câu hỏi/editor khi không có quyền.
+  if (!perms.ready) {
+    return (
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        {t('loading')}
+      </main>
+    );
+  }
+  if (!perms.canUseQuestionBank) {
+    return (
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('questionBank')}</CardTitle>
+            <CardDescription>{t('questionBankForbidden')}</CardDescription>
+          </CardHeader>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <Card>
@@ -771,10 +868,23 @@ export function QuestionsPage() {
               <Input id="qcat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="qcat-context">{t('contextId')}</Label>
-              <Input id="qcat-context" value={contextId} onChange={(e) => setContextId(e.target.value)} />
+              <Label htmlFor="qcat-context">{t('questionCategoryContext')}</Label>
+              <select
+                id="qcat-context"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                value={contextId}
+                onChange={(e) => setContextId(e.target.value)}
+              >
+                {contextOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <Button type="submit">{t('createCategory')}</Button>
+            <Button type="submit" disabled={!contextId}>
+              {t('createCategory')}
+            </Button>
           </form>
         </CardContent>
       </Card>
@@ -1278,6 +1388,7 @@ interface PinnedContent {
 export function QuestionUsagePage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
+  const perms = usePermissions();
   const [usage, setUsage] = useState<QuestionUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -1327,8 +1438,11 @@ export function QuestionUsagePage() {
   }, [id, loadPinned]);
 
   useEffect(() => {
+    // Trang làm thử thuộc bộ công cụ ngân hàng: cùng cổng vai với trang
+    // ngân hàng (issue #55 mục 1); API usage cũng đã gác chủ sở hữu/quyền.
+    if (!perms.ready || !perms.canUseQuestionBank) return;
     void reload().catch(() => setError(t('attemptLoadFailed')));
-  }, [reload, t]);
+  }, [reload, t, perms.ready, perms.canUseQuestionBank]);
 
   /** Chạy một thao tác làm bài rồi nạp lại usage; lỗi hiện thân thiện qua i18n. */
   async function act(run: () => Promise<unknown>) {
@@ -1341,6 +1455,23 @@ export function QuestionUsagePage() {
     }
   }
 
+  if (!perms.ready)
+    return (
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        {t('loading')}
+      </main>
+    );
+  if (!perms.canUseQuestionBank)
+    return (
+      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('questionBank')}</CardTitle>
+            <CardDescription>{t('questionBankForbidden')}</CardDescription>
+          </CardHeader>
+        </Card>
+      </main>
+    );
   if (error)
     return (
       <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">

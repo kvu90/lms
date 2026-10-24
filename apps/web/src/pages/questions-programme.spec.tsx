@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { QuestionsPage } from './questions';
 
 /**
@@ -16,6 +17,21 @@ const SYSTEM_CTX_ID = '01900000-0000-7000-8000-0000000000a1';
 const SUBJECT_ID = '01900000-0000-7000-8000-0000000000a2';
 const CURRICULUM_ID = '01900000-0000-7000-8000-0000000000a3';
 const OUTCOME_ID = '01900000-0000-7000-8000-0000000000a4';
+
+const PROFILE = {
+  id: '01900000-0000-7000-8000-0000000000a9',
+  username: 'teacher1',
+  firstName: 'Lan Anh',
+  lastName: 'Nguyễn',
+  email: 'teacher1@example.com',
+  suspended: false,
+  deleted: false,
+  isGuest: false,
+  forcePasswordChange: false,
+  lastLogin: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  customFields: [],
+};
 
 const doc = (text: string) => ({
   type: 'doc',
@@ -94,6 +110,10 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities')
+        return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+      if (url === '/api/v1/courses') return respond([]);
       if (url === '/api/v1/questions/categories')
         return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond([multichoiceView()]);
@@ -155,16 +175,22 @@ function stubFetch(calls: RecordedCall[]) {
 }
 
 function renderBank() {
+  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
     initialEntries: ['/questions'],
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Question editor — programme links (issue #20 phase 2)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('links a subject and an outcome with a cognitive level from the editor', async () => {
