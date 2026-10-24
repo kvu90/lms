@@ -21,10 +21,12 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './e
  *  3. Nhóm lớp chat hai chiều mặc định; giáo viên tắt được qua cột
  *     `enabled` (đường gửi phải tôn trọng); tắt thì học sinh dừng gửi,
  *     giáo viên vẫn gửi được.
- *  4. Xoá mềm có truy vết theo vai trò: giáo viên xoá → học sinh không
- *     thấy; học sinh xoá tin mình → học sinh không thấy nhưng giáo viên
- *     vẫn truy vết được nội dung; người không có thẩm quyền không xoá
- *     được tin của người khác.
+ *  4. Vòng đời tin nhắn theo vai (bổ sung PR #94): XOÁ-PHÍA-MÌNH chỉ
+ *     ẩn tin với chính tác giả (phía kia thấy nguyên vẹn); moderator
+ *     gỡ cho mọi người bằng XOÁ CỨNG có lý do qua capability
+ *     `moderation:manage` — dòng tin biến mất khỏi mọi đường đọc.
+ *     (Thu hồi trong cửa sổ và gỡ hàng loạt kiểm chứng đầy đủ ở
+ *     messaging-message-lifecycle.)
  *  5. Báo cáo trong conversation → giáo viên phụ trách + admin; chỉ
  *     người có thẩm quyền theo phạm vi mới xem lại được nội dung của
  *     đúng conversation bị báo cáo; mọi lần xem ghi event_log.
@@ -35,6 +37,7 @@ interface Person { id: string; username: string; token: string }
 interface MessageBody {
   id: string; fullMessage: string; userIdFrom: string; seq: number;
   deletedAt: string | null; deletedBy: string | null;
+  recalledAt: string | null; recalledBy: string | null;
 }
 
 describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
@@ -225,7 +228,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(teacherFree.status).toBe(201);
   });
 
-  it('4. soft delete with trace: students lose sight of deleted messages, the teacher still traces content, and only author/moderator can delete', async () => {
+  it('4. vòng đời theo vai: xoá-phía-mình chỉ ẩn với chính chủ; moderator gỡ cho mọi người bằng xoá cứng có lý do', async () => {
     const m1 = await send(s2.token, groupConvId, 'tin của s2 giữ lại sau');
     expect(m1.status).toBe(201);
     // s2 đọc hết tới hiện tại (kể cả các tin khởi động của test 3) để
@@ -233,12 +236,13 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const marked = await http(app).post(`/api/v1/messages/conversations/${groupConvId}/read`)
       .set('Authorization', `Bearer ${s2.token}`).send({});
     expect(marked.status).toBe(201);
-    const m2 = await send(s1.token, groupConvId, 'tin s1 sẽ tự xoá');
+    const m2 = await send(s1.token, groupConvId, 'tin s1 sẽ tự xoá phía mình');
     expect(m2.status).toBe(201);
     const m1Id = m1.body.id as string;
     const m2Id = m2.body.id as string;
 
-    // Học sinh này xoá tin của học sinh khác → 403.
+    // Học sinh này xoá tin của học sinh khác → 403: xoá-phía-mình chỉ
+    // dành cho TÁC GIẢ (gỡ cho mọi người là thu hồi/xoá cứng).
     const foreign = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s2.token}`);
     expect(foreign.status).toBe(403);
     expect(foreign.body.code).toBe('messaging.message_delete_forbidden');
@@ -252,49 +256,67 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const entryBefore = (listBefore.body as { id: string; unread: number }[]).find((c) => c.id === groupConvId);
     expect(entryBefore?.unread).toBe(1);
 
-    // s1 xoá tin của chính mình: đánh dấu có truy vết, không mất dòng.
+    // s1 XOÁ-PHÍA-MÌNH m2: dòng tin KHÔNG bị đánh dấu xoá toàn cục —
+    // chỉ một cờ cá nhân được đặt cho s1, response là dòng nguyên trạng.
     const del = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
     expect(del.status).toBe(200);
-    expect(del.body.deletedAt).toBeTruthy();
-    expect(del.body.deletedBy).toBe(s1.id);
-    expect(del.body.fullMessage).toBe('tin s1 sẽ tự xoá');
+    expect(del.body.deletedAt).toBeNull();
+    expect(del.body.deletedBy).toBeNull();
+    expect(del.body.fullMessage).toBe('tin s1 sẽ tự xoá phía mình');
 
-    // Mọi học sinh đều không còn thấy m2 — kể cả chính tác giả; số chưa
-    // đọc và tin cuối trong danh sách của s2 lùi về m1.
-    const s2View = await viewMessages(s2.token, groupConvId);
-    expect(s2View.messages.map((m) => m.id)).not.toContain(m2Id);
-    expect(s2View.canModerate).toBe(false);
+    // Chính s1 không còn thấy m2 và tin cuối trong danh sách của s1
+    // lùi về m1…
     const s1View = await viewMessages(s1.token, groupConvId);
     expect(s1View.messages.map((m) => m.id)).not.toContain(m2Id);
+    const s1List = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${s1.token}`);
+    const s1Entry = (s1List.body as { id: string; lastMessage: MessageBody | null }[]).find((c) => c.id === groupConvId);
+    expect(s1Entry?.lastMessage?.id).toBe(m1Id);
+    // …nhưng s2 thấy NGUYÊN VẸN: nội dung, số chưa đọc và tin cuối
+    // đều không đổi — xoá-phía-mình không rò sang phía kia chút nào.
+    const s2View = await viewMessages(s2.token, groupConvId);
+    expect(s2View.canModerate).toBe(false);
+    const m2ForS2 = s2View.messages.find((m) => m.id === m2Id);
+    expect(m2ForS2?.fullMessage).toBe('tin s1 sẽ tự xoá phía mình');
     const listAfter = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${s2.token}`);
     const entryAfter = (listAfter.body as { id: string; unread: number; lastMessage: MessageBody | null }[])
       .find((c) => c.id === groupConvId);
-    expect(entryAfter?.unread).toBe(0);
-    expect(entryAfter?.lastMessage?.id).toBe(m1Id);
-
-    // Giáo viên vẫn truy vết được: m2 hiện ra với nguyên nội dung + dấu xoá.
+    expect(entryAfter?.unread).toBe(1);
+    expect(entryAfter?.lastMessage?.id).toBe(m2Id);
+    // Giáo viên (đường truy vết) cũng thấy m2 nguyên vẹn, không dấu xoá.
     const teacherView = await viewMessages(teacher.token, groupConvId);
     expect(teacherView.canModerate).toBe(true);
-    const traced = teacherView.messages.find((m) => m.id === m2Id);
-    expect(traced).toBeDefined();
-    expect(traced!.fullMessage).toBe('tin s1 sẽ tự xoá');
-    expect(traced!.deletedBy).toBe(s1.id);
-    expect(traced!.deletedAt).toBeTruthy();
+    const m2Traced = teacherView.messages.find((m) => m.id === m2Id);
+    expect(m2Traced?.fullMessage).toBe('tin s1 sẽ tự xoá phía mình');
+    expect(m2Traced?.deletedAt).toBeNull();
+    // Xoá-phía-mình lại cùng một tin: idempotent, vẫn 200.
+    const againForMe = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
+    expect(againForMe.status).toBe(200);
 
-    // Giáo viên xoá tin của s2: học sinh mất dấu, giáo viên còn truy vết.
-    const teacherDel = await http(app).delete(`/api/v1/messages/messages/${m1Id}`).set('Authorization', `Bearer ${teacher.token}`);
-    expect(teacherDel.status).toBe(200);
-    expect(teacherDel.body.deletedBy).toBe(teacher.id);
+    // Giáo viên bấm DELETE (đường xoá-phía-mình) lên tin của s2 →
+    // 403: moderator gỡ cho mọi người phải đi đường xoá cứng có lý do.
+    const teacherForMe = await http(app).delete(`/api/v1/messages/messages/${m1Id}`).set('Authorization', `Bearer ${teacher.token}`);
+    expect(teacherForMe.status).toBe(403);
+    expect(teacherForMe.body.code).toBe('messaging.message_delete_forbidden');
+    // Xoá cứng THIẾU lý do → 400 (lý do là bắt buộc ở DTO).
+    const noReason = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+      .set('Authorization', `Bearer ${teacher.token}`).send({});
+    expect(noReason.status).toBe(400);
+    // Xoá cứng CÓ lý do: dòng tin biến mất khỏi MỌI đường đọc — học
+    // sinh không thấy, và đường truy vết của chính giáo viên cũng
+    // không còn (xoá cứng là xoá thật; căn cứ còn lại là dòng
+    // moderator_action — kiểm chứng ở spec vòng đời riêng).
+    const hardDel = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+      .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'Nội dung không phù hợp với lớp học' });
+    expect(hardDel.status).toBe(200);
+    expect(hardDel.body.deleted).toBe(true);
     const s2ViewAfter = await viewMessages(s2.token, groupConvId);
     expect(s2ViewAfter.messages.map((m) => m.id)).not.toContain(m1Id);
     const teacherViewAfter = await viewMessages(teacher.token, groupConvId);
-    const tracedM1 = teacherViewAfter.messages.find((m) => m.id === m1Id);
-    expect(tracedM1?.fullMessage).toBe('tin của s2 giữ lại sau');
-    expect(tracedM1?.deletedBy).toBe(teacher.id);
-    // Xoá lại tin đã xoá: idempotent, dấu vết lần đầu giữ nguyên.
-    const again = await http(app).delete(`/api/v1/messages/messages/${m1Id}`).set('Authorization', `Bearer ${teacher.token}`);
-    expect(again.status).toBe(200);
-    expect(again.body.deletedBy).toBe(teacher.id);
+    expect(teacherViewAfter.messages.map((m) => m.id)).not.toContain(m1Id);
+    // Xoá cứng lại tin đã biến mất → 404.
+    const hardAgain = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+      .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'xoá lại' });
+    expect(hardAgain.status).toBe(404);
   });
 
   // Trần 120s (không phải 30s mặc định): vòng xả relay ở cuối test phải
@@ -304,8 +326,9 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   // assertion nào, chỉ nới trần cho thao tác xả tồn đọng này.
   it('5. reports reach the teacher in charge and admins only; reviewing is scope-checked and every view is written to event_log', async () => {
     // Một tin riêng 1-1 (s1–s2 kết bạn trước vì cổng nhắn riêng nay
-    // chỉ mở cho liên hệ đã duyệt) bị chính tác giả xoá — nội dung
-    // chỉ còn truy vết được qua đường báo cáo có thẩm quyền.
+    // chỉ mở cho liên hệ đã duyệt) bị chính tác giả THU HỒI trong cửa
+    // sổ — nội dung bị vô hiệu với phía kia và chỉ còn truy vết được
+    // qua đường báo cáo có thẩm quyền.
     const friendReq = await http(app).post(`/api/v1/messages/contacts/${s2.id}`).set('Authorization', `Bearer ${s1.token}`).send({});
     expect(friendReq.status).toBe(201);
     const friendAcc = await http(app).post(`/api/v1/messages/contacts/requests/${s1.id}/accept`).set('Authorization', `Bearer ${s2.token}`).send({});
@@ -314,11 +337,12 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
       .send({ type: 1, memberIds: [s2.id] });
     expect(conv.status).toBe(201);
     const convId = conv.body.id as string;
-    const secret = await send(s1.token, convId, 'tin riêng sẽ bị xoá');
+    const secret = await send(s1.token, convId, 'tin riêng sẽ bị thu hồi');
     expect(secret.status).toBe(201);
     const secretId = secret.body.id as string;
-    const delOwn = await http(app).delete(`/api/v1/messages/messages/${secretId}`).set('Authorization', `Bearer ${s1.token}`);
-    expect(delOwn.status).toBe(200);
+    const recallOwn = await http(app).post(`/api/v1/messages/messages/${secretId}/recall`).set('Authorization', `Bearer ${s1.token}`).send({});
+    expect(recallOwn.status).toBe(200);
+    expect(recallOwn.body.recalledBy).toBe(s1.id);
 
     // Người ngoài conversation không báo cáo được.
     const outsider = await person();
@@ -358,7 +382,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
 
     // Xem lại nội dung: học sinh (kể cả người báo cáo) và giáo viên
     // ngoài phạm vi bị chặn; giáo viên phụ trách và admin xem được —
-    // gồm cả tin đã xoá mềm với nguyên nội dung.
+    // gồm cả tin đã THU HỒI với nguyên nội dung và dấu thu hồi.
     const studentView = await http(app).get(`/api/v1/messages/reports/${reportId}/conversation`).set('Authorization', `Bearer ${s2.token}`);
     expect(studentView.status).toBe(403);
     expect(studentView.body.code).toBe('messaging.report_review_forbidden');
@@ -367,8 +391,9 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const teacherView = await http(app).get(`/api/v1/messages/reports/${reportId}/conversation`).set('Authorization', `Bearer ${teacher.token}`);
     expect(teacherView.status).toBe(200);
     const tracedSecret = (teacherView.body.conversation.messages as MessageBody[]).find((m) => m.id === secretId);
-    expect(tracedSecret?.fullMessage).toBe('tin riêng sẽ bị xoá');
-    expect(tracedSecret?.deletedBy).toBe(s1.id);
+    expect(tracedSecret?.fullMessage).toBe('tin riêng sẽ bị thu hồi');
+    expect(tracedSecret?.recalledBy).toBe(s1.id);
+    expect(tracedSecret?.recalledAt).toBeTruthy();
     const adminView = await http(app).get(`/api/v1/messages/reports/${reportId}/conversation`).set('Authorization', `Bearer ${admin}`);
     expect(adminView.status).toBe(200);
     expect(adminView.body.report.id).toBe(reportId);
