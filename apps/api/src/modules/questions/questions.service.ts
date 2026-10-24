@@ -833,12 +833,73 @@ export class QuestionsService {
     return data;
   }
 
+  // --- cổng thao tác usage (issue #60) ---------------------------------------
+
+  /**
+   * Cổng chủ sở hữu của các thao tác usage/attempt: chỉ chủ sở hữu
+   * (`question_usages.user_id`) mới được start/submit/finish qua bất kỳ
+   * kênh nào. Lệch chủ sở hữu ném 404 KHÔNG-oracle — cùng status, cùng mã
+   * và cùng câu chữ như khi tài nguyên không tồn tại. Caller nội bộ hợp
+   * lệ duy nhất (QuizService) luôn hành động với tư cách chủ sở hữu của
+   * lượt (bắt đầu/nộp/chốt lượt đều truyền id của chủ lượt) nên không bị
+   * ảnh hưởng; chấm tay đi qua `manualGradeAttempt` riêng, không qua đây.
+   */
+  private async requireOwnedUsage(userId: string, usageId: string): Promise<void> {
+    const usage = await this.repo.getUsage(usageId);
+    if (!usage || usage.userId !== userId) {
+      throw new NotFoundException({ message: `Question usage ${usageId} not found`, code: 'question.usage_not_found' });
+    }
+  }
+  private async requireOwnedAttempt(userId: string, attempt: AttemptRow): Promise<void> {
+    const usage = await this.repo.getUsage(attempt.questionUsageId);
+    if (!usage || usage.userId !== userId) {
+      throw new NotFoundException({ message: `Question attempt ${attempt.id} not found`, code: 'question.attempt_not_found' });
+    }
+  }
+
+  /**
+   * Khoá kênh HTTP thô đối với usage gắn lượt quiz đang `inprogress`
+   * (chính sách kênh, chỉ controller gọi — KHÔNG áp dụng trong các hàm
+   * thao tác của service, vì chính luồng quiz chốt lượt bằng các hàm đó
+   * trong lúc `quiz_attempts` vẫn `inprogress`): thao tác phải đi qua
+   * luồng quiz để đáp án đúng/fraction chỉ lộ sau khi nộp qua quiz. Chỉ
+   * người đã qua cổng chủ sở hữu mới chạm được lỗi này nên không lộ thông
+   * tin cho người ngoài (người ngoài nhận 404 trước).
+   */
+  private async requireNotLockedByQuizAttempt(usageId: string): Promise<void> {
+    const link = await this.repo.findQuizAttemptByUsageId(usageId);
+    if (link && link.state === 'inprogress') {
+      throw new ForbiddenException({
+        message: 'This usage belongs to a quiz attempt in progress; answer and submit through the quiz',
+        code: 'question.usage_managed_by_quiz',
+      });
+    }
+  }
+  /** Cổng kênh HTTP cho route cấp usage: chủ sở hữu + không bị khoá bởi lượt quiz đang làm. */
+  async assertUsageManipulableViaHttp(actorId: string, usageId: string): Promise<void> {
+    await this.requireOwnedUsage(actorId, usageId);
+    await this.requireNotLockedByQuizAttempt(usageId);
+  }
+  /** Cổng kênh HTTP cho route cấp attempt: attempt phải thuộc đúng usage trên đường dẫn, chủ sở hữu, không bị khoá bởi lượt quiz đang làm. */
+  async assertAttemptManipulableViaHttp(actorId: string, usageId: string, attemptId: string): Promise<void> {
+    const attempt = await this.repo.getAttempt(attemptId);
+    if (!attempt || attempt.questionUsageId !== usageId) {
+      throw new NotFoundException({ message: `Question attempt ${attemptId} not found`, code: 'question.attempt_not_found' });
+    }
+    const usage = await this.repo.getUsage(usageId);
+    if (!usage || usage.userId !== actorId) {
+      throw new NotFoundException({ message: `Question attempt ${attemptId} not found`, code: 'question.attempt_not_found' });
+    }
+    await this.requireNotLockedByQuizAttempt(usageId);
+  }
+
   /** Start an attempt: PIN the bank entry's current latest version. */
   /**
    * Bắt đầu attempt cho một slot: pin version hiện tại của câu hỏi.
    */
   async startAttempt(userId: string, attemptId: string): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
+    await this.requireOwnedAttempt(userId, attempt);
     await this.transition(attempt, 'todo');
     const { entry, latestVersion } = await this.getQuestion(attempt.questionId);
     void entry;
@@ -855,6 +916,7 @@ export class QuestionsService {
    */
   async submitResponse(userId: string, attemptId: string, response: string | null): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
+    await this.requireOwnedAttempt(userId, attempt);
     const behaviour = BEHAVIOURS[attempt.behaviour];
     if (!behaviour) throw new BadRequestException({ message: `Unknown behaviour ${attempt.behaviour}`, code: 'question.unknown_behaviour' });
     const to = behaviour.stateAfterSubmit(response);
@@ -873,6 +935,7 @@ export class QuestionsService {
    */
   async finishAttempt(userId: string, attemptId: string): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
+    await this.requireOwnedAttempt(userId, attempt);
     if (attempt.state === 'notstarted') {
       throw new BadRequestException({ message: 'Cannot finish an attempt that was never started', code: 'question.not_started' });
     }
@@ -908,6 +971,7 @@ export class QuestionsService {
    * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
    */
   async finishUsage(userId: string, usageId: string): Promise<UsageView> {
+    await this.requireOwnedUsage(userId, usageId);
     const before = await this.getUsage(usageId);
     for (const a of before.attempts) {
       if (a.state !== 'notstarted') await this.finishAttempt(userId, a.id);
@@ -953,6 +1017,7 @@ export class QuestionsService {
    * Bắt đầu usage (ủy quyền nội bộ).
    */
   async startUsage(userId: string, usageId: string): Promise<UsageView> {
+    await this.requireOwnedUsage(userId, usageId);
     const view = await this.getUsage(usageId);
     for (const a of view.attempts) {
       if (a.state === 'notstarted') await this.startAttempt(userId, a.id);
