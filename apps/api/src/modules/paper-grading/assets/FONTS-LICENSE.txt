@@ -1,0 +1,2 @@
+Fonts: DejaVu Sans + DejaVu Sans Bold (Bitstream Vera/DejaVu license — free redistribution permitted with license notice; full license: https://dejavu-fonts.github.io/License.html).
+Vendored so printed answer sheets render Vietnamese diacritics identically in every environment (pdf-lib standard fonts use WinAnsi, which lacks most Vietnamese characters).

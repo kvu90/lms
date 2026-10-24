@@ -1830,3 +1830,124 @@ export const examDossierViewSchema = z.object({
   updatedAt: z.string(),
 });
 export type ExamDossierView = z.infer<typeof examDossierViewSchema>;
+// ---------------------------------------------------------------------------
+// Chấm bài giấy bằng camera (CAM-0, issue #112): phiếu trả lời in từ quiz,
+// OMR xác định phía server, hai hàng chờ (gán định danh / xác nhận ca mơ hồ)
+// và attempt "thi giấy" chảy vào Quiz. OMR chỉ trả "ô nào được tô" — việc
+// chấm (kể cả thang Đ–S chùm) là của engine Quiz như attempt online.
+
+/** Trạng thái một phiếu đã quét: chờ gán định danh → chờ xác nhận mơ hồ → sẵn sàng ghi → đã ghi thành attempt. */
+export const PAPER_SCAN_STATUSES = ['needs_identity', 'needs_review', 'ready', 'recorded'] as const;
+export type PaperScanStatus = (typeof PAPER_SCAN_STATUSES)[number];
+
+/** Nguồn định danh của phiếu: QR cá nhân hoá, ô tô mã học sinh, hoặc giáo viên gán tay trong hàng chờ. */
+export const PAPER_IDENTITY_SOURCES = ['qr', 'bubbles', 'manual'] as const;
+export type PaperIdentitySource = (typeof PAPER_IDENTITY_SOURCES)[number];
+
+/** Một dòng của đề đã ghim tại thời điểm sinh phiếu: version câu + đáp án của version đó theo đúng thứ tự in trên phiếu. */
+export const paperSlotLayoutSchema = z.object({
+  slot: z.number().int(),
+  questionId: uuidIdSchema,
+  versionId: uuidIdSchema,
+  qtype: z.string(),
+  /** Số bong bóng in cho câu này (= số đáp án của version đã ghim; đúng/sai = 2). */
+  optionCount: z.number().int(),
+  /** Đáp án của version đã ghim theo thứ tự in — chỉ phía giáo viên (chấm giấy) mới nhận trường này. */
+  answerIds: z.array(uuidIdSchema),
+  /** Điểm tối đa của slot tại thời điểm sinh phiếu (snapshot như attempt online). */
+  maxMark: z.number(),
+  clusterId: uuidIdSchema.nullable(),
+});
+export type PaperSlotLayout = z.infer<typeof paperSlotLayoutSchema>;
+
+/** Một học sinh trong roster chụp tại lúc sinh lô phiếu: mã tô 4 ký tự (3 số thứ tự + 1 số kiểm tra) cho phiếu trắng. */
+export const paperRosterEntrySchema = z.object({
+  code: z.string(),
+  userId: uuidIdSchema,
+  displayName: z.string(),
+});
+export type PaperRosterEntry = z.infer<typeof paperRosterEntrySchema>;
+
+/** Một lô in phiếu (một mã đề) của một quiz: layout đã ghim + roster tại thời điểm sinh. */
+export const paperBatchSchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  variantCode: z.string(),
+  layout: z.array(paperSlotLayoutSchema),
+  roster: z.array(paperRosterEntrySchema),
+  createdBy: uuidIdSchema,
+  createdAt: z.string(),
+});
+export type PaperBatch = z.infer<typeof paperBatchSchema>;
+
+/** Payload sinh lô phiếu: mã đề tuỳ chọn (mặc định hệ thống tự đánh A, B, C… theo thứ tự lô của quiz). */
+export const createPaperBatchSchema = z.strictObject({
+  variantCode: z.string().min(1).max(8).optional(),
+});
+export type CreatePaperBatch = z.infer<typeof createPaperBatchSchema>;
+
+/** Kết quả đọc một câu trên phiếu: mật độ mực từng ô, ô được chọn (null = trống/chưa quyết), trạng thái quyết định. */
+export const paperReadingSchema = z.object({
+  slot: z.number().int(),
+  densities: z.array(z.number()),
+  chosen: z.number().int().nullable(),
+  state: z.enum(['filled', 'blank', 'ambiguous']),
+  /** Chênh mật độ giữa ô đậm nhất và ô nhì — nhỏ là dấu hiệu mơ hồ. */
+  margin: z.number(),
+  /** Ai đã quyết ô chọn cuối: OMR tự quyết hay giáo viên xác nhận trong hàng chờ. */
+  resolvedBy: z.enum(['omr', 'teacher']).nullable(),
+});
+export type PaperReading = z.infer<typeof paperReadingSchema>;
+
+/** Số đo cổng chất lượng ảnh của một phiếu đã quét. */
+export const paperQualitySchema = z.object({
+  blurVariance: z.number(),
+  glareRatio: z.number(),
+  fiducialCount: z.number().int(),
+});
+export type PaperQuality = z.infer<typeof paperQualitySchema>;
+
+/** Một phiếu đã quét như API trả cho giáo viên: ảnh gốc + ảnh đã nắn phẳng (file trong module files), kết quả đọc và trạng thái hàng chờ. */
+export const paperRowGeometrySchema = z.object({
+  slot: z.number().int().positive(),
+  /** Tâm bong bóng trong không gian template 1240×1754 của ảnh đã nắn (warpedFileId). */
+  centers: z.array(z.object({ x: z.number(), y: z.number() })),
+});
+export type PaperRowGeometry = z.infer<typeof paperRowGeometrySchema>;
+
+export const paperScanSchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  batchId: uuidIdSchema,
+  status: z.enum(PAPER_SCAN_STATUSES),
+  studentId: uuidIdSchema.nullable(),
+  studentName: z.string().nullable(),
+  identitySource: z.enum(PAPER_IDENTITY_SOURCES).nullable(),
+  identityCode: z.string().nullable(),
+  fileId: uuidIdSchema,
+  warpedFileId: uuidIdSchema.nullable(),
+  /** Hình học lưới của lô (theo layout lúc sinh phiếu) để web cắt vùng từng câu trên ảnh đã nắn. */
+  rows: z.array(paperRowGeometrySchema),
+  quality: paperQualitySchema.nullable(),
+  readings: z.array(paperReadingSchema),
+  attemptId: uuidIdSchema.nullable(),
+  uploadedBy: uuidIdSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type PaperScan = z.infer<typeof paperScanSchema>;
+
+/** Payload gán định danh trong hàng chờ: giáo viên chọn đúng học sinh cho phiếu chưa định danh chắc chắn. */
+export const assignPaperIdentitySchema = z.strictObject({
+  studentId: uuidIdSchema,
+});
+export type AssignPaperIdentity = z.infer<typeof assignPaperIdentitySchema>;
+
+/** Payload xác nhận ca mơ hồ: giáo viên quyết ô chọn cho từng câu mơ hồ (chosen null = để trống). */
+export const resolvePaperReadingsSchema = z.strictObject({
+  readings: z.array(z.strictObject({
+    slot: z.number().int(),
+    chosen: z.number().int().min(0).nullable(),
+  })).min(1),
+});
+export type ResolvePaperReadings = z.infer<typeof resolvePaperReadingsSchema>;
