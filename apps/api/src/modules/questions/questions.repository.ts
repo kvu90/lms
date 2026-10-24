@@ -111,6 +111,14 @@ export class QuestionsRepository {
   }
 
   /**
+   * Cập nhật một version (trạng thái draft/ready — đường nạp MCP đặt
+   * version vừa tạo về `draft`, xem QuestionBanksService.setQuestionStatus).
+   */
+  async updateVersion(id: string, patch: Partial<VersionRow>): Promise<void> {
+    await this.db.update(questionVersions).set({ ...patch }).where(eq(questionVersions.id, id));
+  }
+
+  /**
    * Chèn một version nội dung câu hỏi.
    */
   async insertVersion(v: typeof questionVersions.$inferInsert, tx?: DbTx): Promise<VersionRow> {

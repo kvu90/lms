@@ -2,11 +2,17 @@ import { createMcpHandler, type AuthInfo, type McpHttpHandler } from '@modelcont
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
+import { OutboxService } from '../../infra/events/outbox.service';
+import { QuestionBanksService } from '../questions/question-banks.service';
+import { QuestionsRepository } from '../questions/questions.repository';
+import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
 import { McpBridgeAuth } from './mcp-bridge-auth';
 import type { McpActor } from './mcp.context';
+import { McpIdempotencyRepository } from './mcp-idempotency.repository';
 import { McpRateLimiter } from './mcp-rate-limit';
 import { createLmsMcpServer } from './mcp.server';
+import type { McpToolDeps } from './mcp.tools';
 
 /**
  * Mount MCP server của LMS (MCP-0, issue #110) lên express instance của
@@ -76,6 +82,8 @@ export interface McpMountDeps {
   /** Origin công khai của chính API (PRM `resource` + authorization_servers mặc định). */
   publicBaseUrl: string | null;
   issuer: string | null;
+  /** Deps của tools (services dùng chung với REST — không có đường nghiệp vụ riêng cho MCP). */
+  toolDeps: McpToolDeps;
 }
 
 export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void {
@@ -94,7 +102,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
         ip: extra.ip ?? null,
         era: ctx.era,
       };
-      return createLmsMcpServer(actor);
+      return createLmsMcpServer(actor, deps.toolDeps);
     },
     {
       legacy: 'stateless',
@@ -233,13 +241,23 @@ export function resolveMcpDeps(app: NestExpressApplication): McpMountDeps {
   const users = app.get(UsersService);
   const readLimit = Number(config.get<string>('MCP_RATE_READ_PER_HOUR') ?? 300);
   const createLimit = Number(config.get<string>('MCP_RATE_CREATE_PER_HOUR') ?? 120);
+  const publicBaseUrl = config.get<string>('MCP_PUBLIC_BASE_URL') ?? null;
+  const questionsRepo = app.get(QuestionsRepository, { strict: false });
   return {
     bridgeAuth: new McpBridgeAuth(config.getOrThrow<string>('JWT_SECRET'), users),
     rateLimiter: new McpRateLimiter({
       read: Number.isFinite(readLimit) && readLimit > 0 ? readLimit : 300,
       create: Number.isFinite(createLimit) && createLimit > 0 ? createLimit : 120,
     }),
-    publicBaseUrl: config.get<string>('MCP_PUBLIC_BASE_URL') ?? null,
+    publicBaseUrl,
     issuer: config.get<string>('MCP_AUTH_ISSUER') ?? null,
+    toolDeps: {
+      questions: app.get(QuestionsService, { strict: false }),
+      banks: app.get(QuestionBanksService, { strict: false }),
+      questionsRepo,
+      idempotency: new McpIdempotencyRepository(questionsRepo.dbHandle),
+      outbox: app.get(OutboxService, { strict: false }),
+      publicBaseUrl: publicBaseUrl ?? '',
+    },
   };
 }

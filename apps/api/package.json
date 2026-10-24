@@ -18,7 +18,6 @@
     "@lms/config": "workspace:*",
     "@lms/contracts": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
-    "@modelcontextprotocol/server-legacy": "2.4.0",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/cache-manager": "^12.0.1",
     "@nestjs/common": "^12.2.0",

@@ -857,11 +857,18 @@ export class QuestionBanksService {
    * toàn có cùng hash; trùng thân câu khác đáp án cho textHash trùng —
    * gần trùng để cảnh báo người duyệt.
    */
-  private async versionHashes(qtype: string, versionId: string, questionText: unknown): Promise<{ hash: string; textHash: string }> {
-    const answers = await this.questionsRepo.listAnswers(versionId);
-    const textPart = this.normaliseForHash(extractRichTextPlainText(questionText as RichTextDocument));
+  /**
+   * Hash nội dung từ DỮ KIỆN THÔ (thân câu + đáp án dạng text thuần) —
+   * công thức hash QB-4 dùng chung cho version đã lưu (versionHashes)
+   * và payload chưa lưu (findDuplicatesForPayload của đường nạp MCP),
+   * để hai đường không bao giờ lệch nhau. Chuẩn hoá NFC trước khi băm
+   * (hồ sơ research MCP Phần 3.1 lớp 3: dấu tiếng Việt dạng tổ hợp
+   * không lách được chống trùng).
+   */
+  private contentHashes(qtype: string, textPlain: string, answers: { textPlain: string; fraction: number }[]): { hash: string; textHash: string } {
+    const textPart = this.normaliseForHash(textPlain.normalize('NFC'));
     const answerPart = answers
-      .map((a) => `${this.normaliseForHash(extractRichTextPlainText(a.answer as RichTextDocument))}:${a.fraction}`)
+      .map((a) => `${this.normaliseForHash(a.textPlain.normalize('NFC'))}:${a.fraction}`)
       .sort()
       .join('|');
     const hash = createHash('sha256').update(`${qtype}|${textPart}|${answerPart}`).digest('hex');
@@ -869,9 +876,17 @@ export class QuestionBanksService {
     return { hash, textHash };
   }
 
-  /** Quét bank đích tìm câu trùng hoàn toàn (cùng hash) / gần trùng (cùng thân câu) với một version nguồn. */
-  private async findDuplicatesInBank(bank: QuestionBankRow, qtype: string, sourceVersionId: string, sourceText: unknown): Promise<{ exactId: string | null; nearId: string | null }> {
-    const source = await this.versionHashes(qtype, sourceVersionId, sourceText);
+  private async versionHashes(qtype: string, versionId: string, questionText: unknown): Promise<{ hash: string; textHash: string }> {
+    const answers = await this.questionsRepo.listAnswers(versionId);
+    return this.contentHashes(
+      qtype,
+      extractRichTextPlainText(questionText as RichTextDocument),
+      answers.map((a) => ({ textPlain: extractRichTextPlainText(a.answer as RichTextDocument), fraction: a.fraction })),
+    );
+  }
+
+  /** Quét bank đích tìm câu trùng hoàn toàn (cùng hash) / gần trùng (cùng thân câu) với một bộ hash nguồn. */
+  private async scanDuplicatesInBank(bank: QuestionBankRow, source: { hash: string; textHash: string }): Promise<{ exactId: string | null; nearId: string | null }> {
     // Quét MỌI category thuộc bank theo phép suy thống nhất (kể cả
     // category khoá hiện hữu không gắn bank_id) — trước đây chỉ quét
     // category gắn bank_id tường minh nên chống trùng sót câu khoá.
@@ -891,6 +906,44 @@ export class QuestionBanksService {
       if (candidate.textHash === source.textHash && nearId === null) nearId = q.id;
     }
     return { exactId: null, nearId };
+  }
+
+  /** Chống trùng cho một version ĐÃ lưu (đường copy/đóng góp QB-4). */
+  private async findDuplicatesInBank(bank: QuestionBankRow, qtype: string, sourceVersionId: string, sourceText: unknown): Promise<{ exactId: string | null; nearId: string | null }> {
+    const source = await this.versionHashes(qtype, sourceVersionId, sourceText);
+    return this.scanDuplicatesInBank(bank, source);
+  }
+
+  /**
+   * Chống trùng cho payload CHƯA lưu — cổng tạo của đường nạp MCP
+   * (issue #110): dùng ĐÚNG công thức hash + phép quét của QB-4 qua
+   * `contentHashes`/`scanDuplicatesInBank`, payload chữ thuần được băm
+   * trực tiếp (tương đương đường trích text từ tài liệu rich text vì
+   * bước chuẩn hoá gộp mọi khoảng trắng về một dấu cách).
+   */
+  async findDuplicatesForPayload(bank: QuestionBankRow, payload: {
+    qtype: string; questionText: string; answers: { text: string; fraction: number }[];
+  }): Promise<{ exactId: string | null; nearId: string | null }> {
+    const source = this.contentHashes(payload.qtype, payload.questionText, payload.answers.map((a) => ({ textPlain: a.text, fraction: a.fraction })));
+    return this.scanDuplicatesInBank(bank, source);
+  }
+
+  /**
+   * Đặt trạng thái của một câu (entry + version mới nhất) — đường nạp
+   * ngoài hệ thống dùng để đưa câu mới tạo về `draft` (issue #110: câu
+   * AI nạp vào LUÔN ở draft chờ giáo viên duyệt; REST tạo câu mặc định
+   * `ready`) và để duyệt phát hành draft lên `ready`. Withdraw/restore
+   * của QB-3 chỉ đổi entry (version giữ nguyên để slot đã ghim còn
+   * phục vụ được); đường này đổi cả hai vì draft chưa từng được dùng.
+   */
+  async setQuestionStatus(questionId: string, status: 'draft' | 'ready'): Promise<void> {
+    const entry = await this.questionsRepo.getEntryByQuestion(questionId);
+    if (!entry) {
+      throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
+    }
+    await this.questionsRepo.updateEntry(entry.id, { status });
+    const version = await this.questionsRepo.getVersionByNumber(entry.id, entry.latestVersion);
+    if (version) await this.questionsRepo.updateVersion(version.id, { status });
   }
 
   /**
