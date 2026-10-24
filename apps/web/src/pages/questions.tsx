@@ -705,11 +705,6 @@ export function QuestionsPage() {
         <CardHeader>
           <CardTitle>{t('questionBank')}</CardTitle>
           <CardDescription>{t('questionBankDescription')}</CardDescription>
-          <div className="pt-2">
-            <Link to="/questions/import" className="text-sm underline">
-              {t('importFromFile')}
-            </Link>
-          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <ul className="space-y-2">

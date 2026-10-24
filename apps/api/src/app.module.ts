@@ -24,7 +24,6 @@ import { GradesModule } from './modules/grades/grades.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { QuestionsModule } from './modules/questions/questions.module';
-import { QuestionImportModule } from './modules/question-import/question-import.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { CurriculumModule } from './modules/curriculum/curriculum.module';
 import { SocialModule } from './modules/social/social.module';
@@ -125,7 +124,6 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     CompletionModule,
     GradesModule,
     QuestionsModule,
-    QuestionImportModule,
     QuizModule,
     CurriculumModule,
     MessagingModule,
