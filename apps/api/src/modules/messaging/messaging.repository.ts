@@ -888,14 +888,14 @@ export class MessagingRepository {
         event_type as "eventType",
         component as "component",
         coalesce(nullif(context_url, ''), '') as "sourceKey",
-        to_char((created_at at time zone 'Asia/Saigon')::date, 'YYYY-MM-DD') as "day",
+        to_char((created_at at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') as "day",
         count(*)::int as "count",
         (count(*) filter (where time_read is null))::int as "unreadCount",
         max(created_at) as "latestAt",
         ${latestIdExpr}::text as "latestId"
       from notifications
       where ${sql.join(where, sql` and `)}
-      group by event_type, component, coalesce(nullif(context_url, ''), ''), (created_at at time zone 'Asia/Saigon')::date
+      group by event_type, component, coalesce(nullif(context_url, ''), ''), (created_at at time zone 'Asia/Ho_Chi_Minh')::date
       ${having.length > 0 ? sql`having ${sql.join(having, sql` and `)}` : sql``}
       order by max(created_at) desc, ${latestIdExpr} desc
       limit ${opts.limit}
@@ -926,7 +926,7 @@ export class MessagingRepository {
       conditions.push(eq(notifications.contextUrl, opts.source));
     }
     if (opts.day) {
-      conditions.push(sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Saigon')::date, 'YYYY-MM-DD') = ${opts.day}`);
+      conditions.push(sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${opts.day}`);
     }
     if (opts.unreadOnly) conditions.push(isNull(notifications.timeRead));
     if (opts.cursor) {
@@ -949,7 +949,7 @@ export class MessagingRepository {
         eq(notifications.eventType, key.eventType),
         isNull(notifications.timeRead),
         sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ${key.sourceKey}`,
-        sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Saigon')::date, 'YYYY-MM-DD') = ${key.day}`,
+        sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
       )).returning();
     return rows.length;
   }
