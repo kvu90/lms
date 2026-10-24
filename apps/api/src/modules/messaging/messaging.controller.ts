@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, searchPeopleQuerySchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SearchPeopleQueryDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -152,12 +152,27 @@ export class MessagingController {
   async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
   }
+  @Get('people/search')
+  /**
+   * GET /messages/people/search?q=... — tìm người theo TÊN hiển thị
+   * hoặc username (việc nối tiếp Lớp B, issue #33: tìm bạn theo tên,
+   * không nhập UUID). Phạm vi đúng cổng nhắn đã chốt: cùng khoá đang
+   * ghi danh + liên hệ đã duyệt; công tắc site `core/messagingallusers`
+   * bật thì toàn hệ thống. Mỗi kết quả kèm trạng thái quan hệ với
+   * người tìm (contact/pending_incoming/pending_outgoing/blocked/none).
+   */
+  async searchPeople(@Query({ schema: searchPeopleQuerySchema }) query: SearchPeopleQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return { results: await this.messaging.searchPeople(actor.id, query.q) };
+  }
   @Get('contacts')
   /**
-   * GET /messages/contacts — danh bạ của tôi (chỉ liên hệ đã được duyệt).
+   * GET /messages/contacts — danh bạ của tôi (chỉ liên hệ đã được
+   * duyệt), kèm `profiles`: tên hiển thị + username theo từng id để
+   * client hiện TÊN thay cho UUID thô.
    */
   async contacts(@CurrentUser() actor: AuthenticatedUser) {
-    return { contacts: await this.messaging.listContacts(actor.id) };
+    const contacts = await this.messaging.listContacts(actor.id);
+    return { contacts, profiles: await this.messaging.profilesFor(contacts) };
   }
   @Get('contacts/requests')
   /**
@@ -202,10 +217,12 @@ export class MessagingController {
   }
   @Get('contacts/blocked')
   /**
-   * GET /messages/contacts/blocked — liên hệ bị chặn.
+   * GET /messages/contacts/blocked — liên hệ bị chặn, kèm `profiles`
+   * (tên hiển thị + username theo từng id) như danh bạ.
    */
   async blocked(@CurrentUser() actor: AuthenticatedUser) {
-    return { blocked: await this.messaging.listBlocked(actor.id) };
+    const blocked = await this.messaging.listBlocked(actor.id);
+    return { blocked, profiles: await this.messaging.profilesFor(blocked) };
   }
   @Post('contacts/:userId/block')
   /**

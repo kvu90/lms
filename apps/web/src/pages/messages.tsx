@@ -27,11 +27,31 @@ interface MessageView {
   /** Trạng thái cục bộ của tin gửi lạc quan; tin từ server không có trường này. */
   localStatus?: 'sending' | 'failed';
 }
+/** Tóm tắt hiển thị của một user do API trả kèm (tên thật thay cho UUID thô). */
+interface PersonSummary {
+  userId: string;
+  displayName: string;
+  username: string;
+}
+/** Trạng thái quan hệ của một kết quả tìm người so với chính mình. */
+type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
+interface PeopleSearchResult extends PersonSummary {
+  relationship: ContactRelationship;
+}
+/** Một yêu cầu kết bạn trong hàng chờ: API đã kèm tên hiển thị của phía kia. */
+interface ContactRequestView {
+  userId: string;
+  createdAt: string;
+  displayName?: string;
+  username?: string;
+}
 interface ConversationView {
   id: string;
   type: number;
   name: string | null;
   members: string[];
+  /** Tên hiển thị của từng thành viên (API trả kèm) — client tra tên từ đây. */
+  memberProfiles?: Record<string, PersonSummary>;
   unread?: number;
   lastReadSeq?: number;
   lastMessageSeq?: number;
@@ -92,23 +112,29 @@ export function MessagesPage() {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState('');
-  const [newUserId, setNewUserId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
   // Lớp B (issue #33): danh bạ ĐÃ DUYỆT + hàng chờ kết bạn (đến/đi),
   // thay danh bạ một chiều cũ.
   const [contacts, setContacts] = useState<string[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<{ userId: string; createdAt: string }[]>([]);
-  const [outgoingRequests, setOutgoingRequests] = useState<{ userId: string; createdAt: string }[]>([]);
-  const [contactUserId, setContactUserId] = useState('');
+  const [incomingRequests, setIncomingRequests] = useState<ContactRequestView[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<ContactRequestView[]>([]);
   const [contactMessage, setContactMessage] = useState<string | null>(null);
+  // Tìm bạn theo TÊN (việc nối tiếp Lớp B): bản đồ tên hiển thị gom từ
+  // mọi response của API (profiles/memberProfiles) + trạng thái ô tìm.
+  const [people, setPeople] = useState<Record<string, PersonSummary>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PeopleSearchResult[] | null>(null);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   const activeRef = useRef<ConversationView | null>(null);
   activeRef.current = active;
+  /** Bộ đếm lượt tìm người: phản hồi của một lượt tìm cũ về muộn bị bỏ qua. */
+  const searchSeqRef = useRef(0);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Seq cao nhất đã thấy của từng conversation — mốc xin đồng bộ khi nối lại. */
   const lastSeqRef = useRef<Map<string, number>>(new Map());
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -119,25 +145,37 @@ export function MessagesPage() {
     setUnread(list.filter((c) => (c.unread ?? 0) > 0).length);
   }, []);
 
+  /** Gom tên hiển thị từ một response (profiles/memberProfiles) vào bản đồ tên dùng chung của trang. */
+  const mergePeople = useCallback((profiles: Record<string, PersonSummary> | undefined) => {
+    if (!profiles) return;
+    setPeople((prev) => ({ ...prev, ...profiles }));
+  }, []);
+
+  /** Tên hiển thị của một user; chưa tra được thông tin thì lùi về chính id như trước. */
+  const nameOf = useCallback((userId: string) => people[userId]?.displayName ?? userId, [people]);
+
   const reload = useCallback(async () => {
     const [list, blockedRes] = await Promise.all([
       apiJson<ConversationView[]>('/api/v1/messages/conversations'),
-      apiJson<{ blocked: string[] }>('/api/v1/messages/contacts/blocked'),
+      apiJson<{ blocked: string[]; profiles?: Record<string, PersonSummary> }>('/api/v1/messages/contacts/blocked'),
     ]);
     setConversations(list);
     recountUnread(list);
     setBlocked(blockedRes.blocked);
+    mergePeople(blockedRes.profiles);
+    for (const c of list) mergePeople(c.memberProfiles);
     // Danh bạ + hàng chờ kết bạn (Lớp B): lỗi ở hai đường này không
     // được phép làm hỏng danh sách cuộc trò chuyện ở trên.
     try {
       const [contactsRes, requestsRes] = await Promise.all([
-        apiJson<{ contacts: string[] }>('/api/v1/messages/contacts'),
+        apiJson<{ contacts: string[]; profiles?: Record<string, PersonSummary> }>('/api/v1/messages/contacts'),
         apiJson<{
-          incoming: { userId: string; createdAt: string }[];
-          outgoing: { userId: string; createdAt: string }[];
+          incoming: ContactRequestView[];
+          outgoing: ContactRequestView[];
         }>('/api/v1/messages/contacts/requests'),
       ]);
       setContacts(contactsRes.contacts);
+      mergePeople(contactsRes.profiles);
       setIncomingRequests(requestsRes.incoming);
       setOutgoingRequests(requestsRes.outgoing);
     } catch {
@@ -149,7 +187,7 @@ export function MessagesPage() {
         if (c.lastMessageSeq > seen) lastSeqRef.current.set(c.id, c.lastMessageSeq);
       }
     }
-  }, [recountUnread]);
+  }, [mergePeople, recountUnread]);
 
   /** Đánh dấu đã đọc ở server và phản ánh ngay vào state (mốc của mình + unread của conversation). */
   const markRead = useCallback(async (conversationId: string) => {
@@ -309,6 +347,7 @@ export function MessagesPage() {
     // gộp vào conversation đang mở để header/khung soạn biết đường hiển thị.
     const { messages: _detailMessages, ...detailView } = detail;
     setActive({ ...conv, ...detailView });
+    mergePeople(detail.memberProfiles);
     setMessages(detail.messages);
     setHasMoreBefore(detail.hasMoreBefore ?? false);
     const markers: Record<string, number> = {};
@@ -384,32 +423,61 @@ export function MessagesPage() {
     realtimeRef.current?.typing(active.id);
   }
 
-  async function startConversation(event: FormEvent) {
-    event.preventDefault();
-    const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
-      method: 'POST',
-      body: JSON.stringify({ memberIds: [newUserId] }),
-    });
-    setNewUserId('');
-    await reload();
-    await open(conv);
-  }
-
-  /** Gửi yêu cầu kết bạn (Lớp B: luồng yêu cầu–chấp nhận thay danh bạ một chiều). */
-  async function sendContactRequest(event: FormEvent) {
-    event.preventDefault();
+  /**
+   * Gửi yêu cầu kết bạn tới một user (Lớp B: luồng yêu cầu–chấp nhận
+   * thay danh bạ một chiều) — điểm vào duy nhất là kết quả TÌM THEO
+   * TÊN, không còn form nhập UUID thô.
+   */
+  async function sendContactRequestTo(userId: string) {
     setContactMessage(null);
     try {
-      const res = await apiJson<{ status: 'pending' | 'accepted' }>(`/api/v1/messages/contacts/${contactUserId}`, {
+      const res = await apiJson<{ status: 'pending' | 'accepted' }>(`/api/v1/messages/contacts/${userId}`, {
         method: 'POST',
         body: '{}',
       });
       setContactMessage(res.status === 'accepted' ? t('contactRequestAccepted') : t('contactRequestSent'));
-      setContactUserId('');
+      // Phản ánh ngay lên kết quả tìm đang hiện, rồi đồng bộ lại toàn bộ.
+      setSearchResults((prev) => (prev
+        ? prev.map((r) => (r.userId === userId
+          ? { ...r, relationship: res.status === 'accepted' ? 'contact' : 'pending_outgoing' }
+          : r))
+        : prev));
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
     }
+  }
+
+  /**
+   * Tìm người theo tên/username: gõ tới đâu tìm tới đó (chờ gõ xong
+   * 300ms), chỉ tìm khi đủ 2 ký tự như luật phía server; phản hồi của
+   * lượt gõ cũ về muộn bị bỏ qua theo bộ đếm lượt.
+   */
+  function onSearchQueryChange(value: string) {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    const q = value.trim();
+    if (q.length < 2) {
+      searchSeqRef.current += 1;
+      setSearchResults(null);
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => {
+      const seq = (searchSeqRef.current += 1);
+      void apiJson<{ results: PeopleSearchResult[] }>(
+        `/api/v1/messages/people/search?q=${encodeURIComponent(q)}`,
+      ).then((res) => {
+        if (searchSeqRef.current !== seq) return;
+        setSearchResults(res.results);
+        setPeople((prev) => {
+          const next = { ...prev };
+          for (const r of res.results) next[r.userId] = { userId: r.userId, displayName: r.displayName, username: r.username };
+          return next;
+        });
+      }).catch(() => {
+        if (searchSeqRef.current === seq) setSearchResults([]);
+      });
+    }, 300);
   }
 
   /** Chấp nhận/từ chối một yêu cầu kết bạn đang chờ. */
@@ -417,6 +485,11 @@ export function MessagesPage() {
     setContactMessage(null);
     try {
       await apiJson(`/api/v1/messages/contacts/requests/${userId}/${action}`, { method: 'POST', body: '{}' });
+      setSearchResults((prev) => (prev
+        ? prev.map((r) => (r.userId === userId
+          ? { ...r, relationship: action === 'accept' ? 'contact' : 'none' }
+          : r))
+        : prev));
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
@@ -502,7 +575,7 @@ export function MessagesPage() {
                   variant={active?.id === c.id ? 'default' : 'outline'}
                   onClick={() => void open(c)}
                 >
-                  {c.name ?? t('conversationWithUser', { members: c.members.join(', ') })}
+                  {c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') })}
                   {(c.unread ?? 0) > 0 ? t('unreadSuffix', { count: c.unread }) : ''}
                 </Button>
                 {c.lastMessage ? (
@@ -511,18 +584,66 @@ export function MessagesPage() {
               </li>
             ))}
           </ul>
-          <form onSubmit={(e) => void startConversation(e)} className="space-y-2">
-            <Label htmlFor="new-user">{t('newConversationWith')}</Label>
-            <Input id="new-user" value={newUserId} onChange={(e) => setNewUserId(e.target.value)} />
-            <Button type="submit">{t('start')}</Button>
-          </form>
+          <div className="space-y-2">
+            <Label htmlFor="people-search">{t('searchPeopleLabel')}</Label>
+            <Input
+              id="people-search"
+              value={searchQuery}
+              placeholder={t('searchPeoplePlaceholder')}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+            />
+            {searchQuery.trim().length === 1 ? (
+              <p className="text-sm text-muted-foreground">{t('searchTooShort')}</p>
+            ) : null}
+            {searchResults !== null ? (
+              searchResults.length > 0 ? (
+                <ul className="space-y-1">
+                  {searchResults.map((r) => (
+                    <li key={r.userId} data-testid={`search-result-${r.userId}`} className="flex items-center gap-2">
+                      <span className="text-sm">
+                        {r.displayName} <span className="text-muted-foreground">@{r.username}</span>
+                      </span>
+                      {r.relationship === 'none' ? (
+                        <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(r.userId)}>
+                          {t('addContact')}
+                        </Button>
+                      ) : null}
+                      {r.relationship === 'pending_outgoing' ? (
+                        <span className="text-sm text-muted-foreground">{t('contactRequestPendingSuffix')}</span>
+                      ) : null}
+                      {r.relationship === 'pending_incoming' ? (
+                        <>
+                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
+                            {t('acceptContactRequest')}
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'decline')}>
+                            {t('declineContactRequest')}
+                          </Button>
+                        </>
+                      ) : null}
+                      {r.relationship === 'contact' ? (
+                        <Button type="button" variant="outline" onClick={() => void messageContact(r.userId)}>
+                          {t('messageWithContact')}
+                        </Button>
+                      ) : null}
+                      {r.relationship === 'blocked' ? (
+                        <span className="text-sm text-muted-foreground">{t('relationshipBlocked')}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('searchNoResults')}</p>
+              )
+            ) : null}
+          </div>
           <div className="space-y-2">
             <h3 className="font-medium">{t('contactsTitle')}</h3>
             {contactMessage ? <p role="status">{contactMessage}</p> : null}
             <ul className="space-y-1">
               {contacts.map((userId) => (
                 <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
-                  <span className="text-sm">{userId}</span>
+                  <span className="text-sm">{nameOf(userId)}</span>
                   <Button type="button" variant="outline" onClick={() => void messageContact(userId)}>
                     {t('messageWithContact')}
                   </Button>
@@ -536,7 +657,7 @@ export function MessagesPage() {
                 <ul className="space-y-1">
                   {incomingRequests.map((r) => (
                     <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-2">
-                      <span className="text-sm">{r.userId}</span>
+                      <span className="text-sm">{r.displayName ?? nameOf(r.userId)}</span>
                       <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
                         {t('acceptContactRequest')}
                       </Button>
@@ -554,17 +675,12 @@ export function MessagesPage() {
                 <ul className="space-y-1">
                   {outgoingRequests.map((r) => (
                     <li key={r.userId} className="text-sm">
-                      {r.userId} {t('contactRequestPendingSuffix')}
+                      {r.displayName ?? nameOf(r.userId)} {t('contactRequestPendingSuffix')}
                     </li>
                   ))}
                 </ul>
               </>
             ) : null}
-            <form onSubmit={(e) => void sendContactRequest(e)} className="space-y-2">
-              <Label htmlFor="contact-user">{t('contactUserIdLabel')}</Label>
-              <Input id="contact-user" value={contactUserId} onChange={(e) => setContactUserId(e.target.value)} />
-              <Button type="submit">{t('sendContactRequest')}</Button>
-            </form>
           </div>
           <div className="space-y-2">
             <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
@@ -572,7 +688,7 @@ export function MessagesPage() {
             <ul className="space-y-1">
               {blocked.map((userId) => (
                 <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
-                  <span className="text-sm">{userId}</span>
+                  <span className="text-sm">{nameOf(userId)}</span>
                   <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>
                     {t('unblockContact')}
                   </Button>
@@ -600,7 +716,7 @@ export function MessagesPage() {
                       ) : null}
                       {blocked.includes(memberId) ? (
                         <span className="flex items-center gap-2 text-sm">
-                          {memberId} {t('blockedSuffix')}
+                          {nameOf(memberId)} {t('blockedSuffix')}
                           <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
                             {t('unblockContact')}
                           </Button>
@@ -638,12 +754,12 @@ export function MessagesPage() {
                 {visibleMessages.map((m) => (
                   <li key={m.id} className={m.deletedAt ? 'rounded border p-2 opacity-70' : 'rounded border p-2'}>
                     <p className="text-xs text-muted-foreground">
-                      {t('messageFromUser', { userId: m.userIdFrom, time: new Date(m.createdAt).toLocaleString() })}
+                      {t('messageFromUser', { userId: nameOf(m.userIdFrom), time: new Date(m.createdAt).toLocaleString() })}
                     </p>
                     <p>{m.fullMessage}</p>
                     {m.deletedAt ? (
                       <p className="text-xs italic text-muted-foreground">
-                        {t('messageDeletedBy', { userId: m.deletedBy ?? '' })}
+                        {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
                       </p>
                     ) : null}
                     {m.localStatus === 'sending' ? (
@@ -670,7 +786,7 @@ export function MessagesPage() {
               ) : null}
               {typingNames.map((userId) => (
                 <p key={userId} data-testid="typing-indicator" className="text-xs text-muted-foreground">
-                  {t('typingIndicator', { userId })}
+                  {t('typingIndicator', { userId: nameOf(userId) })}
                 </p>
               ))}
               {active.enabled === false && !active.canManage ? (

@@ -229,6 +229,43 @@ export const updateReportStatusSchema = z.strictObject({
 });
 export type UpdateReportStatus = z.infer<typeof updateReportStatusSchema>;
 
+/**
+ * Query tìm người theo tên hiển thị/username (việc nối tiếp Lớp B của
+ * issue #33: tìm bạn phải theo TÊN, không phải nhập UUID). Độ dài tối
+ * thiểu sau khi cắt khoảng trắng và trần số kết quả chốt ở tầng service.
+ */
+export const searchPeopleQuerySchema = z.strictObject({
+  q: z.string().min(1).max(100),
+});
+export type SearchPeopleQuery = z.infer<typeof searchPeopleQuerySchema>;
+
+/**
+ * Tóm tắt hiển thị của một user, trả kèm trong các response danh sách
+ * của messaging để client hiện TÊN thay cho UUID thô.
+ */
+export const personSummarySchema = z.strictObject({
+  userId: uuidIdSchema,
+  displayName: z.string(),
+  username: z.string(),
+});
+export type PersonSummary = z.infer<typeof personSummarySchema>;
+
+/** Trạng thái quan hệ của một người so với người đang tìm. */
+export const contactRelationshipSchema = z.enum([
+  'contact',
+  'pending_incoming',
+  'pending_outgoing',
+  'blocked',
+  'none',
+]);
+export type ContactRelationship = z.infer<typeof contactRelationshipSchema>;
+
+/** Một kết quả tìm người: tóm tắt hiển thị + trạng thái quan hệ với người tìm. */
+export const peopleSearchResultSchema = personSummarySchema.extend({
+  relationship: contactRelationshipSchema,
+});
+export type PeopleSearchResult = z.infer<typeof peopleSearchResultSchema>;
+
 /* ---- Sự kiện realtime của messaging (Socket.IO, namespace /messaging) ---- */
 
 /** Tên sự kiện trên kênh realtime — một nguồn sự thật cho cả api và web. */

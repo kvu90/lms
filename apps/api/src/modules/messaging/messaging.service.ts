@@ -62,6 +62,33 @@ export interface NotifyResult {
   skipped?: 'suspended' | 'unknown-provider';
 }
 
+/** Tóm tắt hiển thị của một user trong các response của messaging (hợp đồng ở @lms/contracts). */
+export interface PersonSummaryView {
+  userId: string;
+  displayName: string;
+  username: string;
+}
+
+/** Trạng thái quan hệ của một người so với người đang tìm (hợp đồng ở @lms/contracts). */
+export type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
+
+/** Một kết quả tìm người: tóm tắt hiển thị + trạng thái quan hệ với người tìm. */
+export interface PeopleSearchResultView extends PersonSummaryView {
+  relationship: ContactRelationship;
+}
+
+/** Tên hiển thị của một user: "firstName lastName" đã cắt khoảng trắng; cả hai trống thì lùi về username. */
+export function displayNameOf(user: { firstName: string; lastName: string; username: string }): string {
+  const name = `${user.firstName} ${user.lastName}`.trim();
+  return name || user.username;
+}
+
+/** Tìm người theo tên: chuỗi tìm tối thiểu (sau khi cắt khoảng trắng) và trần kết quả trả về. */
+export const PEOPLE_SEARCH_MIN_QUERY_LENGTH = 2;
+export const PEOPLE_SEARCH_MAX_RESULTS = 20;
+/** Số ứng viên tối đa lấy từ DB trước khi lọc phạm vi cổng nhắn (lọc xong mới cắt theo trần kết quả). */
+const PEOPLE_SEARCH_CANDIDATE_LIMIT = 100;
+
 /** Lỗi vi phạm ràng buộc duy nhất của Postgres (kể cả khi drizzle bọc lỗi gốc trong `cause`). */
 function isUniqueViolation(err: unknown): boolean {
   let current: unknown = err;
@@ -352,17 +379,44 @@ export class MessagingService {
   /**
    * Các yêu cầu kết bạn của tôi: `incoming` là yêu cầu người khác gửi
    * tới chờ tôi duyệt, `outgoing` là yêu cầu tôi đã gửi đang chờ.
+   * Mỗi mục kèm tên hiển thị + username của phía kia để giao diện
+   * hiện TÊN thay cho UUID thô.
    */
   async listContactRequests(userId: string): Promise<{
-    incoming: { userId: string; createdAt: Date }[];
-    outgoing: { userId: string; createdAt: Date }[];
+    incoming: { userId: string; createdAt: Date; displayName: string; username: string }[];
+    outgoing: { userId: string; createdAt: Date; displayName: string; username: string }[];
   }> {
     const incoming = await this.repo.listIncomingContactRequests(userId);
     const outgoing = await this.repo.listOutgoingContactRequests(userId);
+    const profiles = await this.profilesFor([
+      ...incoming.map((r) => r.userIdFrom),
+      ...outgoing.map((r) => r.userIdTo),
+    ]);
+    const withProfile = (id: string, createdAt: Date) => ({
+      userId: id,
+      createdAt,
+      displayName: profiles[id]?.displayName ?? id,
+      username: profiles[id]?.username ?? '',
+    });
     return {
-      incoming: incoming.map((r) => ({ userId: r.userIdFrom, createdAt: r.createdAt })),
-      outgoing: outgoing.map((r) => ({ userId: r.userIdTo, createdAt: r.createdAt })),
+      incoming: incoming.map((r) => withProfile(r.userIdFrom, r.createdAt)),
+      outgoing: outgoing.map((r) => withProfile(r.userIdTo, r.createdAt)),
     };
+  }
+  /**
+   * Tóm tắt hiển thị (tên + username) cho một tập user id — các
+   * response danh sách của messaging trả kèm để client hiện TÊN thay
+   * cho UUID thô. User không còn tồn tại thì vắng khỏi bản đồ kết quả.
+   */
+  async profilesFor(userIds: string[]): Promise<Record<string, PersonSummaryView>> {
+    const unique = [...new Set(userIds)];
+    const out: Record<string, PersonSummaryView> = {};
+    if (!unique.length) return out;
+    const rows = await this.users.getUsersByIds(unique);
+    for (const row of rows) {
+      out[row.id] = { userId: row.id, displayName: displayNameOf(row), username: row.username };
+    }
+    return out;
   }
   /**
    * Chấp nhận yêu cầu kết bạn TỪ requesterId: quan hệ hình thành ở cả
@@ -428,6 +482,63 @@ export class MessagingService {
       message: 'You can only message a user who has you as a contact or who shares a course with you (messagingallusers is off)',
       code: 'messaging.not_a_contact_or_course_member',
     });
+  }
+
+  // --- tìm người theo tên (việc nối tiếp Lớp B) --------------------------------
+
+  /**
+   * Tìm người theo tên hiển thị/username — CHỈ trong phạm vi cổng
+   * nhắn đã chốt: khi `core/messagingallusers` tắt, kết quả gồm người
+   * cùng khoá đang ghi danh hiệu lực với người tìm CỘNG các liên hệ
+   * đã duyệt của họ (đúng tập mà cổng liên lạc {@link assertCanContact}
+   * cho phép mở liên lạc); công tắc bật thì toàn hệ thống. Người đã
+   * chặn người tìm KHÔNG xuất hiện trong kết quả của phía bị chặn
+   * (khớp ngữ nghĩa chặn hiện có); người bị chính người tìm chặn vẫn
+   * hiện với trạng thái `blocked` để giao diện phân biệt. Loại trừ
+   * chính người tìm; mỗi kết quả kèm trạng thái quan hệ hiện tại.
+   */
+  async searchPeople(actorId: string, rawQuery: string): Promise<PeopleSearchResultView[]> {
+    const q = rawQuery.trim();
+    if (q.length < PEOPLE_SEARCH_MIN_QUERY_LENGTH) {
+      throw new BadRequestException({
+        message: `Search query must be at least ${PEOPLE_SEARCH_MIN_QUERY_LENGTH} characters`,
+        code: 'messaging.search_query_too_short',
+      });
+    }
+    const candidates = (await this.repo.searchUsersByName(q, PEOPLE_SEARCH_CANDIDATE_LIMIT))
+      .filter((c) => c.id !== actorId);
+    if (!candidates.length) return [];
+    const [blockerIds, contactIds, incoming, outgoing, blockedIds, allUsers] = await Promise.all([
+      this.repo.listBlockerIds(actorId),
+      this.repo.listContacts(actorId),
+      this.repo.listIncomingContactRequests(actorId),
+      this.repo.listOutgoingContactRequests(actorId),
+      this.repo.listBlocked(actorId),
+      this.siteConfig.getValue<boolean>('core', 'messagingallusers'),
+    ]);
+    const blockedBy = new Set(blockerIds);
+    const contactSet = new Set(contactIds);
+    let visible = candidates.filter((c) => !blockedBy.has(c.id));
+    if (!allUsers) {
+      const mateSet = new Set(await this.repo.listCourseMateIds(actorId));
+      visible = visible.filter((c) => mateSet.has(c.id) || contactSet.has(c.id));
+    }
+    const incomingSet = new Set(incoming.map((r) => r.userIdFrom));
+    const outgoingSet = new Set(outgoing.map((r) => r.userIdTo));
+    const blockedSet = new Set(blockedIds);
+    const relationshipOf = (id: string): ContactRelationship => {
+      if (blockedSet.has(id)) return 'blocked';
+      if (contactSet.has(id)) return 'contact';
+      if (incomingSet.has(id)) return 'pending_incoming';
+      if (outgoingSet.has(id)) return 'pending_outgoing';
+      return 'none';
+    };
+    return visible.slice(0, PEOPLE_SEARCH_MAX_RESULTS).map((c) => ({
+      userId: c.id,
+      displayName: displayNameOf(c),
+      username: c.username,
+      relationship: relationshipOf(c.id),
+    }));
   }
 
   // --- blocked contacts ---------------------------------------------------------
@@ -688,6 +799,7 @@ export class MessagingService {
    */
   async listConversations(userId: string): Promise<(ConversationRow & {
     members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
+    memberProfiles: Record<string, PersonSummaryView>;
   })[]> {
     for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
       await this.syncGroupConversationMembers(c);
@@ -712,7 +824,15 @@ export class MessagingService {
         lastMessage: s.lastMessage,
       });
     }
-    return out;
+    // Tên hiển thị của mọi thành viên (gồm người gửi tin cuối) để
+    // client hiện TÊN thay cho UUID thô trong danh sách.
+    const profiles = await this.profilesFor(out.flatMap((entry) => entry.members));
+    return out.map((entry) => ({
+      ...entry,
+      memberProfiles: Object.fromEntries(
+        entry.members.filter((id) => profiles[id]).map((id) => [id, profiles[id]!]),
+      ),
+    }));
   }
 
   /**
@@ -724,6 +844,7 @@ export class MessagingService {
   async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
     members: string[]; messages: MessageRow[]; hasMoreBefore: boolean;
     lastReadSeq: number; memberReadMarkers: { userId: string; lastReadSeq: number }[];
+    memberProfiles: Record<string, PersonSummaryView>;
     canModerate: boolean; canManage: boolean;
   }> {
     const conversation = await this.repo.getConversation(conversationId);
@@ -740,13 +861,17 @@ export class MessagingService {
     const canManage = canModerate || await this.canManageConversation(userId, conversation);
     const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50, includeDeleted: canModerate });
     const markers = await this.repo.listMemberReadMarkers(conversationId);
+    const members = await this.repo.listMembers(conversationId);
     return {
       ...conversation,
-      members: await this.repo.listMembers(conversationId),
+      members,
       messages,
       hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate) : false,
       lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
       memberReadMarkers: markers,
+      // Tên hiển thị của thành viên: client dùng cho nhãn người gửi,
+      // chỉ báo đang gõ và danh sách thành viên (thay UUID thô).
+      memberProfiles: await this.profilesFor(members),
       canModerate,
       canManage,
     };
