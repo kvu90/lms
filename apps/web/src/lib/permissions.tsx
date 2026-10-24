@@ -73,9 +73,9 @@ export interface PermissionsState {
   canUseQuestionBank: boolean;
   /** Mọi khoá học kèm quyền của người dùng trong từng khoá. */
   courses: CourseAccess[];
-  /** Các khoá người dùng đang ghi danh VÀ thuộc đội giảng dạy (có grade:viewall tại context khoá). */
+  /** Các khoá người dùng thuộc về (định nghĩa #33 bên dưới) VÀ thuộc đội giảng dạy (có grade:viewall tại context khoá). */
   teaching: CourseAccess[];
-  /** Các khoá người dùng đang ghi danh còn hiệu lực với tư cách học viên. */
+  /** Các khoá người dùng thuộc về (định nghĩa #33 bên dưới) với tư cách học viên. */
   learning: CourseAccess[];
 }
 
@@ -126,6 +126,26 @@ function courseCapabilities(access: MyAccessView, course: Course): string[] {
 function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess): boolean {
   if (!access) return false;
   return access.isSiteAdmin || courseAccess.capabilities.includes('grade:viewall');
+}
+
+/**
+ * Người dùng có gán vai trò tại chính context của khoá này hay không —
+ * nửa còn lại của định nghĩa “thuộc khoá” đã chốt ở #33: ghi danh đang
+ * hiệu lực ∪ gán vai tại context khoá. Đây là cùng định nghĩa mà roster
+ * tin nhắn dùng phía API (listMembershipCourseIds chỉ tính gán vai ở
+ * context có contextLevel = COURSE, instanceId = id của khoá; gán vai
+ * học viên tại context khoá cũng tính là thuộc khoá). Ảnh chụp quyền đã
+ * mang sẵn mọi gán vai của người dùng (MyAccessView.assignments) nên
+ * phân loại tính ngay tại web, không cần endpoint mới. Giáo viên phụ
+ * trách khoá qua gán vai (đúng thiết kế seed: editingteacher tại
+ * context khoá, không qua ghi danh) nhờ đó thấy khoá ở nhóm giảng dạy
+ * thay vì rơi vào cả hai danh sách đều rỗng.
+ */
+function hasCourseAssignment(access: MyAccessView | null, course: Course): boolean {
+  if (!access) return false;
+  return access.assignments.some(
+    (a) => a.contextLevel === CONTEXT_LEVEL.COURSE && a.instanceId === course.id,
+  );
 }
 
 /** Ba lượt dò dữ liệu hiển thị của một khoá, chạy song song trong một query. */
@@ -209,8 +229,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const sysCaps = access ? systemCapabilities(access) : [];
     const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('user:viewdetails');
     const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('role:manage');
-    const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
-    const learning = courses.filter((c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c));
+    const teaching = courses.filter(
+      (c) => (c.enrolment?.enrolled || hasCourseAssignment(access, c.course)) && isCourseStaff(access, c),
+    );
+    const learning = courses.filter(
+      (c) =>
+        ((c.enrolment?.enrolled && c.enrolment.active) || hasCourseAssignment(access, c.course)) &&
+        !isCourseStaff(access, c),
+    );
     return {
       ready: !capabilitiesQuery.isPending && !coursesQuery.isPending,
       access,
