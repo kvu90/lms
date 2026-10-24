@@ -182,7 +182,12 @@ export class CurriculumService {
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
     return node;
   }
-  /** Sửa node; đổi cha vẫn phải ở trong cùng chương trình và không tự trỏ vào chính mình. */
+  /**
+   * Sửa node; đổi cha vẫn phải ở trong cùng chương trình, không tự trỏ
+   * vào chính mình, và **không tạo vòng cha–con gián tiếp** (cha mới là
+   * hậu duệ của node — sửa ở Chặng 2, mục A.7: trước đây chỉ chặn tự
+   * trỏ, vòng gián tiếp làm subtree biến mất khỏi cây đọc).
+   */
   async updateNode(actorId: string, id: string, input: {
     parentId?: string | null; title?: string; kind?: string; position?: number;
     durationPeriods?: number | null; durationPercent?: number | null;
@@ -194,6 +199,7 @@ export class CurriculumService {
         throw new BadRequestException({ message: 'A node cannot be its own parent', code: 'curriculum.node_parent_self' });
       }
       await this.assertParentInCurriculum(input.parentId, node.curriculumId);
+      await this.assertNoParentCycle(id, input.parentId, node.curriculumId);
     }
     await this.repo.updateNode(id, input);
     return (await this.nodeChainOr404(id)).node;
@@ -228,11 +234,18 @@ export class CurriculumService {
 
   // --- outcomes ---------------------------------------------------------------------
 
-  /** Tạo yêu cầu cần đạt dưới một node. */
-  async createOutcome(actorId: string, input: { nodeId: string; content: string; position?: number }): Promise<LearningOutcomeRow> {
+  /** Tạo yêu cầu cần đạt dưới một node, kèm truy vết nguồn (mục A.3). */
+  async createOutcome(actorId: string, input: {
+    nodeId: string; content: string; position?: number;
+    sourceKind?: string; sourceRef?: string | null; derivedFromId?: string | null;
+  }): Promise<LearningOutcomeRow> {
     const { subject } = await this.nodeChainOr404(input.nodeId);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
-    return this.repo.insertOutcome({ nodeId: input.nodeId, content: input.content, position: input.position ?? 1 });
+    await this.assertOutcomeSource({ sourceKind: input.sourceKind ?? 'program', derivedFromId: input.derivedFromId ?? null });
+    return this.repo.insertOutcome({
+      nodeId: input.nodeId, content: input.content, position: input.position ?? 1,
+      sourceKind: input.sourceKind ?? 'program', sourceRef: input.sourceRef ?? null, derivedFromId: input.derivedFromId ?? null,
+    });
   }
   /** Liệt kê yêu cầu cần đạt của một node. */
   async listOutcomes(actorId: string, nodeId: string): Promise<LearningOutcomeRow[]> {
@@ -246,12 +259,29 @@ export class CurriculumService {
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
     return outcome;
   }
-  /** Sửa yêu cầu cần đạt. */
-  async updateOutcome(actorId: string, id: string, input: { content?: string; position?: number }): Promise<LearningOutcomeRow> {
-    const { subject } = await this.outcomeChainOr404(id);
+  /** Sửa yêu cầu cần đạt (gồm truy vết nguồn — kiểm chứng trên trạng thái gộp cũ + mới). */
+  async updateOutcome(actorId: string, id: string, input: {
+    content?: string; position?: number;
+    sourceKind?: string; sourceRef?: string | null; derivedFromId?: string | null;
+  }): Promise<LearningOutcomeRow> {
+    const { outcome, subject } = await this.outcomeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
+    await this.assertOutcomeSource({
+      sourceKind: input.sourceKind ?? outcome.sourceKind,
+      derivedFromId: input.derivedFromId !== undefined ? input.derivedFromId : outcome.derivedFromId,
+    }, id);
     await this.repo.updateOutcome(id, input);
     return (await this.outcomeChainOr404(id)).outcome;
+  }
+  /**
+   * Số câu hỏi sẵn sàng (ready) đã gắn vào một YCCĐ, theo (mức × dạng) —
+   * API khả dụng tối thiểu của Chặng 2 (mục A.6) để Quiz Chặng 3 đếm
+   * ứng viên cho ô ma trận mà không tự truy vấn chéo module.
+   */
+  async getOutcomeQuestionCounts(actorId: string, id: string): Promise<{ outcomeId: string; counts: { cognitiveLevel: string; qtype: string; count: number }[] }> {
+    const { subject } = await this.outcomeChainOr404(id);
+    await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
+    return { outcomeId: id, counts: await this.repo.countReadyQuestionsForOutcome(id) };
   }
   /** Xoá yêu cầu cần đạt. */
   async deleteOutcome(actorId: string, id: string): Promise<void> {
@@ -291,5 +321,49 @@ export class CurriculumService {
     if (parent.curriculumId !== curriculumId) {
       throw new BadRequestException({ message: 'Parent node belongs to a different curriculum', code: 'curriculum.node_parent_mismatch' });
     }
+  }
+
+  /**
+   * Chặn vòng cha–con gián tiếp (mục A.7): duyệt tổ tiên của cha mới
+   * trong cùng chương trình (tải danh sách node một lần, duyệt trong bộ
+   * nhớ như getTree); gặp chính node đang sửa trên đường đi lên → 400.
+   * Tập visited cũng là phanh an toàn nếu dữ liệu cũ đã có vòng.
+   */
+  private async assertNoParentCycle(nodeId: string, newParentId: string, curriculumId: string): Promise<void> {
+    const nodes = await this.repo.listNodes(curriculumId);
+    const parentById = new Map(nodes.map((n) => [n.id, n.parentId]));
+    const visited = new Set<string>();
+    let cursor: string | null = newParentId;
+    while (cursor !== null) {
+      if (cursor === nodeId) {
+        throw new BadRequestException({
+          message: 'The new parent is a descendant of this node; the change would create a cycle in the curriculum tree',
+          code: 'curriculum.node_parent_cycle',
+        });
+      }
+      if (visited.has(cursor)) break;
+      visited.add(cursor);
+      cursor = parentById.get(cursor) ?? null;
+    }
+  }
+
+  /**
+   * Kiểm chứng truy vết nguồn của YCCĐ (mục A.3): `derived_from_id` chỉ
+   * dùng khi source_kind = 'derived', phải trỏ tới một YCCĐ có thật và
+   * không tự trỏ vào chính nó.
+   */
+  private async assertOutcomeSource(state: { sourceKind: string; derivedFromId: string | null }, selfId?: string): Promise<void> {
+    if (state.derivedFromId === null) return;
+    if (selfId !== undefined && state.derivedFromId === selfId) {
+      throw new BadRequestException({ message: 'A learning outcome cannot be derived from itself', code: 'curriculum.outcome_derived_from_self' });
+    }
+    if (state.sourceKind !== 'derived') {
+      throw new BadRequestException({
+        message: 'derivedFromId is only used when sourceKind is derived',
+        code: 'curriculum.outcome_derived_from_mismatch',
+      });
+    }
+    const origin = await this.repo.getOutcome(state.derivedFromId);
+    if (!origin) throw new NotFoundException({ message: `Learning outcome ${state.derivedFromId} not found`, code: 'curriculum.outcome_not_found' });
   }
 }

@@ -10,7 +10,11 @@ import { uuidIdSchema } from './ids.js';
  * sở hữu cá nhân.
  */
 
-/** Cấp của một node trong cây nội dung: mạch nội dung / chủ đề / bài–nội dung. */
+/**
+ * Cấp của một node trong cây nội dung: mạch nội dung / chủ đề / nội dung.
+ * 'lesson' là **nội dung của chương trình** GDPT 2018 (không phải
+ * chương/bài SGK — SGK thuộc tầng ánh xạ riêng ngoài cây chuẩn, mục A.4).
+ */
 export const curriculumNodeKindSchema = z.enum(['strand', 'topic', 'lesson']);
 export type CurriculumNodeKind = z.infer<typeof curriculumNodeKindSchema>;
 
@@ -76,11 +80,22 @@ export const updateCurriculumNodeSchema = z.strictObject({
 });
 export type UpdateCurriculumNode = z.infer<typeof updateCurriculumNodeSchema>;
 
+/**
+ * Nguồn của một YCCĐ (Chặng 2, mục A.3): 'program' = chép nguyên văn
+ * Chương trình môn học của Bộ; 'derived' = tổ chuyên môn biên tập/tách
+ * theo mức từ một YCCĐ gốc (ghi ở derivedFromId).
+ */
+export const outcomeSourceKindSchema = z.enum(['program', 'derived']);
+export type OutcomeSourceKind = z.infer<typeof outcomeSourceKindSchema>;
+
 /** Payload tạo yêu cầu cần đạt (learning outcome) dưới một node nội dung. */
 export const createLearningOutcomeSchema = z.strictObject({
   nodeId: uuidIdSchema,
   content: z.string().min(1),
   position: positionSchema.optional(),
+  sourceKind: outcomeSourceKindSchema.optional(),
+  sourceRef: z.string().min(1).nullable().optional(),
+  derivedFromId: uuidIdSchema.nullable().optional(),
 });
 export type CreateLearningOutcome = z.infer<typeof createLearningOutcomeSchema>;
 
@@ -88,5 +103,36 @@ export type CreateLearningOutcome = z.infer<typeof createLearningOutcomeSchema>;
 export const updateLearningOutcomeSchema = z.strictObject({
   content: z.string().min(1).optional(),
   position: positionSchema.optional(),
+  sourceKind: outcomeSourceKindSchema.optional(),
+  sourceRef: z.string().min(1).nullable().optional(),
+  derivedFromId: uuidIdSchema.nullable().optional(),
 });
 export type UpdateLearningOutcome = z.infer<typeof updateLearningOutcomeSchema>;
+
+/**
+ * Mức độ nhận thức của cặp (câu hỏi × YCCĐ) — Chặng 2, mục A.2: mức nằm
+ * trên dòng nối câu–YCCĐ, không nằm trên câu hỏi/phiên bản. Khoá text:
+ * khung 3 mức hiện hành cho trung học (Biết/Hiểu/Vận dụng) cộng
+ * 'van_dung_cao' dự phòng cho biến thể 4 mức.
+ */
+export const cognitiveLevelSchema = z.enum(['biet', 'hieu', 'van_dung', 'van_dung_cao']);
+export type CognitiveLevel = z.infer<typeof cognitiveLevelSchema>;
+
+/** Payload gắn một câu hỏi vào một môn học (mức môn, chưa gắn YCCĐ cụ thể). */
+export const attachQuestionSubjectSchema = z.strictObject({
+  subjectId: uuidIdSchema,
+});
+export type AttachQuestionSubject = z.infer<typeof attachQuestionSubjectSchema>;
+
+/** Payload gắn một câu hỏi vào một YCCĐ kèm mức độ nhận thức của cặp đó. */
+export const attachQuestionOutcomeSchema = z.strictObject({
+  outcomeId: uuidIdSchema,
+  cognitiveLevel: cognitiveLevelSchema,
+});
+export type AttachQuestionOutcome = z.infer<typeof attachQuestionOutcomeSchema>;
+
+/** Payload đổi mức độ nhận thức của một dòng nối câu–YCCĐ đã gắn. */
+export const updateQuestionOutcomeLinkSchema = z.strictObject({
+  cognitiveLevel: cognitiveLevelSchema,
+});
+export type UpdateQuestionOutcomeLink = z.infer<typeof updateQuestionOutcomeLinkSchema>;

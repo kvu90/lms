@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionsService } from './questions.service';
-import { createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionSchema, updateStimulusSchema, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateStimulusDto } from './dto/questions.dto';
+import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionOutcomeLinkSchema, updateQuestionSchema, updateStimulusSchema, type AttachQuestionOutcomeDto, type AttachQuestionSubjectDto, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateQuestionOutcomeLinkDto, type UpdateStimulusDto } from './dto/questions.dto';
 
 @ApiTags('questions')
 @Controller({ path: 'questions', version: '1' })
@@ -40,6 +40,69 @@ export class QuestionsController {
    */
   async create(@Body({ schema: createQuestionSchema }) dto: CreateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.createQuestion(actor.id, dto);
+  }
+  @Get()
+  /**
+   * GET /questions?subjectId=&outcomeId=&cognitiveLevel=&qtype=&status= — lọc ngân hàng
+   * theo gắn kết chương trình (issue #20 Chặng 2, mục A.6).
+   */
+  async listByCurriculumFilter(
+    @Query('subjectId') subjectId?: string,
+    @Query('outcomeId') outcomeId?: string,
+    @Query('cognitiveLevel') cognitiveLevel?: string,
+    @Query('qtype') qtype?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.questions.listQuestionsByCurriculumFilter({
+      subjectId: subjectId || undefined,
+      outcomeId: outcomeId || undefined,
+      cognitiveLevel: cognitiveLevel || undefined,
+      qtype: qtype || undefined,
+      status: status || undefined,
+    });
+  }
+  @Get(':id/curriculum-links')
+  /**
+   * GET /questions/:id/curriculum-links — gắn kết chương trình của câu hỏi:
+   * { subjectIds, outcomes: [{ outcomeId, cognitiveLevel }] }.
+   */
+  async getCurriculumLinks(@Param('id', { schema: uuidIdSchema }) id: string) {
+    return this.questions.getCurriculumLinks(id);
+  }
+  @Post(':id/subjects')
+  /**
+   * POST /questions/:id/subjects — gắn câu hỏi vào một môn học.
+   */
+  async attachSubject(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: attachQuestionSubjectSchema }) dto: AttachQuestionSubjectDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.attachSubject(actor.id, id, dto.subjectId);
+  }
+  @Delete(':id/subjects/:subjectId')
+  /**
+   * DELETE /questions/:id/subjects/:subjectId — gỡ gắn môn của câu hỏi.
+   */
+  async detachSubject(@Param('id', { schema: uuidIdSchema }) id: string, @Param('subjectId', { schema: uuidIdSchema }) subjectId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.detachSubject(actor.id, id, subjectId);
+  }
+  @Post(':id/outcomes')
+  /**
+   * POST /questions/:id/outcomes — gắn câu hỏi vào một YCCĐ kèm mức độ nhận thức.
+   */
+  async attachOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: attachQuestionOutcomeSchema }) dto: AttachQuestionOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.attachOutcome(actor.id, id, dto.outcomeId, dto.cognitiveLevel);
+  }
+  @Patch(':id/outcomes/:outcomeId')
+  /**
+   * PATCH /questions/:id/outcomes/:outcomeId — đổi mức độ nhận thức của dòng nối.
+   */
+  async updateOutcomeLink(@Param('id', { schema: uuidIdSchema }) id: string, @Param('outcomeId', { schema: uuidIdSchema }) outcomeId: string, @Body({ schema: updateQuestionOutcomeLinkSchema }) dto: UpdateQuestionOutcomeLinkDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.updateOutcomeLink(actor.id, id, outcomeId, dto.cognitiveLevel);
+  }
+  @Delete(':id/outcomes/:outcomeId')
+  /**
+   * DELETE /questions/:id/outcomes/:outcomeId — gỡ gắn YCCĐ của câu hỏi.
+   */
+  async detachOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @Param('outcomeId', { schema: uuidIdSchema }) outcomeId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.detachOutcome(actor.id, id, outcomeId);
   }
   @Get(':id')
   /**

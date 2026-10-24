@@ -125,6 +125,11 @@ export class CurriculumController {
   async getOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.curriculum.getOutcome(actor.id, id);
   }
+  @Get('outcomes/:id/question-counts')
+  /** GET /curriculum/outcomes/:id/question-counts — số câu ready đã gắn theo (mức × dạng), nền đếm ứng viên ma trận (A.6). */
+  async getOutcomeQuestionCounts(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getOutcomeQuestionCounts(actor.id, id);
+  }
   @Patch('outcomes/:id')
   /** PATCH /curriculum/outcomes/:id — sửa yêu cầu cần đạt. */
   async updateOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateLearningOutcomeSchema }) dto: UpdateLearningOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {

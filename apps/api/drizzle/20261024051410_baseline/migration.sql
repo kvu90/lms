@@ -847,9 +847,31 @@ CREATE TABLE "learning_outcomes" (
 	"node_id" uuid NOT NULL,
 	"content" text NOT NULL,
 	"position" integer DEFAULT 1 NOT NULL,
+	"source_kind" text DEFAULT 'program' NOT NULL,
+	"source_ref" text,
+	"derived_from_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "learning_outcomes_position_check" CHECK ("position" > 0)
+	CONSTRAINT "learning_outcomes_position_check" CHECK ("position" > 0),
+	CONSTRAINT "learning_outcomes_source_kind_check" CHECK ("source_kind" in ('program', 'derived'))
+);
+--> statement-breakpoint
+CREATE TABLE "question_learning_outcomes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"question_id" uuid NOT NULL,
+	"learning_outcome_id" uuid NOT NULL,
+	"cognitive_level" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "question_learning_outcomes_question_outcome_unique" UNIQUE("question_id","learning_outcome_id"),
+	CONSTRAINT "question_learning_outcomes_cognitive_level_check" CHECK ("cognitive_level" in ('biet', 'hieu', 'van_dung', 'van_dung_cao'))
+);
+--> statement-breakpoint
+CREATE TABLE "question_subjects" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"question_id" uuid NOT NULL,
+	"subject_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "question_subjects_question_subject_unique" UNIQUE("question_id","subject_id")
 );
 --> statement-breakpoint
 CREATE TABLE "subjects" (
@@ -1593,6 +1615,11 @@ CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
 CREATE INDEX "learning_outcomes_node_id_idx" ON "learning_outcomes" ("node_id","position");--> statement-breakpoint
+CREATE INDEX "learning_outcomes_derived_from_id_idx" ON "learning_outcomes" ("derived_from_id");--> statement-breakpoint
+CREATE INDEX "question_learning_outcomes_outcome_level_idx" ON "question_learning_outcomes" ("learning_outcome_id","cognitive_level");--> statement-breakpoint
+CREATE INDEX "question_learning_outcomes_question_id_idx" ON "question_learning_outcomes" ("question_id");--> statement-breakpoint
+CREATE INDEX "question_subjects_subject_id_idx" ON "question_subjects" ("subject_id");--> statement-breakpoint
+CREATE INDEX "question_subjects_question_id_idx" ON "question_subjects" ("question_id");--> statement-breakpoint
 CREATE INDEX "subjects_context_id_idx" ON "subjects" ("context_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
@@ -1776,6 +1803,11 @@ ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" F
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_derived_from_id_learning_outcomes_id_fkey" FOREIGN KEY ("derived_from_id") REFERENCES "learning_outcomes"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_uFf0zSMdIR5s_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_subjects" ADD CONSTRAINT "question_subjects_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_subjects" ADD CONSTRAINT "question_subjects_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_reports" ADD CONSTRAINT "message_conversation_reports_Pp9sKN3GPtqe_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint

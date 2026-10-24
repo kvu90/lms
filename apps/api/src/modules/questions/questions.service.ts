@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { extractRichTextPlainText, toRichTextDocument, type RichTextDocument, type RichTextInput } from '@lms/contracts';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { cognitiveLevelSchema, extractRichTextPlainText, toRichTextDocument, uuidIdSchema, type RichTextDocument, type RichTextInput } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -58,6 +58,12 @@ export interface QuestionView {
   options: Record<string, unknown> | null;
   stimulus: StimulusRow | null;
 }
+/** Gắn kết chương trình của một câu hỏi (issue #20 Chặng 2, mục A.6). */
+export interface QuestionCurriculumLinksView {
+  questionId: string;
+  subjectIds: string[];
+  outcomes: { outcomeId: string; cognitiveLevel: string }[];
+}
 export interface AttemptView extends AttemptRow {
   steps: { id: string; sequenceNumber: number; state: string; fraction: number | null; data: Record<string, string | null> }[];
 }
@@ -81,6 +87,16 @@ interface NormalisedContent {
 }
 
 const FRACTION_SUM_TOLERANCE = 0.000001;
+
+/** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù Drizzle có bọc qua cause hay không. */
+function isUniqueViolation(err: unknown): boolean {
+  let e: unknown = err;
+  while (e !== null && typeof e === 'object') {
+    if ((e as { code?: unknown }).code === '23505') return true;
+    e = (e as { cause?: unknown }).cause;
+  }
+  return false;
+}
 
 function badAnswerData(message: string): BadRequestException {
   return new BadRequestException({ message, code: 'question.bad_answer_data' });
@@ -559,6 +575,134 @@ export class QuestionsService {
     await this.repo.updateQuestion(q.id, { name: input.name ?? q.name, modifiedBy: actorId });
     await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_updated', payload: { questionId: q.id, version: nextVersion } });
     return this.getQuestion(q.id);
+  }
+
+  // --- bank: curriculum links (issue #20 Chặng 2, mục A.6) ----------------------
+  // Gắn kết ở CẤP DANH TÍNH câu hỏi: sửa câu (version mới) không làm mất
+  // gắn kết. Quyền ghi = capability sửa câu hỏi (question:editall) tại
+  // context của category chứa câu — như mọi thao tác ghi câu hiện hành.
+
+  /** Câu hỏi + kiểm tra quyền sửa câu tại context của category chứa nó. */
+  private async questionForEdit(actorId: string, questionId: string): Promise<QuestionRow> {
+    const q = await this.repo.getQuestion(questionId);
+    if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    const category = await this.getCategory(q.category);
+    await this.requireCap(actorId, 'question:editall', category.contextId);
+    return q;
+  }
+
+  /** Đọc toàn bộ gắn kết chương trình của một câu hỏi. */
+  async getCurriculumLinks(questionId: string): Promise<QuestionCurriculumLinksView> {
+    const q = await this.repo.getQuestion(questionId);
+    if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    const subjectLinks = await this.repo.listQuestionSubjectLinks(questionId);
+    const outcomeLinks = await this.repo.listQuestionOutcomeLinks(questionId);
+    return {
+      questionId,
+      subjectIds: subjectLinks.map((l) => l.subjectId),
+      outcomes: outcomeLinks.map((l) => ({ outcomeId: l.learningOutcomeId, cognitiveLevel: l.cognitiveLevel })),
+    };
+  }
+
+  /** Gắn câu hỏi vào một môn học (mức môn); gắn trùng → 409. */
+  async attachSubject(actorId: string, questionId: string, subjectId: string): Promise<QuestionCurriculumLinksView> {
+    await this.questionForEdit(actorId, questionId);
+    const subject = await this.repo.getSubjectRow(subjectId);
+    if (!subject) throw new NotFoundException({ message: `Subject ${subjectId} not found`, code: 'curriculum.subject_not_found' });
+    if (await this.repo.getQuestionSubjectLink(questionId, subjectId)) {
+      throw new ConflictException({ message: 'Question is already linked to this subject', code: 'question.subject_link_exists' });
+    }
+    try {
+      await this.repo.insertQuestionSubjectLink({ questionId, subjectId });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ message: 'Question is already linked to this subject', code: 'question.subject_link_exists' });
+      }
+      throw err;
+    }
+    return this.getCurriculumLinks(questionId);
+  }
+
+  /** Gỡ gắn môn của một câu hỏi; không có dòng gắn → 404. */
+  async detachSubject(actorId: string, questionId: string, subjectId: string): Promise<QuestionCurriculumLinksView> {
+    await this.questionForEdit(actorId, questionId);
+    if (!(await this.repo.deleteQuestionSubjectLink(questionId, subjectId))) {
+      throw new NotFoundException({ message: 'Question is not linked to this subject', code: 'question.subject_link_not_found' });
+    }
+    return this.getCurriculumLinks(questionId);
+  }
+
+  /**
+   * Gắn câu hỏi vào một YCCĐ kèm mức độ nhận thức của cặp (mức nằm trên
+   * dòng nối — mục A.2). Nhất quán môn: khi câu đã khai gắn môn tường
+   * minh (có ít nhất một dòng question_subjects) mà YCCĐ thuộc môn khác
+   * hẳn → 400; câu chưa khai môn nào thì môn của YCCĐ suy ngược được từ
+   * chính dòng nối, không cần khai trước.
+   */
+  async attachOutcome(actorId: string, questionId: string, outcomeId: string, cognitiveLevel: string): Promise<QuestionCurriculumLinksView> {
+    await this.questionForEdit(actorId, questionId);
+    const chain = await this.repo.getOutcomeChain(outcomeId);
+    if (!chain) throw new NotFoundException({ message: `Learning outcome ${outcomeId} not found`, code: 'curriculum.outcome_not_found' });
+    if (await this.repo.getQuestionOutcomeLink(questionId, outcomeId)) {
+      throw new ConflictException({ message: 'Question is already linked to this learning outcome', code: 'question.outcome_link_exists' });
+    }
+    const subjectLinks = await this.repo.listQuestionSubjectLinks(questionId);
+    if (subjectLinks.length > 0 && !subjectLinks.some((l) => l.subjectId === chain.subject.id)) {
+      throw new BadRequestException({
+        message: 'Learning outcome belongs to a subject the question is not linked to; link that subject first or unlink the current subjects',
+        code: 'question.outcome_subject_mismatch',
+      });
+    }
+    try {
+      await this.repo.insertQuestionOutcomeLink({ questionId, learningOutcomeId: outcomeId, cognitiveLevel });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ message: 'Question is already linked to this learning outcome', code: 'question.outcome_link_exists' });
+      }
+      throw err;
+    }
+    return this.getCurriculumLinks(questionId);
+  }
+
+  /** Đổi mức độ nhận thức của một dòng nối câu–YCCĐ đã gắn. */
+  async updateOutcomeLink(actorId: string, questionId: string, outcomeId: string, cognitiveLevel: string): Promise<QuestionCurriculumLinksView> {
+    await this.questionForEdit(actorId, questionId);
+    if (!(await this.repo.getQuestionOutcomeLink(questionId, outcomeId))) {
+      throw new NotFoundException({ message: 'Question is not linked to this learning outcome', code: 'question.outcome_link_not_found' });
+    }
+    await this.repo.updateQuestionOutcomeLink(questionId, outcomeId, cognitiveLevel);
+    return this.getCurriculumLinks(questionId);
+  }
+
+  /** Gỡ gắn YCCĐ của một câu hỏi; không có dòng gắn → 404. */
+  async detachOutcome(actorId: string, questionId: string, outcomeId: string): Promise<QuestionCurriculumLinksView> {
+    await this.questionForEdit(actorId, questionId);
+    if (!(await this.repo.deleteQuestionOutcomeLink(questionId, outcomeId))) {
+      throw new NotFoundException({ message: 'Question is not linked to this learning outcome', code: 'question.outcome_link_not_found' });
+    }
+    return this.getCurriculumLinks(questionId);
+  }
+
+  /**
+   * Lọc ngân hàng theo gắn kết chương trình + dạng + trạng thái (mục
+   * A.6) — phục vụ UI soạn câu và đếm ứng viên ma trận. Trả view đầy đủ
+   * như các endpoint liệt kê hiện hành của ngân hàng.
+   */
+  async listQuestionsByCurriculumFilter(filter: {
+    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<QuestionView[]> {
+    for (const [field, value] of [['subjectId', filter.subjectId], ['outcomeId', filter.outcomeId]] as const) {
+      if (value !== undefined && !uuidIdSchema.safeParse(value).success) {
+        throw new BadRequestException({ message: `${field} must be a uuid`, code: 'question.invalid_filter' });
+      }
+    }
+    if (filter.cognitiveLevel !== undefined && !cognitiveLevelSchema.safeParse(filter.cognitiveLevel).success) {
+      throw new BadRequestException({ message: `cognitiveLevel ${filter.cognitiveLevel} is not a known cognitive level`, code: 'question.invalid_cognitive_level' });
+    }
+    const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
+    const out: QuestionView[] = [];
+    for (const q of rows) out.push(await this.getQuestion(q.id));
+    return out;
   }
 
   // --- engine ------------------------------------------------------------------

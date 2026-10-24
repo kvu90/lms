@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
+  curricula, curriculumNodes, learningOutcomes,
   question, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
-  questionBankEntries, questionCategories, questionTruefalse, questionUsages, questionVersions,
-  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli,
+  questionBankEntries, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
+  questionUsages, questionVersions,
+  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli, subjects,
 } from '../../db/schema';
 
 export type QCategoryRow = typeof questionCategories.$inferSelect;
@@ -21,6 +23,8 @@ export type EssayOptionsRow = typeof qtypeEssayOptions.$inferSelect;
 export type UsageRow = typeof questionUsages.$inferSelect;
 export type AttemptRow = typeof questionAttempts.$inferSelect;
 export type StepRow = typeof questionAttemptSteps.$inferSelect;
+export type QuestionSubjectLinkRow = typeof questionSubjects.$inferSelect;
+export type QuestionOutcomeLinkRow = typeof questionLearningOutcomes.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -300,5 +304,130 @@ export class QuestionsRepository {
    */
   async listStepData(stepId: string): Promise<(typeof questionAttemptStepData.$inferSelect)[]> {
     return this.db.select().from(questionAttemptStepData).where(eq(questionAttemptStepData.attemptStepId, stepId));
+  }
+
+  // --- curriculum links (issue #20 Chặng 2) -----------------------------------
+  // Hai bảng nối thuộc module curriculum (question_subjects,
+  // question_learning_outcomes) nhưng API gắn kết đặt ở module questions —
+  // nơi sở hữu danh tính câu hỏi (mục A.6) — nên repository này truy vấn
+  // thẳng các bảng đó cùng chuỗi outcome → node → curriculum → subject.
+
+  /** Môn học theo id (đích gắn kết mức môn). */
+  async getSubjectRow(id: string): Promise<(typeof subjects.$inferSelect) | undefined> {
+    const [row] = await this.db.select().from(subjects).where(eq(subjects.id, id)); return row;
+  }
+  /** Chuỗi đầy đủ của một YCCĐ để suy ra môn học sở hữu nó. */
+  async getOutcomeChain(id: string): Promise<{
+    outcome: typeof learningOutcomes.$inferSelect;
+    node: typeof curriculumNodes.$inferSelect;
+    curriculum: typeof curricula.$inferSelect;
+    subject: typeof subjects.$inferSelect;
+  } | undefined> {
+    const [outcome] = await this.db.select().from(learningOutcomes).where(eq(learningOutcomes.id, id));
+    if (!outcome) return undefined;
+    const [node] = await this.db.select().from(curriculumNodes).where(eq(curriculumNodes.id, outcome.nodeId));
+    if (!node) return undefined;
+    const [curriculum] = await this.db.select().from(curricula).where(eq(curricula.id, node.curriculumId));
+    if (!curriculum) return undefined;
+    const subject = await this.getSubjectRow(curriculum.subjectId);
+    if (!subject) return undefined;
+    return { outcome, node, curriculum, subject };
+  }
+  /** Các dòng gắn môn của một câu hỏi. */
+  async listQuestionSubjectLinks(questionId: string): Promise<QuestionSubjectLinkRow[]> {
+    return this.db.select().from(questionSubjects).where(eq(questionSubjects.questionId, questionId))
+      .orderBy(asc(questionSubjects.createdAt));
+  }
+  /** Một dòng gắn môn theo cặp (câu hỏi, môn). */
+  async getQuestionSubjectLink(questionId: string, subjectId: string): Promise<QuestionSubjectLinkRow | undefined> {
+    const [row] = await this.db.select().from(questionSubjects)
+      .where(and(eq(questionSubjects.questionId, questionId), eq(questionSubjects.subjectId, subjectId)));
+    return row;
+  }
+  /** Chèn dòng gắn môn. */
+  async insertQuestionSubjectLink(v: typeof questionSubjects.$inferInsert): Promise<QuestionSubjectLinkRow> {
+    const [row] = await this.db.insert(questionSubjects).values(v).returning(); return row!;
+  }
+  /** Xoá dòng gắn môn; trả true khi có dòng bị xoá. */
+  async deleteQuestionSubjectLink(questionId: string, subjectId: string): Promise<boolean> {
+    const rows = await this.db.delete(questionSubjects)
+      .where(and(eq(questionSubjects.questionId, questionId), eq(questionSubjects.subjectId, subjectId)))
+      .returning();
+    return rows.length > 0;
+  }
+  /** Các dòng gắn YCCĐ của một câu hỏi. */
+  async listQuestionOutcomeLinks(questionId: string): Promise<QuestionOutcomeLinkRow[]> {
+    return this.db.select().from(questionLearningOutcomes).where(eq(questionLearningOutcomes.questionId, questionId))
+      .orderBy(asc(questionLearningOutcomes.createdAt));
+  }
+  /** Một dòng gắn YCCĐ theo cặp (câu hỏi, YCCĐ). */
+  async getQuestionOutcomeLink(questionId: string, outcomeId: string): Promise<QuestionOutcomeLinkRow | undefined> {
+    const [row] = await this.db.select().from(questionLearningOutcomes)
+      .where(and(eq(questionLearningOutcomes.questionId, questionId), eq(questionLearningOutcomes.learningOutcomeId, outcomeId)));
+    return row;
+  }
+  /** Chèn dòng gắn YCCĐ kèm mức độ nhận thức của cặp. */
+  async insertQuestionOutcomeLink(v: typeof questionLearningOutcomes.$inferInsert): Promise<QuestionOutcomeLinkRow> {
+    const [row] = await this.db.insert(questionLearningOutcomes).values(v).returning(); return row!;
+  }
+  /** Đổi mức độ nhận thức của một dòng gắn YCCĐ. */
+  async updateQuestionOutcomeLink(questionId: string, outcomeId: string, cognitiveLevel: string): Promise<void> {
+    await this.db.update(questionLearningOutcomes).set({ cognitiveLevel })
+      .where(and(eq(questionLearningOutcomes.questionId, questionId), eq(questionLearningOutcomes.learningOutcomeId, outcomeId)));
+  }
+  /** Xoá dòng gắn YCCĐ; trả true khi có dòng bị xoá. */
+  async deleteQuestionOutcomeLink(questionId: string, outcomeId: string): Promise<boolean> {
+    const rows = await this.db.delete(questionLearningOutcomes)
+      .where(and(eq(questionLearningOutcomes.questionId, questionId), eq(questionLearningOutcomes.learningOutcomeId, outcomeId)))
+      .returning();
+    return rows.length > 0;
+  }
+
+  /**
+   * Lọc ngân hàng câu hỏi theo gắn kết chương trình (mục A.6): subjectId
+   * khớp cả gắn mức môn lẫn YCCĐ thuộc môn đó (môn suy ngược từ YCCĐ);
+   * outcomeId + cognitiveLevel phải khớp trên **cùng một dòng nối** khi
+   * đi cùng nhau; qtype là dạng của danh tính câu; status là trạng thái
+   * của bank entry. Các điều kiện gắn kết giao nhau (AND).
+   */
+  async filterQuestionsByCurriculumLinks(filter: {
+    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<QuestionRow[]> {
+    const idSets: Set<string>[] = [];
+    if (filter.subjectId !== undefined) {
+      const viaSubjects = await this.db.select({ questionId: questionSubjects.questionId })
+        .from(questionSubjects).where(eq(questionSubjects.subjectId, filter.subjectId));
+      const viaOutcomes = await this.db.select({ questionId: questionLearningOutcomes.questionId })
+        .from(questionLearningOutcomes)
+        .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
+        .innerJoin(curriculumNodes, eq(curriculumNodes.id, learningOutcomes.nodeId))
+        .innerJoin(curricula, eq(curricula.id, curriculumNodes.curriculumId))
+        .where(eq(curricula.subjectId, filter.subjectId));
+      idSets.push(new Set([...viaSubjects.map((r) => r.questionId), ...viaOutcomes.map((r) => r.questionId)]));
+    }
+    if (filter.outcomeId !== undefined || filter.cognitiveLevel !== undefined) {
+      const conditions = [];
+      if (filter.outcomeId !== undefined) conditions.push(eq(questionLearningOutcomes.learningOutcomeId, filter.outcomeId));
+      if (filter.cognitiveLevel !== undefined) conditions.push(eq(questionLearningOutcomes.cognitiveLevel, filter.cognitiveLevel));
+      const rows = await this.db.select({ questionId: questionLearningOutcomes.questionId })
+        .from(questionLearningOutcomes).where(and(...conditions));
+      idSets.push(new Set(rows.map((r) => r.questionId)));
+    }
+    let candidateIds: Set<string> | null = null;
+    for (const set of idSets) {
+      if (candidateIds === null) { candidateIds = set; continue; }
+      const current: Set<string> = candidateIds;
+      candidateIds = new Set([...current].filter((id) => set.has(id)));
+    }
+    if (candidateIds !== null && candidateIds.size === 0) return [];
+    const conditions = [];
+    if (candidateIds !== null) conditions.push(inArray(question.id, [...candidateIds]));
+    if (filter.qtype !== undefined) conditions.push(eq(question.qtype, filter.qtype));
+    if (filter.status !== undefined) conditions.push(eq(questionBankEntries.status, filter.status));
+    const rows = await this.db.select({ q: question }).from(question)
+      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(question.createdAt));
+    return rows.map((r) => r.q);
   }
 }
