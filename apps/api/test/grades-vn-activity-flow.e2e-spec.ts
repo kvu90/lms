@@ -111,7 +111,7 @@ describe('Luồng hoạt động → cột sổ VN (GB-VN-2, issue #104)', () =>
     const mapping = res.body as MappingView;
     expect(mapping.targetItemId).toBe(columnOf(book, 'dggk').id);
     expect(mapping.targetRole).toBe('dggk');
-    expect(mapping.component).toBe('quiz');
+    expect(mapping.component).toBe('mod_quiz');
     // Khai lại cùng hoạt động → 400 vn_mapping_exists.
     res = await mapActivity(course.id, bookId, { cmId: quiz.cmId, role: 'dgck' });
     expect(res.status).toBe(400);
