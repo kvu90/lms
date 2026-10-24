@@ -51,6 +51,23 @@ interface MyCompletionView {
 /** Một course module trong nội dung khoá học (kiểu `CourseModule` của contracts, đã gồm `completionManual`). */
 type CourseModuleView = CourseContent['sections'][number]['modules'][number];
 
+/** Tiến độ học của tôi trong khoá (GET /courses/:id/progress/me — K2). */
+interface MyProgressView {
+  percent: number | null;
+  completed: number;
+  total: number;
+  sections: {
+    sectionId: string; percent: number | null; completed: number; total: number;
+    items: { cmId: string; completion: number; done: boolean }[];
+  }[];
+  resume: { cmId: string; reason: string } | null;
+}
+
+/** Mốc "lớp đã học tới đây" theo từng lớp (GET /courses/:id/progress/class-markers — K2). */
+interface ClassMarkersView {
+  markers: { groupId: string | null; groupName: string; markerCmId: string | null }[];
+}
+
 /** Tải một endpoint phụ một cách độc lập: lỗi thì trả null thay vì sập cả trang. */
 async function probe<T>(path: string): Promise<T | null> {
   try {
@@ -91,6 +108,8 @@ export function CoursePage() {
   const [instances, setInstances] = useState<EnrolInstance[]>([]);
   const [payments, setPayments] = useState<MyPaymentView[]>([]);
   const [completion, setCompletion] = useState<MyCompletionView | null>(null);
+  const [progress, setProgress] = useState<MyProgressView | null>(null);
+  const [classMarkers, setClassMarkers] = useState<ClassMarkersView | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
   const [busyCmId, setBusyCmId] = useState<string | null>(null);
@@ -119,9 +138,18 @@ export function CoursePage() {
     setPayments(paymentsRes ?? []);
     setContent(contentRes);
     if (contentRes) {
-      setCompletion(await probe<MyCompletionView>(`/api/v1/courses/${id}/completion/me`));
+      const [completionRes, progressRes, markersRes] = await Promise.all([
+        probe<MyCompletionView>(`/api/v1/courses/${id}/completion/me`),
+        probe<MyProgressView>(`/api/v1/courses/${id}/progress/me`),
+        probe<ClassMarkersView>(`/api/v1/courses/${id}/progress/class-markers`),
+      ]);
+      setCompletion(completionRes);
+      setProgress(progressRes);
+      setClassMarkers(markersRes);
     } else {
       setCompletion(null);
+      setProgress(null);
+      setClassMarkers(null);
     }
     setLoaded(true);
   }, [id]);
@@ -201,6 +229,12 @@ export function CoursePage() {
 
   if (content) {
     const completionByCm = new Map((completion?.activities ?? []).map((a) => [a.cmId, a]));
+    const sectionProgress = new Map((progress?.sections ?? []).map((s) => [s.sectionId, s]));
+    const markerNamesByCm = new Map<string, string[]>();
+    for (const marker of classMarkers?.markers ?? []) {
+      if (!marker.markerCmId) continue;
+      markerNamesByCm.set(marker.markerCmId, [...(markerNamesByCm.get(marker.markerCmId) ?? []), marker.groupName]);
+    }
     return (
       <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <Card>
@@ -211,13 +245,49 @@ export function CoursePage() {
               {content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
             </CardDescription>
           </CardHeader>
+          {progress && progress.percent !== null ? (
+            <CardContent className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium">{t('courseProgressLabel', { percent: progress.percent })}</span>
+              <span className="text-sm text-muted-foreground">
+                {t('courseProgressDetail', { completed: progress.completed, total: progress.total })}
+              </span>
+              {progress.resume ? (
+                <Link to={`/courses/${id}/learn/${progress.resume.cmId}`}>
+                  <Button type="button" size="sm">{t('learnContinue')}</Button>
+                </Link>
+              ) : null}
+              {(() => {
+                // Ôn lại (K2-B6): lối vào riêng tới mục chưa xong đầu
+                // tiên của section yếu nhất — khác lối "Học tiếp".
+                const weakest = [...progress.sections]
+                  .filter((s) => s.percent !== null && s.percent < 100)
+                  .sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];
+                const target = weakest?.items.find((i) => i.completion !== 0 && !i.done);
+                return target && target.cmId !== progress.resume?.cmId ? (
+                  <Link to={`/courses/${id}/learn/${target.cmId}`} className="text-sm underline">
+                    {t('reviewWeakest')}
+                  </Link>
+                ) : null;
+              })()}
+              <Link to={`/courses/${id}/progress`} className="text-sm underline">
+                {t('progressReportLink')}
+              </Link>
+            </CardContent>
+          ) : null}
         </Card>
         {isEnrolledActive ? <p className="text-sm text-muted-foreground">{t('enrolledNotice')}</p> : null}
         {completionError ? <p role="alert">{completionError}</p> : null}
         {content.sections.map((section) => (
           <Card key={section.id}>
             <CardHeader>
-              <CardTitle>{section.name ?? t('sectionDefaultName', { number: section.section })}</CardTitle>
+              <CardTitle>
+                {section.name ?? t('sectionDefaultName', { number: section.section })}
+                {sectionProgress.get(section.id)?.percent != null ? (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {t('courseProgressLabel', { percent: sectionProgress.get(section.id)!.percent! })}
+                  </span>
+                ) : null}
+              </CardTitle>
               {section.availabilityResult && !section.availabilityResult.available && (
                 <CardDescription>
                   {t('sectionRestricted', { reasons: section.availabilityResult.failedDescriptions.join('; ') })}
@@ -269,11 +339,19 @@ export function CoursePage() {
                       aria-disabled={locked || undefined}
                       className={locked ? 'opacity-50' : undefined}
                     >
+                      {isComplete ? <span aria-label={t('completionCompleted')}>✓ </span> : null}
                       {cm.component === 'mod_quiz' && cm.instanceId && !locked ? (
                         <Link to={`/courses/${id}/quizzes/${cm.instanceId}`}>{cm.name || cm.component}</Link>
+                      ) : (cm.component === 'mod_page' || cm.component === 'mod_resource') && !locked ? (
+                        <Link to={`/courses/${id}/learn/${cm.id}`}>{cm.name || cm.component}</Link>
                       ) : (
                         <span>{cm.name || cm.component}</span>
                       )}
+                      {(markerNamesByCm.get(cm.id) ?? []).map((groupName) => (
+                        <span key={groupName} className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">
+                          {t('classMarkerBadge', { name: groupName })}
+                        </span>
+                      ))}
                       {locked && (
                         <span role="note">
                           {' '}
