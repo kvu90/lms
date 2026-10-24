@@ -150,8 +150,7 @@ CREATE TABLE "account" (
 	"scope" text,
 	"password" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "account_user_id_provider_id_unique" UNIQUE("user_id","provider_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
