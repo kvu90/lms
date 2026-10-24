@@ -296,6 +296,7 @@ CREATE TABLE "course" (
 	"enable_completion" boolean DEFAULT true NOT NULL,
 	"subject_id" uuid,
 	"grade" smallint,
+	"is_template" boolean DEFAULT false NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -340,6 +341,8 @@ CREATE TABLE "course_modules" (
 	"completion_use_grade" boolean DEFAULT false NOT NULL,
 	"completion_manual" boolean DEFAULT false NOT NULL,
 	"completion_expected" timestamp with time zone,
+	"open_at" timestamp with time zone,
+	"sort_order" integer DEFAULT 0 NOT NULL,
 	"deletion_in_progress" boolean DEFAULT false NOT NULL,
 	"added" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -371,6 +374,7 @@ CREATE TABLE "course_sections" (
 	"summary" text DEFAULT '' NOT NULL,
 	"visible" boolean DEFAULT true NOT NULL,
 	"availability" jsonb,
+	"open_at" timestamp with time zone,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "course_sections_course_section_unique" UNIQUE("course","section")
 );

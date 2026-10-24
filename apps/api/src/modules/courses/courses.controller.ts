@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService, type CategoryDeleteMode } from './courses.service';
-import { applyCurriculumFrameSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto } from './dto/courses.dto';
+import { applyCurriculumFrameSchema, copyCourseContentSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, duplicateCourseSchema, reorderCourseModulesSchema, reorderCourseSectionsSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CopyContentDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type DuplicateCourseDto, type ReorderModulesDto, type ReorderSectionsDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto } from './dto/courses.dto';
 
 @ApiTags('courses')
 @Controller({ path: 'courses', version: '1' })
@@ -65,10 +65,38 @@ export class CoursesController {
   }
   @Get()
   /**
-   * GET /courses — liệt kê/tìm khoá học.
+   * GET /courses — liệt kê/tìm khoá học (không gồm khoá mẫu — K1).
    */
   async list(@Query('category') category?: string) {
     return this.courses.listCourses(category || undefined);
+  }
+  @Get('templates')
+  /**
+   * GET /courses/templates — khoá mẫu tổ/trường cho wizard tạo khoá (K1, đường 5).
+   */
+  async templates(@CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.listTemplates(actor.id);
+  }
+  @Post(':id/duplicate')
+  /**
+   * POST /courses/:id/duplicate — nhân bản khoá theo bảng sao chép Re-run (K1): bản sao nháp, hạn lùi theo mốc mới khi có startDate.
+   */
+  async duplicate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: duplicateCourseSchema }) dto: DuplicateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.duplicateCourse(actor.id, id, dto);
+  }
+  @Post(':id/import-content')
+  /**
+   * POST /courses/:id/import-content — "Dùng lại từ khoá khác": chép section/module từ khoá nguồn vào khoá này (K1).
+   */
+  async importContent(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: copyCourseContentSchema }) dto: CopyContentDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.copyCourseContent(actor.id, id, dto);
+  }
+  @Post(':id/reorder-sections')
+  /**
+   * POST /courses/:id/reorder-sections — đổi thứ tự section cho Builder Outline (K1).
+   */
+  async reorderSections(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: reorderCourseSectionsSchema }) dto: ReorderSectionsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.reorderSections(actor.id, id, dto.sectionIds);
   }
   @Get(':id')
   /**
@@ -133,6 +161,20 @@ export class CoursesController {
     await this.courses.deleteSection(actor.id, sectionId);
     return { deleted: true };
   }
+  @Post(':id/sections/:sectionId/duplicate')
+  /**
+   * POST /courses/:id/sections/:sectionId/duplicate — nhân bản section ngay tại outline (K1).
+   */
+  async duplicateSection(@Param('sectionId', { schema: uuidIdSchema }) sectionId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.duplicateSection(actor.id, sectionId);
+  }
+  @Post(':id/sections/:sectionId/reorder-modules')
+  /**
+   * POST /courses/:id/sections/:sectionId/reorder-modules — đổi thứ tự module trong section cho Builder Outline (K1).
+   */
+  async reorderModules(@Param('sectionId', { schema: uuidIdSchema }) sectionId: string, @Body({ schema: reorderCourseModulesSchema }) dto: ReorderModulesDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.reorderModules(actor.id, sectionId, dto.moduleIds);
+  }
   @Get(':id/sections/:sectionId/access')
   /**
    * GET /courses/:id/sections/:sectionId/access — kết quả availability của section cho user hiện tại.
@@ -174,6 +216,14 @@ export class CoursesController {
     const result = await this.courses.checkCmAccess(viewer.id, cm);
     if (!result.available) throw new ForbiddenException({ message: 'This activity is not available to you yet', code: 'availability.not_available' });
     return { cmId, available: true };
+  }
+  @Post(':id/modules/:cmId/duplicate')
+  /**
+   * POST /courses/:id/modules/:cmId/duplicate — nhân bản module ngay tại dòng (K1).
+   */
+  async duplicateCm(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @CurrentUser() actor: AuthenticatedUser) {
+    const cm = await this.courses.duplicateCm(actor.id, cmId);
+    return { ...cm, contextId: await this.courses.cmContextId(cm.id) };
   }
   @Post(':id/modules/:cmId/view')
   /**

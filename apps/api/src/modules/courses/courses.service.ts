@@ -1,12 +1,20 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import {
+  course as courseTable, courseModules as courseModulesTable, courseSectionAnchorOutcomes, courseSectionAnchors,
+  courseSections as courseSectionsTable,
+  courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeCategories, gradeItems,
+  gradeOutcomes, quizzes, quizSlots, scales,
+} from '../../db/schema';
+import type { Database } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { AvailabilityService, type AvailabilityContext } from '../availability/availability.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
-import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type SectionRow } from './courses.repository';
+import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type DbTx, type SectionRow } from './courses.repository';
 
 export const GROUPMODE_NOGROUPS = 0;
 export const GROUPMODE_SEPARATEGROUPS = 1;
@@ -15,6 +23,22 @@ export const COURSE_COMPONENT = 'core_course';
 export const COURSE_AREA = 'course';
 
 export type CategoryDeleteMode = 'moveup' | 'recursive';
+
+/** Trạng thái mở của section/module (K1) suy từ visible + openAt. */
+export type CourseItemStatus = 'draft' | 'open' | 'scheduled';
+
+/**
+ * Suy trạng thái mở (K1): ẩn = Nháp; hiện + có ngày mở ở tương lai =
+ * Mở theo lịch; còn lại = Đã mở.
+ */
+export function courseItemStatus(visible: boolean, openAt: Date | null, now: Date = new Date()): CourseItemStatus {
+  if (!visible) return 'draft';
+  if (openAt && openAt.getTime() > now.getTime()) return 'scheduled';
+  return 'open';
+}
+
+/** Component có instance riêng được nhân bản sâu ở K1 (bảng instance + slot). */
+export const QUIZ_COMPONENT_NAME = 'mod_quiz';
 
 /** Registered by EnrolModule at bootstrap — keeps Courses → Enrol import-free (dependency inversion, cf. Availability registry). */
 export interface EnrolChecker {
@@ -57,9 +81,11 @@ export interface CourseContentView {
   customFields: { shortName: string; value: string | null }[];
   sections: (SectionRow & {
     availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] };
+    /** Trạng thái mở Nháp/Đã mở/Mở theo lịch (K1). */
+    status?: CourseItemStatus;
     /** Neo khung chương trình (K0a): null khi section không xuất phát từ khung. */
     frame?: SectionFrameView | null;
-    modules: (CmRow & { contextId?: string; availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] } })[];
+    modules: (CmRow & { status?: CourseItemStatus; contextId?: string; availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] } })[];
   })[];
 }
 
@@ -353,9 +379,31 @@ export class CoursesService {
     return row;
   }
   /**
-   * Tìm/liệt kê khoá học.
+   * Tìm/liệt kê khoá học — khoá mẫu tổ/trường (K1) KHÔNG hiện ở danh
+   * sách khoá thường; chúng chỉ được liệt kê qua `listTemplates`.
    */
-  async listCourses(categoryId?: string): Promise<CourseRow[]> { return this.repo.listCourses(categoryId); }
+  async listCourses(categoryId?: string): Promise<CourseRow[]> {
+    return (await this.repo.listCourses(categoryId)).filter((c) => !c.isTemplate);
+  }
+
+  /**
+   * Danh sách khoá mẫu tổ/trường cho đường 5 của wizard tạo khoá (K1).
+   * Chỉ người có thể tạo khoá ở ít nhất một danh mục (hoặc quản trị hệ
+   * thống) mới thấy mẫu — người không có đường tạo khoá thì danh sách
+   * mẫu không có ý nghĩa và trả rỗng.
+   */
+  async listTemplates(actorId: string): Promise<CourseRow[]> {
+    if (!(await this.evaluator.isSiteAdmin(actorId))) {
+      const categories = await this.repo.listCategories();
+      let canCreate = false;
+      for (const cat of categories) {
+        const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSECAT, cat.id);
+        if (ctx && (await this.evaluator.hasCapability(actorId, 'course:create', ctx.id))) { canCreate = true; break; }
+      }
+      if (!canCreate) return [];
+    }
+    return this.repo.listTemplateCourses();
+  }
   /**
    * Tuỳ chọn định dạng của khoá học.
    */
@@ -376,7 +424,7 @@ export class CoursesService {
   async updateCourse(actorId: string, id: string, input: {
     fullName?: string; shortName?: string; category?: string; idNumber?: string; summary?: string;
     format?: string; visible?: boolean; startDate?: string | null; endDate?: string | null; groupMode?: number; groupModeForce?: boolean;
-    subjectId?: string | null; grade?: number | null;
+    subjectId?: string | null; grade?: number | null; isTemplate?: boolean;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
@@ -403,6 +451,7 @@ export class CoursesService {
       patch.subjectId = input.subjectId;
     }
     if (input.grade !== undefined) patch.grade = input.grade;
+    if (input.isTemplate !== undefined) patch.isTemplate = input.isTemplate;
     if (input.category !== undefined && input.category !== existing.category) {
       const newCategory = await this.getCategory(input.category);
       patch.category = newCategory.id;
@@ -474,7 +523,7 @@ export class CoursesService {
   /**
    * Thêm section vào khoá học.
    */
-  async createSection(actorId: string, courseId: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
+  async createSection(actorId: string, courseId: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown; openAt?: string | null }): Promise<SectionRow> {
     await this.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(courseId));
     if (input.availability !== undefined) this.availability.parse(input.availability);
@@ -484,6 +533,7 @@ export class CoursesService {
       course: courseId, section: nextNumber, name: input.name ?? null,
       summary: input.summary ?? '', visible: input.visible ?? true,
       availability: (input.availability ?? null) as never,
+      openAt: input.openAt ? new Date(input.openAt) : null,
     });
   }
   /**
@@ -501,7 +551,7 @@ export class CoursesService {
   /**
    * Cập nhật section (gồm cây availability dạng JSON).
    */
-  async updateSection(actorId: string, id: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
+  async updateSection(actorId: string, id: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown; openAt?: string | null }): Promise<SectionRow> {
     const section = await this.getSection(id);
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(section.course));
     if (input.availability !== undefined) this.availability.parse(input.availability);
@@ -510,6 +560,7 @@ export class CoursesService {
     if (input.summary !== undefined) patch.summary = input.summary;
     if (input.visible !== undefined) patch.visible = input.visible;
     if (input.availability !== undefined) patch.availability = input.availability as never;
+    if (input.openAt !== undefined) patch.openAt = input.openAt ? new Date(input.openAt) : null;
     if (Object.keys(patch).length) await this.repo.updateSection(id, patch);
     return this.getSection(id);
   }
@@ -530,13 +581,16 @@ export class CoursesService {
   async createCm(actorId: string, courseId: string, input: {
     sectionId: string; component: string; instanceId?: string; name?: string; visible?: boolean; groupMode?: number;
     availability?: unknown; completion?: number; completionView?: boolean; completionUseGrade?: boolean;
-    completionManual?: boolean; completionExpected?: string;
+    completionManual?: boolean; completionExpected?: string; openAt?: string | null;
   }): Promise<CmRow> {
     const courseRow = await this.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(courseId));
     const section = await this.getSection(input.sectionId);
     if (section.course !== courseId) throw new BadRequestException({ message: 'Section does not belong to this course', code: 'course.section_course_mismatch' });
     if (input.availability !== undefined) this.availability.parse(input.availability);
+    // Module mới luôn nối cuối outline của section (K1: sortOrder tường minh).
+    const siblings = await this.repo.listCmsInSection(section.id);
+    const sortOrder = siblings.length ? Math.max(...siblings.map((c) => c.sortOrder)) + 1 : 0;
     const cm = await this.repo.insertCm({
       course: courseId, section: section.id, component: input.component, instanceId: input.instanceId ?? null,
       name: input.name ?? '', visible: input.visible ?? true, groupMode: input.groupMode ?? 0,
@@ -545,6 +599,8 @@ export class CoursesService {
       completionView: input.completionView ?? false, completionUseGrade: input.completionUseGrade ?? false,
       completionManual: input.completionManual ?? false,
       completionExpected: input.completionExpected ? new Date(input.completionExpected) : null,
+      openAt: input.openAt ? new Date(input.openAt) : null,
+      sortOrder,
     });
     const courseCtxId = await this.courseContextId(courseId);
     await this.contexts.createContext(CONTEXT_LEVELS.MODULE, cm.id, courseCtxId);
@@ -569,7 +625,7 @@ export class CoursesService {
    */
   async updateCm(actorId: string, id: string, input: {
     name?: string; visible?: boolean; groupMode?: number; availability?: unknown; completion?: number;
-    completionView?: boolean; completionUseGrade?: boolean; completionManual?: boolean; completionExpected?: string | null; sectionId?: string;
+    completionView?: boolean; completionUseGrade?: boolean; completionManual?: boolean; completionExpected?: string | null; openAt?: string | null; sectionId?: string;
   }): Promise<CmRow> {
     const cm = await this.getCm(id);
     await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(cm.course));
@@ -584,6 +640,7 @@ export class CoursesService {
     if (input.completionUseGrade !== undefined) patch.completionUseGrade = input.completionUseGrade;
     if (input.completionManual !== undefined) patch.completionManual = input.completionManual;
     if (input.completionExpected !== undefined) patch.completionExpected = input.completionExpected ? new Date(input.completionExpected) : null;
+    if (input.openAt !== undefined) patch.openAt = input.openAt ? new Date(input.openAt) : null;
     if (input.sectionId !== undefined) {
       const section = await this.getSection(input.sectionId);
       if (section.course !== cm.course) throw new BadRequestException({ message: 'Section does not belong to this course', code: 'course.section_course_mismatch' });
@@ -649,6 +706,17 @@ export class CoursesService {
       const s = await this.availability.evaluate(section.availability, ctx);
       if (!s.available) return { available: false, visible: s.visible, failedDescriptions: s.failedDescriptions };
     }
+    // Ngày mở theo lịch của section (K1): chưa tới ngày thì học viên
+    // không thấy mục con bên trong, trừ người xem được hoạt động ẩn.
+    if (section?.openAt && section.openAt.getTime() > Date.now()) {
+      const canSeeHidden = await this.canViewHiddenActivities(userId, cm.course);
+      if (!canSeeHidden) return { available: false, visible: false, failedDescriptions: [] };
+    }
+    // Ngày mở theo lịch của chính module (K1).
+    if (cm.openAt && cm.openAt.getTime() > Date.now()) {
+      const canSeeHidden = await this.canViewHiddenActivities(userId, cm.course);
+      if (!canSeeHidden) return { available: false, visible: false, failedDescriptions: [] };
+    }
     if (!cm.visible) {
       const canSeeHidden = await this.canViewHiddenActivities(userId, cm.course);
       if (!canSeeHidden) return { available: false, visible: false, failedDescriptions: [] };
@@ -666,6 +734,11 @@ export class CoursesService {
    */
   async checkSectionAccess(userId: string, section: SectionRow, grades?: Record<string, number>): Promise<{ available: boolean; visible: boolean; failedDescriptions: string[] }> {
     if (!section.visible && !(await this.canViewHiddenActivities(userId, section.course))) {
+      return { available: false, visible: false, failedDescriptions: [] };
+    }
+    // Ngày mở theo lịch (K1): section chưa tới ngày mở thì học viên
+    // không xem được, người xem được hoạt động ẩn vẫn thấy để soạn.
+    if (section.openAt && section.openAt.getTime() > Date.now() && !(await this.canViewHiddenActivities(userId, section.course))) {
       return { available: false, visible: false, failedDescriptions: [] };
     }
     const resolvedGrades = grades ?? (this.gradeProvider ? await this.gradesForAvailability(userId, section.course) : undefined);
@@ -755,6 +828,498 @@ export class CoursesService {
     return created;
   }
 
+  // --- K1: nhân bản & dùng lại nội dung -------------------------------------
+  /**
+   * Dịch một mốc thời gian theo delta nhân bản (null giữ nguyên null).
+   */
+  private shiftDate(d: Date | null, deltaMs: number): Date | null {
+    if (!d || deltaMs === 0) return d;
+    return new Date(d.getTime() + deltaMs);
+  }
+
+  /**
+   * Dịch mọi lá `date` trong cây availability theo delta nhân bản: lá
+   * date của hệ thống mang `time` là epoch giây (số) hoặc chuỗi ISO —
+   * dịch đúng định dạng gốc, các lá khác giữ nguyên.
+   */
+  private shiftAvailability(node: unknown, deltaMs: number): unknown {
+    if (deltaMs === 0 || node === null || typeof node !== 'object') return node;
+    if (Array.isArray(node)) return node.map((n) => this.shiftAvailability(n, deltaMs));
+    const rec = node as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rec)) out[k] = this.shiftAvailability(v, deltaMs);
+    if (rec.type === 'date') {
+      if (typeof rec.time === 'number') out.time = rec.time + Math.round(deltaMs / 1000);
+      else if (typeof rec.time === 'string') {
+        const parsed = Date.parse(rec.time);
+        if (!Number.isNaN(parsed)) out.time = new Date(parsed + deltaMs).toISOString();
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Quyền đọc nội dung khoá nguồn cho các đường sao chép (K1): qua
+   * cổng truy cập thường lệ, hoặc người có `course:update` tại khoá
+   * nguồn (giáo viên soạn khoá nhưng chưa/không cần ghi danh).
+   */
+  private async assertCanCopyFrom(actorId: string, sourceCourseId: string): Promise<CourseRow> {
+    const source = await this.getCourse(sourceCourseId);
+    try {
+      await this.assertCourseAccess(actorId, sourceCourseId);
+      return source;
+    } catch {
+      const ctxId = await this.courseContextId(sourceCourseId);
+      if (await this.evaluator.hasCapability(actorId, 'course:update', ctxId)) return source;
+      throw new ForbiddenException({ message: 'User cannot access the source course content', code: 'course.copy_source_denied' });
+    }
+  }
+
+  /**
+   * Sao chép một course module sang khoá/section đích trong cùng
+   * transaction: instance của quiz được nhân bản sâu (bảng quiz + toàn
+   * bộ slot, KHÔNG chép lượt làm bài); các component khác hiện không có
+   * bảng instance riêng do module sở hữu tạo qua API nên giữ nguyên
+   * `instanceId` (thực tế là null). Trả cm mới và ghi map id.
+   */
+  private async copyCmRow(
+    tx: DbTx, source: CmRow, targetCourseId: string, targetSectionId: string,
+    deltaMs: number, cmMap: Map<string, string>,
+  ): Promise<CmRow> {
+    const db = tx as unknown as Database;
+    let instanceId = source.instanceId;
+    if (source.component === QUIZ_COMPONENT_NAME && source.instanceId) {
+      const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, source.instanceId));
+      if (quiz) {
+        const [newQuiz] = await db.insert(quizzes).values({
+          course: targetCourseId, cmId: null, name: quiz.name, intro: quiz.intro,
+          timeOpen: this.shiftDate(quiz.timeOpen, deltaMs), timeClose: this.shiftDate(quiz.timeClose, deltaMs),
+          timeLimit: quiz.timeLimit, attemptsAllowed: quiz.attemptsAllowed, gradeMethod: quiz.gradeMethod,
+          grade: quiz.grade, shuffleAnswers: quiz.shuffleAnswers,
+        }).returning();
+        const slots = await db.select().from(quizSlots).where(eq(quizSlots.quizId, quiz.id)).orderBy(asc(quizSlots.slot));
+        for (const s of slots) {
+          await db.insert(quizSlots).values({
+            quizId: newQuiz!.id, slot: s.slot, page: s.page, questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
+          });
+        }
+        instanceId = newQuiz!.id;
+      }
+    }
+    const [created] = await db.insert(courseModulesTable).values({
+      course: targetCourseId, section: targetSectionId, component: source.component, instanceId,
+      name: source.name, visible: source.visible, groupMode: source.groupMode,
+      availability: (source.availability ? this.shiftAvailability(source.availability, deltaMs) : null) as never,
+      completion: source.completion, completionView: source.completionView,
+      completionUseGrade: source.completionUseGrade, completionManual: source.completionManual,
+      completionExpected: this.shiftDate(source.completionExpected, deltaMs),
+      openAt: this.shiftDate(source.openAt, deltaMs),
+      sortOrder: source.sortOrder,
+    }).returning();
+    const newCm = created as CmRow;
+    cmMap.set(source.id, newCm.id);
+    if (source.component === QUIZ_COMPONENT_NAME && instanceId && instanceId !== source.instanceId) {
+      await db.update(quizzes).set({ cmId: newCm.id }).where(eq(quizzes.id, instanceId));
+    }
+    // Context module cho cm mới (như createCm) — contexts nằm ngoài tx
+    // của courses trong luồng tạo thường; ở đây tạo sau khi tx commit
+    // qua danh sách chờ của caller là không khả thi, nên tạo trực tiếp:
+    // ContextsService dùng cùng kết nối DB nền, chấp nhận được.
+    await this.contexts.createContext(CONTEXT_LEVELS.MODULE, newCm.id, await this.courseContextId(targetCourseId));
+    return newCm;
+  }
+
+  /**
+   * Sao chép một section (kèm neo khung + toàn bộ cm) vào khoá đích tại
+   * số section chỉ định, trong cùng transaction. Trả section mới.
+   */
+  private async copySectionRow(
+    tx: DbTx, source: SectionRow, targetCourseId: string, targetNumber: number,
+    deltaMs: number, cmMap: Map<string, string>,
+  ): Promise<SectionRow> {
+    const db = tx as unknown as Database;
+    const [created] = await db.insert(courseSectionsTable).values({
+      course: targetCourseId, section: targetNumber, name: source.name, summary: source.summary,
+      visible: source.visible,
+      availability: (source.availability ? this.shiftAvailability(source.availability, deltaMs) : null) as never,
+      openAt: this.shiftDate(source.openAt, deltaMs),
+    }).returning();
+    const newSection = created as SectionRow;
+    const anchors = await this.repo.listAnchorsForSections([source.id]);
+    const anchor = anchors[0];
+    if (anchor) {
+      const outcomes = await this.repo.listAnchorOutcomes([anchor.id]);
+      const [newAnchor] = await db.insert(courseSectionAnchors).values({
+        sectionId: newSection.id, nodeId: anchor.nodeId, curriculumId: anchor.curriculumId, nodeTitle: anchor.nodeTitle,
+      }).returning();
+      if (outcomes.length) {
+        await db.insert(courseSectionAnchorOutcomes).values(outcomes.map((o) => ({
+          anchorId: newAnchor!.id, outcomeId: o.outcomeId, content: o.content, position: o.position,
+        })));
+      }
+    }
+    const cms = await this.repo.listCmsInSection(source.id);
+    for (const cm of cms) await this.copyCmRow(tx, cm, targetCourseId, newSection.id, deltaMs, cmMap);
+    return newSection;
+  }
+
+  /**
+   * Sao chép cấu trúc điểm (chính sách điểm) của khoá nguồn sang khoá
+   * đích: scale cấp khoá, outcome, cây category điểm, toàn bộ grade
+   * item (map lại instance/category/course) — KHÔNG chép điểm của học
+   * viên (grade_grades), theo đúng bảng sao chép Re-run của issue #68.
+   */
+  private async copyGradeStructure(
+    tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
+  ): Promise<void> {
+    const db = tx as unknown as Database;
+    const scaleMap = new Map<string, string>();
+    const sourceScales = await db.select().from(scales).where(eq(scales.courseId, sourceCourseId));
+    for (const s of sourceScales) {
+      const [row] = await db.insert(scales).values({ courseId: targetCourseId, name: s.name, scale: s.scale, description: s.description }).returning();
+      scaleMap.set(s.id, row!.id);
+    }
+    const outcomeMap = new Map<string, string>();
+    const sourceOutcomes = await db.select().from(gradeOutcomes).where(eq(gradeOutcomes.courseId, sourceCourseId));
+    for (const o of sourceOutcomes) {
+      const [row] = await db.insert(gradeOutcomes).values({
+        courseId: targetCourseId, scaleId: scaleMap.get(o.scaleId) ?? o.scaleId, name: o.name, description: o.description,
+      }).returning();
+      outcomeMap.set(o.id, row!.id);
+    }
+    const categoryMap = new Map<string, string>();
+    const sourceCategories = (await db.select().from(gradeCategories).where(eq(gradeCategories.courseId, sourceCourseId)))
+      .sort((a: { depth: number }, b: { depth: number }) => a.depth - b.depth);
+    const newPathByOldId = new Map<string, string>();
+    for (const cat of sourceCategories) {
+      const newParent = cat.parent ? categoryMap.get(cat.parent) ?? null : null;
+      if (cat.parent && !newParent) continue;
+      const [row] = await db.insert(gradeCategories).values({
+        courseId: targetCourseId, parent: newParent, fullName: cat.fullName, aggregation: cat.aggregation,
+        dropLow: cat.dropLow, keepHigh: cat.keepHigh, aggregateOnlyGraded: cat.aggregateOnlyGraded,
+        depth: cat.depth, path: '', hidden: cat.hidden,
+      }).returning();
+      categoryMap.set(cat.id, row!.id);
+      const parentPath = cat.parent ? newPathByOldId.get(cat.parent) ?? '' : '';
+      const path = `${parentPath}/${row!.id}`;
+      newPathByOldId.set(cat.id, path);
+      await db.update(gradeCategories).set({ path }).where(eq(gradeCategories.id, row!.id));
+    }
+    const sourceItems = await db.select().from(gradeItems).where(eq(gradeItems.courseId, sourceCourseId));
+    for (const item of sourceItems) {
+      let itemInstance = item.itemInstance;
+      if (item.itemType === 'mod') {
+        itemInstance = item.itemInstance ? cmMap.get(item.itemInstance) ?? null : null;
+        if (!itemInstance) continue; // cm không được chép (không xảy ra ở nhân bản toàn khoá) — bỏ item mồ côi.
+      } else if (item.itemType === 'category') {
+        itemInstance = item.itemInstance ? categoryMap.get(item.itemInstance) ?? null : null;
+      } else if (item.itemType === 'course') {
+        itemInstance = targetCourseId;
+      }
+      await db.insert(gradeItems).values({
+        courseId: targetCourseId,
+        categoryId: item.categoryId ? categoryMap.get(item.categoryId) ?? null : null,
+        itemName: item.itemName, itemType: item.itemType, itemModule: item.itemModule, itemInstance,
+        gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
+        scaleId: item.scaleId ? scaleMap.get(item.scaleId) ?? item.scaleId : null,
+        outcomeId: item.outcomeId ? outcomeMap.get(item.outcomeId) ?? item.outcomeId : null,
+        idNumber: item.idNumber, calculation: item.calculation, weightOverride: item.weightOverride,
+        aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit, multiplicator: item.multiplicator,
+        plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked, sortOrder: item.sortOrder,
+      });
+    }
+    // Cài đặt tổng hợp hoàn thành khoá + tiêu chí hoàn thành (cấu trúc, không phải tiến độ).
+    const [settings] = await db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, sourceCourseId));
+    if (settings) {
+      await db.insert(courseCompletionSettings).values({ course: targetCourseId, method: settings.method }).onConflictDoNothing();
+    }
+    const criteria = await db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, sourceCourseId));
+    for (const c of criteria) {
+      await db.insert(courseCompletionCriteria).values({
+        course: targetCourseId, criteriaType: c.criteriaType,
+        moduleInstance: c.moduleInstance ? cmMap.get(c.moduleInstance) ?? null : null,
+        date: this.shiftDate(c.date, deltaMs), courseInstance: c.courseInstance === sourceCourseId ? targetCourseId : c.courseInstance,
+        enrolPeriodDays: c.enrolPeriodDays, roleId: c.roleId, sortOrder: c.sortOrder,
+      });
+    }
+  }
+
+  /**
+   * Nhân bản khoá học (đường 3 của wizard K1 + nhân bản từ mẫu): sao
+   * chép theo bảng Re-run của issue #68 — cấu trúc (section/cm kèm
+   * instance quiz), cài đặt khoá, chính sách điểm, tiêu chí hoàn thành,
+   * neo khung chương trình, trường tuỳ biến; KHÔNG chép người học, ghi
+   * danh, lượt làm bài, điểm và tiến độ. Bản sao luôn ở trạng thái nháp
+   * (visible=false); khi có `startDate` mới, mọi mốc hạn trong khoá
+   * (ngày kết thúc, ngày mở, hạn hoàn thành, giờ mở/đóng quiz, lá date
+   * trong availability) lùi theo delta so với ngày bắt đầu của nguồn.
+   * Quyền: đọc được nội dung nguồn + `course:create` tại danh mục đích.
+   */
+  async duplicateCourse(actorId: string, sourceCourseId: string, input: {
+    fullName: string; shortName: string; category?: string; startDate?: string;
+  }): Promise<CourseRow> {
+    const source = await this.assertCanCopyFrom(actorId, sourceCourseId);
+    const targetCategory = input.category ? await this.getCategory(input.category) : await this.getCategory(source.category);
+    const categoryCtxId = await this.categoryContextId(targetCategory.id);
+    await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+    const shortName = input.shortName.trim();
+    if (await this.repo.getCourseByShortname(shortName)) {
+      throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });
+    }
+    const newStart = input.startDate ? new Date(input.startDate) : null;
+    const deltaMs = newStart && source.startDate ? newStart.getTime() - source.startDate.getTime() : 0;
+    const startDate = newStart ?? source.startDate;
+    const endDate = this.shiftDate(source.endDate, deltaMs);
+    if (startDate && endDate && endDate < startDate) {
+      throw new BadRequestException({ message: 'Course end date is before its start date', code: 'course.invalid_dates' });
+    }
+    const siblings = await this.repo.listCourses(targetCategory.id);
+    const created = await this.repo.dbHandle.transaction(async (tx) => {
+      const row = await this.repo.insertCourse({
+        category: targetCategory.id, fullName: input.fullName, shortName,
+        idNumber: '', summary: source.summary,
+        format: source.format, visible: false,
+        startDate, endDate,
+        groupMode: source.groupMode, groupModeForce: source.groupModeForce, sortOrder: siblings.length,
+        subjectId: source.subjectId, grade: source.grade, isTemplate: false,
+      }, tx as never);
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId } });
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId } });
+      return row;
+    });
+    await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, categoryCtxId);
+    const cmMap = new Map<string, string>();
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const sourceSections = await this.repo.listSections(sourceCourseId);
+      const ordered = [...sourceSections].sort((a, b) => a.section - b.section);
+      if (!ordered.some((s) => s.section === 0)) {
+        await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true }, tx as never);
+      }
+      for (const s of ordered) {
+        await this.copySectionRow(tx as DbTx, s, created.id, s.section, deltaMs, cmMap);
+      }
+      await this.copyGradeStructure(tx as DbTx, sourceCourseId, created.id, cmMap, deltaMs);
+      // Format options (sectionId map lại theo section mới khi có) —
+      // đọc section mới ngay trong transaction để thấy dữ liệu vừa chèn.
+      const db = tx as unknown as Database;
+      const sectionMap = new Map<string, string>();
+      const newSections = await db.select().from(courseSectionsTable).where(eq(courseSectionsTable.course, created.id));
+      for (const s of ordered) {
+        const match = newSections.find((n) => n.section === s.section);
+        if (match) sectionMap.set(s.id, match.id);
+      }
+      const options = await this.repo.listFormatOptions(sourceCourseId);
+      for (const opt of options) {
+        await db.insert(courseFormatOptions).values({
+          courseId: created.id, format: opt.format,
+          sectionId: opt.sectionId ? sectionMap.get(opt.sectionId) ?? null : null,
+          name: opt.name, value: opt.value,
+        });
+      }
+    });
+    const sourceFields = await this.getCourseCustomFields(sourceCourseId);
+    if (sourceFields.length) {
+      const values: Record<string, string> = {};
+      for (const f of sourceFields) if (f.value !== null) values[f.shortName] = f.value;
+      if (Object.keys(values).length) {
+        await this.customFields.setValuesForInstance(COURSE_COMPONENT, COURSE_AREA, created.id, values);
+      }
+    }
+    return this.getCourse(created.id);
+  }
+
+  /**
+   * "Dùng lại từ khoá khác" (K1): chép các section nguyên vẹn và/hoặc
+   * module lẻ từ khoá nguồn vào khoá đích, nối cuối outline. Module lẻ
+   * được gom theo section nguồn của chúng — mỗi nhóm thành một section
+   * mới mang tên section nguồn (trừ khi section đó đã được chép nguyên
+   * vẹn trong cùng lệnh). Ngày tháng giữ nguyên như nguồn (không lùi
+   * hạn — đây là dùng lại nội dung, không phải mở đợt học mới).
+   */
+  async copyCourseContent(actorId: string, targetCourseId: string, input: {
+    sourceCourseId: string; sectionIds?: string[]; moduleIds?: string[];
+  }): Promise<{ sections: SectionRow[]; modules: CmRow[] }> {
+    await this.getCourse(targetCourseId);
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(targetCourseId));
+    await this.assertCanCopyFrom(actorId, input.sourceCourseId);
+    const sectionIds = input.sectionIds ?? [];
+    const moduleIds = input.moduleIds ?? [];
+    if (!sectionIds.length && !moduleIds.length) {
+      throw new BadRequestException({ message: 'Nothing selected to copy', code: 'course.copy_nothing_selected' });
+    }
+    const sourceSections = await this.repo.listSections(input.sourceCourseId);
+    const selectedSections = sourceSections.filter((s) => sectionIds.includes(s.id));
+    if (selectedSections.length !== new Set(sectionIds).size) {
+      throw new BadRequestException({ message: 'Some sections do not belong to the source course', code: 'course.copy_section_mismatch' });
+    }
+    const sourceCms = await this.repo.listCms(input.sourceCourseId);
+    const selectedCms = sourceCms.filter((c) => moduleIds.includes(c.id));
+    if (selectedCms.length !== new Set(moduleIds).size) {
+      throw new BadRequestException({ message: 'Some modules do not belong to the source course', code: 'course.copy_module_mismatch' });
+    }
+    const copiedSectionIds = new Set(selectedSections.map((s) => s.id));
+    const looseCms = selectedCms.filter((c) => !copiedSectionIds.has(c.section));
+    const cmMap = new Map<string, string>();
+    const createdSections: SectionRow[] = [];
+    const createdCms: CmRow[] = [];
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const existing = await this.repo.listSections(targetCourseId);
+      let nextNumber = existing.length ? Math.max(...existing.map((s) => s.section)) + 1 : 0;
+      for (const s of [...selectedSections].sort((a, b) => a.section - b.section)) {
+        const created = await this.copySectionRow(tx as DbTx, s, targetCourseId, nextNumber++, 0, cmMap);
+        createdSections.push(created);
+      }
+      // Nhóm module lẻ theo section nguồn: mỗi nhóm một section mới.
+      const groups = new Map<string, CmRow[]>();
+      for (const cm of looseCms) {
+        const list = groups.get(cm.section) ?? [];
+        list.push(cm);
+        groups.set(cm.section, list);
+      }
+      for (const [sourceSectionId, cms] of groups) {
+        const sourceSection = sourceSections.find((s) => s.id === sourceSectionId);
+        if (!sourceSection) continue;
+        const db = tx as unknown as Database;
+        const [created] = await db.insert(courseSectionsTable).values({
+          course: targetCourseId, section: nextNumber++, name: sourceSection.name, summary: sourceSection.summary,
+          visible: sourceSection.visible, availability: sourceSection.availability as never, openAt: sourceSection.openAt,
+        }).returning();
+        const newSection = created as SectionRow;
+        createdSections.push(newSection);
+        for (const cm of cms) {
+          createdCms.push(await this.copyCmRow(tx as DbTx, cm, targetCourseId, newSection.id, 0, cmMap));
+        }
+      }
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'course', type: 'course_content_imported',
+      payload: { courseId: targetCourseId, sourceCourseId: input.sourceCourseId, actorId, sections: createdSections.length, modules: createdCms.length },
+    });
+    return { sections: createdSections, modules: createdCms };
+  }
+
+  /**
+   * Nhân bản một section ngay tại outline (K1): bản sao (kèm cm +
+   * instance quiz + neo khung) chèn ngay sau section gốc, các section
+   * phía sau lùi một số.
+   */
+  async duplicateSection(actorId: string, sectionId: string): Promise<SectionRow> {
+    const section = await this.getSection(sectionId);
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(section.course));
+    const cmMap = new Map<string, string>();
+    let created!: SectionRow;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const handle = tx as never;
+      // Hai pass qua vùng đệm +100000 như đường chèn khung (K0a).
+      await this.repo.shiftSections(handle, section.course, section.section + 1, 100000);
+      await this.repo.shiftSections(handle, section.course, section.section + 1 + 100000, 1 - 100000);
+      created = await this.copySectionRow(tx as DbTx, section, section.course, section.section + 1, 0, cmMap);
+      // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao (cùng category).
+      const db = tx as unknown as Database;
+      for (const [oldCmId, newCmId] of cmMap) {
+        const items = await db.select().from(gradeItems).where(and(
+          eq(gradeItems.courseId, section.course), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, oldCmId),
+        ));
+        for (const item of items) {
+          await db.insert(gradeItems).values({
+            courseId: section.course, categoryId: item.categoryId, itemName: item.itemName,
+            itemType: item.itemType, itemModule: item.itemModule, itemInstance: newCmId,
+            gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
+            scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
+            weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
+            multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
+            sortOrder: item.sortOrder,
+          });
+        }
+      }
+    });
+    return created;
+  }
+
+  /**
+   * Nhân bản một course module tại dòng (K1): bản sao chèn ngay sau
+   * module gốc trong cùng section (instance quiz nhân bản sâu; item
+   * điểm 'mod' tương ứng được chép trỏ sang bản sao).
+   */
+  async duplicateCm(actorId: string, cmId: string): Promise<CmRow> {
+    const cm = await this.getCm(cmId);
+    await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(cm.course));
+    const cmMap = new Map<string, string>();
+    let created!: CmRow;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const db = tx as unknown as Database;
+      // Đẩy các module sau module gốc xuống một bậc sortOrder.
+      await db.update(courseModulesTable)
+        .set({ sortOrder: sql`${courseModulesTable.sortOrder} + 1` })
+        .where(and(
+          eq(courseModulesTable.section, cm.section),
+          sql`${courseModulesTable.sortOrder} > ${cm.sortOrder}`,
+        ));
+      created = await this.copyCmRow(tx as DbTx, { ...cm, sortOrder: cm.sortOrder + 1 }, cm.course, cm.section, 0, cmMap);
+      const items = await db.select().from(gradeItems).where(and(
+        eq(gradeItems.courseId, cm.course), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, cm.id),
+      ));
+      for (const item of items) {
+        await db.insert(gradeItems).values({
+          courseId: cm.course, categoryId: item.categoryId, itemName: item.itemName,
+          itemType: item.itemType, itemModule: item.itemModule, itemInstance: created.id,
+          gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
+          scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
+          weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
+          multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
+          sortOrder: item.sortOrder,
+        });
+      }
+    });
+    return created;
+  }
+
+  /**
+   * Đổi thứ tự section bằng danh sách id mới (K1 — kéo–thả + nút
+   * lên/xuống ở Builder Outline): danh sách phải đủ mọi section của
+   * khoá; số section được gán lại 0..n-1 theo đúng thứ tự truyền vào.
+   */
+  async reorderSections(actorId: string, courseId: string, sectionIds: string[]): Promise<SectionRow[]> {
+    await this.getCourse(courseId);
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(courseId));
+    const existing = await this.repo.listSections(courseId);
+    const existingIds = new Set(existing.map((s) => s.id));
+    if (sectionIds.length !== existing.length || !sectionIds.every((id) => existingIds.has(id))) {
+      throw new BadRequestException({ message: 'Reorder list must contain every section of the course exactly once', code: 'course.reorder_sections_mismatch' });
+    }
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const handle = tx as never;
+      // Vùng đệm +100000 tránh vỡ unique (course, section) giữa chừng.
+      await this.repo.shiftSections(handle, courseId, 0, 100000);
+      const db = tx as unknown as Database;
+      for (const [i, id] of sectionIds.entries()) {
+        await db.update(courseSectionsTable).set({ section: i, updatedAt: new Date() }).where(eq(courseSectionsTable.id, id));
+      }
+    });
+    return this.repo.listSections(courseId);
+  }
+
+  /**
+   * Đổi thứ tự module trong một section bằng danh sách id mới (K1):
+   * danh sách phải đủ mọi module của section; sortOrder gán lại 0..n-1.
+   */
+  async reorderModules(actorId: string, sectionId: string, moduleIds: string[]): Promise<CmRow[]> {
+    const section = await this.getSection(sectionId);
+    await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(section.course));
+    const existing = await this.repo.listCmsInSection(sectionId);
+    const existingIds = new Set(existing.map((c) => c.id));
+    if (moduleIds.length !== existing.length || !moduleIds.every((id) => existingIds.has(id))) {
+      throw new BadRequestException({ message: 'Reorder list must contain every module of the section exactly once', code: 'course.reorder_modules_mismatch' });
+    }
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const db = tx as unknown as Database;
+      for (const [i, id] of moduleIds.entries()) {
+        await db.update(courseModulesTable).set({ sortOrder: i }).where(eq(courseModulesTable.id, id));
+      }
+    });
+    return this.repo.listCmsInSection(sectionId);
+  }
+
   /** Full course-content view with per-item availability evaluated for THIS user; hidden-unavailable items are omitted. */
   /**
    * Dựng nội dung khoá học cho người xem: section + cm kèm kết quả availability đã đánh giá theo user.
@@ -776,6 +1341,7 @@ export class CoursesService {
     }
     const canSeeHidden = await this.canViewHiddenActivities(userId, courseId);
     const grades = this.gradeProvider ? await this.gradesForAvailability(userId, courseId) : undefined;
+    const now = new Date();
     const outSections: CourseContentView['sections'] = [];
     for (const section of sections) {
       const sAccess = await this.checkSectionAccess(userId, section, grades);
@@ -784,9 +1350,9 @@ export class CoursesService {
       for (const cm of cms.filter((c) => c.section === section.id)) {
         const access = await this.checkCmAccess(userId, cm, grades);
         if (!access.visible && !canSeeHidden) continue;
-        modules.push({ ...cm, contextId: await this.cmContextId(cm.id), availabilityResult: access });
+        modules.push({ ...cm, status: courseItemStatus(cm.visible, cm.openAt, now), contextId: await this.cmContextId(cm.id), availabilityResult: access });
       }
-      outSections.push({ ...section, availabilityResult: sAccess, frame: frameBySection.get(section.id) ?? null, modules });
+      outSections.push({ ...section, status: courseItemStatus(section.visible, section.openAt, now), availabilityResult: sAccess, frame: frameBySection.get(section.id) ?? null, modules });
     }
     return {
       course: courseRow,

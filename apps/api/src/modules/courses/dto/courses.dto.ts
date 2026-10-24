@@ -1,18 +1,26 @@
 import {
   applyCurriculumFrameSchema,
+  copyCourseContentSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
   createCourseSectionSchema,
+  duplicateCourseSchema,
+  reorderCourseModulesSchema,
+  reorderCourseSectionsSchema,
   updateCourseCategorySchema,
   updateCourseModuleSchema,
   updateCourseSchema,
   updateCourseSectionSchema,
   type ApplyCurriculumFrame,
+  type CopyCourseContent,
   type CreateCourse,
   type CreateCourseCategory,
   type CreateCourseModule,
   type CreateCourseSection,
+  type DuplicateCourse,
+  type ReorderCourseModules,
+  type ReorderCourseSections,
   type UpdateCourse,
   type UpdateCourseCategory,
   type UpdateCourseModule,
@@ -25,10 +33,14 @@ import {
  */
 export {
   applyCurriculumFrameSchema,
+  copyCourseContentSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
   createCourseSectionSchema,
+  duplicateCourseSchema,
+  reorderCourseModulesSchema,
+  reorderCourseSectionsSchema,
   updateCourseCategorySchema,
   updateCourseModuleSchema,
   updateCourseSchema,
@@ -43,3 +55,7 @@ export type CreateSectionDto = CreateCourseSection;
 export type UpdateSectionDto = UpdateCourseSection;
 export type CreateCmDto = CreateCourseModule;
 export type UpdateCmDto = UpdateCourseModule;
+export type DuplicateCourseDto = DuplicateCourse;
+export type ReorderSectionsDto = ReorderCourseSections;
+export type ReorderModulesDto = ReorderCourseModules;
+export type CopyContentDto = CopyCourseContent;

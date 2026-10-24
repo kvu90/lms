@@ -49,8 +49,19 @@ export const courseSchema = z.object({
   subjectId: uuidIdSchema.nullable().default(null),
   /** Khối lớp (1–12) của khoá theo chương trình (K0a); mặc định null cho payload cũ. */
   grade: z.number().int().nullable().default(null),
+  /** Khoá mẫu tổ/trường (K1): không phải khoá dạy thật — chỉ hiện ở danh sách mẫu của wizard tạo khoá, không hiện ở danh sách khoá thường; mặc định false cho payload cũ. */
+  isTemplate: z.boolean().default(false),
+  sortOrder: z.number().int().default(0),
 });
 export type Course = z.infer<typeof courseSchema>;
+
+/**
+ * Trạng thái mở của section/module (K1): suy từ `visible` + `openAt` phía
+ * server — `draft` = đang ẩn (visible=false), `scheduled` = đã mở nhưng
+ * chờ tới ngày mở (openAt ở tương lai), `open` = đang mở cho học viên.
+ */
+export const courseItemStatusSchema = z.enum(['draft', 'open', 'scheduled']);
+export type CourseItemStatus = z.infer<typeof courseItemStatusSchema>;
 
 export const availabilityResultSchema = z.object({
   available: z.boolean(),
@@ -73,6 +84,12 @@ export const courseModuleSchema = z.object({
   completionView: z.boolean(),
   /** Cờ hoàn thành thủ công của module (hàng ở tầng API luôn mang trường này — cột NOT NULL ở bảng course_modules); đi kèm `completionUseGrade` quyết định cách tính trạng thái tự động. */
   completionManual: z.boolean(),
+  /** Thứ tự hiển thị tường minh trong section (K1 — kéo–thả đổi thứ tự); mặc định 0 cho payload cũ. */
+  sortOrder: z.number().int().default(0),
+  /** Ngày mở theo lịch (K1): null = mở ngay khi visible; mặc định null cho payload cũ. */
+  openAt: z.string().nullable().default(null),
+  /** Trạng thái mở do server suy (K1); vắng mặt ở payload cũ. */
+  status: courseItemStatusSchema.optional(),
   contextId: uuidIdSchema.optional(),
   availabilityResult: availabilityResultSchema.optional(),
 });
@@ -86,6 +103,10 @@ export const courseSectionSchema = z.object({
   summary: z.string(),
   visible: z.boolean(),
   availability: z.unknown().nullable(),
+  /** Ngày mở theo lịch của section (K1); mặc định null cho payload cũ. */
+  openAt: z.string().nullable().default(null),
+  /** Trạng thái mở do server suy (K1); vắng mặt ở payload cũ. */
+  status: courseItemStatusSchema.optional(),
   availabilityResult: availabilityResultSchema.optional(),
   /** Neo khung chương trình đã nạp (K0a) — null khi section không xuất phát từ khung. */
   frame: courseSectionFrameSchema.nullable().optional(),
@@ -236,17 +257,20 @@ export const updateCourseSchema = z.strictObject({
   /** Môn × khối theo chương trình GDPT 2018 (K0a); đặt null để gỡ neo môn/khối khỏi khoá. */
   subjectId: uuidIdSchema.nullable().optional(),
   grade: z.number().int().min(1).max(12).nullable().optional(),
+  /** Đánh dấu khoá là khoá mẫu tổ/trường (K1) hoặc gỡ đánh dấu. */
+  isTemplate: z.boolean().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
 export type UpdateCourse = z.infer<typeof updateCourseSchema>;
 
-/** Payload tạo section trong khoá học; `availability` là cây điều kiện thô (validate sâu ở tầng availability). */
+/** Payload tạo section trong khoá học; `availability` là cây điều kiện thô (validate sâu ở tầng availability); `openAt` là ngày mở theo lịch riêng (K1). */
 export const createCourseSectionSchema = z.strictObject({
   name: z.string().optional(),
   summary: z.string().optional(),
   visible: z.boolean().optional(),
   availability: z.unknown().optional(),
+  openAt: z.string().nullable().optional(),
 });
 export type CreateCourseSection = z.infer<typeof createCourseSectionSchema>;
 
@@ -268,10 +292,12 @@ export const createCourseModuleSchema = z.strictObject({
   completionUseGrade: z.boolean().optional(),
   completionManual: z.boolean().optional(),
   completionExpected: z.string().optional(),
+  /** Ngày mở theo lịch riêng của module (K1). */
+  openAt: z.string().nullable().optional(),
 });
 export type CreateCourseModule = z.infer<typeof createCourseModuleSchema>;
 
-/** Payload sửa course module; `completionExpected` nhận `null` để xoá mốc dự kiến hoàn thành. */
+/** Payload sửa course module; `completionExpected`/`openAt` nhận `null` để xoá mốc thời gian. */
 export const updateCourseModuleSchema = z.strictObject({
   name: z.string().optional(),
   visible: z.boolean().optional(),
@@ -282,9 +308,52 @@ export const updateCourseModuleSchema = z.strictObject({
   completionUseGrade: z.boolean().optional(),
   completionManual: z.boolean().optional(),
   completionExpected: z.string().nullable().optional(),
+  openAt: z.string().nullable().optional(),
   sectionId: uuidIdSchema.optional(),
 });
 export type UpdateCourseModule = z.infer<typeof updateCourseModuleSchema>;
+
+/**
+ * Các loại nội dung giáo viên chọn từ menu trong Builder Outline (K1) —
+ * thay cho ô gõ chuỗi `component` tự do. `createsInstance` cho biết loại
+ * có vòng đời instance riêng (hiện chỉ quiz) nên builder phải tạo qua API
+ * của module sở hữu thay vì tạo course module trần.
+ */
+export const COURSE_CONTENT_TYPES = [
+  { component: 'mod_page', createsInstance: false },
+  { component: 'mod_resource', createsInstance: false },
+  { component: 'mod_quiz', createsInstance: true },
+] as const;
+export type CourseContentType = (typeof COURSE_CONTENT_TYPES)[number]['component'];
+
+/** Payload nhân bản khoá học (K1 — đường 3 của wizard / nhân bản từ mẫu): bản sao luôn ở trạng thái nháp; `startDate` mới làm mốc lùi toàn bộ hạn trong khoá theo delta so với ngày bắt đầu của khoá nguồn. */
+export const duplicateCourseSchema = z.strictObject({
+  fullName: z.string().min(1),
+  shortName: z.string().min(1),
+  category: uuidIdSchema.optional(),
+  startDate: z.string().optional(),
+});
+export type DuplicateCourse = z.infer<typeof duplicateCourseSchema>;
+
+/** Payload đổi thứ tự section (K1): danh sách id section theo thứ tự hiển thị mới — phải đủ mọi section của khoá. */
+export const reorderCourseSectionsSchema = z.strictObject({
+  sectionIds: z.array(uuidIdSchema).min(1),
+});
+export type ReorderCourseSections = z.infer<typeof reorderCourseSectionsSchema>;
+
+/** Payload đổi thứ tự module trong một section (K1): danh sách id module theo thứ tự mới — phải đủ mọi module của section. */
+export const reorderCourseModulesSchema = z.strictObject({
+  moduleIds: z.array(uuidIdSchema).min(1),
+});
+export type ReorderCourseModules = z.infer<typeof reorderCourseModulesSchema>;
+
+/** Payload "Dùng lại từ khoá khác" (K1): chép các section nguyên vẹn và/hoặc các module lẻ từ khoá nguồn vào khoá đích (nối cuối outline). */
+export const copyCourseContentSchema = z.strictObject({
+  sourceCourseId: uuidIdSchema,
+  sectionIds: z.array(uuidIdSchema).optional(),
+  moduleIds: z.array(uuidIdSchema).optional(),
+});
+export type CopyCourseContent = z.infer<typeof copyCourseContentSchema>;
 
 /** Payload tạo nhóm (group) trong khoá học; `enrolmentKey` là khoá ghi danh riêng của nhóm (group enrolment key của enrol_self). */
 export const createGroupSchema = z.strictObject({

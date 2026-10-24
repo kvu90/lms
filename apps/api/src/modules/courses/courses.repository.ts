@@ -201,8 +201,8 @@ export class CoursesRepository {
   /**
    * Chèn course module.
    */
-  async insertCm(v: typeof courseModules.$inferInsert): Promise<CmRow> {
-    const [row] = await this.db.insert(courseModules).values(v).returning(); return row!;
+  async insertCm(v: typeof courseModules.$inferInsert, tx?: DbTx): Promise<CmRow> {
+    const [row] = await (tx ?? this.db).insert(courseModules).values(v).returning(); return row!;
   }
   /**
    * Lấy cm theo id.
@@ -211,16 +211,25 @@ export class CoursesRepository {
     const [row] = await this.db.select().from(courseModules).where(eq(courseModules.id, id)); return row;
   }
   /**
-   * Liệt kê mọi cm của khoá học.
+   * Liệt kê mọi cm của khoá học theo thứ tự outline (K1: `sortOrder`
+   * tường minh, id uuidv7 làm khoá phụ giữ nguyên thứ tự tạo cho dữ
+   * liệu cũ mọi sortOrder đều bằng 0).
    */
   async listCms(courseId: string): Promise<CmRow[]> {
-    return this.db.select().from(courseModules).where(and(eq(courseModules.course, courseId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.id));
+    return this.db.select().from(courseModules).where(and(eq(courseModules.course, courseId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.sortOrder), asc(courseModules.id));
   }
   /**
-   * Cm trong một section.
+   * Cm trong một section theo thứ tự outline (K1).
    */
   async listCmsInSection(sectionId: string): Promise<CmRow[]> {
-    return this.db.select().from(courseModules).where(and(eq(courseModules.section, sectionId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.id));
+    return this.db.select().from(courseModules).where(and(eq(courseModules.section, sectionId), eq(courseModules.deletionInProgress, false))).orderBy(asc(courseModules.sortOrder), asc(courseModules.id));
+  }
+  /**
+   * Khoá mẫu tổ/trường (K1): các khoá `is_template` — danh sách nguồn
+   * của đường 5 trong wizard tạo khoá.
+   */
+  async listTemplateCourses(): Promise<CourseRow[]> {
+    return this.db.select().from(course).where(eq(course.isTemplate, true)).orderBy(asc(course.sortOrder), asc(course.id));
   }
   /**
    * Cập nhật cm.

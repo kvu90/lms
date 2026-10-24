@@ -57,6 +57,12 @@ export const course = pgTable('course', {
    */
   subjectId: uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
   grade: smallint('grade'),
+  /**
+   * Khoá mẫu tổ/trường (K1): khoá đánh dấu mẫu không phải khoá dạy thật —
+   * danh sách khoá thường bỏ qua, wizard tạo khoá liệt kê riêng để nhân
+   * bản thành khoá thật. Mặc định false nên mọi khoá hiện có giữ nguyên.
+   */
+  isTemplate: boolean('is_template').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -79,6 +85,13 @@ export const courseSections = pgTable(
     summary: text('summary').notNull().default(''),
     visible: boolean('visible').notNull().default(true),
     availability: jsonb('availability'),
+    /**
+     * Ngày mở theo lịch riêng của section (K1): trường ngày mở tường
+     * minh thay cho việc giáo viên phải dựng lá `date` trong cây
+     * availability. null = không hẹn lịch; visible=true + openAt ở tương
+     * lai = trạng thái "Mở theo lịch" (học viên chưa xem được tới ngày đó).
+     */
+    openAt: timestamp('open_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique('course_sections_course_section_unique').on(table.course, table.section)],
@@ -105,6 +118,14 @@ export const courseModules = pgTable('course_modules', {
   completionUseGrade: boolean('completion_use_grade').notNull().default(false),
   completionManual: boolean('completion_manual').notNull().default(false),
   completionExpected: timestamp('completion_expected', { withTimezone: true }),
+  /** Ngày mở theo lịch riêng của module (K1) — cùng ngữ nghĩa như `course_sections.open_at`. */
+  openAt: timestamp('open_at', { withTimezone: true }),
+  /**
+   * Thứ tự hiển thị tường minh của module trong section (K1): trước K1
+   * thứ tự suy từ id uuidv7 (thời gian tạo) nên không đổi được bằng
+   * kéo–thả; từ K1 builder ghi sortOrder, thứ tự đọc là (sortOrder, id).
+   */
+  sortOrder: integer('sort_order').notNull().default(0),
   deletionInProgress: boolean('deletion_in_progress').notNull().default(false),
   added: timestamp('added', { withTimezone: true }).notNull().defaultNow(),
 },
