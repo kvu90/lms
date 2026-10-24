@@ -82,5 +82,10 @@ export const userEnrolments = pgTable(
   },
   (table) => [
       index('user_enrolments_user_id_idx').on(table.userId),
+      // Index theo khoá cho các truy vấn roster/phạm vi theo khoá (issue
+      // #33: trước đây mọi truy vấn theo khoá phải quét toàn bộ bảng ghi
+      // danh vì không có index nào neo ở enrol_id — đội kiểm tra độc lập
+      // đo đây là nghẽn gốc ở quy mô lớn).
+      index('user_enrolments_enrol_id_user_id_idx').on(table.enrolId, table.userId),
       index('user_enrolments_modifier_id_idx').on(table.modifierId),unique('user_enrolments_unique').on(table.enrolId, table.userId)],
 );

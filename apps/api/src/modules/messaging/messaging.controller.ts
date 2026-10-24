@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, searchPeopleQuerySchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SearchPeopleQueryDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -152,17 +152,32 @@ export class MessagingController {
   async setPreference(@Body({ schema: setMessagePreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
   }
-  @Get('people/search')
+  @Get('courses')
   /**
-   * GET /messages/people/search?q=... — tìm người theo TÊN hiển thị
-   * hoặc username (việc nối tiếp Lớp B, issue #33: tìm bạn theo tên,
-   * không nhập UUID). Phạm vi đúng cổng nhắn đã chốt: cùng khoá đang
-   * ghi danh + liên hệ đã duyệt; công tắc site `core/messagingallusers`
-   * bật thì toàn hệ thống. Mỗi kết quả kèm trạng thái quan hệ với
-   * người tìm (contact/pending_incoming/pending_outgoing/blocked/none).
+   * GET /messages/courses — các khoá TÔI thuộc về (ghi danh hiệu lực
+   * hoặc gán vai tại context khoá): bước chọn khoá của luồng tìm bạn
+   * theo danh sách thành viên (mô hình đã chốt lại 24/10/2026 trên
+   * issue #33 — tìm người theo tên đã GỠ hẳn, endpoint
+   * /messages/people/search không còn tồn tại).
    */
-  async searchPeople(@Query({ schema: searchPeopleQuerySchema }) query: SearchPeopleQueryDto, @CurrentUser() actor: AuthenticatedUser) {
-    return { results: await this.messaging.searchPeople(actor.id, query.q) };
+  async myCourses(@CurrentUser() actor: AuthenticatedUser) {
+    return { courses: await this.messaging.listMyMessagingCourses(actor.id) };
+  }
+  @Get('courses/:courseId/members')
+  /**
+   * GET /messages/courses/:courseId/members — một trang roster thành
+   * viên của khoá (phân trang con trỏ theo (displayName, username,
+   * id), trần 100 dòng/trang). Chỉ thành viên của chính khoá đó xem
+   * được; người ngoài khoá nhận 404 y hệt khoá không tồn tại. Mỗi
+   * dòng kèm dấu hiệu vai trò (teacher/student) và trạng thái quan
+   * hệ với người xem để hiện hành động kết bạn đúng trạng thái.
+   */
+  async courseRoster(
+    @Param('courseId', { schema: uuidIdSchema }) courseId: string,
+    @Query({ schema: listCourseRosterQueryServerSchema }) query: ListCourseRosterQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.messaging.listCourseRoster(actor.id, courseId, query);
   }
   @Get('contacts')
   /**

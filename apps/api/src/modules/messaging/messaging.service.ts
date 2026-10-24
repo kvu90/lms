@@ -6,7 +6,6 @@ import type { Observable } from 'rxjs';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
@@ -92,9 +91,17 @@ export interface PersonSummaryView {
 /** Trạng thái quan hệ của một người so với người đang tìm (hợp đồng ở @lms/contracts). */
 export type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
 
-/** Một kết quả tìm người: tóm tắt hiển thị + trạng thái quan hệ với người tìm. */
-export interface PeopleSearchResultView extends PersonSummaryView {
+/** Một dòng roster thành viên khoá: tóm tắt hiển thị + dấu hiệu vai trò + trạng thái quan hệ với người xem. */
+export interface CourseRosterMemberView extends PersonSummaryView {
+  role: 'teacher' | 'student';
   relationship: ContactRelationship;
+}
+
+/** Một khoá mà người dùng thuộc về — đầu vào của luồng tìm bạn theo khoá. */
+export interface MessagingCourseView {
+  courseId: string;
+  fullName: string;
+  shortName: string;
 }
 
 /** Tên hiển thị của một user: "firstName lastName" đã cắt khoảng trắng; cả hai trống thì lùi về username. */
@@ -103,11 +110,9 @@ export function displayNameOf(user: { firstName: string; lastName: string; usern
   return name || user.username;
 }
 
-/** Tìm người theo tên: chuỗi tìm tối thiểu (sau khi cắt khoảng trắng) và trần kết quả trả về. */
-export const PEOPLE_SEARCH_MIN_QUERY_LENGTH = 2;
-export const PEOPLE_SEARCH_MAX_RESULTS = 20;
-/** Số ứng viên tối đa lấy từ DB trước khi lọc phạm vi cổng nhắn (lọc xong mới cắt theo trần kết quả). */
-const PEOPLE_SEARCH_CANDIDATE_LIMIT = 100;
+/** Roster thành viên khoá: kích thước trang mặc định và trần cứng mỗi trang (phân trang con trỏ là bắt buộc — xem contracts). */
+export const ROSTER_DEFAULT_PAGE_SIZE = 50;
+export const ROSTER_MAX_PAGE_SIZE = 100;
 
 /** Lỗi vi phạm ràng buộc duy nhất của Postgres (kể cả khi drizzle bọc lỗi gốc trong `cause`). */
 function isUniqueViolation(err: unknown): boolean {
@@ -151,10 +156,12 @@ export interface NotificationChannelPort {
  * Quy tắc: người bị chặn không gửi được tin; notification được tạo theo provider và phân phối theo
  * tuỳ chọn kênh của người nhận (logged-in/logged-off), mọi lần phân phối đều ghi dispatch log;
  * chuỗi hiển thị của notification do tầng tạo nội dung lấy từ catalog i18n.
- * Cổng liên lạc: khi setting `core/messagingallusers` tắt, chỉ liên hệ ĐÃ ĐƯỢC DUYỆT
- * (luồng yêu cầu–chấp nhận) hoặc bạn cùng khoá đang ghi danh mới mở được liên lạc 1-1 — notification
- * hệ thống không qua cổng này. Setting site là TRẦN cấp site duy nhất của cổng
- * (chính sách Lớp B đã chốt không có tuỳ chọn siết thêm theo từng user).
+ * Cổng liên lạc (đã chốt lại 24/10/2026 trên issue #33): nhắn riêng 1-1 CHỈ
+ * giữa liên hệ ĐÃ ĐƯỢC DUYỆT (luồng yêu cầu–chấp nhận) — cổng "cùng khoá"
+ * đã bỏ và setting site `core/messagingallusers` không còn hiệu lực với
+ * tin nhắn (mục cấu hình vẫn nằm trong registry nhưng không cổng nào đọc
+ * nó nữa). Khám phá bạn bè đi qua roster thành viên khoá, không còn tìm
+ * người theo tên. Notification hệ thống không qua cổng liên lạc này.
  * Conversation gắn course group (component core_group) đồng bộ thành viên
  * theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
  */
@@ -165,7 +172,6 @@ export class MessagingService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
-    private readonly siteConfig: SiteConfigService,
     private readonly realtime: MessagingRealtimeService,
     private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
@@ -491,88 +497,111 @@ export class MessagingService {
     return this.repo.listContacts(userId);
   }
 
-  // --- cổng liên lạc (contact / shared-course gate) ----------------------------
+  // --- cổng liên lạc: chỉ liên hệ đã duyệt -------------------------------------
 
   /**
-   * Cổng liên lạc 1-1 (oracle: Moodle `core_message\api::can_contact_user` và
-   * Behat "Disallow sending a message if you are neither a contact nor do you
-   * share a course with the user"). Khi setting `core/messagingallusers` =
-   * false, người gửi chỉ liên lạc được với người nhận khi ÍT NHẤT một điều
-   * kiện đúng: (a) hai người là liên hệ ĐÃ ĐƯỢC DUYỆT của nhau (luồng
-   * yêu cầu–chấp nhận của Lớp B — yêu cầu đang chờ không mở cổng), hoặc
-   * (b) hai người có ít nhất một khoá học cùng ghi danh đang active.
-   * Setting cấp site là trần duy nhất của cổng (chính sách đã chốt
-   * không có lớp tuỳ chọn theo từng user). Setting được đọc tươi qua
-   * SiteConfigService ở mỗi lần kiểm (không cache) nên admin đổi là
-   * có hiệu lực ngay. Notification hệ thống (`notify`) KHÔNG đi qua
-   * cổng này.
+   * Cổng liên lạc 1-1 (đã chốt lại 24/10/2026 trên issue #33, thay mô
+   * hình cũ "liên hệ hoặc cùng khoá" và thay luôn hiệu lực của setting
+   * `core/messagingallusers`): người gửi chỉ nhắn riêng được với
+   * người nhận khi hai người là liên hệ ĐÃ ĐƯỢC DUYỆT của nhau (luồng
+   * yêu cầu–chấp nhận của Lớp B — yêu cầu đang chờ không mở cổng).
+   * Cùng khoá KHÔNG còn mở cổng: bạn cùng lớp muốn nhắn riêng phải kết
+   * bạn qua roster thành viên khoá trước. Kiểm này là một tra cứu
+   * `isContact` theo khoá chính (đội kiểm tra đo 0,018 ms — không
+   * nghẽn). Notification hệ thống (`notify`) KHÔNG đi qua cổng này.
    */
   private async assertCanContact(senderId: string, recipientId: string): Promise<void> {
-    const allUsers = await this.siteConfig.getValue<boolean>('core', 'messagingallusers');
-    if (allUsers) return;
     if (await this.repo.isContact(recipientId, senderId)) return;
-    if (await this.repo.sharesActiveCourse(senderId, recipientId)) return;
     throw new ForbiddenException({
-      message: 'You can only message a user who has you as a contact or who shares a course with you (messagingallusers is off)',
-      code: 'messaging.not_a_contact_or_course_member',
+      message: 'You can only message a contact directly — send a contact request from the course member list and wait for it to be accepted',
+      code: 'messaging.not_a_contact',
     });
   }
 
-  // --- tìm người theo tên (việc nối tiếp Lớp B) --------------------------------
+  // --- roster thành viên khoá (khám phá bạn bè) --------------------------------
 
   /**
-   * Tìm người theo tên hiển thị/username — CHỈ trong phạm vi cổng
-   * nhắn đã chốt: khi `core/messagingallusers` tắt, kết quả gồm người
-   * cùng khoá đang ghi danh hiệu lực với người tìm CỘNG các liên hệ
-   * đã duyệt của họ (đúng tập mà cổng liên lạc {@link assertCanContact}
-   * cho phép mở liên lạc); công tắc bật thì toàn hệ thống. Người đã
-   * chặn người tìm KHÔNG xuất hiện trong kết quả của phía bị chặn
-   * (khớp ngữ nghĩa chặn hiện có); người bị chính người tìm chặn vẫn
-   * hiện với trạng thái `blocked` để giao diện phân biệt. Loại trừ
-   * chính người tìm; mỗi kết quả kèm trạng thái quan hệ hiện tại.
+   * Các khoá mà người dùng thuộc về (ghi danh hiệu lực ∪ gán vai tại
+   * context khoá) — bước chọn khoá của luồng tìm bạn mới. Sắp theo
+   * tên khoá cho ổn định.
    */
-  async searchPeople(actorId: string, rawQuery: string): Promise<PeopleSearchResultView[]> {
-    const q = rawQuery.trim();
-    if (q.length < PEOPLE_SEARCH_MIN_QUERY_LENGTH) {
-      throw new BadRequestException({
-        message: `Search query must be at least ${PEOPLE_SEARCH_MIN_QUERY_LENGTH} characters`,
-        code: 'messaging.search_query_too_short',
-      });
+  async listMyMessagingCourses(actorId: string): Promise<MessagingCourseView[]> {
+    const courseIds = await this.repo.listMembershipCourseIds(actorId);
+    const out: MessagingCourseView[] = [];
+    for (const courseId of courseIds) {
+      const summary = await this.repo.getCourseSummary(courseId);
+      if (summary) out.push(summary);
     }
-    const candidates = (await this.repo.searchUsersByName(q, PEOPLE_SEARCH_CANDIDATE_LIMIT))
-      .filter((c) => c.id !== actorId);
-    if (!candidates.length) return [];
-    const [blockerIds, contactIds, incoming, outgoing, blockedIds, allUsers] = await Promise.all([
-      this.repo.listBlockerIds(actorId),
+    return out.sort((a, b) => a.fullName.localeCompare(b.fullName) || a.shortName.localeCompare(b.shortName));
+  }
+
+  /** Giải mã con trỏ phân trang roster; con trỏ hỏng → 400 rõ ràng thay vì lặng lẽ về trang đầu. */
+  private decodeRosterCursor(raw: string): { displayName: string; username: string; userId: string } {
+    try {
+      const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as {
+        d?: unknown; u?: unknown; i?: unknown;
+      };
+      if (typeof parsed.d !== 'string' || typeof parsed.u !== 'string' || typeof parsed.i !== 'string') {
+        throw new Error('bad cursor shape');
+      }
+      return { displayName: parsed.d, username: parsed.u, userId: parsed.i };
+    } catch {
+      throw new BadRequestException({ message: 'Invalid roster cursor', code: 'messaging.roster_cursor_invalid' });
+    }
+  }
+
+  /**
+   * Một trang roster thành viên của một khoá — đường khám phá bạn bè
+   * duy nhất sau khi gỡ tìm người theo tên (quyết định 24/10/2026
+   * trên issue #33). Cổng xem: chỉ THÀNH VIÊN của chính khoá đó (ghi
+   * danh hiệu lực ∪ gán vai tại context khoá) mới xem được; người
+   * ngoài khoá nhận đúng 404 như khoá không tồn tại — không oracle
+   * xác nhận tồn tại khoá hay số thành viên. Mỗi dòng đúng whitelist
+   * đã kiểm chứng (userId, displayName, username) + dấu hiệu vai trò
+   * + trạng thái quan hệ với người xem; quan hệ chặn (cả hai chiều)
+   * đã bị giấu ngay tại SQL nên `blocked` không xuất hiện ở đây.
+   * Phân trang con trỏ theo (displayName, username, id), trần trang
+   * {@link ROSTER_MAX_PAGE_SIZE} — không có đường lấy toàn bộ roster.
+   */
+  async listCourseRoster(actorId: string, courseId: string, query: { limit?: number; cursor?: string }): Promise<{
+    members: CourseRosterMemberView[];
+    nextCursor: string | null;
+  }> {
+    const course = await this.repo.getCourseSummary(courseId);
+    if (!course || !(await this.repo.isCourseMember(courseId, actorId))) {
+      throw new NotFoundException({ message: 'Course not found', code: 'messaging.course_not_found' });
+    }
+    const limit = Math.min(Math.max(query.limit ?? ROSTER_DEFAULT_PAGE_SIZE, 1), ROSTER_MAX_PAGE_SIZE);
+    const cursor = query.cursor ? this.decodeRosterCursor(query.cursor) : null;
+    const rows = await this.repo.listCourseRosterPage(courseId, actorId, cursor, limit + 1);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const [contactIds, incoming, outgoing] = await Promise.all([
       this.repo.listContacts(actorId),
       this.repo.listIncomingContactRequests(actorId),
       this.repo.listOutgoingContactRequests(actorId),
-      this.repo.listBlocked(actorId),
-      this.siteConfig.getValue<boolean>('core', 'messagingallusers'),
     ]);
-    const blockedBy = new Set(blockerIds);
     const contactSet = new Set(contactIds);
-    let visible = candidates.filter((c) => !blockedBy.has(c.id));
-    if (!allUsers) {
-      const mateSet = new Set(await this.repo.listCourseMateIds(actorId));
-      visible = visible.filter((c) => mateSet.has(c.id) || contactSet.has(c.id));
-    }
     const incomingSet = new Set(incoming.map((r) => r.userIdFrom));
     const outgoingSet = new Set(outgoing.map((r) => r.userIdTo));
-    const blockedSet = new Set(blockedIds);
     const relationshipOf = (id: string): ContactRelationship => {
-      if (blockedSet.has(id)) return 'blocked';
       if (contactSet.has(id)) return 'contact';
       if (incomingSet.has(id)) return 'pending_incoming';
       if (outgoingSet.has(id)) return 'pending_outgoing';
       return 'none';
     };
-    return visible.slice(0, PEOPLE_SEARCH_MAX_RESULTS).map((c) => ({
-      userId: c.id,
-      displayName: displayNameOf(c),
-      username: c.username,
-      relationship: relationshipOf(c.id),
+    const members = page.map((row) => ({
+      userId: row.userId,
+      displayName: row.displayName,
+      username: row.username,
+      role: (row.staff ? 'teacher' : 'student') as 'teacher' | 'student',
+      relationship: relationshipOf(row.userId),
     }));
+    const last = page[page.length - 1];
+    const nextCursor = hasMore && last
+      ? Buffer.from(JSON.stringify({ d: last.displayName, u: last.username, i: last.userId }), 'utf8').toString('base64url')
+      : null;
+    return { members, nextCursor };
   }
 
   // --- blocked contacts ---------------------------------------------------------
@@ -896,13 +925,23 @@ export class MessagingService {
     const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50, includeDeleted: canModerate });
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     const members = await this.repo.listMembers(conversationId);
+    // Chuẩn app nhắn tin: đang có quan hệ chặn thì trạng thái đã đọc
+    // của phía bên kia KHÔNG lộ ở bề mặt 1–1 — chỉ giữ mốc của chính
+    // người gọi (lịch sử tin vẫn đọc được như luật hội thoại cũ).
+    let visibleMarkers = markers;
+    if (conversation.type === 1) {
+      const other = members.find((id) => id !== userId);
+      if (other && (await this.repo.listBlockedCounterpartIds(userId)).includes(other)) {
+        visibleMarkers = markers.filter((m) => m.userId === userId);
+      }
+    }
     return {
       ...conversation,
       members,
       messages,
       hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate) : false,
       lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
-      memberReadMarkers: markers,
+      memberReadMarkers: visibleMarkers,
       // Tên hiển thị của thành viên: client dùng cho nhãn người gửi,
       // chỉ báo đang gõ và danh sách thành viên (thay UUID thô).
       memberProfiles: await this.profilesFor(members),
@@ -984,14 +1023,23 @@ export class MessagingService {
         throw new ForbiddenException({ message: `User ${memberId} has blocked you`, code: 'messaging.contact_blocked' });
       }
     }
-    // Cổng liên lạc chỉ áp cho conversation cá nhân (type 1) — đúng Moodle:
-    // can_send_message_to_conversation kiểm can_contact_user ở MỖI lần gửi
-    // vào conversation cá nhân (conversation có từ trước khi bật cổng vẫn bị
-    // chặn), còn conversation nhóm thì thành viên gửi tự do. Kiểm sau luật
-    // suspended/blocked để giữ nguyên mã lỗi đã có của hai luật đó.
+    // Cổng liên lạc chỉ áp cho conversation cá nhân (type 1): kiểm ở
+    // MỖI lần gửi — hội thoại riêng có từ trước khi hai người thành
+    // liên hệ (hoặc sau khi gỡ liên hệ) vẫn đọc được lịch sử nhưng gửi
+    // mới bị chặn tới khi quan hệ được (tái) lập; conversation nhóm
+    // thì thành viên gửi tự do. Kiểm sau luật suspended/blocked để
+    // giữ nguyên mã lỗi đã có của hai luật đó.
     if (conversation.type === 1) {
       const other = members.find((id) => id !== actorId);
-      if (other) await this.assertCanContact(actorId, other);
+      if (other) {
+        // Chiều chặn còn lại: chính người gửi đã chặn người nhận thì
+        // cũng không gửi được (phải bỏ chặn trước) — vòng lặp phía
+        // trên mới chỉ bắt chiều người nhận chặn người gửi.
+        if (await this.repo.isBlocked(actorId, other)) {
+          throw new ForbiddenException({ message: 'You have blocked this user', code: 'messaging.contact_blocked' });
+        }
+        await this.assertCanContact(actorId, other);
+      }
     }
     if (input.clientMessageId) {
       const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);

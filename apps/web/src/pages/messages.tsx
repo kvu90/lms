@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
+import { Badge } from '@lms/ui/components/badge';
+import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import {
+  Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
+} from '@lms/ui/components/message';
+import {
+  MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem,
+  MessageScrollerProvider, MessageScrollerViewport,
+} from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '#lib/api';
@@ -33,9 +42,17 @@ interface PersonSummary {
   displayName: string;
   username: string;
 }
-/** Trạng thái quan hệ của một kết quả tìm người so với chính mình. */
+/** Trạng thái quan hệ của một người so với chính mình. */
 type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
-interface PeopleSearchResult extends PersonSummary {
+/** Một khoá tôi thuộc về — đầu vào của luồng tìm bạn theo khoá (GET /messages/courses). */
+interface MessagingCourse {
+  courseId: string;
+  fullName: string;
+  shortName: string;
+}
+/** Một dòng roster thành viên khoá (GET /messages/courses/:id/members). */
+interface RosterMember extends PersonSummary {
+  role: 'teacher' | 'student';
   relationship: ContactRelationship;
 }
 /** Một yêu cầu kết bạn trong hàng chờ: API đã kèm tên hiển thị của phía kia. */
@@ -71,6 +88,14 @@ interface ConversationDetailView extends ConversationView {
 }
 
 /** Gộp tin vào danh sách hiện có: chống trùng theo id và clientMessageId, sắp theo seq (tin lạc quan chưa có seq thật nằm cuối). */
+/** Hai chữ cái đầu của tên hiển thị — nội dung AvatarFallback. */
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function mergeMessages(existing: MessageView[], incoming: MessageView[]): MessageView[] {
   const byId = new Map<string, MessageView>();
   for (const m of existing) byId.set(m.id, m);
@@ -121,20 +146,21 @@ export function MessagesPage() {
   const [incomingRequests, setIncomingRequests] = useState<ContactRequestView[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<ContactRequestView[]>([]);
   const [contactMessage, setContactMessage] = useState<string | null>(null);
-  // Tìm bạn theo TÊN (việc nối tiếp Lớp B): bản đồ tên hiển thị gom từ
-  // mọi response của API (profiles/memberProfiles) + trạng thái ô tìm.
+  // Tên hiển thị gom từ mọi response của API (profiles/memberProfiles).
   const [people, setPeople] = useState<Record<string, PersonSummary>>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PeopleSearchResult[] | null>(null);
+  // Tìm bạn theo KHOÁ (mô hình chốt lại 24/10/2026): khoá của tôi →
+  // chọn khoá → roster thành viên (phân trang con trỏ phía server).
+  const [myCourses, setMyCourses] = useState<MessagingCourse[]>([]);
+  const [rosterCourseId, setRosterCourseId] = useState<string | null>(null);
+  const [rosterMembers, setRosterMembers] = useState<RosterMember[]>([]);
+  const [rosterCursor, setRosterCursor] = useState<string | null>(null);
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   const activeRef = useRef<ConversationView | null>(null);
   activeRef.current = active;
-  /** Bộ đếm lượt tìm người: phản hồi của một lượt tìm cũ về muộn bị bỏ qua. */
-  const searchSeqRef = useRef(0);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Seq cao nhất đã thấy của từng conversation — mốc xin đồng bộ khi nối lại. */
   const lastSeqRef = useRef<Map<string, number>>(new Map());
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -180,6 +206,14 @@ export function MessagesPage() {
       setOutgoingRequests(requestsRes.outgoing);
     } catch {
       // Giữ trạng thái danh bạ gần nhất.
+    }
+    // Khoá của tôi (luồng tìm bạn theo khoá): đường riêng, lỗi thì
+    // giữ danh sách khoá gần nhất như danh bạ.
+    try {
+      const coursesRes = await apiJson<{ courses: MessagingCourse[] }>('/api/v1/messages/courses');
+      setMyCourses(coursesRes.courses);
+    } catch {
+      // Giữ danh sách khoá gần nhất.
     }
     for (const c of list) {
       if (c.lastMessageSeq !== undefined) {
@@ -423,10 +457,15 @@ export function MessagesPage() {
     realtimeRef.current?.typing(active.id);
   }
 
+  /** Cập nhật trạng thái quan hệ của một dòng roster ngay tại chỗ (không chờ tải lại). */
+  const patchRosterRelationship = useCallback((userId: string, relationship: ContactRelationship) => {
+    setRosterMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, relationship } : m)));
+  }, []);
+
   /**
    * Gửi yêu cầu kết bạn tới một user (Lớp B: luồng yêu cầu–chấp nhận
-   * thay danh bạ một chiều) — điểm vào duy nhất là kết quả TÌM THEO
-   * TÊN, không còn form nhập UUID thô.
+   * thay danh bạ một chiều) — điểm vào là dòng ROSTER thành viên khoá
+   * và hàng chờ kết bạn, không còn tìm theo tên hay form nhập UUID thô.
    */
   async function sendContactRequestTo(userId: string) {
     setContactMessage(null);
@@ -436,48 +475,45 @@ export function MessagesPage() {
         body: '{}',
       });
       setContactMessage(res.status === 'accepted' ? t('contactRequestAccepted') : t('contactRequestSent'));
-      // Phản ánh ngay lên kết quả tìm đang hiện, rồi đồng bộ lại toàn bộ.
-      setSearchResults((prev) => (prev
-        ? prev.map((r) => (r.userId === userId
-          ? { ...r, relationship: res.status === 'accepted' ? 'contact' : 'pending_outgoing' }
-          : r))
-        : prev));
+      // Phản ánh ngay lên dòng roster đang hiện, rồi đồng bộ lại toàn bộ.
+      patchRosterRelationship(userId, res.status === 'accepted' ? 'contact' : 'pending_outgoing');
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
     }
   }
 
-  /**
-   * Tìm người theo tên/username: gõ tới đâu tìm tới đó (chờ gõ xong
-   * 300ms), chỉ tìm khi đủ 2 ký tự như luật phía server; phản hồi của
-   * lượt gõ cũ về muộn bị bỏ qua theo bộ đếm lượt.
-   */
-  function onSearchQueryChange(value: string) {
-    setSearchQuery(value);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    const q = value.trim();
-    if (q.length < 2) {
-      searchSeqRef.current += 1;
-      setSearchResults(null);
-      return;
+  /** Mở roster của một khoá: tải trang đầu (phân trang con trỏ phía server). */
+  async function openRoster(courseId: string) {
+    setRosterCourseId(courseId);
+    setRosterMembers([]);
+    setRosterCursor(null);
+    setRosterError(null);
+    try {
+      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(
+        `/api/v1/messages/courses/${courseId}/members?limit=50`,
+      );
+      setRosterMembers(res.members);
+      setRosterCursor(res.nextCursor);
+      mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
+    } catch {
+      setRosterError(t('rosterLoadFailed'));
     }
-    searchTimerRef.current = setTimeout(() => {
-      const seq = (searchSeqRef.current += 1);
-      void apiJson<{ results: PeopleSearchResult[] }>(
-        `/api/v1/messages/people/search?q=${encodeURIComponent(q)}`,
-      ).then((res) => {
-        if (searchSeqRef.current !== seq) return;
-        setSearchResults(res.results);
-        setPeople((prev) => {
-          const next = { ...prev };
-          for (const r of res.results) next[r.userId] = { userId: r.userId, displayName: r.displayName, username: r.username };
-          return next;
-        });
-      }).catch(() => {
-        if (searchSeqRef.current === seq) setSearchResults([]);
-      });
-    }, 300);
+  }
+
+  /** Tải trang roster tiếp theo theo con trỏ server đã phát hành. */
+  async function loadMoreRoster() {
+    if (!rosterCourseId || !rosterCursor) return;
+    try {
+      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(
+        `/api/v1/messages/courses/${rosterCourseId}/members?limit=50&cursor=${encodeURIComponent(rosterCursor)}`,
+      );
+      setRosterMembers((prev) => [...prev, ...res.members]);
+      setRosterCursor(res.nextCursor);
+      mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
+    } catch {
+      setRosterError(t('rosterLoadFailed'));
+    }
   }
 
   /** Chấp nhận/từ chối một yêu cầu kết bạn đang chờ. */
@@ -485,11 +521,7 @@ export function MessagesPage() {
     setContactMessage(null);
     try {
       await apiJson(`/api/v1/messages/contacts/requests/${userId}/${action}`, { method: 'POST', body: '{}' });
-      setSearchResults((prev) => (prev
-        ? prev.map((r) => (r.userId === userId
-          ? { ...r, relationship: action === 'accept' ? 'contact' : 'none' }
-          : r))
-        : prev));
+      patchRosterRelationship(userId, action === 'accept' ? 'contact' : 'none');
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
@@ -585,56 +617,74 @@ export function MessagesPage() {
             ))}
           </ul>
           <div className="space-y-2">
-            <Label htmlFor="people-search">{t('searchPeopleLabel')}</Label>
-            <Input
-              id="people-search"
-              value={searchQuery}
-              placeholder={t('searchPeoplePlaceholder')}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-            />
-            {searchQuery.trim().length === 1 ? (
-              <p className="text-sm text-muted-foreground">{t('searchTooShort')}</p>
-            ) : null}
-            {searchResults !== null ? (
-              searchResults.length > 0 ? (
+            <h3 className="font-medium">{t('findFriendsTitle')}</h3>
+            <p className="text-sm text-muted-foreground">{t('findFriendsHint')}</p>
+            {myCourses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('myCoursesEmpty')}</p>
+            ) : (
+              <ul className="space-y-1">
+                {myCourses.map((c) => (
+                  <li key={c.courseId}>
+                    <Button
+                      type="button"
+                      variant={rosterCourseId === c.courseId ? 'default' : 'outline'}
+                      onClick={() => void openRoster(c.courseId)}
+                    >
+                      {c.fullName}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {rosterError ? <p role="alert">{rosterError}</p> : null}
+            {rosterCourseId ? (
+              rosterMembers.length > 0 ? (
                 <ul className="space-y-1">
-                  {searchResults.map((r) => (
-                    <li key={r.userId} data-testid={`search-result-${r.userId}`} className="flex items-center gap-2">
+                  {rosterMembers.map((m) => (
+                    <li key={m.userId} data-testid={`roster-member-${m.userId}`} className="flex items-center gap-2">
+                      <Avatar>
+                        <AvatarFallback>{initialsOf(m.displayName)}</AvatarFallback>
+                      </Avatar>
                       <span className="text-sm">
-                        {r.displayName} <span className="text-muted-foreground">@{r.username}</span>
+                        {m.displayName} <span className="text-muted-foreground">@{m.username}</span>
                       </span>
-                      {r.relationship === 'none' ? (
-                        <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(r.userId)}>
+                      <Badge variant="secondary">
+                        {m.role === 'teacher' ? t('rosterTeacher') : t('rosterStudent')}
+                      </Badge>
+                      {m.relationship === 'none' ? (
+                        <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(m.userId)}>
                           {t('addContact')}
                         </Button>
                       ) : null}
-                      {r.relationship === 'pending_outgoing' ? (
+                      {m.relationship === 'pending_outgoing' ? (
                         <span className="text-sm text-muted-foreground">{t('contactRequestPendingSuffix')}</span>
                       ) : null}
-                      {r.relationship === 'pending_incoming' ? (
+                      {m.relationship === 'pending_incoming' ? (
                         <>
-                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
+                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'accept')}>
                             {t('acceptContactRequest')}
                           </Button>
-                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'decline')}>
+                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'decline')}>
                             {t('declineContactRequest')}
                           </Button>
                         </>
                       ) : null}
-                      {r.relationship === 'contact' ? (
-                        <Button type="button" variant="outline" onClick={() => void messageContact(r.userId)}>
+                      {m.relationship === 'contact' ? (
+                        <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
                           {t('messageWithContact')}
                         </Button>
-                      ) : null}
-                      {r.relationship === 'blocked' ? (
-                        <span className="text-sm text-muted-foreground">{t('relationshipBlocked')}</span>
                       ) : null}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">{t('searchNoResults')}</p>
+                <p className="text-sm text-muted-foreground">{t('rosterEmpty')}</p>
               )
+            ) : null}
+            {rosterCourseId && rosterCursor ? (
+              <Button type="button" variant="outline" onClick={() => void loadMoreRoster()}>
+                {t('rosterLoadMore')}
+              </Button>
             ) : null}
           </div>
           <div className="space-y-2">
@@ -750,37 +800,60 @@ export function MessagesPage() {
                   {t('loadOlderMessages')}
                 </Button>
               ) : null}
-              <ul className="space-y-2" aria-label={t('messagesListLabel')}>
-                {visibleMessages.map((m) => (
-                  <li key={m.id} className={m.deletedAt ? 'rounded border p-2 opacity-70' : 'rounded border p-2'}>
-                    <p className="text-xs text-muted-foreground">
-                      {t('messageFromUser', { userId: nameOf(m.userIdFrom), time: new Date(m.createdAt).toLocaleString() })}
-                    </p>
-                    <p>{m.fullMessage}</p>
-                    {m.deletedAt ? (
-                      <p className="text-xs italic text-muted-foreground">
-                        {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
-                      </p>
-                    ) : null}
-                    {m.localStatus === 'sending' ? (
-                      <p className="text-xs text-muted-foreground">{t('messageSending')}</p>
-                    ) : null}
-                    {m.localStatus === 'failed' ? (
-                      <p className="flex items-center gap-2 text-xs">
-                        <span>{t('messageSendFailed')}</span>
-                        <Button type="button" variant="outline" onClick={() => void retrySend(m)}>
-                          {t('retrySend')}
-                        </Button>
-                      </p>
-                    ) : null}
-                    {!m.deletedAt && !m.localStatus && (m.userIdFrom === myId || active.canModerate) ? (
-                      <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
-                        {t('deleteMessage')}
-                      </Button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
+                <MessageScroller className="h-[30rem] rounded-md border">
+                  <MessageScrollerViewport aria-label={t('messagesListLabel')}>
+                    <MessageScrollerContent className="gap-4 p-4">
+                      {visibleMessages.map((m) => {
+                        const mine = m.userIdFrom === myId;
+                        return (
+                          <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
+                            <Message align={mine ? 'end' : 'start'}>
+                              <MessageAvatar>
+                                <Avatar>
+                                  <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
+                                </Avatar>
+                              </MessageAvatar>
+                              <MessageContent>
+                                {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
+                                <Bubble
+                                  variant={m.deletedAt ? 'destructive' : mine ? 'default' : 'muted'}
+                                  align={mine ? 'end' : 'start'}
+                                >
+                                  <BubbleContent>{m.fullMessage}</BubbleContent>
+                                </Bubble>
+                                <MessageFooter className="flex-wrap gap-2">
+                                  <span>{new Date(m.createdAt).toLocaleString()}</span>
+                                  {m.deletedAt ? (
+                                    <span className="italic">
+                                      {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
+                                    </span>
+                                  ) : null}
+                                  {m.localStatus === 'sending' ? <span>{t('messageSending')}</span> : null}
+                                  {m.localStatus === 'failed' ? (
+                                    <span className="flex items-center gap-2">
+                                      <span>{t('messageSendFailed')}</span>
+                                      <Button type="button" variant="outline" onClick={() => void retrySend(m)}>
+                                        {t('retrySend')}
+                                      </Button>
+                                    </span>
+                                  ) : null}
+                                  {!m.deletedAt && !m.localStatus && (m.userIdFrom === myId || active.canModerate) ? (
+                                    <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
+                                      {t('deleteMessage')}
+                                    </Button>
+                                  ) : null}
+                                </MessageFooter>
+                              </MessageContent>
+                            </Message>
+                          </MessageScrollerItem>
+                        );
+                      })}
+                    </MessageScrollerContent>
+                  </MessageScrollerViewport>
+                  <MessageScrollerButton />
+                </MessageScroller>
+              </MessageScrollerProvider>
               {seenByAllOthers ? (
                 <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
               ) : null}

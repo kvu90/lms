@@ -10,9 +10,12 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './e
 /**
  * Lớp B (nghiệp vụ) của issue #33 — bộ chính sách Lão gia đã chốt
  * (comment 6367872889 + 6368023587 trên issue):
- *  1. Nhắn riêng chỉ trong phạm vi lớp/khoá + liên hệ đã duyệt kết bạn
- *     (yêu cầu–chấp nhận thay danh bạ một chiều); công tắc site
- *     `core/messagingallusers` (đã kiểm chứng ở messaging-calendar-flow).
+ *  1. Nhắn riêng CHỈ giữa liên hệ đã duyệt kết bạn (yêu cầu–chấp
+ *     nhận thay danh bạ một chiều) — mô hình chốt lại 24/10/2026:
+ *     cùng khoá không còn mở cổng nhắn riêng, công tắc site
+ *     `core/messagingallusers` mất hiệu lực với tin nhắn (kiểm chứng
+ *     đầy đủ ở messaging-roster-flow + messaging-calendar-flow);
+ *     khám phá bạn bè đi qua roster thành viên khoá.
  *  2. Học sinh KHÔNG tự lập nhóm — chặn tại tầng service.
  *  3. Nhóm lớp chat hai chiều mặc định; giáo viên tắt được qua cột
  *     `enabled` (đường gửi phải tôn trọng); tắt thì học sinh dừng gửi,
@@ -120,7 +123,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const blockedCreate = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${a.token}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(blockedCreate.status).toBe(403);
-    expect(blockedCreate.body.code).toBe('messaging.not_a_contact_or_course_member');
+    expect(blockedCreate.body.code).toBe('messaging.not_a_contact');
     // Từ chối lần nữa (không còn yêu cầu) → 404 rõ ràng.
     const declineAgain = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/decline`).set('Authorization', `Bearer ${b.token}`).send({});
     expect(declineAgain.status).toBe(404);
@@ -282,8 +285,13 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   });
 
   it('5. reports reach the teacher in charge and admins only; reviewing is scope-checked and every view is written to event_log', async () => {
-    // Một tin riêng 1-1 (cổng mở nhờ cùng khoá) bị chính tác giả xoá —
-    // nội dung chỉ còn truy vết được qua đường báo cáo có thẩm quyền.
+    // Một tin riêng 1-1 (s1–s2 kết bạn trước vì cổng nhắn riêng nay
+    // chỉ mở cho liên hệ đã duyệt) bị chính tác giả xoá — nội dung
+    // chỉ còn truy vết được qua đường báo cáo có thẩm quyền.
+    const friendReq = await http(app).post(`/api/v1/messages/contacts/${s2.id}`).set('Authorization', `Bearer ${s1.token}`).send({});
+    expect(friendReq.status).toBe(201);
+    const friendAcc = await http(app).post(`/api/v1/messages/contacts/requests/${s1.id}/accept`).set('Authorization', `Bearer ${s2.token}`).send({});
+    expect(friendAcc.status).toBe(201);
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${s1.token}`)
       .send({ type: 1, memberIds: [s2.id] });
     expect(conv.status).toBe(201);

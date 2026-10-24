@@ -1564,6 +1564,7 @@ CREATE INDEX "enrol_custom_int1_idx" ON "enrol" ("custom_int1");--> statement-br
 CREATE INDEX "enrol_custom_int2_idx" ON "enrol" ("custom_int2");--> statement-breakpoint
 CREATE INDEX "enrol_payment_account_id_idx" ON "enrol" ("payment_account_id");--> statement-breakpoint
 CREATE INDEX "user_enrolments_user_id_idx" ON "user_enrolments" ("user_id");--> statement-breakpoint
+CREATE INDEX "user_enrolments_enrol_id_user_id_idx" ON "user_enrolments" ("enrol_id","user_id");--> statement-breakpoint
 CREATE INDEX "user_enrolments_modifier_id_idx" ON "user_enrolments" ("modifier_id");--> statement-breakpoint
 CREATE INDEX "course_completion_crit_compl_user_id_idx" ON "course_completion_crit_compl" ("user_id");--> statement-breakpoint
 CREATE INDEX "course_completion_criteria_course_idx" ON "course_completion_criteria" ("course");--> statement-breakpoint

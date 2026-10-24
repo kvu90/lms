@@ -91,8 +91,8 @@ describe('Messaging & calendar', () => {
 
   it('conversations: two users exchange messages; unread counts track conversations and reading clears them (api_test mark_all_read)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (messagingallusers off by default): the two users are
-    // accepted contacts first (the recipient requested, the sender accepted).
+    // Contact gate (contacts-only model): the two users are accepted
+    // contacts first (the recipient requested, the sender accepted).
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
@@ -125,7 +125,7 @@ describe('Messaging & calendar', () => {
 
   it('conversations: the member named in memberIds at creation is a real member of the new conversation (not dropped)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (messagingallusers off by default): the two users are accepted contacts first.
+    // Contact gate (contacts-only model): the two users are accepted contacts first.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
@@ -575,8 +575,8 @@ describe('Messaging & calendar', () => {
     expect(bList.body.contacts).toEqual([]);
   });
 
-  it('contact gate (behat "Disallow sending a message if you are neither a contact nor do you share a course with the user"): strangers blocked while messagingallusers is off; shared course or contact opens the gate; on lets strangers in, off blocks again', async () => {
-    // Start from the registered default (off), whatever earlier runs left behind.
+  it('contact gate (model re-decided 24/10/2026 on issue #33): direct messages are contacts-only — a shared course no longer opens the gate and messagingallusers has no effect on messaging', async () => {
+    // Start from the registered default, whatever earlier runs left behind.
     await http(app).delete('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`);
 
     // 1. Strangers: creating a new individual conversation is refused 403.
@@ -584,25 +584,25 @@ describe('Messaging & calendar', () => {
     const blockedCreate = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${strangers.aToken}`)
       .send({ type: 1, memberIds: [strangers.b.id] });
     expect(blockedCreate.status).toBe(403);
-    expect(blockedCreate.body.code).toBe('messaging.not_a_contact_or_course_member');
+    expect(blockedCreate.body.code).toBe('messaging.not_a_contact');
 
-    // 2. Shared course: both actively enrolled in the same course ⇒ allowed.
+    // 2. Shared course: both actively enrolled in the same course — the
+    //    gate STAYS closed (the old course-mate path was removed by the
+    //    re-decided model; coursemates friend each other via the roster).
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
     await enrolUser(app, admin, course.id, instance.id, strangers.a.id);
     await enrolUser(app, admin, course.id, instance.id, strangers.b.id);
-    const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${strangers.aToken}`)
+    const courseBlocked = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${strangers.aToken}`)
       .send({ type: 1, memberIds: [strangers.b.id] });
-    expect(conv.status).toBe(201);
-    const sent = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${strangers.aToken}`)
-      .send({ text: 'Hello coursemate' });
-    expect(sent.status).toBe(201);
+    expect(courseBlocked.status).toBe(403);
+    expect(courseBlocked.body.code).toBe('messaging.not_a_contact');
 
-    // 3. Contact (Lớp B request–accept): a PENDING request from the
-    //    sender is not enough — the gate opens only once the relation is
-    //    accepted. Here the recipient answers with a request of their
-    //    own, which accepts the pending one (mutual consent).
+    // 3. Contact (request–accept): a PENDING request from the sender is
+    //    not enough — the gate opens only once the relation is accepted.
+    //    Here the recipient answers with a request of their own, which
+    //    accepts the pending one (mutual consent).
     const pair = await twoUsers();
     const senderRequests = await http(app).post(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`).send({});
     expect(senderRequests.status).toBe(201);
@@ -610,7 +610,7 @@ describe('Messaging & calendar', () => {
     const stillBlocked = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${pair.aToken}`)
       .send({ type: 1, memberIds: [pair.b.id] });
     expect(stillBlocked.status).toBe(403);
-    expect(stillBlocked.body.code).toBe('messaging.not_a_contact_or_course_member');
+    expect(stillBlocked.body.code).toBe('messaging.not_a_contact');
     const recipientAnswers = await http(app).post(`/api/v1/messages/contacts/${pair.a.id}`).set('Authorization', `Bearer ${pair.bToken}`).send({});
     expect(recipientAnswers.body.status).toBe('accepted');
     const contactConv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${pair.aToken}`)
@@ -620,36 +620,35 @@ describe('Messaging & calendar', () => {
       .send({ text: 'Hello contact' });
     expect(contactSent.status).toBe(201);
 
-    // 4. messagingallusers = true (admin via the site-config API): strangers
-    //    can create and send right away — the gate reads the setting live.
+    // 4. messagingallusers = true (admin via the site-config API): the
+    //    setting is INERT for messaging now — strangers are still
+    //    refused, exactly as with it off. (The registry entry stays;
+    //    no messaging gate reads it any more.)
     const on = await http(app).put('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`).send({ value: true });
     expect(on.status).toBe(200);
     expect(on.body.value).toBe(true);
     const open = await twoUsers();
-    const openConv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${open.aToken}`)
+    const openBlocked = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${open.aToken}`)
       .send({ type: 1, memberIds: [open.b.id] });
-    expect(openConv.status).toBe(201);
-    const openSent = await http(app).post(`/api/v1/messages/conversations/${openConv.body.id}/messages`).set('Authorization', `Bearer ${open.aToken}`)
-      .send({ text: 'Open while the setting is on' });
-    expect(openSent.status).toBe(201);
+    expect(openBlocked.status).toBe(403);
+    expect(openBlocked.body.code).toBe('messaging.not_a_contact');
 
-    // 5. Back to false: new stranger pairs are blocked at creation, and even
-    //    the conversation created while the setting was on refuses further
-    //    sends (Moodle checks can_contact on every send — no grandfathering).
-    const off = await http(app).put('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`).send({ value: false });
-    expect(off.status).toBe(200);
-    const fresh = await twoUsers();
-    const blockedAgain = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${fresh.aToken}`)
-      .send({ type: 1, memberIds: [fresh.b.id] });
-    expect(blockedAgain.status).toBe(403);
-    expect(blockedAgain.body.code).toBe('messaging.not_a_contact_or_course_member');
-    const sendAgain = await http(app).post(`/api/v1/messages/conversations/${openConv.body.id}/messages`).set('Authorization', `Bearer ${open.aToken}`)
+    // 5. Removing the contact closes the gate on the EXISTING
+    //    conversation too: history stays readable, new sends are
+    //    refused (the gate is checked on every send — no grandfathering).
+    const removed = await http(app).delete(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`);
+    expect(removed.status).toBe(200);
+    const sendAgain = await http(app).post(`/api/v1/messages/conversations/${contactConv.body.id}/messages`).set('Authorization', `Bearer ${pair.aToken}`)
       .send({ text: 'Still there?' });
     expect(sendAgain.status).toBe(403);
-    expect(sendAgain.body.code).toBe('messaging.not_a_contact_or_course_member');
+    expect(sendAgain.body.code).toBe('messaging.not_a_contact');
+    const history = await http(app).get(`/api/v1/messages/conversations/${contactConv.body.id}`).set('Authorization', `Bearer ${pair.aToken}`);
+    expect(history.status).toBe(200);
+    expect((history.body.messages as { fullMessage: string }[]).map((m) => m.fullMessage)).toContain('Hello contact');
 
     // System notifications are NOT gated: an admin notification still
     // reaches a stranger while the gate is on.
+    const fresh = await twoUsers();
     const notify = await http(app).post('/api/v1/notifications/send').set('Authorization', `Bearer ${admin}`)
       .send({ userId: fresh.b.id, provider: 'grade_updated', subject: 'Grade posted', body: 'Your grade is in' });
     expect(notify.status).toBe(201);

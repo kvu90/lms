@@ -149,6 +149,17 @@ export class MessagingRepository {
         WHERE msg.conversation_id = c.id AND msg.deleted_at IS NULL ORDER BY msg.seq DESC LIMIT 1
       ) lm ON true
       WHERE mine.user_id = ${userId}
+        -- Chuẩn app nhắn tin (chốt bổ sung trên issue #33, 24/10/2026):
+        -- có quan hệ chặn ở BẤT KỲ chiều nào thì conversation 1–1 bị
+        -- ẨN khỏi danh sách của CẢ HAI phía (dữ liệu giữ nguyên, bỏ
+        -- chặn là hiện lại). Conversation nhóm không bị luật này chạm.
+        AND NOT (c.type = 1 AND EXISTS (
+          SELECT 1 FROM message_conversation_members other_m
+          JOIN message_users_blocked b
+            ON (b.user_id = mine.user_id AND b.blocked_user_id = other_m.user_id)
+            OR (b.user_id = other_m.user_id AND b.blocked_user_id = mine.user_id)
+          WHERE other_m.conversation_id = c.id AND other_m.user_id <> mine.user_id
+        ))
       ORDER BY c.updated_at DESC
     `);
     // drizzle trả QueryResult (hoặc mảng QueryResult với nhiều câu lệnh).
@@ -366,6 +377,18 @@ export class MessagingRepository {
             and msg.user_id_from <> ${userId}
             and msg.deleted_at is null
         )`,
+        // Conversation 1–1 đang bị ẩn vì quan hệ chặn (xem
+        // listConversationSummaries) cũng không đếm vào huy hiệu chưa
+        // đọc — danh sách không thấy thì huy hiệu không được lộ.
+        sql`not exists (
+          select 1 from ${messageConversations} c
+          join ${messageConversationMembers} other_m
+            on other_m.conversation_id = c.id and other_m.user_id <> ${userId}
+          join ${messageUsersBlocked} b
+            on (b.user_id = ${userId} and b.blocked_user_id = other_m.user_id)
+            or (b.user_id = other_m.user_id and b.blocked_user_id = ${userId})
+          where c.id = ${messageConversationMembers.conversationId} and c.type = 1
+        )`,
       ));
     return row?.value ?? 0;
   }
@@ -400,43 +423,21 @@ export class MessagingRepository {
   }
   /**
    * Danh sách user ĐÃ CHẶN user này (chiều ngược của listBlocked) —
-   * đường tìm người dùng để giấu phía chặn khỏi kết quả của phía bị
-   * chặn, khớp ngữ nghĩa chặn hiện có.
+   * danh sách thành viên khoá dùng để giấu phía chặn khỏi roster của
+   * phía bị chặn, khớp ngữ nghĩa chặn hiện có.
    */
   async listBlockerIds(userId: string): Promise<string[]> {
     const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.blockedUserId, userId));
     return rows.map((r) => r.userId);
   }
-
-  // --- tìm người theo tên (việc nối tiếp Lớp B) ------------------------------
-  // Đọc trực tiếp bảng users qua barrel schema (cùng kỷ luật đọc bảng
-  // dùng chung như phần enrol/groups ở dưới). Việc lọc theo PHẠM VI
-  // cổng nhắn (cùng khoá / công tắc site) nằm ở tầng service.
-
   /**
-   * Ứng viên tìm người theo tên: khớp không phân biệt hoa thường trên
-   * username, từng phần tên, và tên đầy đủ ở cả hai thứ tự (họ-tên và
-   * tên-họ). Chỉ user đang hoạt động (không bị xoá/đình chỉ, không
-   * phải tài khoản khách) mới là ứng viên. Ký tự đặc biệt của LIKE
-   * trong chuỗi tìm được thoát để khớp theo nghĩa đen.
+   * Mọi user đang có quan hệ chặn với user này ở BẤT KỲ chiều nào
+   * (người mình chặn ∪ người chặn mình) — tập "đối tác bị chặn" dùng
+   * cho các luật ẩn bề mặt 1–1 (presence, mốc đã đọc).
    */
-  async searchUsersByName(query: string, limit: number): Promise<{ id: string; username: string; firstName: string; lastName: string }[]> {
-    const escaped = query.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-    const pattern = `%${escaped}%`;
-    return this.db.select({
-      id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName,
-    }).from(users).where(and(
-      eq(users.deleted, false),
-      eq(users.suspended, false),
-      eq(users.isGuest, false),
-      or(
-        sql`${users.username} ilike ${pattern}`,
-        sql`${users.firstName} ilike ${pattern}`,
-        sql`${users.lastName} ilike ${pattern}`,
-        sql`(${users.firstName} || ' ' || ${users.lastName}) ilike ${pattern}`,
-        sql`(${users.lastName} || ' ' || ${users.firstName}) ilike ${pattern}`,
-      ),
-    )).orderBy(asc(users.firstName), asc(users.lastName), asc(users.username)).limit(limit);
+  async listBlockedCounterpartIds(userId: string): Promise<string[]> {
+    const [blocked, blockers] = await Promise.all([this.listBlocked(userId), this.listBlockerIds(userId)]);
+    return [...new Set([...blocked, ...blockers])];
   }
 
   // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------
@@ -464,10 +465,19 @@ export class MessagingRepository {
   }
   /**
    * Danh bạ của user (các liên hệ đã được duyệt — quan hệ hai chiều nên
-   * một hướng truy vấn là đủ).
+   * một hướng truy vấn là đủ). Quan hệ chặn đang hiệu lực (bất kỳ
+   * chiều nào) thì hai người ẨN khỏi danh bạ của nhau theo chuẩn app
+   * nhắn tin; hàng quan hệ trong DB giữ nguyên — bỏ chặn là hiện lại.
    */
   async listContacts(userId: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageContacts).where(eq(messageContacts.userId, userId));
+    const rows = await this.db.select().from(messageContacts).where(and(
+      eq(messageContacts.userId, userId),
+      sql`not exists (
+        select 1 from ${messageUsersBlocked} b
+        where (b.user_id = ${userId} and b.blocked_user_id = ${messageContacts.contactId})
+           or (b.user_id = ${messageContacts.contactId} and b.blocked_user_id = ${userId})
+      )`,
+    ));
     return rows.map((r) => r.contactId);
   }
   /**
@@ -591,7 +601,7 @@ export class MessagingRepository {
     return row;
   }
 
-  // --- cổng liên lạc: khoá học chung -----------------------------------------
+  // --- ghi danh hiệu lực + roster thành viên khoá ------------------------------
   // Đọc trực tiếp bảng enrol/user_enrolments qua định nghĩa bảng dùng chung
   // (barrel schema) — Messaging KHÔNG import EnrolModule để tránh vòng lặp
   // module; ngữ nghĩa "đang active" chép đúng EnrolService.isEnrolled
@@ -614,35 +624,118 @@ export class MessagingRepository {
       ));
     return rows.map((r) => r.courseId);
   }
-  /**
-   * Hai user có ít nhất một khoá học cùng ghi danh đang hiệu lực hay không.
-   */
-  async sharesActiveCourse(a: string, b: string): Promise<boolean> {
-    const coursesA = await this.activeCourseIds(a);
-    if (!coursesA.length) return false;
-    const coursesB = new Set(await this.activeCourseIds(b));
-    return coursesA.some((id) => coursesB.has(id));
+  /** Tóm tắt một khoá (cho danh sách "khoá của tôi" của luồng tìm bạn theo khoá). */
+  async getCourseSummary(courseId: string): Promise<{ courseId: string; fullName: string; shortName: string } | undefined> {
+    const [row] = await this.db.select({ courseId: course.id, fullName: course.fullName, shortName: course.shortName })
+      .from(course).where(eq(course.id, courseId));
+    return row;
   }
   /**
-   * Mọi user khác đang cùng ghi danh hiệu lực ít nhất một khoá với
-   * user này — tập "cùng lớp/khoá" của phạm vi tìm người khi công tắc
-   * site tắt (cùng điều kiện hiệu lực với {@link activeCourseIds}).
+   * Các khoá mà user là THÀNH VIÊN theo định nghĩa roster đã chốt:
+   * ghi danh đang hiệu lực ∪ có gán vai tại context của khoá (mọi
+   * archetype — gán vai học viên tại context khoá cũng là thành viên).
    */
-  async listCourseMateIds(userId: string): Promise<string[]> {
-    const courseIds = await this.activeCourseIds(userId);
-    if (!courseIds.length) return [];
+  async listMembershipCourseIds(userId: string): Promise<string[]> {
+    const enrolled = await this.activeCourseIds(userId);
+    const assigned = await this.db.selectDistinct({ courseId: context.instanceId })
+      .from(roleAssignments)
+      .innerJoin(context, eq(context.id, roleAssignments.contextId))
+      .where(and(eq(roleAssignments.userId, userId), eq(context.contextLevel, 50)));
+    const assignedCourseIds = assigned.map((r) => r.courseId).filter((id): id is string => id !== null);
+    return [...new Set([...enrolled, ...assignedCourseIds])];
+  }
+  /**
+   * User có thuộc khoá theo định nghĩa thành viên roster hay không —
+   * cổng xem roster: người ngoài khoá bị từ chối ở tầng service bằng
+   * cùng một 404 như khoá không tồn tại (không lộ sự tồn tại của khoá).
+   */
+  async isCourseMember(courseId: string, userId: string): Promise<boolean> {
     const now = new Date();
-    const rows = await this.db.selectDistinct({ userId: userEnrolments.userId }).from(userEnrolments)
+    const [enrolled] = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
       .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
       .where(and(
-        inArray(enrol.courseId, courseIds),
+        eq(enrol.courseId, courseId),
+        eq(userEnrolments.userId, userId),
         eq(userEnrolments.status, 0),
         eq(enrol.status, 0),
         lte(userEnrolments.timeStart, now),
         or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-        ne(userEnrolments.userId, userId),
-      ));
-    return rows.map((r) => r.userId);
+      )).limit(1);
+    if (enrolled) return true;
+    const [courseCtx] = await this.db.select({ id: context.id }).from(context)
+      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    if (!courseCtx) return false;
+    const [assigned] = await this.db.select({ id: roleAssignments.id }).from(roleAssignments)
+      .where(and(eq(roleAssignments.contextId, courseCtx.id), eq(roleAssignments.userId, userId)))
+      .limit(1);
+    return Boolean(assigned);
+  }
+  /**
+   * Một trang roster của khoá, sắp tăng dần theo (displayName,
+   * username, id); `cursor` là mốc của dòng cuối trang trước (null =
+   * trang đầu) — phân trang con trỏ ngay tại SQL, không nạp tập thành
+   * viên về app (số đo của đội kiểm tra trên issue #33: roster 50.000
+   * thành viên trả hết là ~6,3 MB JSON; OFFSET sâu chậm hơn hẳn).
+   * Tập thành viên = ghi danh hiệu lực ∪ gán vai tại context khoá;
+   * cờ `staff` = có gán vai archetype staff tại context khoá. Tài
+   * khoản đã xoá/tạm ngưng/khách, chính người xem, và người có quan
+   * hệ chặn với người xem (CẢ hai chiều) bị loại ngay tại SQL. Chỉ
+   * các trường trong whitelist của hợp đồng roster được chọn ra.
+   */
+  async listCourseRosterPage(courseId: string, actorId: string, cursor: { displayName: string; username: string; userId: string } | null, limit: number): Promise<{
+    userId: string; username: string; firstName: string; lastName: string; displayName: string; staff: boolean;
+  }[]> {
+    const cursorCond = cursor
+      ? sql`and ((case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end), u.username, u.id) > (${cursor.displayName}, ${cursor.username}, ${cursor.userId}::uuid)`
+      : sql``;
+    const executed = await this.db.execute(sql`
+      with course_ctx as (
+        select id from ${context} where context_level = 50 and instance_id = ${courseId}
+      ),
+      member_flags as (
+        select ue.user_id as user_id, false as staff
+        from ${userEnrolments} ue
+        join ${enrol} e on e.id = ue.enrol_id
+        where e.course_id = ${courseId}
+          and ue.status = 0 and e.status = 0
+          and ue.time_start <= now() and (ue.time_end is null or ue.time_end >= now())
+        union all
+        select ra.user_id as user_id, (r.archetype in ('manager', 'coursecreator', 'editingteacher', 'teacher')) as staff
+        from ${roleAssignments} ra
+        join ${role} r on r.id = ra.role_id
+        where ra.context_id = (select id from course_ctx)
+      ),
+      members as (
+        select user_id, bool_or(staff) as staff from member_flags group by user_id
+      )
+      select u.id as user_id, u.username as username, u.first_name as first_name, u.last_name as last_name,
+        (case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end) as display_name,
+        m.staff as staff
+      from members m
+      join ${users} u on u.id = m.user_id
+      where u.deleted = false and u.suspended = false and u.is_guest = false
+        and u.id <> ${actorId}
+        and not exists (
+          select 1 from ${messageUsersBlocked} b
+          where (b.user_id = ${actorId} and b.blocked_user_id = u.id)
+             or (b.user_id = u.id and b.blocked_user_id = ${actorId})
+        )
+        ${cursorCond}
+      order by display_name asc, u.username asc, u.id asc
+      limit ${limit}
+    `);
+    const rows = (Array.isArray(executed) ? executed[0] : executed)?.rows ?? [];
+    return rows.map((r) => {
+      const raw = r as Record<string, unknown>;
+      return {
+        userId: raw.user_id as string,
+        username: raw.username as string,
+        firstName: raw.first_name as string,
+        lastName: raw.last_name as string,
+        displayName: raw.display_name as string,
+        staff: Boolean(raw.staff),
+      };
+    });
   }
 
   // --- group conversation sync ------------------------------------------------
