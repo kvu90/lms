@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examMatrices, examMatrixCells, quizAttemptEvents, quizAttempts, quizFeedbacks, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
+import { examMatrices, examMatrixCells, examMatrixContributions, quizAttemptEvents, quizAttempts, quizFeedbacks, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
 
 export type QuizRow = typeof quizzes.$inferSelect;
 export type QuizSlotRow = typeof quizSlots.$inferSelect;
@@ -11,6 +11,7 @@ export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
 export type QuizOverrideRow = typeof quizOverrides.$inferSelect;
 export type ExamMatrixRow = typeof examMatrices.$inferSelect;
 export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
+export type ExamMatrixContributionRow = typeof examMatrixContributions.$inferSelect;
 export type QuizFeedbackRow = typeof quizFeedbacks.$inferSelect;
 export type QuizAttemptEventRow = typeof quizAttemptEvents.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -252,6 +253,59 @@ export class QuizRepository {
    */
   async deleteMatrixCell(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(examMatrixCells).where(eq(examMatrixCells.id, id));
+  }
+
+  // --- ngân hàng ma trận (MB-1, issue #111) ----------------------------------------
+
+  /**
+   * Các ma trận trong một bank ma trận (theo tên).
+   */
+  async listMatricesByBank(bankId: string): Promise<ExamMatrixRow[]> {
+    return this.db.select().from(examMatrices).where(eq(examMatrices.bankId, bankId)).orderBy(asc(examMatrices.name), asc(examMatrices.id));
+  }
+  /**
+   * Chèn một đề xuất đóng góp ma trận (hàng chờ duyệt).
+   */
+  async insertMatrixContribution(v: typeof examMatrixContributions.$inferInsert, tx?: DbTx): Promise<ExamMatrixContributionRow> {
+    const [row] = await (tx ?? this.db).insert(examMatrixContributions).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy một đề xuất đóng góp ma trận.
+   */
+  async getMatrixContribution(id: string): Promise<ExamMatrixContributionRow | undefined> {
+    const [row] = await this.db.select().from(examMatrixContributions).where(eq(examMatrixContributions.id, id)); return row;
+  }
+  /**
+   * Hàng chờ đóng góp của một bank (lọc theo trạng thái nếu có; cũ nhất trước để duyệt theo thứ tự đến).
+   */
+  async listMatrixContributions(targetBankId: string, status?: string): Promise<ExamMatrixContributionRow[]> {
+    const where = status
+      ? and(eq(examMatrixContributions.targetBankId, targetBankId), eq(examMatrixContributions.status, status))
+      : eq(examMatrixContributions.targetBankId, targetBankId);
+    return this.db.select().from(examMatrixContributions).where(where).orderBy(asc(examMatrixContributions.createdAt), asc(examMatrixContributions.id));
+  }
+  /**
+   * Hàng chờ đóng góp do một người gửi (mọi bank) — người gửi xem lại kết quả duyệt/lý do từ chối.
+   */
+  async listMatrixContributionsByProposer(proposerId: string): Promise<ExamMatrixContributionRow[]> {
+    return this.db.select().from(examMatrixContributions).where(eq(examMatrixContributions.proposerId, proposerId)).orderBy(asc(examMatrixContributions.createdAt), asc(examMatrixContributions.id));
+  }
+  /**
+   * Đề xuất đang chờ của cùng một ma trận vào cùng một bank (chống gửi trùng hàng chờ).
+   */
+  async findPendingMatrixContribution(matrixId: string, targetBankId: string, proposerId: string): Promise<ExamMatrixContributionRow | undefined> {
+    const [row] = await this.db.select().from(examMatrixContributions).where(and(
+      eq(examMatrixContributions.matrixId, matrixId),
+      eq(examMatrixContributions.targetBankId, targetBankId),
+      eq(examMatrixContributions.proposerId, proposerId),
+      eq(examMatrixContributions.status, 'pending'),
+    )); return row;
+  }
+  /**
+   * Cập nhật một đề xuất đóng góp (kết quả duyệt).
+   */
+  async updateMatrixContribution(id: string, patch: Partial<ExamMatrixContributionRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examMatrixContributions).set({ ...patch, updatedAt: new Date() }).where(eq(examMatrixContributions.id, id));
   }
 
   // --- dải nhận xét tổng quát + nhật ký sự kiện lượt làm -------------------------
