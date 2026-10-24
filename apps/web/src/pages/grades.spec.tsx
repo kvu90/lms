@@ -428,7 +428,7 @@ describe('Gradebook administration (teacher of the course)', () => {
    * categories/items/letters/scales. Mọi lời gọi đều được ghi lại để
    * khẳng định URL/method/body đúng controller phía API.
    */
-  function stubTeacherFetch(calls: RecordedCall[]) {
+  function stubTeacherFetch(calls: RecordedCall[], opts?: { items?: unknown[] }) {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
@@ -488,7 +488,7 @@ describe('Gradebook administration (teacher of the course)', () => {
         if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) {
           if (method === 'POST')
             return respond({ ...ITEM, id: '01900000-0000-7000-8000-000000000033', itemName: 'Midterm' });
-          return respond([ITEM]);
+          return respond(opts?.items ?? [ITEM]);
         }
         if (url === `/api/v1/courses/${COURSE_ID}/grades/letters`) {
           if (method === 'PUT') return respond(LETTERS);
@@ -519,6 +519,12 @@ describe('Gradebook administration (teacher of the course)', () => {
           return new Response('userId,username,Quiz 1\r\n', {
             status: 200,
             headers: { 'Content-Type': 'text/csv' },
+          });
+        }
+        if (url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu` && method === 'POST') {
+          return new Response(new Blob(['fake-xlsx-bytes']), {
+            status: 200,
+            headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
           });
         }
         if (url === `/api/v1/courses/${COURSE_ID}/grades/import` && method === 'POST') {
@@ -680,6 +686,60 @@ describe('Gradebook administration (teacher of the course)', () => {
     anchorClick.mockRestore();
     Reflect.deleteProperty(URL, 'createObjectURL');
     Reflect.deleteProperty(URL, 'revokeObjectURL');
+  });
+
+  it('exports the vnEdu Excel sheet with the teacher-confirmed mapping via POST /grades/export/vnedu', async () => {
+    const calls: RecordedCall[] = [];
+    const regular = { ...ITEM, id: '01900000-0000-7000-8000-000000000061', itemName: 'Kiểm tra 15 phút' };
+    const midterm = { ...ITEM, id: '01900000-0000-7000-8000-000000000062', itemName: 'Kiểm tra giữa kỳ' };
+    const finalItem = { ...ITEM, id: '01900000-0000-7000-8000-000000000063', itemName: 'Kiểm tra cuối kỳ' };
+    stubTeacherFetch(calls, { items: [regular, midterm, finalItem] });
+    const createObjectURL = vi.fn(() => 'blob:vnedu');
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    renderAsTeacher();
+
+    // Gợi ý mặc định theo tên mục: 15 phút → thường xuyên, giữa kỳ → giữa kỳ, cuối kỳ → cuối kỳ.
+    await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
+    await userEvent.selectOptions(screen.getByLabelText('Học kỳ'), '2');
+    await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu` && c.method === 'POST'),
+      ).toBe(true),
+    );
+    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu`);
+    expect(call?.body).toMatchObject({
+      regularItemIds: [regular.id],
+      midtermItemId: midterm.id,
+      finalItemId: finalItem.id,
+      semester: 2,
+      schoolYear: '2026-2027',
+    });
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalled();
+    expect(await screen.findByText('Đã tải tệp điểm Excel vnEdu.')).toBeInTheDocument();
+    anchorClick.mockRestore();
+    Reflect.deleteProperty(URL, 'createObjectURL');
+    Reflect.deleteProperty(URL, 'revokeObjectURL');
+  });
+
+  it('blocks the vnEdu export at the UI when the mapping lacks a midterm item', async () => {
+    const calls: RecordedCall[] = [];
+    const regular = { ...ITEM, id: '01900000-0000-7000-8000-000000000061', itemName: 'Kiểm tra 15 phút' };
+    const midterm = { ...ITEM, id: '01900000-0000-7000-8000-000000000062', itemName: 'Kiểm tra giữa kỳ' };
+    const finalItem = { ...ITEM, id: '01900000-0000-7000-8000-000000000063', itemName: 'Kiểm tra cuối kỳ' };
+    stubTeacherFetch(calls, { items: [regular, midterm, finalItem] });
+    renderAsTeacher();
+
+    await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
+    // Giáo viên bỏ gán mục giữa kỳ → ánh xạ không còn hợp lệ, không được gọi API.
+    await userEvent.selectOptions(screen.getByLabelText('Kiểm tra giữa kỳ'), 'none');
+    await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
+
+    expect(await screen.findByText(/Cần ít nhất 1 mục thường xuyên/)).toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes('export/vnedu'))).toBe(false);
   });
 
   it('imports grades from a chosen CSV file and shows the report (counts + per-row errors)', async () => {

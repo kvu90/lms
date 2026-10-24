@@ -403,6 +403,24 @@ export const updateGradeSchema = z.strictObject({
 });
 export type UpdateGrade = z.infer<typeof updateGradeSchema>;
 
+/**
+ * Payload xuất sổ điểm ra Excel theo cấu trúc vnEdu/TT 22/2021 (issue #53):
+ * giáo viên ánh xạ tường minh từng mục điểm lá sang một loại cột — các mục
+ * thường xuyên (hệ số 1, ít nhất 1), đúng một mục giữa kỳ (hệ số 2) và một
+ * mục cuối kỳ (hệ số 3). `semester` là học kỳ 1 hoặc 2; tên lớp/môn/năm học
+ * bỏ trống thì phía server lấy mặc định từ khoá học.
+ */
+export const exportGradesVneduSchema = z.strictObject({
+  regularItemIds: z.array(uuidIdSchema).min(1),
+  midtermItemId: uuidIdSchema,
+  finalItemId: uuidIdSchema,
+  semester: z.union([z.literal(1), z.literal(2)]),
+  schoolYear: z.string().min(1).max(32).optional(),
+  subjectName: z.string().min(1).max(200).optional(),
+  className: z.string().min(1).max(200).optional(),
+});
+export type ExportGradesVnedu = z.infer<typeof exportGradesVneduSchema>;
+
 /** Một mốc chữ cái trong thang điểm chữ (grade letter). */
 export const gradeLetterBoundarySchema = z.strictObject({
   letter: z.string().min(1),

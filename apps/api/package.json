@@ -41,6 +41,7 @@
     "compression": "^1.8.2",
     "drizzle-kit": "1.0.0-rc.5",
     "drizzle-orm": "1.0.0-rc.5",
+    "exceljs": "^4.4.0",
     "ioredis": "^6.0.0",
     "keyv": "^6.1.0",
     "otplib": "13.5.0",
