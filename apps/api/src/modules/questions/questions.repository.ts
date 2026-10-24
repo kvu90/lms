@@ -7,7 +7,7 @@ import {
   question, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
   questionBankEntries, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
   questionUsages, questionVersions,
-  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli, subjects,
+  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, quizAttempts, stimuli, subjects,
 } from '../../db/schema';
 
 export type QCategoryRow = typeof questionCategories.$inferSelect;
@@ -21,6 +21,7 @@ export type TruefalseOptionsRow = typeof questionTruefalse.$inferSelect;
 export type ShortanswerOptionsRow = typeof qtypeShortanswerOptions.$inferSelect;
 export type EssayOptionsRow = typeof qtypeEssayOptions.$inferSelect;
 export type UsageRow = typeof questionUsages.$inferSelect;
+export type QuizAttemptLinkRow = typeof quizAttempts.$inferSelect;
 export type AttemptRow = typeof questionAttempts.$inferSelect;
 export type StepRow = typeof questionAttemptSteps.$inferSelect;
 export type QuestionSubjectLinkRow = typeof questionSubjects.$inferSelect;
@@ -255,6 +256,15 @@ export class QuestionsRepository {
    */
   async deleteUsage(id: string): Promise<void> {
     await this.db.delete(questionUsages).where(eq(questionUsages.id, id));
+  }
+  /**
+   * Lượt quiz (quiz_attempts) đang gắn với một usage, nếu có — usage_id
+   * là unique trong quiz_attempts nên tối đa một dòng. Dùng để cổng kênh
+   * HTTP biết usage này thuộc về một lượt quiz (issue #60).
+   */
+  async findQuizAttemptByUsageId(usageId: string): Promise<QuizAttemptLinkRow | undefined> {
+    const [row] = await this.db.select().from(quizAttempts).where(eq(quizAttempts.usageId, usageId));
+    return row;
   }
   /**
    * Chèn question attempt (một câu trong một usage).

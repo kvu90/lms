@@ -58,7 +58,10 @@ describe('Question types & stimulus', () => {
 
   /** Chạy trọn một lượt làm cho một câu: usage 1 slot → start → submit → finish; trả attempt đã chốt. */
   async function runAttempt(questionId: string, response: string | null, maxMark?: number): Promise<Record<string, never>> {
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
+    // Issue #60: usage thuộc về người tạo và chỉ chủ sở hữu mới thao tác
+    // được qua route thô — học sinh tự tạo usage của mình rồi tự làm
+    // (đúng luồng web ngân hàng), thay mẫu cũ "admin tạo, học sinh làm".
+    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'mod_quiz', slots: [{ questionId, ...(maxMark !== undefined ? { maxMark } : {}) }] });
     expect(usageRes.status).toBeLessThan(300);
     const usageId = usageRes.body.usage.id as string;
@@ -147,7 +150,7 @@ describe('Question types & stimulus', () => {
     for (const q of [q1, q2, q3]) expect(q.status).toBeLessThan(300);
     const ids = [q1, q2, q3].map((q) => (q.body as { question: { id: string } }).question.id);
 
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
+    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'mod_quiz', slots: ids.map((questionId) => ({ questionId })) });
     const usageId = usageRes.body.usage.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/start`).set('Authorization', `Bearer ${studentToken}`);

@@ -244,7 +244,10 @@ describe('Grades & questions', () => {
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Usage created and STARTED while v1 is latest ⇒ pins v1.
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
+    // Issue #60: chỉ chủ sở hữu mới thao tác usage qua route thô — học
+    // sinh tự tạo usage của mình (trước đây admin tạo rồi học sinh làm:
+    // mẫu đó là tiện ích test, không phải luồng sản phẩm).
+    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
     const usageId = usageRes.body.usage.id as string;
     const attemptId = usageRes.body.attempts[0].id as string;
@@ -266,7 +269,7 @@ describe('Grades & questions', () => {
     expect(attempt.steps.map((s: { state: string }) => s.state)).toEqual(['todo', 'complete', 'gradedright']);
     expect(attempt.steps[1].data.answer).toBe('true');
     // A NEW usage pins v2: the same answer is now wrong.
-    const usage2 = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
+    const usage2 = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
     const usage2Id = usage2.body.usage.id as string;
     const attempt2Id = usage2.body.attempts[0].id as string;

@@ -192,37 +192,47 @@ export class QuestionUsagesController {
   }
   @Post(':id/start')
   /**
-   * POST /question-usages/:id/start — bắt đầu usage.
+   * POST /question-usages/:id/start — bắt đầu usage (chỉ chủ sở hữu;
+   * usage gắn lượt quiz đang làm bị khoá kênh thô — issue #60).
    */
   async start(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertUsageManipulableViaHttp(actor.id, id);
     return this.questions.startUsage(actor.id, id);
   }
   @Post(':id/finish')
   /**
-   * POST /question-usages/:id/finish — kết thúc usage.
+   * POST /question-usages/:id/finish — kết thúc usage (chỉ chủ sở hữu;
+   * usage gắn lượt quiz đang làm bị khoá kênh thô — issue #60).
    */
   async finish(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertUsageManipulableViaHttp(actor.id, id);
     return this.questions.finishUsage(actor.id, id);
   }
   @Post(':id/attempts/:attemptId/start')
   /**
-   * POST /question-usages/:id/attempts/:attemptId/start — bắt đầu attempt.
+   * POST /question-usages/:id/attempts/:attemptId/start — bắt đầu attempt
+   * (chỉ chủ sở hữu; usage gắn lượt quiz đang làm bị khoá kênh thô — #60).
    */
-  async startAttempt(@Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @CurrentUser() actor: AuthenticatedUser) {
+  async startAttempt(@Param('id', { schema: uuidIdSchema }) id: string, @Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertAttemptManipulableViaHttp(actor.id, id, attemptId);
     return this.questions.startAttempt(actor.id, attemptId);
   }
   @Post(':id/attempts/:attemptId/submit')
   /**
-   * POST /question-usages/:id/attempts/:attemptId/submit — nộp câu trả lời.
+   * POST /question-usages/:id/attempts/:attemptId/submit — nộp câu trả lời
+   * (chỉ chủ sở hữu; usage gắn lượt quiz đang làm bị khoá kênh thô — #60).
    */
-  async submit(@Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @Body({ schema: submitQuestionResponseSchema }) dto: SubmitResponseDto, @CurrentUser() actor: AuthenticatedUser) {
+  async submit(@Param('id', { schema: uuidIdSchema }) id: string, @Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @Body({ schema: submitQuestionResponseSchema }) dto: SubmitResponseDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertAttemptManipulableViaHttp(actor.id, id, attemptId);
     return this.questions.submitResponse(actor.id, attemptId, dto.response ?? null);
   }
   @Post(':id/attempts/:attemptId/finish')
   /**
-   * POST /question-usages/:id/attempts/:attemptId/finish — kết thúc attempt.
+   * POST /question-usages/:id/attempts/:attemptId/finish — kết thúc attempt
+   * (chỉ chủ sở hữu; usage gắn lượt quiz đang làm bị khoá kênh thô — #60).
    */
-  async finishAttempt(@Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @CurrentUser() actor: AuthenticatedUser) {
+  async finishAttempt(@Param('id', { schema: uuidIdSchema }) id: string, @Param('attemptId', { schema: uuidIdSchema }) attemptId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertAttemptManipulableViaHttp(actor.id, id, attemptId);
     return this.questions.finishAttempt(actor.id, attemptId);
   }
 }
