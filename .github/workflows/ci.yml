@@ -66,9 +66,15 @@ jobs:
       - name: Test api-2 completion..grades
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/completion-criteria-full-flow.e2e-spec.ts test/courses-flow.e2e-spec.ts test/curriculum-flow.e2e-spec.ts test/curriculum-frame-apply-flow.e2e-spec.ts test/curriculum-frame-course-teacher-flow.e2e-spec.ts test/curriculum-program-import-flow.e2e-spec.ts test/curriculum-question-links-flow.e2e-spec.ts test/custom-fields-flow.e2e-spec.ts test/enrol-groups-flow.e2e-spec.ts test/enrolments-list-gate.e2e-spec.ts test/event-log-flow.e2e-spec.ts test/files-flow.e2e-spec.ts test/grades-export-import-flow.e2e-spec.ts test/grades-questions-flow.e2e-spec.ts test/grades-vnedu-export-flow.e2e-spec.ts
-      - name: Test api-3 messaging+notifications
+      - name: Test api-3a messaging block/calendar/domain
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/messaging-block-visibility.e2e-spec.ts test/messaging-calendar-flow.e2e-spec.ts test/messaging-domain-flow.e2e-spec.ts test/messaging-presence-flow.e2e-spec.ts test/messaging-realtime-flow.e2e-spec.ts test/messaging-roster-flow.e2e-spec.ts test/notification-unread-stream-flow.e2e-spec.ts test/notifications-center-v2-flow.e2e-spec.ts test/notifications-providers-flow.e2e-spec.ts
+        run: pnpm --filter @lms/api exec vitest run test/messaging-block-visibility.e2e-spec.ts test/messaging-calendar-flow.e2e-spec.ts test/messaging-domain-flow.e2e-spec.ts
+      - name: Test api-3b messaging presence/realtime/roster
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/messaging-presence-flow.e2e-spec.ts test/messaging-realtime-flow.e2e-spec.ts test/messaging-roster-flow.e2e-spec.ts
+      - name: Test api-3c notification stream/center/providers
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts test/notifications-center-v2-flow.e2e-spec.ts test/notifications-providers-flow.e2e-spec.ts
       - name: Test api-4 openapi..uuidv7
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/openapi-document.e2e-spec.ts test/platform-backup-payments-privacy-flow.e2e-spec.ts test/platform-hardening.e2e-spec.ts test/platform-i18n-flow.e2e-spec.ts test/platform-search-webservice-flow.e2e-spec.ts test/platform-user-journeys-flow.e2e-spec.ts test/question-bank-read-gate.e2e-spec.ts test/question-types-stimulus-flow.e2e-spec.ts test/question-usage-owner-gate.e2e-spec.ts test/quiz-flow.e2e-spec.ts test/site-config-flow.e2e-spec.ts test/social-flow.e2e-spec.ts test/users-flow.e2e-spec.ts test/uuidv7-primary-keys-flow.e2e-spec.ts
