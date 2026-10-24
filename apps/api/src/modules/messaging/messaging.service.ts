@@ -51,6 +51,10 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   { name: 'course_completed', component: 'core_completion', channels: ['popup'], group: 'learning' },
   { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
   { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
+  // Nhắc hạn nộp tự động 24 giờ (lát N5, issue #50): worker quét hạn
+  // nộp phát sự kiện outbox activity_due_reminder, consumer biến thành
+  // thông báo — bật mặc định (quyết định đã chốt trong issue #50).
+  { name: 'activity_due_soon', component: 'core_course', channels: ['popup', 'email'], group: 'learning' },
   { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'], group: 'people' },
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'], group: 'people' },
   // Lớp B (issue #33): yêu cầu kết bạn mới — phía nhận được thông báo qua pipeline sẵn có.

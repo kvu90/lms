@@ -116,6 +116,24 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(notif.subject.length).toBeGreaterThan(0);
   });
 
+  it('activity_due_soon: the outbox event the worker due-date sweep emits becomes a real notification deep-linking to the quiz (N5, issue #50)', async () => {
+    const { course, student, token } = await setupStudentInCourse();
+    const quizId = '01900000-0000-7000-8000-000000000050';
+    const timeClose = new Date(Date.now() + 12 * 3600_000);
+    // Đúng hình dạng sự kiện mà ActivityDueReminderProcessor phát
+    // (kiểm chứng phía phát ở suite worker activity-due-reminder):
+    // aggregate activity, payload mang activityName + mốc hạn.
+    await pg.query(
+      `insert into outbox_events (aggregate, type, payload) values ('activity', 'activity_due_reminder', $1::jsonb)`,
+      [JSON.stringify({ userId: student.id, courseId: course.id, quizId, activityType: 'quiz', activityName: 'Bài kiểm tra chương 1', timeClose: timeClose.toISOString() })],
+    );
+    const notif = await waitForNotification(token, 'activity_due_soon');
+    expect(notif.contextUrl).toBe(`/courses/${course.id}/quizzes/${quizId}`);
+    expect(notif.subject).toContain('Bài kiểm tra chương 1');
+    expect(notif.fullMessage).toContain('Bài kiểm tra chương 1');
+    expect(notif.fullMessage).toContain(course.fullName ?? '');
+  });
+
   it('message_new: a contact message notifies the recipient once per conversation while unread, without the message text', async () => {
     const aUser = await createUserViaApi(app, admin);
     const bUser = await createUserViaApi(app, admin);
@@ -171,7 +189,7 @@ describe('Notification providers wired (N1, issue #49)', () => {
     // provider mới mà chưa nối dây sẽ làm test này đỏ — đó là chủ đích:
     // không để công tắc giả quay lại trang cài đặt.
     expect([...groups.keys()].sort()).toEqual([
-      'badge_awarded', 'calendar_reminder', 'competency_review_requested', 'contact_request',
+      'activity_due_soon', 'badge_awarded', 'calendar_reminder', 'competency_review_requested', 'contact_request',
       'conversation_reported', 'course_completed', 'enrol_expiry_warning', 'enrol_welcome',
       'grade_updated', 'message_new', 'report_scheduled',
     ]);
@@ -179,6 +197,7 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(groups.get('course_completed')).toBe('learning');
     expect(groups.get('enrol_expiry_warning')).toBe('learning');
     expect(groups.get('enrol_welcome')).toBe('learning');
+    expect(groups.get('activity_due_soon')).toBe('learning');
     expect(groups.get('message_new')).toBe('people');
     expect(groups.get('contact_request')).toBe('people');
     expect(groups.get('calendar_reminder')).toBe('system');

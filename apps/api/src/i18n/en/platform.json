@@ -17,6 +17,8 @@
   "courseCompletedSubject": "You have completed the course \"{course}\"",
   "enrolExpiryWarningBody": "Your enrolment in the course \"{course}\" expires on {date}. Finish any remaining activities or contact your teacher about an extension.",
   "enrolExpiryWarningSubject": "Enrolment expiring soon: course \"{course}\"",
+  "activityDueSoonBody": "The activity \"{activity}\" in the course \"{course}\" is due at {datetime}. Open the activity page to finish and submit before the deadline.",
+  "activityDueSoonSubject": "Due soon: \"{activity}\"",
   "enrolWelcomeBody": "Welcome! You have been enrolled in the course \"{course}\". Happy learning!",
   "enrolWelcomeSubject": "Welcome to the course \"{course}\"",
   "gradeUpdatedBody": "You have a new grade for \"{item}\" in the course \"{course}\". Open the course grade page to see the details.",

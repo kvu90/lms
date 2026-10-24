@@ -17,6 +17,8 @@
   "courseCompletedSubject": "Bạn đã hoàn thành khoá học \"{course}\"",
   "enrolExpiryWarningBody": "Ghi danh của bạn vào khoá học \"{course}\" sẽ hết hạn vào {date}. Hãy hoàn thành các hoạt động còn lại hoặc liên hệ giáo viên để được gia hạn.",
   "enrolExpiryWarningSubject": "Ghi danh sắp hết hạn: khoá học \"{course}\"",
+  "activityDueSoonBody": "Hoạt động \"{activity}\" trong khoá học \"{course}\" sẽ đến hạn vào {datetime}. Mở trang hoạt động để hoàn thành và nộp bài trước hạn.",
+  "activityDueSoonSubject": "Sắp đến hạn nộp: \"{activity}\"",
   "enrolWelcomeBody": "Chào mừng bạn đã ghi danh vào khoá học \"{course}\". Chúc bạn học tập hiệu quả!",
   "enrolWelcomeSubject": "Chào mừng bạn đến với khoá học \"{course}\"",
   "gradeUpdatedBody": "Bạn có điểm mới cho mục \"{item}\" trong khoá học \"{course}\". Mở trang điểm của khoá để xem chi tiết.",
