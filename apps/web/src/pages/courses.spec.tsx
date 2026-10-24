@@ -150,6 +150,32 @@ describe('Courses pages', () => {
     expect(courseLink).toHaveAttribute('href', '/courses/01900000-0000-7000-8000-000000000010');
   });
 
+  it('DASH1: thẻ khoá hiện màu + biệt danh của chính chủ nhân, tên gốc giữ ở title, mở được editor tại dòng', async () => {
+    stubFetch((url) => {
+      if (url === '/api/v1/courses/categories/tree') return TREE;
+      if (url === '/api/v1/courses') return COURSES;
+      if (url === '/api/v1/dashboard/course-cards') {
+        return { prefs: [{ courseId: '01900000-0000-7000-8000-000000000010', color: 'teal', nickname: 'Vật lý của tui' }] };
+      }
+      return undefined;
+    });
+    const router = createMemoryRouter([{ path: '/courses', element: <CoursesPage /> }], {
+      initialEntries: ['/courses'],
+    });
+    renderWithProviders(router);
+    // Biệt danh thay tên hiển thị; tên khoá gốc vẫn còn ở title của liên kết.
+    const link = await screen.findByRole('link', { name: /Vật lý của tui/ });
+    expect(link).toHaveAttribute('title', 'Physics 101');
+    expect(screen.getByTestId('course-card-color-dot')).toBeInTheDocument();
+    // Mở editor tại dòng: thấy đủ 10 lựa chọn màu + ô biệt danh có sẵn giá trị.
+    await userEvent.click(screen.getByTestId('course-card-edit'));
+    const editor = await screen.findByTestId('course-card-pref-editor');
+    expect(editor).toBeInTheDocument();
+    expect(screen.getByTestId('card-pref-nickname')).toHaveValue('Vật lý của tui');
+    expect(screen.getByTestId('card-color-red')).toBeInTheDocument();
+    expect(screen.getByTestId('card-color-slate')).toBeInTheDocument();
+  });
+
   it('renders a locked module as shown-but-unavailable (show=true) with its restriction text, and an available module as available', async () => {
     stubFetch((url) => {
       if (url === '/api/v1/courses/01900000-0000-7000-8000-000000000010/content') return CONTENT;

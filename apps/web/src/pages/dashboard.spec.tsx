@@ -237,6 +237,34 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
       return role === 'admin' ? forbidden() : ok(GRADEBOOK);
     }
     if (url === '/api/v1/badges/mine') return ok([{ id: 'x' }, { id: 'y' }]);
+    // DASH1 (issue #121): endpoint tổng hợp dashboard + thẻ khoá.
+    if (url.startsWith('/api/v1/dashboard/overview')) {
+      const soon = new Date(Date.now() + 2 * 86_400_000).toISOString();
+      const past = new Date(Date.now() - 3_600_000).toISOString();
+      return ok({
+        generatedAt: new Date().toISOString(),
+        previousSeenAt: null,
+        dueWindowDays: 7,
+        dueItems:
+          role === 'student'
+            ? [
+                { courseId: COURSE_ID, courseName: 'Khoá học mẫu', cmId: 'cm-overdue', activityId: 'a-overdue', kind: 'assignment', name: 'Bài nộp quá hạn', dueAt: past, status: 'overdue' },
+                { courseId: COURSE_ID, courseName: 'Khoá học mẫu', cmId: 'cm-quiz', activityId: 'q-soon', kind: 'quiz', name: 'Quiz sắp đến hạn', dueAt: soon, status: 'not_started' },
+              ]
+            : [],
+        newResults:
+          role === 'student'
+            ? [
+                { courseId: COURSE_ID, courseName: 'Khoá học mẫu', kind: 'grade_item', itemId: 'item-1', itemName: 'Điểm kiểm tra', vnScope: null, finalGrade: 9, gradeMax: 10, feedback: 'Làm tốt', changedAt: new Date().toISOString() },
+              ]
+            : [],
+        gradingQueue:
+          role === 'teacher'
+            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 3, assignmentPending: 2, quizPending: 1, oldestPendingAt: past }]
+            : [],
+      });
+    }
+    if (url === '/api/v1/dashboard/course-cards') return ok({ prefs: [] });
     // Dashboard chỉ còn hỏi SỐ chưa đọc (trung tâm v2, issue #51).
     if (url === '/api/v1/notifications/unread-count') {
       return ok({ unread: 1 });
@@ -282,6 +310,37 @@ describe('Dashboard theo vai trò', () => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
+  });
+
+  it('student thấy khối việc cần làm DASH1 ở đầu dashboard: quá hạn tách rõ + điểm mới', async () => {
+    stubFetch(baseHandler('student'));
+    renderApp(false);
+    // Chờ nội dung thật (skeleton chờ tải mang cùng testid nên không chờ theo testid).
+    expect(await screen.findByText('Bài nộp quá hạn')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-todo')).toBeInTheDocument();
+    const items = screen.getAllByTestId('todo-due-item');
+    expect(items).toHaveLength(2);
+    // Quá hạn đứng đầu danh sách (API đã sắp) và mang nhãn Quá hạn.
+    expect(items[0]).toHaveTextContent('Bài nộp quá hạn');
+    expect(items[0]).toHaveTextContent('Quá hạn');
+    expect(items[1]).toHaveTextContent('Quiz sắp đến hạn');
+    // Điểm mới đã công bố hiện kèm điểm số.
+    const fresh = screen.getByTestId('todo-new-result');
+    expect(fresh).toHaveTextContent('Điểm kiểm tra');
+    expect(fresh).toHaveTextContent('9 / 10');
+  });
+
+  it('teacher thấy hàng đợi chấm DASH1 gộp theo khoá với số chờ đúng', async () => {
+    stubFetch(baseHandler('teacher'));
+    renderApp(false);
+    const row = await screen.findByTestId('grading-queue-row');
+    expect(screen.getByTestId('dashboard-grading-queue')).toBeInTheDocument();
+    expect(row).toHaveTextContent('Khoá học mẫu');
+    expect(row).toHaveTextContent('3');
+    // Bấm vào hàng đợi tới thẳng trang điểm của khoá (href nằm ở thẻ
+    // liên kết bao quanh hàng — Button render qua Link của Base UI).
+    const queueLink = row.closest('a') ?? row.querySelector('a');
+    expect(queueLink?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/grades`);
   });
 
   it('admin thấy khối quản trị hệ thống, không thấy khối giảng dạy/học tập', async () => {
