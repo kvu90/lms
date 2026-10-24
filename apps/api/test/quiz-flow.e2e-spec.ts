@@ -225,6 +225,82 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(types).toContain('quiz_attempt_regraded');
   });
 
+  it('question stats: most-wrong question first with the students who missed it; preview and in-progress attempts excluded', async () => {
+    const ctx = await setup();
+    // Học sinh thứ hai trong cùng khoá, tên riêng để khẳng định displayName.
+    const instance = await createEnrolInstance(app, admin, ctx.course.id);
+    const studentB = await createUserViaApi(app, admin, { firstName: 'An', lastName: 'Ba' });
+    await enrolUser(app, admin, ctx.course.id, instance.id, studentB.id);
+    const studentBToken = (await login(app, studentB.username, STRONG_PASSWORD)).accessToken;
+
+    const quizRes = await createQuiz(ctx.teacher, ctx.course.id, { sectionId: ctx.sectionId, name: 'Stats quiz', grade: 10 });
+    const quizId = quizRes.body.id as string;
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qMc, maxMark: 5 });
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qTf, maxMark: 1 });
+    await addSlot(ctx.teacher, quizId, { questionId: ctx.qSa, maxMark: 1 });
+
+    async function play(token: string, answers: Record<number, string | 'MC_WRONG'>): Promise<void> {
+      const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+      expect(start.status).toBe(201);
+      let view = start.body as AttemptViewBody;
+      const attemptId = view.attempt.id;
+      for (const [slotText, response] of Object.entries(answers)) {
+        const slot = Number(slotText);
+        let value = response;
+        if (response === 'MC_WRONG') {
+          const mcQ = view.questions.find((q) => q.slot === slot)!;
+          value = mcQ.answers.find((a) => JSON.stringify(a.text).includes('London'))!.id;
+        }
+        view = await answerSlot(token, attemptId, view, slot, value);
+      }
+      const submit = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${token}`).send({});
+      expect(submit.status).toBe(201);
+    }
+
+    // A: sai câu 1 + câu 2, đúng câu 3. B: sai câu 1 + câu 3, đúng câu 2.
+    await play(ctx.studentToken, { 1: 'MC_WRONG', 2: 'false', 3: 'Hanoi' });
+    await play(studentBToken, { 1: 'MC_WRONG', 2: 'true', 3: 'Hue' });
+    // Lượt preview của giáo viên (đúng hết) không được tính vào thống kê.
+    const previewStart = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.teacher}`).send({ preview: true });
+    expect(previewStart.status).toBe(201);
+    let previewView = previewStart.body as AttemptViewBody;
+    const paris = previewView.questions[0]!.answers.find((a) => JSON.stringify(a.text).includes('Paris'))!;
+    previewView = await answerSlot(ctx.teacher, previewView.attempt.id, previewView, 1, paris.id);
+    const previewSubmit = await http(app).post(`/api/v1/quiz-attempts/${previewView.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(previewSubmit.status).toBe(201);
+    // Một lượt đang dở của B (chưa nộp) cũng không được tính.
+    const dangling = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${studentBToken}`).send({});
+    expect(dangling.status).toBe(201);
+
+    const results = await http(app).get(`/api/v1/quizzes/${quizId}/results`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(results.status).toBe(200);
+    interface StatBody {
+      slot: number; questionId: string | null; questionName: string | null; maxMark: number;
+      attemptsCount: number; gradedCount: number; pendingCount: number;
+      wrongCount: number; fullyWrongCount: number;
+      wrongStudents: { userId: string; displayName: string; fraction: number; mark: number; attemptNumber: number }[];
+    }
+    const stats = results.body.questionStats as StatBody[];
+    expect(stats).toHaveLength(3);
+    // Câu 1 sai nhiều nhất (2/2) phải đứng đầu.
+    expect(stats[0]).toMatchObject({
+      slot: 1, questionId: ctx.qMc, questionName: 'Capital', maxMark: 5,
+      attemptsCount: 2, gradedCount: 2, pendingCount: 0, wrongCount: 2, fullyWrongCount: 2,
+    });
+    expect(stats[0]!.wrongStudents.map((w) => w.userId).sort()).toEqual([ctx.student.id, studentB.id].sort());
+    expect(stats[0]!.wrongStudents.map((w) => w.displayName).sort()).toEqual(['An Ba', 'Test User']);
+    for (const w of stats[0]!.wrongStudents) {
+      expect(w.fraction).toBe(0);
+      expect(w.mark).toBe(0);
+      expect(w.attemptNumber).toBe(1);
+    }
+    // Câu 2 và câu 3 cùng sai 1 — hoà thì theo số slot tăng dần.
+    expect(stats[1]).toMatchObject({ slot: 2, questionId: ctx.qTf, questionName: 'Water', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    expect(stats[1]!.wrongStudents.map((w) => w.userId)).toEqual([ctx.student.id]);
+    expect(stats[2]).toMatchObject({ slot: 3, questionId: ctx.qSa, questionName: 'Capital VN', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    expect(stats[2]!.wrongStudents.map((w) => w.userId)).toEqual([studentB.id]);
+  });
+
   it('grade method highest across attempts, attempts limit enforced, attempts of others are private', async () => {
     const ctx = await setup();
     const quizRes = await createQuiz(ctx.teacher, ctx.course.id, {
