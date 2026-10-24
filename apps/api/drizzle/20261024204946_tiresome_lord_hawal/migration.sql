@@ -908,6 +908,46 @@ CREATE TABLE "stimuli" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "exam_matrices" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"name" text NOT NULL,
+	"subject_id" uuid NOT NULL,
+	"curriculum_id" uuid NOT NULL,
+	"context_id" uuid NOT NULL,
+	"preset_kind" text DEFAULT 'custom' NOT NULL,
+	"target_form_percents" jsonb,
+	"target_level_percents" jsonb,
+	"level_set" text DEFAULT 'three' NOT NULL,
+	"scope_note" text,
+	"scope_outcome_ids" jsonb,
+	"total_score" double precision DEFAULT 10 NOT NULL,
+	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_matrices_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic', 'qd764_graduation', 'custom')),
+	CONSTRAINT "exam_matrices_level_set_check" CHECK ("level_set" in ('three', 'four'))
+);
+--> statement-breakpoint
+CREATE TABLE "exam_matrix_cells" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"matrix_id" uuid NOT NULL,
+	"learning_outcome_id" uuid NOT NULL,
+	"cognitive_level" text NOT NULL,
+	"qtype" text NOT NULL,
+	"question_count" integer NOT NULL,
+	"cell_score" double precision NOT NULL,
+	"minutes" integer,
+	"tf_scale" jsonb,
+	"position" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_matrix_cells_unique" UNIQUE("matrix_id","learning_outcome_id","cognitive_level","qtype"),
+	CONSTRAINT "exam_matrix_cells_level_check" CHECK ("cognitive_level" in ('biet', 'hieu', 'van_dung', 'van_dung_cao')),
+	CONSTRAINT "exam_matrix_cells_qtype_check" CHECK ("qtype" in ('multichoice', 'truefalse', 'shortanswer', 'essay')),
+	CONSTRAINT "exam_matrix_cells_count_check" CHECK ("question_count" > 0),
+	CONSTRAINT "exam_matrix_cells_score_check" CHECK ("cell_score" > 0)
+);
+--> statement-breakpoint
 CREATE TABLE "quiz_attempts" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -960,13 +1000,16 @@ CREATE TABLE "quiz_slots" (
 	"page" integer DEFAULT 1 NOT NULL,
 	"question_id" uuid,
 	"category_id" uuid,
+	"matrix_cell_id" uuid,
+	"cluster_id" uuid,
 	"max_mark" double precision DEFAULT 1 NOT NULL,
 	"version_mode" text DEFAULT 'follow_latest' NOT NULL,
 	"pinned_version_id" uuid,
 	"pinned_version_number" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_slots_quiz_slot_unique" UNIQUE("quiz_id","slot")
+	CONSTRAINT "quiz_slots_quiz_slot_unique" UNIQUE("quiz_id","slot"),
+	CONSTRAINT "quiz_slots_source_rule" CHECK (("question_id" is not null or "category_id" is not null or "matrix_cell_id" is not null) and not ("category_id" is not null and ("question_id" is not null or "matrix_cell_id" is not null)))
 );
 --> statement-breakpoint
 CREATE TABLE "quizzes" (
@@ -993,6 +1036,8 @@ CREATE TABLE "quizzes" (
 	"review_general_feedback" integer DEFAULT 4368 NOT NULL,
 	"review_right_answer" integer DEFAULT 272 NOT NULL,
 	"review_overall_feedback" integer DEFAULT 4368 NOT NULL,
+	"matrix_id" uuid,
+	"tf_scale" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -2164,6 +2209,9 @@ CREATE INDEX "question_versions_question_id_idx" ON "question_versions" ("questi
 CREATE INDEX "question_versions_stimulus_id_idx" ON "question_versions" ("stimulus_id");--> statement-breakpoint
 CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statement-breakpoint
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
+CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> statement-breakpoint
+CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_cells_matrix_idx" ON "exam_matrix_cells" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
@@ -2174,6 +2222,8 @@ CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> state
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
+CREATE INDEX "quiz_slots_matrix_cell_id_idx" ON "quiz_slots" ("matrix_cell_id");--> statement-breakpoint
+CREATE INDEX "quiz_slots_cluster_id_idx" ON "quiz_slots" ("cluster_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
@@ -2431,6 +2481,10 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_1NDKL1LfCtcc_f
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_stimuli_id_fkey" FOREIGN KEY ("stimulus_id") REFERENCES "stimuli"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
@@ -2443,7 +2497,9 @@ ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_group_id_course_grou
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey" FOREIGN KEY ("matrix_cell_id") REFERENCES "exam_matrix_cells"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2466,6 +2522,9 @@ ALTER TABLE "course_module_progress" ADD CONSTRAINT "course_module_progress_cm_i
 ALTER TABLE "pages" ADD CONSTRAINT "pages_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "resources" ADD CONSTRAINT "resources_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "resources" ADD CONSTRAINT "resources_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE SET NULL;--> statement-breakpoint
+========
+ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/migration.sql
 ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint

@@ -5,6 +5,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -13,8 +14,77 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
+import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
 import { question, questionCategories, questionUsages } from '../questions/schema';
+
+/**
+ * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
+ * lưu trữ, tái sử dụng — neo theo Chương trình GDPT 2018 (môn + chương
+ * trình), KHÔNG neo SGK. preset_kind: 'cv7991_periodic' (kiểm tra định
+ * kỳ theo CV 7991) | 'qd764_graduation' (tốt nghiệp theo QĐ 764) |
+ * 'custom'. target_*_percents là tỉ lệ % ĐIỂM mục tiêu CHỤP lúc tạo từ
+ * preset (sửa preset về sau không đổi ma trận đã tạo); lệch tỉ lệ chỉ
+ * CẢNH BÁO, không khoá cứng. level_set: 'three' (Biết/Hiểu/Vận dụng)
+ * hoặc 'four' (thêm Vận dụng cao). scope_outcome_ids: phạm vi đã dạy
+ * cắt từ tầng ánh xạ SGK — khi đặt, ma trận chỉ thêm ô cho outcome
+ * trong phạm vi. context_id là context của môn (neo quyền như
+ * curriculum). Đây là nền cho "ngân hàng ma trận" về sau.
+ */
+export const examMatrices = pgTable('exam_matrices', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  curriculumId: uuid('curriculum_id').notNull().references(() => curricula.id, { onDelete: 'cascade' }),
+  contextId: uuid('context_id').notNull(),
+  presetKind: text('preset_kind').notNull().default('custom'),
+  targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
+  targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
+  levelSet: text('level_set').notNull().default('three'),
+  scopeNote: text('scope_note'),
+  scopeOutcomeIds: jsonb('scope_outcome_ids').$type<string[]>(),
+  totalScore: doublePrecision('total_score').notNull().default(10),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_matrices_subject_idx').on(table.subjectId),
+      index('exam_matrices_curriculum_idx').on(table.curriculumId),
+      check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic', 'qd764_graduation', 'custom')`),
+      check('exam_matrices_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
+  ]);
+
+/**
+ * Một ô của ma trận = YCCĐ × mức nhận thức × dạng câu (mục C.1). Riêng
+ * truefalse, question_count là số CHÙM (mỗi chùm 4 câu quanh một
+ * stimulus, xem C.4). cell_score là tổng điểm của ô; điểm mỗi câu =
+ * cell_score / question_count (riêng chùm: điểm chùm = cell_score /
+ * số chùm, mỗi câu con mang điểm danh nghĩa = điểm chùm / 4). tf_scale
+ * là thang Đ–S riêng của ô; null = thang của quiz/mặc định.
+ */
+export const examMatrixCells = pgTable('exam_matrix_cells', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
+  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  cognitiveLevel: text('cognitive_level').notNull(),
+  qtype: text('qtype').notNull(),
+  questionCount: integer('question_count').notNull(),
+  cellScore: doublePrecision('cell_score').notNull(),
+  minutes: integer('minutes'),
+  tfScale: jsonb('tf_scale').$type<number[]>(),
+  position: integer('position').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_matrix_cells_matrix_idx').on(table.matrixId),
+      unique('exam_matrix_cells_unique').on(table.matrixId, table.learningOutcomeId, table.cognitiveLevel, table.qtype),
+      check('exam_matrix_cells_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
+      check('exam_matrix_cells_qtype_check', sql`${table.qtype} in ('multichoice', 'truefalse', 'shortanswer', 'essay')`),
+      check('exam_matrix_cells_count_check', sql`${table.questionCount} > 0`),
+      check('exam_matrix_cells_score_check', sql`${table.cellScore} > 0`),
+  ]);
 
 /**
  * Hoạt động Quiz trong khoá học (Moodle `quiz`): instance của một course
@@ -59,6 +129,10 @@ export const quizzes = pgTable('quizzes', {
   reviewGeneralFeedback: integer('review_general_feedback').notNull().default(4368),
   reviewRightAnswer: integer('review_right_answer').notNull().default(272),
   reviewOverallFeedback: integer('review_overall_feedback').notNull().default(4368),
+  /** Ma trận nguồn khi đề được sinh từ ma trận (Chặng 3); null với đề dựng tay. */
+  matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
+  /** Thang chấm Đ–S chùm (mảng 5 tỉ lệ % cho 0..4 ý đúng); null = mặc định QĐ 764 [0,10,25,50,100]. */
+  tfScale: jsonb('tf_scale').$type<number[]>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -106,6 +180,15 @@ export const quizOverrides = pgTable('quiz_overrides', {
  * hai đề khác nhau có thể mang hai max_mark khác nhau. page là trang hiển
  * thị của slot khi làm bài (Moodle quiz_slots.page).
  */
+/**
+ * Một vị trí câu trong đề. Đúng MỘT trong ba nguồn (ràng buộc check):
+ * question_id (câu cố định), category_id (rút ngẫu nhiên theo category)
+ * hoặc matrix_cell_id (nguồn ô ma trận — Chặng 3: đề cố định thì
+ * question_id được điền kèm lúc generate; đề per_student chỉ giữ
+ * matrix_cell_id và câu được rút lúc bắt đầu từng lượt). cluster_id
+ * gom 4 slot truefalse của cùng một chùm Đ–S (cùng stimulus): điểm của
+ * chùm tính theo thang lũy tiến ở tầng quiz, không cộng tuyến tính.
+ */
 export const quizSlots = pgTable(
   'quiz_slots',
   {
@@ -115,6 +198,8 @@ export const quizSlots = pgTable(
     page: integer('page').notNull().default(1),
     questionId: uuid('question_id').references(() => question.id, { onDelete: 'cascade' }),
     categoryId: uuid('category_id').references(() => questionCategories.id, { onDelete: 'cascade' }),
+    matrixCellId: uuid('matrix_cell_id').references(() => examMatrixCells.id, { onDelete: 'cascade' }),
+    clusterId: uuid('cluster_id'),
     maxMark: doublePrecision('max_mark').notNull().default(1),
     /**
      * Kỷ luật version của slot (feat Ngân hàng câu hỏi chung, QB-3):
@@ -131,7 +216,12 @@ export const quizSlots = pgTable(
   },
   (table) => [
       index('quiz_slots_question_id_idx').on(table.questionId),
-      index('quiz_slots_category_id_idx').on(table.categoryId),unique('quiz_slots_quiz_slot_unique').on(table.quizId, table.slot)],
+      index('quiz_slots_category_id_idx').on(table.categoryId),
+      index('quiz_slots_matrix_cell_id_idx').on(table.matrixCellId),
+      index('quiz_slots_cluster_id_idx').on(table.clusterId),
+      unique('quiz_slots_quiz_slot_unique').on(table.quizId, table.slot),
+      check('quiz_slots_source_rule', sql`(${table.questionId} is not null or ${table.categoryId} is not null or ${table.matrixCellId} is not null) and not (${table.categoryId} is not null and (${table.questionId} is not null or ${table.matrixCellId} is not null))`),
+  ],
 );
 
 /**

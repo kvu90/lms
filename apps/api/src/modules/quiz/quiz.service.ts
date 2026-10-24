@@ -1,19 +1,21 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
+import { CurriculumService } from '../curriculum/curriculum.service';
 import { GradesService } from '../grades/grades.service';
 import { GroupsService } from '../groups/groups.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import { QuestionsService, type UsageView } from '../questions/questions.service';
+import { QuestionsService, type QuestionView, type UsageView } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import type { CreateQuizOverrideDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
+import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateQuizOverrideDto, GenerateFromMatrixDto, SwapQuizSlotDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
+import { effectiveTfScale, isValidTfScale, MATRIX_PRESETS, matrixWarnings } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
-import { QuizRepository, type QuizAttemptRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
+import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type QuizAttemptRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
@@ -21,6 +23,8 @@ export const QUIZ_CAPABILITIES = {
   attempt: 'quiz:attempt',
   manage: 'quiz:manage',
   manageOverrides: 'quiz:manageoverrides',
+  viewMatrix: 'quiz:viewmatrix',
+  manageMatrix: 'quiz:managematrix',
   grade: 'quiz:grade',
   viewReports: 'quiz:viewreports',
   preview: 'quiz:preview',
@@ -176,6 +180,7 @@ export class QuizService {
     private readonly users: UsersService,
     private readonly passwords: PasswordService,
     private readonly groups: GroupsService,
+    private readonly curriculum: CurriculumService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -224,6 +229,7 @@ export class QuizService {
       const base = {
         id: s.id, quizId: s.quizId, slot: s.slot, page: s.page,
         questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
+        matrixCellId: s.matrixCellId, clusterId: s.clusterId,
         versionMode: null as 'pinned' | 'follow_latest' | null,
         pinnedVersion: null as number | null,
         latestVersion: null as number | null,
@@ -273,6 +279,8 @@ export class QuizService {
       reviewGeneralFeedback: quiz.reviewGeneralFeedback,
       reviewRightAnswer: quiz.reviewRightAnswer,
       reviewOverallFeedback: quiz.reviewOverallFeedback,
+      matrixId: quiz.matrixId,
+      tfScale: quiz.tfScale,
       slots: slotViews,
       sumGrades: slots.reduce((sum, s) => sum + s.maxMark, 0),
     };
@@ -330,6 +338,13 @@ export class QuizService {
     return this.passwords.hash(password);
   }
 
+  /** Kiểm tra thang Đ–S khi lưu (đúng 5 mức, đơn điệu không giảm, cuối = 100) — thang sai là lỗi soạn đề, chặn ở biên. */
+  private assertValidTfScale(scale: number[] | null | undefined): void {
+    if (scale !== undefined && scale !== null && !isValidTfScale(scale)) {
+      throw new BadRequestException({ message: 'tfScale must be 5 percentages (0..100), non-decreasing, ending at 100', code: 'quiz.tf_scale_invalid' });
+    }
+  }
+
   /**
    * Tạo quiz: bản ghi quiz + course module (component mod_quiz, completion
    * tự động theo điểm) + grade item 'mod' mang thang điểm của bài. Quyền
@@ -345,6 +360,7 @@ export class QuizService {
     reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
+    tfScale?: number[] | null;
   }): Promise<QuizView> {
     await this.courses.getCourse(courseId);
     const timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
@@ -353,6 +369,7 @@ export class QuizService {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
     this.assertValidSubnet(input.subnet);
+    this.assertValidTfScale(input.tfScale);
     const quiz = await this.repo.insertQuiz({
       course: courseId, cmId: null, name: input.name, intro: input.intro ?? '',
       timeOpen, timeClose, timeLimit: input.timeLimitSeconds ?? null,
@@ -364,6 +381,7 @@ export class QuizService {
       subnet: input.subnet ?? null,
       delay1: input.delay1Seconds ?? null,
       delay2: input.delay2Seconds ?? null,
+      tfScale: input.tfScale ?? null,
       ...(input.reviewAttempt !== undefined ? { reviewAttempt: input.reviewAttempt } : {}),
       ...(input.reviewCorrectness !== undefined ? { reviewCorrectness: input.reviewCorrectness } : {}),
       ...(input.reviewMarks !== undefined ? { reviewMarks: input.reviewMarks } : {}),
@@ -403,10 +421,12 @@ export class QuizService {
     reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
+    tfScale?: number[] | null;
   }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     this.assertValidSubnet(input.subnet);
+    this.assertValidTfScale(input.tfScale);
     const patch: Partial<QuizRow> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.intro !== undefined) patch.intro = input.intro;
@@ -428,6 +448,7 @@ export class QuizService {
     if (input.reviewGeneralFeedback !== undefined) patch.reviewGeneralFeedback = input.reviewGeneralFeedback;
     if (input.reviewRightAnswer !== undefined) patch.reviewRightAnswer = input.reviewRightAnswer;
     if (input.reviewOverallFeedback !== undefined) patch.reviewOverallFeedback = input.reviewOverallFeedback;
+    if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
     const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : quiz.timeOpen;
     const nextClose = patch.timeClose !== undefined ? patch.timeClose : quiz.timeClose;
     if (nextOpen && nextClose && nextClose <= nextOpen) {
@@ -751,6 +772,263 @@ export class QuizService {
     const row = await this.getOverrideRow(quiz, overrideId);
     await this.repo.deleteOverride(row.id);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_deleted', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+  }
+
+  // --- ma trận đề (Chặng 3) ---------------------------------------------------------
+
+  private async getMatrixRow(id: string): Promise<ExamMatrixRow> {
+    const row = await this.repo.getMatrix(id);
+    if (!row) throw new NotFoundException({ message: `Exam matrix ${id} not found`, code: 'quiz.matrix_not_found' });
+    return row;
+  }
+  private async requireMatrixCap(actorId: string, matrix: ExamMatrixRow, capability: string): Promise<void> {
+    await this.evaluator.requireCapability(actorId, capability, matrix.contextId);
+  }
+  private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
+    return {
+      id: row.id, matrixId: row.matrixId, learningOutcomeId: row.learningOutcomeId,
+      cognitiveLevel: row.cognitiveLevel as ExamMatrixCellView['cognitiveLevel'],
+      qtype: row.qtype as ExamMatrixCellView['qtype'],
+      questionCount: row.questionCount, cellScore: row.cellScore,
+      minutes: row.minutes, tfScale: row.tfScale, position: row.position,
+    };
+  }
+  private async matrixView(row: ExamMatrixRow): Promise<ExamMatrixView> {
+    const cells = await this.repo.listMatrixCells(row.id);
+    return {
+      id: row.id, name: row.name, subjectId: row.subjectId, curriculumId: row.curriculumId,
+      contextId: row.contextId,
+      presetKind: row.presetKind as ExamMatrixView['presetKind'],
+      targetFormPercents: row.targetFormPercents, targetLevelPercents: row.targetLevelPercents,
+      levelSet: row.levelSet as ExamMatrixView['levelSet'],
+      scopeNote: row.scopeNote, scopeOutcomeIds: row.scopeOutcomeIds,
+      totalScore: row.totalScore, createdBy: row.createdBy,
+      cells: cells.map((c) => this.matrixCellView(c)),
+      warnings: matrixWarnings({
+        cells, targetFormPercents: row.targetFormPercents,
+        targetLevelPercents: row.targetLevelPercents, totalScore: row.totalScore,
+      }),
+    };
+  }
+
+  /**
+   * Tạo ma trận (quiz:managematrix tại context của môn): tỉ lệ mục tiêu
+   * không được cho thì CHỤP từ preset tại lúc tạo — về sau preset có đổi
+   * thì ma trận đã tạo không đổi theo.
+   */
+  async createMatrix(actorId: string, input: CreateExamMatrixDto): Promise<ExamMatrixView> {
+    const subject = await this.curriculum.getSubject(actorId, input.subjectId);
+    const curriculum = await this.curriculum.getCurriculum(actorId, input.curriculumId);
+    if (curriculum.subjectId !== subject.id) {
+      throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
+    }
+    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
+    const presetKind = input.presetKind ?? 'custom';
+    const preset = presetKind === 'custom' ? undefined : MATRIX_PRESETS[presetKind];
+    const row = await this.repo.insertMatrix({
+      name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+      contextId: subject.contextId, presetKind,
+      targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
+      targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
+      levelSet: input.levelSet ?? 'three',
+      scopeNote: input.scopeNote ?? null,
+      scopeOutcomeIds: input.scopeOutcomeIds ?? null,
+      totalScore: input.totalScore ?? 10,
+      createdBy: actorId,
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
+    return this.matrixView(row);
+  }
+
+  /** Đọc một ma trận kèm ô và cảnh báo lệch tỉ lệ (quiz:viewmatrix). */
+  async getMatrix(actorId: string, matrixId: string): Promise<ExamMatrixView> {
+    const row = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.viewMatrix);
+    return this.matrixView(row);
+  }
+
+  /** Các ma trận của một môn (quiz:viewmatrix tại context của môn). */
+  async listMatrices(actorId: string, subjectId: string): Promise<ExamMatrixView[]> {
+    const subject = await this.curriculum.getSubject(actorId, subjectId);
+    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.viewMatrix, subject.contextId);
+    const rows = await this.repo.listMatricesBySubject(subject.id);
+    const out: ExamMatrixView[] = [];
+    for (const r of rows) out.push(await this.matrixView(r));
+    return out;
+  }
+
+  /** Sửa ma trận (quiz:managematrix); thu hẹp bộ mức khi đã có ô dùng mức bị loại thì bị từ chối. */
+  async updateMatrix(actorId: string, matrixId: string, input: UpdateExamMatrixDto): Promise<ExamMatrixView> {
+    const row = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    if (input.levelSet === 'three' && row.levelSet !== 'three') {
+      const cells = await this.repo.listMatrixCells(row.id);
+      if (cells.some((c) => c.cognitiveLevel === 'van_dung_cao')) {
+        throw new BadRequestException({ message: 'Cells already use van_dung_cao; remove them before switching to the three-level set', code: 'quiz.matrix_level_in_use' });
+      }
+    }
+    const patch: Partial<ExamMatrixRow> = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.presetKind !== undefined) patch.presetKind = input.presetKind;
+    if (input.targetFormPercents !== undefined) patch.targetFormPercents = input.targetFormPercents;
+    if (input.targetLevelPercents !== undefined) patch.targetLevelPercents = input.targetLevelPercents;
+    if (input.levelSet !== undefined) patch.levelSet = input.levelSet;
+    if (input.scopeNote !== undefined) patch.scopeNote = input.scopeNote;
+    if (input.scopeOutcomeIds !== undefined) patch.scopeOutcomeIds = input.scopeOutcomeIds;
+    if (input.totalScore !== undefined) patch.totalScore = input.totalScore;
+    if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_updated', payload: { matrixId: row.id, actorId } });
+    return this.matrixView(await this.getMatrixRow(matrixId));
+  }
+
+  /** Xoá ma trận (quiz:managematrix); đề đã sinh từ ma trận giữ nguyên, chỉ mất vết matrix_id (FK set null). */
+  async deleteMatrix(actorId: string, matrixId: string): Promise<void> {
+    const row = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    await this.repo.deleteMatrix(row.id);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_deleted', payload: { matrixId: row.id, actorId } });
+  }
+
+  private async getMatrixCellRow(matrix: ExamMatrixRow, cellId: string): Promise<ExamMatrixCellRow> {
+    const row = await this.repo.getMatrixCell(cellId);
+    if (!row || row.matrixId !== matrix.id) {
+      throw new NotFoundException({ message: `Exam matrix cell ${cellId} not found`, code: 'quiz.matrix_cell_not_found' });
+    }
+    return row;
+  }
+
+  /**
+   * Thêm ô vào ma trận (quiz:managematrix): outcome phải thuộc chương
+   * trình của ma trận, mức phải thuộc bộ mức của ma trận, và khi ma
+   * trận có phạm vi đã dạy (scope_outcome_ids) thì outcome phải nằm
+   * trong phạm vi.
+   */
+  async createMatrixCell(actorId: string, matrixId: string, input: CreateExamMatrixCellDto): Promise<ExamMatrixView> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
+    this.assertValidTfScale(input.tfScale);
+    if (matrix.levelSet === 'three' && input.cognitiveLevel === 'van_dung_cao') {
+      throw new BadRequestException({ message: 'van_dung_cao is not part of the three-level set of this matrix', code: 'quiz.matrix_level_not_in_set' });
+    }
+    if (matrix.scopeOutcomeIds && matrix.scopeOutcomeIds.length && !matrix.scopeOutcomeIds.includes(input.learningOutcomeId)) {
+      throw new BadRequestException({ message: 'Outcome is outside the taught scope of this matrix', code: 'quiz.matrix_cell_out_of_scope' });
+    }
+    const outcome = await this.curriculum.getOutcome(actorId, input.learningOutcomeId);
+    const node = await this.curriculum.getNode(actorId, outcome.nodeId);
+    if (node.curriculumId !== matrix.curriculumId) {
+      throw new BadRequestException({ message: 'Outcome does not belong to the curriculum of this matrix', code: 'quiz.matrix_cell_outcome_mismatch' });
+    }
+    const cells = await this.repo.listMatrixCells(matrix.id);
+    if (cells.some((c) => c.learningOutcomeId === input.learningOutcomeId && c.cognitiveLevel === input.cognitiveLevel && c.qtype === input.qtype)) {
+      throw new BadRequestException({ message: 'A cell already exists for this outcome, level and question type', code: 'quiz.matrix_cell_exists' });
+    }
+    const position = input.position ?? (cells.length ? Math.max(...cells.map((c) => c.position)) + 1 : 1);
+    await this.repo.insertMatrixCell({
+      matrixId: matrix.id, learningOutcomeId: input.learningOutcomeId,
+      cognitiveLevel: input.cognitiveLevel, qtype: input.qtype,
+      questionCount: input.questionCount, cellScore: input.cellScore,
+      minutes: input.minutes ?? null, tfScale: input.tfScale ?? null, position,
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_created', payload: { matrixId: matrix.id, actorId } });
+    return this.matrixView(await this.getMatrixRow(matrixId));
+  }
+
+  /** Sửa một ô (quiz:managematrix) — khoá outcome/mức/dạng không đổi qua sửa; muốn đổi thì xoá ô tạo lại. */
+  async updateMatrixCell(actorId: string, matrixId: string, cellId: string, input: UpdateExamMatrixCellDto): Promise<ExamMatrixView> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
+    const cell = await this.getMatrixCellRow(matrix, cellId);
+    this.assertValidTfScale(input.tfScale);
+    const patch: Partial<ExamMatrixCellRow> = {};
+    if (input.questionCount !== undefined) patch.questionCount = input.questionCount;
+    if (input.cellScore !== undefined) patch.cellScore = input.cellScore;
+    if (input.minutes !== undefined) patch.minutes = input.minutes;
+    if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
+    if (input.position !== undefined) patch.position = input.position;
+    if (Object.keys(patch).length) await this.repo.updateMatrixCell(cell.id, patch);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_updated', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
+    return this.matrixView(await this.getMatrixRow(matrixId));
+  }
+
+  /** Xoá một ô khỏi ma trận (quiz:managematrix). */
+  async deleteMatrixCell(actorId: string, matrixId: string, cellId: string): Promise<ExamMatrixView> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
+    const cell = await this.getMatrixCellRow(matrix, cellId);
+    await this.repo.deleteMatrixCell(cell.id);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_deleted', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
+    return this.matrixView(await this.getMatrixRow(matrixId));
+  }
+
+  /**
+   * Ứng viên thô của một ô: câu ready gắn đúng outcome + mức, đúng
+   * dạng (qua question_learning_outcomes / Curriculum Chặng 2). Chưa
+   * xét quyền dùng ngân hàng của người gọi.
+   */
+  private async cellCandidates(cell: ExamMatrixCellRow): Promise<QuestionView[]> {
+    return this.questions.listQuestionsByCurriculumFilter({
+      outcomeId: cell.learningOutcomeId, cognitiveLevel: cell.cognitiveLevel,
+      qtype: cell.qtype, status: 'ready',
+    });
+  }
+
+  /**
+   * Ứng viên một NGƯỜI DÙNG được dùng: ứng viên thô lọc theo quyền
+   * question:useall tại context của category chứa câu (cùng quy tắc
+   * quyền ngân hàng hiện hành).
+   */
+  private async cellCandidatesForUser(actorId: string, cell: ExamMatrixCellRow): Promise<QuestionView[]> {
+    const all = await this.cellCandidates(cell);
+    const out: QuestionView[] = [];
+    const usableByContext = new Map<string, boolean>();
+    for (const view of all) {
+      const category = await this.questions.getCategory(view.entry.questionCategoryId);
+      let usable = usableByContext.get(category.contextId);
+      if (usable === undefined) {
+        usable = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId);
+        usableByContext.set(category.contextId, usable);
+      }
+      if (usable) out.push(view);
+    }
+    return out;
+  }
+
+  /**
+   * Các chùm Đ–S hợp lệ từ danh sách ứng viên truefalse: nhóm theo
+   * stimulus, chỉ giữ nhóm ĐÚNG 4 câu (một chùm = một stimulus + 4 câu
+   * cùng outcome/mức — ứng viên đã lọc sẵn theo outcome/mức của ô).
+   */
+  private tfClustersOf(candidates: QuestionView[]): QuestionView[][] {
+    const byStimulus = new Map<string, QuestionView[]>();
+    for (const view of candidates) {
+      if (!view.stimulus) continue;
+      const list = byStimulus.get(view.stimulus.id) ?? [];
+      list.push(view);
+      byStimulus.set(view.stimulus.id, list);
+    }
+    return [...byStimulus.values()].filter((list) => list.length === 4);
+  }
+
+  /** Số đơn vị khả dụng của một ô cho một người dùng: ô thường đếm câu; ô truefalse đếm CHÙM. */
+  private async cellAvailableCount(actorId: string, cell: ExamMatrixCellRow): Promise<number> {
+    const candidates = await this.cellCandidatesForUser(actorId, cell);
+    return cell.qtype === 'truefalse' ? this.tfClustersOf(candidates).length : candidates.length;
+  }
+
+  /**
+   * Khả dụng ngân hàng theo từng ô cho người gọi (quiz:viewmatrix):
+   * cần / có / thiếu. Generate khoá cứng khi bất kỳ ô nào thiếu.
+   */
+  async matrixAvailability(actorId: string, matrixId: string): Promise<{ matrixId: string; cells: MatrixCellAvailability[]; sufficient: boolean }> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.viewMatrix);
+    const cells = await this.repo.listMatrixCells(matrix.id);
+    const out: MatrixCellAvailability[] = [];
+    for (const cell of cells) {
+      const available = await this.cellAvailableCount(actorId, cell);
+      out.push({ cellId: cell.id, required: cell.questionCount, available, deficit: Math.max(0, cell.questionCount - available) });
+    }
+    return { matrixId: matrix.id, cells: out, sufficient: out.every((c) => c.deficit === 0) };
   }
 
   // --- thông tin cho người xem ---------------------------------------------------

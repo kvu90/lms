@@ -2,13 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { quizAttempts, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
+import { examMatrices, examMatrixCells, quizAttempts, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
 
 export type QuizRow = typeof quizzes.$inferSelect;
 export type QuizSlotRow = typeof quizSlots.$inferSelect;
 export type QuizAttemptRow = typeof quizAttempts.$inferSelect;
 export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
 export type QuizOverrideRow = typeof quizOverrides.$inferSelect;
+export type ExamMatrixRow = typeof examMatrices.$inferSelect;
+export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -163,5 +165,68 @@ export class QuizRepository {
    */
   async deleteOverride(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(quizOverrides).where(eq(quizOverrides.id, id));
+  }
+
+  // --- ma trận đề (Chặng 3) -------------------------------------------------------
+
+  /**
+   * Chèn một ma trận.
+   */
+  async insertMatrix(v: typeof examMatrices.$inferInsert, tx?: DbTx): Promise<ExamMatrixRow> {
+    const [row] = await (tx ?? this.db).insert(examMatrices).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy một ma trận.
+   */
+  async getMatrix(id: string): Promise<ExamMatrixRow | undefined> {
+    const [row] = await this.db.select().from(examMatrices).where(eq(examMatrices.id, id)); return row;
+  }
+  /**
+   * Các ma trận của một môn (mới nhất trước).
+   */
+  async listMatricesBySubject(subjectId: string): Promise<ExamMatrixRow[]> {
+    return this.db.select().from(examMatrices).where(eq(examMatrices.subjectId, subjectId)).orderBy(asc(examMatrices.name));
+  }
+  /**
+   * Cập nhật một ma trận.
+   */
+  async updateMatrix(id: string, patch: Partial<ExamMatrixRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examMatrices).set({ ...patch, updatedAt: new Date() }).where(eq(examMatrices.id, id));
+  }
+  /**
+   * Xoá một ma trận (ô cascade theo FK; quiz đã sinh giữ matrix_id = null theo FK set null).
+   */
+  async deleteMatrix(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(examMatrices).where(eq(examMatrices.id, id));
+  }
+  /**
+   * Chèn một ô ma trận.
+   */
+  async insertMatrixCell(v: typeof examMatrixCells.$inferInsert, tx?: DbTx): Promise<ExamMatrixCellRow> {
+    const [row] = await (tx ?? this.db).insert(examMatrixCells).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy một ô ma trận.
+   */
+  async getMatrixCell(id: string): Promise<ExamMatrixCellRow | undefined> {
+    const [row] = await this.db.select().from(examMatrixCells).where(eq(examMatrixCells.id, id)); return row;
+  }
+  /**
+   * Các ô của một ma trận theo thứ tự hiển thị.
+   */
+  async listMatrixCells(matrixId: string): Promise<ExamMatrixCellRow[]> {
+    return this.db.select().from(examMatrixCells).where(eq(examMatrixCells.matrixId, matrixId)).orderBy(asc(examMatrixCells.position), asc(examMatrixCells.id));
+  }
+  /**
+   * Cập nhật một ô ma trận.
+   */
+  async updateMatrixCell(id: string, patch: Partial<ExamMatrixCellRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examMatrixCells).set({ ...patch, updatedAt: new Date() }).where(eq(examMatrixCells.id, id));
+  }
+  /**
+   * Xoá một ô ma trận.
+   */
+  async deleteMatrixCell(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(examMatrixCells).where(eq(examMatrixCells.id, id));
   }
 }

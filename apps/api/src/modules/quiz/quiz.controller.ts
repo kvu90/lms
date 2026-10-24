@@ -6,10 +6,10 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
 import {
-  addQuizSlotSchema, createQuizOverrideSchema, createQuizSchema, manualGradeQuizSchema, startQuizAttemptSchema,
-  submitQuizResponseSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
-  type AddQuizSlotDto, type CreateQuizDto, type CreateQuizOverrideDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
-  type SubmitQuizResponseDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
+  addQuizSlotSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizOverrideSchema, createQuizSchema, manualGradeQuizSchema, startQuizAttemptSchema,
+  submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
+  type AddQuizSlotDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizOverrideDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
+  type SubmitQuizResponseDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
 } from './dto/quiz.dto';
 
 @ApiTags('quizzes')
@@ -154,6 +154,83 @@ export class QuizzesController {
    */
   async results(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getResults(actor.id, id);
+  }
+}
+
+@ApiTags('exam-matrices')
+@Controller({ path: 'exam-matrices', version: '1' })
+/**
+ * API ma trận đề (Quiz Chặng 3): thực thể lưu trữ neo Chương trình GDPT
+ * 2018, các ô YCCĐ × mức × dạng, kiểm tra khả dụng ngân hàng và (ở
+ * controller quizzes) sinh đề từ ma trận. Đây là nền của ngân hàng ma
+ * trận trong khu vực Ngân hàng hệ thống về sau.
+ */
+export class ExamMatricesController {
+  constructor(private readonly quiz: QuizService) {}
+
+  @Post()
+  /**
+   * POST /exam-matrices — tạo ma trận (tỉ lệ mục tiêu chụp từ preset khi không cho riêng).
+   */
+  async create(@Body({ schema: createExamMatrixSchema }) dto: CreateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.createMatrix(actor.id, dto);
+  }
+  @Get('by-subject/:subjectId')
+  /**
+   * GET /exam-matrices/by-subject/:subjectId — các ma trận của một môn.
+   */
+  async listBySubject(@Param('subjectId', { schema: uuidIdSchema }) subjectId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listMatrices(actor.id, subjectId);
+  }
+  @Get(':id')
+  /**
+   * GET /exam-matrices/:id — một ma trận kèm ô + cảnh báo lệch tỉ lệ.
+   */
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.getMatrix(actor.id, id);
+  }
+  @Patch(':id')
+  /**
+   * PATCH /exam-matrices/:id — sửa ma trận (quiz:managematrix).
+   */
+  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateExamMatrixSchema }) dto: UpdateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.updateMatrix(actor.id, id, dto);
+  }
+  @Delete(':id')
+  /**
+   * DELETE /exam-matrices/:id — xoá ma trận (đề đã sinh không bị xoá theo).
+   */
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.quiz.deleteMatrix(actor.id, id);
+    return { deleted: true };
+  }
+  @Post(':id/cells')
+  /**
+   * POST /exam-matrices/:id/cells — thêm ô YCCĐ × mức × dạng.
+   */
+  async addCell(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createExamMatrixCellSchema }) dto: CreateExamMatrixCellDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.createMatrixCell(actor.id, id, dto);
+  }
+  @Patch(':id/cells/:cellId')
+  /**
+   * PATCH /exam-matrices/:id/cells/:cellId — sửa số câu/điểm/thời gian/thang của ô.
+   */
+  async updateCell(@Param('id', { schema: uuidIdSchema }) id: string, @Param('cellId', { schema: uuidIdSchema }) cellId: string, @Body({ schema: updateExamMatrixCellSchema }) dto: UpdateExamMatrixCellDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.updateMatrixCell(actor.id, id, cellId, dto);
+  }
+  @Delete(':id/cells/:cellId')
+  /**
+   * DELETE /exam-matrices/:id/cells/:cellId — xoá ô khỏi ma trận.
+   */
+  async removeCell(@Param('id', { schema: uuidIdSchema }) id: string, @Param('cellId', { schema: uuidIdSchema }) cellId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.deleteMatrixCell(actor.id, id, cellId);
+  }
+  @Get(':id/availability')
+  /**
+   * GET /exam-matrices/:id/availability — khả dụng ngân hàng theo từng ô (cần/có/thiếu; ô Đ–S đếm theo chùm).
+   */
+  async availability(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.matrixAvailability(actor.id, id);
   }
 }
 

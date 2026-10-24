@@ -4,6 +4,7 @@
   "dialect": "postgres",
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
   "id": "79aa6f2c-c3f9-4051-889a-c41e10c2b126",
 ========
   "id": "634c9744-81eb-4f0f-84d8-9ee6ebbb0ec3",
@@ -11,6 +12,9 @@
 ========
   "id": "e53edcde-7261-4495-9641-7fafda9ac832",
 >>>>>>>> d71ebb2 (feat(questions): Chặng 3 C0 — chế độ đáp án số cho shortanswer (cờ cấu hình, mặc định tắt)):apps/api/drizzle/20261024145314_baseline/snapshot.json
+========
+  "id": "f703d846-e5c1-46b8-9905-97ed3d84b550",
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1462,6 +1466,45 @@
         "n|rel|public.stimuli",
         "n|type|public.stimuli",
         "n|rel|public.stimuli_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|tbl|public.exam_matrices",
+        "n|tbl|public.exam_matrices",
+        "e|tbl|public.exam_matrices",
+        "n|rel|public.exam_matrices",
+        "n|type|public.exam_matrices",
+        "n|rel|public.exam_matrices_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|tbl|public.exam_matrix_cells",
+        "n|tbl|public.exam_matrix_cells",
+        "e|tbl|public.exam_matrix_cells",
+        "n|rel|public.exam_matrix_cells",
+        "n|type|public.exam_matrix_cells",
+        "n|rel|public.exam_matrix_cells_pkey",
+        "n|rel|public.exam_matrix_cells_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -5470,6 +5513,66 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_matrices",
+        "exam_matrices_subject_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_subject_idx",
+        "n|idx|public.exam_matrices_subject_idx",
+        "e|idx|public.exam_matrices_subject_idx",
+        "n|rel|public.exam_matrices_subject_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrices",
+        "exam_matrices_curriculum_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_curriculum_idx",
+        "n|idx|public.exam_matrices_curriculum_idx",
+        "e|idx|public.exam_matrices_curriculum_idx",
+        "n|rel|public.exam_matrices_curriculum_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.curriculum_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_cells",
+        "exam_matrix_cells_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_cells_matrix_idx",
+        "n|idx|public.exam_matrix_cells_matrix_idx",
+        "e|idx|public.exam_matrix_cells_matrix_idx",
+        "n|rel|public.exam_matrix_cells_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "quiz_attempts",
         "quiz_attempts_quiz_id_idx"
       ],
@@ -5599,6 +5702,46 @@
         "n|tbl|public.quiz_slots",
         "n|sch|public",
         "n|col|public.quiz_slots.category_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slots",
+        "quiz_slots_matrix_cell_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_matrix_cell_id_idx",
+        "n|idx|public.quiz_slots_matrix_cell_id_idx",
+        "e|idx|public.quiz_slots_matrix_cell_id_idx",
+        "n|rel|public.quiz_slots_matrix_cell_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.matrix_cell_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slots",
+        "quiz_slots_cluster_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_cluster_id_idx",
+        "n|idx|public.quiz_slots_cluster_id_idx",
+        "e|idx|public.quiz_slots_cluster_id_idx",
+        "n|rel|public.quiz_slots_cluster_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.cluster_id"
       ]
     },
     {
@@ -11004,6 +11147,98 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.exam_matrices.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.exam_matrices.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "e|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|con|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.learning_outcome_id",
+        "n|col|public.learning_outcomes.id",
+        "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "quiz_attempts"
       ],
       "writes": [
@@ -11201,6 +11436,29 @@
       "statementTarget": [
         "table",
         "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "e|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|con|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.quiz_slots.matrix_cell_id",
+        "n|col|public.exam_matrix_cells.id",
+        "e|uniqueness|public.exam_matrix_cells.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "quizzes"
       ],
       "writes": [
@@ -11224,6 +11482,7 @@
       "statementTarget": [
         "table",
         "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
         "assign_annotations"
       ],
       "writes": [
@@ -11723,6 +11982,24 @@
         "n|col|public.resources.file_id",
         "n|col|public.files.id",
         "e|uniqueness|public.files.id"
+========
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       ]
     },
     {
@@ -13460,6 +13737,18 @@
     {
       "schema": "public",
       "name": "stimuli",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_matrices",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_matrix_cells",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -22536,6 +22825,357 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "context_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "preset_kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'custom'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "target_form_percents",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "target_level_percents",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "level_set",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'three'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "scope_note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "scope_outcome_ids",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "total_score",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "learning_outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "cognitive_level",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "qtype",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "question_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "cell_score",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "minutes",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "tf_scale",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "id",
       "type": "uuid",
@@ -22966,6 +23606,32 @@
     {
       "schema": "public",
       "table": "quiz_slots",
+      "name": "matrix_cell_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "cluster_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
       "name": "max_mark",
       "type": "double precision",
       "typeSchema": null,
@@ -23336,6 +24002,32 @@
       "notNull": true,
       "dimensions": 0,
       "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "tf_scale",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -35461,6 +36153,69 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_subject_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_curriculum_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_idx",
       "nameExplicit": true,
@@ -35577,6 +36332,48 @@
       "columns": [
         {
           "value": "category_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_matrix_cell_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_cell_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_cluster_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "cluster_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -40745,6 +41542,74 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "learning_outcome_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_quizzes_id_fkey",
       "nameExplicit": false,
@@ -40880,6 +41745,23 @@
     },
     {
       "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_cell_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrix_cells",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "quizzes",
       "name": "quizzes_course_course_id_fkey",
       "nameExplicit": false,
@@ -40897,6 +41779,7 @@
     },
     {
       "schema": "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_assign_submissions_id_fkey",
       "nameExplicit": false,
@@ -41262,6 +42145,16 @@
       ],
       "schemaTo": "public",
       "tableTo": "files",
+========
+      "table": "quizzes",
+      "name": "quizzes_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       "columnsTo": [
         "id"
       ],
@@ -43013,6 +43906,26 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_pkey",
       "columns": [
@@ -44279,6 +45192,20 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_unique",
+      "nameExplicit": true,
+      "columns": [
+        "matrix_id",
+        "learning_outcome_id",
+        "cognitive_level",
+        "qtype"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_usage_unique",
       "nameExplicit": true,
@@ -44995,21 +45922,72 @@
     {
       "schema": "public",
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
       "table": "course_section_book_item_outcomes",
       "name": "course_section_book_item_outcomes_position_check",
       "value": "\"position\" > 0",
+========
+      "table": "exam_matrices",
+      "name": "exam_matrices_preset_kind_check",
+      "value": "\"preset_kind\" in ('cv7991_periodic', 'qd764_graduation', 'custom')",
       "entityType": "checks"
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_level_set_check",
+      "value": "\"level_set\" in ('three', 'four')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_level_check",
+      "value": "\"cognitive_level\" in ('biet', 'hieu', 'van_dung', 'van_dung_cao')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_qtype_check",
+      "value": "\"qtype\" in ('multichoice', 'truefalse', 'shortanswer', 'essay')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_count_check",
+      "value": "\"question_count\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_score_check",
+      "value": "\"cell_score\" > 0",
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
       "table": "course_section_book_items",
       "name": "course_section_book_items_position_check",
       "value": "\"position\" > 0",
 ========
+========
+>>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       "table": "quiz_overrides",
       "name": "quiz_overrides_exactly_one_target",
       "value": "(\"group_id\" is null) <> (\"user_id\" is null)",
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_source_rule",
+      "value": "(\"question_id\" is not null or \"category_id\" is not null or \"matrix_cell_id\" is not null) and not (\"category_id\" is not null and (\"question_id\" is not null or \"matrix_cell_id\" is not null))",
       "entityType": "checks"
     },
     {

@@ -648,11 +648,18 @@ export type QuizGradeMethod = (typeof QUIZ_GRADE_METHODS)[number];
 export const QUIZ_ATTEMPT_STATES = ['inprogress', 'needsgrading', 'finished'] as const;
 export type QuizAttemptState = (typeof QUIZ_ATTEMPT_STATES)[number];
 
+/** Thang chấm Đ–S chùm: đúng 5 tỉ lệ % cho 0..4 ý đúng, đơn điệu không giảm, phần tử cuối = 100 (tầng nghiệp vụ kiểm tra tính đơn điệu). */
+export const tfScaleSchema = z.array(z.number().min(0).max(100)).length(5);
+export type TfScale = z.infer<typeof tfScaleSchema>;
+
 /**
  * Một slot trong đề quiz (Moodle `quiz_slots`): hoặc câu cố định
- * (`questionId`), hoặc slot ngẫu nhiên rút từ một category (`categoryId`).
- * `maxMark` là điểm của slot TRONG ĐỀ NÀY — nguồn điểm thật duy nhất;
- * `default_mark` của câu trong ngân hàng chỉ là gợi ý lúc thêm slot.
+ * (`questionId`), hoặc slot ngẫu nhiên rút từ một category (`categoryId`),
+ * hoặc nguồn ô ma trận (`matrixCellId` — Chặng 3; đề cố định sinh từ ma
+ * trận mang cả `questionId` lẫn `matrixCellId`). `maxMark` là điểm của
+ * slot TRONG ĐỀ NÀY — nguồn điểm thật duy nhất; `default_mark` của câu
+ * trong ngân hàng chỉ là gợi ý lúc thêm slot. `clusterId` gom 4 slot
+ * của một chùm Đ–S.
  */
 export const quizSlotViewSchema = z.object({
   id: uuidIdSchema,
@@ -661,6 +668,8 @@ export const quizSlotViewSchema = z.object({
   page: z.number().int(),
   questionId: uuidIdSchema.nullable(),
   categoryId: uuidIdSchema.nullable(),
+  matrixCellId: uuidIdSchema.nullable(),
+  clusterId: uuidIdSchema.nullable(),
   maxMark: z.number(),
   /** Kỷ luật version của slot (QB-3): `pinned`/`follow_latest` cho slot cố định, null cho slot ngẫu nhiên. */
   versionMode: z.enum(['pinned', 'follow_latest']).nullable(),
@@ -823,6 +832,134 @@ export const updateQuizOverrideSchema = z.strictObject({
   password: z.string().min(1).nullable().optional(),
 });
 export type UpdateQuizOverride = z.infer<typeof updateQuizOverrideSchema>;
+
+// ---------------------------------------------------------------------------
+// Ma trận đề + bản đặc tả (Quiz Chặng 3, issue #30)
+// ---------------------------------------------------------------------------
+
+/** Bộ mức nhận thức trên cặp câu×YCCĐ (Curriculum Chặng 2): Biết / Hiểu / Vận dụng / Vận dụng cao. */
+export const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
+
+/** Loại preset của ma trận: định kỳ theo CV 7991, tốt nghiệp theo QĐ 764, hoặc tự đặt. */
+export const MATRIX_PRESET_KINDS = ['cv7991_periodic', 'qd764_graduation', 'custom'] as const;
+
+/** Một ô ma trận = YCCĐ × mức × dạng câu (riêng truefalse, `questionCount` là số CHÙM 4 câu). */
+export const examMatrixCellViewSchema = z.object({
+  id: uuidIdSchema,
+  matrixId: uuidIdSchema,
+  learningOutcomeId: uuidIdSchema,
+  cognitiveLevel: z.enum(COGNITIVE_LEVELS),
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+  questionCount: z.number().int(),
+  cellScore: z.number(),
+  minutes: z.number().int().nullable(),
+  tfScale: tfScaleSchema.nullable(),
+  position: z.number().int(),
+});
+export type ExamMatrixCellView = z.infer<typeof examMatrixCellViewSchema>;
+
+/** Ma trận đề: thực thể lưu trữ neo Chương trình GDPT 2018; `warnings` là cảnh báo lệch tỉ lệ (không khoá cứng). */
+export const examMatrixViewSchema = z.object({
+  id: uuidIdSchema,
+  name: z.string(),
+  subjectId: uuidIdSchema,
+  curriculumId: uuidIdSchema,
+  contextId: uuidIdSchema,
+  presetKind: z.enum(MATRIX_PRESET_KINDS),
+  targetFormPercents: z.record(z.string(), z.number()).nullable(),
+  targetLevelPercents: z.record(z.string(), z.number()).nullable(),
+  levelSet: z.enum(['three', 'four']),
+  scopeNote: z.string().nullable(),
+  scopeOutcomeIds: z.array(uuidIdSchema).nullable(),
+  totalScore: z.number(),
+  createdBy: uuidIdSchema.nullable(),
+  cells: z.array(examMatrixCellViewSchema),
+  warnings: z.array(z.string()),
+});
+export type ExamMatrixView = z.infer<typeof examMatrixViewSchema>;
+
+/** Payload tạo ma trận; tỉ lệ mục tiêu không gửi thì chụp từ preset (custom = để trống). */
+export const createExamMatrixSchema = z.strictObject({
+  name: z.string().min(1),
+  subjectId: uuidIdSchema,
+  curriculumId: uuidIdSchema,
+  presetKind: z.enum(MATRIX_PRESET_KINDS).optional(),
+  targetFormPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
+  targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
+  levelSet: z.enum(['three', 'four']).optional(),
+  scopeNote: z.string().nullable().optional(),
+  scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
+  totalScore: z.number().positive().optional(),
+});
+export type CreateExamMatrix = z.infer<typeof createExamMatrixSchema>;
+
+/** Payload sửa ma trận (không đổi môn/chương trình neo). */
+export const updateExamMatrixSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  presetKind: z.enum(MATRIX_PRESET_KINDS).optional(),
+  targetFormPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
+  targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
+  levelSet: z.enum(['three', 'four']).optional(),
+  scopeNote: z.string().nullable().optional(),
+  scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
+  totalScore: z.number().positive().optional(),
+});
+export type UpdateExamMatrix = z.infer<typeof updateExamMatrixSchema>;
+
+/** Payload tạo ô ma trận. */
+export const createExamMatrixCellSchema = z.strictObject({
+  learningOutcomeId: uuidIdSchema,
+  cognitiveLevel: z.enum(COGNITIVE_LEVELS),
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+  questionCount: z.number().int().positive(),
+  cellScore: z.number().positive(),
+  minutes: z.number().int().positive().nullable().optional(),
+  tfScale: tfScaleSchema.nullable().optional(),
+  position: z.number().int().positive().optional(),
+});
+export type CreateExamMatrixCell = z.infer<typeof createExamMatrixCellSchema>;
+
+/** Payload sửa ô ma trận (không đổi khoá outcome/mức/dạng — xoá ô và tạo lại). */
+export const updateExamMatrixCellSchema = z.strictObject({
+  questionCount: z.number().int().positive().optional(),
+  cellScore: z.number().positive().optional(),
+  minutes: z.number().int().positive().nullable().optional(),
+  tfScale: tfScaleSchema.nullable().optional(),
+  position: z.number().int().positive().optional(),
+});
+export type UpdateExamMatrixCell = z.infer<typeof updateExamMatrixCellSchema>;
+
+/** Khả dụng ngân hàng cho một ô: cần bao nhiêu, có bao nhiêu (ô truefalse đếm theo CHÙM), thiếu bao nhiêu. */
+export const matrixCellAvailabilitySchema = z.object({
+  cellId: uuidIdSchema,
+  required: z.number().int(),
+  available: z.number().int(),
+  deficit: z.number().int(),
+});
+export type MatrixCellAvailability = z.infer<typeof matrixCellAvailabilitySchema>;
+
+/** Payload sinh đề từ ma trận: `fixed` = một bộ câu chung; `per_student` = mỗi học sinh rút theo ô lúc bắt đầu lượt. */
+export const generateFromMatrixSchema = z.strictObject({
+  courseId: uuidIdSchema,
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  drawMode: z.enum(['fixed', 'per_student']),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+});
+export type GenerateFromMatrix = z.infer<typeof generateFromMatrixSchema>;
+
+/** Payload đổi câu của slot: slot cố định đổi `questionId` (ứng viên cùng ô); slot per-student đổi ô nguồn `matrixCellId`. */
+export const swapQuizSlotSchema = z.strictObject({
+  questionId: uuidIdSchema.optional(),
+  matrixCellId: uuidIdSchema.optional(),
+});
+export type SwapQuizSlot = z.infer<typeof swapQuizSlotSchema>;
+
+/** Payload gom/gỡ chùm Đ–S cho đề dựng tay: đúng 4 slot truefalse cùng một stimulus khi gom. */
+export const clusterQuizSlotsSchema = z.strictObject({
+  slotIds: z.array(uuidIdSchema).min(1),
+});
+export type ClusterQuizSlots = z.infer<typeof clusterQuizSlotsSchema>;
 
 /** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). `versionMode` (QB-3): bỏ trống thì câu từ bank tổ/trường mặc định `pinned`, còn lại `follow_latest`. */
 export const addQuizSlotSchema = z.strictObject({
