@@ -12,7 +12,7 @@ import { RolesService } from './roles.service';
 @Controller({ path: 'access', version: '1' })
 /**
  * API quản trị phân quyền: context, role, capability, gán role và kiểm tra quyền.
- * Mọi endpoint đều qua PermissionEvaluator với capability moodle/role:* tại context hệ thống.
+ * Mọi endpoint đều qua PermissionEvaluator với capability role:* tại context hệ thống.
  */
 export class AccessController {
   constructor(
