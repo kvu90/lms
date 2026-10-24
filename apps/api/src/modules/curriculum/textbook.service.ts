@@ -54,10 +54,6 @@ interface TreeIndex {
   nextPosByParent: Map<string, number>;
 }
 
-function chapterKey(record: TextbookRecord): string {
-  return `${record.volume}|${record.chapterNumber}|${record.chapter}`;
-}
-
 @Injectable()
 /**
  * Tầng SGK "Kết nối tri thức với cuộc sống" (K0b): nạp dataset sách đã
