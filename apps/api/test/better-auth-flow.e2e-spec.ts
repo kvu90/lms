@@ -20,6 +20,11 @@ import type { CredentialBridgeService } from '../src/modules/auth/better-auth/cr
  * của điểm nối tiếp 2.1 (issue #7): gọi linkExistingPasswordHash đồng
  * thời hai lần chỉ sinh đúng một dòng credential, và lỗi ép tại bước
  * tạo account thì rollback cả dòng user (không để user mồ côi).
+ * Vòng fix sau review của 2.1: internalAdapter dựng trong transaction
+ * không mang database hook của plugin username nên cầu nối tự gác
+ * luật username của plugin — spec có ca username sai định dạng/độ dài
+ * bị từ chối không sinh user, và ca username chữ hoa hợp lệ được lưu
+ * hạ thường, đăng nhập được, trùng thì bị chặn.
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp
  * (ConfigModule validate cấu hình ngay khi module được import), nên các
@@ -114,6 +119,89 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     ).rejects.toThrow(/Password policy violated/);
     const rows = await pg.query('select count(*)::int as n from account a join users u on u.id = a.user_id where u.username = $1', [weakName]);
     expect(rows.rows[0].n).toBe(0);
+  });
+
+  it('rejects a malformed username at the bridge (the plugin username rules run in the bridge)', async () => {
+    // Điểm chặn vòng review của điểm 2.1: internalAdapter dựng trong
+    // transaction KHÔNG mang database hook của plugin username, nên
+    // cầu nối tự validate theo đúng luật plugin. Username chứa khoảng
+    // trắng + ký tự `!` là định dạng mà endpoint đăng nhập username
+    // không bao giờ chấp nhận — để lọt là sinh user không đăng nhập
+    // được. Phải bị từ chối TRƯỚC khi bất kỳ bản ghi nào được ghi.
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-format@example.com',
+        username: 'bad name!',
+        firstName: 'Bad',
+        lastName: 'Format',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username không hợp lệ/);
+    const byEmail = await pg.query('select count(*)::int as n from users where email = $1', [
+      'badname-format@example.com',
+    ]);
+    expect(byEmail.rows[0].n).toBe(0);
+    // Cả hai biên độ dài của plugin (tối thiểu 3, tối đa 30) cũng gác.
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-short@example.com',
+        username: 'ab',
+        firstName: 'Bad',
+        lastName: 'Short',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username quá ngắn/);
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-long@example.com',
+        username: 'a'.repeat(31),
+        firstName: 'Bad',
+        lastName: 'Long',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username quá dài/);
+    const leftovers = await pg.query(
+      "select count(*)::int as n from users where email in ('badname-short@example.com', 'badname-long@example.com')",
+    );
+    expect(leftovers.rows[0].n).toBe(0);
+  });
+
+  it('accepts a valid mixed-case username, stores it lowercased, and blocks duplicates', async () => {
+    const suffix = helpers.uniqueName('case');
+    const mixed = `Ba${suffix}`;
+    const created = await bridge.createUserWithCredential({
+      email: `${suffix}@example.com`,
+      username: mixed,
+      firstName: 'Mixed',
+      lastName: 'Case',
+      password: FLOW_PASSWORD,
+    });
+    // Chuẩn hoá hạ thường của plugin vẫn áp ở tầng schema field.
+    const rows = await pg.query('select username from users where id = $1', [created.id]);
+    expect(rows.rows[0].username).toBe(mixed.toLowerCase());
+    // User tạo qua cầu nối phải đăng nhập được bằng username đã
+    // chuẩn hoá — tiêu chí mà điểm chặn của vòng review bảo vệ.
+    const res = await http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ username: mixed.toLowerCase(), password: FLOW_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe(mixed.toLowerCase());
+    // Trùng username bị chặn kể cả khi khác hoa/thường (hook của
+    // plugin so trên dạng đã hạ thường; tầng DB còn UNIQUE gác cuối).
+    await expect(
+      bridge.createUserWithCredential({
+        email: `dup-${suffix}@example.com`,
+        username: mixed.toUpperCase(),
+        firstName: 'Dup',
+        lastName: 'Case',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username đã được sử dụng/);
+    const count = await pg.query('select count(*)::int as n from users where username = $1', [
+      mixed.toLowerCase(),
+    ]);
+    expect(count.rows[0].n).toBe(1);
   });
 
   it('sign-in with a wrong password is refused', async () => {

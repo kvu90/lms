@@ -18,6 +18,16 @@ export interface CreateUserWithCredentialInput {
 }
 
 /**
+ * Luật username của plugin username chính chủ (Better Auth 1.7.12).
+ * Factory của dự án chỉ đặt `displayUsername: false` nên cả ba giá trị
+ * đều là mặc định của plugin: dài tối thiểu 3, tối đa 30, chỉ gồm chữ
+ * cái, chữ số, `_` và `.` (hàm `defaultUsernameValidator` của plugin).
+ */
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 30;
+const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
+
+/**
  * Cầu nối credential giữa kho tài khoản nghiệp vụ (`users`) và Better
  * Auth (issue #7). Ba phép toán nền mà Giai đoạn 2 sẽ dùng ở mọi điểm
  * đồng bộ user (admin tạo user, seed lại tại cutover, login-as):
@@ -43,7 +53,46 @@ export class CredentialBridgeService {
     @InjectDrizzle() private readonly db: Database,
   ) {}
 
+  /**
+   * Tự thực thi phần hiệu lực của database hook `user.create.before`
+   * của plugin username — phần bị rơi khi dựng internalAdapter trong
+   * transaction (xem ghi chú tại `createUserWithCredential`). Cùng thứ
+   * tự kiểm của plugin: quá ngắn → quá dài → sai định dạng → trùng.
+   * Kiểm trùng chạy trên username ĐÃ HẠ THƯỜNG (dạng chuẩn hoá mà
+   * plugin lưu); UNIQUE trên `users.username` vẫn là vòng gác cuối
+   * cho các lời gọi đồng thời lọt qua tiền kiểm này.
+   */
+  private async assertUsernameAllowed(username: string): Promise<void> {
+    if (username.length < USERNAME_MIN_LENGTH) {
+      throw new Error(
+        `username quá ngắn: tối thiểu ${USERNAME_MIN_LENGTH} ký tự theo luật plugin username của Better Auth`,
+      );
+    }
+    if (username.length > USERNAME_MAX_LENGTH) {
+      throw new Error(
+        `username quá dài: tối đa ${USERNAME_MAX_LENGTH} ký tự theo luật plugin username của Better Auth`,
+      );
+    }
+    if (!USERNAME_PATTERN.test(username)) {
+      throw new Error(
+        'username không hợp lệ: chỉ chấp nhận chữ cái, chữ số, dấu "_" và "." theo luật plugin username của Better Auth',
+      );
+    }
+    const [existing] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, username.toLowerCase()))
+      .limit(1);
+    if (existing) {
+      throw new Error(`username đã được sử dụng: "${username.toLowerCase()}" đã tồn tại`);
+    }
+  }
+
   async createUserWithCredential(input: CreateUserWithCredentialInput): Promise<{ id: string }> {
+    // Validate username TRƯỚC mọi lần ghi và trước cả bước băm: đây là
+    // phần hook của plugin username mà đường giao dịch dưới đây không
+    // mang theo (xem ghi chú dài tại khối transaction).
+    await this.assertUsernameAllowed(input.username);
     const auth = this.betterAuth.requireAuth();
     const ctx = await auth.$context;
     // Băm TRƯỚC khi tạo user: chiều hash chạy validatePolicy của dự án,
@@ -57,11 +106,26 @@ export class CredentialBridgeService {
     // đăng nhập được. Adapter Drizzle của instance đã khai
     // `transaction: true` ở factory nên `ctx.adapter.transaction` là
     // transaction PostgreSQL thật; internalAdapter gắn với adapter
-    // giao dịch được dựng bằng chính `createInternalAdapter` của Better
-    // Auth với cùng options/logger/hooks/generateId của context — đúng
-    // cách lõi của nó dựng internalAdapter thường, chỉ khác adapter
-    // nền. Thiếu transaction thật thì ném lỗi ngay thay vì âm thầm quay
-    // về hai lần ghi rời nhau.
+    // giao dịch được dựng bằng chính `createInternalAdapter` của
+    // Better Auth với options/logger/generateId của context.
+    //
+    // NHƯNG nó KHÔNG tương đương internalAdapter thường của lõi ở
+    // phần hooks — điểm chặn do đội đánh giá chỉ ra ở vòng review của
+    // điểm 2.1: lõi gom database hooks từ `init` của mọi plugin (gồm
+    // hook `user.create.before` của plugin username) ở bước
+    // runPluginInit rồi mới truyền cho internalAdapter thường, còn
+    // plugin hooks KHÔNG nằm trong `ctx.options.databaseHooks` (ở
+    // 1.7.12 chúng cũng không lộ ra trên ctx qua API công khai nào)
+    // nên internalAdapter giao dịch ở đây chạy với hooks = [] cộng
+    // hooks tự khai của factory nếu có — dự án không khai hook nào,
+    // tức thực tế là 0 hook. Hệ quả: validator username của plugin
+    // không chạy trên đường này. Cầu nối tự thực thi phần hook đó
+    // TRƯỚC transaction (assertUsernameAllowed ở đầu hàm này: độ dài +
+    // định dạng + trùng theo đúng luật plugin). Phần còn lại của hook
+    // không cần làm lại: chuẩn hoá hạ thường username là transform ở
+    // tầng schema field của plugin, adapter áp cho mọi lần ghi kể cả
+    // qua adapter giao dịch. Thiếu transaction thật thì ném lỗi ngay
+    // thay vì âm thầm quay về hai lần ghi rời nhau.
     const adapterTransaction = ctx.adapter.transaction;
     if (!adapterTransaction) {
       throw new Error(
