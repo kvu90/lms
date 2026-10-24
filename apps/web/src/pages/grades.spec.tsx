@@ -705,10 +705,10 @@ describe('Gradebook administration (teacher of the course)', () => {
     stubTeacherFetch(calls);
     renderAsTeacher();
 
-    // Chờ cả option của mục điểm xuất hiện trong ô chọn (dữ liệu quản trị nạp sau khi xác nhận staff).
-    await screen.findByRole('option', { name: 'Quiz 1' });
-    const itemSelect = screen.getByLabelText('Mục điểm');
-    await userEvent.selectOptions(itemSelect, ITEM.id);
+    // Select của @lms/ui: chờ trigger (nhãn "Mục điểm") xuất hiện cùng dữ liệu
+    // quản trị, bấm mở popup rồi bấm tuỳ chọn "Quiz 1".
+    await userEvent.click(await screen.findByLabelText('Mục điểm'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Quiz 1' }));
     await userEvent.type(fieldById('Học viên (ID người dùng)', 'history-user'), STUDENT_ID);
     await userEvent.click(screen.getByRole('button', { name: 'Xem lịch sử' }));
 
@@ -751,7 +751,8 @@ describe('Gradebook administration (teacher of the course)', () => {
 
     // Gợi ý mặc định theo tên mục: 15 phút → thường xuyên, giữa kỳ → giữa kỳ, cuối kỳ → cuối kỳ.
     await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
-    await userEvent.selectOptions(screen.getByLabelText('Học kỳ'), '2');
+    await userEvent.click(screen.getByLabelText('Học kỳ'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Học kỳ II' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
 
     await waitFor(() =>
@@ -785,7 +786,8 @@ describe('Gradebook administration (teacher of the course)', () => {
 
     await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
     // Giáo viên bỏ gán mục giữa kỳ → ánh xạ không còn hợp lệ, không được gọi API.
-    await userEvent.selectOptions(screen.getByLabelText('Kiểm tra giữa kỳ'), 'none');
+    await userEvent.click(screen.getByLabelText('Kiểm tra giữa kỳ'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Không xuất' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
 
     expect(await screen.findByText(/Cần ít nhất 1 mục thường xuyên/)).toBeInTheDocument();

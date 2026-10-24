@@ -253,13 +253,19 @@ export function DataTable<T extends Record<string, any>>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="overflow-hidden rounded-lg border">
+      {/* §5.4: bảng rộng cuộn ngang TRONG khung của nó; cột đầu dính
+          trái để tên dòng luôn nhìn thấy khi cuộn (sổ điểm, ma trận). */}
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} colSpan={header.colSpan}>
+                {headerGroup.headers.map((header, headerIndex) => (
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className={headerIndex === 0 ? 'sticky left-0 z-20 bg-muted' : undefined}
+                  >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <Button
                         variant="ghost"
@@ -281,8 +287,8 @@ export function DataTable<T extends Record<string, any>>({
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-testid={rowTestId?.(row.original as T)}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                  {row.getVisibleCells().map((cell, cellIndex) => (
+                    <TableCell key={cell.id} className={cellIndex === 0 ? 'sticky left-0 z-10 bg-background' : undefined}>
                       <FlexRender cell={cell} />
                     </TableCell>
                   ))}
