@@ -53,6 +53,7 @@ export const resources = pgTable('resources', {
   (table) => [
       index('resources_course_idx').on(table.course),
       index('resources_cm_id_idx').on(table.cmId),
+      index('resources_file_id_idx').on(table.fileId),
   ]);
 
 /**
@@ -71,6 +72,7 @@ export const courseLastAccess = pgTable('course_last_access', {
   (table) => [
       unique('course_last_access_user_course_unique').on(table.userId, table.courseId),
       index('course_last_access_course_idx').on(table.courseId),
+      index('course_last_access_cm_id_idx').on(table.cmId),
   ]);
 
 /**
@@ -94,6 +96,7 @@ export const courseModuleProgress = pgTable('course_module_progress', {
   (table) => [
       unique('course_module_progress_user_cm_unique').on(table.userId, table.cmId),
       index('course_module_progress_course_idx').on(table.courseId),
+      index('course_module_progress_cm_id_idx').on(table.cmId),
   ]);
 
 /**

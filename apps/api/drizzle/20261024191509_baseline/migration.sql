@@ -1010,6 +1010,61 @@ CREATE TABLE "teacher_comment_bank" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "course_last_access" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"user_id" uuid NOT NULL,
+	"course_id" uuid NOT NULL,
+	"cm_id" uuid NOT NULL,
+	"accessed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "course_last_access_user_course_unique" UNIQUE("user_id","course_id")
+);
+--> statement-breakpoint
+CREATE TABLE "course_module_progress" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"user_id" uuid NOT NULL,
+	"course_id" uuid NOT NULL,
+	"cm_id" uuid NOT NULL,
+	"percent" integer DEFAULT 0 NOT NULL,
+	"position_seconds" integer,
+	"page" integer,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "course_module_progress_user_cm_unique" UNIQUE("user_id","cm_id")
+);
+--> statement-breakpoint
+CREATE TABLE "learning_records" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"user_id" uuid NOT NULL,
+	"course_id" uuid NOT NULL,
+	"cm_id" uuid NOT NULL,
+	"cm_name" text DEFAULT '' NOT NULL,
+	"component" text DEFAULT '' NOT NULL,
+	"completed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "learning_records_user_cm_unique" UNIQUE("user_id","cm_id")
+);
+--> statement-breakpoint
+CREATE TABLE "pages" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course" uuid NOT NULL,
+	"cm_id" uuid,
+	"name" text NOT NULL,
+	"content" text DEFAULT '' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "resources" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course" uuid NOT NULL,
+	"cm_id" uuid,
+	"name" text NOT NULL,
+	"kind" text DEFAULT 'file' NOT NULL,
+	"file_id" uuid,
+	"url" text,
+	"transcript" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "curricula" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"subject_id" uuid NOT NULL,
@@ -1915,6 +1970,16 @@ CREATE INDEX "assign_submissions_user_id_idx" ON "assign_submissions" ("user_id"
 CREATE INDEX "assignments_course_idx" ON "assignments" ("course");--> statement-breakpoint
 CREATE INDEX "assignments_cm_id_idx" ON "assignments" ("cm_id");--> statement-breakpoint
 CREATE INDEX "teacher_comment_bank_owner_id_idx" ON "teacher_comment_bank" ("owner_id");--> statement-breakpoint
+CREATE INDEX "course_last_access_course_idx" ON "course_last_access" ("course_id");--> statement-breakpoint
+CREATE INDEX "course_last_access_cm_id_idx" ON "course_last_access" ("cm_id");--> statement-breakpoint
+CREATE INDEX "course_module_progress_course_idx" ON "course_module_progress" ("course_id");--> statement-breakpoint
+CREATE INDEX "course_module_progress_cm_id_idx" ON "course_module_progress" ("cm_id");--> statement-breakpoint
+CREATE INDEX "learning_records_course_idx" ON "learning_records" ("course_id");--> statement-breakpoint
+CREATE INDEX "pages_course_idx" ON "pages" ("course");--> statement-breakpoint
+CREATE INDEX "pages_cm_id_idx" ON "pages" ("cm_id");--> statement-breakpoint
+CREATE INDEX "resources_course_idx" ON "resources" ("course");--> statement-breakpoint
+CREATE INDEX "resources_cm_id_idx" ON "resources" ("cm_id");--> statement-breakpoint
+CREATE INDEX "resources_file_id_idx" ON "resources" ("file_id");--> statement-breakpoint
 CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_subject_id_idx" ON "curriculum_program_records" ("subject_id");--> statement-breakpoint
@@ -2143,6 +2208,13 @@ ALTER TABLE "assign_submission_files" ADD CONSTRAINT "assign_submission_files_2y
 ALTER TABLE "assign_submission_files" ADD CONSTRAINT "assign_submission_files_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_submissions" ADD CONSTRAINT "assign_submissions_assignment_id_assignments_id_fkey" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assignments" ADD CONSTRAINT "assignments_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_last_access" ADD CONSTRAINT "course_last_access_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_last_access" ADD CONSTRAINT "course_last_access_cm_id_course_modules_id_fkey" FOREIGN KEY ("cm_id") REFERENCES "course_modules"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_module_progress" ADD CONSTRAINT "course_module_progress_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course_module_progress" ADD CONSTRAINT "course_module_progress_cm_id_course_modules_id_fkey" FOREIGN KEY ("cm_id") REFERENCES "course_modules"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "pages" ADD CONSTRAINT "pages_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resources" ADD CONSTRAINT "resources_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "resources" ADD CONSTRAINT "resources_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint
