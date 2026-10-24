@@ -145,6 +145,13 @@ export const gradeItems = pgTable(
     hidden: boolean('hidden').notNull().default(false),
     locked: boolean('locked').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
+    /**
+     * Chính sách công bố điểm của item (PH-0, issue #116 — Canvas Grade
+     * Posting Policy): 'auto' = điểm/lời phê hiện phía học sinh ngay khi
+     * chấm (mặc định, hành vi hiện hữu); 'manual' = ẩn hoàn toàn cho tới
+     * khi giáo viên công bố cho item (vết ở grade_publications).
+     */
+    postingPolicy: text('posting_policy').notNull().default('auto'),
     /** Sổ VN sở hữu cột này (GB-VN-1); null = item gradebook tự do, không thuộc sổ VN nào. */
     vnBookId: uuid('vn_book_id').references(() => vnGradebooks.id, { onDelete: 'set null' }),
     /** Vai trò cột TT 22: dgtx|dggk|dgck (môn điểm số); nx_tx|nx_gk|nx_ck|ktdk|tong_hop dành cho GB-VN-3. */
@@ -347,4 +354,42 @@ export const vnCandidateActions = pgTable('vn_candidate_actions', {
       index('vn_candidate_actions_target_item_id_idx').on(table.targetItemId),
       index('vn_candidate_actions_source_item_id_idx').on(table.sourceItemId),
       index('vn_candidate_actions_user_id_idx').on(table.userId),
+  ]);
+
+
+/**
+ * Vết công bố điểm/lời phê (PH-0, issue #116): bảng append-only — mỗi hàng
+ * là một hành động công bố/rút công bố của giáo viên; trạng thái hiệu lực
+ * của một phạm vi là hành động mới nhất của đúng khoá phạm vi đó.
+ * - scope 'item': công bố điểm của một grade item cho mọi học sinh
+ *   (item_id set, book_id/user_id null) — chỉ có nghĩa khi item đặt
+ *   posting_policy='manual'.
+ * - scope 'vn_term': công bố kết quả học kì của một học sinh trong một sổ
+ *   VN (book_id + user_id set).
+ * - scope 'vn_year': công bố kết quả cả năm của một học sinh trong một
+ *   khoá (course_id + user_id set, book_id null).
+ * Kết quả VN không có chế độ tự động: chưa có hàng 'publish' hiệu lực thì
+ * phía học sinh/phụ huynh không đọc được (finalize của GB-VN-1/2 chỉ là
+ * chốt nội bộ của giáo viên — công bố là bước riêng theo TT 22 Đ.20).
+ */
+export const gradePublications = pgTable('grade_publications', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  /** item | vn_term | vn_year. */
+  scope: text('scope').notNull(),
+  itemId: uuid('item_id').references(() => gradeItems.id, { onDelete: 'cascade' }),
+  bookId: uuid('book_id').references(() => vnGradebooks.id, { onDelete: 'cascade' }),
+  /** Học sinh được công bố (scope vn_term/vn_year); null ở scope item. */
+  userId: uuid('user_id'),
+  /** publish | unpublish. */
+  action: text('action').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('grade_publications_course_id_idx').on(table.courseId),
+      index('grade_publications_item_id_idx').on(table.itemId),
+      index('grade_publications_book_id_idx').on(table.bookId),
+      index('grade_publications_user_id_idx').on(table.userId),
   ]);

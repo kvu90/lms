@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, gradeOutcomes, scales,
+  gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, gradeOutcomes, gradePublications, scales,
   vnActivityMappings, vnCandidateActions, vnGradebooks, vnTermResults,
 } from '../../db/schema';
 
@@ -17,6 +17,7 @@ export type VnBookRow = typeof vnGradebooks.$inferSelect;
 export type VnTermResultRow = typeof vnTermResults.$inferSelect;
 export type VnActivityMappingRow = typeof vnActivityMappings.$inferSelect;
 export type VnCandidateActionRow = typeof vnCandidateActions.$inferSelect;
+export type GradePublicationRow = typeof gradePublications.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -380,5 +381,15 @@ export class GradesRepository {
    */
   async listVnCandidateActions(bookId: string): Promise<VnCandidateActionRow[]> {
     return this.db.select().from(vnCandidateActions).where(eq(vnCandidateActions.bookId, bookId)).orderBy(asc(vnCandidateActions.createdAt), asc(vnCandidateActions.id));
+  }
+
+  // publications (PH-0, issue #116)
+  /** Ghi một hành động công bố/rút công bố (bảng append-only grade_publications). */
+  async insertPublication(v: typeof gradePublications.$inferInsert): Promise<GradePublicationRow> {
+    const [row] = await this.db.insert(gradePublications).values(v).returning(); return row!;
+  }
+  /** Mọi vết công bố của một khoá theo thứ tự thời gian tăng dần — trạng thái hiệu lực suy từ vết mới nhất của từng phạm vi. */
+  async listPublications(courseId: string): Promise<GradePublicationRow[]> {
+    return this.db.select().from(gradePublications).where(eq(gradePublications.courseId, courseId)).orderBy(asc(gradePublications.createdAt), asc(gradePublications.id));
   }
 }

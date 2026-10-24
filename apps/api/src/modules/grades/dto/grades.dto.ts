@@ -4,13 +4,16 @@ import {
   createGradeOutcomeSchema,
   createGradeScaleSchema,
   commitVnCandidateSchema,
+  createGuardianLinkSchema,
   createVnActivityMappingSchema,
   createVnGradebookSchema,
   dismissVnCandidateSchema,
   exportGradesVneduSchema,
   finalizeVnTermResultSchema,
   finalizeVnYearResultSchema,
+  gradePublicationActionSchema,
   setGradeLettersSchema,
+  setGradePostingPolicySchema,
   setGradeSchema,
   setVnCommentResultSchema,
   setVnMakeupStatusSchema,
@@ -23,14 +26,17 @@ import {
   type CreateGradeOutcome,
   type CreateGradeScale,
   type CommitVnCandidate,
+  type CreateGuardianLink,
   type CreateVnActivityMapping,
   type CreateVnGradebook,
   type DismissVnCandidate,
   type ExportGradesVnedu,
   type FinalizeVnTermResult,
   type FinalizeVnYearResult,
+  type GradePublicationAction,
   type SetGrade,
   type SetGradeLetters,
+  type SetGradePostingPolicy,
   type SetVnCommentResult,
   type SetVnMakeupStatus,
   type UpdateGrade,
@@ -49,13 +55,16 @@ export {
   createGradeOutcomeSchema,
   createGradeScaleSchema,
   commitVnCandidateSchema,
+  createGuardianLinkSchema,
   createVnActivityMappingSchema,
   createVnGradebookSchema,
   dismissVnCandidateSchema,
   exportGradesVneduSchema,
   finalizeVnTermResultSchema,
   finalizeVnYearResultSchema,
+  gradePublicationActionSchema,
   setGradeLettersSchema,
+  setGradePostingPolicySchema,
   setGradeSchema,
   setVnCommentResultSchema,
   setVnMakeupStatusSchema,
@@ -80,6 +89,9 @@ export type SetVnMakeupStatusDto = SetVnMakeupStatus;
 export type FinalizeVnTermResultDto = FinalizeVnTermResult;
 export type SetVnCommentResultDto = SetVnCommentResult;
 export type FinalizeVnYearResultDto = FinalizeVnYearResult;
+export type SetGradePostingPolicyDto = SetGradePostingPolicy;
+export type GradePublicationActionDto = GradePublicationAction;
+export type CreateGuardianLinkDto = CreateGuardianLink;
 export type CreateScaleDto = CreateGradeScale;
 export type CreateGradeOutcomeDto = CreateGradeOutcome;
 export type UpdateGradeOutcomeDto = UpdateGradeOutcome;

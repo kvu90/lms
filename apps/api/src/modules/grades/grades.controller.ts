@@ -6,7 +6,7 @@ import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
 import { VnGradebooksService } from './vn-gradebooks.service';
-import { commitVnCandidateSchema, createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnActivityMappingSchema, createVnGradebookSchema, dismissVnCandidateSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, setGradeLettersSchema, setGradeSchema, setVnCommentResultSchema, setVnMakeupStatusSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CommitVnCandidateDto, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnActivityMappingDto, type CreateVnGradebookDto, type DismissVnCandidateDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type SetGradeDto, type SetLettersDto, type SetVnCommentResultDto, type SetVnMakeupStatusDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
+import { commitVnCandidateSchema, createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnActivityMappingSchema, createVnGradebookSchema, dismissVnCandidateSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, gradePublicationActionSchema, setGradeLettersSchema, setGradePostingPolicySchema, setGradeSchema, setVnCommentResultSchema, setVnMakeupStatusSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CommitVnCandidateDto, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnActivityMappingDto, type CreateVnGradebookDto, type DismissVnCandidateDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type GradePublicationActionDto, type SetGradeDto, type SetGradePostingPolicyDto, type SetLettersDto, type SetVnCommentResultDto, type SetVnMakeupStatusDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -90,6 +90,29 @@ export class GradesController {
   async updateGrade(@Param('gradeId', { schema: uuidIdSchema }) gradeId: string, @Body({ schema: updateGradeSchema }) dto: UpdateGradeDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.updateGrade(actor.id, gradeId, dto);
   }
+  @Put('grades/items/:itemId/posting-policy')
+  /**
+   * PUT /courses/grades/items/:itemId/posting-policy — đặt chính sách công bố của item (PH-0): auto | manual.
+   */
+  async setPostingPolicy(@Param('itemId', { schema: uuidIdSchema }) itemId: string, @Body({ schema: setGradePostingPolicySchema }) dto: SetGradePostingPolicyDto, @CurrentUser() actor: AuthenticatedUser) {
+    const item = await this.grades.setItemPostingPolicy(actor.id, itemId, dto.policy);
+    return { itemId: item.id, policy: item.postingPolicy };
+  }
+  @Post('grades/items/:itemId/publish')
+  /**
+   * POST /courses/grades/items/:itemId/publish — công bố điểm của item cho mọi học sinh (ghi vết grade_publications + event_log).
+   */
+  async publishItem(@Param('itemId', { schema: uuidIdSchema }) itemId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.setItemPublication(actor.id, itemId, 'publish', dto.note);
+  }
+  @Post('grades/items/:itemId/unpublish')
+  /**
+   * POST /courses/grades/items/:itemId/unpublish — rút công bố điểm của item (học sinh mất quyền thấy điểm cho tới khi công bố lại).
+   */
+  async unpublishItem(@Param('itemId', { schema: uuidIdSchema }) itemId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.setItemPublication(actor.id, itemId, 'unpublish', dto.note);
+  }
+
   @Get('grades/items/:itemId/users/:userId/history')
   /**
    * GET /courses/grades/items/:itemId/users/:userId/history — lịch sử thay đổi điểm.
@@ -293,6 +316,23 @@ export class VnGradebooksController {
     await this.bookInCourse(courseId, bookId);
     return this.vn.finalizeTermResult(actor.id, bookId, userId, dto.comment);
   }
+  @Post(':courseId/grades/vn-books/:bookId/results/:userId/publish')
+  /**
+   * POST .../results/:userId/publish — công bố kết quả học kì của học sinh trong sổ (PH-0; finalize mới là chốt nội bộ, công bố là bước riêng).
+   */
+  async publishResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.setTermResultPublication(actor.id, bookId, userId, 'publish', dto.note);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/results/:userId/unpublish')
+  /**
+   * POST .../results/:userId/unpublish — rút công bố kết quả học kì của học sinh trong sổ (PH-0).
+   */
+  async unpublishResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.setTermResultPublication(actor.id, bookId, userId, 'unpublish', dto.note);
+  }
+
   @Post(':courseId/grades/vn-books/:bookId/results/:userId/comment-result')
   /**
    * POST .../results/:userId/comment-result — ghi kết quả Đạt/Chưa đạt cho môn chỉ-nhận-xét.
@@ -364,6 +404,21 @@ export class VnGradebooksController {
   async finalizeYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: finalizeVnYearResultSchema }) dto: FinalizeVnYearResultDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.vn.finalizeYearResult(actor.id, courseId, userId, dto.comment);
   }
+  @Post(':courseId/grades/vn-year-results/:userId/publish')
+  /**
+   * POST /courses/:courseId/grades/vn-year-results/:userId/publish — công bố kết quả cả năm của học sinh trong khoá (PH-0).
+   */
+  async publishYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.setYearResultPublication(actor.id, courseId, userId, 'publish', dto.note);
+  }
+  @Post(':courseId/grades/vn-year-results/:userId/unpublish')
+  /**
+   * POST /courses/:courseId/grades/vn-year-results/:userId/unpublish — rút công bố kết quả cả năm của học sinh trong khoá (PH-0).
+   */
+  async unpublishYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: gradePublicationActionSchema }) dto: GradePublicationActionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.setYearResultPublication(actor.id, courseId, userId, 'unpublish', dto.note);
+  }
+
   @Get(':courseId/grades/vn-year-results/:userId')
   /**
    * GET /courses/:courseId/grades/vn-year-results/:userId — bản chốt cả năm mới nhất của học sinh trong khoá.
