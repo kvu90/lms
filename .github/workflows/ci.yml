@@ -15,7 +15,7 @@ jobs:
           POSTGRES_DB: lms_test_api
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U postgres"
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7
@@ -45,6 +45,35 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Wait for PostgreSQL to be truly ready
+        # The postgres image entrypoint boots a temporary, socket-only
+        # server to run initdb/setup before exec'ing the real server, and
+        # a socket-based health check already passes against that
+        # temporary server — so "service healthy" does not mean the
+        # job's TCP connections work yet, and there is a dead window at
+        # the temporary→real handover. That race killed the Migrate step
+        # in ~1s across many unrelated PRs (issue #97). Gate every DB
+        # step on real TCP queries against the actual test database
+        # succeeding continuously for a stability window; any failure
+        # restarts the window, so steps only run once the final server
+        # is up and stays up.
+        run: |
+          deadline=$((SECONDS + 180))
+          stable_since=-1
+          while [ $SECONDS -lt $deadline ]; do
+            if PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -tAc 'SELECT 1' >/dev/null 2>&1; then
+              if [ $stable_since -lt 0 ]; then stable_since=$SECONDS; fi
+              if [ $((SECONDS - stable_since)) -ge 15 ]; then
+                echo "PostgreSQL stable (job time ${SECONDS}s)"
+                exit 0
+              fi
+            else
+              stable_since=-1
+            fi
+            sleep 1
+          done
+          echo "PostgreSQL did not become stable within 180s" >&2
+          exit 1
       - name: Create the worker test database
         run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE lms_test_worker'
       - name: Migrate the test databases from empty
