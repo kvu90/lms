@@ -689,6 +689,21 @@ export const quizViewSchema = z.object({
   gradeMethod: z.enum(QUIZ_GRADE_METHODS),
   grade: z.number(),
   shuffleAnswers: z.boolean(),
+  /** Đề có đặt mật khẩu vào thi hay không (không bao giờ lộ mật khẩu/băm). */
+  hasPassword: z.boolean(),
+  /** Danh sách IP/CIDR được phép (định dạng Moodle `quiz.subnet`), null = không giới hạn. */
+  subnet: z.string().nullable(),
+  /** Độ trễ bắt buộc (giây) sau lượt chốt thứ 1 / từ lượt thứ 3; null = không trễ. */
+  delay1Seconds: z.number().int().nullable(),
+  delay2Seconds: z.number().int().nullable(),
+  /** Bảy bitmask tuỳ chọn xem lại kiểu Moodle (cửa sổ: trong lúc làm / ngay sau nộp / sau đó khi đề mở / sau khi đóng). */
+  reviewAttempt: z.number().int(),
+  reviewCorrectness: z.number().int(),
+  reviewMarks: z.number().int(),
+  reviewSpecificFeedback: z.number().int(),
+  reviewGeneralFeedback: z.number().int(),
+  reviewRightAnswer: z.number().int(),
+  reviewOverallFeedback: z.number().int(),
   slots: z.array(quizSlotViewSchema),
   sumGrades: z.number(),
 });
@@ -711,6 +726,22 @@ export const quizAttemptSummarySchema = z.object({
 });
 export type QuizAttemptSummary = z.infer<typeof quizAttemptSummarySchema>;
 
+/** Các trường quy tắc thi dùng chung cho tạo/sửa quiz (Chặng 2): mật khẩu dạng rõ ở biên API, tầng nghiệp vụ băm trước khi lưu. */
+const quizAccessRuleFields = {
+  /** Mật khẩu vào thi; `null` = gỡ mật khẩu (khi sửa) / không đặt (khi tạo). */
+  password: z.string().min(1).nullable().optional(),
+  subnet: z.string().min(1).nullable().optional(),
+  delay1Seconds: z.number().int().min(0).nullable().optional(),
+  delay2Seconds: z.number().int().min(0).nullable().optional(),
+  reviewAttempt: z.number().int().min(0).optional(),
+  reviewCorrectness: z.number().int().min(0).optional(),
+  reviewMarks: z.number().int().min(0).optional(),
+  reviewSpecificFeedback: z.number().int().min(0).optional(),
+  reviewGeneralFeedback: z.number().int().min(0).optional(),
+  reviewRightAnswer: z.number().int().min(0).optional(),
+  reviewOverallFeedback: z.number().int().min(0).optional(),
+};
+
 /** Payload tạo quiz trong một section của khoá học (kèm course module + grade item ở tầng nghiệp vụ). */
 export const createQuizSchema = z.strictObject({
   sectionId: uuidIdSchema,
@@ -723,6 +754,7 @@ export const createQuizSchema = z.strictObject({
   gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
   grade: z.number().positive().optional(),
   shuffleAnswers: z.boolean().optional(),
+  ...quizAccessRuleFields,
 });
 export type CreateQuiz = z.infer<typeof createQuizSchema>;
 
@@ -737,8 +769,47 @@ export const updateQuizSchema = z.strictObject({
   gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
   grade: z.number().positive().optional(),
   shuffleAnswers: z.boolean().optional(),
+  ...quizAccessRuleFields,
 });
 export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
+
+/** Một ghi đè cài đặt thi (Moodle `quiz_overrides`): đúng một đích — nhóm (`groupId`) hoặc người dùng (`userId`); trường null = kế thừa. */
+export const quizOverrideViewSchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  groupId: uuidIdSchema.nullable(),
+  groupName: z.string().nullable(),
+  userId: uuidIdSchema.nullable(),
+  userName: z.string().nullable(),
+  timeOpen: z.string().nullable(),
+  timeClose: z.string().nullable(),
+  timeLimitSeconds: z.number().int().nullable(),
+  attempts: z.number().int().nullable(),
+  hasPassword: z.boolean(),
+});
+export type QuizOverrideView = z.infer<typeof quizOverrideViewSchema>;
+
+/** Payload tạo ghi đè: đúng một trong `groupId`/`userId` (tầng nghiệp vụ kiểm tra); mật khẩu dạng rõ, băm khi lưu. */
+export const createQuizOverrideSchema = z.strictObject({
+  groupId: uuidIdSchema.optional(),
+  userId: uuidIdSchema.optional(),
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attempts: z.number().int().min(0).nullable().optional(),
+  password: z.string().min(1).nullable().optional(),
+});
+export type CreateQuizOverride = z.infer<typeof createQuizOverrideSchema>;
+
+/** Payload sửa ghi đè (mọi trường tuỳ chọn; `null` ở các trường ghi đè = quay về kế thừa). */
+export const updateQuizOverrideSchema = z.strictObject({
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attempts: z.number().int().min(0).nullable().optional(),
+  password: z.string().min(1).nullable().optional(),
+});
+export type UpdateQuizOverride = z.infer<typeof updateQuizOverrideSchema>;
 
 /** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). `versionMode` (QB-3): bỏ trống thì câu từ bank tổ/trường mặc định `pinned`, còn lại `follow_latest`. */
 export const addQuizSlotSchema = z.strictObject({
@@ -759,9 +830,10 @@ export const updateQuizSlotSchema = z.strictObject({
 });
 export type UpdateQuizSlot = z.infer<typeof updateQuizSlotSchema>;
 
-/** Payload bắt đầu lượt làm quiz; `preview` dành cho giáo viên xem trước đề (không tính lượt, không ghi điểm). */
+/** Payload bắt đầu lượt làm quiz; `preview` dành cho giáo viên xem trước đề (không tính lượt, không ghi điểm); `password` là mật khẩu vào thi khi đề/override yêu cầu. */
 export const startQuizAttemptSchema = z.strictObject({
   preview: z.boolean().optional(),
+  password: z.string().optional(),
 });
 export type StartQuizAttempt = z.infer<typeof startQuizAttemptSchema>;
 

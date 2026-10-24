@@ -1,6 +1,7 @@
 /** Các bảng của bounded context Quiz — định nghĩa Drizzle do module quiz sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -12,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
+import { courseGroups } from '../groups/schema';
 import { question, questionCategories, questionUsages } from '../questions/schema';
 
 /**
@@ -22,6 +24,16 @@ import { question, questionCategories, questionUsages } from '../questions/schem
  * cộng lại rồi quy về thang này khi ghi sổ điểm). attempts_allowed = 0
  * nghĩa là không giới hạn (như Moodle). time_limit tính bằng giây.
  * grade_method: highest | average | first | last (Moodle grademethod).
+ *
+ * Chặng 2 (quy tắc thi, issue #30): password_hash là mật khẩu vào thi
+ * ĐÃ BĂM argon2 (Moodle lưu plaintext — sai lệch có chủ đích vì bảo mật,
+ * xem hồ sơ thiết kế mục B.1); subnet là danh sách IP/CIDR cách nhau dấu
+ * phẩy (định dạng Moodle quiz.subnet); delay1/delay2 là độ trễ bắt buộc
+ * (giây) sau lượt chốt thứ 1 / từ lượt thứ 3 (Moodle quiz.delay1/delay2).
+ * Bảy cột review_* là bitmask tuỳ chọn xem lại của Moodle trên bốn cửa
+ * sổ: DURING=0x10000, IMMEDIATELY_AFTER=0x01000, LATER_WHILE_OPEN=0x00100,
+ * AFTER_CLOSE=0x00010 (hằng số mod_quiz display options); giá trị mặc
+ * định của cột là mặc định của form cài đặt Moodle cho quiz mới.
  */
 export const quizzes = pgTable('quizzes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -36,12 +48,50 @@ export const quizzes = pgTable('quizzes', {
   gradeMethod: text('grade_method').notNull().default('highest'),
   grade: doublePrecision('grade').notNull().default(10),
   shuffleAnswers: boolean('shuffle_answers').notNull().default(false),
+  passwordHash: text('password_hash'),
+  subnet: text('subnet'),
+  delay1: integer('delay1'),
+  delay2: integer('delay2'),
+  reviewAttempt: integer('review_attempt').notNull().default(69904),
+  reviewCorrectness: integer('review_correctness').notNull().default(4368),
+  reviewMarks: integer('review_marks').notNull().default(4368),
+  reviewSpecificFeedback: integer('review_specific_feedback').notNull().default(4368),
+  reviewGeneralFeedback: integer('review_general_feedback').notNull().default(4368),
+  reviewRightAnswer: integer('review_right_answer').notNull().default(272),
+  reviewOverallFeedback: integer('review_overall_feedback').notNull().default(4368),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('quizzes_course_idx').on(table.course),
       index('quizzes_cm_id_idx').on(table.cmId),
+  ]);
+
+/**
+ * Ghi đè cài đặt thi cho một nhóm hoặc một người dùng (Moodle
+ * `quiz_overrides`, Chặng 2 mục B.2): đúng một trong group_id/user_id
+ * khác null; mỗi trường null = kế thừa tầng dưới (nhóm → quiz). Mỗi đích
+ * tối đa một override cho một quiz (partial unique index). user_id theo
+ * quy ước repo không FK cứng (nhất quán quiz_attempts.user_id).
+ */
+export const quizOverrides = pgTable('quiz_overrides', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  groupId: uuid('group_id').references(() => courseGroups.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id'),
+  timeOpen: timestamp('time_open', { withTimezone: true }),
+  timeClose: timestamp('time_close', { withTimezone: true }),
+  timeLimit: integer('time_limit'),
+  attempts: integer('attempts'),
+  passwordHash: text('password_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('quiz_overrides_quiz_idx').on(table.quizId),
+      check('quiz_overrides_exactly_one_target', sql`(${table.groupId} is null) <> (${table.userId} is null)`),
+      unique('quiz_overrides_quiz_group_unique').on(table.quizId, table.groupId),
+      unique('quiz_overrides_quiz_user_unique').on(table.quizId, table.userId),
   ]);
 
 
