@@ -89,7 +89,13 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
       if (n === 0) break;
     }
     expect(published).toBeGreaterThan(0);
-  });
+    // Trần 120s thay vì 60s: beforeAll này dựng app + chạy một chuỗi
+    // dài gọi HTTP tạo user/khoá/ghi điểm + vòng relay; chạy riêng chỉ
+    // mất ~16s nhưng dưới tải full suite (máy 2 CPU, load ~9, các đội
+    // khác chạy suite song song) vẫn chạm trần 60s ở lượt chạy full
+    // suite ngày 24/10/2026, trong khi mọi test đều pass khi đủ thời
+    // gian — đây là trần tải, không phải lỗi logic.
+  }, 120000);
   afterAll(async () => { await app.close(); });
 
   it('course_created is logged with actor, course and resolved course context', async () => {

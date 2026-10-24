@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { QuestionsService } from '../src/modules/questions/questions.service';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 
 /**
@@ -32,12 +33,14 @@ describe('Question types & stimulus', () => {
   let app: INestApplication;
   let admin: string;
   let studentToken: string;
+  let studentId: string;
   let systemCtxId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     const student = await createUserViaApi(app, admin);
+    studentId = student.id;
     studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const ctxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     systemCtxId = (ctxRes.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!.id;
@@ -58,14 +61,17 @@ describe('Question types & stimulus', () => {
 
   /** Chạy trọn một lượt làm cho một câu: usage 1 slot → start → submit → finish; trả attempt đã chốt. */
   async function runAttempt(questionId: string, response: string | null, maxMark?: number): Promise<Record<string, never>> {
-    // Issue #60: usage thuộc về người tạo và chỉ chủ sở hữu mới thao tác
-    // được qua route thô — học sinh tự tạo usage của mình rồi tự làm
-    // (đúng luồng web ngân hàng), thay mẫu cũ "admin tạo, học sinh làm".
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'mod_quiz', slots: [{ questionId, ...(maxMark !== undefined ? { maxMark } : {}) }] });
-    expect(usageRes.status).toBeLessThan(300);
-    const usageId = usageRes.body.usage.id as string;
-    const attemptId = usageRes.body.attempts[0].id as string;
+    // Mẫu dựng sau khi #60 (chủ sở hữu) + #55 (cổng tạo usage qua HTTP
+    // đòi question:useall) cùng có mặt: usage của lượt làm do hoạt động
+    // tạo ở tầng service với actor là chính học sinh — chủ sở hữu là học
+    // sinh nên start/submit/finish qua route thô bình thường; tạo qua
+    // HTTP bằng tài khoản học sinh bị cổng #55 chặn 404 (đúng chủ đích:
+    // usage thô qua HTTP là đường đọc đáp án, chỉ đội ngân hàng dùng).
+    const created = await app.get(QuestionsService).createUsage(studentId, {
+      component: 'mod_quiz', slots: [{ questionId, ...(maxMark !== undefined ? { maxMark } : {}) }],
+    });
+    const usageId = created.usage.id as string;
+    const attemptId = created.attempts[0].id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`).set('Authorization', `Bearer ${studentToken}`);
     if (response !== null) {
       const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`)
@@ -150,12 +156,14 @@ describe('Question types & stimulus', () => {
     for (const q of [q1, q2, q3]) expect(q.status).toBeLessThan(300);
     const ids = [q1, q2, q3].map((q) => (q.body as { question: { id: string } }).question.id);
 
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'mod_quiz', slots: ids.map((questionId) => ({ questionId })) });
-    const usageId = usageRes.body.usage.id as string;
+    // Usage chùm câu: dựng ở tầng service với actor là học sinh (như runAttempt).
+    const created = await app.get(QuestionsService).createUsage(studentId, {
+      component: 'mod_quiz', slots: ids.map((questionId) => ({ questionId })),
+    });
+    const usageId = created.usage.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/start`).set('Authorization', `Bearer ${studentToken}`);
     const answers: Record<string, string> = { [ids[0]!]: 'true', [ids[1]!]: 'false', [ids[2]!]: 'true' };
-    for (const attempt of usageRes.body.attempts as { id: string; questionId: string }[]) {
+    for (const attempt of created.attempts as { id: string; questionId: string }[]) {
       await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attempt.id}/submit`)
         .set('Authorization', `Bearer ${studentToken}`).send({ response: answers[attempt.questionId] });
     }

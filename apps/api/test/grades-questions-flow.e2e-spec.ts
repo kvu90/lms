@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { QuestionsService } from '../src/modules/questions/questions.service';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import { courseTotalOf, createGradeCategory, createGradeItem, getGradebook, setGrade } from './assessment-helpers';
@@ -244,14 +245,17 @@ describe('Grades & questions', () => {
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     // Usage created and STARTED while v1 is latest ⇒ pins v1.
-    // Issue #60: chỉ chủ sở hữu mới thao tác usage qua route thô — học
-    // sinh tự tạo usage của mình (trước đây admin tạo rồi học sinh làm:
-    // mẫu đó là tiện ích test, không phải luồng sản phẩm).
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
-    const usageId = usageRes.body.usage.id as string;
-    const attemptId = usageRes.body.attempts[0].id as string;
-    expect(usageRes.body.attempts[0].state).toBe('notstarted');
+    // Mẫu dựng sau khi #60 (chủ sở hữu) + #55 (cổng tạo usage qua HTTP
+    // đòi question:useall) cùng có mặt: usage do hoạt động tạo ở tầng
+    // service với actor là chính học sinh (trước đây học sinh tự tạo
+    // qua HTTP — cổng #55 chặn 404 vì usage thô qua HTTP là đường đọc
+    // đáp án). Mọi assertion bất biến version bên dưới giữ nguyên.
+    const created = await app.get(QuestionsService).createUsage(student.id, {
+      component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }],
+    });
+    const usageId = created.usage.id as string;
+    const attemptId = created.attempts[0].id as string;
+    expect(created.attempts[0].state).toBe('notstarted');
     const v1Id = qRes.body.latestVersion.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`).set('Authorization', `Bearer ${studentToken}`);
     // NOW the teacher edits the question: correct answer flips in v2.
@@ -269,10 +273,11 @@ describe('Grades & questions', () => {
     expect(attempt.steps.map((s: { state: string }) => s.state)).toEqual(['todo', 'complete', 'gradedright']);
     expect(attempt.steps[1].data.answer).toBe('true');
     // A NEW usage pins v2: the same answer is now wrong.
-    const usage2 = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }] });
-    const usage2Id = usage2.body.usage.id as string;
-    const attempt2Id = usage2.body.attempts[0].id as string;
+    const created2 = await app.get(QuestionsService).createUsage(student.id, {
+      component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }],
+    });
+    const usage2Id = created2.usage.id as string;
+    const attempt2Id = created2.attempts[0].id as string;
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/start`).set('Authorization', `Bearer ${studentToken}`);
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: 'true' });
     const finished2 = await http(app).post(`/api/v1/question-usages/${usage2Id}/finish`).set('Authorization', `Bearer ${studentToken}`);

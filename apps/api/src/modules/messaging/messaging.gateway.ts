@@ -60,6 +60,15 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
   }
 
   async handleConnection(client: Socket): Promise<void> {
+    // Cờ "xác thực lúc nối đã xong": client nhận gói connect là emit được
+    // ngay, trong khi handleConnection vẫn đang chờ DB/Redis — các handler
+    // phải chờ cờ này rồi mới đọc client.data.userId, nếu không handler
+    // chạy khi userId còn trống và trả rỗng (lỗi sync {} từng làm đỏ test
+    // reconnect của realtime-flow khi máy tải nặng).
+    let resolveAuth!: () => void;
+    client.data.authSettled = new Promise<void>((resolve) => {
+      resolveAuth = resolve;
+    });
     try {
       const token = extractHandshakeToken(client);
       const identity = await this.auth.authenticate(token);
@@ -78,6 +87,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     } catch (error) {
       this.logger.warn(`Kết nối realtime của messaging bị ngắt do lỗi: ${(error as Error).message}`);
       client.disconnect(true);
+    } finally {
+      resolveAuth();
     }
   }
 
@@ -99,7 +110,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { conversationId?: unknown },
   ): Promise<{ joined: boolean }> {
-    const userId = client.data.userId as string | undefined;
+    const userId = await awaitConnectionUser(client);
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!userId || !conversationId) return { joined: false };
     if (!(await this.repo.isMember(conversationId, userId))) return { joined: false };
@@ -113,6 +124,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { conversationId?: unknown },
   ): Promise<{ left: boolean }> {
+    await awaitConnectionUser(client);
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!conversationId) return { left: false };
     await client.leave(conversationRoom(conversationId));
@@ -132,7 +144,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     @ConnectedSocket() client: Socket,
     @MessageBody() body: MessagingSyncRequest,
   ): Promise<MessagingSyncResult> {
-    const userId = client.data.userId as string | undefined;
+    const userId = await awaitConnectionUser(client);
     const result: MessagingSyncResult = {};
     if (!userId || !body || typeof body !== 'object') return result;
     const entries = Object.entries(body).slice(0, SYNC_MAX_CONVERSATIONS);
@@ -154,13 +166,24 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     @ConnectedSocket() client: Socket,
     @MessageBody() body: { conversationId?: unknown },
   ): Promise<{ ok: boolean }> {
-    const userId = client.data.userId as string | undefined;
+    const userId = await awaitConnectionUser(client);
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!userId || !conversationId) return { ok: false };
     if (!(await this.repo.isMember(conversationId, userId))) return { ok: false };
     await this.realtime.noteTyping(conversationId, userId);
     return { ok: true };
   }
+}
+
+/**
+ * Chờ xác thực lúc nối xong rồi mới trả userId: handler chạy trước khi
+ * handleConnection hoàn tất sẽ thấy userId trống. Socket nối từ client
+ * cũ (không có cờ này) thì trả ngay userId hiện có, giữ tương thích.
+ */
+async function awaitConnectionUser(client: Socket): Promise<string | undefined> {
+  const settled = client.data.authSettled as Promise<void> | undefined;
+  if (settled) await settled;
+  return client.data.userId as string | undefined;
 }
 
 /** Token từ handshake: ưu tiên `auth.token` (socket.io client chính thức), dự phòng header Bearer. */

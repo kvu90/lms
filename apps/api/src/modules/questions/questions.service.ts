@@ -142,18 +142,70 @@ export class QuestionsService {
     // archetypes live at those levels and the evaluator walks the tree.
     await this.evaluator.requireCapability(actorId, capability, contextId);
   }
-  private async contextOrSystem(contextId: string) {
-    const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
-    return ctx ?? (await this.contexts.ensureSystemContext());
+  // --- bank: cổng đọc (issue #55) -------------------------------------------
+  // Đọc ngân hàng cũng là đọc NỘI DUNG THI (câu hỏi kèm đáp án): mọi đường
+  // đọc câu hỏi/danh mục/phiên bản/ngữ liệu phải qua cổng capability
+  // `question:useall` tại context của category chứa dữ liệu — cùng context
+  // mà các đường ghi (question:add / question:editall /
+  // question:managecategory) đã gác. Vai không có quyền nhận 404 mang mã
+  // của chính tài nguyên "không tồn tại" — không oracle phân biệt "có
+  // nhưng cấm" với "không có" (tiền lệ #44/#48). Các phương thức nội bộ
+  // (getQuestion, listVersions...) KHÔNG gác: quiz/engine gọi ở tầng
+  // service cho luồng làm bài của học sinh, luồng đó có cổng riêng của
+  // hoạt động; cổng ở đây chỉ áp cho các phương thức *ForViewer mà
+  // controller gọi.
+
+  /** Actor có quyền dùng ngân hàng tại context này không (không ném). */
+  private async canUseBank(actorId: string, contextId: string): Promise<boolean> {
+    return this.evaluator.hasCapability(actorId, 'question:useall', contextId).catch(() => false);
+  }
+
+  private categoryNotFound(id: string): NotFoundException {
+    return new NotFoundException({ message: `Question category ${id} not found`, code: 'question.category_not_found' });
+  }
+  private questionNotFound(id: string): NotFoundException {
+    return new NotFoundException({ message: `Question ${id} not found`, code: 'question.not_found' });
+  }
+  private stimulusNotFound(id: string): NotFoundException {
+    return new NotFoundException({ message: `Stimulus ${id} not found`, code: 'stimulus.not_found' });
+  }
+  private usageNotFound(id: string): NotFoundException {
+    return new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
+  }
+
+  /** Category của một câu hỏi + cổng đọc tại context của category đó. */
+  private async assertQuestionReadable(actorId: string, questionId: string): Promise<QuestionRow> {
+    const q = await this.repo.getQuestion(questionId);
+    if (!q) throw this.questionNotFound(questionId);
+    const category = await this.repo.getCategory(q.category);
+    if (!category || !(await this.canUseBank(actorId, category.contextId))) throw this.questionNotFound(questionId);
+    return q;
+  }
+
+  /** Category theo id + cổng đọc tại context của nó (404 dùng mã category). */
+  private async assertCategoryReadable(actorId: string, categoryId: string): Promise<QCategoryRow> {
+    const category = await this.repo.getCategory(categoryId);
+    if (!category) throw this.categoryNotFound(categoryId);
+    if (!(await this.canUseBank(actorId, category.contextId))) throw this.categoryNotFound(categoryId);
+    return category;
   }
 
   // --- bank: categories ------------------------------------------------------
 
   /**
-   * Tạo category câu hỏi trong context.
+   * Tạo category câu hỏi trong context. Context phải TỒN TẠI thật: trước
+   * đây context không hợp lệ bị nuốt lặng lẽ về context hệ thống rồi lỗi
+   * capability ở đó báo sai nguyên nhân (issue #55 mục 2) — nay trả 400
+   * nói đúng là context không tồn tại.
    */
   async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string }): Promise<QCategoryRow> {
-    const ctx = await this.contextOrSystem(input.contextId);
+    const ctx = await this.contexts.getContext(input.contextId).catch(() => undefined);
+    if (!ctx) {
+      throw new BadRequestException({
+        message: `Context ${input.contextId} does not exist; a question category must be created in an existing context`,
+        code: 'question.category_context_not_found',
+      });
+    }
     await this.requireCap(actorId, 'question:managecategory', ctx.id);
     return this.repo.insertCategory({
       name: input.name, contextId: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
@@ -171,6 +223,37 @@ export class QuestionsService {
     const row = await this.repo.getCategory(id);
     if (!row) throw new NotFoundException({ message: `Question category ${id} not found`, code: 'question.category_not_found' });
     return row;
+  }
+
+  /**
+   * Liệt kê category CHO MỘT NGƯỜI ĐỌC (cổng issue #55): có contextId thì
+   * phải có `question:useall` tại đúng context đó (không có → 404 như
+   * context không có category nào của mình); không có contextId thì chỉ
+   * trả các category nằm trong context người đọc dùng được.
+   */
+  async listCategoriesForViewer(actorId: string, contextId?: string): Promise<QCategoryRow[]> {
+    if (contextId !== undefined) {
+      if (!(await this.canUseBank(actorId, contextId))) throw this.categoryNotFound(contextId);
+      return this.repo.listCategories(contextId);
+    }
+    const rows = await this.repo.listCategories();
+    const allowedByContext = new Map<string, boolean>();
+    const out: QCategoryRow[] = [];
+    for (const row of rows) {
+      let ok = allowedByContext.get(row.contextId);
+      if (ok === undefined) {
+        ok = await this.canUseBank(actorId, row.contextId);
+        allowedByContext.set(row.contextId, ok);
+      }
+      if (ok) out.push(row);
+    }
+    return out;
+  }
+
+  /** Câu hỏi trong category CHO NGƯỜI ĐỌC (cổng tại context của category). */
+  async listQuestionsForViewer(actorId: string, categoryId: string): Promise<QuestionView[]> {
+    await this.assertCategoryReadable(actorId, categoryId);
+    return this.listQuestions(categoryId);
   }
 
   // --- bank: stimuli -----------------------------------------------------------
@@ -201,6 +284,21 @@ export class QuestionsService {
    * Ngữ liệu trong một category.
    */
   async listStimuli(categoryId: string): Promise<StimulusRow[]> { return this.repo.listStimuliInCategory(categoryId); }
+
+  /** Ngữ liệu trong category CHO NGƯỜI ĐỌC (cổng tại context của category). */
+  async listStimuliForViewer(actorId: string, categoryId: string): Promise<StimulusRow[]> {
+    await this.assertCategoryReadable(actorId, categoryId);
+    return this.repo.listStimuliInCategory(categoryId);
+  }
+
+  /** Một ngữ liệu CHO NGƯỜI ĐỌC (cổng tại context của category chứa nó). */
+  async getStimulusForViewer(actorId: string, id: string): Promise<StimulusRow> {
+    const row = await this.repo.getStimulus(id);
+    if (!row) throw this.stimulusNotFound(id);
+    const category = await this.repo.getCategory(row.categoryId);
+    if (!category || !(await this.canUseBank(actorId, category.contextId))) throw this.stimulusNotFound(id);
+    return row;
+  }
 
   private async requireStimulusMutable(stimulus: StimulusRow): Promise<void> {
     const refs = await this.repo.countVersionsReferencingStimulus(stimulus.id);
@@ -522,6 +620,18 @@ export class QuestionsService {
     if (!entry) throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
     return this.repo.listVersions(entry.id);
   }
+
+  /** Chi tiết câu hỏi CHO NGƯỜI ĐỌC (cổng tại context của category chứa câu). */
+  async getQuestionForViewer(actorId: string, id: string): Promise<QuestionView> {
+    await this.assertQuestionReadable(actorId, id);
+    return this.getQuestion(id);
+  }
+
+  /** Lịch sử version CHO NGƯỜI ĐỌC (cùng cổng với chi tiết câu hỏi). */
+  async listVersionsForViewer(actorId: string, questionId: string): Promise<VersionRow[]> {
+    await this.assertQuestionReadable(actorId, questionId);
+    return this.listVersions(questionId);
+  }
   /**
    * Nội dung một version cụ thể (answers + options) — dùng cho hiển thị và kiểm chứng theo version.
    */
@@ -589,6 +699,12 @@ export class QuestionsService {
     const category = await this.getCategory(q.category);
     await this.requireCap(actorId, 'question:editall', category.contextId);
     return q;
+  }
+
+  /** Gắn kết chương trình của câu hỏi CHO NGƯỜI ĐỌC (cùng cổng với chi tiết câu). */
+  async getCurriculumLinksForViewer(actorId: string, questionId: string): Promise<QuestionCurriculumLinksView> {
+    await this.assertQuestionReadable(actorId, questionId);
+    return this.getCurriculumLinks(questionId);
   }
 
   /** Đọc toàn bộ gắn kết chương trình của một câu hỏi. */
@@ -678,14 +794,10 @@ export class QuestionsService {
     return this.getCurriculumLinks(questionId);
   }
 
-  /**
-   * Lọc ngân hàng theo gắn kết chương trình + dạng + trạng thái (mục
-   * A.6) — phục vụ UI soạn câu và đếm ứng viên ma trận. Trả view đầy đủ
-   * như các endpoint liệt kê hiện hành của ngân hàng.
-   */
-  async listQuestionsByCurriculumFilter(filter: {
+  /** Kiểm chứng hình dạng bộ lọc chương trình (dùng chung cho bản nội bộ và bản có cổng đọc). */
+  private validateCurriculumFilter(filter: {
     subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
-  }): Promise<QuestionView[]> {
+  }): void {
     for (const [field, value] of [['subjectId', filter.subjectId], ['outcomeId', filter.outcomeId]] as const) {
       if (value !== undefined && !uuidIdSchema.safeParse(value).success) {
         throw new BadRequestException({ message: `${field} must be a uuid`, code: 'question.invalid_filter' });
@@ -694,9 +806,45 @@ export class QuestionsService {
     if (filter.cognitiveLevel !== undefined && !cognitiveLevelSchema.safeParse(filter.cognitiveLevel).success) {
       throw new BadRequestException({ message: `cognitiveLevel ${filter.cognitiveLevel} is not a known cognitive level`, code: 'question.invalid_cognitive_level' });
     }
+  }
+
+  /**
+   * Lọc ngân hàng theo gắn kết chương trình + dạng + trạng thái (mục
+   * A.6) — phục vụ UI soạn câu và đếm ứng viên ma trận. Trả view đầy đủ
+   * như các endpoint liệt kê hiện hành của ngân hàng.
+   */
+  async listQuestionsByCurriculumFilter(filter: {
+    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<QuestionView[]> {
+    this.validateCurriculumFilter(filter);
     const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
     const out: QuestionView[] = [];
     for (const q of rows) out.push(await this.getQuestion(q.id));
+    return out;
+  }
+
+  /**
+   * Bản có cổng đọc của bộ lọc chương trình (issue #55): chỉ trả các câu
+   * nằm trong category mà người đọc có `question:useall` tại context của
+   * category — câu ngoài quyền bị loại khỏi danh sách, không lộ cả sự
+   * tồn tại qua bộ lọc.
+   */
+  async listQuestionsByCurriculumFilterForViewer(actorId: string, filter: {
+    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<QuestionView[]> {
+    this.validateCurriculumFilter(filter);
+    const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
+    const readableByCategory = new Map<string, boolean>();
+    const out: QuestionView[] = [];
+    for (const q of rows) {
+      let ok = readableByCategory.get(q.category);
+      if (ok === undefined) {
+        const category = await this.repo.getCategory(q.category);
+        ok = category !== undefined && (await this.canUseBank(actorId, category.contextId));
+        readableByCategory.set(q.category, ok);
+      }
+      if (ok) out.push(await this.getQuestion(q.id));
+    }
     return out;
   }
 
@@ -747,6 +895,46 @@ export class QuestionsService {
    */
   async deleteUsage(usageId: string): Promise<void> {
     await this.repo.deleteUsage(usageId);
+  }
+
+  /**
+   * Cổng tạo usage qua HTTP (issue #55): usage thô trên câu ngân hàng là
+   * đường đọc nội dung câu kèm đáp án (làm thử → finish → đáp án đúng),
+   * nên người tạo phải có `question:useall` tại context của category của
+   * MỌI câu trong slot; thiếu một câu → 404 như câu không tồn tại. Chỉ
+   * áp ở controller: quiz tạo usage ở tầng service bằng actor là học
+   * sinh cho lượt làm thật, luồng đó do cổng của hoạt động quiz gác.
+   */
+  async assertCanCreateUsage(actorId: string, questionIds: string[]): Promise<void> {
+    const allowedByContext = new Map<string, boolean>();
+    for (const questionId of questionIds) {
+      const q = await this.repo.getQuestion(questionId);
+      if (!q) throw this.questionNotFound(questionId);
+      const category = await this.repo.getCategory(q.category);
+      if (!category) throw this.questionNotFound(questionId);
+      let ok = allowedByContext.get(category.contextId);
+      if (ok === undefined) {
+        ok = await this.canUseBank(actorId, category.contextId);
+        allowedByContext.set(category.contextId, ok);
+      }
+      if (!ok) throw this.questionNotFound(questionId);
+    }
+  }
+
+  /**
+   * Lấy usage CHO NGƯỜI ĐỌC (issue #55): usage chứa bài làm và — sau khi
+   * chốt — đáp án đúng của từng attempt, nên chỉ chủ sở hữu usage hoặc
+   * người có `question:useall` ở context hệ thống (đội ngân hàng) mới
+   * đọc được qua HTTP; người khác nhận 404 như usage không tồn tại.
+   */
+  async getUsageForViewer(actorId: string, id: string): Promise<UsageView> {
+    const usage = await this.repo.getUsage(id);
+    if (!usage) throw this.usageNotFound(id);
+    if (usage.userId !== actorId) {
+      const system = await this.contexts.ensureSystemContext();
+      if (!(await this.canUseBank(actorId, system.id))) throw this.usageNotFound(id);
+    }
+    return this.getUsage(id);
   }
 
   /**

@@ -22,17 +22,21 @@ export class QuestionsController {
   }
   @Get('categories')
   /**
-   * GET /questions/categories — liệt kê category theo context.
+   * GET /questions/categories — liệt kê category theo context. Đọc ngân
+   * hàng có cổng `question:useall` theo context (issue #55): không có
+   * quyền thì category ngoài tầm không xuất hiện / 404 khi chỉ định
+   * context.
    */
-  async listCategories(@Query('contextId') contextId?: string) {
-    return this.questions.listCategories(contextId || undefined);
+  async listCategories(@Query('contextId') contextId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.listCategoriesForViewer(actor.id, contextId || undefined);
   }
   @Get('categories/:id/questions')
   /**
-   * GET /questions/categories/:id/questions — câu hỏi trong category.
+   * GET /questions/categories/:id/questions — câu hỏi trong category
+   * (cổng đọc theo context của category, issue #55).
    */
-  async listQuestions(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.listQuestions(id);
+  async listQuestions(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.listQuestionsForViewer(actor.id, id);
   }
   @Post()
   /**
@@ -47,13 +51,14 @@ export class QuestionsController {
    * theo gắn kết chương trình (issue #20 Chặng 2, mục A.6).
    */
   async listByCurriculumFilter(
+    @CurrentUser() actor: AuthenticatedUser,
     @Query('subjectId') subjectId?: string,
     @Query('outcomeId') outcomeId?: string,
     @Query('cognitiveLevel') cognitiveLevel?: string,
     @Query('qtype') qtype?: string,
     @Query('status') status?: string,
   ) {
-    return this.questions.listQuestionsByCurriculumFilter({
+    return this.questions.listQuestionsByCurriculumFilterForViewer(actor.id, {
       subjectId: subjectId || undefined,
       outcomeId: outcomeId || undefined,
       cognitiveLevel: cognitiveLevel || undefined,
@@ -64,10 +69,11 @@ export class QuestionsController {
   @Get(':id/curriculum-links')
   /**
    * GET /questions/:id/curriculum-links — gắn kết chương trình của câu hỏi:
-   * { subjectIds, outcomes: [{ outcomeId, cognitiveLevel }] }.
+   * { subjectIds, outcomes: [{ outcomeId, cognitiveLevel }] } (cổng đọc
+   * như chi tiết câu hỏi, issue #55).
    */
-  async getCurriculumLinks(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.getCurriculumLinks(id);
+  async getCurriculumLinks(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.getCurriculumLinksForViewer(actor.id, id);
   }
   @Post(':id/subjects')
   /**
@@ -106,10 +112,12 @@ export class QuestionsController {
   }
   @Get(':id')
   /**
-   * GET /questions/:id — chi tiết câu hỏi (QuestionUsagesController: GET /question-usages/:id — chi tiết usage).
+   * GET /questions/:id — chi tiết câu hỏi kèm đáp án (cổng đọc
+   * `question:useall` tại context của category chứa câu, issue #55;
+   * QuestionUsagesController: GET /question-usages/:id — chi tiết usage).
    */
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.getQuestion(id);
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.getQuestionForViewer(actor.id, id);
   }
   @Patch(':id')
   /**
@@ -120,10 +128,11 @@ export class QuestionsController {
   }
   @Get(':id/versions')
   /**
-   * GET /questions/:id/versions — lịch sử version.
+   * GET /questions/:id/versions — lịch sử version (cổng đọc như chi
+   * tiết câu hỏi, issue #55).
    */
-  async versions(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.listVersions(id);
+  async versions(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.listVersionsForViewer(actor.id, id);
   }
 }
 
@@ -145,17 +154,19 @@ export class StimuliController {
   }
   @Get()
   /**
-   * GET /stimuli?categoryId= — ngữ liệu của một category.
+   * GET /stimuli?categoryId= — ngữ liệu của một category (cổng đọc theo
+   * context của category, issue #55).
    */
-  async list(@Query('categoryId', { schema: uuidIdSchema }) categoryId: string) {
-    return this.questions.listStimuli(categoryId);
+  async list(@Query('categoryId', { schema: uuidIdSchema }) categoryId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.listStimuliForViewer(actor.id, categoryId);
   }
   @Get(':id')
   /**
-   * GET /stimuli/:id — chi tiết ngữ liệu.
+   * GET /stimuli/:id — chi tiết ngữ liệu (cổng đọc theo context của
+   * category chứa ngữ liệu, issue #55).
    */
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.getStimulus(id);
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.getStimulusForViewer(actor.id, id);
   }
   @Patch(':id')
   /**
@@ -183,12 +194,22 @@ export class QuestionUsagesController {
   constructor(private readonly questions: QuestionsService) {}
 
   @Post()
+  /**
+   * POST /question-usages — tạo usage thô trên câu ngân hàng: phải có
+   * `question:useall` tại context của category của mọi câu trong slot
+   * (issue #55 — usage thô là đường đọc nội dung câu kèm đáp án).
+   */
   async create(@Body({ schema: createQuestionUsageSchema }) dto: CreateUsageDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.questions.assertCanCreateUsage(actor.id, dto.slots.map((s) => s.questionId));
     return this.questions.createUsage(actor.id, dto);
   }
   @Get(':id')
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.questions.getUsage(id);
+  /**
+   * GET /question-usages/:id — chi tiết usage: chỉ chủ sở hữu hoặc
+   * người có `question:useall` cấp hệ thống (issue #55).
+   */
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.questions.getUsageForViewer(actor.id, id);
   }
   @Post(':id/start')
   /**

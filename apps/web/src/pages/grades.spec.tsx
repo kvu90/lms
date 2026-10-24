@@ -187,9 +187,14 @@ describe('Gradebook page', () => {
 describe('Question bank page', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it('renders the version badge, and editing bumps the badge to the new version', async () => {
+    // Trang ngân hàng nay đọc usePermissions() (cổng issue #55): phải bọc
+    // TestProviders và stub ảnh chụp quyền có quyền ngân hàng, nếu không
+    // trang ném lỗi thiếu PermissionsProvider (lỗi CI của PR #61).
+    localStorage.setItem('lms.accessToken', 'test-token');
     let edited = false;
     const questionView = (version: number) => ({
       question: {
@@ -231,6 +236,23 @@ describe('Question bank page', () => {
       },
     });
     stubFetch((url, init) => {
+      if (url === '/api/v1/users/me')
+        return {
+          id: '01900000-0000-7000-8000-0000000000a9',
+          username: 'teacher1',
+          firstName: 'Lan Anh',
+          lastName: 'Nguyễn',
+          email: 'teacher1@example.com',
+          suspended: false,
+          deleted: false,
+          isGuest: false,
+          forcePasswordChange: false,
+          lastLogin: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          customFields: [],
+        };
+      if (url === '/api/v1/users/me/capabilities')
+        return { userId: '01900000-0000-7000-8000-0000000000a9', isSiteAdmin: true, assignments: [], contexts: [] };
       if (url === '/api/v1/questions/categories')
         return [
           {
@@ -256,7 +278,11 @@ describe('Question bank page', () => {
     const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
       initialEntries: ['/questions'],
     });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     await waitFor(() =>
       expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v1'),
     );
@@ -270,7 +296,27 @@ describe('Question bank page', () => {
   });
 
   it('renders a usage with attempt states, steps and the pinned version', async () => {
+    // Trang usage cũng đọc usePermissions() (cổng issue #55): cùng cách bọc
+    // và stub quyền như test ngân hàng ở trên.
+    localStorage.setItem('lms.accessToken', 'test-token');
     stubFetch((url) => {
+      if (url === '/api/v1/users/me')
+        return {
+          id: '01900000-0000-7000-8000-0000000000a9',
+          username: 'teacher1',
+          firstName: 'Lan Anh',
+          lastName: 'Nguyễn',
+          email: 'teacher1@example.com',
+          suspended: false,
+          deleted: false,
+          isGuest: false,
+          forcePasswordChange: false,
+          lastLogin: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          customFields: [],
+        };
+      if (url === '/api/v1/users/me/capabilities')
+        return { userId: '01900000-0000-7000-8000-0000000000a9', isSiteAdmin: true, assignments: [], contexts: [] };
       if (url === '/api/v1/question-usages/01900000-0000-7000-8000-000000000009') {
         return {
           usage: {
@@ -337,7 +383,11 @@ describe('Question bank page', () => {
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
       initialEntries: ['/question-usages/01900000-0000-7000-8000-000000000009'],
     });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     await waitFor(() => expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toBeInTheDocument());
     expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent('gradedright');
     expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent(
