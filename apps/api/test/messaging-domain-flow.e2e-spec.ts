@@ -383,5 +383,8 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(resolved.body.status).toBe('resolved');
     expect(resolved.body.resolvedBy).toBe(teacher.id);
     expect(resolved.body.resolvedAt).toBeTruthy();
-  });
+    // Trần 60s thay vì 30s mặc định: test này chạy ~25 gọi HTTP + tạo
+    // user (argon2) + nhiều lượt relay, từng chạm trần 30s khi máy tải
+    // nặng (tái hiện ở lượt chạy full suite ngày 24/10/2026).
+  }, 60000);
 });
