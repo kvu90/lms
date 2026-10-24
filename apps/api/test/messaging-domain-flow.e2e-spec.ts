@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OutboxRelayService } from '../src/infra/events/outbox-relay.service';
 import {
@@ -65,6 +66,18 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   }
 
   beforeAll(async () => {
+    // Dọn tồn đọng outbox của các spec đã chạy trước trên cùng DB:
+    // relay ở app test chỉ chạy khi gọi tay, nên row chưa publish khi
+    // app trước đóng là row chết — không test nào còn tiêu thụ.
+    // Không dọn thì vòng xả ở test 5 phải duyệt toàn bộ tồn đọng của
+    // cả suite (O(backlog)) và vượt trần timeout dưới tải CI dù mọi
+    // assertion đều đúng (CI run 40097046131 trên commit chỉ nới trần
+    // 120s vẫn đỏ, chênh đúng ~2×90s so với run cũ). Dọn xong, vòng xả
+    // chỉ còn duyệt event của chính spec này.
+    const stale = new Client({ connectionString: process.env.DATABASE_URL });
+    await stale.connect();
+    await stale.query('DELETE FROM outbox_events WHERE published_at IS NULL');
+    await stale.end();
     app = await createTestApp();
     admin = await adminToken(app);
     adminId = (await login(app, 'admin', 'Admin123!')).userId;
