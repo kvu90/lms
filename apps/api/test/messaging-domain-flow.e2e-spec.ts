@@ -284,6 +284,11 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(again.body.deletedBy).toBe(teacher.id);
   });
 
+  // Trần 120s (không phải 30s mặc định): vòng xả relay ở cuối test phải
+  // duyệt TUẦN TỰ toàn bộ outbox tồn đọng của cả suite trên cùng DB
+  // (relay API không tự chạy theo lịch), nên dưới tải CI nó vượt 30s
+  // dù mọi assertion đều đúng — xem bàn giao fix CI PR #76. Không bỏ
+  // assertion nào, chỉ nới trần cho thao tác xả tồn đọng này.
   it('5. reports reach the teacher in charge and admins only; reviewing is scope-checked and every view is written to event_log', async () => {
     // Một tin riêng 1-1 (s1–s2 kết bạn trước vì cổng nhắn riêng nay
     // chỉ mở cho liên hệ đã duyệt) bị chính tác giả xoá — nội dung
@@ -383,8 +388,9 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(resolved.body.status).toBe('resolved');
     expect(resolved.body.resolvedBy).toBe(teacher.id);
     expect(resolved.body.resolvedAt).toBeTruthy();
-    // Trần 60s thay vì 30s mặc định: test này chạy ~25 gọi HTTP + tạo
-    // user (argon2) + nhiều lượt relay, từng chạm trần 30s khi máy tải
-    // nặng (tái hiện ở lượt chạy full suite ngày 24/10/2026).
-  }, 60000);
+    // Trần 120s: main đã nới 30s → 60s vì test này chạy ~25 gọi HTTP +
+    // tạo user (argon2) + nhiều lượt relay, từng chạm trần 30s khi máy
+    // tải nặng; PR #76 giữ 120s (vòng xả tồn đọng) — lấy max hai phía,
+    // không bỏ assertion nào.
+  }, 120000);
 });
