@@ -408,4 +408,148 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const one = await playClusterQuiz(ctx.student, quizId, 1, ctx.tfClusterQuestions);
     expect(one.attempt.sumGrades).toBeCloseTo(0.4, 6);
   });
+
+  it('matrix bank fields (MB-0): defaults, status lifecycle and version bump on content edit after ready', async () => {
+    const ctx = await setup();
+    const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 10 });
+    expect(matrix.body.status).toBe('draft');
+    expect(matrix.body.version).toBe(1);
+    expect(matrix.body.isTemplate).toBe(false);
+    expect(matrix.body.bankId).toBeNull();
+    expect(matrix.body.derivedFromMatrixId).toBeNull();
+    // Sửa khi còn draft: version giữ nguyên.
+    const draftEdit = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Ma trận nháp v1' });
+    expect(draftEdit.body.version).toBe(1);
+    // Chuyển ready rồi sửa nội dung → version tăng.
+    const ready = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ status: 'ready' });
+    expect(ready.body.status).toBe('ready');
+    expect(ready.body.version).toBe(1);
+    const edit = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Ma trận đã duyệt — sửa tên' });
+    expect(edit.body.version).toBe(2);
+  });
+
+  it('cluster review presentation (Q-a): per-item fractions, no per-item marks, one summary line naming the scale', async () => {
+    const ctx = await setup();
+    const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
+    await addCell(matrix.id, {
+      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      questionCount: 1, cellScore: 4,
+    });
+    const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm review', drawMode: 'fixed' });
+    const quiz = gen.body as QuizBody;
+    const played = await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
+    const view = await http(app).get(`/api/v1/quiz-attempts/${played.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
+    const qs = view.body.questions as {
+      fraction: number | null; mark: number | null;
+      cluster: { correctCount: number; totalCount: number; percent: number; mark: number | null; summary: string } | null;
+    }[];
+    expect(qs).toHaveLength(4);
+    // Đúng/sai vẫn theo TỪNG Ý.
+    expect(qs.map((q) => q.fraction).sort()).toEqual([0, 0, 1, 1]);
+    for (const q of qs) {
+      expect(q.mark).toBeNull(); // không hiện điểm lẻ từng ý
+      expect(q.cluster).not.toBeNull();
+      expect(q.cluster!.correctCount).toBe(2);
+      expect(q.cluster!.percent).toBe(25);
+      expect(q.cluster!.mark).toBeCloseTo(1, 6); // 25% × 4
+      expect(q.cluster!.summary).toBe('Đúng 2/4 ý = 25% điểm câu theo thang QĐ 764');
+    }
+  });
+
+  it('grade-by-question (Q-b): queue lists every submitted attempt for one question; bulk grading finishes the attempts', async () => {
+    const ctx = await setup();
+    const essay = await mkQuestion({
+      qtype: 'essay', name: 'Tự luận', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
+    });
+    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: ctx.sectionId, name: 'Đề tự luận', grade: 2 });
+    const quizId = quizRes.body.id as string;
+    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionId: essay });
+    const playEssay = async (token: string, text: string): Promise<string> => {
+      const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+      const view = start.body as AttemptViewBody;
+      const q = view.questions[0]!;
+      await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set('Authorization', `Bearer ${token}`)
+        .send({ questionAttemptId: q.questionAttemptId, response: text });
+      const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${token}`).send({});
+      expect((submit.body as AttemptViewBody).attempt.state).toBe('needsgrading');
+      return view.attempt.id;
+    };
+    const a1 = await playEssay(ctx.student, 'Bài của học sinh 1');
+    const a2 = await playEssay(ctx.student2, 'Bài của học sinh 2');
+    const queue = await http(app).get(`/api/v1/quizzes/${quizId}/grade-by-question/${essay}`).set('Authorization', `Bearer ${admin}`);
+    expect(queue.status).toBe(200);
+    expect(queue.body).toHaveLength(2);
+    expect((queue.body as { response: string | null }[]).map((r) => r.response).sort())
+      .toEqual(['Bài của học sinh 1', 'Bài của học sinh 2']);
+    const graded = await http(app).post(`/api/v1/quizzes/${quizId}/grade-by-question`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionId: essay, grades: [{ attemptId: a1, mark: 2 }, { attemptId: a2, mark: 1 }] });
+    expect(graded.status === 200 || graded.status === 201).toBe(true);
+    const summaries = graded.body as { id: string; state: string; sumGrades: number | null }[];
+    expect(summaries.map((s) => s.state)).toEqual(['finished', 'finished']);
+    expect(summaries.find((s) => s.id === a1)!.sumGrades).toBe(2);
+    expect(summaries.find((s) => s.id === a2)!.sumGrades).toBe(1);
+  });
+
+  it('overall feedback bands (Q-c layer 4): the finished attempt view carries the band matching its percent', async () => {
+    const ctx = await setup();
+    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: ctx.sectionId, name: 'Đề feedback', grade: 10 });
+    const quizId = quizRes.body.id as string;
+    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionId: ctx.mcPool[0] });
+    const band1 = await http(app).post(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
+      .send({ minPercent: 0, maxPercent: 50, feedback: 'Cần ôn lại kiến thức nền.' });
+    expect(band1.status === 200 || band1.status === 201).toBe(true);
+    await http(app).post(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
+      .send({ minPercent: 50, maxPercent: 100, feedback: 'Làm tốt, tiếp tục phát huy.' });
+    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    const view = start.body as AttemptViewBody;
+    const q = view.questions[0]!;
+    // Đáp án đúng của câu MC trong pool: đáp án có fraction 1 — lấy qua view của giáo viên.
+    const teacherView = await http(app).get(`/api/v1/questions/${ctx.mcPool[0]}`).set('Authorization', `Bearer ${admin}`);
+    const rightId = (teacherView.body.answers as { id: string; fraction: number }[]).find((a) => a.fraction === 1)!.id;
+    await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: q.questionAttemptId, response: rightId });
+    const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect((submit.body as { overallFeedback: string | null }).overallFeedback).toBe('Làm tốt, tiếp tục phát huy.');
+    const bands = await http(app).get(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`);
+    expect(bands.body).toHaveLength(2);
+  });
+
+  it('cluster statistics (Q-d): per-item right/wrong counts and the correct-count distribution', async () => {
+    const ctx = await setup();
+    const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
+    await addCell(matrix.id, {
+      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      questionCount: 1, cellScore: 4,
+    });
+    const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thống kê chùm', drawMode: 'fixed' });
+    const quiz = gen.body as QuizBody;
+    await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
+    await playClusterQuiz(ctx.student2, quiz.id, 4, ctx.tfClusterQuestions);
+    const stats = await http(app).get(`/api/v1/quizzes/${quiz.id}/cluster-statistics`).set('Authorization', `Bearer ${admin}`);
+    expect(stats.status).toBe(200);
+    expect(stats.body).toHaveLength(1);
+    const cluster = stats.body[0] as {
+      attemptsCount: number;
+      items: { position: number; correctCount: number; wrongCount: number }[];
+      correctDistribution: { correctCount: number; attempts: number }[];
+    };
+    expect(cluster.attemptsCount).toBe(2);
+    // Học sinh 1 đúng 2 ý, học sinh 2 đúng cả 4: hai ý có 2 lượt đúng,
+    // hai ý còn lại 1 đúng/1 sai (không phụ thuộc thứ tự slot ↔ câu).
+    expect(cluster.items.map((i) => i.correctCount).sort()).toEqual([1, 1, 2, 2]);
+    expect(cluster.items.map((i) => i.wrongCount).sort()).toEqual([0, 0, 1, 1]);
+    expect(cluster.correctDistribution).toEqual([
+      { correctCount: 2, attempts: 1 },
+      { correctCount: 4, attempts: 1 },
+    ]);
+  });
 });
