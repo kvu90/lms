@@ -4,12 +4,16 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 import { createCategory, createCourse, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
- * K2 — Học liệu thật + Player + tiến độ học (issue #85).
- * Luồng kiểm chứng: giáo viên (admin) tạo trang đọc + tài nguyên file +
- * tài nguyên liên kết trong một khoá; học sinh học qua player, tiến độ %
- * phải khớp dữ liệu completion (đối chiếu với API completion/me), Học
- * tiếp đưa về đúng mục dở dang theo last-access, và mốc lớp trên
- * outline khớp phần việc cả lớp đã hoàn thành.
+ * K2 — Học liệu thật + Player + tiến độ học (issue #85), gồm phần hấp
+ * thụ nghiên cứu học liệu số VN (K2-B1→B6):
+ *  - B1: mặc định hoàn thành theo loại nội dung (trang đọc/tài liệu =
+ *    manual: mở xem + tự xác nhận; video = progress ≥ 90%; tệp khác/
+ *    liên kết ngoài = none: chỉ ghi truy cập, ngoài % hoàn thành).
+ *  - B2: sự kiện học lưu bền + bản ghi hồ sơ chụp tên mục khi hoàn
+ *    thành (Điều 8 TT 09/2021).
+ *  - B4: báo cáo tiến độ GV (ma trận lớp × mục + CSV + lọc nhóm).
+ *  - B5: mẫu cấu trúc bài học theo khung CV 5512.
+ * % tiến độ luôn đối chiếu với dữ liệu completion qua API completion.
  */
 describe('K2 learning content, player & progress', () => {
   let app: INestApplication;
@@ -25,7 +29,8 @@ describe('K2 learning content, player & progress', () => {
     students: { id: string; username: string }[];
     tokens: string[];
     page: { id: string; cmId: string };
-    fileRes: { id: string; cmId: string };
+    docRes: { id: string; cmId: string };
+    videoRes: { id: string; cmId: string };
     urlRes: { id: string; cmId: string };
   }
 
@@ -43,124 +48,147 @@ describe('K2 learning content, player & progress', () => {
       students.push(s);
       tokens.push((await login(app, s.username, STRONG_PASSWORD)).accessToken);
     }
-    // Trang đọc (hoàn thành theo lượt xem) ở section 1.
+    const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
+    const courseCtx = String(content.body.contextId);
+    async function upload(fileName: string, contentType: string, data: string): Promise<string> {
+      const res = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${admin}`)
+        .field('contextId', courseCtx).field('component', 'mod_resource').field('fileArea', 'content')
+        .attach('file', Buffer.from(data), { filename: fileName, contentType });
+      if (res.status !== 201) throw new Error(`upload ${fileName} failed: ${res.status} ${JSON.stringify(res.body)}`);
+      return res.body.id as string;
+    }
+    // Trang đọc ở section 1 (mặc định manual theo B1).
     const pageRes = await http(app).post(`/api/v1/courses/${course.id}/pages`).set('Authorization', `Bearer ${admin}`)
       .send({ sectionId, name: 'Bài đọc 1', content: '<p>Nội dung bài đọc</p>' });
     if (pageRes.status !== 201) throw new Error(`create page failed: ${pageRes.status} ${JSON.stringify(pageRes.body)}`);
-    // Tài nguyên file ở section 1: tệp tải lên context của khoá.
-    const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
-    const upload = await http(app).post('/api/v1/files').set('Authorization', `Bearer ${admin}`)
-      .field('contextId', String(content.body.contextId)).field('component', 'mod_resource').field('fileArea', 'content')
-      .attach('file', Buffer.from('tai-lieu-hoc-tap'), 'phieu-bai-tap.txt');
-    if (upload.status !== 201) throw new Error(`upload failed: ${upload.status} ${JSON.stringify(upload.body)}`);
-    const fileResRes = await http(app).post(`/api/v1/courses/${course.id}/resources`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId, name: 'Phiếu bài tập', kind: 'file', fileId: upload.body.id });
-    if (fileResRes.status !== 201) throw new Error(`create file resource failed: ${fileResRes.status} ${JSON.stringify(fileResRes.body)}`);
-    // Tài nguyên liên kết (video) ở section 2: mặc định hoàn thành thủ công.
-    const urlResRes = await http(app).post(`/api/v1/courses/${course.id}/resources`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: section2.id, name: 'Video bài giảng', kind: 'url', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
-    if (urlResRes.status !== 201) throw new Error(`create url resource failed: ${urlResRes.status} ${JSON.stringify(urlResRes.body)}`);
+    // Tài liệu văn bản ở section 1 (mặc định manual theo B1).
+    const docFileId = await upload('phieu-bai-tap.txt', 'text/plain', 'tai-lieu-hoc-tap');
+    const docRes = await http(app).post(`/api/v1/courses/${course.id}/resources`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId, name: 'Phiếu bài tập', kind: 'file', fileId: docFileId });
+    if (docRes.status !== 201) throw new Error(`create doc resource failed: ${docRes.status} ${JSON.stringify(docRes.body)}`);
+    // Video ở section 2 (mặc định progress theo B1) kèm transcript.
+    const videoFileId = await upload('bai-giang.mp4', 'video/mp4', 'fake-video-bytes');
+    const videoRes = await http(app).post(`/api/v1/courses/${course.id}/resources`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: section2.id, name: 'Video bài giảng', kind: 'file', fileId: videoFileId, transcript: 'Bản chữ của bài giảng.' });
+    if (videoRes.status !== 201) throw new Error(`create video resource failed: ${videoRes.status} ${JSON.stringify(videoRes.body)}`);
+    // Liên kết ngoài ở section 2 (mặc định none theo B1).
+    const urlRes = await http(app).post(`/api/v1/courses/${course.id}/resources`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: section2.id, name: 'Video ngoài', kind: 'url', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' });
+    if (urlRes.status !== 201) throw new Error(`create url resource failed: ${urlRes.status} ${JSON.stringify(urlRes.body)}`);
     return {
       course, sectionId, section2Id: section2.id, students, tokens,
       page: { id: pageRes.body.id, cmId: pageRes.body.cmId },
-      fileRes: { id: fileResRes.body.id, cmId: fileResRes.body.cmId },
-      urlRes: { id: urlResRes.body.id, cmId: urlResRes.body.cmId },
+      docRes: { id: docRes.body.id, cmId: docRes.body.cmId },
+      videoRes: { id: videoRes.body.id, cmId: videoRes.body.cmId },
+      urlRes: { id: urlRes.body.id, cmId: urlRes.body.cmId },
     };
   }
 
-  it('tạo học liệu: page mặc định hoàn thành theo lượt xem, resource url mặc định thủ công, resource file có URL đã ký cho học sinh', async () => {
+  async function markManual(f: Fixture, token: string, studentId: string, cmId: string) {
+    const res = await http(app).post(`/api/v1/courses/${f.course.id}/modules/${cmId}/completion/manual`)
+      .set('Authorization', `Bearer ${token}`).send({ userId: studentId, complete: true });
+    expect(res.status).toBeLessThan(300);
+  }
+
+  it('B1 — mặc định hoàn thành theo loại: trang/tài liệu = manual, video = progress, liên kết = none (ngoài %)', async () => {
     const f = await setup();
-    expect(f.page.cmId).toBeTruthy();
-    const pageRead = await http(app).get(`/api/v1/pages/${f.page.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
+    const me = f.tokens[0]!;
+    const pageRead = await http(app).get(`/api/v1/pages/${f.page.id}`).set('Authorization', `Bearer ${me}`);
     expect(pageRead.status).toBe(200);
-    expect(pageRead.body.content).toContain('Nội dung bài đọc');
-    expect(pageRead.body.completionMode).toBe('view');
-
-    const fileRead = await http(app).get(`/api/v1/resources/${f.fileRes.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
-    expect(fileRead.status).toBe(200);
-    expect(fileRead.body.file.fileName).toBe('phieu-bai-tap.txt');
-    expect(fileRead.body.file.signedUrl).toContain('/download?sig=');
-    expect(fileRead.body.resource.completionMode).toBe('view');
-
-    const urlRead = await http(app).get(`/api/v1/resources/${f.urlRes.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
-    expect(urlRead.status).toBe(200);
+    expect(pageRead.body.completionMode).toBe('manual');
+    const docRead = await http(app).get(`/api/v1/resources/${f.docRes.id}`).set('Authorization', `Bearer ${me}`);
+    expect(docRead.body.resource.completionMode).toBe('manual');
+    expect(docRead.body.file.fileName).toBe('phieu-bai-tap.txt');
+    expect(docRead.body.file.signedUrl).toContain('/download?sig=');
+    const videoRead = await http(app).get(`/api/v1/resources/${f.videoRes.id}`).set('Authorization', `Bearer ${me}`);
+    expect(videoRead.body.resource.completionMode).toBe('progress');
+    expect(videoRead.body.resource.transcript).toBe('Bản chữ của bài giảng.');
+    const urlRead = await http(app).get(`/api/v1/resources/${f.urlRes.id}`).set('Authorization', `Bearer ${me}`);
+    expect(urlRead.body.resource.completionMode).toBe('none');
     expect(urlRead.body.embedUrl).toBe('https://www.youtube.com/embed/dQw4w9WgXcQ');
-    expect(urlRead.body.resource.completionMode).toBe('manual');
-
+    // Mẫu số tiến độ chỉ gồm 3 mục được theo dõi (liên kết ngoài %).
+    const progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
+    expect(progress.body.total).toBe(3);
     // Người ngoài khoá không đọc được học liệu.
     const outsider = await createUserViaApi(app, admin);
     const outsiderToken = (await login(app, outsider.username, STRONG_PASSWORD)).accessToken;
-    const denied = await http(app).get(`/api/v1/pages/${f.page.id}`).set('Authorization', `Bearer ${outsiderToken}`);
-    expect(denied.status).toBe(403);
+    expect((await http(app).get(`/api/v1/pages/${f.page.id}`).set('Authorization', `Bearer ${outsiderToken}`)).status).toBe(403);
   });
 
-  it('player + tiến độ: xem trang → hoàn thành theo lượt xem; % tiến độ khớp API completion; đánh dấu đã học cho mục thủ công', async () => {
+  it('player + tiến độ: xem trang chỉ ghi nhận đã xem (manual chưa xong), tự xác nhận mới hoàn thành; % khớp API completion', async () => {
     const f = await setup();
     const me = f.tokens[0]!;
     const studentId = f.students[0]!.id;
 
-    const before = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
-    expect(before.status).toBe(200);
-    expect(before.body.total).toBe(3);
-    expect(before.body.completed).toBe(0);
-    expect(before.body.percent).toBe(0);
-    expect(before.body.resume.cmId).toBe(f.page.cmId);
-
-    // Mở player ở trang đọc: có nội dung, có Trước/Tiếp, ghi last-access.
     const player = await http(app).get(`/api/v1/courses/${f.course.id}/player/${f.page.cmId}`).set('Authorization', `Bearer ${me}`);
     expect(player.status).toBe(200);
     expect(player.body.content.type).toBe('page');
     expect(player.body.content.page.content).toContain('Nội dung bài đọc');
     expect(player.body.prevCmId).toBeNull();
-    expect(player.body.nextCmId).toBe(f.fileRes.cmId);
+    expect(player.body.nextCmId).toBe(f.docRes.cmId);
     expect(player.body.progress.lastAccess.cmId).toBe(f.page.cmId);
 
-    // Tự ghi nhận đã xem qua endpoint /view sẵn có → completion theo lượt xem.
     const viewed = await http(app).post(`/api/v1/courses/${f.course.id}/modules/${f.page.cmId}/view`).set('Authorization', `Bearer ${me}`);
     expect(viewed.status).toBeLessThan(300);
-
-    // Đối chiếu % tiến độ với dữ liệu completion thô từ API completion/me.
+    // Đã xem ≠ đã hoàn thành với mục manual.
     const completionMe = await http(app).get(`/api/v1/courses/${f.course.id}/completion/me`).set('Authorization', `Bearer ${me}`);
+    const pageActivity = (completionMe.body.activities as { cmId: string; state: number; viewed: boolean }[]).find((a) => a.cmId === f.page.cmId);
+    expect(pageActivity?.viewed).toBe(true);
+    expect(pageActivity?.state).toBe(0);
+    let progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
+    expect(progress.body.completed).toBe(0);
+
+    await markManual(f, me, studentId, f.page.cmId);
+    progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
     const doneCount = (completionMe.body.activities as { state: number }[]).filter((a) => a.state !== 0).length;
-    const progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
-    expect(progress.body.completed).toBe(doneCount);
+    const completionMe2 = await http(app).get(`/api/v1/courses/${f.course.id}/completion/me`).set('Authorization', `Bearer ${me}`);
+    const doneCount2 = (completionMe2.body.activities as { state: number }[]).filter((a) => a.state !== 0).length;
+    expect(doneCount).toBe(0);
+    expect(progress.body.completed).toBe(doneCount2);
     expect(progress.body.completed).toBe(1);
     expect(progress.body.percent).toBe(33);
     const s1 = (progress.body.sections as { sectionId: string; percent: number | null }[]).find((s) => s.sectionId === f.sectionId);
-    const s2 = (progress.body.sections as { sectionId: string; percent: number | null }[]).find((s) => s.sectionId === f.section2Id);
     expect(s1?.percent).toBe(50);
-    expect(s2?.percent).toBe(0);
-    // Học tiếp: mục theo dõi đầu tiên chưa xong = tài nguyên file.
-    expect(progress.body.resume.cmId).toBe(f.fileRes.cmId);
+    // Học tiếp: mục theo dõi đầu tiên chưa xong = phiếu bài tập.
+    expect(progress.body.resume.cmId).toBe(f.docRes.cmId);
+  });
 
-    // Mục liên kết không tự đo được: học sinh tự "Đánh dấu đã học".
-    const mark = await http(app).post(`/api/v1/courses/${f.course.id}/modules/${f.urlRes.cmId}/completion/manual`)
-      .set('Authorization', `Bearer ${me}`).send({ userId: studentId, complete: true });
-    expect(mark.status).toBeLessThan(300);
-    const after = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
-    expect(after.body.completed).toBe(2);
-    expect(after.body.percent).toBe(67);
-    const urlItem = (after.body.sections as { items: { cmId: string; done: boolean }[] }[])
-      .flatMap((s) => s.items).find((i) => i.cmId === f.urlRes.cmId);
-    expect(urlItem?.done).toBe(true);
+  it('B1/B2 — video: báo tiến độ 50% chưa xong, 95% thì hoàn thành và % không thụt lùi khi báo lại thấp hơn (ôn lại an toàn)', async () => {
+    const f = await setup();
+    const me = f.tokens[0]!;
+    const post = (percent: number, positionSeconds: number) => http(app)
+      .post(`/api/v1/courses/${f.course.id}/modules/${f.videoRes.cmId}/progress`)
+      .set('Authorization', `Bearer ${me}`).send({ percent, positionSeconds });
+    const half = await post(50, 120);
+    expect(half.status).toBeLessThan(300);
+    expect(half.body.state).toBe(0);
+    expect(half.body.percent).toBe(50);
+    // Vị trí dở được player trả lại để học tiếp đúng chỗ.
+    const player = await http(app).get(`/api/v1/courses/${f.course.id}/player/${f.videoRes.cmId}`).set('Authorization', `Bearer ${me}`);
+    expect(player.body.itemProgress).toEqual({ percent: 50, positionSeconds: 120, page: null });
+    const done = await post(95, 570);
+    expect(done.body.state).toBe(1);
+    const progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
+    expect(progress.body.completed).toBe(1);
+    // Ôn lại: báo lại 10% không làm mất hoàn thành, % giữ mức cao nhất.
+    const again = await post(10, 60);
+    expect(again.body.percent).toBe(95);
+    expect(again.body.state).toBe(1);
   });
 
   it('resume theo last-access: mở dở một mục chưa xong rồi quay lại thì Học tiếp trỏ đúng mục đó', async () => {
     const f = await setup();
     const me = f.tokens[0]!;
-    // Mở player ở tài nguyên liên kết (chưa đánh dấu xong) — last-access nằm ở đó.
     const player = await http(app).get(`/api/v1/courses/${f.course.id}/player/${f.urlRes.cmId}`).set('Authorization', `Bearer ${me}`);
     expect(player.status).toBe(200);
     expect(player.body.content.type).toBe('resource');
-    expect(player.body.content.embedUrl).toContain('youtube.com/embed/');
     const progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${me}`);
     expect(progress.body.lastAccess.cmId).toBe(f.urlRes.cmId);
     expect(progress.body.resume).toEqual({ cmId: f.urlRes.cmId, reason: 'last_access' });
   });
 
-  it('mốc lớp: cả lớp xong trang đọc, chưa ai xong phần còn lại → mốc dừng ở trang đọc; % lớp khớp completion', async () => {
+  it('mốc lớp: cả lớp xác nhận xong trang đọc → mốc dừng ở trang đọc; % lớp khớp dữ liệu completion', async () => {
     const f = await setup();
-    // Tạo nhóm lớp gồm cả hai học sinh.
     const group = await http(app).post(`/api/v1/courses/${f.course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Lớp A' });
     expect(group.status).toBeLessThan(300);
     for (const s of f.students) {
@@ -168,10 +196,8 @@ describe('K2 learning content, player & progress', () => {
         .set('Authorization', `Bearer ${admin}`).send({ userId: s.id });
       expect(add.status).toBeLessThan(300);
     }
-    // Cả hai học sinh xem trang đọc (hoàn thành theo lượt xem).
-    for (const token of f.tokens) {
-      const v = await http(app).post(`/api/v1/courses/${f.course.id}/modules/${f.page.cmId}/view`).set('Authorization', `Bearer ${token}`);
-      expect(v.status).toBeLessThan(300);
+    for (let i = 0; i < f.students.length; i += 1) {
+      await markManual(f, f.tokens[i]!, f.students[i]!.id, f.page.cmId);
     }
     const markers = await http(app).get(`/api/v1/courses/${f.course.id}/progress/class-markers`).set('Authorization', `Bearer ${admin}`);
     expect(markers.status).toBe(200);
@@ -183,8 +209,60 @@ describe('K2 learning content, player & progress', () => {
     expect(marker.markerCmId).toBe(f.page.cmId);
     expect(marker.markerIndex).toBe(0);
     expect(marker.memberCount).toBe(2);
-    // 2 học sinh × 1 mục xong / (2 × 3 mục theo dõi) = 33%.
     expect(marker.percent).toBe(33);
+  });
+
+  it('B4/B2 — báo cáo GV: ma trận lớp × mục + tổng theo mục/HS + hồ sơ chụp tên mục; CSV tải được; HS không xem được báo cáo', async () => {
+    const f = await setup();
+    await markManual(f, f.tokens[0]!, f.students[0]!.id, f.page.cmId);
+    await markManual(f, f.tokens[1]!, f.students[1]!.id, f.page.cmId);
+    await markManual(f, f.tokens[0]!, f.students[0]!.id, f.docRes.cmId);
+
+    const report = await http(app).get(`/api/v1/courses/${f.course.id}/progress/report`).set('Authorization', `Bearer ${admin}`);
+    expect(report.status).toBe(200);
+    expect(report.body.items).toHaveLength(3);
+    const pageItem = (report.body.items as { cmId: string; completedCount: number; percent: number }[]).find((i) => i.cmId === f.page.cmId);
+    expect(pageItem?.completedCount).toBe(2);
+    expect(pageItem?.percent).toBe(100);
+    const docItem = (report.body.items as { cmId: string; completedCount: number; percent: number }[]).find((i) => i.cmId === f.docRes.cmId);
+    expect(docItem?.completedCount).toBe(1);
+    expect(docItem?.percent).toBe(50);
+    const s1 = (report.body.students as { userId: string; percent: number; records: { cmId: string; cmName: string }[] }[])
+      .find((s) => s.userId === f.students[0]!.id);
+    expect(s1?.percent).toBe(67);
+    // Hồ sơ hoàn thành chụp đúng tên mục tại thời điểm hoàn thành.
+    expect(s1?.records.map((r) => r.cmName).sort()).toEqual(['Bài đọc 1', 'Phiếu bài tập']);
+    // Lọc theo nhóm: tạo nhóm chỉ gồm học sinh 2 → báo cáo chỉ còn 1 HS.
+    const group = await http(app).post(`/api/v1/courses/${f.course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Tổ 1' });
+    await http(app).post(`/api/v1/courses/${f.course.id}/groups/${group.body.id}/members`)
+      .set('Authorization', `Bearer ${admin}`).send({ userId: f.students[1]!.id });
+    const filtered = await http(app).get(`/api/v1/courses/${f.course.id}/progress/report?groupId=${group.body.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(filtered.body.students).toHaveLength(1);
+    expect(filtered.body.students[0].userId).toBe(f.students[1]!.id);
+    // CSV.
+    const csv = await http(app).get(`/api/v1/courses/${f.course.id}/progress/report.csv`).set('Authorization', `Bearer ${admin}`);
+    expect(csv.status).toBe(200);
+    expect(csv.headers['content-type']).toContain('text/csv');
+    expect(csv.text.split('\n')[0]).toContain('Bài đọc 1');
+    expect(csv.text).toContain('x');
+    // Học sinh không có quyền quản completion → 403.
+    const denied = await http(app).get(`/api/v1/courses/${f.course.id}/progress/report`).set('Authorization', `Bearer ${f.tokens[0]}`);
+    expect(denied.status).toBe(403);
+  });
+
+  it('B5 — mẫu bài học CV 5512: tạo đủ 5 section theo khung với tiền tố tên bài', async () => {
+    const f = await setup(1);
+    const res = await http(app).post(`/api/v1/courses/${f.course.id}/lesson-template`)
+      .set('Authorization', `Bearer ${admin}`).send({ title: 'Bài 1: Số tự nhiên' });
+    expect(res.status).toBeLessThan(300);
+    const names = (res.body as { name: string }[]).map((s) => s.name);
+    expect(names).toEqual([
+      'Bài 1: Số tự nhiên — Mở đầu',
+      'Bài 1: Số tự nhiên — Hình thành kiến thức mới',
+      'Bài 1: Số tự nhiên — Luyện tập',
+      'Bài 1: Số tự nhiên — Vận dụng',
+      'Bài 1: Số tự nhiên — Kiểm tra nhanh & tổng kết',
+    ]);
   });
 
   it('sửa/xoá học liệu: đổi nội dung trang và xoá tài nguyên thì cm biến mất khỏi outline của học sinh', async () => {
@@ -195,11 +273,11 @@ describe('K2 learning content, player & progress', () => {
     const read = await http(app).get(`/api/v1/pages/${f.page.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
     expect(read.body.content).toContain('Nội dung đã sửa');
 
-    const del = await http(app).delete(`/api/v1/resources/${f.fileRes.id}`).set('Authorization', `Bearer ${admin}`);
+    const del = await http(app).delete(`/api/v1/resources/${f.docRes.id}`).set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBe(200);
     const progress = await http(app).get(`/api/v1/courses/${f.course.id}/progress/me`).set('Authorization', `Bearer ${f.tokens[0]}`);
     expect(progress.body.total).toBe(2);
-    const gone = await http(app).get(`/api/v1/resources/${f.fileRes.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
+    const gone = await http(app).get(`/api/v1/resources/${f.docRes.id}`).set('Authorization', `Bearer ${f.tokens[0]}`);
     expect(gone.status).toBe(404);
   });
 });
