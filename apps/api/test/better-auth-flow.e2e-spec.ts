@@ -16,7 +16,15 @@ import type { CredentialBridgeService } from '../src/modules/auth/better-auth/cr
  * phiên hiệu lực ngay, endpoint đổi trạng thái thiếu Origin bị 403 (kèm
  * cookie — kiểm tra Origin của 1.7.12 chỉ kích hoạt khi request mang
  * cookie, xem Giai đoạn 0), phiên tạo theo chương trình cho login-as,
- * cầu nối hash từ hệ cũ, và route auth cũ vẫn chạy khi cờ bật.
+ * cầu nối hash từ hệ cũ, và route auth cũ vẫn chạy khi cờ bật. Hai cổng
+ * của điểm nối tiếp 2.1 (issue #7): gọi linkExistingPasswordHash đồng
+ * thời hai lần chỉ sinh đúng một dòng credential, và lỗi ép tại bước
+ * tạo account thì rollback cả dòng user (không để user mồ côi).
+ * Vòng fix sau review của 2.1: internalAdapter dựng trong transaction
+ * không mang database hook của plugin username nên cầu nối tự gác
+ * luật username của plugin — spec có ca username sai định dạng/độ dài
+ * bị từ chối không sinh user, và ca username chữ hoa hợp lệ được lưu
+ * hạ thường, đăng nhập được, trùng thì bị chặn.
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp
  * (ConfigModule validate cấu hình ngay khi module được import), nên các
@@ -111,6 +119,89 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
     ).rejects.toThrow(/Password policy violated/);
     const rows = await pg.query('select count(*)::int as n from account a join users u on u.id = a.user_id where u.username = $1', [weakName]);
     expect(rows.rows[0].n).toBe(0);
+  });
+
+  it('rejects a malformed username at the bridge (the plugin username rules run in the bridge)', async () => {
+    // Điểm chặn vòng review của điểm 2.1: internalAdapter dựng trong
+    // transaction KHÔNG mang database hook của plugin username, nên
+    // cầu nối tự validate theo đúng luật plugin. Username chứa khoảng
+    // trắng + ký tự `!` là định dạng mà endpoint đăng nhập username
+    // không bao giờ chấp nhận — để lọt là sinh user không đăng nhập
+    // được. Phải bị từ chối TRƯỚC khi bất kỳ bản ghi nào được ghi.
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-format@example.com',
+        username: 'bad name!',
+        firstName: 'Bad',
+        lastName: 'Format',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username không hợp lệ/);
+    const byEmail = await pg.query('select count(*)::int as n from users where email = $1', [
+      'badname-format@example.com',
+    ]);
+    expect(byEmail.rows[0].n).toBe(0);
+    // Cả hai biên độ dài của plugin (tối thiểu 3, tối đa 30) cũng gác.
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-short@example.com',
+        username: 'ab',
+        firstName: 'Bad',
+        lastName: 'Short',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username quá ngắn/);
+    await expect(
+      bridge.createUserWithCredential({
+        email: 'badname-long@example.com',
+        username: 'a'.repeat(31),
+        firstName: 'Bad',
+        lastName: 'Long',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username quá dài/);
+    const leftovers = await pg.query(
+      "select count(*)::int as n from users where email in ('badname-short@example.com', 'badname-long@example.com')",
+    );
+    expect(leftovers.rows[0].n).toBe(0);
+  });
+
+  it('accepts a valid mixed-case username, stores it lowercased, and blocks duplicates', async () => {
+    const suffix = helpers.uniqueName('case');
+    const mixed = `Ba${suffix}`;
+    const created = await bridge.createUserWithCredential({
+      email: `${suffix}@example.com`,
+      username: mixed,
+      firstName: 'Mixed',
+      lastName: 'Case',
+      password: FLOW_PASSWORD,
+    });
+    // Chuẩn hoá hạ thường của plugin vẫn áp ở tầng schema field.
+    const rows = await pg.query('select username from users where id = $1', [created.id]);
+    expect(rows.rows[0].username).toBe(mixed.toLowerCase());
+    // User tạo qua cầu nối phải đăng nhập được bằng username đã
+    // chuẩn hoá — tiêu chí mà điểm chặn của vòng review bảo vệ.
+    const res = await http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ username: mixed.toLowerCase(), password: FLOW_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.user.username).toBe(mixed.toLowerCase());
+    // Trùng username bị chặn kể cả khi khác hoa/thường (hook của
+    // plugin so trên dạng đã hạ thường; tầng DB còn UNIQUE gác cuối).
+    await expect(
+      bridge.createUserWithCredential({
+        email: `dup-${suffix}@example.com`,
+        username: mixed.toUpperCase(),
+        firstName: 'Dup',
+        lastName: 'Case',
+        password: FLOW_PASSWORD,
+      }),
+    ).rejects.toThrow(/username đã được sử dụng/);
+    const count = await pg.query('select count(*)::int as n from users where username = $1', [
+      mixed.toLowerCase(),
+    ]);
+    expect(count.rows[0].n).toBe(1);
   });
 
   it('sign-in with a wrong password is refused', async () => {
@@ -214,6 +305,75 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
       .send({ username: legacy.username, password: helpers.STRONG_PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe(legacy.username);
+  });
+
+  it('two concurrent linkExistingPasswordHash calls yield exactly one credential row', async () => {
+    const token = await helpers.adminToken(app);
+    const legacy = await helpers.createUserViaApi(app, token);
+    const results = await Promise.all([
+      bridge.linkExistingPasswordHash(legacy.id),
+      bridge.linkExistingPasswordHash(legacy.id),
+    ]);
+    // Đúng một lời gọi thực sự chèn (true); lời còn lại nhận false thay
+    // vì văng lỗi trùng UNIQUE (user_id, provider_id) — chèn idempotent
+    // của điểm 2.1 (hồ sơ Giai đoạn 2).
+    expect(results.filter((r) => r === true)).toHaveLength(1);
+    expect(results.filter((r) => r === false)).toHaveLength(1);
+    const rows = await pg.query(
+      "select count(*)::int as n from account where user_id = $1 and provider_id = 'credential'",
+      [legacy.id],
+    );
+    expect(rows.rows[0].n).toBe(1);
+  });
+
+  it('a failure at account creation rolls the user back (no orphan user)', async () => {
+    const orphanName = helpers.uniqueName('baorphan');
+    // Ép lỗi tại đúng bước chèn account BÊN TRONG transaction của cầu
+    // nối: trigger chặn INSERT vào account khi user của nó mang
+    // username của test này. Dòng user đã chèn ngay trước đó trong
+    // cùng transaction phải bị rollback theo — tiêu chí "không còn
+    // user mồ côi" của điểm 2.1 (hồ sơ Giai đoạn 2).
+    await pg.query(`
+      create or replace function test_fail_account_insert() returns trigger as $fn$
+      begin
+        if exists (select 1 from users u where u.id = new.user_id and u.username = '${orphanName}') then
+          raise exception 'forced account creation failure (test)';
+        end if;
+        return new;
+      end
+      $fn$ language plpgsql
+    `);
+    await pg.query(
+      'create trigger test_fail_account_insert before insert on account for each row execute function test_fail_account_insert()',
+    );
+    let caught: unknown;
+    try {
+      await bridge.createUserWithCredential({
+        email: `${orphanName}@example.com`,
+        username: orphanName,
+        firstName: 'Orphan',
+        lastName: 'Rollback',
+        password: FLOW_PASSWORD,
+      });
+    } catch (err) {
+      caught = err;
+    } finally {
+      await pg.query('drop trigger if exists test_fail_account_insert on account');
+      await pg.query('drop function if exists test_fail_account_insert()');
+    }
+    expect(caught).toBeTruthy();
+    // Thông điệp lỗi phải là lỗi bị ép tại bước account (không phải
+    // lỗi khác tình cờ) — duyệt cả chuỗi cause vì tầng ORM có thể bọc.
+    const texts: string[] = [];
+    let current: unknown = caught;
+    while (current && typeof current === 'object' && texts.length < 6) {
+      const message = (current as { message?: unknown }).message;
+      if (typeof message === 'string') texts.push(message);
+      current = (current as { cause?: unknown }).cause;
+    }
+    expect(texts.join(' | ')).toMatch(/forced account creation failure/);
+    const users = await pg.query('select count(*)::int as n from users where username = $1', [orphanName]);
+    expect(users.rows[0].n).toBe(0);
   });
 
   it('public sign-up stays closed', async () => {

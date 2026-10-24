@@ -125,6 +125,13 @@ export const authAccount = pgTable('account', {
 },
   (table) => [
       index('account_user_id_idx').on(table.userId),
+      // Một user chỉ có tối đa MỘT account cho mỗi nhà cung cấp (điểm
+      // giữ lại từ review Giai đoạn 1 của issue #7): dòng credential là
+      // duy nhất theo cặp này, và tầng cơ sở dữ liệu tự chặn việc tạo
+      // account thứ hai cho cùng một provider — các luồng tạo cặp
+      // user + account dựa vào ràng buộc này để phát hiện trùng lặp
+      // thay vì kiểm tra rời rạc phía ứng dụng.
+      unique('account_user_id_provider_id_unique').on(table.userId, table.providerId),
   ]);
 
 /** Mã xác thực dùng một lần của Better Auth (model `verification`): reset mật khẩu, xác thực email. */

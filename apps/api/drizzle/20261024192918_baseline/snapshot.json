@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "0ea946ab-35c4-4dfa-b12e-463d6dbc5e27",
+  "id": "732f6578-0df4-478e-9456-dcc09e7746e9",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -299,7 +299,8 @@
         "e|tbl|public.account",
         "n|rel|public.account",
         "n|type|public.account",
-        "n|rel|public.account_pkey"
+        "n|rel|public.account_pkey",
+        "n|rel|public.account_user_id_provider_id_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -39406,6 +39407,18 @@
       "columns": [
         "user_id",
         "name"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "account",
+      "name": "account_user_id_provider_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "user_id",
+        "provider_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
