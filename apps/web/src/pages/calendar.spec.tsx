@@ -143,6 +143,8 @@ describe('Calendar page — create events and subscriptions', () => {
     stubFetch(calls);
     render(<CalendarPage />);
 
+    // §5.6: form sự kiện nằm trong Sheet — mở Sheet trước rồi mới điền.
+    await userEvent.click(screen.getByRole('button', { name: 'Sự kiện mới' }));
     await userEvent.type(await screen.findByLabelText('Tên sự kiện'), 'Họp nhóm');
     fireEvent.change(screen.getByLabelText('Thời gian bắt đầu'), { target: { value: localNowInput() } });
     await userEvent.click(screen.getByRole('button', { name: 'Tạo sự kiện' }));
