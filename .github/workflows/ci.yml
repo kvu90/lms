@@ -72,9 +72,15 @@ jobs:
       - name: Test api-3b messaging presence/realtime/roster
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/messaging-presence-flow.e2e-spec.ts test/messaging-realtime-flow.e2e-spec.ts test/messaging-roster-flow.e2e-spec.ts
-      - name: Test api-3c notification stream/center/providers
+      - name: Test api-3c1 unread-stream
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts test/notifications-center-v2-flow.e2e-spec.ts test/notifications-providers-flow.e2e-spec.ts
+        run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts
+      - name: Test api-3c2 center-v2
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts
+      - name: Test api-3c3 providers
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/notifications-providers-flow.e2e-spec.ts
       - name: Test api-4 openapi..uuidv7
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/openapi-document.e2e-spec.ts test/platform-backup-payments-privacy-flow.e2e-spec.ts test/platform-hardening.e2e-spec.ts test/platform-i18n-flow.e2e-spec.ts test/platform-search-webservice-flow.e2e-spec.ts test/platform-user-journeys-flow.e2e-spec.ts test/question-bank-read-gate.e2e-spec.ts test/question-types-stimulus-flow.e2e-spec.ts test/question-usage-owner-gate.e2e-spec.ts test/quiz-flow.e2e-spec.ts test/site-config-flow.e2e-spec.ts test/social-flow.e2e-spec.ts test/users-flow.e2e-spec.ts test/uuidv7-primary-keys-flow.e2e-spec.ts
