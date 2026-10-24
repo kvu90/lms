@@ -66,6 +66,23 @@ export class VnGradebooksService {
     await this.evaluator.requireCapability(actorId, capability, await this.courses.courseContextId(courseId));
   }
 
+  /**
+   * Cổng đọc dữ liệu điểm của MỘT học sinh trong một khoá (kết quả tính trực
+   * tiếp, bản chốt kì, bản chốt năm) — đúng tiền lệ GradesService.getGradebook:
+   * chính chủ thì phải truy cập được khoá (assertCourseAccess); người khác
+   * phải có grade:viewall tại context khoá (requireCapability ném 403
+   * access.capability_denied — cùng cơ chế getReport/history). Vá lỗ hổng rò
+   * điểm phát hiện khi probe live v85 (issue #95): trước đây các hàm đọc này
+   * không nhận actor nên học sinh đọc được điểm của nhau chỉ với bookId+userId.
+   */
+  private async assertCanReadStudentResult(actorId: string, courseId: string, userId: string): Promise<void> {
+    if (actorId === userId) {
+      await this.courses.assertCourseAccess(actorId, courseId);
+      return;
+    }
+    await this.requireCap(actorId, 'grade:viewall', courseId);
+  }
+
   /** Lấy sổ VN; ném grades.vn_book_not_found khi vắng. */
   async getBook(bookId: string): Promise<VnBookRow> {
     const row = await this.repo.getVnBook(bookId);
@@ -179,8 +196,15 @@ export class VnGradebooksService {
    * kỳ cột bắt buộc nào thì complete=false và dtbHk=null (không tự điền 0 —
    * phân biệt "chờ kiểm tra bù" với "0 điểm" là GB-VN-2, Điều 7.4–7.5).
    */
-  async computeTermResult(bookId: string, userId: string): Promise<VnTermComputation> {
+  async computeTermResult(actorId: string, bookId: string, userId: string): Promise<VnTermComputation> {
     const book = await this.getBook(bookId);
+    await this.assertCanReadStudentResult(actorId, book.courseId, userId);
+    return this.computeTermResultUnchecked(book, userId);
+  }
+
+  /** Phần tính thuần trên sổ đã nạp — chỉ gọi từ biên đã gác actor (route đọc) hoặc luồng chốt đã gác grade:edit. */
+  private async computeTermResultUnchecked(book: VnBookRow, userId: string): Promise<VnTermComputation> {
+    const bookId = book.id;
     if (book.assessmentMode !== 'score') {
       throw new BadRequestException({ message: 'Comment-only subjects have no score columns to compute (Điều 5.3a)', code: 'grades.vn_comment_book' });
     }
@@ -220,7 +244,7 @@ export class VnGradebooksService {
   async finalizeTermResult(actorId: string, bookId: string, userId: string, comment?: string): Promise<VnTermResultRow> {
     const book = await this.getBook(bookId);
     await this.requireCap(actorId, 'grade:edit', book.courseId);
-    const computation = await this.computeTermResult(bookId, userId);
+    const computation = await this.computeTermResultUnchecked(book, userId);
     if (!computation.complete || computation.dtbHk === null) {
       throw new BadRequestException({
         message: `Cannot finalize: missing grade columns ${computation.missingRoles.join(', ')}`,
@@ -255,9 +279,10 @@ export class VnGradebooksService {
     });
   }
 
-  /** Các bản chốt term của một học sinh trong một sổ (mọi version, cũ → mới). */
-  async listTermResults(bookId: string, userId: string): Promise<VnTermResultRow[]> {
-    await this.getBook(bookId);
+  /** Các bản chốt term của một học sinh trong một sổ (mọi version, cũ → mới). Đọc qua cổng actor như computeTermResult. */
+  async listTermResults(actorId: string, bookId: string, userId: string): Promise<VnTermResultRow[]> {
+    const book = await this.getBook(bookId);
+    await this.assertCanReadStudentResult(actorId, book.courseId, userId);
     return this.repo.listVnTermResults(bookId, userId);
   }
 
@@ -291,8 +316,9 @@ export class VnGradebooksService {
     });
   }
 
-  /** Bản chốt cả năm mới nhất của một học sinh trong một khoá học. */
-  async latestYearResult(courseId: string, userId: string): Promise<VnTermResultRow | undefined> {
+  /** Bản chốt cả năm mới nhất của một học sinh trong một khoá học. Đọc qua cổng actor như computeTermResult. */
+  async latestYearResult(actorId: string, courseId: string, userId: string): Promise<VnTermResultRow | undefined> {
+    await this.assertCanReadStudentResult(actorId, courseId, userId);
     return (await this.repo.listVnYearResults(courseId, userId)).at(-1);
   }
 

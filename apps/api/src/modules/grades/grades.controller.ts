@@ -270,18 +270,20 @@ export class VnGradebooksController {
   @Get(':courseId/grades/vn-books/:bookId/results/:userId')
   /**
    * GET .../results/:userId — tính kết quả học kì trực tiếp từ điểm cột hiện tại (chưa chốt).
+   * Gác actor ở service: chính chủ (đã ghi danh) hoặc grade:viewall tại khoá — tiền lệ getGradebook.
    */
-  async computeResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
+  async computeResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
-    return this.vn.computeTermResult(bookId, userId);
+    return this.vn.computeTermResult(actor.id, bookId, userId);
   }
   @Get(':courseId/grades/vn-books/:bookId/results/:userId/snapshots')
   /**
    * GET .../results/:userId/snapshots — các bản chốt kết quả đã ghi cho học sinh trong sổ.
+   * Gác actor ở service như route results.
    */
-  async listSnapshots(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
+  async listSnapshots(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
-    return this.vn.listTermResults(bookId, userId);
+    return this.vn.listTermResults(actor.id, bookId, userId);
   }
   @Post(':courseId/grades/vn-books/:bookId/results/:userId/finalize')
   /**
@@ -309,9 +311,10 @@ export class VnGradebooksController {
   @Get(':courseId/grades/vn-year-results/:userId')
   /**
    * GET /courses/:courseId/grades/vn-year-results/:userId — bản chốt cả năm mới nhất của học sinh trong khoá.
+   * Gác actor ở service như route results (cùng bệnh rò điểm, phát hiện khi rà soát vá #95).
    */
-  async latestYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string) {
-    return (await this.vn.latestYearResult(courseId, userId)) ?? null;
+  async latestYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return (await this.vn.latestYearResult(actor.id, courseId, userId)) ?? null;
   }
 }
 
