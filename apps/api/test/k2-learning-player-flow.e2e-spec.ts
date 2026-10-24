@@ -179,7 +179,7 @@ describe('K2 learning content, player & progress', () => {
     const marker = (markers.body.markers as {
       groupId: string; markerCmId: string; markerIndex: number; percent: number; memberCount: number;
     }[]).find((m) => m.groupId === group.body.id);
-    expect(marker).toBeDefined();
+    if (!marker) throw new Error('class marker for the group is missing');
     expect(marker.markerCmId).toBe(f.page.cmId);
     expect(marker.markerIndex).toBe(0);
     expect(marker.memberCount).toBe(2);
