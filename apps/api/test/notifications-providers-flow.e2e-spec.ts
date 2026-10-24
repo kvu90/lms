@@ -42,9 +42,11 @@ describe('Notification providers wired (N1, issue #49)', () => {
   interface Notif { id: string; eventType: string; subject: string; fullMessage: string; contextUrl: string | null; timeRead: string | null }
 
   async function notificationsOf(token: string): Promise<Notif[]> {
-    const res = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${token}`);
+    // Trung tâm v2 (issue #51): danh sách phẳng chuyển sang /notifications/items
+    // (GET /notifications nay là danh sách GỘP) — helper bóc .items, assertion giữ nguyên.
+    const res = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
-    return res.body as Notif[];
+    return (res.body as { items: Notif[] }).items;
   }
 
   /** Chờ consumer (nhịp quét 500ms) biến sự kiện thành notification thuộc loại cho trước. */

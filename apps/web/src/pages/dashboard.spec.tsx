@@ -237,11 +237,9 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
       return role === 'admin' ? forbidden() : ok(GRADEBOOK);
     }
     if (url === '/api/v1/badges/mine') return ok([{ id: 'x' }, { id: 'y' }]);
-    if (url === '/api/v1/notifications') {
-      return ok([
-        { id: 'n1', timeRead: null },
-        { id: 'n2', timeRead: '2026-10-20T00:00:00.000Z' },
-      ]);
+    // Dashboard chỉ còn hỏi SỐ chưa đọc (trung tâm v2, issue #51).
+    if (url === '/api/v1/notifications/unread-count') {
+      return ok({ unread: 1 });
     }
     if (url.startsWith('/api/v1/calendar/events')) {
       const tomorrow = new Date(Date.now() + 86_400_000).toISOString();

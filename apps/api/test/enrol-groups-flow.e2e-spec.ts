@@ -334,8 +334,8 @@ describe('Enrol & groups/cohorts', () => {
     const alice = await createUserViaApi(app, admin);
     const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
     await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({});
-    const aliceNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${aliceLogin.accessToken}`);
-    const aliceWelcome = (aliceNotifs.body as { eventType: string; fullMessage: string }[]).find((n) => n.eventType === 'enrol_welcome');
+    const aliceNotifs = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${aliceLogin.accessToken}`);
+    const aliceWelcome = (aliceNotifs.body.items as { eventType: string; fullMessage: string }[]).find((n) => n.eventType === 'enrol_welcome');
     expect(aliceWelcome).toBeDefined();
     expect(aliceWelcome!.fullMessage).toContain('Xin chào! Chào mừng bạn tới');
 
@@ -343,15 +343,15 @@ describe('Enrol & groups/cohorts', () => {
     const bob = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, manualInstance.id, bob.id);
     const bobLogin = await login(app, bob.username, STRONG_PASSWORD);
-    const bobNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${bobLogin.accessToken}`);
-    expect((bobNotifs.body as { eventType: string }[]).some((n) => n.eventType === 'enrol_welcome')).toBe(false);
+    const bobNotifs = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${bobLogin.accessToken}`);
+    expect((bobNotifs.body.items as { eventType: string }[]).some((n) => n.eventType === 'enrol_welcome')).toBe(false);
 
     // Manual enrol with welcome explicitly enabled ⇒ welcome with the custom text.
     const carol = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, manualWelcomeInstance.id, carol.id);
     const carolLogin = await login(app, carol.username, STRONG_PASSWORD);
-    const carolNotifs = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${carolLogin.accessToken}`);
-    const carolWelcome = (carolNotifs.body as { eventType: string; fullMessage: string }[]).find((n) => n.eventType === 'enrol_welcome');
+    const carolNotifs = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${carolLogin.accessToken}`);
+    const carolWelcome = (carolNotifs.body.items as { eventType: string; fullMessage: string }[]).find((n) => n.eventType === 'enrol_welcome');
     expect(carolWelcome).toBeDefined();
     expect(carolWelcome!.fullMessage).toContain('Manual welcome for');
   });

@@ -61,6 +61,101 @@ export const messagePreferenceSchema = z.object({
 });
 export type MessagePreference = z.infer<typeof messagePreferenceSchema>;
 
+/* ---- Trung tâm thông báo v2 (lát N2, issue #51) ---- */
+
+/** Ba nhóm thông báo theo hồ sơ chuẩn thông báo D.1: học tập / lớp & mọi người / hệ thống. */
+export const notificationGroupNameSchema = z.enum(['learning', 'people', 'system']);
+export type NotificationGroupName = z.infer<typeof notificationGroupNameSchema>;
+
+/** Một thông báo đầy đủ như API danh sách phẳng của trung tâm v2 trả về. */
+export const notificationItemSchema = z.object({
+  id: uuidIdSchema,
+  userIdFrom: uuidIdSchema.nullable(),
+  userIdTo: uuidIdSchema,
+  subject: z.string(),
+  fullMessage: z.string(),
+  smallMessage: z.string(),
+  component: z.string(),
+  eventType: z.string(),
+  contextUrl: z.string().nullable(),
+  contextUrlName: z.string().nullable(),
+  timeRead: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type NotificationItem = z.infer<typeof notificationItemSchema>;
+
+/**
+ * Một dòng GỘP của trung tâm thông báo: khoá gộp là (loại × nguồn ×
+ * ngày) — loại = `eventType`, nguồn = `contextUrl` (null khi thông báo
+ * không có ngữ cảnh đích, khi đó gộp theo component), ngày = ngày lịch
+ * Asia/Saigon dạng `YYYY-MM-DD`. `latest` là mục mới nhất đại diện cho
+ * cả dòng; `count`/`unreadCount` đếm trên toàn bộ các mục trong dòng.
+ */
+export const notificationGroupSchema = z.object({
+  eventType: z.string(),
+  component: z.string(),
+  group: notificationGroupNameSchema,
+  contextUrl: z.string().nullable(),
+  day: z.string(),
+  count: z.number().int(),
+  unreadCount: z.number().int(),
+  latest: z.object({
+    id: uuidIdSchema,
+    subject: z.string(),
+    smallMessage: z.string(),
+    contextUrlName: z.string().nullable(),
+    createdAt: z.string(),
+    timeRead: z.string().nullable(),
+  }),
+});
+export type NotificationGroup = z.infer<typeof notificationGroupSchema>;
+
+/** Trang kết quả phân trang con trỏ: `nextCursor` null khi đã hết. */
+export const notificationGroupPageSchema = z.object({
+  items: z.array(notificationGroupSchema),
+  nextCursor: z.string().nullable(),
+});
+export type NotificationGroupPage = z.infer<typeof notificationGroupPageSchema>;
+
+export const notificationItemPageSchema = z.object({
+  items: z.array(notificationItemSchema),
+  nextCursor: z.string().nullable(),
+});
+export type NotificationItemPage = z.infer<typeof notificationItemPageSchema>;
+
+/** Query danh sách GỘP: lọc theo nhóm, chỉ chưa đọc, con trỏ keyset mờ (client không tự dựng). */
+export const listNotificationGroupsQuerySchema = z.object({
+  group: notificationGroupNameSchema.optional(),
+  unreadOnly: z.boolean().optional(),
+  cursor: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+export type ListNotificationGroupsQuery = z.infer<typeof listNotificationGroupsQuerySchema>;
+
+/**
+ * Query danh sách PHẲNG: bộ lọc (eventType + contextUrl + day) mở chi
+ * tiết đúng một dòng gộp; `contextUrl` là chuỗi rỗng '' nghĩa là nguồn
+ * KHÔNG có contextUrl (phân biệt với việc không truyền = không lọc).
+ */
+export const listNotificationItemsQuerySchema = z.object({
+  eventType: z.string().min(1).optional(),
+  contextUrl: z.string().optional(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  group: notificationGroupNameSchema.optional(),
+  unreadOnly: z.boolean().optional(),
+  cursor: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+export type ListNotificationItemsQuery = z.infer<typeof listNotificationItemsQuerySchema>;
+
+/** Body đánh dấu đã đọc hàng loạt theo khoá gộp (loại × nguồn × ngày). */
+export const readNotificationGroupSchema = z.object({
+  eventType: z.string().min(1),
+  contextUrl: z.string().nullable().optional(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type ReadNotificationGroup = z.infer<typeof readNotificationGroupSchema>;
+
 /* ---- Calendar ---- */
 
 export const CALENDAR_EVENT_TYPES = ['site', 'category', 'course', 'group', 'user'] as const;

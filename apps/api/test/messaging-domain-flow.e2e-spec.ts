@@ -108,8 +108,8 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const req = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${a.token}`).send({});
     expect(req.status).toBe(201);
     expect(req.body.status).toBe('pending');
-    const bNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${b.token}`);
-    expect((bNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'contact_request')).toBe(true);
+    const bNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${b.token}`);
+    expect((bNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'contact_request')).toBe(true);
 
     // B TỪ CHỐI: hàng chờ sạch cả hai phía, quan hệ không hình thành,
     // cổng liên lạc vẫn đóng (A tạo conversation 1-1 bị 403).
@@ -322,10 +322,10 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const reportId = report.body.id as string;
 
     // Thông báo về đúng nơi: giáo viên phụ trách + admin nhận được.
-    const teacherNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${teacher.token}`);
-    expect((teacherNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
-    const adminNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${admin}`);
-    expect((adminNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
+    const teacherNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${teacher.token}`);
+    expect((teacherNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
+    const adminNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${admin}`);
+    expect((adminNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
 
     // Hàng đợi theo phạm vi: admin thấy, giáo viên phụ trách thấy,
     // giáo viên khoá khác KHÔNG, học sinh KHÔNG.

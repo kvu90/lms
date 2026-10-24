@@ -3,6 +3,8 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException,
 import type { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import type { Observable } from 'rxjs';
+import type { NotificationGroup, NotificationGroupPage, NotificationItem, NotificationItemPage } from '@lms/contracts';
+import type { ListNotificationGroupsQueryDto, ListNotificationItemsQueryDto, ReadNotificationGroupDto } from './dto/messaging.dto';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -70,6 +72,58 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
 
 export function providerByName(name: string): MessageProviderDefinition | undefined {
   return MESSAGE_PROVIDERS.find((p) => p.name === name);
+}
+
+/** Các eventType thuộc một nhóm hiển thị (suy từ sổ đăng ký provider). */
+function eventTypesOfGroup(group: MessageProviderGroup): string[] {
+  return MESSAGE_PROVIDERS.filter((p) => p.group === group).map((p) => p.name);
+}
+
+/** Nhóm hiển thị của một eventType; loại không có trong sổ đăng ký (dữ liệu cũ) xếp vào nhóm hệ thống. */
+function groupOfEventType(eventType: string): MessageProviderGroup {
+  return providerByName(eventType)?.group ?? 'system';
+}
+
+/** Kích thước trang mặc định của trung tâm thông báo v2 (issue #51). */
+const NOTIFICATION_PAGE_DEFAULT_LIMIT = 20;
+
+/**
+ * Con trỏ keyset của trung tâm v2: chuỗi mờ base64url của
+ * `{ t, id }` — mốc (thời điểm, id) của dòng cuối trang trước. Client
+ * chỉ truyền lại nguyên vẹn, không tự dựng.
+ */
+function encodeNotificationCursor(at: Date, id: string): string {
+  return Buffer.from(JSON.stringify({ t: at.toISOString(), id }), 'utf8').toString('base64url');
+}
+
+function decodeNotificationCursor(raw: string): { at: Date; id: string } {
+  try {
+    const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as { t?: unknown; id?: unknown };
+    if (typeof parsed.t !== 'string' || typeof parsed.id !== 'string') throw new Error('bad cursor');
+    const at = new Date(parsed.t);
+    if (Number.isNaN(at.getTime())) throw new Error('bad cursor');
+    return { at, id: parsed.id };
+  } catch {
+    throw new BadRequestException({ message: 'Invalid notification cursor', code: 'messaging.invalid_cursor' });
+  }
+}
+
+/** Ánh xạ một dòng notifications sang hình dạng hợp đồng của trung tâm v2 (ngày giờ dạng ISO). */
+function notificationItemView(row: NotificationRow): NotificationItem {
+  return {
+    id: row.id,
+    userIdFrom: row.userIdFrom,
+    userIdTo: row.userIdTo,
+    subject: row.subject,
+    fullMessage: row.fullMessage,
+    smallMessage: row.smallMessage,
+    component: row.component,
+    eventType: row.eventType,
+    contextUrl: row.contextUrl,
+    contextUrlName: row.contextUrlName,
+    timeRead: row.timeRead ? row.timeRead.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 /** Preference key stored in user_preferences: provider × channel × login state. */
@@ -338,10 +392,105 @@ export class MessagingService {
   }
 
   /**
-   * Notification của user.
+   * Trung tâm thông báo v2 (issue #51) — danh sách GỘP theo
+   * (loại × nguồn × ngày): tổng hợp ở tầng SQL, trang kết quả neo
+   * keyset trên mục mới nhất của dòng gộp cuối trang. Mục đại diện
+   * `latest` được nạp bổ sung theo đúng tập id neo của trang.
    */
-  async listNotifications(userId: string): Promise<NotificationRow[]> {
-    return this.repo.listNotifications(userId);
+  async listNotificationGroups(userId: string, query: ListNotificationGroupsQueryDto): Promise<NotificationGroupPage> {
+    const limit = query.limit ?? NOTIFICATION_PAGE_DEFAULT_LIMIT;
+    const cursor = query.cursor ? decodeNotificationCursor(query.cursor) : undefined;
+    const aggregates = await this.repo.listNotificationGroups(userId, {
+      eventTypes: query.group ? eventTypesOfGroup(query.group) : undefined,
+      unreadOnly: query.unreadOnly,
+      cursor: cursor ? { latestAt: cursor.at, latestId: cursor.id } : undefined,
+      limit: limit + 1,
+    });
+    const page = aggregates.slice(0, limit);
+    const latestRows = await this.repo.listNotificationsByIds(page.map((a) => a.latestId));
+    const latestById = new Map(latestRows.map((r) => [r.id, r]));
+    const items: NotificationGroup[] = page.map((a) => {
+      const latest = latestById.get(a.latestId);
+      const latestAt = a.latestAt instanceof Date ? a.latestAt : new Date(a.latestAt);
+      return {
+        eventType: a.eventType,
+        component: a.component,
+        group: groupOfEventType(a.eventType),
+        contextUrl: a.sourceKey === '' ? null : a.sourceKey,
+        day: a.day,
+        count: a.count,
+        unreadCount: a.unreadCount,
+        latest: {
+          id: a.latestId,
+          subject: latest?.subject ?? '',
+          smallMessage: latest?.smallMessage ?? '',
+          contextUrlName: latest?.contextUrlName ?? null,
+          createdAt: (latest?.createdAt ?? latestAt).toISOString(),
+          timeRead: latest?.timeRead ? latest.timeRead.toISOString() : null,
+        },
+      };
+    });
+    const last = page[page.length - 1];
+    return {
+      items,
+      nextCursor: aggregates.length > limit && last
+        ? encodeNotificationCursor(last.latestAt instanceof Date ? last.latestAt : new Date(last.latestAt), last.latestId)
+        : null,
+    };
+  }
+
+  /**
+   * Trung tâm v2 — danh sách PHẲNG phân trang con trỏ: bộ lọc
+   * (loại × nguồn × ngày) mở chi tiết đúng một dòng gộp; `group` /
+   * `unreadOnly` phục vụ các góc nhìn phẳng theo nhóm.
+   */
+  async listNotificationItems(userId: string, query: ListNotificationItemsQueryDto): Promise<NotificationItemPage> {
+    const limit = query.limit ?? NOTIFICATION_PAGE_DEFAULT_LIMIT;
+    const cursor = query.cursor ? decodeNotificationCursor(query.cursor) : undefined;
+    const rows = await this.repo.listNotificationItems(userId, {
+      eventType: query.eventType,
+      eventTypes: query.group ? eventTypesOfGroup(query.group) : undefined,
+      source: query.contextUrl === undefined ? undefined : query.contextUrl === '' ? null : query.contextUrl,
+      day: query.day,
+      unreadOnly: query.unreadOnly,
+      cursor: cursor ? { createdAt: cursor.at, id: cursor.id } : undefined,
+      limit: limit + 1,
+    });
+    const page = rows.slice(0, limit);
+    const last = page[page.length - 1];
+    return {
+      items: page.map(notificationItemView),
+      nextCursor: rows.length > limit && last ? encodeNotificationCursor(last.createdAt, last.id) : null,
+    };
+  }
+
+  /**
+   * Trung tâm v2 — đánh dấu đã đọc HÀNG LOẠT theo khoá gộp
+   * (loại × nguồn × ngày); có đẩy tín hiệu SSE như các đường đọc khác.
+   */
+  async markNotificationGroupRead(userId: string, dto: ReadNotificationGroupDto): Promise<{ marked: number }> {
+    const marked = await this.repo.markNotificationGroupRead(userId, {
+      eventType: dto.eventType,
+      sourceKey: dto.contextUrl ?? '',
+      day: dto.day,
+    });
+    if (marked > 0) await this.unreadStream.signalUnreadCountChanged(userId);
+    return { marked };
+  }
+
+  /**
+   * Trung tâm v2 — xoá MỘT thông báo của chính mình; thông báo của
+   * người khác được coi như không tồn tại (404, không lộ tồn tại).
+   */
+  async deleteNotification(userId: string, notificationId: string): Promise<{ deleted: boolean }> {
+    const ok = await this.repo.deleteNotification(notificationId, userId);
+    if (!ok) throw new NotFoundException({ message: `Notification ${notificationId} not found`, code: 'messaging.notification_not_found' });
+    return { deleted: true };
+  }
+
+  /** Trung tâm v2 — dọn mọi thông báo ĐÃ ĐỌC của mình. */
+  async clearReadNotifications(userId: string): Promise<{ deleted: number }> {
+    return { deleted: await this.repo.deleteReadNotifications(userId) };
   }
   /**
    * Số notification chưa đọc.

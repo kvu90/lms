@@ -52,21 +52,43 @@ describe('Notifications page', () => {
     { provider: 'badge_awarded', component: 'core_badges', channel: 'email', state: 'loggedin', enabled: true },
     { provider: 'badge_awarded', component: 'core_badges', channel: 'email', state: 'loggedoff', enabled: false },
   ];
-  const NOTIFICATIONS = [
-    {
-      id: '01900000-0000-7000-8000-000000000001',
-      subject: 'Badge awarded',
-      fullMessage: 'You earned Finisher',
-      eventType: 'badge_awarded',
-      timeRead: null,
-      createdAt: '2026-10-22T00:00:00.000Z',
-    },
-  ];
+  // Hình dạng thật của GET /notifications ở trung tâm v2 (issue #51):
+  // phong bì { items: [dòng GỘP], nextCursor } thay cho mảng phẳng cũ.
+  const NOTIFICATION_PAGE = {
+    items: [
+      {
+        eventType: 'badge_awarded',
+        component: 'core_badges',
+        group: 'people',
+        contextUrl: null,
+        day: '2026-10-22',
+        count: 1,
+        unreadCount: 1,
+        latest: {
+          id: '01900000-0000-7000-8000-000000000001',
+          subject: 'Badge awarded',
+          smallMessage: 'You earned Finisher',
+          contextUrlName: null,
+          createdAt: '2026-10-22T00:00:00.000Z',
+          timeRead: null,
+        },
+      },
+    ],
+    nextCursor: null,
+  };
+
+  // Trang v2 dùng useNavigate (deep-link theo contextUrl) nên render
+  // qua memory router như test Badges ở dưới.
+  function renderNotificationsPage() {
+    const router = createMemoryRouter([{ path: '/notifications', element: <NotificationsPage /> }], { initialEntries: ['/notifications'] });
+    render(<RouterProvider router={router} />);
+    return router;
+  }
 
   it('renders each state row from the API and PUTs exactly the toggled logged-in row', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
-      if (url === '/api/v1/notifications') return NOTIFICATIONS;
+      if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
         const body = JSON.parse(String(init.body)) as { provider: string; channel: string; state: string; enabled: boolean };
         puts.push(body);
@@ -76,7 +98,7 @@ describe('Notifications page', () => {
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
       return undefined;
     });
-    render(<NotificationsPage />);
+    renderNotificationsPage();
     await waitFor(() => expect(screen.getByText('Badge awarded')).toBeInTheDocument());
     const toggle = screen.getByLabelText('badge_awarded popup đã đăng nhập');
     expect(toggle).toBeChecked();
@@ -90,7 +112,7 @@ describe('Notifications page', () => {
   it('toggling the logged-off row PUTs that state only', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
-      if (url === '/api/v1/notifications') return NOTIFICATIONS;
+      if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
         const body = JSON.parse(String(init.body)) as { provider: string; channel: string; state: string; enabled: boolean };
         puts.push(body);
@@ -99,7 +121,7 @@ describe('Notifications page', () => {
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
       return undefined;
     });
-    render(<NotificationsPage />);
+    renderNotificationsPage();
     const toggle = await screen.findByLabelText('badge_awarded email chưa đăng nhập');
     expect(toggle).not.toBeChecked();
     await userEvent.click(toggle);
@@ -112,8 +134,8 @@ describe('Notifications page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
-        if (url === '/api/v1/notifications')
-          return new Response(JSON.stringify(NOTIFICATIONS), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url.startsWith('/api/v1/notifications?'))
+          return new Response(JSON.stringify(NOTIFICATION_PAGE), { status: 200, headers: { 'Content-Type': 'application/json' } });
         if (url === '/api/v1/messages/preferences' && init?.method === 'PUT')
           return new Response(
             JSON.stringify({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'messaging.unknown_provider' }),
@@ -124,13 +146,142 @@ describe('Notifications page', () => {
         return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       }),
     );
-    render(<NotificationsPage />);
+    renderNotificationsPage();
     const toggle = await screen.findByLabelText('badge_awarded popup đã đăng nhập');
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
     expect(await screen.findByRole('alert')).toHaveTextContent('Không lưu được tuỳ chọn thông báo');
     expect(toggle).toBeChecked();
     expect(toggle).not.toBeDisabled();
+  });
+});
+
+describe('Notifications centre v2 (issue #51)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  const GRADE_GROUP_PAGE = {
+    items: [
+      {
+        eventType: 'grade_updated',
+        component: 'core_grades',
+        group: 'learning',
+        contextUrl: '/courses/course-a/grades',
+        day: '2026-10-22',
+        count: 2,
+        unreadCount: 2,
+        latest: {
+          id: '01900000-0000-7000-8000-000000000102',
+          subject: 'Điểm mới 2',
+          smallMessage: 'Có điểm mới trong khoá A',
+          contextUrlName: null,
+          createdAt: '2026-10-22T01:00:00.000Z',
+          timeRead: null,
+        },
+      },
+    ],
+    nextCursor: null,
+  };
+  const GRADE_ITEMS_PAGE = {
+    items: [
+      {
+        id: '01900000-0000-7000-8000-000000000102', subject: 'Điểm mới 2', fullMessage: 'Nội dung điểm 2', smallMessage: '',
+        eventType: 'grade_updated', contextUrl: '/courses/course-a/grades', contextUrlName: null, timeRead: null,
+        createdAt: '2026-10-22T01:00:00.000Z',
+      },
+      {
+        id: '01900000-0000-7000-8000-000000000101', subject: 'Điểm mới 1', fullMessage: 'Nội dung điểm 1', smallMessage: '',
+        eventType: 'grade_updated', contextUrl: '/courses/course-a/grades', contextUrlName: null, timeRead: null,
+        createdAt: '2026-10-22T00:00:00.000Z',
+      },
+    ],
+    nextCursor: null,
+  };
+
+  function renderNotificationsPage() {
+    const router = createMemoryRouter([{ path: '/notifications', element: <NotificationsPage /> }], { initialEntries: ['/notifications'] });
+    render(<RouterProvider router={router} />);
+    return router;
+  }
+
+  it('renders one grouped row with its count, expands to the items, and deletes an item at its row', async () => {
+    const calls: { url: string; method: string }[] = [];
+    stubFetch((url, init) => {
+      calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.startsWith('/api/v1/notifications/items')) return GRADE_ITEMS_PAGE;
+      if (url.startsWith('/api/v1/notifications?')) return GRADE_GROUP_PAGE;
+      if (url === '/api/v1/messages/preferences') return [];
+      return undefined;
+    });
+    renderNotificationsPage();
+
+    // Một dòng gộp duy nhất cho cả hai thông báo điểm, kèm số lượng.
+    const subject = await screen.findByText('Điểm mới 2');
+    expect(subject).toBeInTheDocument();
+    expect(screen.getByText(/2 thông báo/)).toBeInTheDocument();
+    expect(screen.queryByText('Điểm mới 1')).not.toBeInTheDocument();
+
+    // Mở rộng tại chỗ (§9): chi tiết từng mục tải qua /notifications/items.
+    await userEvent.click(screen.getByRole('button', { name: 'Mở rộng: Điểm mới 2' }));
+    expect(await screen.findByText('Nội dung điểm 1')).toBeInTheDocument();
+    expect(calls.some((c) => c.url.startsWith('/api/v1/notifications/items') && c.url.includes('eventType=grade_updated'))).toBe(true);
+
+    // Xoá ngay tại dòng của mục: DELETE đúng id và mục biến mất.
+    await userEvent.click(screen.getByRole('button', { name: 'Xoá thông báo: Điểm mới 2' }));
+    await waitFor(() => expect(screen.queryByText('Nội dung điểm 2')).not.toBeInTheDocument());
+    expect(calls.some((c) => c.method === 'DELETE' && c.url === '/api/v1/notifications/01900000-0000-7000-8000-000000000102')).toBe(true);
+  });
+
+  it('filters the grouped list by the learning group tab', async () => {
+    const urls: string[] = [];
+    stubFetch((url) => {
+      urls.push(url);
+      if (url.startsWith('/api/v1/notifications?')) return { items: [], nextCursor: null };
+      if (url === '/api/v1/messages/preferences') return [];
+      return undefined;
+    });
+    renderNotificationsPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
+    await waitFor(() => expect(urls.some((u) => u.includes('group=learning'))).toBe(true));
+  });
+
+  it('clicking a single-item group marks it read and deep-links to its contextUrl', async () => {
+    const calls: { url: string; method: string }[] = [];
+    const singlePage = {
+      items: [
+        {
+          eventType: 'grade_updated', component: 'core_grades', group: 'learning',
+          contextUrl: '/courses/course-a/grades', day: '2026-10-22', count: 1, unreadCount: 1,
+          latest: {
+            id: '01900000-0000-7000-8000-000000000201', subject: 'Điểm mới duy nhất', smallMessage: '',
+            contextUrlName: null, createdAt: '2026-10-22T01:00:00.000Z', timeRead: null,
+          },
+        },
+      ],
+      nextCursor: null,
+    };
+    stubFetch((url, init) => {
+      calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.startsWith('/api/v1/notifications?')) return singlePage;
+      if (url === '/api/v1/messages/preferences') return [];
+      return {};
+    });
+    const router = createMemoryRouter(
+      [
+        { path: '/notifications', element: <NotificationsPage /> },
+        { path: '/courses/:id/grades', element: <div>Trang điểm khoá</div> },
+      ],
+      { initialEntries: ['/notifications'] },
+    );
+    render(<RouterProvider router={router} />);
+
+    await userEvent.click(await screen.findByText('Điểm mới duy nhất'));
+    // Đã gọi đánh dấu đọc cho đúng mục, và router đã sang trang điểm.
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === '/api/v1/notifications/01900000-0000-7000-8000-000000000201/read')).toBe(true));
+    expect(await screen.findByText('Trang điểm khoá')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/courses/course-a/grades');
   });
 });
 
