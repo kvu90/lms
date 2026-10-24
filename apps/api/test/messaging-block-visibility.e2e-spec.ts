@@ -15,8 +15,12 @@ import {
  *    conversation đang ẩn.
  *  - Gửi tin trong lúc chặn bị từ chối ở cả hai chiều
  *    (`messaging.contact_blocked`).
- *  - Trạng thái đã đọc của phía bên kia không lộ qua chi tiết
- *    conversation 1–1; presence (online) không phát tới phía bị chặn.
+ *  - Mở thẳng theo id (việc nối tiếp của #33, siết sau PR #89): chi
+ *    tiết, cửa sổ lịch sử tin và đánh dấu đã đọc của conversation
+ *    1–1 đang chặn đều 404 như không tồn tại ở CẢ HAI phía; `sync`
+ *    realtime cũng không trả lịch sử của conversation đang chặn.
+ *    Hội thoại nhóm chứa cả hai người không bị cổng này chạm.
+ *  - Presence (online) không phát tới phía bị chặn.
  *  - Bỏ chặn thì mọi bề mặt hiện lại nguyên trạng.
  */
 
@@ -136,17 +140,22 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     expect(sendByBlocker.status).toBe(403);
     expect(sendByBlocker.body.code).toBe('messaging.contact_blocked');
 
-    // Đã đọc không lộ: B mở chi tiết (lịch sử vẫn đọc được) nhưng
-    // không còn mốc đã đọc của A; phía A cũng không thấy mốc của B.
-    const detailB = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
-      .set('Authorization', `Bearer ${b.token}`);
-    expect(detailB.status).toBe(200);
-    expect((detailB.body as { memberReadMarkers: { userId: string }[] }).memberReadMarkers
-      .some((m) => m.userId === a.id)).toBe(false);
-    const detailA = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
-      .set('Authorization', `Bearer ${a.token}`);
-    expect((detailA.body as { memberReadMarkers: { userId: string }[] }).memberReadMarkers
-      .some((m) => m.userId === b.id)).toBe(false);
+    // Mở thẳng theo id khi đang chặn: 404 như không tồn tại ở CẢ
+    // HAI phía — chi tiết, cửa sổ lịch sử tin, đánh dấu đã đọc
+    // (luật siết của việc nối tiếp #33; trước đây lịch sử vẫn đọc
+    // được, chỉ ẩn mốc đã đọc của phía bên kia).
+    for (const token of [a.token, b.token]) {
+      const detail = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(detail.status).toBe(404);
+      expect(detail.body.code).toBe('messaging.conversation_not_found');
+      const windowRes = await http(app).get(`/api/v1/messages/conversations/${conversationId}/messages`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(windowRes.status).toBe(404);
+      const read = await http(app).post(`/api/v1/messages/conversations/${conversationId}/read`)
+        .set('Authorization', `Bearer ${token}`).send({});
+      expect(read.status).toBe(404);
+    }
 
     // Bỏ chặn: mọi bề mặt hiện lại nguyên trạng, gửi lại được.
     const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
@@ -156,7 +165,68 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     expect(await conversationIds(b.token)).toContain(conversationId);
     expect(await contactIds(a.token)).toContain(b.id);
     expect(await contactIds(b.token)).toContain(a.id);
+    // Mở theo id trở lại, lịch sử còn nguyên (không xoá dữ liệu) và
+    // mốc đã đọc của A lại thấy như trước khi chặn.
+    const detailAfter = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${b.token}`);
+    expect(detailAfter.status).toBe(200);
+    expect((detailAfter.body as { messages: { fullMessage: string }[] }).messages
+      .some((m) => m.fullMessage === 'tin trước khi chặn')).toBe(true);
+    expect((detailAfter.body as { memberReadMarkers: { userId: string }[] }).memberReadMarkers
+      .some((m) => m.userId === a.id)).toBe(true);
     expect((await send(b.token, 'gửi lại sau bỏ chặn')).status).toBe(201);
+  });
+
+  it('direct-read gate leaves a shared group untouched and realtime sync withholds the blocked 1-1 history', async () => {
+    // Nhóm chung (type 2) chứa cả A và B — admin tạo hộ vì cổng
+    // lập nhóm tự do chỉ cho staff/admin; A gửi một tin làm mốc.
+    const admin = await adminToken(app);
+    const group = await http(app).post('/api/v1/messages/conversations')
+      .set('Authorization', `Bearer ${admin}`).send({ type: 2, memberIds: [a.id, b.id], name: 'Nhóm chung A-B' });
+    expect(group.status).toBe(201);
+    const groupId = (group.body as { id: string }).id;
+    const groupMsg = await http(app).post(`/api/v1/messages/conversations/${groupId}/messages`)
+      .set('Authorization', `Bearer ${a.token}`).send({ text: 'tin trong nhóm chung' });
+    expect(groupMsg.status).toBe(201);
+
+    // A chặn B.
+    const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
+      .set('Authorization', `Bearer ${a.token}`).send({});
+    expect(block.status).toBe(201);
+    try {
+      // Nhóm chung vẫn đọc được ở cả hai phía (chi tiết + lịch sử).
+      for (const token of [a.token, b.token]) {
+        const detail = await http(app).get(`/api/v1/messages/conversations/${groupId}`)
+          .set('Authorization', `Bearer ${token}`);
+        expect(detail.status).toBe(200);
+        const windowRes = await http(app).get(`/api/v1/messages/conversations/${groupId}/messages`)
+          .set('Authorization', `Bearer ${token}`);
+        expect(windowRes.status).toBe(200);
+      }
+      // Sync realtime: lịch sử của hội thoại 1–1 đang chặn KHÔNG
+      // trả cho phía bị chặn; nhóm chung vẫn sync được (đối chứng).
+      const bSocket = await connectSocket(b.token);
+      try {
+        const syncBlocked = await bSocket.emitWithAck('sync', { [conversationId]: 0 }) as Record<string, unknown[]>;
+        expect(syncBlocked[conversationId]).toBeUndefined();
+        const syncGroup = await bSocket.emitWithAck('sync', { [groupId]: 0 }) as Record<string, { fullMessage: string }[]>;
+        expect(syncGroup[groupId]?.some((m) => m.fullMessage === 'tin trong nhóm chung')).toBe(true);
+      } finally {
+        bSocket.disconnect();
+      }
+    } finally {
+      const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
+        .set('Authorization', `Bearer ${a.token}`);
+      expect(unblock.status).toBe(200);
+    }
+    // Bỏ chặn: sync lại trả lịch sử 1–1 như thường.
+    const bSocket2 = await connectSocket(b.token);
+    try {
+      const syncAfter = await bSocket2.emitWithAck('sync', { [conversationId]: 0 }) as Record<string, { fullMessage: string }[]>;
+      expect(syncAfter[conversationId]?.some((m) => m.fullMessage === 'tin trước khi chặn')).toBe(true);
+    } finally {
+      bSocket2.disconnect();
+    }
   });
 
   it('presence of the blocker does not reach the blocked peer while blocked, and flows again after unblock', async () => {
