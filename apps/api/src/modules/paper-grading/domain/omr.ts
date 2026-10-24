@@ -250,6 +250,24 @@ function diskOffsets(radius: number): { dx: number; dy: number }[] {
 const DISK9 = diskOffsets(9);
 const DISK7 = diskOffsets(7);
 
+/** 4 góc phần tư của đĩa lấy mẫu (chỉ số = (dx≥0) + 2·(dy≥0)). */
+function diskQuadrants(disk: { dx: number; dy: number }[]): { dx: number; dy: number }[][] {
+  const quads: { dx: number; dy: number }[][] = [[], [], [], []];
+  for (const o of disk) quads[(o.dx >= 0 ? 1 : 0) + (o.dy >= 0 ? 2 : 0)]!.push(o);
+  return quads;
+}
+const DISK9_QUADRANTS = diskQuadrants(DISK9);
+const DISK7_QUADRANTS = diskQuadrants(DISK7);
+
+/**
+ * Tô kín THẬT phủ mực khắp đĩa bong bóng; nét gạch/dấu ✓ chỉ phủ một
+ * dải chéo — mật độ trung bình vẫn cao nhưng góc ít mực nhất thấp hẳn.
+ * Ô thắng mà góc ít mực nhất < 45% mật độ của chính ô thì không phải
+ * tô kín: xếp ca mơ hồ cho giáo viên xác nhận, hệ thống không chấm
+ * đoán (tiêu chí cứng của CAM-0: 100% ca mơ hồ vào hàng chờ).
+ */
+const MIN_QUADRANT_COVERAGE = 0.45;
+
 function meanDisk(img: GrayImage, cx: number, cy: number, offsets: { dx: number; dy: number }[]): number {
   let sum = 0, n = 0;
   for (const { dx, dy } of offsets) {
@@ -363,16 +381,29 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
     return Math.min(1, Math.max(0, (paper - mean) / range));
   };
 
+  /** Ô thắng có phủ mực ĐỀU khắp đĩa không (chặn nét gạch/dấu ✓ bị đọc thành tô kín). */
+  const uniformFill = (cx: number, cy: number, quads: { dx: number; dy: number }[][], topDensity: number): boolean => {
+    let min = Infinity;
+    for (const offs of quads) min = Math.min(min, densityAt(cx, cy, offs));
+    return min >= topDensity * MIN_QUADRANT_COVERAGE;
+  };
+
   const readings: SheetReading[] = geometry.rows.map((row) => {
     const densities = row.centers.map((c) => densityAt(c.x, c.y, DISK9));
     const decision = decideBubbles(densities, thresholds);
+    let chosen = decision.chosen;
+    let state = decision.state;
+    if (state === 'filled' && chosen !== null) {
+      const c = row.centers[chosen]!;
+      if (!uniformFill(c.x, c.y, DISK9_QUADRANTS, densities[chosen]!)) { state = 'ambiguous'; chosen = null; }
+    }
     return {
       slot: row.slot,
       densities: decision.densities,
-      chosen: decision.chosen,
-      state: decision.state,
+      chosen,
+      state,
       margin: decision.margin,
-      resolvedBy: decision.state === 'ambiguous' ? null : 'omr',
+      resolvedBy: state === 'ambiguous' ? null : 'omr',
     };
   });
 
@@ -380,14 +411,20 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
   let bubbleCode: { code: string; checksumOk: boolean } | null = null;
   {
     const digitsByColumn: number[][] = Array.from({ length: CODE_DIGITS }, () => []);
+    const digitCenters: ({ x: number; y: number } | undefined)[][] = Array.from({ length: CODE_DIGITS }, () => []);
     for (const cell of geometry.codeCells) {
       digitsByColumn[cell.digitIndex]![cell.value] = densityAt(cell.x, cell.y, DISK7);
+      digitCenters[cell.digitIndex]![cell.value] = { x: cell.x, y: cell.y };
     }
     let code = '';
     let certain = true;
-    for (const densities of digitsByColumn) {
+    for (let d = 0; d < digitsByColumn.length; d++) {
+      const densities = digitsByColumn[d]!;
       const decision = decideBubbles(densities, thresholds);
       if (decision.state !== 'filled' || decision.chosen === null) { certain = false; break; }
+      // Số tô kiểu nét gạch/dấu ✓ cũng không được đoán: vào hàng chờ gán định danh.
+      const center = digitCenters[d]![decision.chosen];
+      if (!center || !uniformFill(center.x, center.y, DISK7_QUADRANTS, densities[decision.chosen]!)) { certain = false; break; }
       code += String(decision.chosen);
     }
     if (certain && code.length === CODE_DIGITS) {
