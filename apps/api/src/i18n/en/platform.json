@@ -13,8 +13,16 @@
     "draft": "Draft",
     "public": "Public"
   },
+  "courseCompletedBody": "Congratulations! You have completed every criterion of the course \"{course}\".",
+  "courseCompletedSubject": "You have completed the course \"{course}\"",
+  "enrolExpiryWarningBody": "Your enrolment in the course \"{course}\" expires on {date}. Finish any remaining activities or contact your teacher about an extension.",
+  "enrolExpiryWarningSubject": "Enrolment expiring soon: course \"{course}\"",
   "enrolWelcomeBody": "Welcome! You have been enrolled in the course \"{course}\". Happy learning!",
   "enrolWelcomeSubject": "Welcome to the course \"{course}\"",
+  "gradeUpdatedBody": "You have a new grade for \"{item}\" in the course \"{course}\". Open the course grade page to see the details.",
+  "gradeUpdatedSubject": "New grade in course \"{course}\"",
+  "messageNewBody": "You have a new message waiting. Open Messages to read it.",
+  "messageNewSubject": "New message from {name}",
   "paymentStatus": {
     "pending": "Pending",
     "succeeded": "Succeeded",

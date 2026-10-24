@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  context, courseGroups, enrol, groupsMembers,
+  context, course, courseGroups, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageUsersBlocked,
   notificationDispatchLog, notifications, role, roleAssignments, userEnrolments, users,
 } from '../../db/schema';
@@ -733,6 +733,52 @@ export class MessagingRepository {
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
       .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead))).returning();
     return rows.length;
+  }
+
+  /**
+   * Còn notification CHƯA ĐỌC của (user, loại sự kiện, ngữ cảnh) hay
+   * không — căn cứ gộp thông báo tin nhắn mới theo conversation của
+   * NotificationEventsConsumer: còn một bản chưa đọc thì các tin tiếp
+   * theo trong cùng conversation không sinh thêm bản nữa.
+   */
+  async hasUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: notifications.id }).from(notifications)
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), eq(notifications.eventType, eventType),
+        eq(notifications.contextUrl, contextUrl), isNull(notifications.timeRead),
+      ))
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /**
+   * Thông tin tối thiểu của một grade item để consumer thông báo điểm
+   * mới quyết định có phát hay không (bỏ qua tổng khoá/tổng hạng mục/
+   * item công thức và item bị ẩn) và dựng nội dung không chứa điểm số.
+   */
+  async getGradeItemNotifyInfo(itemId: string): Promise<{ itemType: string; itemName: string; hidden: boolean; courseId: string } | undefined> {
+    const [row] = await this.db.select({
+      itemType: gradeItems.itemType, itemName: gradeItems.itemName,
+      hidden: gradeItems.hidden, courseId: gradeItems.courseId,
+    }).from(gradeItems).where(eq(gradeItems.id, itemId));
+    return row;
+  }
+
+  /**
+   * Điểm của user trên item có đang bị ẩn với chính user đó không
+   * (grade_grades.hidden — điểm bị giáo viên ẩn thì học sinh không
+   * nhận thông báo điểm mới).
+   */
+  async isGradeHiddenForUser(itemId: string, userId: string): Promise<boolean> {
+    const [row] = await this.db.select({ hidden: gradeGrades.hidden }).from(gradeGrades)
+      .where(and(eq(gradeGrades.itemId, itemId), eq(gradeGrades.userId, userId)));
+    return row?.hidden ?? false;
+  }
+
+  /** Tên đầy đủ của khoá học để dựng nội dung thông báo. */
+  async getCourseFullName(courseId: string): Promise<string | undefined> {
+    const [row] = await this.db.select({ fullName: course.fullName }).from(course).where(eq(course.id, courseId));
+    return row?.fullName;
   }
 
   /**

@@ -19,30 +19,50 @@ export const MESSAGE_CHANNELS = ['popup', 'email', 'push'] as const;
 export type MessageChannel = (typeof MESSAGE_CHANNELS)[number];
 export type LoginState = 'loggedin' | 'loggedoff';
 
+/**
+ * Phân loại 3 nhóm cho trang cài đặt thông báo (hồ sơ chuẩn thông báo
+ * 2026-10-24, mục D.1): Học tập / Lớp & mọi người / Hệ thống. Nhãn hiển
+ * thị + mô tả từng loại thuộc lát N3; ở đây chỉ đăng ký nhóm để hợp
+ * đồng preferences mang theo.
+ */
+export type MessageProviderGroup = 'learning' | 'people' | 'system';
+
 export interface MessageProviderDefinition {
   name: string;
   component: string;
   channels: MessageChannel[];
+  group: MessageProviderGroup;
 }
 
 /**
  * Message providers are registered IN CODE (like Moodle's db/messages.php).
  * Each provider produces NOTIFICATIONS (system messages) — never confused
  * with user-to-user messages, which live in conversations (report §2#12).
+ *
+ * LUẬT SỐNG THẬT (lát N1, issue #49): một provider chỉ được đăng ký ở
+ * đây khi đã có nơi phát thật vào `notify()` — provider chưa nối dây
+ * thì KHÔNG đăng ký, để trang cài đặt không bao giờ hiện công tắc giả.
+ * Ba provider từng "treo" đã được nối dây qua NotificationEventsConsumer
+ * (sự kiện outbox grade_updated / course_completed / enrol_expiry_warning);
+ * `message_new` cũng qua consumer đó (sự kiện message_sent, gộp theo
+ * conversation khi còn chưa đọc).
  */
 export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
-  { name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'] },
-  { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'] },
-  { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'] },
-  { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'] },
-  { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'] },
-  { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'] },
-  { name: 'course_completed', component: 'core_completion', channels: ['popup'] },
-  { name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'] },
+  { name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'course_completed', component: 'core_completion', channels: ['popup'], group: 'learning' },
+  { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'], group: 'people' },
+  { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'], group: 'people' },
   // Lớp B (issue #33): yêu cầu kết bạn mới — phía nhận được thông báo qua pipeline sẵn có.
-  { name: 'contact_request', component: 'core_message', channels: ['popup', 'email'] },
+  { name: 'contact_request', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
   // Lớp B (issue #33): một conversation bị báo cáo — giáo viên phụ trách + quản trị viên nhận được.
-  { name: 'conversation_reported', component: 'core_message', channels: ['popup', 'email'] },
+  { name: 'conversation_reported', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
+  // Tin nhắn mới (issue #49): consumer sự kiện message_sent tạo thông báo
+  // tóm tắt theo conversation — nội dung tin KHÔNG bao giờ nằm trong thông báo.
+  { name: 'message_new', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
+  { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'], group: 'system' },
+  { name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'], group: 'system' },
 ];
 
 export function providerByName(name: string): MessageProviderDefinition | undefined {
@@ -165,14 +185,14 @@ export class MessagingService {
    * Tuỳ chọn notification của user theo provider/kênh.
    */
   async getPreferences(userId: string): Promise<{
-    provider: string; component: string; channel: MessageChannel; state: LoginState; enabled: boolean;
+    provider: string; component: string; group: MessageProviderGroup; channel: MessageChannel; state: LoginState; enabled: boolean;
   }[]> {
-    const out: { provider: string; component: string; channel: MessageChannel; state: LoginState; enabled: boolean }[] = [];
+    const out: { provider: string; component: string; group: MessageProviderGroup; channel: MessageChannel; state: LoginState; enabled: boolean }[] = [];
     for (const provider of MESSAGE_PROVIDERS) {
       for (const channel of provider.channels) {
         for (const state of ['loggedin', 'loggedoff'] as LoginState[]) {
           out.push({
-            provider: provider.name, component: provider.component, channel, state,
+            provider: provider.name, component: provider.component, group: provider.group, channel, state,
             enabled: await this.isChannelEnabled(userId, provider.name, channel, state),
           });
         }
@@ -206,9 +226,19 @@ export class MessagingService {
    */
   /**
    * Tạo notification cho user từ một provider (điểm vào chuẩn của các module khác).
+   *
+   * LUẬT TỐI THIỂU HOÁ KÊNH NGOÀI (chuẩn Canvas, lát N1 issue #49): nội
+   * dung rời khỏi app (email/push) KHÔNG chứa dữ liệu học tập/riêng tư
+   * — không điểm số, không nội dung tin nhắn. Phía gọi mà subject/body
+   * chứa dữ liệu như vậy PHẢI truyền `externalSubject`/`externalBody`
+   * dạng tóm tắt (chỉ nêu loại sự kiện + ngữ cảnh); hai trường này chỉ
+   * thay nội dung của job phân phối kênh ngoài, bản trong app giữ
+   * nguyên subject/body. Không truyền = caller cam kết subject/body đã
+   * an toàn cho kênh ngoài.
    */
   async notify(userId: string, providerName: string, input: {
     subject: string; body: string; contextUrl?: string; fromUserId?: string; loggedIn?: boolean;
+    externalSubject?: string; externalBody?: string;
   }): Promise<NotifyResult> {
     const provider = providerByName(providerName);
     if (!provider) return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'unknown-provider' };
@@ -262,7 +292,11 @@ export class MessagingService {
       if (await this.isChannelEnabled(userId, providerName, channel, state)) {
         const dedupeKey = `dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
-          userId, provider: providerName, channel, subject: input.subject, body: input.body,
+          userId, provider: providerName, channel,
+          // Kênh ngoài chỉ nhận bản tối thiểu hoá khi caller cung cấp
+          // (luật ở docblock của notify) — điểm số/nội dung tin nhắn
+          // không bao giờ rời app qua job này.
+          subject: input.externalSubject ?? input.subject, body: input.externalBody ?? input.body,
           notificationId, dedupeKey,
         }, { jobId: dedupeKey, attempts: 3 });
         channels[channel] = 'queued';

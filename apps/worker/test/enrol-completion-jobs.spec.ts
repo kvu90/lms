@@ -66,6 +66,34 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(second.suspendedIds).not.toContain(expired.id);
   });
 
+  it('enrol-expiry warning: an ACTIVE enrolment expiring inside the warning window gets exactly one enrol_expiry_warning outbox event; outside the window none (issue #49)', async () => {
+    const processor = context.get(EnrolExpiryProcessor);
+    const inWindow = new Date(Date.now() + 3 * 24 * 3600_000);
+    const outWindow = new Date(Date.now() + 30 * 24 * 3600_000);
+    // Offset 900400/900500: 900200/900300 đã thuộc về userIdC/userIdD
+    // của test criteria-types phía dưới (trùng (enrol_id, user_id) sẽ
+    // vỡ ràng buộc duy nhất của user_enrolments).
+    const userC = `01900000-0000-7000-8000-${String(900400 + (suffix % 10000)).padStart(12, '0')}`;
+    const userD = `01900000-0000-7000-8000-${String(900500 + (suffix % 10000)).padStart(12, '0')}`;
+    const [soon] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userC, status: 0, timeStart: new Date(), timeEnd: inWindow }).returning();
+    const [later] = await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userD, status: 0, timeStart: new Date(), timeEnd: outWindow }).returning();
+    const warningsFor = async (enrolmentId: string) => (await db.select().from(outboxEvents)
+      .where(eq(outboxEvents.type, 'enrol_expiry_warning')))
+      .filter((e: { payload: { enrolmentId?: string } }) => e.payload.enrolmentId === enrolmentId);
+    const first = await processor.process({ data: {} } as never);
+    expect(first.warnedIds).toContain(soon.id);
+    expect(first.warnedIds).not.toContain(later.id);
+    const events = await warningsFor(soon.id) as { payload: { userId?: string; courseId?: string } }[];
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload.userId).toBe(userC);
+    expect(events[0]!.payload.courseId).toBe(courseId);
+    expect(await warningsFor(later.id)).toHaveLength(0);
+    // Quét lại không phát trùng cảnh báo cho cùng một ghi danh.
+    const second = await processor.process({ data: {} } as never);
+    expect(second.warnedIds).not.toContain(soon.id);
+    expect(await warningsFor(soon.id)).toHaveLength(1);
+  });
+
   it('completion-recalculate recomputes course completion from current criteria (AND), and reopens it when criteria tighten', async () => {
     const processor = context.get(CompletionRecalculateProcessor);
     await db.insert(courseModulesCompletion).values({ courseModuleId: cmId, userId: userId, completionState: 1, viewed: true });

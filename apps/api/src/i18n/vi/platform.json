@@ -13,8 +13,16 @@
     "draft": "Bản nháp",
     "public": "Công khai"
   },
+  "courseCompletedBody": "Chúc mừng! Bạn đã hoàn thành mọi tiêu chí của khoá học \"{course}\".",
+  "courseCompletedSubject": "Bạn đã hoàn thành khoá học \"{course}\"",
+  "enrolExpiryWarningBody": "Ghi danh của bạn vào khoá học \"{course}\" sẽ hết hạn vào {date}. Hãy hoàn thành các hoạt động còn lại hoặc liên hệ giáo viên để được gia hạn.",
+  "enrolExpiryWarningSubject": "Ghi danh sắp hết hạn: khoá học \"{course}\"",
   "enrolWelcomeBody": "Chào mừng bạn đã ghi danh vào khoá học \"{course}\". Chúc bạn học tập hiệu quả!",
   "enrolWelcomeSubject": "Chào mừng bạn đến với khoá học \"{course}\"",
+  "gradeUpdatedBody": "Bạn có điểm mới cho mục \"{item}\" trong khoá học \"{course}\". Mở trang điểm của khoá để xem chi tiết.",
+  "gradeUpdatedSubject": "Điểm mới trong khoá học \"{course}\"",
+  "messageNewBody": "Bạn có tin nhắn mới đang chờ. Mở mục Tin nhắn để đọc.",
+  "messageNewSubject": "Tin nhắn mới từ {name}",
   "paymentStatus": {
     "pending": "Đang chờ",
     "succeeded": "Thành công",

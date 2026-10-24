@@ -53,6 +53,8 @@ export type LmsNotification = z.infer<typeof notificationSchema>;
 export const messagePreferenceSchema = z.object({
   provider: z.string(),
   component: z.string(),
+  /** Phân loại 3 nhóm của provider (hồ sơ chuẩn thông báo D.1): học tập / lớp & mọi người / hệ thống. */
+  group: z.enum(['learning', 'people', 'system']),
   channel: z.enum(['popup', 'email', 'push']),
   state: z.enum(['loggedin', 'loggedoff']),
   enabled: z.boolean(),
