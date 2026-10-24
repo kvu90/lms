@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-  "id": "f5a34be1-8e2b-4e43-bb9e-f3e26648470a",
-========
-  "id": "1573d230-68e3-4b4c-b1b0-3686f83fd72d",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
+  "id": "52b20f59-3300-4302-8672-c87293137f33",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1273,7 +1269,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_attempts"
       ],
       "writes": [
@@ -1285,18 +1280,6 @@
         "n|rel|public.quiz_attempts_pkey",
         "n|rel|public.quiz_attempts_usage_unique",
         "n|rel|public.quiz_attempts_quiz_user_number_unique"
-========
-        "curricula"
-      ],
-      "writes": [
-        "s|tbl|public.curricula",
-        "n|tbl|public.curricula",
-        "e|tbl|public.curricula",
-        "n|rel|public.curricula",
-        "n|type|public.curricula",
-        "n|rel|public.curricula_pkey",
-        "n|rel|public.curricula_subject_id_grade_unique"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ],
       "reads": [
         "n|sch|public"
@@ -1307,7 +1290,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_slots"
       ],
       "writes": [
@@ -1318,18 +1300,6 @@
         "n|type|public.quiz_slots",
         "n|rel|public.quiz_slots_pkey",
         "n|rel|public.quiz_slots_quiz_slot_unique"
-========
-        "curriculum_nodes"
-      ],
-      "writes": [
-        "s|tbl|public.curriculum_nodes",
-        "n|tbl|public.curriculum_nodes",
-        "e|tbl|public.curriculum_nodes",
-        "n|rel|public.curriculum_nodes",
-        "n|type|public.curriculum_nodes",
-        "n|rel|public.curriculum_nodes_pkey",
-        "n|rel|public.curriculum_nodes_curriculum_id_id_unique"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ],
       "reads": [
         "n|sch|public"
@@ -1340,7 +1310,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quizzes"
       ],
       "writes": [
@@ -1350,7 +1319,56 @@
         "n|rel|public.quizzes",
         "n|type|public.quizzes",
         "n|rel|public.quizzes_pkey"
-========
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "curricula"
+      ],
+      "writes": [
+        "s|tbl|public.curricula",
+        "n|tbl|public.curricula",
+        "e|tbl|public.curricula",
+        "n|rel|public.curricula",
+        "n|type|public.curricula",
+        "n|rel|public.curricula_pkey",
+        "n|rel|public.curricula_subject_id_grade_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|tbl|public.curriculum_nodes",
+        "n|tbl|public.curriculum_nodes",
+        "e|tbl|public.curriculum_nodes",
+        "n|rel|public.curriculum_nodes",
+        "n|type|public.curriculum_nodes",
+        "n|rel|public.curriculum_nodes_pkey",
+        "n|rel|public.curriculum_nodes_curriculum_id_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "learning_outcomes"
       ],
       "writes": [
@@ -1380,7 +1398,6 @@
         "n|type|public.subjects",
         "n|rel|public.subjects_pkey",
         "n|rel|public.subjects_slug_key"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ],
       "reads": [
         "n|sch|public"
@@ -3981,7 +3998,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_attempts",
         "quiz_attempts_quiz_id_idx"
       ],
@@ -3995,21 +4011,6 @@
         "n|tbl|public.quiz_attempts",
         "n|sch|public",
         "n|col|public.quiz_attempts.quiz_id"
-========
-        "curricula",
-        "curricula_subject_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.curricula_subject_id_idx",
-        "n|idx|public.curricula_subject_id_idx",
-        "e|idx|public.curricula_subject_id_idx",
-        "n|rel|public.curricula_subject_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.curricula",
-        "n|sch|public",
-        "n|col|public.curricula.subject_id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -4017,7 +4018,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_attempts",
         "quiz_attempts_user_id_idx"
       ],
@@ -4031,23 +4031,6 @@
         "n|tbl|public.quiz_attempts",
         "n|sch|public",
         "n|col|public.quiz_attempts.user_id"
-========
-        "curriculum_nodes",
-        "curriculum_nodes_tree_idx"
-      ],
-      "writes": [
-        "s|idx|public.curriculum_nodes_tree_idx",
-        "n|idx|public.curriculum_nodes_tree_idx",
-        "e|idx|public.curriculum_nodes_tree_idx",
-        "n|rel|public.curriculum_nodes_tree_idx"
-      ],
-      "reads": [
-        "n|tbl|public.curriculum_nodes",
-        "n|sch|public",
-        "n|col|public.curriculum_nodes.curriculum_id",
-        "n|col|public.curriculum_nodes.parent_id",
-        "n|col|public.curriculum_nodes.position"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -4055,7 +4038,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_slots",
         "quiz_slots_question_id_idx"
       ],
@@ -4069,22 +4051,6 @@
         "n|tbl|public.quiz_slots",
         "n|sch|public",
         "n|col|public.quiz_slots.question_id"
-========
-        "learning_outcomes",
-        "learning_outcomes_node_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.learning_outcomes_node_id_idx",
-        "n|idx|public.learning_outcomes_node_id_idx",
-        "e|idx|public.learning_outcomes_node_id_idx",
-        "n|rel|public.learning_outcomes_node_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.learning_outcomes",
-        "n|sch|public",
-        "n|col|public.learning_outcomes.node_id",
-        "n|col|public.learning_outcomes.position"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -4092,7 +4058,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_slots",
         "quiz_slots_category_id_idx"
       ],
@@ -4146,7 +4111,76 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.cm_id"
-========
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curricula",
+        "curricula_subject_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.curricula_subject_id_idx",
+        "n|idx|public.curricula_subject_id_idx",
+        "e|idx|public.curricula_subject_id_idx",
+        "n|rel|public.curricula_subject_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.curricula.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curriculum_nodes",
+        "curriculum_nodes_tree_idx"
+      ],
+      "writes": [
+        "s|idx|public.curriculum_nodes_tree_idx",
+        "n|idx|public.curriculum_nodes_tree_idx",
+        "e|idx|public.curriculum_nodes_tree_idx",
+        "n|rel|public.curriculum_nodes_tree_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.parent_id",
+        "n|col|public.curriculum_nodes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "learning_outcomes",
+        "learning_outcomes_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.learning_outcomes_node_id_idx",
+        "n|idx|public.learning_outcomes_node_id_idx",
+        "e|idx|public.learning_outcomes_node_id_idx",
+        "n|rel|public.learning_outcomes_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.node_id",
+        "n|col|public.learning_outcomes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "subjects",
         "subjects_context_id_idx"
       ],
@@ -4160,7 +4194,6 @@
         "n|tbl|public.subjects",
         "n|sch|public",
         "n|col|public.subjects.context_id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -7642,7 +7675,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_attempts"
       ],
       "writes": [
@@ -7659,24 +7691,6 @@
         "n|col|public.quiz_attempts.quiz_id",
         "n|col|public.quizzes.id",
         "e|uniqueness|public.quizzes.id"
-========
-        "curricula"
-      ],
-      "writes": [
-        "s|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
-        "n|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
-        "e|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
-        "n|con|public.curricula.curricula_subject_id_subjects_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.curricula",
-        "n|sch|public",
-        "n|tbl|public.subjects",
-        "n|sch|public",
-        "n|col|public.curricula.subject_id",
-        "n|col|public.subjects.id",
-        "e|uniqueness|public.subjects.id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -7684,7 +7698,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_attempts"
       ],
       "writes": [
@@ -7701,24 +7714,6 @@
         "n|col|public.quiz_attempts.usage_id",
         "n|col|public.question_usages.id",
         "e|uniqueness|public.question_usages.id"
-========
-        "curriculum_nodes"
-      ],
-      "writes": [
-        "s|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
-        "n|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
-        "e|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
-        "n|con|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.curriculum_nodes",
-        "n|sch|public",
-        "n|tbl|public.curricula",
-        "n|sch|public",
-        "n|col|public.curriculum_nodes.curriculum_id",
-        "n|col|public.curricula.id",
-        "e|uniqueness|public.curricula.id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -7726,7 +7721,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_slots"
       ],
       "writes": [
@@ -7743,26 +7737,6 @@
         "n|col|public.quiz_slots.quiz_id",
         "n|col|public.quizzes.id",
         "e|uniqueness|public.quizzes.id"
-========
-        "curriculum_nodes"
-      ],
-      "writes": [
-        "s|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
-        "n|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
-        "e|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
-        "n|con|public.curriculum_nodes.curriculum_nodes_parent_fk"
-      ],
-      "reads": [
-        "n|tbl|public.curriculum_nodes",
-        "n|sch|public",
-        "n|tbl|public.curriculum_nodes",
-        "n|sch|public",
-        "n|col|public.curriculum_nodes.curriculum_id",
-        "n|col|public.curriculum_nodes.parent_id",
-        "n|col|public.curriculum_nodes.curriculum_id",
-        "n|col|public.curriculum_nodes.id",
-        "e|uniqueness|public.curriculum_nodes.curriculum_id.id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -7770,7 +7744,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
         "quiz_slots"
       ],
       "writes": [
@@ -7833,7 +7806,84 @@
         "n|col|public.quizzes.course",
         "n|col|public.course.id",
         "e|uniqueness|public.course.id"
-========
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curricula"
+      ],
+      "writes": [
+        "s|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "n|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "e|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "n|con|public.curricula.curricula_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.curricula.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "n|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "e|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "n|con|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "n|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "e|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "n|con|public.curriculum_nodes.curriculum_nodes_parent_fk"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.parent_id",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.curriculum_id.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "learning_outcomes"
       ],
       "writes": [
@@ -7850,7 +7900,6 @@
         "n|col|public.learning_outcomes.node_id",
         "n|col|public.curriculum_nodes.id",
         "e|uniqueness|public.curriculum_nodes.id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ]
     },
     {
@@ -8908,29 +8957,36 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "name": "quiz_attempts",
-========
-      "name": "curricula",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "isRlsEnabled": false,
       "entityType": "tables"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "name": "quiz_slots",
-========
-      "name": "curriculum_nodes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "isRlsEnabled": false,
       "entityType": "tables"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "name": "quizzes",
-========
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "curricula",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "curriculum_nodes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "learning_outcomes",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -8938,7 +8994,6 @@
     {
       "schema": "public",
       "name": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -16287,11 +16342,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
-========
-      "table": "curricula",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "id",
       "type": "uuid",
       "typeSchema": null,
@@ -16304,13 +16355,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_id",
-========
-      "table": "curricula",
-      "name": "subject_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -16322,10 +16368,461 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "user_id",
-========
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "attempt_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "usage_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "state",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'inprogress'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "preview",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "time_start",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "time_finish",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "sum_grades",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "slot",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "page",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "category_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "max_mark",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "course",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "cm_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "intro",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_open",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_close",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "time_limit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "attempts_allowed",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "grade_method",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'highest'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "grade",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "shuffle_answers",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "curricula",
       "name": "grade",
       "type": "smallint",
@@ -16380,7 +16877,6 @@
       "schema": "public",
       "table": "curriculum_nodes",
       "name": "curriculum_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -16392,32 +16888,11 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "attempt_number",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quiz_attempts",
-      "name": "usage_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-========
       "table": "curriculum_nodes",
       "name": "parent_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": false,
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -16426,37 +16901,19 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "state",
-========
       "table": "curriculum_nodes",
       "name": "title",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "default": "'inprogress'",
-========
       "default": null,
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "generated": null,
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "preview",
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-========
       "table": "curriculum_nodes",
       "name": "kind",
       "type": "text",
@@ -16464,22 +16921,12 @@
       "notNull": true,
       "dimensions": 0,
       "default": "'topic'",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "generated": null,
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "time_start",
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-========
       "table": "curriculum_nodes",
       "name": "position",
       "type": "integer",
@@ -16487,22 +16934,15 @@
       "notNull": true,
       "dimensions": 0,
       "default": "1",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "generated": null,
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "time_finish",
-      "type": "timestamp with time zone",
-========
       "table": "curriculum_nodes",
       "name": "duration_periods",
       "type": "integer",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
@@ -16513,13 +16953,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-      "name": "sum_grades",
-========
       "table": "curriculum_nodes",
       "name": "duration_percent",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "double precision",
       "typeSchema": null,
       "notNull": false,
@@ -16531,11 +16966,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-========
       "table": "curriculum_nodes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -16548,11 +16979,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_attempts",
-========
       "table": "curriculum_nodes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -16565,11 +16992,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-========
       "table": "learning_outcomes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "id",
       "type": "uuid",
       "typeSchema": null,
@@ -16582,13 +17005,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-      "name": "quiz_id",
-========
       "table": "learning_outcomes",
       "name": "node_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -16600,15 +17018,9 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-      "name": "slot",
-      "type": "integer",
-========
       "table": "learning_outcomes",
       "name": "content",
       "type": "text",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -16619,13 +17031,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-      "name": "page",
-========
       "table": "learning_outcomes",
       "name": "position",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -16637,50 +17044,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-      "name": "question_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quiz_slots",
-      "name": "category_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quiz_slots",
-      "name": "max_mark",
-      "type": "double precision",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "1",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quiz_slots",
-========
       "table": "learning_outcomes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -16693,11 +17057,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quiz_slots",
-========
       "table": "learning_outcomes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -16710,11 +17070,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-========
       "table": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "id",
       "type": "uuid",
       "typeSchema": null,
@@ -16727,13 +17083,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-      "name": "course",
-========
       "table": "subjects",
       "name": "context_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -16745,24 +17096,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-      "name": "cm_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-========
       "table": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "name",
       "type": "text",
       "typeSchema": null,
@@ -16775,33 +17109,12 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-      "name": "intro",
-========
       "table": "subjects",
       "name": "slug",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "default": "''",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-      "name": "time_open",
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-========
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "default": null,
       "generated": null,
       "identity": null,
@@ -16809,98 +17122,20 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-      "name": "time_close",
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-      "name": "time_limit",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-      "name": "attempts_allowed",
-========
       "table": "subjects",
       "name": "position",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "default": "0",
-========
       "default": "1",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "generated": null,
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-      "name": "grade_method",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'highest'",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-      "name": "grade",
-      "type": "double precision",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "10",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-      "name": "shuffle_answers",
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "quizzes",
-========
       "table": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -16913,11 +17148,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
-      "table": "quizzes",
-========
       "table": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -24262,21 +24493,12 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "quiz_id",
-========
-      "table": "curricula",
-      "name": "curricula_subject_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "subject_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -24292,35 +24514,12 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_user_id_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "user_id",
-========
-      "table": "curriculum_nodes",
-      "name": "curriculum_nodes_tree_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "curriculum_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "parent_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "position",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -24336,28 +24535,12 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_slots",
       "name": "quiz_slots_question_id_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "question_id",
-========
-      "table": "learning_outcomes",
-      "name": "learning_outcomes_node_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "node_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "position",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -24373,7 +24556,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_slots",
       "name": "quiz_slots_category_id_idx",
       "nameExplicit": true,
@@ -24422,14 +24604,111 @@
       "columns": [
         {
           "value": "cm_id",
-========
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_tree_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "parent_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "subjects",
       "name": "subjects_context_id_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "context_id",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -27678,7 +27957,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_quizzes_id_fkey",
       "nameExplicit": false,
@@ -27687,16 +27965,6 @@
       ],
       "schemaTo": "public",
       "tableTo": "quizzes",
-========
-      "table": "curricula",
-      "name": "curricula_subject_id_subjects_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "subject_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "subjects",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columnsTo": [
         "id"
       ],
@@ -27706,7 +27974,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_usage_id_question_usages_id_fkey",
       "nameExplicit": false,
@@ -27715,16 +27982,6 @@
       ],
       "schemaTo": "public",
       "tableTo": "question_usages",
-========
-      "table": "curriculum_nodes",
-      "name": "curriculum_nodes_curriculum_id_curricula_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "curriculum_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "curricula",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columnsTo": [
         "id"
       ],
@@ -27734,7 +27991,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_slots",
       "name": "quiz_slots_quiz_id_quizzes_id_fkey",
       "nameExplicit": false,
@@ -27794,7 +28050,49 @@
       ],
       "schemaTo": "public",
       "tableTo": "course",
-========
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "curriculum_nodes",
       "name": "curriculum_nodes_parent_fk",
       "nameExplicit": true,
@@ -27822,7 +28120,6 @@
       ],
       "schemaTo": "public",
       "tableTo": "curriculum_nodes",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columnsTo": [
         "id"
       ],
@@ -29000,13 +29297,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_pkey",
-========
-      "table": "curricula",
-      "name": "curricula_pkey",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columns": [
         "id"
       ],
@@ -29015,13 +29307,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_slots",
       "name": "quiz_slots_pkey",
-========
-      "table": "curriculum_nodes",
-      "name": "curriculum_nodes_pkey",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columns": [
         "id"
       ],
@@ -29030,10 +29317,36 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quizzes",
       "name": "quizzes_pkey",
-========
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "curricula_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "learning_outcomes",
       "name": "learning_outcomes_pkey",
       "columns": [
@@ -29046,7 +29359,6 @@
       "schema": "public",
       "table": "subjects",
       "name": "subjects_pkey",
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       "columns": [
         "id"
       ],
@@ -29908,27 +30220,17 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_usage_unique",
       "nameExplicit": true,
       "columns": [
         "usage_id"
-========
-      "table": "curricula",
-      "name": "curricula_subject_id_grade_unique",
-      "nameExplicit": true,
-      "columns": [
-        "subject_id",
-        "grade"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261023155504_baseline/snapshot.json
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_user_number_unique",
       "nameExplicit": true,
@@ -29948,14 +30250,30 @@
       "columns": [
         "quiz_id",
         "slot"
-========
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_grade_unique",
+      "nameExplicit": true,
+      "columns": [
+        "subject_id",
+        "grade"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "curriculum_nodes",
       "name": "curriculum_nodes_curriculum_id_id_unique",
       "nameExplicit": true,
       "columns": [
         "curriculum_id",
         "id"
->>>>>>>> 8a36350 (feat(api): curriculum module ported from giaokhoa — context capabilities, regenerated single baseline (117 tables)):apps/api/drizzle/20261023122810_baseline/snapshot.json
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
