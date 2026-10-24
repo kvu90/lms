@@ -471,6 +471,27 @@ export class QuestionBanksService {
   }
 
   /**
+   * Dòng ghi công CHO NGƯỜI ĐỌC: cùng cổng với chi tiết câu hỏi
+   * (issue #55) — actor phải có `question:useall` tại context của
+   * category chứa câu, không thì 404 như chi tiết câu hỏi (không oracle
+   * phân biệt "có nhưng cấm" với "không có"). Đồng bộ thành viên bank
+   * trước khi kiểm quyền để thành viên tổ/trường mới thêm không bị 404
+   * oan. Luồng nội bộ (copy trả attribution cho người vừa copy) vẫn
+   * dùng getAttribution không cổng vì caller đã qua cổng copy.
+   */
+  async getAttributionForViewer(actorId: string, questionId: string): Promise<AttributionView> {
+    const q = await this.questionsRepo.getQuestion(questionId);
+    if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    const category = await this.questionsRepo.getCategory(q.category);
+    if (!category) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    const bank = await this.findBankForCategory(category);
+    if (bank) await this.syncMembership(bank);
+    const canUse = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId).catch(() => false);
+    if (!canUse) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    return this.getAttribution(questionId);
+  }
+
+  /**
    * Deep copy thuần (không kiểm quyền — caller chịu trách nhiệm cổng):
    * danh tính MỚI + version 1 trọn nội dung version mới nhất của câu
    * nguồn (answers, options theo qtype, stimulus, gắn kết chương trình),

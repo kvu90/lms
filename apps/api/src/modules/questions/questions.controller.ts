@@ -175,9 +175,12 @@ export class QuestionsController {
   @Get(':id/attribution')
   /**
    * GET /questions/:id/attribution — dòng ghi công: câu gốc, version gốc, tác giả gốc, bank nguồn, copy_count/use_count (QB-2).
+   * Cùng cổng đọc với chi tiết câu hỏi (issue #55): học viên không có
+   * `question:useall` tại context của category chứa câu thì nhận 404,
+   * không đọc được truy vết (điểm chặn 2 phán quyết PR #83).
    */
-  async attribution(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.banks.getAttribution(id);
+  async attribution(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.getAttributionForViewer(actor.id, id);
   }
   @Post(':id/withdraw')
   /**
