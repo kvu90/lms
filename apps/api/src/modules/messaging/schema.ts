@@ -22,6 +22,13 @@ export const messageConversations = pgTable('message_conversations', {
   itemId: uuid('item_id'),
   contextId: uuid('context_id'),
   enabled: boolean('enabled').notNull().default(true),
+  /**
+   * Bộ đếm seq của conversation: mỗi tin mới nhận `last_message_seq + 1`
+   * trong cùng transaction gửi tin (khoá dòng bằng UPDATE ... RETURNING
+   * nên các lần gửi đồng thời không va chạm seq). Client đồng bộ và
+   * phân trang theo seq này thay vì dựa vào thứ tự của uuidv7.
+   */
+  lastMessageSeq: integer('last_message_seq').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -37,6 +44,14 @@ export const messageConversationMembers = pgTable(
   {
     conversationId: uuid('conversation_id').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
+    /**
+     * Mốc đã đọc CỦA RIÊNG thành viên này: đã đọc mọi tin có
+     * `seq <= last_read_seq`. Số chưa đọc = đếm tin có seq lớn hơn mốc
+     * và không phải tin của chính mình. (Mô hình cũ để `time_read` trên
+     * từng tin dùng CHUNG cho cả nhóm — một người đọc là cả nhóm mất
+     * số chưa đọc — đã bỏ ở issue #33.)
+     */
+    lastReadSeq: integer('last_read_seq').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -45,9 +60,22 @@ export const messageConversationMembers = pgTable(
 
 /**
  * User-to-user messages inside a conversation (Moodle `message` +
- * `messages`). Once sent, a message belongs to core_message: the sending
- * component/user can NEVER edit or delete it through the API (report §2#12).
- * `time_read` is the recipient-side read marker used for unread counts.
+ * `messages`).
+ *
+ * LƯU Ý mô hình (issue #33): tin nhắn KHÔNG còn được coi là bất biến
+ * tuyệt đối — chính sách đã chốt là XOÁ MỀM có truy vết ở đợt Lớp B
+ * (người xoá/khi nào xoá + tầm nhìn theo vai trò: học sinh không thấy
+ * tin đã xoá, giáo viên vẫn truy vết được). Đợt nền này chưa triển
+ * khai xoá, nhưng đường đọc/đếm chưa đọc phải đi qua tầng repository
+ * để đợt Lớp B gắn điều kiện lọc theo trạng thái đã-xoá tại một chỗ,
+ * không rải giả định "mọi tin luôn hiển thị" khắp nơi.
+ *
+ * `seq` là số thứ tự đơn điệu trong conversation (xem
+ * `message_conversations.last_message_seq`); `client_message_id` là
+ * khoá chống trùng do client sinh — ràng buộc duy nhất
+ * (conversation, người gửi, khoá) đảm bảo gửi lại không nhân đôi
+ * (NULL không va chạm nhau trong Postgres nên tin không kèm khoá
+ * không bị ràng buộc này ảnh hưởng).
  */
 export const message = pgTable('message', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -56,12 +84,15 @@ export const message = pgTable('message', {
   subject: text('subject').notNull().default(''),
   fullMessage: text('full_message').notNull().default(''),
   smallMessage: text('small_message').notNull().default(''),
+  seq: integer('seq').notNull(),
+  clientMessageId: text('client_message_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  timeRead: timestamp('time_read', { withTimezone: true }),
 },
   (table) => [
       index('message_conversation_id_idx').on(table.conversationId),
       index('message_user_id_from_idx').on(table.userIdFrom),
+      index('message_conversation_seq_idx').on(table.conversationId, table.seq),
+      unique('message_conversation_client_id_unique').on(table.conversationId, table.userIdFrom, table.clientMessageId),
   ]);
 
 

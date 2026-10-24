@@ -9,6 +9,7 @@ import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow } from './messaging.repository';
+import { MessagingRealtimeService } from './messaging-realtime.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 export const NOTIFICATION_DISPATCH_QUEUE = 'notification-dispatch';
@@ -57,6 +58,17 @@ export interface NotifyResult {
   skipped?: 'suspended' | 'unknown-provider';
 }
 
+/** Lỗi vi phạm ràng buộc duy nhất của Postgres (kể cả khi drizzle bọc lỗi gốc trong `cause`). */
+function isUniqueViolation(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    const code = (current as { code?: unknown }).code;
+    if (code === '23505') return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 export interface NotificationChannelPort {
   channel: MessageChannel;
   /** Deliver for real or record the dispatch. Returns the log status. */
@@ -100,6 +112,7 @@ export class MessagingService {
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
     private readonly siteConfig: SiteConfigService,
+    private readonly realtime: MessagingRealtimeService,
     private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
   ) {}
@@ -430,7 +443,14 @@ export class MessagingService {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
     }
     for (const id of current) {
-      if (!groupMemberIds.includes(id)) await this.repo.removeMember(conversation.id, id);
+      if (!groupMemberIds.includes(id)) {
+        await this.repo.removeMember(conversation.id, id);
+        // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
+        // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
+        // vẫn nhận mọi sự kiện của conversation (F1). Tầng phân phối
+        // còn rà soát lại membership một lần nữa trước mỗi lần phát.
+        await this.realtime.evictUserFromConversation(id, conversation.id);
+      }
     }
     return groupMemberIds;
   }
@@ -480,47 +500,92 @@ export class MessagingService {
   }
 
   /**
-   * Conversation của user kèm số chưa đọc. Conversation gắn group được
-   * đồng bộ lười trước khi liệt kê — kể cả các group mà user mới gia nhập
-   * (chưa từng là thành viên conversation) để chúng xuất hiện ngay.
+   * Conversation của user kèm số chưa đọc, tin cuối và mốc đã đọc của
+   * chính user — lấy bằng MỘT truy vấn tổng hợp ở repository (không còn
+   * tải toàn bộ lịch sử về đếm như trước). Conversation gắn group được
+   * đồng bộ lười trước khi liệt kê — kể cả các group mà user mới gia
+   * nhập (chưa từng là thành viên conversation) để chúng xuất hiện
+   * ngay; membership đã cũ (user đã rời group nhưng chưa lần đồng bộ
+   * nào chạy) được đồng bộ và loại khỏi danh sách tại đây.
    */
-  async listConversations(userId: string): Promise<(ConversationRow & { members: string[]; unread: number })[]> {
+  async listConversations(userId: string): Promise<(ConversationRow & {
+    members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
+  })[]> {
     for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
       await this.syncGroupConversationMembers(c);
     }
-    const conversations = await this.repo.listConversationsForUser(userId);
-    const out: (ConversationRow & { members: string[]; unread: number })[] = [];
-    for (const c of conversations) {
-      let members: string[];
-      if (this.isGroupLinked(c)) {
-        members = await this.syncGroupConversationMembers(c);
-        // Bị gỡ khỏi group ⇒ bị gỡ khỏi conversation ⇒ không còn trong danh sách.
-        if (!members.includes(userId)) continue;
-      } else {
-        members = await this.repo.listMembers(c.id);
+    const summaries = await this.repo.listConversationSummaries(userId);
+    const myGroupIds = new Set(await this.repo.listGroupIdsForUser(userId));
+    const out: (ConversationRow & {
+      members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
+    })[] = [];
+    for (const s of summaries) {
+      if (this.isGroupLinked(s.conversation) && !myGroupIds.has(s.conversation.itemId!)) {
+        // Đã rời group nhưng membership conversation chưa được đồng bộ:
+        // đồng bộ ngay (gỡ user khỏi conversation) và ẩn khỏi danh sách.
+        await this.syncGroupConversationMembers(s.conversation);
+        continue;
       }
-      const messages = await this.repo.listMessages(c.id);
       out.push({
-        ...c,
-        members,
-        unread: messages.filter((m) => m.userIdFrom !== userId && !m.timeRead).length,
+        ...s.conversation,
+        members: s.members,
+        unread: s.unreadCount,
+        lastReadSeq: s.lastReadSeq,
+        lastMessage: s.lastMessage,
       });
     }
     return out;
   }
 
   /**
-   * Chi tiết conversation + tin nhắn (chỉ thành viên mới xem được;
-   * conversation gắn group được đồng bộ thành viên trước khi kiểm tra).
+   * Chi tiết conversation + một cửa sổ tin nhắn mới nhất theo cursor
+   * seq (chỉ thành viên mới xem được; conversation gắn group được đồng
+   * bộ thành viên trước khi kiểm tra). `memberReadMarkers` cho client
+   * hiển thị biên "đã xem" theo mốc đã đọc của từng thành viên.
    */
-  async getConversation(userId: string, conversationId: string): Promise<ConversationRow & { members: string[]; messages: MessageRow[] }> {
+  async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
+    members: string[]; messages: MessageRow[]; hasMoreBefore: boolean;
+    lastReadSeq: number; memberReadMarkers: { userId: string; lastReadSeq: number }[];
+  }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    return { ...conversation, members: await this.repo.listMembers(conversationId), messages: await this.repo.listMessages(conversationId) };
+    const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50 });
+    const markers = await this.repo.listMemberReadMarkers(conversationId);
+    return {
+      ...conversation,
+      members: await this.repo.listMembers(conversationId),
+      messages,
+      hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq) : false,
+      lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
+      memberReadMarkers: markers,
+    };
+  }
+
+  /**
+   * Một cửa sổ tin theo cursor seq của conversation (tải lịch sử cũ
+   * bằng beforeSeq, đồng bộ phần thiếu bằng afterSeq) — đầu REST cho
+   * phân trang/đồng bộ, cùng ngữ nghĩa cursor với kênh realtime.
+   */
+  async listConversationMessages(userId: string, conversationId: string, query: {
+    beforeSeq?: number; afterSeq?: number; limit?: number;
+  }): Promise<{ messages: MessageRow[]; hasMoreBefore: boolean }> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    if (!(await this.repo.isMember(conversationId, userId))) {
+      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
+    }
+    const messages = await this.repo.listMessages(conversationId, query);
+    return {
+      messages,
+      hasMoreBefore: messages.length > 0 && query.afterSeq === undefined
+        ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq)
+        : false,
+    };
   }
 
   /**
@@ -529,9 +594,14 @@ export class MessagingService {
    * the sender. Once stored, the message is immutable through the API.
    */
   /**
-   * Gửi tin nhắn: kiểm tra thành viên và quan hệ chặn.
+   * Gửi tin nhắn: kiểm tra thành viên và quan hệ chặn. Nếu client kèm
+   * `clientMessageId` (gửi lạc quan/thử lại), lần gửi trùng khoá trả
+   * chính tin đã lưu — không tạo tin thứ hai, không phát sự kiện mới.
+   * Tin mới nhận seq đơn điệu của conversation trong cùng transaction
+   * với outbox `message_sent`; realtime đến client qua consumer của
+   * outbox, service KHÔNG tự phát socket.
    */
-  async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string }): Promise<MessageRow> {
+  async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string; clientMessageId?: string }): Promise<MessageRow> {
     const systemCtx = await this.contexts.ensureSystemContext();
     const senderCtx = await this.contexts.getByLevelInstance(30, actorId);
     await this.evaluator.requireCapability(actorId, 'moodle/site:sendmessage', senderCtx?.id ?? systemCtx.id);
@@ -564,22 +634,45 @@ export class MessagingService {
       const other = members.find((id) => id !== actorId);
       if (other) await this.assertCanContact(actorId, other);
     }
-    const saved = await this.repo.dbHandle.transaction(async (tx) => {
-      const msg = await this.repo.insertMessage({
-        conversationId: conversationId, userIdFrom: actorId,
-        subject: input.subject ?? '', fullMessage: input.text, smallMessage: input.text.slice(0, 200),
-      }, tx as never);
-      await this.repo.touchConversation(conversationId, tx as never);
-      await this.outbox.enqueue(tx as never, {
-        aggregate: 'messaging', type: 'message_sent',
-        payload: { conversationId, messageId: msg.id, fromUserId: actorId, memberIds: members },
+    if (input.clientMessageId) {
+      const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);
+      if (existing) return existing;
+    }
+    try {
+      return await this.repo.dbHandle.transaction(async (tx) => {
+        const seq = await this.repo.allocateNextSeq(conversationId, tx as never);
+        const msg = await this.repo.insertMessage({
+          conversationId: conversationId, userIdFrom: actorId,
+          subject: input.subject ?? '', fullMessage: input.text, smallMessage: input.text.slice(0, 200),
+          seq, clientMessageId: input.clientMessageId ?? null,
+        }, tx as never);
+        await this.outbox.enqueue(tx as never, {
+          aggregate: 'messaging', type: 'message_sent',
+          payload: {
+            conversationId, messageId: msg.id, seq, fromUserId: actorId,
+            memberIds: members, clientMessageId: input.clientMessageId ?? null,
+          },
+        });
+        return msg;
       });
-      return msg;
-    });
-    return saved;
+    } catch (err) {
+      // Hai lần gửi trùng khoá chạy đồng thời: một lần thắng ở ràng buộc
+      // duy nhất, lần còn lại nhận lỗi 23505 sau khi transaction đã huỷ —
+      // đọc lại tin thắng và trả như một lần gửi thành công.
+      if (input.clientMessageId && isUniqueViolation(err)) {
+        const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
-  /** Messages are owned by core_message after sending: edits are refused, always. */
+  /**
+   * Sửa tin nhắn vẫn bị từ chối. Xoá tin: chính sách đã chốt (issue
+   * #33) là XOÁ MỀM có truy vết ở đợt Lớp B — đợt nền này CHƯA triển
+   * khai nên cả hai đường vẫn từ chối như cũ; khi Lớp B làm, xoá sẽ
+   * ghi trạng thái/người xoá/thời điểm chứ không xoá vật lý dòng tin.
+   */
   /**
    * Sửa tin nhắn của chính mình.
    */
@@ -600,13 +693,24 @@ export class MessagingService {
   }
 
   /**
-   * Đánh dấu đã đọc conversation.
+   * Đánh dấu đã đọc conversation: chỉ nâng mốc đã đọc của CHÍNH user
+   * này (thành viên khác giữ nguyên số chưa đọc của họ). Mốc tăng thì
+   * ghi outbox `message_conversation_read` để consumer phân phối biên
+   * đã-đọc ("đã xem tới seq N") cho các thành viên còn lại.
    */
-  async markConversationRead(userId: string, conversationId: string): Promise<{ marked: number }> {
+  async markConversationRead(userId: string, conversationId: string): Promise<{ marked: number; lastReadSeq: number }> {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    return { marked: await this.repo.markConversationRead(conversationId, userId) };
+    const before = (await this.repo.getMemberLastReadSeq(conversationId, userId)) ?? 0;
+    const result = await this.repo.markConversationRead(conversationId, userId);
+    if (result.lastReadSeq > before) {
+      await this.outbox.enqueueStandalone({
+        aggregate: 'messaging', type: 'message_conversation_read',
+        payload: { conversationId, userId, lastReadSeq: result.lastReadSeq },
+      });
+    }
+    return result;
   }
 
   /**

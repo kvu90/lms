@@ -12,6 +12,10 @@ export const messageSchema = z.object({
   subject: z.string(),
   fullMessage: z.string(),
   createdAt: z.string(),
+  /** Số thứ tự đơn điệu trong conversation — mốc đồng bộ/phân trang của client (không dựa vào id). */
+  seq: z.number().int(),
+  /** Khoá chống trùng do client sinh khi gửi lạc quan; null với tin gửi không kèm khoá. */
+  clientMessageId: z.string().nullable(),
 });
 export type LmsMessage = z.infer<typeof messageSchema>;
 
@@ -170,8 +174,86 @@ export type CreateGroupConversation = z.infer<typeof createGroupConversationSche
 export const sendMessageSchema = z.strictObject({
   text: z.string().min(1),
   subject: z.string().optional(),
+  /**
+   * Khoá chống trùng do client sinh cho mỗi lần soạn một tin (gửi lạc
+   * quan + thử lại khi mạng chập): server gặp lại cùng khoá trong cùng
+   * conversation của cùng người gửi thì trả chính tin đã lưu, không tạo
+   * tin thứ hai.
+   */
+  clientMessageId: z.string().min(1).max(128).optional(),
 });
 export type SendMessage = z.infer<typeof sendMessageSchema>;
+
+/**
+ * Query phân trang cursor cho danh sách tin của một conversation: lấy
+ * các tin TRƯỚC `beforeSeq` (tải lịch sử cũ) hoặc SAU `afterSeq` (đồng
+ * bộ phần thiếu sau khi nối lại). Tầng server ép kiểu từ query string
+ * bằng schema server riêng (xem dto phía api) — ở contracts chỉ khai
+ * hình dạng số học.
+ */
+export const listMessagesQuerySchema = z.strictObject({
+  beforeSeq: z.number().int().positive().optional(),
+  afterSeq: z.number().int().nonnegative().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
+
+/* ---- Sự kiện realtime của messaging (Socket.IO, namespace /messaging) ---- */
+
+/** Tên sự kiện trên kênh realtime — một nguồn sự thật cho cả api và web. */
+export const MESSAGING_SOCKET_EVENTS = {
+  /** Server → client: có tin mới trong một conversation của người nhận. */
+  newMessage: 'message.new',
+  /** Server → client: conversation đổi (tin cuối + số chưa đọc của chính user này). */
+  conversationUpdated: 'conversation.updated',
+  /** Server → client: một thành viên đã đọc tới mốc lastReadSeq. */
+  messageRead: 'message.read',
+  /** Hai chiều: một thành viên đang nhập trong conversation. */
+  typing: 'typing',
+  /** Server → client: trạng thái trực tuyến của một user thay đổi. */
+  presenceChanged: 'presence.changed',
+  /** Client → server: xin các tin còn thiếu theo mốc seq của từng conversation; kết quả trả qua ack. */
+  sync: 'sync',
+  /** Client → server: xin vào room của một conversation (server kiểm tra tư cách thành viên). */
+  joinConversation: 'conversation.join',
+  /** Client → server: rời room của một conversation. */
+  leaveConversation: 'conversation.leave',
+} as const;
+
+/** Tin mới được phân phối qua consumer của outbox `message_sent`. */
+export interface RealtimeNewMessagePayload {
+  conversationId: string;
+  message: LmsMessage;
+}
+
+/** Cập nhật cho danh sách conversation của TỪNG user (số chưa đọc là của user nhận sự kiện). */
+export interface RealtimeConversationUpdatedPayload {
+  conversationId: string;
+  message: LmsMessage;
+  unreadCount: number;
+}
+
+export interface RealtimeMessageReadPayload {
+  conversationId: string;
+  userId: string;
+  lastReadSeq: number;
+}
+
+export interface RealtimeTypingPayload {
+  conversationId: string;
+  userId: string;
+}
+
+export interface RealtimePresencePayload {
+  userId: string;
+  online: boolean;
+}
+
+/** Payload client gửi khi nối lại: conversationId → seq cao nhất đã thấy. */
+export type MessagingSyncRequest = Record<string, number>;
+
+/** Kết quả đồng bộ: conversationId → các tin còn thiếu, tăng dần theo seq. */
+export type MessagingSyncResult = Record<string, LmsMessage[]>;
 
 /** Payload đặt tuỳ chọn kênh nhận cho một message provider. */
 export const setMessagePreferenceSchema = z.strictObject({

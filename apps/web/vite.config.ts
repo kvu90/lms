@@ -14,6 +14,12 @@ export default defineConfig({
     port: 5173,
     // Cho phép mở bản dev qua đường hầm công khai khi review từ xa.
     allowedHosts: ['.lhr.life', '.trycloudflare.com', '.pinggy.net', '.pinggy-free.link'],
-    proxy: { '/api': 'http://localhost:3000' },
+    proxy: {
+      '/api': 'http://localhost:3000',
+      // Kênh realtime của messaging (Socket.IO, namespace /messaging):
+      // ở production API phục vụ luôn socket trên cùng origin nên chỉ
+      // môi trường dev mới cần chuyển tiếp cả HTTP polling lẫn WebSocket.
+      '/socket.io': { target: 'http://localhost:3000', ws: true },
+    },
   },
 });

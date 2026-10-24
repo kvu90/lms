@@ -1,10 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Sse, type MessageEvent } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Sse, type MessageEvent } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type CreateGroupConversationDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -41,6 +41,15 @@ export class MessagingController {
    */
   async getConversation(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getConversation(actor.id, id);
+  }
+  @Get('conversations/:id/messages')
+  /**
+   * GET /messages/conversations/:id/messages — một cửa sổ tin theo
+   * cursor seq: beforeSeq tải lịch sử cũ, afterSeq lấy phần thiếu khi
+   * đồng bộ lại, limit chặn kích thước cửa sổ (mặc định 50).
+   */
+  async listMessages(@Param('id', { schema: uuidIdSchema }) id: string, @Query({ schema: listMessagesQueryServerSchema }) query: ListMessagesQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listConversationMessages(actor.id, id, query);
   }
   @Post('conversations/:id/messages')
   /**

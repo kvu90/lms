@@ -870,8 +870,10 @@ CREATE TABLE "message" (
 	"subject" text DEFAULT '' NOT NULL,
 	"full_message" text DEFAULT '' NOT NULL,
 	"small_message" text DEFAULT '' NOT NULL,
+	"seq" integer NOT NULL,
+	"client_message_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"time_read" timestamp with time zone
+	CONSTRAINT "message_conversation_client_id_unique" UNIQUE("conversation_id","user_id_from","client_message_id")
 );
 --> statement-breakpoint
 CREATE TABLE "message_contacts" (
@@ -884,6 +886,7 @@ CREATE TABLE "message_contacts" (
 CREATE TABLE "message_conversation_members" (
 	"conversation_id" uuid,
 	"user_id" uuid,
+	"last_read_seq" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "message_conversation_members_pkey" PRIMARY KEY("conversation_id","user_id")
 );
@@ -897,6 +900,7 @@ CREATE TABLE "message_conversations" (
 	"item_id" uuid,
 	"context_id" uuid,
 	"enabled" boolean DEFAULT true NOT NULL,
+	"last_message_seq" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -1571,6 +1575,7 @@ CREATE INDEX "learning_outcomes_node_id_idx" ON "learning_outcomes" ("node_id","
 CREATE INDEX "subjects_context_id_idx" ON "subjects" ("context_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
+CREATE INDEX "message_conversation_seq_idx" ON "message" ("conversation_id","seq");--> statement-breakpoint
 CREATE INDEX "message_contacts_contact_id_idx" ON "message_contacts" ("contact_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_members_user_id_idx" ON "message_conversation_members" ("user_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_item_id_idx" ON "message_conversations" ("item_id");--> statement-breakpoint
