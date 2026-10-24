@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
 import '../i18n';
@@ -111,18 +114,31 @@ export function AdminSiteConfigPage() {
   const components = [...new Set(settings.map((s) => s.component))];
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="narrow">
+      <PageHeader title={t('siteConfigTitle')} description={t('siteConfigDescription')} />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('siteConfigTitle')}</CardTitle>
-          <CardDescription>{t('siteConfigDescription')}</CardDescription>
-        </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {forbidden ? <p role="alert">{t('siteConfigForbidden')}</p> : null}
-          {error ? <p role="alert">{error}</p> : null}
-          {message ? <p role="status">{message}</p> : null}
+          {forbidden ? (
+            <Alert variant="destructive">
+              <AlertDescription>{t('siteConfigForbidden')}</AlertDescription>
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {message ? (
+            <Alert>
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
           {!forbidden && settings.length === 0 && !error ? (
-            <p className="text-sm">{t('siteConfigNoSettings')}</p>
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('siteConfigNoSettings')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : null}
           {components.map((component) => (
             <div key={component} className="flex flex-col gap-3">
@@ -210,23 +226,30 @@ export function AdminSiteConfigPage() {
           <CardTitle>{t('siteConfigAuditTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="flex flex-col gap-1 text-sm" aria-label={t('siteConfigAuditTitle')}>
-            {audit.map((entry) => (
-              <li key={entry.id}>
-                {t('siteConfigAuditLine', {
-                  key: entry.settingKey,
-                  oldValue: formatValue(entry.oldValue),
-                  newValue: formatValue(entry.newValue),
-                  changedBy: entry.changedBy ?? '—',
-                  time: entry.createdAt,
-                })}
-              </li>
-            ))}
-            {audit.length === 0 ? <li>{t('siteConfigNoAudit')}</li> : null}
-          </ul>
+          {audit.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('siteConfigNoAudit')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm" aria-label={t('siteConfigAuditTitle')}>
+              {audit.map((entry) => (
+                <li key={entry.id}>
+                  {t('siteConfigAuditLine', {
+                    key: entry.settingKey,
+                    oldValue: formatValue(entry.oldValue),
+                    newValue: formatValue(entry.newValue),
+                    changedBy: entry.changedBy ?? '—',
+                    time: entry.createdAt,
+                  })}
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

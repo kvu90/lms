@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Spinner } from '@lms/ui/components/spinner';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
+import { PageShell } from '../components/page-shell';
 import { useAuth } from '#lib/auth';
 
 /**
@@ -38,18 +41,23 @@ export function OAuthCallbackPage() {
   }, [code, loginWithHandoff, navigate]);
 
   return (
-    <main className="mx-auto max-w-md p-8">
+    <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">
       <Card>
         <CardHeader>
           <CardTitle>{t('oauthCallbackTitle')}</CardTitle>
           <CardDescription>{t('oauthCallbackDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!failed && (
+            <div className="flex justify-center py-2">
+              <Spinner className="size-6" />
+            </div>
+          )}
           {failed && (
             <>
-              <p role="alert" className="text-sm text-destructive">
-                {t('oauthCallbackFailed')}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{t('oauthCallbackFailed')}</AlertDescription>
+              </Alert>
               <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/login')}>
                 {t('backToLogin')}
               </Button>
@@ -57,7 +65,7 @@ export function OAuthCallbackPage() {
           )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

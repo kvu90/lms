@@ -9,11 +9,15 @@ import {
   oauthLinksResponseSchema,
   oauthProvidersResponseSchema,
 } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Spinner } from '@lms/ui/components/spinner';
+import { PageHeader, PageShell } from '../components/page-shell';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -47,9 +51,12 @@ export function ProfilePage() {
 
   if (!user || !form)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        {t('profileLoading')}
-      </main>
+      <PageShell width="narrow">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          {t('profileLoading')}
+        </div>
+      </PageShell>
     );
 
   async function onSubmit(event: FormEvent) {
@@ -74,15 +81,14 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="narrow">
+      <PageHeader title={t('profileTitle', { username: user.username })} />
       <Card>
-        <CardHeader>
-          {/* Tiêu đề thẻ là heading h2 thật như các trang khác, không
-              phải chữ thường trong CardTitle; email không lặp lại ở đây
-              vì form bên dưới đã có field Email để xem và sửa. */}
-          <h2 className="text-base leading-normal font-medium">{t('profileTitle', { username: user.username })}</h2>
-          {user.forcePasswordChange ? <CardDescription>{t('profileMustChangePassword')}</CardDescription> : null}
-        </CardHeader>
+        {user.forcePasswordChange ? (
+          <CardHeader>
+            <CardDescription>{t('profileMustChangePassword')}</CardDescription>
+          </CardHeader>
+        ) : null}
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -125,9 +131,9 @@ export function ProfilePage() {
               </div>
             ))}
             {message && (
-              <p role="status" className="text-sm">
-                {message}
-              </p>
+              <Alert>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
             )}
             <Button type="submit">{t('saveProfile')}</Button>
           </form>
@@ -136,7 +142,7 @@ export function ProfilePage() {
       <LinkedAccountsCard />
       <TwoFactorCard />
       <SessionsCard />
-    </main>
+    </PageShell>
   );
 }
 
@@ -208,11 +214,15 @@ function LinkedAccountsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {linksQuery.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t('linkedAccountsLoadFailed')}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{t('linkedAccountsLoadFailed')}</AlertDescription>
+          </Alert>
         ) : links.length === 0 ? (
-          <p className="text-sm">{t('noLinkedAccounts')}</p>
+          <Empty className="p-6">
+            <EmptyHeader>
+              <EmptyTitle>{t('noLinkedAccounts')}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className="space-y-3">
             {links.map((link) => (
@@ -239,9 +249,9 @@ function LinkedAccountsCard() {
           <p className="text-sm text-muted-foreground">{t('setPasswordBeforeUnlinkHint')}</p>
         )}
         {actionError && (
-          <p role="alert" className="text-sm text-destructive">
-            {actionError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
         )}
         {linkableIssuers.map((issuer) => (
           <Button key={issuer} type="button" variant="outline" onClick={() => void startLink(issuer)}>
@@ -345,9 +355,9 @@ function TwoFactorCard() {
         {/* Huy hiệu trạng thái chỉ hiện khi đã có dữ liệu thật: lúc
             đang tải mà hiện "Chưa bật" là khẳng định sai về tài khoản. */}
         {statusQuery.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t('twoFactorLoadFailed')}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{t('twoFactorLoadFailed')}</AlertDescription>
+          </Alert>
         ) : statusQuery.data ? (
           <p>
             <Badge variant={enabled ? 'default' : 'outline'}>
@@ -356,14 +366,14 @@ function TwoFactorCard() {
           </p>
         ) : null}
         {feedback && (
-          <p role="status" className="text-sm">
-            {feedback}
-          </p>
+          <Alert>
+            <AlertDescription>{feedback}</AlertDescription>
+          </Alert>
         )}
         {actionError && (
-          <p role="alert" className="text-sm text-destructive">
-            {actionError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
         )}
         {step === 'idle' &&
           statusQuery.data &&
@@ -529,11 +539,15 @@ function SessionsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {sessionsQuery.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t('sessionsLoadFailed')}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{t('sessionsLoadFailed')}</AlertDescription>
+          </Alert>
         ) : sessions.length === 0 ? (
-          <p className="text-sm">{t('noSessions')}</p>
+          <Empty className="p-6">
+            <EmptyHeader>
+              <EmptyTitle>{t('noSessions')}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Table>
             <TableHeader>
@@ -577,9 +591,9 @@ function SessionsCard() {
           </Table>
         )}
         {actionError && (
-          <p role="alert" className="text-sm text-destructive">
-            {actionError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
         )}
         {hasOtherSessions && (
           <Button

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -110,29 +113,42 @@ export function NotificationsPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('notifications')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {error ? <p role="alert">{error}</p> : null}
+    <PageShell width="narrow">
+      <PageHeader
+        title={t('notifications')}
+        actions={
           <Button type="button" variant="outline" onClick={() => void markAllRead()}>
             {t('markAllRead')}
           </Button>
-          <ul className="space-y-2" aria-label={t('notificationsListLabel')}>
-            {items.map((n) => (
-              <li key={n.id} className={`rounded border p-2 ${n.timeRead ? 'opacity-60' : ''}`}>
-                <p className="font-medium">{n.subject}</p>
-                <p className="text-sm">{n.fullMessage}</p>
-                <p className="text-xs text-muted-foreground">
-                  {n.eventType} · {new Date(n.createdAt).toLocaleString()}
-                  {n.timeRead ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}
-                </p>
-              </li>
-            ))}
-            {items.length === 0 ? <li>{t('noNotifications')}</li> : null}
-          </ul>
+        }
+      />
+      <Card>
+        <CardContent className="space-y-3">
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {items.length === 0 && !error ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('noNotifications')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ul className="space-y-2" aria-label={t('notificationsListLabel')}>
+              {items.map((n) => (
+                <li key={n.id} className={`rounded border p-2 ${n.timeRead ? 'opacity-60' : ''}`}>
+                  <p className="font-medium">{n.subject}</p>
+                  <p className="text-sm">{n.fullMessage}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {n.eventType} · {new Date(n.createdAt).toLocaleString()}
+                    {n.timeRead ? ` · ${t('readSuffix')}` : ` · ${t('unreadStateSuffix')}`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
       <Card>
@@ -140,7 +156,11 @@ export function NotificationsPage() {
           <CardTitle>{t('notificationPreferences')}</CardTitle>
         </CardHeader>
         <CardContent>
-          {prefError ? <p role="alert">{prefError}</p> : null}
+          {prefError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{prefError}</AlertDescription>
+            </Alert>
+          ) : null}
           <table className="w-full text-sm">
             <thead>
               <tr>
@@ -177,7 +197,7 @@ export function NotificationsPage() {
           </table>
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

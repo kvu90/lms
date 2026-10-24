@@ -3,10 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { OAuthIssuer } from '@lms/contracts';
 import { oauthAuthorizeResponseSchema, oauthProvidersResponseSchema } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '#lib/api';
@@ -114,7 +116,7 @@ export function LoginPage() {
 
   if (challengeToken) {
     return (
-      <main className="mx-auto max-w-md p-8">
+      <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">
         <Card>
           <CardHeader>
             <CardTitle>{t('mfaTitle')}</CardTitle>
@@ -136,9 +138,9 @@ export function LoginPage() {
                 />
               </div>
               {mfaError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {mfaError}
-                </p>
+                <Alert variant="destructive">
+                  <AlertDescription>{mfaError}</AlertDescription>
+                </Alert>
               )}
               <Button type="submit" disabled={mfaBusy} className="w-full">
                 {mfaBusy ? t('mfaVerifying') : t('mfaVerify')}
@@ -157,12 +159,12 @@ export function LoginPage() {
             </form>
           </CardContent>
         </Card>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto max-w-md p-8">
+    <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">
       <Card>
         <CardHeader>
           <CardTitle>{t('loginTitle')}</CardTitle>
@@ -192,14 +194,14 @@ export function LoginPage() {
               />
             </div>
             {oauthError && (
-              <p role="alert" className="text-sm text-destructive">
-                {oauthError}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{oauthError}</AlertDescription>
+              </Alert>
             )}
             {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? t('signingIn') : t('signIn')}
@@ -223,7 +225,7 @@ export function LoginPage() {
           )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

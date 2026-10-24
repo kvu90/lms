@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson } from '#lib/api';
 
 interface SearchDoc {
@@ -82,11 +84,9 @@ export function SearchPage() {
     setSearched(true);
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="narrow">
+      <PageHeader title={t('searchTitle')} />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('searchTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
           <form onSubmit={(e) => void submit(e)} className="flex gap-2">
             <Label htmlFor="search-q" className="sr-only">
@@ -110,11 +110,17 @@ export function SearchPage() {
                 <p className="text-sm">{d.content}</p>
               </li>
             ))}
-            {searched && results.length === 0 ? <li>{t('noResults')}</li> : null}
           </ul>
+          {searched && results.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('noResults')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

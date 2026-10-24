@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
+import { Card, CardContent } from '@lms/ui/components/card';
+import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageHeader, PageShell } from '../components/page-shell';
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; health: HealthStatus };
 
@@ -34,15 +37,23 @@ export function HealthPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <PageShell width="narrow">
+      <PageHeader title={t('healthTitle')} description={t('healthDescription')} />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('healthTitle')}</CardTitle>
-          <CardDescription>{t('healthDescription')}</CardDescription>
-        </CardHeader>
         <CardContent>
-          {state.kind === 'loading' && <p>{t('loading')}</p>}
-          {state.kind === 'error' && <p role="alert">{t('healthLoadFailed', { message: state.message })}</p>}
+          {state.kind === 'loading' && (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          )}
+          {state.kind === 'error' && (
+            <Alert variant="destructive">
+              <AlertTitle>{t('healthTitle')}</AlertTitle>
+              <AlertDescription>{t('healthLoadFailed', { message: state.message })}</AlertDescription>
+            </Alert>
+          )}
           {state.kind === 'ready' && (
             <dl className="space-y-2">
               <div>
@@ -65,7 +76,7 @@ export function HealthPage() {
           )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
