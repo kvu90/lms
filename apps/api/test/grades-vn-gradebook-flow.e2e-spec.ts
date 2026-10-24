@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, systemContextId, uniqueName } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 import { getGradebook, setGrade } from './assessment-helpers';
 
@@ -228,5 +228,77 @@ describe('Sổ điểm VN TT 22 (GB-VN-1, issue #95)', () => {
     const strangerLogin = await login(app, stranger.username, STRONG_PASSWORD);
     const asStranger = await http(app).get(`/api/v1/grades/vn/students/${student.id}/classification`).query({ period: 'hk1' }).set('Authorization', `Bearer ${strangerLogin.accessToken}`);
     expect(asStranger.status).toBe(403);
+  }, 120000);
+
+  it('gác actor route kết quả theo học sinh: bạn học bị 403, chính chủ và giáo viên có grade:viewall đọc được (vá rò điểm #95)', async () => {
+    // Khoá có hai học sinh cùng ghi danh và một giáo viên (editingteacher tại context khoá).
+    const course = await createCourse(app, admin, catId);
+    const instance = await createEnrolInstance(app, admin, course.id);
+    const peer = await createUserViaApi(app, admin);
+    const owner = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, peer.id);
+    await enrolUser(app, admin, course.id, instance.id, owner.id);
+    const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
+    const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
+      .find((c) => c.contextLevel === 50 && c.instanceId === course.id)!;
+    const teacherUser = await createUserViaApi(app, admin);
+    await assignRole(app, admin, teacherUser.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
+    const teacher = (await login(app, teacherUser.username, STRONG_PASSWORD)).accessToken;
+    const peerToken = (await login(app, peer.username, STRONG_PASSWORD)).accessToken;
+    const ownerToken = (await login(app, owner.username, STRONG_PASSWORD)).accessToken;
+
+    // Sổ hai kì (35 tiết → quota 2 ĐĐGtx); nhập điểm + chốt kì + chốt năm cho owner bằng admin.
+    const hk1 = (await createBook(course.id, { term: 'hk1', subjectPeriodsPerYear: 35 })).body;
+    const hk2 = (await createBook(course.id, { term: 'hk2', subjectPeriodsPerYear: 35 })).body;
+    await fillGrades(hk1, owner.id, [8, 9, 7, 8]); // ĐTBmhk = (17 + 2×7 + 3×8)/7 = 55/7 → 7,9
+    const snap1 = await finalize(course.id, hk1.book.id, owner.id);
+    expect(snap1.status).toBe(201);
+    expect(snap1.body.dtbHk).toBe(7.9);
+    await fillGrades(hk2, owner.id, [9, 9, 9, 9]); // ĐTBmhk = 9,0
+    const snap2 = await finalize(course.id, hk2.book.id, owner.id);
+    expect(snap2.status).toBe(201);
+    const yearFinalize = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-year-results/${owner.id}/finalize`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(yearFinalize.status).toBe(201);
+    expect(yearFinalize.body.dtbYear).toBe(8.6); // (7,9 + 2×9,0)/3 = 8,633… → 8,6
+
+    const resultsUrl = `/api/v1/courses/${course.id}/grades/vn-books/${hk1.book.id}/results/${owner.id}`;
+    const snapshotsUrl = `${resultsUrl}/snapshots`;
+    const yearUrl = `/api/v1/courses/${course.id}/grades/vn-year-results/${owner.id}`;
+
+    // (a) Bạn học cùng lớp đọc trộm kết quả của owner → 403 cả ba bề mặt, đúng mã của requireCapability.
+    for (const url of [resultsUrl, snapshotsUrl, yearUrl]) {
+      const res = await http(app).get(url).set('Authorization', `Bearer ${peerToken}`);
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('access.capability_denied');
+    }
+    // Người ngoài khoá đọc "của chính mình" trong khoá chưa ghi danh → 403 (assertCourseAccess).
+    const outsider = await createUserViaApi(app, admin);
+    const outsiderToken = (await login(app, outsider.username, STRONG_PASSWORD)).accessToken;
+    const notEnrolled = await http(app).get(`/api/v1/courses/${course.id}/grades/vn-books/${hk1.book.id}/results/${outsider.id}`)
+      .set('Authorization', `Bearer ${outsiderToken}`);
+    expect(notEnrolled.status).toBe(403);
+
+    // (b) Chính chủ đọc được cả ba bề mặt và thấy đúng điểm của mình.
+    const own = await http(app).get(resultsUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(own.status).toBe(200);
+    expect(own.body.complete).toBe(true);
+    expect(own.body.dtbHk).toBe(7.9);
+    const ownSnaps = await http(app).get(snapshotsUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(ownSnaps.status).toBe(200);
+    expect((ownSnaps.body as unknown[]).length).toBe(1);
+    const ownYear = await http(app).get(yearUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(ownYear.status).toBe(200);
+    expect(ownYear.body.dtbYear).toBe(8.6);
+
+    // (c) Giáo viên có grade:viewall tại khoá đọc được kết quả của học sinh.
+    const asTeacher = await http(app).get(resultsUrl).set('Authorization', `Bearer ${teacher}`);
+    expect(asTeacher.status).toBe(200);
+    expect(asTeacher.body.dtbHk).toBe(7.9);
+    const teacherSnaps = await http(app).get(snapshotsUrl).set('Authorization', `Bearer ${teacher}`);
+    expect(teacherSnaps.status).toBe(200);
+    const teacherYear = await http(app).get(yearUrl).set('Authorization', `Bearer ${teacher}`);
+    expect(teacherYear.status).toBe(200);
+    expect(teacherYear.body.dtbYear).toBe(8.6);
   }, 120000);
 });
