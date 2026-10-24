@@ -69,17 +69,17 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     );
     expect(Number(staleOverrides.rows[0].n)).toBe(0);
 
-    // The registry itself is intact: 97 definitions (94 trên main d5e20fc
+    // The registry itself is intact: 100 definitions (94 trên main d5e20fc
     // — 88 gốc + 5 quyền assign:* của mod_assign, issue #88 +
     // contentbank:reviewcontent của Kho học liệu CB-1, issue #69 — cộng 3
-    // quyền question:* của feat ngân hàng câu hỏi chung, PR #83), every
-    // one prefix-free,
+    // quyền question:* của feat ngân hàng câu hỏi chung, PR #83, cộng 3
+    // quyền quiz của Quiz Chặng 2+3, PR #84: quiz:manageoverrides,
+    // quiz:viewmatrix, quiz:managematrix), every one prefix-free,
     // and the renamed defaults were re-seeded at the system context.
-    // Provenance of the count: 88 (registry before PR #83) + 3 new
-    // capabilities added by the shared question bank feat (PR #83):
-    // question:copy, question:share, question:moderate.
+    // Provenance of the count: 97 (sau PR #83) + 3 new capabilities
+    // added by Quiz Chặng 2+3 (issue #30).
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    expect(Number(defs.rows[0].n)).toBe(97);
+    expect(Number(defs.rows[0].n)).toBe(100);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],

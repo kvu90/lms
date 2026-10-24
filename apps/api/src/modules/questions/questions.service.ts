@@ -27,6 +27,10 @@ export interface QuestionOptionsInput {
   partiallyCorrectFeedback?: RichTextInput;
   incorrectFeedback?: RichTextInput;
   useCase?: boolean;
+  numericAnswer?: boolean;
+  numericMaxLength?: number | null;
+  numericAllowSign?: boolean;
+  numericAllowDecimal?: boolean;
   responseFormat?: string;
   responseRequired?: boolean;
   responseFieldLines?: number;
@@ -82,7 +86,7 @@ interface NormalisedContent {
   multichoice?: { single: boolean; shuffleAnswers: boolean; answerNumbering: string; correctFeedback: RichTextDocument | null; partiallyCorrectFeedback: RichTextDocument | null; incorrectFeedback: RichTextDocument | null; showNumCorrect: boolean; showStandardInstruction: boolean };
   truefalseCorrect?: boolean;
   truefalseShowStandardInstruction?: boolean;
-  shortanswer?: { useCase: boolean };
+  shortanswer?: { useCase: boolean; numericAnswer: boolean; numericMaxLength: number | null; numericAllowSign: boolean; numericAllowDecimal: boolean };
   essay?: { responseFormat: string; responseRequired: boolean; responseFieldLines: number; minWordLimit: number | null; maxWordLimit: number | null; graderInfo: RichTextDocument | null; responseTemplate: RichTextDocument | null };
 }
 
@@ -422,7 +426,16 @@ export class QuestionsService {
         if (!(a.fraction >= 0 && a.fraction <= 1)) throw badAnswerData('shortanswer answer fractions must be within [0, 1]');
       }
       if (!answers.some((a) => a.fraction > 0)) throw badAnswerData('shortanswer requires at least one answer with a positive fraction');
-      return { answers, shortanswer: { useCase } };
+      return {
+        answers,
+        shortanswer: {
+          useCase,
+          numericAnswer: options.numericAnswer ?? false,
+          numericMaxLength: options.numericMaxLength ?? null,
+          numericAllowSign: options.numericAllowSign ?? true,
+          numericAllowDecimal: options.numericAllowDecimal ?? true,
+        },
+      };
     }
     // multichoice
     if (answers.length < 2) throw badAnswerData('multichoice requires at least two choices');
@@ -469,7 +482,11 @@ export class QuestionsService {
       }, tx);
     }
     if (content.shortanswer) {
-      await this.repo.insertShortanswerOptions({ questionVersionId: versionId, useCase: content.shortanswer.useCase }, tx);
+      await this.repo.insertShortanswerOptions({
+        questionVersionId: versionId, useCase: content.shortanswer.useCase,
+        numericAnswer: content.shortanswer.numericAnswer, numericMaxLength: content.shortanswer.numericMaxLength,
+        numericAllowSign: content.shortanswer.numericAllowSign, numericAllowDecimal: content.shortanswer.numericAllowDecimal,
+      }, tx);
     }
     if (content.essay) {
       await this.repo.insertEssayOptions({ questionVersionId: versionId, ...content.essay } as never, tx);
@@ -503,7 +520,11 @@ export class QuestionsService {
       }, tx);
     } else if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(fromVersionId);
-      if (o) await this.repo.insertShortanswerOptions({ questionVersionId: toVersionId, useCase: o.useCase }, tx);
+      if (o) await this.repo.insertShortanswerOptions({
+        questionVersionId: toVersionId, useCase: o.useCase,
+        numericAnswer: o.numericAnswer, numericMaxLength: o.numericMaxLength,
+        numericAllowSign: o.numericAllowSign, numericAllowDecimal: o.numericAllowDecimal,
+      }, tx);
     } else if (qtype === 'essay') {
       const o = await this.repo.getEssayOptions(fromVersionId);
       if (o) await this.repo.insertEssayOptions({
@@ -543,7 +564,11 @@ export class QuestionsService {
     if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(versionId);
       if (!o) return null;
-      return { useCase: o.useCase };
+      return {
+        useCase: o.useCase,
+        numericAnswer: o.numericAnswer, numericMaxLength: o.numericMaxLength,
+        numericAllowSign: o.numericAllowSign, numericAllowDecimal: o.numericAllowDecimal,
+      };
     }
     if (qtype === 'essay') {
       const o = await this.repo.getEssayOptions(versionId);
@@ -1058,7 +1083,13 @@ export class QuestionsService {
       if (o) data.truefalse = { trueanswerId: o.trueAnswer, falseanswerId: o.falseAnswer };
     } else if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(version.id);
-      data.shortanswer = { useCase: o?.useCase ?? false };
+      data.shortanswer = {
+        useCase: o?.useCase ?? false,
+        numericAnswer: o?.numericAnswer ?? false,
+        numericMaxLength: o?.numericMaxLength ?? null,
+        numericAllowSign: o?.numericAllowSign ?? true,
+        numericAllowDecimal: o?.numericAllowDecimal ?? true,
+      };
     }
     return data;
   }

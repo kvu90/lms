@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "79aa6f2c-c3f9-4051-889a-c41e10c2b126",
+  "id": "e69c3779-ed76-4483-8624-f02d7c407584",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1464,6 +1464,64 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|tbl|public.exam_matrices",
+        "n|tbl|public.exam_matrices",
+        "e|tbl|public.exam_matrices",
+        "n|rel|public.exam_matrices",
+        "n|type|public.exam_matrices",
+        "n|rel|public.exam_matrices_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|tbl|public.exam_matrix_cells",
+        "n|tbl|public.exam_matrix_cells",
+        "e|tbl|public.exam_matrix_cells",
+        "n|rel|public.exam_matrix_cells",
+        "n|type|public.exam_matrix_cells",
+        "n|rel|public.exam_matrix_cells_pkey",
+        "n|rel|public.exam_matrix_cells_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_attempt_events"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_attempt_events",
+        "n|tbl|public.quiz_attempt_events",
+        "e|tbl|public.quiz_attempt_events",
+        "n|rel|public.quiz_attempt_events",
+        "n|type|public.quiz_attempt_events",
+        "n|rel|public.quiz_attempt_events_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "quiz_attempts"
       ],
       "writes": [
@@ -1475,6 +1533,46 @@
         "n|rel|public.quiz_attempts_pkey",
         "n|rel|public.quiz_attempts_usage_unique",
         "n|rel|public.quiz_attempts_quiz_user_number_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_feedbacks"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_feedbacks",
+        "n|tbl|public.quiz_feedbacks",
+        "e|tbl|public.quiz_feedbacks",
+        "n|rel|public.quiz_feedbacks",
+        "n|type|public.quiz_feedbacks",
+        "n|rel|public.quiz_feedbacks_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_overrides"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_overrides",
+        "n|tbl|public.quiz_overrides",
+        "e|tbl|public.quiz_overrides",
+        "n|rel|public.quiz_overrides",
+        "n|type|public.quiz_overrides",
+        "n|rel|public.quiz_overrides_pkey",
+        "n|rel|public.quiz_overrides_quiz_group_unique",
+        "n|rel|public.quiz_overrides_quiz_user_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -5448,6 +5546,126 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_matrices",
+        "exam_matrices_subject_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_subject_idx",
+        "n|idx|public.exam_matrices_subject_idx",
+        "e|idx|public.exam_matrices_subject_idx",
+        "n|rel|public.exam_matrices_subject_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrices",
+        "exam_matrices_curriculum_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_curriculum_idx",
+        "n|idx|public.exam_matrices_curriculum_idx",
+        "e|idx|public.exam_matrices_curriculum_idx",
+        "n|rel|public.exam_matrices_curriculum_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.curriculum_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrices",
+        "exam_matrices_bank_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_bank_idx",
+        "n|idx|public.exam_matrices_bank_idx",
+        "e|idx|public.exam_matrices_bank_idx",
+        "n|rel|public.exam_matrices_bank_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.bank_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_cells",
+        "exam_matrix_cells_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_cells_matrix_idx",
+        "n|idx|public.exam_matrix_cells_matrix_idx",
+        "e|idx|public.exam_matrix_cells_matrix_idx",
+        "n|rel|public.exam_matrix_cells_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_cells",
+        "exam_matrix_cells_learning_outcome_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "n|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "e|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "n|rel|public.exam_matrix_cells_learning_outcome_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.learning_outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_attempt_events",
+        "quiz_attempt_events_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_attempt_events_attempt_idx",
+        "n|idx|public.quiz_attempt_events_attempt_idx",
+        "e|idx|public.quiz_attempt_events_attempt_idx",
+        "n|rel|public.quiz_attempt_events_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempt_events",
+        "n|sch|public",
+        "n|col|public.quiz_attempt_events.attempt_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "quiz_attempts",
         "quiz_attempts_quiz_id_idx"
       ],
@@ -5481,6 +5699,66 @@
         "n|tbl|public.quiz_attempts",
         "n|sch|public",
         "n|col|public.quiz_attempts.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_feedbacks",
+        "quiz_feedbacks_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_feedbacks_quiz_idx",
+        "n|idx|public.quiz_feedbacks_quiz_idx",
+        "e|idx|public.quiz_feedbacks_quiz_idx",
+        "n|rel|public.quiz_feedbacks_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_feedbacks",
+        "n|sch|public",
+        "n|col|public.quiz_feedbacks.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_overrides",
+        "quiz_overrides_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_overrides_quiz_idx",
+        "n|idx|public.quiz_overrides_quiz_idx",
+        "e|idx|public.quiz_overrides_quiz_idx",
+        "n|rel|public.quiz_overrides_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_overrides",
+        "n|sch|public",
+        "n|col|public.quiz_overrides.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_overrides",
+        "quiz_overrides_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_overrides_group_idx",
+        "n|idx|public.quiz_overrides_group_idx",
+        "e|idx|public.quiz_overrides_group_idx",
+        "n|rel|public.quiz_overrides_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_overrides",
+        "n|sch|public",
+        "n|col|public.quiz_overrides.group_id"
       ]
     },
     {
@@ -5568,6 +5846,46 @@
       "statementTarget": [
         "index",
         "public",
+        "quiz_slots",
+        "quiz_slots_matrix_cell_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_matrix_cell_id_idx",
+        "n|idx|public.quiz_slots_matrix_cell_id_idx",
+        "e|idx|public.quiz_slots_matrix_cell_id_idx",
+        "n|rel|public.quiz_slots_matrix_cell_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.matrix_cell_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slots",
+        "quiz_slots_cluster_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slots_cluster_id_idx",
+        "n|idx|public.quiz_slots_cluster_id_idx",
+        "e|idx|public.quiz_slots_cluster_id_idx",
+        "n|rel|public.quiz_slots_cluster_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slots.cluster_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "quizzes",
         "quizzes_course_idx"
       ],
@@ -5601,6 +5919,26 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.cm_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_matrix_idx",
+        "n|idx|public.quizzes_matrix_idx",
+        "e|idx|public.quizzes_matrix_idx",
+        "n|rel|public.quizzes_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id"
       ]
     },
     {
@@ -10966,6 +11304,121 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.exam_matrices.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.exam_matrices.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.exam_matrix_cells.exam_matrix_cells_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_cells"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "e|fk|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|con|public.exam_matrix_cells.exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.learning_outcome_id",
+        "n|col|public.learning_outcomes.id",
+        "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_attempt_events"
+      ],
+      "writes": [
+        "s|fk|public.quiz_attempt_events.quiz_attempt_events_attempt_id_quiz_attempts_id_fkey",
+        "n|fk|public.quiz_attempt_events.quiz_attempt_events_attempt_id_quiz_attempts_id_fkey",
+        "e|fk|public.quiz_attempt_events.quiz_attempt_events_attempt_id_quiz_attempts_id_fkey",
+        "n|con|public.quiz_attempt_events.quiz_attempt_events_attempt_id_quiz_attempts_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_attempt_events",
+        "n|sch|public",
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|col|public.quiz_attempt_events.attempt_id",
+        "n|col|public.quiz_attempts.id",
+        "e|uniqueness|public.quiz_attempts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "quiz_attempts"
       ],
       "writes": [
@@ -11005,6 +11458,75 @@
         "n|col|public.quiz_attempts.usage_id",
         "n|col|public.question_usages.id",
         "e|uniqueness|public.question_usages.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_feedbacks"
+      ],
+      "writes": [
+        "s|fk|public.quiz_feedbacks.quiz_feedbacks_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_feedbacks.quiz_feedbacks_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_feedbacks.quiz_feedbacks_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_feedbacks.quiz_feedbacks_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_feedbacks",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_feedbacks.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_overrides"
+      ],
+      "writes": [
+        "s|fk|public.quiz_overrides.quiz_overrides_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_overrides.quiz_overrides_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_overrides.quiz_overrides_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_overrides.quiz_overrides_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_overrides",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_overrides.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_overrides"
+      ],
+      "writes": [
+        "s|fk|public.quiz_overrides.quiz_overrides_group_id_course_groups_id_fkey",
+        "n|fk|public.quiz_overrides.quiz_overrides_group_id_course_groups_id_fkey",
+        "e|fk|public.quiz_overrides.quiz_overrides_group_id_course_groups_id_fkey",
+        "n|con|public.quiz_overrides.quiz_overrides_group_id_course_groups_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_overrides",
+        "n|sch|public",
+        "n|tbl|public.course_groups",
+        "n|sch|public",
+        "n|col|public.quiz_overrides.group_id",
+        "n|col|public.course_groups.id",
+        "e|uniqueness|public.course_groups.id"
       ]
     },
     {
@@ -11127,6 +11649,29 @@
       "statementTarget": [
         "table",
         "public",
+        "quiz_slots"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "e|fk|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|con|public.quiz_slots.quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.quiz_slots.matrix_cell_id",
+        "n|col|public.exam_matrix_cells.id",
+        "e|uniqueness|public.exam_matrix_cells.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "quizzes"
       ],
       "writes": [
@@ -11143,6 +11688,29 @@
         "n|col|public.quizzes.course",
         "n|col|public.course.id",
         "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
       ]
     },
     {
@@ -13391,7 +13959,37 @@
     },
     {
       "schema": "public",
+      "name": "exam_matrices",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_matrix_cells",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_attempt_events",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "quiz_attempts",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_feedbacks",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_overrides",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -20729,6 +21327,58 @@
     },
     {
       "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_answer",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_max_length",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_allow_sign",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_allow_decimal",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "question",
       "name": "id",
       "type": "uuid",
@@ -22406,6 +23056,487 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "context_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'draft'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "is_template",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "derived_from_matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "preset_kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'custom'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "target_form_percents",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "target_level_percents",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "level_set",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'three'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "scope_note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "scope_outcome_ids",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "total_score",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "learning_outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "cognitive_level",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "qtype",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "question_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "cell_score",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "minutes",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "tf_scale",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "attempt_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "type",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "data",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "id",
       "type": "uuid",
@@ -22498,6 +23629,32 @@
     {
       "schema": "public",
       "table": "quiz_attempts",
+      "name": "makeup",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
+      "name": "applied_settings",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempts",
       "name": "time_start",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -22550,6 +23707,253 @@
     {
       "schema": "public",
       "table": "quiz_attempts",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "min_percent",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "max_percent",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "feedback",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "group_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "time_open",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "time_close",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "time_limit",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "attempts",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "password_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -22733,6 +24137,32 @@
       "schema": "public",
       "table": "quiz_slots",
       "name": "category_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "matrix_cell_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "cluster_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": false,
@@ -22967,6 +24397,214 @@
       "schema": "public",
       "table": "quizzes",
       "name": "shuffle_answers",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "password_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "subnet",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "delay1",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "delay2",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_attempt",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "69904",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_correctness",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_marks",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_specific_feedback",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_general_feedback",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_right_answer",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "272",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "review_overall_feedback",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4368",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "tf_scale",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "exam_kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "late_entry_minutes",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "monitor_events",
       "type": "boolean",
       "typeSchema": null,
       "notNull": true,
@@ -35097,6 +36735,132 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_subject_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_curriculum_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_bank_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "bank_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_learning_outcome_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "learning_outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "quiz_attempt_events_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_idx",
       "nameExplicit": true,
@@ -35124,6 +36888,69 @@
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "quiz_feedbacks_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_group_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "group_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -35223,6 +37050,48 @@
     },
     {
       "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_matrix_cell_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_cell_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_cluster_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "cluster_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "quizzes",
       "name": "quizzes_course_idx",
       "nameExplicit": true,
@@ -35250,6 +37119,27 @@
       "columns": [
         {
           "value": "cm_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -40376,6 +42266,91 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "learning_outcome_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "attempt_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quiz_attempts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_quiz_id_quizzes_id_fkey",
       "nameExplicit": false,
@@ -40401,6 +42376,57 @@
       ],
       "schemaTo": "public",
       "tableTo": "question_usages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "quiz_feedbacks_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_group_id_course_groups_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "group_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_groups",
       "columnsTo": [
         "id"
       ],
@@ -40495,6 +42521,23 @@
     },
     {
       "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_cell_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrix_cells",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "quizzes",
       "name": "quizzes_course_course_id_fkey",
       "nameExplicit": false,
@@ -40508,6 +42551,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
       "entityType": "fks"
     },
     {
@@ -42628,8 +44688,58 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_attempt_events",
+      "name": "quiz_attempt_events_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "quiz_feedbacks_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_pkey",
       "columns": [
         "id"
       ],
@@ -43889,6 +45999,20 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_unique",
+      "nameExplicit": true,
+      "columns": [
+        "matrix_id",
+        "learning_outcome_id",
+        "cognitive_level",
+        "qtype"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempts",
       "name": "quiz_attempts_usage_unique",
       "nameExplicit": true,
@@ -43907,6 +46031,30 @@
         "quiz_id",
         "user_id",
         "attempt_number"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_quiz_group_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "group_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_quiz_user_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "user_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
@@ -44590,6 +46738,83 @@
       "table": "course_section_book_items",
       "name": "course_section_book_items_position_check",
       "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_preset_kind_check",
+      "value": "\"preset_kind\" in ('cv7991_periodic', 'qd764_graduation', 'custom')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_level_set_check",
+      "value": "\"level_set\" in ('three', 'four')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_status_check",
+      "value": "\"status\" in ('draft', 'ready', 'hidden')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_level_check",
+      "value": "\"cognitive_level\" in ('biet', 'hieu', 'van_dung', 'van_dung_cao')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_qtype_check",
+      "value": "\"qtype\" in ('multichoice', 'truefalse', 'shortanswer', 'essay')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_count_check",
+      "value": "\"question_count\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_score_check",
+      "value": "\"cell_score\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_feedbacks",
+      "name": "quiz_feedbacks_range_check",
+      "value": "\"min_percent\" >= 0 and \"max_percent\" <= 100 and \"min_percent\" < \"max_percent\"",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_exactly_one_target",
+      "value": "(\"group_id\" is null) <> (\"user_id\" is null)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slots",
+      "name": "quiz_slots_source_rule",
+      "value": "(\"question_id\" is not null or \"category_id\" is not null or \"matrix_cell_id\" is not null) and not (\"category_id\" is not null and (\"question_id\" is not null or \"matrix_cell_id\" is not null))",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_exam_kind_check",
+      "value": "\"exam_kind\" is null or \"exam_kind\" in ('regular', 'periodic', 'mock')",
       "entityType": "checks"
     },
     {

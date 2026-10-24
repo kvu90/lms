@@ -112,6 +112,26 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(gradeAnswer('shortanswer', sensitive, 'Paris').rightAnswer).toBe('Paris');
   });
 
+  it('shortanswer numeric mode (issue #30 point 6.3.3): off = plain Moodle semantics; on = length/charset gate before matching', () => {
+    const base: GradingData = {
+      answers: [{ id: '1', text: '1234', fraction: 1 }, { id: '2', text: '-5,5', fraction: 1 }],
+      shortanswer: { useCase: false },
+    };
+    // Tắt (mặc định): không có cổng — chuỗi dài/chữ vẫn so khớp mẫu như thường.
+    expect(gradeAnswer('shortanswer', base, '1234').fraction).toBe(1);
+    const on: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true } };
+    expect(gradeAnswer('shortanswer', on, '1234').fraction).toBe(1); // đúng 4 ký tự
+    expect(gradeAnswer('shortanswer', on, '12345').fraction).toBe(0); // quá 4 ký tự mặc định
+    expect(gradeAnswer('shortanswer', on, '-5,5').fraction).toBe(1); // dấu + thập phân phẩy, 4 ký tự
+    expect(gradeAnswer('shortanswer', on, '12a4').fraction).toBe(0); // ký tự lạ
+    expect(gradeAnswer('shortanswer', on, '').fraction).toBe(0);
+    const noSign: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true, numericAllowSign: false } };
+    expect(gradeAnswer('shortanswer', noSign, '-5,5').fraction).toBe(0);
+    const longer: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true, numericMaxLength: 6 } };
+    expect(gradeAnswer('shortanswer', longer, '12345').fraction).toBe(0); // hợp lệ về dạng nhưng không khớp mẫu nào
+    expect(gradeAnswer('shortanswer', { answers: [{ id: '1', text: '12345', fraction: 1 }], shortanswer: { useCase: false, numericAnswer: true, numericMaxLength: 6 } }, '12345').fraction).toBe(1);
+  });
+
   it('multichoice single: fraction of the chosen answer (question_single_test semantics)', () => {
     const data: GradingData = {
       answers: [

@@ -74,8 +74,15 @@ describe('Question usage owner gate (issue #60)', () => {
       });
     const questionId = qRes.body.question.id as string;
 
+    // Ngữ nghĩa review của Chặng 2 (issue #30): mặc định Moodle cho
+    // review_right_answer = 272 chỉ gồm cửa sổ "sau đó khi đề còn mở"
+    // (0x00100) + "sau khi đóng" (0x00010), KHÔNG gồm cửa sổ "ngay sau
+    // nộp" (0x01000) — nộp xong đáp án đúng chưa lộ ngay. Spec này cần
+    // khẳng định đáp án lộ qua luồng quiz ngay sau khi nộp nên ghim
+    // tường minh bitmask 4368 (gồm cửa sổ ngay-sau-nộp); cửa sổ "đang
+    // làm" (0x10000) vẫn tắt nên đáp án vẫn ẩn trong lúc làm như cũ.
     const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set('Authorization', `Bearer ${teacher}`)
-      .send({ sectionId, name: 'Gate quiz', grade: 10, gradeMethod: 'highest' });
+      .send({ sectionId, name: 'Gate quiz', grade: 10, gradeMethod: 'highest', reviewRightAnswer: 4368 });
     expect(quizRes.status).toBe(201);
     const quizId = quizRes.body.id as string;
     const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${teacher}`)

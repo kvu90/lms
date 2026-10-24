@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
+import { CurriculumModule } from '../curriculum/curriculum.module';
 import { GradesModule } from '../grades/grades.module';
+import { GroupsModule } from '../groups/groups.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { UsersModule } from '../users/users.module';
-import { CourseQuizzesController, QuizAttemptsController, QuizzesController } from './quiz.controller';
+import { CourseQuizzesController, ExamMatricesController, QuizAttemptsController, QuizzesController } from './quiz.controller';
 import { QuizRepository } from './quiz.repository';
 import { QuizService } from './quiz.service';
 
@@ -18,8 +20,8 @@ import { QuizService } from './quiz.service';
  * nào trong số đó phụ thuộc Quiz.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, EventsModule],
-  controllers: [CourseQuizzesController, QuizzesController, QuizAttemptsController],
+  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule],
+  controllers: [CourseQuizzesController, QuizzesController, QuizAttemptsController, ExamMatricesController],
   providers: [QuizRepository, QuizService],
   exports: [QuizService],
 })

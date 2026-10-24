@@ -66,6 +66,10 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'quiz:grade', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'quiz:viewreports', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'quiz:preview', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'quiz:manageoverrides', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  // Ma trận đề neo tại context của môn như curriculum (Chặng 3) — giáo viên là người dùng chính của ma trận nên archetype gồm cả teacher.
+  { name: 'quiz:viewmatrix', capType: 'read', contextLevel: 10, component: 'mod_quiz', archetypes: { ...ALL_STAFF } },
+  { name: 'quiz:managematrix', capType: 'write', contextLevel: 10, component: 'mod_quiz', archetypes: { ...ALL_STAFF } },
   // Bài tập nộp tệp/ảnh (mod_assign) — capability tại context của course module.
   { name: 'assign:view', capType: 'read', contextLevel: 70, component: 'mod_assign', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'assign:submit', capType: 'write', contextLevel: 70, component: 'mod_assign', archetypes: { student: CAP_ALLOW } },
