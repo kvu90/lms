@@ -70,6 +70,10 @@ function stubFetch(calls: RecordedCall[]) {
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url.startsWith('/api/v1/messages/people/search'))
+        return respond({
+          results: [{ userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', relationship: 'contact' }],
+        });
       if (url === '/api/v1/messages/conversations' && method === 'POST')
         return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] });
       if (url === '/api/v1/messages/conversations')
@@ -350,13 +354,21 @@ const THIRD_ID = '01900000-0000-7000-8000-0000000000c9';
 /**
  * Stub fetch cho các test Lớp B (issue #33): danh bạ chuyển sang luồng
  * yêu cầu–chấp nhận (hàng chờ có trạng thái), xoá mềm trả dòng tin kèm
- * dấu vết, báo cáo trả 201.
+ * dấu vết, báo cáo trả 201. Kèm việc nối tiếp: tìm bạn theo TÊN qua
+ * GET /messages/people/search và tên hiển thị đi kèm các response
+ * danh sách (profiles / displayName trên từng mục hàng chờ).
  */
 function stubDomainFetch(calls: RecordedCall[]) {
+  const PEOPLE: Record<string, { userId: string; displayName: string; username: string }> = {
+    [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' },
+    [THIRD_ID]: { userId: THIRD_ID, displayName: 'Người Thứ Ba', username: 'thirduser' },
+  };
   const state = {
     contacts: [] as string[],
-    incoming: [{ userId: OTHER_ID, createdAt: '2026-01-01T00:00:00.000Z' }] as { userId: string; createdAt: string }[],
-    outgoing: [] as { userId: string; createdAt: string }[],
+    incoming: [{ createdAt: '2026-01-01T00:00:00.000Z', ...PEOPLE[OTHER_ID] }] as {
+      userId: string; createdAt: string; displayName: string; username: string;
+    }[],
+    outgoing: [] as { userId: string; createdAt: string; displayName: string; username: string }[],
   };
   const ownMessage = {
     id: '01900000-0000-7000-8000-0000000000d5',
@@ -390,16 +402,24 @@ function stubDomainFetch(calls: RecordedCall[]) {
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET')
         return respond([{ id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID], unread: 0, lastMessageSeq: 2, lastMessage: null }]);
-      if (url === '/api/v1/messages/contacts') return respond({ contacts: state.contacts });
+      if (url === '/api/v1/messages/contacts')
+        return respond({
+          contacts: state.contacts,
+          profiles: Object.fromEntries(state.contacts.map((id) => [id, PEOPLE[id]])),
+        });
       if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: state.incoming, outgoing: state.outgoing });
       if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url.startsWith('/api/v1/messages/people/search')) {
+        const q = decodeURIComponent(url.split('q=')[1] ?? '');
+        return respond({ results: q.includes('Ba') ? [{ ...PEOPLE[THIRD_ID], relationship: 'none' }] : [] });
+      }
       if (url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && method === 'POST') {
         state.contacts = [OTHER_ID];
         state.incoming = [];
         return respond({ contacts: state.contacts });
       }
       if (url === `/api/v1/messages/contacts/${THIRD_ID}` && method === 'POST') {
-        state.outgoing = [{ userId: THIRD_ID, createdAt: '2026-01-01T00:02:00.000Z' }];
+        state.outgoing = [{ createdAt: '2026-01-01T00:02:00.000Z', ...PEOPLE[THIRD_ID] }];
         return respond({ status: 'pending', contacts: state.contacts });
       }
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
@@ -429,31 +449,42 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
     realtime.handlers = null;
   });
 
-  it('accepts an incoming contact request and sends a new request from the contacts panel', async () => {
+  it('accepts an incoming contact request and sends a new request from people search results', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
 
-    // Yêu cầu đang chờ hiện trong panel danh bạ; chấp nhận qua đúng endpoint.
+    // Yêu cầu đang chờ hiện trong panel danh bạ — bằng TÊN người gửi,
+    // không phải UUID; chấp nhận qua đúng endpoint.
     const incomingRow = await screen.findByTestId(`incoming-request-${OTHER_ID}`);
+    expect(incomingRow).toHaveTextContent('Bạn Học');
+    expect(incomingRow).not.toHaveTextContent(OTHER_ID);
     await userEvent.click(within(incomingRow).getByRole('button', { name: 'Chấp nhận' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && c.method === 'POST')).toBe(true),
     );
-    // Quan hệ hình thành: liên hệ xuất hiện trong danh bạ đã duyệt, hàng chờ sạch.
-    expect(await screen.findByTestId(`contact-${OTHER_ID}`)).toBeInTheDocument();
+    // Quan hệ hình thành: liên hệ xuất hiện trong danh bạ đã duyệt (hiện tên), hàng chờ sạch.
+    const contactRow = await screen.findByTestId(`contact-${OTHER_ID}`);
+    expect(contactRow).toHaveTextContent('Bạn Học');
     expect(screen.queryByTestId(`incoming-request-${OTHER_ID}`)).not.toBeInTheDocument();
 
-    // Gửi yêu cầu mới từ form danh bạ: POST contacts/:userId, trạng thái chờ duyệt hiện ra.
-    const input = screen.getByLabelText('ID người dùng muốn kết bạn');
-    await userEvent.type(input, THIRD_ID);
-    await userEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu kết bạn' }));
+    // Tìm bạn theo TÊN (không còn form nhập ID): gõ tên → kết quả hiện
+    // tên + nút Kết bạn → POST contacts/:userId, trạng thái chờ duyệt
+    // hiện ra bằng tên người nhận.
+    const searchInput = screen.getByLabelText('Tìm người theo tên');
+    await userEvent.type(searchInput, 'Thứ Ba');
+    const resultRow = await screen.findByTestId(`search-result-${THIRD_ID}`);
+    expect(resultRow).toHaveTextContent('Người Thứ Ba');
+    expect(resultRow).toHaveTextContent('@thirduser');
+    await userEvent.click(within(resultRow).getByRole('button', { name: 'Kết bạn' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/contacts/${THIRD_ID}` && c.method === 'POST')).toBe(true),
     );
     expect(await screen.findByText('Đã gửi yêu cầu kết bạn — chờ phía kia chấp nhận.')).toBeInTheDocument();
-    expect(await screen.findByText(new RegExp(THIRD_ID))).toBeInTheDocument();
+    expect(await screen.findByText(/Người Thứ Ba \(đang chờ duyệt\)/)).toBeInTheDocument();
+    // Không còn bất kỳ ô nhập ID người dùng nào trên trang.
+    expect(screen.queryByLabelText(/ID người dùng/)).not.toBeInTheDocument();
   });
 });
 
@@ -503,15 +534,18 @@ describe('Messages page — create conversation contract', () => {
     localStorage.clear();
   });
 
-  it('posts memberIds when starting a conversation and opens it with the designated user as a member', async () => {
+  it('posts memberIds when starting a conversation from a people search result and opens it with the designated user as a member', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
 
-    const input = await screen.findByLabelText('Hội thoại mới với ID người dùng');
-    await userEvent.type(input, OTHER_ID);
-    await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu' }));
+    // Bắt đầu cuộc trò chuyện từ kết quả tìm theo tên (form nhập ID đã bỏ).
+    const searchInput = await screen.findByLabelText('Tìm người theo tên');
+    await userEvent.type(searchInput, 'Bạn Học');
+    const resultRow = await screen.findByTestId(`search-result-${OTHER_ID}`);
+    expect(resultRow).toHaveTextContent('Bạn Học');
+    await userEvent.click(within(resultRow).getByRole('button', { name: 'Nhắn tin' }));
 
     // Lời gọi tạo conversation phải mang đúng trường hợp đồng phía API
     // (`memberIds`); gửi tên trường khác là thành viên bị rơi ở tầng validate.

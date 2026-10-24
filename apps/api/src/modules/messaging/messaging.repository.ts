@@ -5,7 +5,7 @@ import type { Database } from '../../db/database';
 import {
   context, courseGroups, enrol, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageUsersBlocked,
-  notificationDispatchLog, notifications, role, roleAssignments, userEnrolments,
+  notificationDispatchLog, notifications, role, roleAssignments, userEnrolments, users,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -398,6 +398,46 @@ export class MessagingRepository {
     const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userId, userId));
     return rows.map((r) => r.blockedUserId);
   }
+  /**
+   * Danh sách user ĐÃ CHẶN user này (chiều ngược của listBlocked) —
+   * đường tìm người dùng để giấu phía chặn khỏi kết quả của phía bị
+   * chặn, khớp ngữ nghĩa chặn hiện có.
+   */
+  async listBlockerIds(userId: string): Promise<string[]> {
+    const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.blockedUserId, userId));
+    return rows.map((r) => r.userId);
+  }
+
+  // --- tìm người theo tên (việc nối tiếp Lớp B) ------------------------------
+  // Đọc trực tiếp bảng users qua barrel schema (cùng kỷ luật đọc bảng
+  // dùng chung như phần enrol/groups ở dưới). Việc lọc theo PHẠM VI
+  // cổng nhắn (cùng khoá / công tắc site) nằm ở tầng service.
+
+  /**
+   * Ứng viên tìm người theo tên: khớp không phân biệt hoa thường trên
+   * username, từng phần tên, và tên đầy đủ ở cả hai thứ tự (họ-tên và
+   * tên-họ). Chỉ user đang hoạt động (không bị xoá/đình chỉ, không
+   * phải tài khoản khách) mới là ứng viên. Ký tự đặc biệt của LIKE
+   * trong chuỗi tìm được thoát để khớp theo nghĩa đen.
+   */
+  async searchUsersByName(query: string, limit: number): Promise<{ id: string; username: string; firstName: string; lastName: string }[]> {
+    const escaped = query.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    const pattern = `%${escaped}%`;
+    return this.db.select({
+      id: users.id, username: users.username, firstName: users.firstName, lastName: users.lastName,
+    }).from(users).where(and(
+      eq(users.deleted, false),
+      eq(users.suspended, false),
+      eq(users.isGuest, false),
+      or(
+        sql`${users.username} ilike ${pattern}`,
+        sql`${users.firstName} ilike ${pattern}`,
+        sql`${users.lastName} ilike ${pattern}`,
+        sql`(${users.firstName} || ' ' || ${users.lastName}) ilike ${pattern}`,
+        sql`(${users.lastName} || ' ' || ${users.firstName}) ilike ${pattern}`,
+      ),
+    )).orderBy(asc(users.firstName), asc(users.lastName), asc(users.username)).limit(limit);
+  }
 
   // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------
 
@@ -582,6 +622,27 @@ export class MessagingRepository {
     if (!coursesA.length) return false;
     const coursesB = new Set(await this.activeCourseIds(b));
     return coursesA.some((id) => coursesB.has(id));
+  }
+  /**
+   * Mọi user khác đang cùng ghi danh hiệu lực ít nhất một khoá với
+   * user này — tập "cùng lớp/khoá" của phạm vi tìm người khi công tắc
+   * site tắt (cùng điều kiện hiệu lực với {@link activeCourseIds}).
+   */
+  async listCourseMateIds(userId: string): Promise<string[]> {
+    const courseIds = await this.activeCourseIds(userId);
+    if (!courseIds.length) return [];
+    const now = new Date();
+    const rows = await this.db.selectDistinct({ userId: userEnrolments.userId }).from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
+      .where(and(
+        inArray(enrol.courseId, courseIds),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
+        ne(userEnrolments.userId, userId),
+      ));
+    return rows.map((r) => r.userId);
   }
 
   // --- group conversation sync ------------------------------------------------
