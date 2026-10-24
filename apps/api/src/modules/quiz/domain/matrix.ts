@@ -107,3 +107,82 @@ export function matrixWarnings(input: {
 function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
+
+/**
+ * Preset quy tắc thi theo hình thức kiểm tra (hồ sơ tổ chức thi trực
+ * tuyến VN, mục 5.1 — theo TT 22 + Quy chế thi TN TT 24/2024): chọn
+ * exam_kind lúc tạo quiz là ĐIỀN SẴN các trường dưới đây, giáo viên
+ * vẫn sửa từng trường sau đó. Điểm theo hình thức:
+ *  - thường xuyên (regular): xem điểm/đáp án/feedback NGAY SAU NỘP
+ *    (bitmask = mọi cửa sổ sau nộp: 0x1110 = 4368);
+ *  - định kỳ (periodic) và thi thử (mock): các khía cạnh chỉ mở ở cửa
+ *    sổ SAU KHI ĐÓNG (0x10) — và mốc đóng hiệu lực cho review là
+ *    max(timeClose) của cả đợt (xem reviewWindowBit);
+ *  - thi thử: late_entry_minutes = 15 (Điều 21 TT 24/2024);
+ *  - giám sát sự kiện (chỉ ghi nhận): định kỳ/thi thử bật, thường
+ *    xuyên tắt.
+ * Mật khẩu/subnet KHÔNG nằm trong preset: preset chỉ nêu kỳ vọng
+ * (định kỳ/thi thử phát mật khẩu đầu buổi) — giá trị do giáo viên đặt.
+ */
+export type ExamKind = 'regular' | 'periodic' | 'mock';
+
+export interface ExamKindPreset {
+  attemptsAllowed: number;
+  reviewMarks: number;
+  reviewCorrectness: number;
+  reviewSpecificFeedback: number;
+  reviewGeneralFeedback: number;
+  reviewRightAnswer: number;
+  reviewOverallFeedback: number;
+  lateEntryMinutes: number | null;
+  monitorEvents: boolean;
+  shuffleAnswers: boolean;
+}
+
+const REVIEW_AFTER_SUBMIT = 4368; // 0x1000 | 0x0100 | 0x0010
+const REVIEW_AFTER_CLOSE_ONLY = 16; // 0x0010
+
+export const EXAM_KIND_PRESETS: Record<ExamKind, ExamKindPreset> = {
+  regular: {
+    attemptsAllowed: 1,
+    reviewMarks: REVIEW_AFTER_SUBMIT,
+    reviewCorrectness: REVIEW_AFTER_SUBMIT,
+    reviewSpecificFeedback: REVIEW_AFTER_SUBMIT,
+    reviewGeneralFeedback: REVIEW_AFTER_SUBMIT,
+    reviewRightAnswer: REVIEW_AFTER_SUBMIT,
+    reviewOverallFeedback: REVIEW_AFTER_SUBMIT,
+    lateEntryMinutes: null,
+    monitorEvents: false,
+    shuffleAnswers: true,
+  },
+  periodic: {
+    attemptsAllowed: 1,
+    reviewMarks: REVIEW_AFTER_CLOSE_ONLY,
+    reviewCorrectness: REVIEW_AFTER_CLOSE_ONLY,
+    reviewSpecificFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    reviewGeneralFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    reviewRightAnswer: REVIEW_AFTER_CLOSE_ONLY,
+    reviewOverallFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    lateEntryMinutes: null,
+    monitorEvents: true,
+    shuffleAnswers: true,
+  },
+  mock: {
+    attemptsAllowed: 1,
+    reviewMarks: REVIEW_AFTER_CLOSE_ONLY,
+    reviewCorrectness: REVIEW_AFTER_CLOSE_ONLY,
+    reviewSpecificFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    reviewGeneralFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    reviewRightAnswer: REVIEW_AFTER_CLOSE_ONLY,
+    reviewOverallFeedback: REVIEW_AFTER_CLOSE_ONLY,
+    lateEntryMinutes: 15,
+    monitorEvents: true,
+    shuffleAnswers: true,
+  },
+};
+
+/** Tên thang Đ–S để nêu BẰNG CHỮ trong trình bày review chùm (Q-a): thang mặc định gọi đúng tên văn bản, thang khác gọi là thang tuỳ chỉnh kèm các mốc %. */
+export function tfScaleLabel(scale: number[]): string {
+  const isQd764 = scale.length === TF_SCALE_QD764.length && scale.every((v, i) => v === TF_SCALE_QD764[i]);
+  return isQd764 ? 'thang QĐ 764' : `thang tuỳ chỉnh [${scale.join('/')}]`;
+}

@@ -14,9 +14,9 @@ import { QuestionsService, type QuestionView, type UsageView } from '../question
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
 import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateQuizOverrideDto, GenerateFromMatrixDto, SwapQuizSlotDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
-import { effectiveTfScale, isValidTfScale, MATRIX_PRESETS, matrixWarnings } from './domain/matrix';
+import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
-import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type QuizAttemptRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
+import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type QuizAttemptEventRow, type QuizAttemptRow, type QuizFeedbackRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
@@ -161,6 +161,9 @@ export interface EffectiveQuizSettings {
   passwordRequired: boolean;
   /** Danh sách subnet của quiz (override không mang subnet như Moodle); null = không giới hạn. */
   subnet: string | null;
+  /** Truy vết nguồn: id override người dùng đã áp (null = không có) và các override nhóm đã hợp nhất — ghi vào snapshot của attempt. */
+  userOverrideId: string | null;
+  groupOverrideIds: string[];
 }
 
 /** Một câu trong lượt làm như client nhận: nội dung của version ĐÃ PIN, không lộ fraction đáp án khi đang làm. */
@@ -185,6 +188,23 @@ export interface QuizAttemptQuestionView {
   feedback: RichTextDocument | null;
   /** Nhận xét chung của câu (cổng review_general_feedback). */
   generalFeedback: RichTextDocument | null;
+  /**
+   * Trình bày CHÙM Đ–S (Q-a): câu thuộc chùm thì KHÔNG hiện điểm lẻ
+   * từng ý (mark = null) — thay bằng một dòng tổng của cả chùm nêu
+   * thang đã áp bằng chữ ("Đúng 3/4 ý = 50% điểm câu theo thang
+   * QĐ 764"), tránh học sinh hiểu nhầm cộng 0,25đ/ý. Đúng/sai vẫn
+   * hiện theo TỪNG Ý qua fraction. Chỉ có khi chùm đã chấm xong và
+   * cửa sổ cho xem đúng/sai.
+   */
+  cluster: {
+    correctCount: number;
+    totalCount: number;
+    /** % điểm câu theo thang lũy tiến đã áp. */
+    percent: number;
+    /** Điểm của CẢ CHÙM (chỉ khi cửa sổ cho xem điểm). */
+    mark: number | null;
+    summary: string;
+  } | null;
 }
 
 /** View đầy đủ của một lượt làm quiz: tóm tắt lượt + đề + từng câu (đã nhóm sẵn theo trang qua trường page). */
@@ -195,6 +215,8 @@ export interface QuizAttemptView {
   totalMax: number;
   pendingManualCount: number;
   closedDueToTimeLimit: boolean;
+  /** Nhận xét tổng quát theo dải điểm (tầng feedback thứ tư) — chỉ khi lượt đã chốt và cửa sổ cho xem overall feedback. */
+  overallFeedback: string | null;
 }
 
 /** Một học sinh làm chưa trọn vẹn một câu trong thống kê câu sai của giáo viên. */
@@ -381,6 +403,9 @@ export class QuizService {
       reviewOverallFeedback: quiz.reviewOverallFeedback,
       matrixId: quiz.matrixId,
       tfScale: quiz.tfScale,
+      examKind: (quiz.examKind as QuizView['examKind']) ?? null,
+      lateEntryMinutes: quiz.lateEntryMinutes,
+      monitorEvents: quiz.monitorEvents,
       slots: slotViews,
       sumGrades: slots.reduce((sum, s) => sum + s.maxMark, 0),
     };
@@ -406,6 +431,8 @@ export class QuizService {
       usageId: row.usageId, state: row.state, preview: row.preview,
       timeStart: row.timeStart.toISOString(), timeFinish: row.timeFinish?.toISOString() ?? null,
       sumGrades: row.sumGrades, grade,
+      makeup: row.makeup,
+      appliedSettings: row.appliedSettings ?? null,
     };
   }
 
@@ -496,6 +523,7 @@ export class QuizService {
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
     tfScale?: number[] | null;
+    examKind?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
   }): Promise<QuizView> {
     await this.courses.getCourse(courseId);
     const timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
@@ -505,25 +533,31 @@ export class QuizService {
     }
     this.assertValidSubnet(input.subnet);
     this.assertValidTfScale(input.tfScale);
+    // Preset theo hình thức thi: trường gửi kèm THẮNG preset, preset
+    // chỉ điền các trường còn trống (bảng preset ở domain/matrix.ts).
+    const preset = input.examKind ? EXAM_KIND_PRESETS[input.examKind] : null;
     const quiz = await this.repo.insertQuiz({
       course: courseId, cmId: null, name: input.name, intro: input.intro ?? '',
       timeOpen, timeClose, timeLimit: input.timeLimitSeconds ?? null,
-      attemptsAllowed: input.attemptsAllowed ?? 0,
+      attemptsAllowed: input.attemptsAllowed ?? preset?.attemptsAllowed ?? 0,
       gradeMethod: input.gradeMethod ?? 'highest',
       grade: input.grade ?? 10,
-      shuffleAnswers: input.shuffleAnswers ?? false,
+      shuffleAnswers: input.shuffleAnswers ?? preset?.shuffleAnswers ?? false,
       passwordHash: await this.hashQuizPassword(input.password),
       subnet: input.subnet ?? null,
       delay1: input.delay1Seconds ?? null,
       delay2: input.delay2Seconds ?? null,
       tfScale: input.tfScale ?? null,
+      examKind: input.examKind ?? null,
+      lateEntryMinutes: input.lateEntryMinutes !== undefined ? input.lateEntryMinutes : (preset?.lateEntryMinutes ?? null),
+      monitorEvents: input.monitorEvents ?? preset?.monitorEvents ?? false,
       ...(input.reviewAttempt !== undefined ? { reviewAttempt: input.reviewAttempt } : {}),
-      ...(input.reviewCorrectness !== undefined ? { reviewCorrectness: input.reviewCorrectness } : {}),
-      ...(input.reviewMarks !== undefined ? { reviewMarks: input.reviewMarks } : {}),
-      ...(input.reviewSpecificFeedback !== undefined ? { reviewSpecificFeedback: input.reviewSpecificFeedback } : {}),
-      ...(input.reviewGeneralFeedback !== undefined ? { reviewGeneralFeedback: input.reviewGeneralFeedback } : {}),
-      ...(input.reviewRightAnswer !== undefined ? { reviewRightAnswer: input.reviewRightAnswer } : {}),
-      ...(input.reviewOverallFeedback !== undefined ? { reviewOverallFeedback: input.reviewOverallFeedback } : {}),
+      ...(input.reviewCorrectness !== undefined ? { reviewCorrectness: input.reviewCorrectness } : (preset ? { reviewCorrectness: preset.reviewCorrectness } : {})),
+      ...(input.reviewMarks !== undefined ? { reviewMarks: input.reviewMarks } : (preset ? { reviewMarks: preset.reviewMarks } : {})),
+      ...(input.reviewSpecificFeedback !== undefined ? { reviewSpecificFeedback: input.reviewSpecificFeedback } : (preset ? { reviewSpecificFeedback: preset.reviewSpecificFeedback } : {})),
+      ...(input.reviewGeneralFeedback !== undefined ? { reviewGeneralFeedback: input.reviewGeneralFeedback } : (preset ? { reviewGeneralFeedback: preset.reviewGeneralFeedback } : {})),
+      ...(input.reviewRightAnswer !== undefined ? { reviewRightAnswer: input.reviewRightAnswer } : (preset ? { reviewRightAnswer: preset.reviewRightAnswer } : {})),
+      ...(input.reviewOverallFeedback !== undefined ? { reviewOverallFeedback: input.reviewOverallFeedback } : (preset ? { reviewOverallFeedback: preset.reviewOverallFeedback } : {})),
     });
     try {
       const cm = await this.courses.createCm(actorId, courseId, {
@@ -557,6 +591,7 @@ export class QuizService {
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
     tfScale?: number[] | null;
+    examKind?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
   }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
@@ -584,6 +619,11 @@ export class QuizService {
     if (input.reviewRightAnswer !== undefined) patch.reviewRightAnswer = input.reviewRightAnswer;
     if (input.reviewOverallFeedback !== undefined) patch.reviewOverallFeedback = input.reviewOverallFeedback;
     if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
+    // Sửa chỉ đổi NHÃN hình thức — không áp lại preset (giáo viên đã
+    // tinh chỉnh từng trường sau khi chọn preset lúc tạo).
+    if (input.examKind !== undefined) patch.examKind = input.examKind;
+    if (input.lateEntryMinutes !== undefined) patch.lateEntryMinutes = input.lateEntryMinutes;
+    if (input.monitorEvents !== undefined) patch.monitorEvents = input.monitorEvents;
     const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : quiz.timeOpen;
     const nextClose = patch.timeClose !== undefined ? patch.timeClose : quiz.timeClose;
     if (nextOpen && nextClose && nextClose <= nextOpen) {
@@ -814,6 +854,7 @@ export class QuizService {
       timeLimitSeconds: row.timeLimit,
       attempts: row.attempts,
       hasPassword: row.passwordHash !== null,
+      reason: row.reason,
     };
   }
 
@@ -866,6 +907,12 @@ export class QuizService {
     if (existing.some((o) => o.groupId === (input.groupId ?? null) && o.userId === (input.userId ?? null))) {
       throw new BadRequestException({ message: 'An override already exists for this target', code: 'quiz.override_exists' });
     }
+    // Lý do BẮT BUỘC khi override người dùng cộng thời gian (đi theo
+    // KHGD cá nhân của HS hoà nhập) hoặc mở cửa sổ riêng (cửa sổ kiểm
+    // tra bù) — truy vết quyết định theo hồ sơ thi trực tuyến VN.
+    if (input.userId && (input.timeLimitSeconds != null || input.timeOpen != null) && !input.reason) {
+      throw new BadRequestException({ message: 'A reason is required for a user override that extends time or opens a separate window', code: 'quiz.override_reason_required' });
+    }
     const row = await this.repo.insertOverride({
       quizId: quiz.id,
       groupId: input.groupId ?? null,
@@ -874,6 +921,7 @@ export class QuizService {
       timeLimit: input.timeLimitSeconds ?? null,
       attempts: input.attempts ?? null,
       passwordHash: await this.hashQuizPassword(input.password),
+      reason: input.reason ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_created', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
     return this.overrideView(row);
@@ -890,6 +938,7 @@ export class QuizService {
     if (input.timeLimitSeconds !== undefined) patch.timeLimit = input.timeLimitSeconds;
     if (input.attempts !== undefined) patch.attempts = input.attempts;
     if (input.password !== undefined) patch.passwordHash = await this.hashQuizPassword(input.password);
+    if (input.reason !== undefined) patch.reason = input.reason;
     const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : row.timeOpen;
     const nextClose = patch.timeClose !== undefined ? patch.timeClose : row.timeClose;
     if (nextOpen && nextClose && nextClose <= nextOpen) {
@@ -916,8 +965,23 @@ export class QuizService {
     if (!row) throw new NotFoundException({ message: `Exam matrix ${id} not found`, code: 'quiz.matrix_not_found' });
     return row;
   }
+  /**
+   * ĐIỂM NEO QUYỀN DUY NHẤT của ma trận (MB-0, điểm E-8 của hồ sơ ngân
+   * hàng đề/ma trận): mọi kiểm tra quyền trên ma trận đều đi qua đây.
+   * Nguồn quyền chốt là BANK — ma trận nằm trong bank nào thì quyền
+   * theo context của bank đó (cùng khuôn ngân hàng câu hỏi); context
+   * môn (matrix.contextId) chỉ là PHẠM VI DỮ LIỆU. Hiện bank chưa có ở
+   * Chặng 3 (question_banks thuộc PR #83, bank ma trận là lát MB-1)
+   * nên resolver tạm trả context môn đang lưu trên ma trận; khi MB-1
+   * cắm bank vào, CHỈ hàm này đổi: ma trận có bank_id thì phân giải
+   * sang context của bank — mọi điểm gọi giữ nguyên.
+   */
+  private matrixPermissionContext(matrix: ExamMatrixRow): string {
+    // TODO(MB-1): matrix.bankId !== null → context của question_banks.
+    return matrix.contextId;
+  }
   private async requireMatrixCap(actorId: string, matrix: ExamMatrixRow, capability: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, capability, matrix.contextId);
+    await this.evaluator.requireCapability(actorId, capability, this.matrixPermissionContext(matrix));
   }
   private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
     return {
@@ -938,6 +1002,9 @@ export class QuizService {
       levelSet: row.levelSet as ExamMatrixView['levelSet'],
       scopeNote: row.scopeNote, scopeOutcomeIds: row.scopeOutcomeIds,
       totalScore: row.totalScore, createdBy: row.createdBy,
+      bankId: row.bankId, status: row.status as ExamMatrixView['status'],
+      isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
+      version: row.version,
       cells: cells.map((c) => this.matrixCellView(c)),
       warnings: matrixWarnings({
         cells, targetFormPercents: row.targetFormPercents,
@@ -970,6 +1037,12 @@ export class QuizService {
       scopeOutcomeIds: input.scopeOutcomeIds ?? null,
       totalScore: input.totalScore ?? 10,
       createdBy: actorId,
+      // Trường ngân hàng (MB-0): nhận sẵn để luồng copy mẫu của MB-1
+      // cắm vào; quyền ghi vào bank sẽ gác tại resolver khi MB-1 có bank.
+      bankId: input.bankId ?? null,
+      status: input.status ?? 'draft',
+      isTemplate: input.isTemplate ?? false,
+      derivedFromMatrixId: input.derivedFromMatrixId ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
     return this.matrixView(row);
@@ -1011,6 +1084,15 @@ export class QuizService {
     if (input.scopeNote !== undefined) patch.scopeNote = input.scopeNote;
     if (input.scopeOutcomeIds !== undefined) patch.scopeOutcomeIds = input.scopeOutcomeIds;
     if (input.totalScore !== undefined) patch.totalScore = input.totalScore;
+    if (input.bankId !== undefined) patch.bankId = input.bankId;
+    if (input.status !== undefined) patch.status = input.status;
+    if (input.isTemplate !== undefined) patch.isTemplate = input.isTemplate;
+    // Ma trận đã ready (đã dùng sinh đề/đem duyệt) thì sửa nội dung
+    // phải tăng version — bản đặc tả đã nộp khớp version tại thời điểm
+    // nộp, không khớp bản đã sửa lặng lẽ.
+    const contentChanged = ['name', 'presetKind', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeOutcomeIds', 'totalScore']
+      .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
+    if (contentChanged && row.status !== 'draft') patch.version = row.version + 1;
     if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_updated', payload: { matrixId: row.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
@@ -1764,6 +1846,8 @@ export class QuizService {
       passwordHashes,
       passwordRequired: passwordHashes.length > 0,
       subnet: quiz.subnet,
+      userOverrideId: userOverride?.id ?? null,
+      groupOverrideIds: groupOverrides.map((o) => o.id),
     };
   }
 
@@ -1798,6 +1882,10 @@ export class QuizService {
     if (effective.attemptsAllowed > 0 && mine.length >= effective.attemptsAllowed) return { canAttempt: false, reason: 'no_more_attempts', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     const notBefore = this.nextAttemptNotBefore(quiz, mine);
     if (notBefore && now < notBefore) return { canAttempt: false, reason: 'delay_not_elapsed', inProgressAttemptId: null, nextAttemptAt: notBefore.toISOString(), passwordRequired: effective.passwordRequired };
+    if (quiz.lateEntryMinutes !== null && effective.timeOpen
+      && now.getTime() > effective.timeOpen.getTime() + quiz.lateEntryMinutes * 60_000) {
+      return { canAttempt: false, reason: 'late_entry_closed', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    }
     const slots = await this.repo.listSlots(quiz.id);
     if (!slots.length) return { canAttempt: false, reason: 'no_questions', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     return { canAttempt: true, reason: null, inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
@@ -1919,12 +2007,21 @@ export class QuizService {
     }
 
     const now = new Date();
+    let effectiveForSnapshot: EffectiveQuizSettings | null = null;
     if (!preview) {
       // Mọi cổng đều xét trên cài đặt HIỆU LỰC của người này (override
       // đã hợp nhất) — preview của giáo viên bỏ qua tất cả.
       const effective = await this.resolveEffectiveSettings(quiz, actorId);
+      effectiveForSnapshot = effective;
       if (effective.timeOpen && now < effective.timeOpen) {
         throw new ForbiddenException({ message: 'This quiz is not open yet', code: 'quiz.not_yet_open' });
+      }
+      // Trễ vào thi: quá mốc mở hiệu lực + late_entry_minutes thì từ
+      // chối dù cửa sổ còn mở (preset thi thử: 15 phút, Điều 21
+      // TT 24/2024).
+      if (quiz.lateEntryMinutes !== null && effective.timeOpen
+        && now.getTime() > effective.timeOpen.getTime() + quiz.lateEntryMinutes * 60_000) {
+        throw new ForbiddenException({ message: 'The late-entry window for this quiz has passed', code: 'quiz.late_entry_closed' });
       }
       if (effective.timeClose && now > effective.timeClose) {
         throw new ForbiddenException({ message: 'This quiz is closed', code: 'quiz.closed' });
@@ -2029,11 +2126,34 @@ export class QuizService {
         pinnedVersionId: e.quizSlot.versionMode === 'pinned' ? (e.quizSlot.pinnedVersionId ?? undefined) : undefined,
       })),
     });
+    // Nhãn kiểm tra bù + snapshot quy tắc đã áp: lượt bắt đầu trong cửa
+    // sổ CHỈ tồn tại nhờ user override mở riêng (mốc mở của override
+    // khác mốc mở gốc của quiz) là lượt bù; snapshot ghim toàn bộ quy
+    // tắc hiệu lực + nguồn override + thứ tự câu đã rút cho lượt này.
+    const eff = effectiveForSnapshot;
+    const userOv = eff?.userOverrideId ? (await this.repo.listOverrides(quiz.id)).find((o) => o.id === eff.userOverrideId) : undefined;
+    const makeup = !preview && !!userOv && userOv.timeOpen !== null
+      && (quiz.timeOpen === null || userOv.timeOpen.getTime() !== quiz.timeOpen.getTime());
+    const appliedSettings: Record<string, unknown> | null = preview || !eff ? null : {
+      timeOpen: eff.timeOpen?.toISOString() ?? null,
+      timeClose: eff.timeClose?.toISOString() ?? null,
+      timeLimitSeconds: eff.timeLimit,
+      attemptsAllowed: eff.attemptsAllowed,
+      passwordRequired: eff.passwordRequired,
+      subnet: eff.subnet,
+      examKind: quiz.examKind,
+      lateEntryMinutes: quiz.lateEntryMinutes,
+      monitorEvents: quiz.monitorEvents,
+      userOverrideId: eff.userOverrideId,
+      groupOverrideIds: eff.groupOverrideIds,
+      questionOrder: resolvedSlots.map((e) => e.questionId),
+    };
     try {
       await this.questions.startUsage(actorId, usage.usage.id);
       const row = await this.repo.insertAttempt({
         quizId: quiz.id, userId: actorId, attemptNumber, usageId: usage.usage.id,
         state: 'inprogress', preview, timeStart: now,
+        makeup, appliedSettings,
       });
       await this.outbox.enqueueStandalone({
         aggregate: 'quiz', type: 'quiz_attempt_started',
@@ -2085,15 +2205,19 @@ export class QuizService {
 
   /**
    * Cửa sổ xem lại hiện tại của một lượt ĐÃ NỘP xét cho chủ lượt:
-   * ngay sau nộp (2 phút từ time_finish) → sau đó khi đề (theo giờ đóng
-   * HIỆU LỰC của chủ lượt) còn mở → sau khi đóng. Đề không có giờ đóng
-   * thì không bao giờ sang cửa sổ sau-đóng (như Moodle).
+   * ngay sau nộp (2 phút từ time_finish) → sau đó khi đợt còn mở → sau
+   * khi đóng. Mốc đóng ở đây là mốc đóng MUỘN NHẤT CỦA CẢ ĐỢT
+   * (max timeClose của quiz và mọi override), KHÔNG phải mốc hiệu lực
+   * của riêng chủ lượt: các ca thi lệch nhau vì override mà dùng mốc
+   * riêng thì ca sớm xem được đáp án đúng trong khi ca sau chưa thi —
+   * lộ đề (hồ sơ thi trực tuyến VN điểm 5.1.4). Đợt không có mốc đóng
+   * thì không bao giờ sang cửa sổ sau-đóng.
    */
   private async reviewWindowBit(quiz: QuizRow, row: QuizAttemptRow, now: Date): Promise<number> {
     const finish = row.timeFinish?.getTime() ?? now.getTime();
     if (now.getTime() < finish + REVIEW_IMMEDIATELY_AFTER_MS) return REVIEW_WINDOW.immediatelyAfter;
-    const effective = await this.resolveEffectiveSettings(quiz, row.userId);
-    if (!effective.timeClose || now <= effective.timeClose) return REVIEW_WINDOW.laterWhileOpen;
+    const session = await this.repo.sessionLatestClose(quiz.id);
+    if (session.hasUnbounded || session.latest === null || now <= session.latest) return REVIEW_WINDOW.laterWhileOpen;
     return REVIEW_WINDOW.afterClose;
   }
 
@@ -2127,6 +2251,36 @@ export class QuizService {
     }
     const showAspects = submitted && (privileged || !hideContent);
     const aspectOn = (mask: number): boolean => privileged ? submitted : (showAspects && (mask & windowBit) !== 0);
+    // Trình bày chùm Đ–S (Q-a): gom các câu của usage theo cluster_id
+    // của slot; chùm chấm xong (mọi ý có fraction) thì tính sẵn dòng
+    // tổng theo thang lũy tiến hiệu lực của quiz.
+    const clusterBySlot = new Map<number, string>();
+    for (const s of slots) if (s.clusterId) clusterBySlot.set(s.slot, s.clusterId);
+    const clusterInfoBySlot = new Map<number, QuizAttemptQuestionView['cluster']>();
+    if (submitted && aspectOn(quiz.reviewCorrectness)) {
+      const membersByCluster = new Map<string, typeof usage.attempts>();
+      for (const a of usage.attempts) {
+        const cid = clusterBySlot.get(a.slot);
+        if (!cid) continue;
+        const list = membersByCluster.get(cid) ?? [];
+        list.push(a);
+        membersByCluster.set(cid, list);
+      }
+      const scale = effectiveTfScale(quiz.tfScale);
+      for (const members of membersByCluster.values()) {
+        if (!members.length || members.some((m) => m.fraction === null || m.fraction === undefined)) continue;
+        const correctCount = members.filter((m) => m.fraction === 1).length;
+        const totalCount = members.length;
+        const percent = scale[Math.min(correctCount, scale.length - 1)] ?? 0;
+        const totalNominal = members.reduce((sum, m) => sum + m.maxMark, 0);
+        const info: QuizAttemptQuestionView['cluster'] = {
+          correctCount, totalCount, percent,
+          mark: aspectOn(quiz.reviewMarks) ? (percent / 100) * totalNominal : null,
+          summary: `Đúng ${correctCount}/${totalCount} ý = ${percent}% điểm câu theo ${tfScaleLabel(scale)}`,
+        };
+        for (const m of members) clusterInfoBySlot.set(m.slot, info);
+      }
+    }
     const questions: QuizAttemptQuestionView[] = [];
     for (const a of usage.attempts) {
       if (hideContent && !privileged) break;
@@ -2167,15 +2321,31 @@ export class QuizService {
         state: a.state,
         response: lastResponse,
         fraction: submitted && aspectOn(quiz.reviewCorrectness) ? a.fraction : null,
-        mark: (submitted && aspectOn(quiz.reviewMarks) && a.fraction !== null) ? a.fraction * a.maxMark : null,
+        // Câu thuộc chùm Đ–S không hiện điểm lẻ từng ý (Q-a) — điểm
+        // của chùm nằm ở trường cluster.
+        mark: clusterBySlot.has(a.slot)
+          ? null
+          : ((submitted && aspectOn(quiz.reviewMarks) && a.fraction !== null) ? a.fraction * a.maxMark : null),
         rightAnswer: aspectOn(quiz.reviewRightAnswer) ? a.rightAnswer : null,
         feedback: aspectOn(quiz.reviewSpecificFeedback) && lastResponse !== null
           ? (feedbackByAnswerId.get(lastResponse) ?? null)
           : null,
         generalFeedback: aspectOn(quiz.reviewGeneralFeedback) ? generalFeedback : null,
+        cluster: clusterInfoBySlot.get(a.slot) ?? null,
       });
     }
     const { pendingManual } = this.syncFromUsage(usage, quiz, slots);
+    // Tầng feedback thứ tư: nhận xét tổng quát theo dải % điểm.
+    let overallFeedback: string | null = null;
+    if (submitted && row.sumGrades !== null && aspectOn(quiz.reviewOverallFeedback)) {
+      const totalMax = this.usageTotalMax(usage);
+      if (totalMax > 0) {
+        const percent = (row.sumGrades / totalMax) * 100;
+        const bands = await this.repo.listFeedbacks(quiz.id);
+        const band = bands.find((b) => percent >= b.minPercent && (percent < b.maxPercent || (percent === 100 && b.maxPercent === 100)));
+        overallFeedback = band?.feedback ?? null;
+      }
+    }
     return {
       attempt: await this.attemptSummary(quiz, row),
       quiz: await this.quizView(quiz),
@@ -2183,6 +2353,7 @@ export class QuizService {
       totalMax: this.usageTotalMax(usage),
       pendingManualCount: pendingManual,
       closedDueToTimeLimit,
+      overallFeedback,
     };
   }
 
@@ -2250,6 +2421,11 @@ export class QuizService {
     const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage, quiz, await this.repo.listSlots(quiz.id));
     const state = pendingManual > 0 ? 'needsgrading' : 'finished';
     await this.repo.updateAttempt(row.id, { state, timeFinish: new Date(), sumGrades });
+    // Nộp tự động khi hết giờ là một sự kiện giám sát do SERVER ghi
+    // (chỉ khi quiz bật ghi nhận) — cùng nguyên tắc chỉ-ghi-nhận.
+    if (closedDueToTimeLimit && quiz.monitorEvents && !row.preview) {
+      await this.repo.insertAttemptEvent({ attemptId: row.id, type: 'auto_submit_timeout' }).catch(() => undefined);
+    }
     const updated = await this.getAttemptRow(row.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'quiz', type: 'quiz_attempt_finished',
@@ -2454,6 +2630,207 @@ export class QuizService {
     });
     if (updated.state === 'finished' && !row.preview) await this.pushGrade(quiz, row.userId);
     return this.buildAttemptView(quiz, updated, false, actorId);
+  }
+
+  // --- dải nhận xét tổng quát / sự kiện giám sát / chấm theo câu / thống kê chùm ---
+
+  /** Các dải nhận xét tổng quát của quiz (quiz:manage). */
+  async listFeedbacks(actorId: string, quizId: string): Promise<QuizFeedbackRow[]> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    return this.repo.listFeedbacks(quiz.id);
+  }
+
+  /** Tạo một dải nhận xét tổng quát (quiz:manage); dải tính theo % điểm của bài, [min, max). */
+  async createFeedback(actorId: string, quizId: string, input: { minPercent: number; maxPercent: number; feedback: string }): Promise<QuizFeedbackRow> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    if (!(input.minPercent < input.maxPercent)) {
+      throw new BadRequestException({ message: 'minPercent must be below maxPercent', code: 'quiz.feedback_range' });
+    }
+    return this.repo.insertFeedback({ quizId: quiz.id, minPercent: input.minPercent, maxPercent: input.maxPercent, feedback: input.feedback });
+  }
+
+  /** Xoá một dải nhận xét tổng quát (quiz:manage). */
+  async deleteFeedback(actorId: string, quizId: string, feedbackId: string): Promise<void> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    const bands = await this.repo.listFeedbacks(quiz.id);
+    if (!bands.some((b) => b.id === feedbackId)) {
+      throw new NotFoundException({ message: `Quiz feedback ${feedbackId} not found`, code: 'quiz.feedback_not_found' });
+    }
+    await this.repo.deleteFeedback(feedbackId);
+  }
+
+  /**
+   * Ghi một sự kiện giám sát do client báo (thoát fullscreen, mất
+   * focus, ngắt kết nối dài). Điều kiện: lượt của chính người báo, còn
+   * đang làm, quiz bật monitor_events. CHỈ GHI NHẬN — không có bất kỳ
+   * hệ quả tự động nào lên lượt làm.
+   */
+  async recordAttemptEvent(actorId: string, attemptId: string, input: { type: string; data?: Record<string, unknown> }): Promise<QuizAttemptEventRow> {
+    const row = await this.getAttemptRow(attemptId);
+    if (row.userId !== actorId) {
+      throw new ForbiddenException({ message: 'This attempt belongs to another user', code: 'quiz.attempt_forbidden' });
+    }
+    const quiz = await this.getQuiz(row.quizId);
+    if (!quiz.monitorEvents) {
+      throw new BadRequestException({ message: 'Event monitoring is not enabled for this quiz', code: 'quiz.monitoring_disabled' });
+    }
+    if (row.state !== 'inprogress') {
+      throw new BadRequestException({ message: 'Events can only be recorded while the attempt is in progress', code: 'quiz.attempt_not_in_progress' });
+    }
+    return this.repo.insertAttemptEvent({ attemptId: row.id, type: input.type, data: input.data ?? null });
+  }
+
+  /** Nhật ký sự kiện giám sát của một lượt (chủ lượt hoặc người có quyền chấm/báo cáo). */
+  async listAttemptEvents(actorId: string, attemptId: string): Promise<QuizAttemptEventRow[]> {
+    const row = await this.getAttemptRow(attemptId);
+    const quiz = await this.getQuiz(row.quizId);
+    await this.requireAttemptReadable(actorId, quiz, row);
+    return this.repo.listAttemptEvents(row.id);
+  }
+
+  /**
+   * Hàng đợi chấm THEO CÂU (Q-b): mọi lượt đã nộp chứa câu này, kèm
+   * đáp án hiện tại và điểm đã có — giáo viên chấm một câu cho cả lớp
+   * trong một màn hình thay vì mở từng học sinh.
+   */
+  async listQuestionGradingQueue(actorId: string, quizId: string, questionId: string): Promise<{
+    attemptId: string; userId: string; displayName: string; attemptNumber: number;
+    questionAttemptId: string; slot: number; state: string; response: string | null;
+    fraction: number | null; mark: number | null; maxMark: number;
+  }[]> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
+    const submitted = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview && a.state !== 'inprogress');
+    const rows: {
+      attemptId: string; userId: string; displayName: string; attemptNumber: number;
+      questionAttemptId: string; slot: number; state: string; response: string | null;
+      fraction: number | null; mark: number | null; maxMark: number;
+    }[] = [];
+    const nameById = new Map<string, string>();
+    for (const u of await this.users.getUsersByIds(submitted.map((a) => a.userId))) {
+      const full = `${u.firstName} ${u.lastName}`.trim();
+      nameById.set(u.id, full || u.username);
+    }
+    for (const r of submitted) {
+      const usage = await this.questions.getUsage(r.usageId);
+      const qa = usage.attempts.find((a) => a.questionId === questionId);
+      if (!qa) continue;
+      const lastResponse = [...qa.steps].reverse().find((s) => s.data.answer !== undefined)?.data.answer ?? null;
+      rows.push({
+        attemptId: r.id, userId: r.userId, displayName: nameById.get(r.userId) ?? r.userId,
+        attemptNumber: r.attemptNumber, questionAttemptId: qa.id, slot: qa.slot,
+        state: qa.state, response: lastResponse,
+        fraction: qa.fraction ?? null,
+        mark: qa.fraction !== null && qa.fraction !== undefined ? qa.fraction * qa.maxMark : null,
+        maxMark: qa.maxMark,
+      });
+    }
+    return rows.sort((x, y) => x.attemptNumber - y.attemptNumber || x.slot - y.slot);
+  }
+
+  /**
+   * Chấm tay THEO CÂU cho nhiều lượt (Q-b): mỗi mục đi qua đúng đường
+   * chấm tay theo lượt hiện có (engine ghi step, tổng điểm đồng bộ,
+   * lượt cuối cùng hết câu chờ thì chốt + ghi sổ điểm).
+   */
+  async gradeQuestionForAttempts(actorId: string, quizId: string, input: {
+    questionId: string;
+    grades: { attemptId: string; mark: number; comment?: string }[];
+  }): Promise<QuizAttemptSummary[]> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
+    const out: QuizAttemptSummary[] = [];
+    for (const entry of input.grades) {
+      const row = await this.getAttemptRow(entry.attemptId);
+      if (row.quizId !== quiz.id) {
+        throw new BadRequestException({ message: `Attempt ${entry.attemptId} does not belong to this quiz`, code: 'quiz.attempt_quiz_mismatch' });
+      }
+      const usage = await this.questions.getUsage(row.usageId);
+      const qa = usage.attempts.find((a) => a.questionId === input.questionId);
+      if (!qa) {
+        throw new BadRequestException({ message: `Attempt ${entry.attemptId} does not contain question ${input.questionId}`, code: 'quiz.question_not_in_attempt' });
+      }
+      const view = await this.manualGrade(actorId, entry.attemptId, {
+        questionAttemptId: qa.id, mark: entry.mark, comment: entry.comment,
+      });
+      out.push(view.attempt);
+    }
+    return out;
+  }
+
+  /**
+   * Thống kê đúng–sai theo TỪNG Ý của các chùm Đ–S (Q-d): đơn vị là
+   * VỊ TRÍ Ý trong chùm (ý 1..4 theo thứ tự slot) vì đề per_student
+   * mỗi lượt rút chùm khác nhau; kèm phân bố số ý đúng của cả chùm —
+   * đầu vào cho vòng ôn tập từ câu sai (EB-4). Chỉ tính lượt đã nộp.
+   */
+  async clusterStatistics(actorId: string, quizId: string): Promise<{
+    clusterId: string;
+    slots: number[];
+    attemptsCount: number;
+    items: { position: number; slot: number; gradedCount: number; correctCount: number; wrongCount: number; pendingCount: number }[];
+    correctDistribution: { correctCount: number; attempts: number }[];
+  }[]> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
+    const slots = await this.repo.listSlots(quiz.id);
+    const clusters = new Map<string, QuizSlotRow[]>();
+    for (const s of slots) {
+      if (!s.clusterId) continue;
+      const list = clusters.get(s.clusterId) ?? [];
+      list.push(s);
+      clusters.set(s.clusterId, list);
+    }
+    const submitted = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview && a.state !== 'inprogress');
+    const usages = new Map<string, UsageView>();
+    for (const r of submitted) usages.set(r.id, await this.questions.getUsage(r.usageId));
+    const out: {
+      clusterId: string;
+      slots: number[];
+      attemptsCount: number;
+      items: { position: number; slot: number; gradedCount: number; correctCount: number; wrongCount: number; pendingCount: number }[];
+      correctDistribution: { correctCount: number; attempts: number }[];
+    }[] = [];
+    for (const [clusterId, members] of clusters) {
+      const ordered = [...members].sort((a, b) => a.slot - b.slot);
+      const items = ordered.map((s, i) => ({
+        position: i + 1, slot: s.slot, gradedCount: 0, correctCount: 0, wrongCount: 0, pendingCount: 0,
+      }));
+      const distribution = new Map<number, number>();
+      let attemptsCount = 0;
+      for (const r of submitted) {
+        const usage = usages.get(r.id)!;
+        const bySlot = new Map(usage.attempts.map((a) => [a.slot, a]));
+        if (!ordered.some((s) => bySlot.has(s.slot))) continue;
+        attemptsCount += 1;
+        let correct = 0;
+        let allGraded = true;
+        ordered.forEach((s, i) => {
+          const qa = bySlot.get(s.slot);
+          const item = items[i]!;
+          if (!qa) { allGraded = false; return; }
+          if (qa.state === 'needsgrading' || qa.fraction === null || qa.fraction === undefined) {
+            item.pendingCount += 1;
+            allGraded = false;
+            return;
+          }
+          item.gradedCount += 1;
+          if (qa.fraction === 1) { item.correctCount += 1; correct += 1; }
+          else item.wrongCount += 1;
+        });
+        if (allGraded) distribution.set(correct, (distribution.get(correct) ?? 0) + 1);
+      }
+      out.push({
+        clusterId, slots: ordered.map((s) => s.slot), attemptsCount, items,
+        correctDistribution: [...distribution.entries()]
+          .map(([correctCount, attempts]) => ({ correctCount, attempts }))
+          .sort((a, b) => a.correctCount - b.correctCount),
+      });
+    }
+    return out.sort((a, b) => (a.slots[0] ?? 0) - (b.slots[0] ?? 0));
   }
 
   /**

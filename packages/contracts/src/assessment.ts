@@ -723,6 +723,12 @@ export const quizViewSchema = z.object({
   matrixId: uuidIdSchema.nullable(),
   /** Thang Đ–S chùm hiệu lực của đề; null = mặc định QĐ 764 [0, 10, 25, 50, 100]. */
   tfScale: tfScaleSchema.nullable(),
+  /** Hình thức kiểm tra TT 22 đã chọn preset: regular (thường xuyên) | periodic (định kỳ) | mock (thi thử); null = không theo preset. */
+  examKind: z.enum(['regular', 'periodic', 'mock']).nullable(),
+  /** Phút vào thi muộn tối đa từ mốc mở hiệu lực (preset thi thử = 15, Điều 21 TT 24/2024); null = không áp. */
+  lateEntryMinutes: z.number().int().nullable(),
+  /** Có ghi nhận sự kiện giám sát trong lúc làm bài hay không (chỉ ghi nhận, không tự kết luận gian lận). */
+  monitorEvents: z.boolean(),
   slots: z.array(quizSlotViewSchema),
   sumGrades: z.number(),
 });
@@ -742,6 +748,10 @@ export const quizAttemptSummarySchema = z.object({
   sumGrades: z.number().nullable(),
   /** Điểm của riêng lượt này đã quy về thang điểm của quiz (null khi chưa chốt). */
   grade: z.number().nullable(),
+  /** Nhãn kiểm tra bù (TT 22 Điều 7 k.4–5): lượt bắt đầu trong cửa sổ chỉ có nhờ override mở riêng. */
+  makeup: z.boolean(),
+  /** Snapshot quy tắc hiệu lực đã áp lúc bắt đầu lượt (giá trị + override nguồn + thứ tự câu đã rút); null với lượt cũ. */
+  appliedSettings: z.record(z.string(), z.unknown()).nullable(),
 });
 export type QuizAttemptSummary = z.infer<typeof quizAttemptSummarySchema>;
 
@@ -752,6 +762,10 @@ const quizAccessRuleFields = {
   subnet: z.string().min(1).nullable().optional(),
   delay1Seconds: z.number().int().min(0).nullable().optional(),
   delay2Seconds: z.number().int().min(0).nullable().optional(),
+  /** Hình thức kiểm tra: khi tạo, chọn preset điền sẵn quy tắc theo bảng preset (trường gửi kèm thắng preset); khi sửa chỉ đổi nhãn. */
+  examKind: z.enum(['regular', 'periodic', 'mock']).nullable().optional(),
+  lateEntryMinutes: z.number().int().min(0).nullable().optional(),
+  monitorEvents: z.boolean().optional(),
   reviewAttempt: z.number().int().min(0).optional(),
   reviewCorrectness: z.number().int().min(0).optional(),
   reviewMarks: z.number().int().min(0).optional(),
@@ -808,6 +822,8 @@ export const quizOverrideViewSchema = z.object({
   timeLimitSeconds: z.number().int().nullable(),
   attempts: z.number().int().nullable(),
   hasPassword: z.boolean(),
+  /** Lý do của ghi đè (truy vết quyết định: cộng giờ KHGD cá nhân, mở cửa sổ bù...). */
+  reason: z.string().nullable(),
 });
 export type QuizOverrideView = z.infer<typeof quizOverrideViewSchema>;
 
@@ -820,6 +836,7 @@ export const createQuizOverrideSchema = z.strictObject({
   timeLimitSeconds: z.number().int().positive().nullable().optional(),
   attempts: z.number().int().min(0).nullable().optional(),
   password: z.string().min(1).nullable().optional(),
+  reason: z.string().min(1).nullable().optional(),
 });
 export type CreateQuizOverride = z.infer<typeof createQuizOverrideSchema>;
 
@@ -830,8 +847,48 @@ export const updateQuizOverrideSchema = z.strictObject({
   timeLimitSeconds: z.number().int().positive().nullable().optional(),
   attempts: z.number().int().min(0).nullable().optional(),
   password: z.string().min(1).nullable().optional(),
+  reason: z.string().min(1).nullable().optional(),
 });
 export type UpdateQuizOverride = z.infer<typeof updateQuizOverrideSchema>;
+
+/** Một dải nhận xét tổng quát theo khoảng % điểm (tầng feedback thứ tư, Moodle `quiz_feedback`). */
+export const quizFeedbackViewSchema = z.object({
+  id: uuidIdSchema,
+  quizId: uuidIdSchema,
+  minPercent: z.number(),
+  maxPercent: z.number(),
+  feedback: z.string(),
+});
+export type QuizFeedbackView = z.infer<typeof quizFeedbackViewSchema>;
+
+/** Payload tạo dải nhận xét tổng quát: [minPercent, maxPercent) trên thang % điểm của bài. */
+export const createQuizFeedbackSchema = z.strictObject({
+  minPercent: z.number().min(0).max(100),
+  maxPercent: z.number().min(0).max(100),
+  feedback: z.string().min(1),
+});
+export type CreateQuizFeedback = z.infer<typeof createQuizFeedbackSchema>;
+
+/** Sự kiện giám sát client được phép báo (chỉ ghi nhận — hệ thống không tự kết luận gian lận). */
+export const QUIZ_ATTEMPT_EVENT_TYPES = ['fullscreen_exit', 'focus_lost', 'disconnect_long'] as const;
+
+/** Payload báo một sự kiện giám sát của lượt đang làm. */
+export const recordQuizAttemptEventSchema = z.strictObject({
+  type: z.enum(QUIZ_ATTEMPT_EVENT_TYPES),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+export type RecordQuizAttemptEvent = z.infer<typeof recordQuizAttemptEventSchema>;
+
+/** Payload chấm tay THEO CÂU cho nhiều lượt cùng lúc (grade-by-question): một câu, một danh sách (lượt, điểm, nhận xét). */
+export const gradeQuizQuestionSchema = z.strictObject({
+  questionId: uuidIdSchema,
+  grades: z.array(z.strictObject({
+    attemptId: uuidIdSchema,
+    mark: z.number().min(0),
+    comment: z.string().optional(),
+  })).min(1),
+});
+export type GradeQuizQuestion = z.infer<typeof gradeQuizQuestionSchema>;
 
 // ---------------------------------------------------------------------------
 // Ma trận đề + bản đặc tả (Quiz Chặng 3, issue #30)
@@ -873,6 +930,12 @@ export const examMatrixViewSchema = z.object({
   scopeOutcomeIds: z.array(uuidIdSchema).nullable(),
   totalScore: z.number(),
   createdBy: uuidIdSchema.nullable(),
+  /** Các trường ngân hàng (MB-0): bank chứa ma trận (null = chưa vào bank), vòng đời trong bank, cờ mẫu, truy vết copy, phiên bản. */
+  bankId: uuidIdSchema.nullable(),
+  status: z.enum(['draft', 'ready', 'hidden']),
+  isTemplate: z.boolean(),
+  derivedFromMatrixId: uuidIdSchema.nullable(),
+  version: z.number().int(),
   cells: z.array(examMatrixCellViewSchema),
   warnings: z.array(z.string()),
 });
@@ -890,6 +953,11 @@ export const createExamMatrixSchema = z.strictObject({
   scopeNote: z.string().nullable().optional(),
   scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
   totalScore: z.number().positive().optional(),
+  /** Trường ngân hàng (MB-0): luồng copy mẫu của MB-1 sẽ dùng bankId/derivedFromMatrixId/isTemplate khi tạo. */
+  bankId: uuidIdSchema.nullable().optional(),
+  status: z.enum(['draft', 'ready', 'hidden']).optional(),
+  isTemplate: z.boolean().optional(),
+  derivedFromMatrixId: uuidIdSchema.nullable().optional(),
 });
 export type CreateExamMatrix = z.infer<typeof createExamMatrixSchema>;
 
@@ -903,6 +971,9 @@ export const updateExamMatrixSchema = z.strictObject({
   scopeNote: z.string().nullable().optional(),
   scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
   totalScore: z.number().positive().optional(),
+  bankId: uuidIdSchema.nullable().optional(),
+  status: z.enum(['draft', 'ready', 'hidden']).optional(),
+  isTemplate: z.boolean().optional(),
 });
 export type UpdateExamMatrix = z.infer<typeof updateExamMatrixSchema>;
 

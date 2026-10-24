@@ -37,6 +37,23 @@ export const examMatrices = pgTable('exam_matrices', {
   subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
   curriculumId: uuid('curriculum_id').notNull().references(() => curricula.id, { onDelete: 'cascade' }),
   contextId: uuid('context_id').notNull(),
+  /**
+   * Các cột NGÂN HÀNG (lát MB-0 chặn nối đuối theo hồ sơ ngân hàng
+   * đề/ma trận, mục G.1): bank_id trỏ question_banks của PR #83 (bảng
+   * đó chưa có ở nhánh này nên để uuid mềm, MB-1 sẽ neo FK/khuôn bank);
+   * status là vòng đời trong bank (draft/ready/hidden như câu hỏi);
+   * is_template phân biệt ma trận mẫu ↔ ma trận làm việc;
+   * derived_from_matrix_id truy vết copy (mẫu → bản làm việc);
+   * version tăng khi sửa một ma trận đã ready (bản đặc tả đã nộp phải
+   * khớp ma trận tại thời điểm nộp). Quyền trên ma trận chốt MỘT nguồn
+   * duy nhất là BANK (điểm E-8): context_id hiện tại chỉ là neo phạm vi
+   * dữ liệu môn — xem resolver quyền trong QuizService.
+   */
+  bankId: uuid('bank_id'),
+  status: text('status').notNull().default('draft'),
+  isTemplate: boolean('is_template').notNull().default(false),
+  derivedFromMatrixId: uuid('derived_from_matrix_id'),
+  version: integer('version').notNull().default(1),
   presetKind: text('preset_kind').notNull().default('custom'),
   targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
   targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
@@ -51,8 +68,10 @@ export const examMatrices = pgTable('exam_matrices', {
   (table) => [
       index('exam_matrices_subject_idx').on(table.subjectId),
       index('exam_matrices_curriculum_idx').on(table.curriculumId),
+      index('exam_matrices_bank_idx').on(table.bankId),
       check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic', 'qd764_graduation', 'custom')`),
       check('exam_matrices_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
+      check('exam_matrices_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
   ]);
 
 /**
@@ -133,12 +152,34 @@ export const quizzes = pgTable('quizzes', {
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   /** Thang chấm Đ–S chùm (mảng 5 tỉ lệ % cho 0..4 ý đúng); null = mặc định QĐ 764 [0,10,25,50,100]. */
   tfScale: jsonb('tf_scale').$type<number[]>(),
+  /**
+   * Hình thức kiểm tra theo TT 22 (preset quy tắc thi — hồ sơ tổ chức
+   * thi trực tuyến VN mục 5.1): 'regular' thường xuyên | 'periodic'
+   * định kỳ | 'mock' thi thử tốt nghiệp. Chọn preset lúc tạo là điền
+   * sẵn quy tắc (số lượt, bitmask review, giám sát, trễ vào thi), giáo
+   * viên vẫn sửa từng trường sau đó. exam_kind cũng là nguồn nhãn loại
+   * điểm TT 22 (hệ số) cho grade item khi triển khai đề (điểm nối EB).
+   */
+  examKind: text('exam_kind'),
+  /**
+   * Số phút tối đa được vào thi muộn tính từ time_open hiệu lực
+   * (preset thi thử = 15 theo Điều 21 TT 24/2024: đến chậm quá 15 phút
+   * không được dự thi); null = không áp giới hạn vào muộn.
+   */
+  lateEntryMinutes: integer('late_entry_minutes'),
+  /**
+   * Bật ghi nhận sự kiện giám sát trong lúc làm bài (thoát fullscreen,
+   * mất focus...) — CHỈ ghi nhận + báo cáo, không tự kết luận gian lận
+   * (theo tài liệu chính chủ Azota). Preset định kỳ/thi thử bật sẵn.
+   */
+  monitorEvents: boolean('monitor_events').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('quizzes_course_idx').on(table.course),
       index('quizzes_cm_id_idx').on(table.cmId),
+      check('quizzes_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'periodic', 'mock')`),
   ]);
 
 /**
@@ -158,6 +199,12 @@ export const quizOverrides = pgTable('quiz_overrides', {
   timeLimit: integer('time_limit'),
   attempts: integer('attempts'),
   passwordHash: text('password_hash'),
+  /**
+   * Lý do của override (truy vết quyết định): bắt buộc về mặt nghiệp
+   * vụ khi override là cộng thời gian theo KHGD cá nhân cho HS hoà
+   * nhập hoặc mở cửa sổ kiểm tra bù — kiểm ở tầng service.
+   */
+  reason: text('reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -265,6 +312,20 @@ export const quizAttempts = pgTable(
     usageId: uuid('usage_id').notNull().references(() => questionUsages.id, { onDelete: 'cascade' }),
     state: text('state').notNull().default('inprogress'),
     preview: boolean('preview').notNull().default(false),
+    /**
+     * Nhãn kiểm tra bù (TT 22 Điều 7 k.4–5): lượt bắt đầu trong cửa sổ
+     * CHỈ tồn tại nhờ user override mở riêng (cửa sổ khác cửa sổ gốc
+     * của quiz) thì makeup = true. Cộng giờ HS hoà nhập đi qua chính
+     * user override time_limit — không có hệ số hệ thống.
+     */
+    makeup: boolean('makeup').notNull().default(false),
+    /**
+     * Snapshot quy tắc hiệu lực ĐÃ ÁP cho lượt này lúc bắt đầu (giá trị
+     * + id override nguồn + thứ tự câu đã rút) — attempt ghim quy tắc
+     * đã áp như ghim version câu; thay đổi override về sau không viết
+     * lại lịch sử của lượt đã thi.
+     */
+    appliedSettings: jsonb('applied_settings').$type<Record<string, unknown>>(),
     timeStart: timestamp('time_start', { withTimezone: true }).notNull().defaultNow(),
     timeFinish: timestamp('time_finish', { withTimezone: true }),
     sumGrades: doublePrecision('sum_grades'),
@@ -275,3 +336,42 @@ export const quizAttempts = pgTable(
       index('quiz_attempts_quiz_id_idx').on(table.quizId),
       index('quiz_attempts_user_id_idx').on(table.userId),unique('quiz_attempts_usage_unique').on(table.usageId),unique('quiz_attempts_quiz_user_number_unique').on(table.quizId, table.userId, table.attemptNumber)],
 );
+
+/**
+ * Dải nhận xét tổng quát theo khoảng điểm (Moodle `quiz_feedback`) —
+ * tầng feedback thứ tư (sau feedback theo đáp án đã chọn / theo câu /
+ * tổng quát của câu): khi một lượt chốt, % điểm của lượt rơi vào dải
+ * [min_percent, max_percent) nào thì học sinh nhận nhận xét của dải đó,
+ * qua cổng review_overall_feedback như các khía cạnh khác.
+ */
+export const quizFeedbacks = pgTable('quiz_feedbacks', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  minPercent: doublePrecision('min_percent').notNull(),
+  maxPercent: doublePrecision('max_percent').notNull(),
+  feedback: text('feedback').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('quiz_feedbacks_quiz_idx').on(table.quizId),
+      check('quiz_feedbacks_range_check', sql`${table.minPercent} >= 0 and ${table.maxPercent} <= 100 and ${table.minPercent} < ${table.maxPercent}`),
+  ]);
+
+/**
+ * Nhật ký sự kiện trong lúc làm bài (giám sát thi): client báo các sự
+ * kiện quan sát được (thoát fullscreen, mất focus/đổi tab trên desktop,
+ * ngắt kết nối dài) và server tự ghi sự kiện nộp tự động khi hết giờ.
+ * CHỈ GHI NHẬN để giáo viên xem lại sau thi — hệ thống không tự kết
+ * luận gian lận, không tự huỳ/trừ điểm (theo tài liệu chính chủ Azota).
+ */
+export const quizAttemptEvents = pgTable('quiz_attempt_events', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  attemptId: uuid('attempt_id').notNull().references(() => quizAttempts.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  data: jsonb('data').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('quiz_attempt_events_attempt_idx').on(table.attemptId),
+  ]);

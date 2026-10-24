@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examMatrices, examMatrixCells, quizAttempts, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
+import { examMatrices, examMatrixCells, quizAttemptEvents, quizAttempts, quizFeedbacks, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
 
 export type QuizRow = typeof quizzes.$inferSelect;
 export type QuizSlotRow = typeof quizSlots.$inferSelect;
@@ -11,6 +11,8 @@ export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
 export type QuizOverrideRow = typeof quizOverrides.$inferSelect;
 export type ExamMatrixRow = typeof examMatrices.$inferSelect;
 export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
+export type QuizFeedbackRow = typeof quizFeedbacks.$inferSelect;
+export type QuizAttemptEventRow = typeof quizAttemptEvents.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -155,6 +157,28 @@ export class QuizRepository {
     return this.db.select().from(quizOverrides).where(eq(quizOverrides.quizId, quizId)).orderBy(asc(quizOverrides.createdAt), asc(quizOverrides.id));
   }
   /**
+   * Mốc đóng MUỘN NHẤT của cả đợt thi: max giữa time_close của quiz và
+   * time_close của MỌI override đang tồn tại (null = có ít nhất một
+   * tầng không đặt mốc đóng → đợt chưa đóng hẳn). Dùng cho cửa sổ
+   * review "sau khi đóng" khi các ca thi lệch nhau vì override —
+   * chống lộ đáp án cho ca sau (hồ sơ thi trực tuyến VN, điểm 5.1.4).
+   */
+  async sessionLatestClose(quizId: string): Promise<{ hasUnbounded: boolean; latest: Date | null }> {
+    const quizRows = await this.db.select({ timeClose: quizzes.timeClose }).from(quizzes).where(eq(quizzes.id, quizId));
+    const base = quizRows[0]?.timeClose ?? null;
+    const overrides = await this.listOverrides(quizId);
+    // Override có time_close null = kế thừa mốc của quiz (đã tính);
+    // đợt chỉ "chưa đóng hẳn" khi chính quiz không có mốc đóng.
+    const hasUnbounded = base === null;
+    let latest = base;
+    for (const o of overrides) {
+      if (o.timeClose === null) continue;
+      if (latest === null || o.timeClose > latest) latest = o.timeClose;
+    }
+    return { hasUnbounded, latest };
+  }
+
+  /**
    * Cập nhật một ghi đè.
    */
   async updateOverride(id: string, patch: Partial<QuizOverrideRow>, tx?: DbTx): Promise<void> {
@@ -228,5 +252,32 @@ export class QuizRepository {
    */
   async deleteMatrixCell(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(examMatrixCells).where(eq(examMatrixCells.id, id));
+  }
+
+  // --- dải nhận xét tổng quát + nhật ký sự kiện lượt làm -------------------------
+
+  /** Các dải nhận xét tổng quát của một quiz theo mốc % tăng dần. */
+  async listFeedbacks(quizId: string): Promise<QuizFeedbackRow[]> {
+    return this.db.select().from(quizFeedbacks).where(eq(quizFeedbacks.quizId, quizId)).orderBy(asc(quizFeedbacks.minPercent), asc(quizFeedbacks.id));
+  }
+
+  /** Chèn một dải nhận xét tổng quát. */
+  async insertFeedback(v: typeof quizFeedbacks.$inferInsert, tx?: DbTx): Promise<QuizFeedbackRow> {
+    const [row] = await (tx ?? this.db).insert(quizFeedbacks).values(v).returning(); return row!;
+  }
+
+  /** Xoá một dải nhận xét tổng quát. */
+  async deleteFeedback(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(quizFeedbacks).where(eq(quizFeedbacks.id, id));
+  }
+
+  /** Ghi một sự kiện giám sát của lượt làm (chỉ ghi nhận). */
+  async insertAttemptEvent(v: typeof quizAttemptEvents.$inferInsert, tx?: DbTx): Promise<QuizAttemptEventRow> {
+    const [row] = await (tx ?? this.db).insert(quizAttemptEvents).values(v).returning(); return row!;
+  }
+
+  /** Nhật ký sự kiện của một lượt làm theo thời gian ghi. */
+  async listAttemptEvents(attemptId: string): Promise<QuizAttemptEventRow[]> {
+    return this.db.select().from(quizAttemptEvents).where(eq(quizAttemptEvents.attemptId, attemptId)).orderBy(asc(quizAttemptEvents.createdAt), asc(quizAttemptEvents.id));
   }
 }

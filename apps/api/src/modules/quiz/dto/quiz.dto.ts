@@ -3,10 +3,13 @@ import {
   clusterQuizSlotsSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createQuizFeedbackSchema,
   createQuizOverrideSchema,
   createQuizSchema,
   generateFromMatrixSchema,
+  gradeQuizQuestionSchema,
   manualGradeQuizSchema,
+  recordQuizAttemptEventSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
   swapQuizSlotSchema,
@@ -20,9 +23,12 @@ import {
   type CreateExamMatrix,
   type CreateExamMatrixCell,
   type CreateQuiz,
+  type CreateQuizFeedback,
   type CreateQuizOverride,
   type GenerateFromMatrix,
+  type GradeQuizQuestion,
   type ManualGradeQuiz,
+  type RecordQuizAttemptEvent,
   type StartQuizAttempt,
   type SubmitQuizResponse,
   type SwapQuizSlot,
@@ -42,10 +48,13 @@ export {
   clusterQuizSlotsSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createQuizFeedbackSchema,
   createQuizOverrideSchema,
   createQuizSchema,
   generateFromMatrixSchema,
+  gradeQuizQuestionSchema,
   manualGradeQuizSchema,
+  recordQuizAttemptEventSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
   swapQuizSlotSchema,
@@ -71,3 +80,6 @@ export type UpdateExamMatrixCellDto = UpdateExamMatrixCell;
 export type GenerateFromMatrixDto = GenerateFromMatrix;
 export type SwapQuizSlotDto = SwapQuizSlot;
 export type ClusterQuizSlotsDto = ClusterQuizSlots;
+export type CreateQuizFeedbackDto = CreateQuizFeedback;
+export type GradeQuizQuestionDto = GradeQuizQuestion;
+export type RecordQuizAttemptEventDto = RecordQuizAttemptEvent;

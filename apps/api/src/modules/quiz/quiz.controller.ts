@@ -6,9 +6,9 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
 import {
-  addQuizSlotSchema, clusterQuizSlotsSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizOverrideSchema, createQuizSchema, generateFromMatrixSchema, manualGradeQuizSchema, startQuizAttemptSchema,
+  addQuizSlotSchema, clusterQuizSlotsSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizFeedbackSchema, createQuizOverrideSchema, createQuizSchema, generateFromMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema, recordQuizAttemptEventSchema, startQuizAttemptSchema,
   submitQuizResponseSchema, swapQuizSlotSchema, updateExamMatrixCellSchema, updateExamMatrixSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
-  type AddQuizSlotDto, type ClusterQuizSlotsDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizOverrideDto, type GenerateFromMatrixDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
+  type AddQuizSlotDto, type ClusterQuizSlotsDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizFeedbackDto, type CreateQuizOverrideDto, type GenerateFromMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto, type RecordQuizAttemptEventDto, type StartQuizAttemptDto,
   type SubmitQuizResponseDto, type SwapQuizSlotDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
 } from './dto/quiz.dto';
 
@@ -187,6 +187,55 @@ export class QuizzesController {
   async results(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getResults(actor.id, id);
   }
+  @Get(':id/feedbacks')
+  /**
+   * GET /quizzes/:id/feedbacks — các dải nhận xét tổng quát theo % điểm
+   * (quiz:manage).
+   */
+  async listFeedbacks(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listFeedbacks(actor.id, id);
+  }
+  @Post(':id/feedbacks')
+  /**
+   * POST /quizzes/:id/feedbacks — tạo một dải nhận xét tổng quát
+   * (quiz:manage).
+   */
+  async createFeedback(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createQuizFeedbackSchema }) dto: CreateQuizFeedbackDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.createFeedback(actor.id, id, dto);
+  }
+  @Delete(':id/feedbacks/:feedbackId')
+  /**
+   * DELETE /quizzes/:id/feedbacks/:feedbackId — xoá một dải nhận xét
+   * tổng quát (quiz:manage).
+   */
+  async removeFeedback(@Param('id', { schema: uuidIdSchema }) id: string, @Param('feedbackId', { schema: uuidIdSchema }) feedbackId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.quiz.deleteFeedback(actor.id, id, feedbackId);
+    return { deleted: true };
+  }
+  @Get(':id/cluster-statistics')
+  /**
+   * GET /quizzes/:id/cluster-statistics — thống kê đúng–sai theo từng
+   * Ý của các chùm Đ–S + phân bố số ý đúng (quiz:viewreports).
+   */
+  async clusterStatistics(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.clusterStatistics(actor.id, id);
+  }
+  @Get(':id/grade-by-question/:questionId')
+  /**
+   * GET /quizzes/:id/grade-by-question/:questionId — hàng đợi chấm một
+   * câu cho cả lớp: mọi lượt đã nộp chứa câu, kèm đáp án (quiz:grade).
+   */
+  async gradeByQuestionQueue(@Param('id', { schema: uuidIdSchema }) id: string, @Param('questionId', { schema: uuidIdSchema }) questionId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listQuestionGradingQueue(actor.id, id, questionId);
+  }
+  @Post(':id/grade-by-question')
+  /**
+   * POST /quizzes/:id/grade-by-question — chấm tay một câu cho nhiều
+   * lượt cùng lúc (quiz:grade).
+   */
+  async gradeByQuestion(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: gradeQuizQuestionSchema }) dto: GradeQuizQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.gradeQuestionForAttempts(actor.id, id, dto);
+  }
 }
 
 @ApiTags('exam-matrices')
@@ -341,5 +390,22 @@ export class QuizAttemptsController {
    */
   async grade(@Param('id', { schema: uuidIdSchema }) id: string, @Param('questionAttemptId', { schema: uuidIdSchema }) questionAttemptId: string, @Body({ schema: manualGradeQuizSchema }) dto: ManualGradeQuizDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.manualGrade(actor.id, id, { questionAttemptId, mark: dto.mark, comment: dto.comment });
+  }
+  @Post(':id/events')
+  /**
+   * POST /quiz-attempts/:id/events — client báo một sự kiện giám sát
+   * (thoát fullscreen / mất focus / ngắt kết nối dài). CHỈ GHI NHẬN:
+   * không tự kết luận gian lận, không hệ quả lên lượt làm.
+   */
+  async recordEvent(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: recordQuizAttemptEventSchema }) dto: RecordQuizAttemptEventDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.recordAttemptEvent(actor.id, id, dto);
+  }
+  @Get(':id/events')
+  /**
+   * GET /quiz-attempts/:id/events — nhật ký sự kiện giám sát của lượt
+   * (chủ lượt hoặc người có quyền chấm/báo cáo).
+   */
+  async listEvents(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listAttemptEvents(actor.id, id);
   }
 }

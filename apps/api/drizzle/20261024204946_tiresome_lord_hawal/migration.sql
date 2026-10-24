@@ -914,6 +914,11 @@ CREATE TABLE "exam_matrices" (
 	"subject_id" uuid NOT NULL,
 	"curriculum_id" uuid NOT NULL,
 	"context_id" uuid NOT NULL,
+	"bank_id" uuid,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"is_template" boolean DEFAULT false NOT NULL,
+	"derived_from_matrix_id" uuid,
+	"version" integer DEFAULT 1 NOT NULL,
 	"preset_kind" text DEFAULT 'custom' NOT NULL,
 	"target_form_percents" jsonb,
 	"target_level_percents" jsonb,
@@ -925,7 +930,8 @@ CREATE TABLE "exam_matrices" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "exam_matrices_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic', 'qd764_graduation', 'custom')),
-	CONSTRAINT "exam_matrices_level_set_check" CHECK ("level_set" in ('three', 'four'))
+	CONSTRAINT "exam_matrices_level_set_check" CHECK ("level_set" in ('three', 'four')),
+	CONSTRAINT "exam_matrices_status_check" CHECK ("status" in ('draft', 'ready', 'hidden'))
 );
 --> statement-breakpoint
 CREATE TABLE "exam_matrix_cells" (
@@ -948,6 +954,14 @@ CREATE TABLE "exam_matrix_cells" (
 	CONSTRAINT "exam_matrix_cells_score_check" CHECK ("cell_score" > 0)
 );
 --> statement-breakpoint
+CREATE TABLE "quiz_attempt_events" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"attempt_id" uuid NOT NULL,
+	"type" text NOT NULL,
+	"data" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "quiz_attempts" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -956,6 +970,8 @@ CREATE TABLE "quiz_attempts" (
 	"usage_id" uuid NOT NULL CONSTRAINT "quiz_attempts_usage_unique" UNIQUE,
 	"state" text DEFAULT 'inprogress' NOT NULL,
 	"preview" boolean DEFAULT false NOT NULL,
+	"makeup" boolean DEFAULT false NOT NULL,
+	"applied_settings" jsonb,
 	"time_start" timestamp with time zone DEFAULT now() NOT NULL,
 	"time_finish" timestamp with time zone,
 	"sum_grades" double precision,
@@ -964,6 +980,7 @@ CREATE TABLE "quiz_attempts" (
 	CONSTRAINT "quiz_attempts_quiz_user_number_unique" UNIQUE("quiz_id","user_id","attempt_number")
 );
 --> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 CREATE TABLE "quiz_slot_version_events" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -975,6 +992,19 @@ CREATE TABLE "quiz_slot_version_events" (
 	"actor_id" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 ========
+========
+CREATE TABLE "quiz_feedbacks" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"min_percent" double precision NOT NULL,
+	"max_percent" double precision NOT NULL,
+	"feedback" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_feedbacks_range_check" CHECK ("min_percent" >= 0 and "max_percent" <= 100 and "min_percent" < "max_percent")
+);
+--> statement-breakpoint
+>>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 CREATE TABLE "quiz_overrides" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -985,6 +1015,7 @@ CREATE TABLE "quiz_overrides" (
 	"time_limit" integer,
 	"attempts" integer,
 	"password_hash" text,
+	"reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "quiz_overrides_quiz_group_unique" UNIQUE("quiz_id","group_id"),
@@ -1038,8 +1069,12 @@ CREATE TABLE "quizzes" (
 	"review_overall_feedback" integer DEFAULT 4368 NOT NULL,
 	"matrix_id" uuid,
 	"tf_scale" jsonb,
+	"exam_kind" text,
+	"late_entry_minutes" integer,
+	"monitor_events" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quizzes_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'periodic', 'mock'))
 );
 --> statement-breakpoint
 CREATE TABLE "assign_annotations" (
@@ -2211,13 +2246,19 @@ CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statemen
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
 CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
+CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_cells_matrix_idx" ON "exam_matrix_cells" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "quiz_attempt_events_attempt_idx" ON "quiz_attempt_events" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 CREATE INDEX "quiz_slot_version_events_slot_idx" ON "quiz_slot_version_events" ("slot_id");--> statement-breakpoint
 CREATE INDEX "quiz_slot_version_events_quiz_idx" ON "quiz_slot_version_events" ("quiz_id");--> statement-breakpoint
 ========
+========
+CREATE INDEX "quiz_feedbacks_quiz_idx" ON "quiz_feedbacks" ("quiz_id");--> statement-breakpoint
+>>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> statement-breakpoint
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
@@ -2485,12 +2526,17 @@ ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_attempt_events" ADD CONSTRAINT "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_slot_id_quiz_slots_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "quiz_slots"("id") ON DELETE CASCADE;--> statement-breakpoint
 ========
+========
+ALTER TABLE "quiz_feedbacks" ADD CONSTRAINT "quiz_feedbacks_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+>>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
