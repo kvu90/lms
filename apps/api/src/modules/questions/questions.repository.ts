@@ -5,7 +5,7 @@ import type { Database } from '../../db/database';
 import {
   curricula, curriculumNodes, learningOutcomes,
   question, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
-  questionBankEntries, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
+  questionBankEntries, questionBanks, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
   questionUsages, questionVersions,
   qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, quizAttempts, stimuli, subjects,
 } from '../../db/schema';
@@ -48,6 +48,13 @@ export class QuestionsRepository {
    */
   async getCategory(id: string): Promise<QCategoryRow | undefined> {
     const [row] = await this.db.select().from(questionCategories).where(eq(questionCategories.id, id)); return row;
+  }
+  /**
+   * Lấy bank câu hỏi theo id (feat Ngân hàng câu hỏi chung, QB-1) — tra
+   * cứu nhẹ phục vụ các cổng chung của module (vd tạo category gắn bank).
+   */
+  async getBankById(id: string): Promise<(typeof questionBanks.$inferSelect) | undefined> {
+    const [row] = await this.db.select().from(questionBanks).where(eq(questionBanks.id, id)); return row;
   }
   /**
    * Liệt kê category trong context.
@@ -355,8 +362,8 @@ export class QuestionsRepository {
     return row;
   }
   /** Chèn dòng gắn môn. */
-  async insertQuestionSubjectLink(v: typeof questionSubjects.$inferInsert): Promise<QuestionSubjectLinkRow> {
-    const [row] = await this.db.insert(questionSubjects).values(v).returning(); return row!;
+  async insertQuestionSubjectLink(v: typeof questionSubjects.$inferInsert, tx?: DbTx): Promise<QuestionSubjectLinkRow> {
+    const [row] = await (tx ?? this.db).insert(questionSubjects).values(v).returning(); return row!;
   }
   /** Xoá dòng gắn môn; trả true khi có dòng bị xoá. */
   async deleteQuestionSubjectLink(questionId: string, subjectId: string): Promise<boolean> {
@@ -377,8 +384,8 @@ export class QuestionsRepository {
     return row;
   }
   /** Chèn dòng gắn YCCĐ kèm mức độ nhận thức của cặp. */
-  async insertQuestionOutcomeLink(v: typeof questionLearningOutcomes.$inferInsert): Promise<QuestionOutcomeLinkRow> {
-    const [row] = await this.db.insert(questionLearningOutcomes).values(v).returning(); return row!;
+  async insertQuestionOutcomeLink(v: typeof questionLearningOutcomes.$inferInsert, tx?: DbTx): Promise<QuestionOutcomeLinkRow> {
+    const [row] = await (tx ?? this.db).insert(questionLearningOutcomes).values(v).returning(); return row!;
   }
   /** Đổi mức độ nhận thức của một dòng gắn YCCĐ. */
   async updateQuestionOutcomeLink(questionId: string, outcomeId: string, cognitiveLevel: string): Promise<void> {

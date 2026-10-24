@@ -2,8 +2,9 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { QuestionBanksService } from './question-banks.service';
 import { QuestionsService } from './questions.service';
-import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionOutcomeLinkSchema, updateQuestionSchema, updateStimulusSchema, type AttachQuestionOutcomeDto, type AttachQuestionSubjectDto, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateQuestionOutcomeLinkDto, type UpdateStimulusDto } from './dto/questions.dto';
+import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, copyQuestionSchema, copyQuestionsBatchSchema, createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionOutcomeLinkSchema, updateQuestionSchema, updateStimulusSchema, withdrawQuestionSchema, type AttachQuestionOutcomeDto, type AttachQuestionSubjectDto, type CopyQuestionDto, type CopyQuestionsBatchDto, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateQuestionOutcomeLinkDto, type UpdateStimulusDto, type WithdrawQuestionDto } from './dto/questions.dto';
 
 @ApiTags('questions')
 @Controller({ path: 'questions', version: '1' })
@@ -11,7 +12,10 @@ import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, createQuestio
  * API ngân hàng câu hỏi: category, câu hỏi và version.
  */
 export class QuestionsController {
-  constructor(private readonly questions: QuestionsService) {}
+  constructor(
+    private readonly questions: QuestionsService,
+    private readonly banks: QuestionBanksService,
+  ) {}
 
   @Post('categories')
   /**
@@ -65,6 +69,41 @@ export class QuestionsController {
       qtype: qtype || undefined,
       status: status || undefined,
     });
+  }
+  @Get('discovery')
+  /**
+   * GET /questions/discovery?bankId=&subjectId=&nodeId=&outcomeId=&cognitiveLevel=&qtype=&keyword=&authorId= —
+   * trang khám phá ngân hàng câu hỏi chung (QB-4): lọc trên các bank actor vào được.
+   * Khai báo TRƯỚC route `:id` để 'discovery' không bị nuốt thành id.
+   */
+  async discover(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query('bankId') bankId?: string,
+    @Query('subjectId') subjectId?: string,
+    @Query('nodeId') nodeId?: string,
+    @Query('outcomeId') outcomeId?: string,
+    @Query('cognitiveLevel') cognitiveLevel?: string,
+    @Query('qtype') qtype?: string,
+    @Query('keyword') keyword?: string,
+    @Query('authorId') authorId?: string,
+  ) {
+    return this.banks.discover(actor.id, {
+      bankId: bankId || undefined,
+      subjectId: subjectId || undefined,
+      nodeId: nodeId || undefined,
+      outcomeId: outcomeId || undefined,
+      cognitiveLevel: cognitiveLevel || undefined,
+      qtype: qtype || undefined,
+      keyword: keyword || undefined,
+      authorId: authorId || undefined,
+    });
+  }
+  @Post('copy-batch')
+  /**
+   * POST /questions/copy-batch — copy hàng loạt câu đã chọn về một bank đích (QB-2).
+   */
+  async copyBatch(@Body({ schema: copyQuestionsBatchSchema }) dto: CopyQuestionsBatchDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.copyQuestionsBatch(actor.id, dto);
   }
   @Get(':id/curriculum-links')
   /**
@@ -125,6 +164,41 @@ export class QuestionsController {
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateQuestionSchema }) dto: UpdateQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.questions.updateQuestion(actor.id, id, dto);
+  }
+  @Post(':id/copy')
+  /**
+   * POST /questions/:id/copy — copy câu về bank đích (mặc định ngân hàng cá nhân của người copy), deep copy + truy vết nguồn gốc (QB-2).
+   */
+  async copy(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: copyQuestionSchema }) dto: CopyQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.copyQuestion(actor.id, id, dto);
+  }
+  @Get(':id/attribution')
+  /**
+   * GET /questions/:id/attribution — dòng ghi công: câu gốc, version gốc, tác giả gốc, bank nguồn, copy_count/use_count (QB-2).
+   */
+  async attribution(@Param('id', { schema: uuidIdSchema }) id: string) {
+    return this.banks.getAttribution(id);
+  }
+  @Post(':id/withdraw')
+  /**
+   * POST /questions/:id/withdraw — rút câu khỏi bank chung (trạng thái hidden, lý do bắt buộc — QB-3).
+   */
+  async withdraw(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: withdrawQuestionSchema }) dto: WithdrawQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.withdrawQuestion(actor.id, id, dto.reason);
+  }
+  @Post(':id/restore')
+  /**
+   * POST /questions/:id/restore — hoàn rút câu (hidden → ready — QB-3).
+   */
+  async restore(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.restoreQuestion(actor.id, id);
+  }
+  @Delete(':id')
+  /**
+   * DELETE /questions/:id — xoá vật lý, chỉ khi câu chưa từng được dùng (còn slot/attempt tham chiếu thì 409, hướng sang rút câu — QB-3).
+   */
+  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.deleteQuestion(actor.id, id);
   }
   @Get(':id/versions')
   /**

@@ -498,6 +498,8 @@ export const createQuestionCategorySchema = z.strictObject({
   contextId: uuidIdSchema,
   info: z.string().optional(),
   parent: uuidIdSchema.optional(),
+  /** Bank sở hữu category (feat Ngân hàng câu hỏi chung, QB-1): khi có, contextId phải là context của bank đó. */
+  bankId: uuidIdSchema.optional(),
 });
 export type CreateQuestionCategory = z.infer<typeof createQuestionCategorySchema>;
 
@@ -722,20 +724,22 @@ export const updateQuizSchema = z.strictObject({
 });
 export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
 
-/** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). */
+/** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). `versionMode` (QB-3): bỏ trống thì câu từ bank tổ/trường mặc định `pinned`, còn lại `follow_latest`. */
 export const addQuizSlotSchema = z.strictObject({
   questionId: uuidIdSchema.optional(),
   categoryId: uuidIdSchema.optional(),
   maxMark: z.number().positive().optional(),
   page: z.number().int().positive().optional(),
+  versionMode: z.enum(['pinned', 'follow_latest']).optional(),
 });
 export type AddQuizSlot = z.infer<typeof addQuizSlotSchema>;
 
-/** Payload sửa một slot: đổi điểm, trang hoặc vị trí (số thứ tự) trong đề. */
+/** Payload sửa một slot: đổi điểm, trang, vị trí (số thứ tự) trong đề hoặc chế độ version (QB-3 — chuyển sang `pinned` sẽ ghim vào version hiện tại). */
 export const updateQuizSlotSchema = z.strictObject({
   maxMark: z.number().positive().optional(),
   page: z.number().int().positive().optional(),
   slot: z.number().int().positive().optional(),
+  versionMode: z.enum(['pinned', 'follow_latest']).optional(),
 });
 export type UpdateQuizSlot = z.infer<typeof updateQuizSlotSchema>;
 
@@ -1126,3 +1130,66 @@ export const createTeacherCommentBankEntrySchema = z.strictObject({
   category: z.enum(ASSIGN_COMMENT_BANK_CATEGORIES).nullable().optional(),
 });
 export type CreateTeacherCommentBankEntry = z.infer<typeof createTeacherCommentBankEntrySchema>;
+// --- Ngân hàng câu hỏi chung (feat issue #70: QB-1 → QB-4) ---------------------
+
+/** Bốn scope của một bank câu hỏi: cá nhân / tổ chuyên môn / trường / khoá. */
+export const QUESTION_BANK_SCOPES = ['personal', 'team', 'school', 'course'] as const;
+
+/** Payload tạo bank: `scopeRefId` là cohort (team) hoặc course (course); `leaderId` là tổ trưởng của bank tổ (mặc định người tạo). */
+export const createQuestionBankSchema = z.strictObject({
+  name: z.string().min(1),
+  scope: z.enum(QUESTION_BANK_SCOPES),
+  scopeRefId: uuidIdSchema.optional(),
+  leaderId: uuidIdSchema.optional(),
+});
+export type CreateQuestionBank = z.infer<typeof createQuestionBankSchema>;
+
+/** Payload copy một câu: đích mặc định là ngân hàng cá nhân của người copy ("Copy về ngân hàng của tôi"). */
+export const copyQuestionSchema = z.strictObject({
+  targetBankId: uuidIdSchema.optional(),
+  targetCategoryId: uuidIdSchema.optional(),
+  name: z.string().min(1).optional(),
+});
+export type CopyQuestion = z.infer<typeof copyQuestionSchema>;
+
+/** Payload copy hàng loạt (tối đa 100 câu một lượt). */
+export const copyQuestionsBatchSchema = z.strictObject({
+  questionIds: z.array(uuidIdSchema).min(1).max(100),
+  targetBankId: uuidIdSchema.optional(),
+  targetCategoryId: uuidIdSchema.optional(),
+});
+export type CopyQuestionsBatch = z.infer<typeof copyQuestionsBatchSchema>;
+
+/** Payload rút câu khỏi bank chung: lý do bắt buộc (QB-3). */
+export const withdrawQuestionSchema = z.strictObject({
+  reason: z.string().min(1),
+});
+export type WithdrawQuestion = z.infer<typeof withdrawQuestionSchema>;
+
+/** Chế độ version của slot đề thi (QB-3): ghim cứng hoặc theo version mới nhất. */
+export const QUIZ_SLOT_VERSION_MODES = ['pinned', 'follow_latest'] as const;
+
+/**
+ * Payload đề xuất đóng góp câu vào bank đích (QB-4): `mode` = 'new' (câu
+ * mới vào bank đích) hoặc 'update' (bản mới cho câu đã có ở bank đích —
+ * bắt buộc `targetQuestionId` và câu nguồn phải là bản copy suy từ câu đích).
+ */
+export const createContributionSchema = z.strictObject({
+  questionId: uuidIdSchema,
+  note: z.string().optional(),
+  mode: z.enum(['new', 'update']).optional(),
+  targetQuestionId: uuidIdSchema.optional(),
+});
+export type CreateContribution = z.infer<typeof createContributionSchema>;
+
+/** Payload duyệt một đề xuất đóng góp: có thể chỉ định category đích trong bank (mặc định category mặc định của bank). */
+export const approveContributionSchema = z.strictObject({
+  targetCategoryId: uuidIdSchema.optional(),
+});
+export type ApproveContribution = z.infer<typeof approveContributionSchema>;
+
+/** Payload từ chối đề xuất đóng góp: lý do bắt buộc để giáo viên sửa và đề xuất lại. */
+export const rejectContributionSchema = z.strictObject({
+  reason: z.string().min(1),
+});
+export type RejectContribution = z.infer<typeof rejectContributionSchema>;

@@ -196,9 +196,11 @@ export class QuestionsService {
    * Tạo category câu hỏi trong context. Context phải TỒN TẠI thật: trước
    * đây context không hợp lệ bị nuốt lặng lẽ về context hệ thống rồi lỗi
    * capability ở đó báo sai nguyên nhân (issue #55 mục 2) — nay trả 400
-   * nói đúng là context không tồn tại.
+   * nói đúng là context không tồn tại. Khi gắn bank (QB-1), context của
+   * category phải chính là context của bank — category sống trong bank
+   * thì quyền quản lý đọc tại context bank như mọi bề mặt bank khác.
    */
-  async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string }): Promise<QCategoryRow> {
+  async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string; bankId?: string }): Promise<QCategoryRow> {
     const ctx = await this.contexts.getContext(input.contextId).catch(() => undefined);
     if (!ctx) {
       throw new BadRequestException({
@@ -207,8 +209,16 @@ export class QuestionsService {
       });
     }
     await this.requireCap(actorId, 'question:managecategory', ctx.id);
+    if (input.bankId !== undefined) {
+      const bank = await this.repo.getBankById(input.bankId);
+      if (!bank) throw new NotFoundException({ message: `Question bank ${input.bankId} not found`, code: 'question.bank_not_found' });
+      if (bank.contextId !== ctx.id) {
+        throw new BadRequestException({ message: 'A category attached to a bank must live in the bank context', code: 'question.category_bank_context_mismatch' });
+      }
+    }
     return this.repo.insertCategory({
       name: input.name, contextId: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
+      bankId: input.bankId ?? null,
       stamp: `qcat-${Date.now().toString(36)}`,
     });
   }
@@ -502,6 +512,15 @@ export class QuestionsService {
         graderInfo: o.graderInfo as never, responseTemplate: o.responseTemplate as never,
       }, tx);
     }
+  }
+
+  /**
+   * Nhân bản answers + options giữa hai version trong một giao dịch do
+   * caller quản lý — điểm dùng chung cho deep copy của lớp bank (QB-2/QB-4:
+   * copy câu hỏi và duyệt đóng góp tạo version mới từ nội dung version nguồn).
+   */
+  async cloneVersionContentTx(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string): Promise<void> {
+    await this.cloneVersionContent(tx, qtype, fromVersionId, toVersionId);
   }
 
   /** Dựng options dạng bản ghi phẳng cho view/API từ bảng options của qtype. */
