@@ -176,9 +176,9 @@ describe('K2 learning content, player & progress', () => {
     const markers = await http(app).get(`/api/v1/courses/${f.course.id}/progress/class-markers`).set('Authorization', `Bearer ${admin}`);
     expect(markers.status).toBe(200);
     expect(markers.body.trackedTotal).toBe(3);
-    const marker = (markers.body.markers as { groupId: string }[]).find((m) => m.groupId === group.body.id) as {
-      markerCmId: string; markerIndex: number; percent: number; memberCount: number;
-    };
+    const marker = (markers.body.markers as {
+      groupId: string; markerCmId: string; markerIndex: number; percent: number; memberCount: number;
+    }[]).find((m) => m.groupId === group.body.id);
     expect(marker).toBeDefined();
     expect(marker.markerCmId).toBe(f.page.cmId);
     expect(marker.markerIndex).toBe(0);
