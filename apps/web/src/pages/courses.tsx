@@ -21,6 +21,13 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
+import {
+  COURSE_CARD_COLOR_HEX,
+  displayCourseName,
+  fetchCourseCardPrefs,
+  type CourseCardPrefView,
+} from '#lib/course-cards';
+import { CourseCardPrefEditor } from '../components/course-card-pref-editor';
 
 /**
  * Cây danh mục + danh sách khoá học cho mọi người dùng. Khu quản trị danh
@@ -39,6 +46,11 @@ export function CoursesPage() {
   // được mới có số (endpoint progress/me qua cổng khoá học); khoá không
   // vào được thì probe lỗi và không hiện gì.
   const [progressByCourse, setProgressByCourse] = useState<Record<string, number | null>>({});
+  // Pref thẻ khoá của chính người dùng (DASH1): màu + biệt danh chỉ mình
+  // thấy; khoá không thuộc về người dùng (không ghi danh/không dạy) thì
+  // server từ chối khi lưu, lỗi được editor tự hiển thị.
+  const [cardPrefs, setCardPrefs] = useState<Map<string, CourseCardPrefView>>(new Map());
+  const [editingCardCourseId, setEditingCardCourseId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [catName, setCatName] = useState('');
@@ -58,6 +70,20 @@ export function CoursesPage() {
       .catch(() => setMessage(t('coursesLoadFailed')))
       .finally(() => setLoading(false));
   }, [reload, t]);
+
+  // Nạp pref thẻ khoá của chính người dùng một lần khi mở trang; lỗi thì
+  // lặng lẽ dùng tên gốc (pref là lớp phủ cá nhân, không chặn trang).
+  useEffect(() => {
+    let alive = true;
+    void fetchCourseCardPrefs()
+      .then((prefs) => {
+        if (alive) setCardPrefs(prefs);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Nạp % tiến độ của từng khoá sau khi có danh sách: probe độc lập
   // từng khoá, lỗi (chưa ghi danh/không quyền) thì bỏ qua lặng lẽ.
@@ -106,19 +132,54 @@ export function CoursesPage() {
               <span>{node.name}</span>
               {nodeCourses.length > 0 ? (
                 <ul className="ml-4 list-disc">
-                  {nodeCourses.map((c) => (
-                    <li key={c.id}>
-                      <Link to={`/courses/${c.id}`}>
-                        {c.fullName} ({c.shortName})
-                      </Link>
-                      {!c.visible && <span> {t('hiddenSuffix')}</span>}
-                      {progressByCourse[c.id] != null ? (
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          {t('courseProgressLabel', { percent: progressByCourse[c.id]! })}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
+                  {nodeCourses.map((c) => {
+                    const pref = cardPrefs.get(c.id);
+                    return (
+                      <li key={c.id}>
+                        {pref?.color ? (
+                          <span
+                            className="mr-1 inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: COURSE_CARD_COLOR_HEX[pref.color] }}
+                            data-testid="course-card-color-dot"
+                          />
+                        ) : null}
+                        <Link to={`/courses/${c.id}`} title={c.fullName}>
+                          {displayCourseName(pref, c.fullName)} ({c.shortName})
+                        </Link>
+                        {!c.visible && <span> {t('hiddenSuffix')}</span>}
+                        {progressByCourse[c.id] != null ? (
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            {t('courseProgressLabel', { percent: progressByCourse[c.id]! })}
+                          </span>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-1"
+                          data-testid="course-card-edit"
+                          onClick={() => setEditingCardCourseId(editingCardCourseId === c.id ? null : c.id)}
+                        >
+                          {t('cardPrefEdit')}
+                        </Button>
+                        {editingCardCourseId === c.id && (
+                          <CourseCardPrefEditor
+                            courseId={c.id}
+                            initial={pref}
+                            onSaved={(saved) => {
+                              setCardPrefs((prev) => {
+                                const next = new Map(prev);
+                                if (saved.color === null && saved.nickname === null) next.delete(c.id);
+                                else next.set(c.id, saved);
+                                return next;
+                              });
+                              setEditingCardCourseId(null);
+                            }}
+                            onCancel={() => setEditingCardCourseId(null)}
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
               {node.children.length > 0 && renderTree(node.children, true)}
