@@ -135,6 +135,24 @@ export class PermissionEvaluator {
   }
 
   /**
+   * Capability check over REAL role assignments ANYWHERE: đạt khi user
+   * giữ capability từ một gán vai THẬT ở ít nhất một context (vai mặc
+   * định ảo user/guest không bao giờ tính). Dùng cho các cổng kiểu "được
+   * dùng không gian cá nhân của mình" (vd kho học liệu cá nhân): sự kiện
+   * quyết định là user là nhân sự giảng dạy Ở ĐÂU ĐÓ, không phải có vai
+   * tại chính context cá nhân (nơi theo thiết kế không ai được gán vai).
+   */
+  async hasCapabilityFromRealAssignmentAnywhere(userId: string, capability: string): Promise<boolean> {
+    if (await this.isSiteAdmin(userId)) return true;
+    const assignments = await this.repo.listAssignments({ userId });
+    const contextIds = [...new Set(assignments.map((a) => a.contextId))];
+    for (const contextId of contextIds) {
+      if (await this.hasCapabilityFromRealAssignment(userId, capability, contextId)) return true;
+    }
+    return false;
+  }
+
+  /**
    * Như hasCapability nhưng ném Forbidden (access.forbidden) khi không đạt — cổng chặn chuẩn của các service.
    */
   async requireCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<void> {
