@@ -19,11 +19,12 @@ const BATCH_SIZE = 100;
  * Các loại sự kiện nghiệp vụ được biến thành NOTIFICATION qua consumer
  * này (lát N1, issue #49): ba provider từng là công tắc giả
  * (grade_updated / course_completed / enrol_expiry_warning) + tin nhắn
- * mới (message_new). Sự kiện do CẢ API lẫn worker phát (chấm lại điểm,
+ * mới (message_new) + nhắc hạn nộp (activity_due_soon, lát N5 issue
+ * #50). Sự kiện do CẢ API lẫn worker phát (chấm lại điểm,
  * quét hết hạn ghi danh chạy ở worker) nên đường nối phải đọc outbox
  * đã commit thay vì lắng nghe EventEmitter trong một tiến trình.
  */
-const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent'] as const;
+const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent', 'activity_due_reminder'] as const;
 
 /** Các loại grade item KHÔNG sinh thông báo điểm: tổng khoá, tổng hạng mục, item công thức (điểm thành phần đã báo riêng). */
 const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
@@ -47,6 +48,10 @@ const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
  *    conversation — còn một thông báo message_new chưa đọc của
  *    conversation đó thì không sinh thêm. Nội dung tin nhắn không
  *    bao giờ nằm trong thông báo.
+ *  - `activity_due_reminder` (worker activity-due-reminders phát khi
+ *    một hoạt động lọt vào cửa sổ 24 giờ trước hạn nộp, lát N5 issue
+ *    #50; đã chống trùng ở phía phát theo (học sinh, hoạt động, mốc
+ *    hạn)) → thông báo `activity_due_soon`.
  *
  * Cơ chế quét/watermark theo đúng tiền lệ MessagingOutboxConsumer:
  * watermark riêng lưu Redis (khoá theo tên database), chỉ tiến sau
@@ -173,6 +178,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     if (type === 'course_completed') return this.handleCourseCompleted(payload);
     if (type === 'enrol_expiry_warning') return this.handleEnrolExpiryWarning(payload);
     if (type === 'message_sent') return this.handleMessageSent(payload);
+    if (type === 'activity_due_reminder') return this.handleActivityDueReminder(payload);
   }
 
   private async handleGradeUpdated(payload: Record<string, unknown>): Promise<void> {
@@ -220,6 +226,26 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       subject: this.t('platform.enrolExpiryWarningSubject', { course: courseName }),
       body: this.t('platform.enrolExpiryWarningBody', { course: courseName, date: dateText }),
       contextUrl: `/courses/${courseId}`,
+    });
+  }
+
+  private async handleActivityDueReminder(payload: Record<string, unknown>): Promise<void> {
+    const userId = typeof payload.userId === 'string' ? payload.userId : null;
+    const courseId = typeof payload.courseId === 'string' ? payload.courseId : null;
+    const quizId = typeof payload.quizId === 'string' ? payload.quizId : null;
+    const timeClose = typeof payload.timeClose === 'string' ? payload.timeClose : null;
+    if (!userId || !courseId || !quizId || !timeClose) return;
+    const courseName = (await this.repo.getCourseFullName(courseId)) ?? '';
+    const activityName = typeof payload.activityName === 'string' && payload.activityName ? payload.activityName : courseName;
+    const date = new Date(timeClose);
+    const dateText = Number.isNaN(date.getTime()) ? timeClose : date.toLocaleString('vi-VN');
+    // Nội dung chỉ gồm tên hoạt động + khoá + mốc hạn (dữ kiện học
+    // sinh tự thấy trong khoá) — an toàn cho mọi kênh như tiền lệ
+    // enrol_expiry_warning, không cần bản tối thiểu hoá riêng.
+    await this.messaging.notify(userId, 'activity_due_soon', {
+      subject: this.t('platform.activityDueSoonSubject', { activity: activityName }),
+      body: this.t('platform.activityDueSoonBody', { activity: activityName, course: courseName, datetime: dateText }),
+      contextUrl: `/courses/${courseId}/quizzes/${quizId}`,
     });
   }
 

@@ -79,6 +79,8 @@ export const userEnrolments = pgTable('user_enrolments', {
 export const courseModules = pgTable('course_modules', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   course: uuid('course').notNull(),
+  visible: boolean('visible').notNull().default(true),
+  deletionInProgress: boolean('deletion_in_progress').notNull().default(false),
 },
   (table) => [
       index('course_modules_course_idx').on(table.course),
@@ -691,6 +693,29 @@ export const questionVersions = pgTable('question_versions', {
   questionId: uuid('question_id').notNull(),
   version: integer('version').notNull(),
 }, (t) => [index('question_versions_question_id_idx').on(t.questionId)]);
+
+/**
+ * Worker view of the quiz tables (canonical schema in apps/api quiz
+ * module) — needed by the activity-due-reminder processor (lát N5,
+ * issue #50) to find quizzes whose time_close falls inside the
+ * reminder window and the attempts that already count as submitted.
+ * state: inprogress | needsgrading | finished.
+ */
+export const quizzes = pgTable('quizzes', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  course: uuid('course').notNull(),
+  cmId: uuid('cm_id'),
+  name: text('name').notNull(),
+  timeClose: timestamp('time_close', { withTimezone: true }),
+}, (t) => [index('quizzes_course_idx').on(t.course)]);
+
+export const quizAttempts = pgTable('quiz_attempts', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  quizId: uuid('quiz_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  state: text('state').notNull().default('inprogress'),
+  preview: boolean('preview').notNull().default(false),
+}, (t) => [index('quiz_attempts_quiz_id_idx').on(t.quizId), index('quiz_attempts_user_id_idx').on(t.userId)]);
 
 /** Các bảng phụ trợ platform services cho worker: sections, id mappings, roles/assignments. */
 export const courseSections = pgTable('course_sections', {
