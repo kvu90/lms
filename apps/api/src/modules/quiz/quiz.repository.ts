@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { quizAttempts, quizSlots, quizzes } from '../../db/schema';
+import { quizAttempts, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
 
 export type QuizRow = typeof quizzes.$inferSelect;
 export type QuizSlotRow = typeof quizSlots.$inferSelect;
 export type QuizAttemptRow = typeof quizAttempts.$inferSelect;
+export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -81,6 +82,19 @@ export class QuizRepository {
    */
   async deleteSlot(id: string, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).delete(quizSlots).where(eq(quizSlots.id, id));
+  }
+  /**
+   * Ghi nhật ký nâng version đã ghim của slot (QB-3).
+   */
+  async insertSlotVersionEvent(v: typeof quizSlotVersionEvents.$inferInsert): Promise<QuizSlotVersionEventRow> {
+    const [row] = await this.db.insert(quizSlotVersionEvents).values(v).returning(); return row!;
+  }
+  /**
+   * Nhật ký nâng version của một slot theo thời gian.
+   */
+  async listSlotVersionEvents(slotId: string): Promise<QuizSlotVersionEventRow[]> {
+    return this.db.select().from(quizSlotVersionEvents)
+      .where(eq(quizSlotVersionEvents.slotId, slotId)).orderBy(asc(quizSlotVersionEvents.createdAt));
   }
 
   /**

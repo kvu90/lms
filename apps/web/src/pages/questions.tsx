@@ -20,6 +20,7 @@ import {
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import {
   Select,
   SelectContent,
@@ -89,6 +90,49 @@ export interface CurriculumTreeNode {
   title: string;
   outcomes: { id: string; content: string }[];
   children: CurriculumTreeNode[];
+}
+
+/** Bank câu hỏi như API lớp bank trả về (feat Ngân hàng câu hỏi chung, issue #70). */
+interface BankLite {
+  id: string;
+  name: string;
+  scope: string;
+  defaultCategoryId: string | null;
+  categoryIds: string[];
+  capabilities: { use: boolean; add: boolean; moderate: boolean; copy: boolean };
+}
+
+/** Dòng ghi công của một câu copy (GET /questions/:id/attribution). */
+interface AttributionLite {
+  originalAuthorName: string | null;
+  sourceBankName: string | null;
+}
+
+/** Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery). */
+interface DiscoveryItemLite {
+  questionId: string;
+  name: string;
+  qtype: string;
+  status: string;
+  bankId: string;
+  bankName: string;
+  bankScope: string;
+  authorName: string | null;
+  originalAuthorName: string | null;
+  useCount: number;
+  copyCount: number;
+}
+
+/** Một đề xuất đóng góp trong hàng chờ duyệt (QB-4). */
+interface ContributionLite {
+  id: string;
+  questionId: string;
+  questionName: string | null;
+  proposerName: string | null;
+  status: string;
+  mode: string;
+  note: string;
+  nearDuplicateOf: string | null;
 }
 
 /** Một dòng đáp án đang soạn trong form (fraction giữ dạng chuỗi để nhập liệu tự do). */
@@ -326,6 +370,21 @@ export function QuestionsPage() {
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
   const [loading, setLoading] = useState(true);
+  // Lớp bank của feat Ngân hàng câu hỏi chung (issue #70): khu vực ngân
+  // hàng riêng của giáo viên + khu vực Ngân hàng hệ thống (bank chung).
+  const [banks, setBanks] = useState<BankLite[]>([]);
+  const [myOpen, setMyOpen] = useState(false);
+  const [systemOpen, setSystemOpen] = useState(false);
+  const [myQuestions, setMyQuestions] = useState<QuestionView[]>([]);
+  const [attributions, setAttributions] = useState<Record<string, AttributionLite>>({});
+  const [discBankId, setDiscBankId] = useState('');
+  const [discKeyword, setDiscKeyword] = useState('');
+  const [discQtype, setDiscQtype] = useState('');
+  const [discResults, setDiscResults] = useState<DiscoveryItemLite[]>([]);
+  const [contributions, setContributions] = useState<ContributionLite[]>([]);
+  const [previewItem, setPreviewItem] = useState<QuestionView | null>(null);
+  const [proposeQuestionId, setProposeQuestionId] = useState('');
+  const [proposeBankId, setProposeBankId] = useState('');
 
   const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
@@ -363,6 +422,171 @@ export function QuestionsPage() {
       .catch(() => setMessage(t('questionBankLoadFailed')))
       .finally(() => setLoading(false));
   }, [reload, perms.ready, perms.canUseQuestionBank]);
+
+  const personalBank = banks.find((b) => b.scope === 'personal');
+  const sharedBanks = banks.filter((b) => b.scope !== 'personal');
+
+  const loadAttributionsFor = useCallback(async (views: QuestionView[]) => {
+    const derived = views.filter(
+      (v) => (v.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId,
+    );
+    for (const v of derived) {
+      if (attributions[v.question.id]) continue;
+      try {
+        const a = await apiJson<AttributionLite>(`/api/v1/questions/${v.question.id}/attribution`);
+        setAttributions((prev) => ({ ...prev, [v.question.id]: a }));
+      } catch {
+        // Không có dòng ghi công thì thôi — không chặn danh sách.
+      }
+    }
+  }, [attributions]);
+
+  const loadMyQuestions = useCallback(async (bankList: BankLite[]) => {
+    const mine = bankList.find((b) => b.scope === 'personal');
+    if (!mine) return;
+    const all: QuestionView[] = [];
+    for (const categoryId of mine.categoryIds) {
+      try {
+        const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
+        all.push(...rows);
+      } catch {
+        // Bỏ qua category lỗi.
+      }
+    }
+    setMyQuestions(all);
+    void loadAttributionsFor(all);
+  }, [loadAttributionsFor]);
+
+  const loadBanks = useCallback(async () => {
+    try {
+      const rows = await apiJson<BankLite[]>('/api/v1/question-banks');
+      setBanks(rows);
+      await loadMyQuestions(rows);
+    } catch {
+      setBanks([]);
+    }
+  }, [loadMyQuestions]);
+
+  useEffect(() => {
+    void loadBanks();
+  }, [loadBanks]);
+
+  useEffect(() => {
+    void loadAttributionsFor(questions);
+  }, [questions, loadAttributionsFor]);
+
+  async function runDiscovery() {
+    try {
+      const params = new URLSearchParams();
+      if (discBankId) params.set('bankId', discBankId);
+      if (discKeyword.trim()) params.set('keyword', discKeyword.trim());
+      if (discQtype) params.set('qtype', discQtype);
+      const rows = await apiJson<DiscoveryItemLite[]>(`/api/v1/questions/discovery?${params.toString()}`);
+      setDiscResults(rows);
+    } catch {
+      setDiscResults([]);
+    }
+  }
+
+  async function loadContributions(bankId: string) {
+    try {
+      const rows = await apiJson<ContributionLite[]>(`/api/v1/question-banks/${bankId}/contributions?status=pending`);
+      setContributions(rows);
+    } catch {
+      setContributions([]);
+    }
+  }
+
+  /** Copy một câu về ngân hàng cá nhân của mình (cầu nối hai khu vực). */
+  async function copyToMyBank(questionId: string) {
+    try {
+      await apiJson(`/api/v1/questions/${questionId}/copy`, { method: 'POST', body: '{}' });
+      setMessage(t('copiedToMyBank'));
+      await loadBanks();
+    } catch {
+      setMessage(t('copyFailed'));
+    }
+  }
+
+  /** Đề xuất đóng góp một câu (của mình) lên một bank chung. */
+  async function proposeToBank(questionId: string, targetBankId: string) {
+    if (!targetBankId) return;
+    try {
+      await apiJson(`/api/v1/question-banks/${targetBankId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ questionId }),
+      });
+      setMessage(t('proposedOk'));
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+  async function reviewContribution(bankId: string, contributionId: string, approve: boolean) {
+    try {
+      if (approve) {
+        await apiJson(`/api/v1/question-banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
+      } else {
+        const reason = window.prompt(t('contributionReject')) ?? '';
+        if (!reason.trim()) return;
+        await apiJson(`/api/v1/question-banks/${bankId}/contributions/${contributionId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+      }
+      await loadContributions(bankId);
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+  /** Xoá vật lý một câu của mình (API chặn khi câu đã được dùng — khi đó hãy rút câu). */
+  async function deleteMyQuestion(questionId: string) {
+    if (!window.confirm(t('deleteQuestionConfirm'))) return;
+    try {
+      await apiJson(`/api/v1/questions/${questionId}`, { method: 'DELETE' });
+      setMessage(t('questionDeleted'));
+      await loadBanks();
+      await loadQuestions(qCategory).catch(() => undefined);
+    } catch {
+      setMessage(t('deleteFailed'));
+    }
+  }
+
+  /** Rút / hoàn rút một câu khỏi bank của nó. */
+  async function toggleWithdraw(view: QuestionView) {
+    const status = (view.entry as { status?: string }).status;
+    try {
+      if (status === 'hidden') {
+        await apiJson(`/api/v1/questions/${view.question.id}/restore`, { method: 'POST', body: '{}' });
+        setMessage(t('questionRestored'));
+      } else {
+        const reason = window.prompt(t('withdrawQuestion')) ?? '';
+        if (!reason.trim()) return;
+        await apiJson(`/api/v1/questions/${view.question.id}/withdraw`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+        setMessage(t('questionWithdrawn'));
+      }
+      await loadBanks();
+      await loadQuestions(qCategory).catch(() => undefined);
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+
+  /** "Thêm mới" trong collapse ngân hàng riêng: mở màn soạn riêng (§9) với category mặc định của bank cá nhân. */
+  function addNewMine() {
+    if (!personalBank?.defaultCategoryId) return;
+    navigate(`/questions/new?category=${personalBank.defaultCategoryId}`);
+  }
+
+  /** Sửa một câu trong ngân hàng riêng: mở màn sửa riêng của câu đó. */
+  function editMine(view: QuestionView) {
+    navigate(`/questions/${view.question.id}/edit?category=${view.question.category}`);
+  }
 
   async function submitStimulus(event: FormEvent) {
     event.preventDefault();
@@ -482,7 +706,25 @@ export function QuestionsPage() {
     {
       id: 'name',
       header: t('name'),
-      cell: (view) => view.question.name,
+      cell: (view) => {
+        // Dòng ghi công KHÔNG tắt được cho câu copy (QB-2): hiện ngay
+        // dưới tên câu khi đã nạp được attribution; câu đã rút có nhãn.
+        const a = attributions[view.question.id];
+        const isCopy = Boolean((view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId);
+        return (
+          <span>
+            {view.question.name}
+            {(view.entry as { status?: string }).status === 'hidden' ? (
+              <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
+            ) : null}
+            {isCopy && a ? (
+              <span className="block text-xs text-muted-foreground">
+                {t('copiedFromLine', { author: a.originalAuthorName ?? '—', bank: a.sourceBankName ?? '—' })}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
       sortValue: (view) => view.question.name,
       filterValue: (view) => view.question.name,
     },
@@ -538,10 +780,26 @@ export function QuestionsPage() {
           <Button type="button" variant="destructive" onClick={() => void deleteQuestion(view)}>
             {t('deleteAction')}
           </Button>
+          <Button type="button" variant="outline" onClick={() => void copyToMyBank(view.question.id)}>
+            {t('copyToMyBank')}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void toggleWithdraw(view)}>
+            {(view.entry as { status?: string }).status === 'hidden' ? t('restoreQuestion') : t('withdrawQuestion')}
+          </Button>
         </span>
       ),
     },
   ];
+
+  /** Xem trước một câu trong trang khám phá ngân hàng chung. */
+  async function previewDiscoveryItem(questionId: string) {
+    try {
+      const view = await apiJson<QuestionView>(`/api/v1/questions/${questionId}`);
+      setPreviewItem(view);
+    } catch {
+      setPreviewItem(null);
+    }
+  }
 
   // Chặn trang theo vai (issue #55 mục 1): sidebar đã ẩn mục điều hướng
   // với vai không có capability ngân hàng, trang chặn nốt khi vào thẳng
@@ -587,6 +845,245 @@ export function QuestionsPage() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
+      {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
+          tách hẳn khỏi Ngân hàng hệ thống; mở collapse là danh sách câu
+          của chính giáo viên + Thêm mới ngay trong collapse (§9). */}
+      <Card>
+        <CardHeader>
+          <button type="button" aria-expanded={myOpen} onClick={() => setMyOpen((v) => !v)} className="text-left">
+            <CardTitle>{t('myQuestionBank')}</CardTitle>
+            <CardDescription>{t('myQuestionBankDescription')}</CardDescription>
+          </button>
+        </CardHeader>
+        {myOpen && (
+          <CardContent className="space-y-4">
+            <Button type="button" onClick={addNewMine} disabled={!personalBank?.defaultCategoryId}>
+              {t('addNew')}
+            </Button>
+            {myQuestions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {myQuestions.map((view) => {
+                  const a = attributions[view.question.id];
+                  const isCopy = Boolean(
+                    (view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId,
+                  );
+                  return (
+                    <li key={view.question.id} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        {view.question.name}
+                        {(view.entry as { status?: string }).status === 'hidden' ? (
+                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
+                        ) : null}
+                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{view.entry.latestVersion}</span>
+                        {isCopy && a ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {t('copiedFromLine', { author: a.originalAuthorName ?? '—', bank: a.sourceBankName ?? '—' })}
+                          </span>
+                        ) : null}
+                      </span>
+                      <Button type="button" variant="outline" onClick={() => editMine(view)}>
+                        {t('editRow')}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => void toggleWithdraw(view)}>
+                        {(view.entry as { status?: string }).status === 'hidden' ? t('restoreQuestion') : t('withdrawQuestion')}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => void deleteMyQuestion(view.question.id)}>
+                        {t('deleteRow')}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {sharedBanks.length > 0 && myQuestions.length > 0 ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="propose-question">{t('proposeToBank')}</Label>
+                  <select
+                    id="propose-question"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={proposeQuestionId}
+                    onChange={(e) => setProposeQuestionId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {myQuestions.map((view) => (
+                      <option key={view.question.id} value={view.question.id}>
+                        {view.question.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="propose-bank">{t('pickBank')}</Label>
+                  <select
+                    id="propose-bank"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={proposeBankId}
+                    onChange={(e) => setProposeBankId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {sharedBanks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  disabled={!proposeQuestionId || !proposeBankId}
+                  onClick={() => void proposeToBank(proposeQuestionId, proposeBankId)}
+                >
+                  {t('propose')}
+                </Button>
+              </div>
+            ) : null}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
+          (câu hỏi / đề / ma trận). Feat này dựng ngân hàng câu hỏi chung;
+          đề chung + ma trận chung chừa cấu trúc, chưa thi công. */}
+      <Card>
+        <CardHeader>
+          <button type="button" aria-expanded={systemOpen} onClick={() => setSystemOpen((v) => !v)} className="text-left">
+            <CardTitle>{t('systemBank')}</CardTitle>
+            <CardDescription>{t('systemBankDescription')}</CardDescription>
+          </button>
+        </CardHeader>
+        {systemOpen && (
+          <CardContent className="space-y-6">
+            <section className="space-y-3">
+              <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="disc-bank">{t('pickBank')}</Label>
+                  <select
+                    id="disc-bank"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={discBankId}
+                    onChange={(e) => {
+                      setDiscBankId(e.target.value);
+                      if (e.target.value) void loadContributions(e.target.value);
+                      else setContributions([]);
+                    }}
+                  >
+                    <option value="">{t('allSharedBanks')}</option>
+                    {sharedBanks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="disc-keyword">{t('discoveryKeyword')}</Label>
+                  <Input
+                    id="disc-keyword"
+                    value={discKeyword}
+                    onChange={(e) => setDiscKeyword(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="disc-qtype">{t('questionType')}</Label>
+                  <select
+                    id="disc-qtype"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={discQtype}
+                    onChange={(e) => setDiscQtype(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {QTYPES.map((qtype) => (
+                      <option key={qtype} value={qtype}>
+                        {t(QTYPE_LABEL_KEYS[qtype])}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="button" onClick={() => void runDiscovery()}>
+                  {t('discoverySearch')}
+                </Button>
+              </div>
+              {discResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('discoveryEmpty')}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {discResults.map((item) => (
+                    <li key={item.questionId} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        {item.name}
+                        <span className="block text-xs text-muted-foreground">
+                          {item.bankName} · {item.authorName ?? '—'} · {t('usedTimes', { count: item.useCount })} ·{' '}
+                          {t('copiedTimes', { count: item.copyCount })}
+                        </span>
+                      </span>
+                      <Button type="button" variant="outline" onClick={() => void previewDiscoveryItem(item.questionId)}>
+                        {t('previewQuestion')}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => void copyToMyBank(item.questionId)}>
+                        {t('copyToMyBank')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {previewItem ? (
+                <div className="rounded-md border p-3">
+                  <p className="font-medium">{previewItem.question.name}</p>
+                  <p className="text-sm text-muted-foreground">{plainText(previewItem.latestVersion.questionText)}</p>
+                </div>
+              ) : null}
+              {discBankId ? (
+                <div className="space-y-2">
+                  <h4 className="font-medium">{t('contributionQueue')}</h4>
+                  {contributions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('contributionEmpty')}</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {contributions.map((c) => (
+                        <li key={c.id} className="flex flex-wrap items-center gap-2">
+                          <span className="min-w-0 flex-1">
+                            {c.questionName ?? c.questionId}
+                            <span className="block text-xs text-muted-foreground">
+                              {t('contributionBy', { name: c.proposerName ?? '—' })}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void reviewContribution(discBankId, c.id, true)}
+                          >
+                            {t('contributionApprove')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void reviewContribution(discBankId, c.id, false)}
+                          >
+                            {t('contributionReject')}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+            </section>
+            <section className="space-y-1 opacity-60">
+              <h3 className="font-medium">{t('sharedExamBank')}</h3>
+              <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
+            </section>
+            <section className="space-y-1 opacity-60">
+              <h3 className="font-medium">{t('sharedMatrixBank')}</h3>
+              <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
+            </section>
+          </CardContent>
+        )}
+      </Card>
+
       {/* §9: mỗi danh mục là một mục thu/mở — bấm vào thì hiện danh sách
           câu hỏi của chính danh mục đó ngay dưới. */}
       {categories.map((cat) => {

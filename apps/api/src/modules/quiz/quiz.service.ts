@@ -6,6 +6,7 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { GradesService } from '../grades/grades.service';
+import { QuestionBanksService } from '../questions/question-banks.service';
 import { QuestionsService, type UsageView } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
 import { QuizRepository, type QuizAttemptRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
@@ -128,6 +129,7 @@ export class QuizService {
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly questions: QuestionsService,
+    private readonly banks: QuestionBanksService,
     private readonly grades: GradesService,
     private readonly users: UsersService,
     private readonly outbox: OutboxService,
@@ -166,10 +168,43 @@ export class QuizService {
   }
 
   /**
-   * View của quiz kèm slots và tổng điểm slot.
+   * View của quiz kèm slots và tổng điểm slot. Slot cố định mang thêm
+   * thông tin bank nguồn + kỷ luật version (QB-3): chế độ ghim, version
+   * đang ghim, version ready mới nhất và cờ có bản mới để UI hiển thị
+   * "Câu thuộc Ngân hàng [tên] · đang ghim v[n] · đã có v[m]".
    */
   async quizView(quiz: QuizRow): Promise<QuizView> {
     const slots = await this.repo.listSlots(quiz.id);
+    const slotViews: QuizView['slots'] = [];
+    for (const s of slots) {
+      const base = {
+        id: s.id, quizId: s.quizId, slot: s.slot, page: s.page,
+        questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
+        versionMode: null as 'pinned' | 'follow_latest' | null,
+        pinnedVersion: null as number | null,
+        latestVersion: null as number | null,
+        hasNewerVersion: false,
+        bankId: null as string | null,
+        bankName: null as string | null,
+        bankScope: null as string | null,
+        questionStatus: null as string | null,
+      };
+      if (s.questionId) {
+        const info = await this.banks.getQuestionBankInfo(s.questionId);
+        base.versionMode = s.versionMode === 'pinned' ? 'pinned' : 'follow_latest';
+        base.pinnedVersion = s.versionMode === 'pinned' ? s.pinnedVersionNumber : null;
+        base.latestVersion = info?.latestReadyVersionNumber ?? info?.latestVersion ?? null;
+        base.hasNewerVersion = s.versionMode === 'pinned'
+          && s.pinnedVersionNumber !== null
+          && base.latestVersion !== null
+          && base.latestVersion > s.pinnedVersionNumber;
+        base.bankId = info?.bank?.id ?? null;
+        base.bankName = info?.bank?.name ?? null;
+        base.bankScope = info?.bank?.scope ?? null;
+        base.questionStatus = info?.entryStatus ?? null;
+      }
+      slotViews.push(base);
+    }
     return {
       id: quiz.id,
       courseId: quiz.course,
@@ -183,10 +218,7 @@ export class QuizService {
       gradeMethod: (['highest', 'average', 'first', 'last'].includes(quiz.gradeMethod) ? quiz.gradeMethod : 'highest') as QuizView['gradeMethod'],
       grade: quiz.grade,
       shuffleAnswers: quiz.shuffleAnswers,
-      slots: slots.map((s) => ({
-        id: s.id, quizId: s.quizId, slot: s.slot, page: s.page,
-        questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
-      })),
+      slots: slotViews,
       sumGrades: slots.reduce((sum, s) => sum + s.maxMark, 0),
     };
   }
@@ -351,18 +383,41 @@ export class QuizService {
    * Thêm slot vào cuối đề (quiz:manage): câu cố định (maxMark mặc
    * định lấy từ default_mark hiện tại của câu) hoặc slot ngẫu nhiên theo
    * category (maxMark phải được cho hoặc mặc định 1).
+   *
+   * Kỷ luật version (QB-3): câu từ bank tổ/trường MẶC ĐỊNH ghim cứng
+   * (pinned) vào version hiện tại; `follow_latest` phải được chọn tường
+   * minh. Câu đã rút (hidden) không thêm mới vào đề được.
    */
-  async addSlot(actorId: string, quizId: string, input: { questionId?: string; categoryId?: string; maxMark?: number; page?: number }): Promise<QuizView> {
+  async addSlot(actorId: string, quizId: string, input: { questionId?: string; categoryId?: string; maxMark?: number; page?: number; versionMode?: string }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     if (!!input.questionId === !!input.categoryId) {
       throw new BadRequestException({ message: 'A slot needs exactly one of questionId (fixed) or categoryId (random)', code: 'quiz.slot_bad_source' });
     }
+    if (input.versionMode !== undefined && input.versionMode !== 'pinned' && input.versionMode !== 'follow_latest') {
+      throw new BadRequestException({ message: `Unknown slot version mode ${input.versionMode}`, code: 'quiz.slot_bad_version_mode' });
+    }
     const slots = await this.repo.listSlots(quiz.id);
     let maxMark = input.maxMark;
+    let versionMode = 'follow_latest';
+    let pinnedVersionId: string | null = null;
+    let pinnedVersionNumber: number | null = null;
     if (input.questionId) {
       const view = await this.questions.getQuestion(input.questionId);
       maxMark = maxMark ?? view.latestVersion.defaultMark;
+      const info = await this.banks.getQuestionBankInfo(input.questionId);
+      if (info?.entryStatus === 'hidden') {
+        throw new BadRequestException({ message: 'Question has been withdrawn from its bank and cannot be added to a quiz', code: 'quiz.slot_question_withdrawn' });
+      }
+      // Mặc định pinned chỉ khi câu thật sự nằm trong bank tổ/trường
+      // (category gắn bank tường minh); category cũ suy bank theo
+      // context giữ hành vi follow_latest như trước feat.
+      const sharedBank = info?.bankExplicit && info.bank && (info.bank.scope === 'team' || info.bank.scope === 'school');
+      versionMode = input.versionMode ?? (sharedBank ? 'pinned' : 'follow_latest');
+      if (versionMode === 'pinned') {
+        pinnedVersionId = info?.latestReadyVersionId ?? info?.latestVersionId ?? view.latestVersion.id;
+        pinnedVersionNumber = info?.latestReadyVersionNumber ?? info?.latestVersion ?? view.latestVersion.version;
+      }
     } else {
       await this.questions.getCategory(input.categoryId!);
       maxMark = maxMark ?? 1;
@@ -372,6 +427,7 @@ export class QuizService {
     await this.repo.insertSlot({
       quizId: quiz.id, slot: nextSlot, page: input.page ?? lastPage,
       questionId: input.questionId ?? null, categoryId: input.categoryId ?? null, maxMark,
+      versionMode, pinnedVersionId, pinnedVersionNumber,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_added', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
     return this.quizView(quiz);
@@ -382,7 +438,7 @@ export class QuizService {
    * đổi vị trí là hoán đổi số slot với slot đang giữ số đó (giữ bất biến
    * duy nhất của cặp quiz+slot).
    */
-  async updateSlot(actorId: string, quizId: string, slotId: string, input: { maxMark?: number; page?: number; slot?: number }): Promise<QuizView> {
+  async updateSlot(actorId: string, quizId: string, slotId: string, input: { maxMark?: number; page?: number; slot?: number; versionMode?: string }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     const slot = await this.repo.getSlot(slotId);
@@ -390,6 +446,25 @@ export class QuizService {
     const patch: Partial<QuizSlotRow> = {};
     if (input.maxMark !== undefined) patch.maxMark = input.maxMark;
     if (input.page !== undefined) patch.page = input.page;
+    if (input.versionMode !== undefined) {
+      // Đổi chế độ version (QB-3): chuyển sang pinned thì ghim vào
+      // version ready hiện tại; chuyển về follow_latest thì bỏ ghim.
+      if (input.versionMode !== 'pinned' && input.versionMode !== 'follow_latest') {
+        throw new BadRequestException({ message: `Unknown slot version mode ${input.versionMode}`, code: 'quiz.slot_bad_version_mode' });
+      }
+      if (!slot.questionId) {
+        throw new BadRequestException({ message: 'Random slots do not carry a version mode', code: 'quiz.slot_random_no_version_mode' });
+      }
+      patch.versionMode = input.versionMode;
+      if (input.versionMode === 'pinned') {
+        const info = await this.banks.getQuestionBankInfo(slot.questionId);
+        patch.pinnedVersionId = info?.latestReadyVersionId ?? info?.latestVersionId ?? null;
+        patch.pinnedVersionNumber = info?.latestReadyVersionNumber ?? info?.latestVersion ?? null;
+      } else {
+        patch.pinnedVersionId = null;
+        patch.pinnedVersionNumber = null;
+      }
+    }
     if (input.slot !== undefined && input.slot !== slot.slot) {
       const slots = await this.repo.listSlots(quiz.id);
       const other = slots.find((s) => s.slot === input.slot);
@@ -401,6 +476,39 @@ export class QuizService {
     }
     if (Object.keys(patch).length) await this.repo.updateSlot(slot.id, patch);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_updated', payload: { quizId: quiz.id, slotId, courseId: quiz.course, actorId } });
+    return this.quizView(quiz);
+  }
+
+  /**
+   * Nâng version đã ghim của một slot lên version ready mới nhất (QB-3):
+   * chỉ áp dụng cho slot pinned; ghi nhật ký quiz_slot_version_events +
+   * sự kiện outbox (ai nâng, từ version nào lên version nào, khi nào).
+   * Lượt làm đã bắt đầu không bị ảnh hưởng — chúng giữ version đã pin
+   * trong engine.
+   */
+  async upgradeSlotVersion(actorId: string, quizId: string, slotId: string): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    const slot = await this.repo.getSlot(slotId);
+    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
+    if (!slot.questionId || slot.versionMode !== 'pinned') {
+      throw new BadRequestException({ message: 'Only a pinned fixed slot can be upgraded', code: 'quiz.slot_not_pinned' });
+    }
+    const info = await this.banks.getQuestionBankInfo(slot.questionId);
+    const targetId = info?.latestReadyVersionId ?? null;
+    const targetNumber = info?.latestReadyVersionNumber ?? null;
+    if (!info || targetId === null || targetNumber === null || (slot.pinnedVersionNumber !== null && targetNumber <= slot.pinnedVersionNumber)) {
+      throw new BadRequestException({ message: 'The slot already pins the latest ready version', code: 'quiz.slot_no_newer_version' });
+    }
+    await this.repo.updateSlot(slot.id, { pinnedVersionId: targetId, pinnedVersionNumber: targetNumber });
+    await this.repo.insertSlotVersionEvent({
+      quizId: quiz.id, slotId: slot.id, questionId: slot.questionId,
+      fromVersion: slot.pinnedVersionNumber, toVersion: targetNumber, actorId,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'quiz_slot_version_upgraded',
+      payload: { quizId: quiz.id, slotId: slot.id, questionId: slot.questionId, fromVersion: slot.pinnedVersionNumber, toVersion: targetNumber, actorId },
+    });
     return this.quizView(quiz);
   }
 
@@ -516,9 +624,9 @@ export class QuizService {
 
   // --- lượt làm ------------------------------------------------------------------
 
-  /** Chọn câu cho một slot ngẫu nhiên: rút ngẫu nhiên trong category, tránh trùng câu đã chọn trong cùng lượt khi còn lựa chọn. */
+  /** Chọn câu cho một slot ngẫu nhiên: rút ngẫu nhiên trong category, tránh trùng câu đã chọn trong cùng lượt khi còn lựa chọn. Câu đã rút khỏi bank (hidden — QB-3) không bao giờ được rút. */
   private async pickRandomQuestion(categoryId: string, alreadyChosen: Set<string>): Promise<string> {
-    const ids = await this.questions.listQuestionIdsInCategory(categoryId);
+    const ids = await this.questions.listUsableQuestionIdsInCategory(categoryId);
     if (!ids.length) {
       throw new BadRequestException({ message: `Question category ${categoryId} has no questions for a random slot`, code: 'quiz.random_slot_empty' });
     }
@@ -586,7 +694,13 @@ export class QuizService {
     const attemptNumber = existing.length + 1;
     const usage = await this.questions.createUsage(actorId, {
       component: QUIZ_COMPONENT, instanceId: quiz.id, contextId: await this.cmContextId(quiz),
-      slots: effective.map((e) => ({ questionId: e.questionId, maxMark: e.quizSlot.maxMark })),
+      slots: effective.map((e) => ({
+        questionId: e.questionId, maxMark: e.quizSlot.maxMark,
+        // Slot ghim cứng (QB-3) truyền version đã ghim xuống engine;
+        // slot follow_latest / ngẫu nhiên để engine tự phân giải bản
+        // ready mới nhất lúc bắt đầu như hành vi chuẩn.
+        pinnedVersionId: e.quizSlot.versionMode === 'pinned' ? (e.quizSlot.pinnedVersionId ?? undefined) : undefined,
+      })),
     });
     try {
       await this.questions.startUsage(actorId, usage.usage.id);

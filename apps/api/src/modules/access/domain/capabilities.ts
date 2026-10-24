@@ -49,6 +49,16 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'question:add', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:editall', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'question:useall', capType: 'read', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // Ngân hàng câu hỏi chung (feat issue #70, QB-1): copy/share/moderate là
+  // capability MỚI của lớp bank — đối chiếu research: copy theo archetype
+  // manager + editingteacher (kèm teacher thường theo quyết định sản phẩm:
+  // copy về bank cá nhân là thao tác an toàn, đích mới là bản độc lập);
+  // share = đề xuất đóng góp (mọi giáo viên); moderate = duyệt đóng góp /
+  // rút câu ở bank đích — archetype manager, giáo viên tại context khoá
+  // (moderate bank khoá của mình) và vai tổ trưởng gán tại context bank.
+  { name: 'question:copy', capType: 'read', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'question:share', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'question:moderate', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   // Quiz activity (mod_quiz) — capability tại context của course module như db/access.php của Moodle.
   { name: 'quiz:view', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'quiz:attempt', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { student: CAP_ALLOW } },

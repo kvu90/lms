@@ -196,9 +196,11 @@ export class QuestionsService {
    * Tạo category câu hỏi trong context. Context phải TỒN TẠI thật: trước
    * đây context không hợp lệ bị nuốt lặng lẽ về context hệ thống rồi lỗi
    * capability ở đó báo sai nguyên nhân (issue #55 mục 2) — nay trả 400
-   * nói đúng là context không tồn tại.
+   * nói đúng là context không tồn tại. Khi gắn bank (QB-1), context của
+   * category phải chính là context của bank — category sống trong bank
+   * thì quyền quản lý đọc tại context bank như mọi bề mặt bank khác.
    */
-  async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string }): Promise<QCategoryRow> {
+  async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string; bankId?: string }): Promise<QCategoryRow> {
     const ctx = await this.contexts.getContext(input.contextId).catch(() => undefined);
     if (!ctx) {
       throw new BadRequestException({
@@ -207,8 +209,16 @@ export class QuestionsService {
       });
     }
     await this.requireCap(actorId, 'question:managecategory', ctx.id);
+    if (input.bankId !== undefined) {
+      const bank = await this.repo.getBankById(input.bankId);
+      if (!bank) throw new NotFoundException({ message: `Question bank ${input.bankId} not found`, code: 'question.bank_not_found' });
+      if (bank.contextId !== ctx.id) {
+        throw new BadRequestException({ message: 'A category attached to a bank must live in the bank context', code: 'question.category_bank_context_mismatch' });
+      }
+    }
     return this.repo.insertCategory({
       name: input.name, contextId: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
+      bankId: input.bankId ?? null,
       stamp: `qcat-${Date.now().toString(36)}`,
     });
   }
@@ -504,6 +514,15 @@ export class QuestionsService {
     }
   }
 
+  /**
+   * Nhân bản answers + options giữa hai version trong một giao dịch do
+   * caller quản lý — điểm dùng chung cho deep copy của lớp bank (QB-2/QB-4:
+   * copy câu hỏi và duyệt đóng góp tạo version mới từ nội dung version nguồn).
+   */
+  async cloneVersionContentTx(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string): Promise<void> {
+    await this.cloneVersionContent(tx, qtype, fromVersionId, toVersionId);
+  }
+
   /** Dựng options dạng bản ghi phẳng cho view/API từ bảng options của qtype. */
   private async optionsView(qtype: string, versionId: string): Promise<Record<string, unknown> | null> {
     if (qtype === 'multichoice') {
@@ -564,6 +583,8 @@ export class QuestionsService {
    */
   async createQuestion(actorId: string, input: {
     categoryId: string; qtype: string; name: string;
+    /** Nguồn ngoài hệ thống (truy vết nội bộ); vắng thì mặc định 'manual' — giáo viên tự soạn. */
+    sourceKind?: string; sourceRef?: string;
   } & QuestionContentInput): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
     await this.requireCap(actorId, 'question:add', category.contextId);
@@ -574,6 +595,7 @@ export class QuestionsService {
     await this.repo.dbHandle.transaction(async (tx) => {
       const q = await this.repo.insertQuestion({
         category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
+        sourceKind: input.sourceKind ?? 'manual', sourceRef: input.sourceRef ?? null,
       }, tx);
       const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
       const version = await this.repo.insertVersion({
@@ -855,7 +877,7 @@ export class QuestionsService {
    */
   async createUsage(actorId: string, input: {
     component: string; instanceId?: string; contextId?: string; preferredBehaviour?: string;
-    slots: { questionId: string; maxMark?: number }[];
+    slots: { questionId: string; maxMark?: number; pinnedVersionId?: string }[];
   }): Promise<UsageView> {
     const behaviour = input.preferredBehaviour ?? 'deferredfeedback';
     if (!BEHAVIOURS[behaviour]) {
@@ -869,9 +891,16 @@ export class QuestionsService {
     let slot = 1;
     for (const s of input.slots) {
       const view = await this.getQuestion(s.questionId);
+      if (s.pinnedVersionId) {
+        // Slot ghim cứng (QB-3): version mang sẵn trên attempt, startAttempt tôn trọng tuyệt đối.
+        const pinned = await this.repo.getVersion(s.pinnedVersionId);
+        if (!pinned || pinned.questionId !== s.questionId) {
+          throw new BadRequestException({ message: `Pinned version ${s.pinnedVersionId} does not belong to question ${s.questionId}`, code: 'question.pinned_version_mismatch' });
+        }
+      }
       await this.repo.insertAttempt({
         questionUsageId: usage.id, slot: slot++, behaviour,
-        questionId: s.questionId, questionVersionId: null,
+        questionId: s.questionId, questionVersionId: s.pinnedVersionId ?? null,
         maxMark: s.maxMark ?? view.latestVersion.defaultMark,
         questionSummary: extractRichTextPlainText(view.latestVersion.questionText as RichTextDocument), userId: actorId,
         state: 'notstarted',
@@ -888,6 +917,19 @@ export class QuestionsService {
   async listQuestionIdsInCategory(categoryId: string): Promise<string[]> {
     const rows = await this.repo.listQuestionsInCategory(categoryId);
     return rows.map((r) => r.id);
+  }
+  /**
+   * Id câu hỏi còn DÙNG ĐƯỢC trong category (loại câu đã rút — trạng thái
+   * hidden, QB-3): slot ngẫu nhiên của quiz chỉ rút trong tập này.
+   */
+  async listUsableQuestionIdsInCategory(categoryId: string): Promise<string[]> {
+    const rows = await this.repo.listQuestionsInCategory(categoryId);
+    const out: string[] = [];
+    for (const r of rows) {
+      const entry = await this.repo.getEntryByQuestion(r.id);
+      if (entry && entry.status !== 'hidden') out.push(r.id);
+    }
+    return out;
   }
   /**
    * Xoá một usage cùng mọi attempt/step của nó (hoạt động sở hữu usage
@@ -1089,9 +1131,20 @@ export class QuestionsService {
     const attempt = await this.getAttempt(attemptId);
     await this.requireOwnedAttempt(userId, attempt);
     await this.transition(attempt, 'todo');
-    const { entry, latestVersion } = await this.getQuestion(attempt.questionId);
-    void entry;
-    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionVersionId: latestVersion.id, userId: userId });
+    // Kỷ luật version (QB-3): attempt đã mang version ghim cứng từ
+    // createUsage (slot pinned của quiz) thì tôn trọng tuyệt đối; ngược
+    // lại follow_latest — chỉ nhận version `ready` mới nhất (bỏ qua bản
+    // draft ở đầu), không có bản ready nào mới lùi về version mới nhất.
+    let pinnedVersionId = attempt.questionVersionId;
+    if (!pinnedVersionId) {
+      const { entry } = await this.getQuestion(attempt.questionId);
+      const versions = await this.repo.listVersions(entry.id);
+      const ready = versions.filter((v) => v.status === 'ready');
+      const chosen = ready.length ? ready[ready.length - 1]! : versions[versions.length - 1];
+      if (!chosen) throw new NotFoundException({ message: `Question ${attempt.questionId} latest version missing`, code: 'question.version_missing' });
+      pinnedVersionId = chosen.id;
+    }
+    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionVersionId: pinnedVersionId, userId: userId });
     const updated = await this.getAttempt(attempt.id);
     await this.appendStep(updated, userId, 'todo', null);
     const usage = await this.getUsage(attempt.questionUsageId);

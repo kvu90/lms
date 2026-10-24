@@ -83,8 +83,11 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // (Đếm lại trên baseline hợp nhất sau rebase lên main be8002b:
     // 158 bảng tổng, 150 bảng có PK mặc định uuidv7().)
     // + vn_gradebooks, vn_term_results (đợt GB-VN-1 sổ điểm TT 22,
-    // issue #95) → 160 bảng tổng, 152 bảng có PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(152);
+    // issue #95) → 160 bảng tổng, 152 bảng có PK mặc định uuidv7()
+    // + question_banks, question_bank_contributions, quiz_slot_version_events
+    // (feat ngân hàng câu hỏi chung, PR #83) → 163 bảng tổng, 155 bảng có PK
+    // mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(155);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -99,7 +102,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(152);
+    expect(defaults.rows.length).toBe(155);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

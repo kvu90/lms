@@ -739,6 +739,14 @@ CREATE TABLE "question" (
 	"name" text NOT NULL,
 	"created_by" uuid,
 	"modified_by" uuid,
+	"derived_from_question_id" uuid,
+	"derived_from_version_id" uuid,
+	"derived_from_bank_id" uuid,
+	"original_author_id" uuid,
+	"source_kind" text,
+	"source_ref" text,
+	"idnumber" text,
+	"copy_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -794,12 +802,47 @@ CREATE TABLE "question_attempts" (
 	CONSTRAINT "question_attempts_usage_slot_unique" UNIQUE("question_usage_id","slot")
 );
 --> statement-breakpoint
+CREATE TABLE "question_bank_contributions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"question_id" uuid NOT NULL,
+	"target_bank_id" uuid NOT NULL,
+	"target_question_id" uuid,
+	"proposer_id" uuid NOT NULL,
+	"note" text DEFAULT '' NOT NULL,
+	"mode" text DEFAULT 'new' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"content_hash" text DEFAULT '' NOT NULL,
+	"near_duplicate_of" uuid,
+	"reject_reason" text,
+	"reviewer_id" uuid,
+	"result_question_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "question_bank_entries" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"question_category_id" uuid NOT NULL,
 	"question_id" uuid NOT NULL CONSTRAINT "question_bank_entries_question_unique" UNIQUE,
 	"latest_version" integer DEFAULT 1 NOT NULL,
 	"status" text DEFAULT 'ready' NOT NULL,
+	"withdrawn_reason" text,
+	"withdrawn_by" uuid,
+	"withdrawn_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "question_banks" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"name" text NOT NULL,
+	"bank_kind" text DEFAULT 'question' NOT NULL,
+	"scope" text NOT NULL,
+	"owner_id" uuid,
+	"scope_ref_id" uuid,
+	"context_id" uuid NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -808,6 +851,7 @@ CREATE TABLE "question_categories" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"name" text NOT NULL,
 	"context_id" uuid NOT NULL,
+	"bank_id" uuid,
 	"info" text DEFAULT '' NOT NULL,
 	"parent" uuid,
 	"sort_order" integer DEFAULT 0 NOT NULL,
@@ -876,6 +920,17 @@ CREATE TABLE "quiz_attempts" (
 	CONSTRAINT "quiz_attempts_quiz_user_number_unique" UNIQUE("quiz_id","user_id","attempt_number")
 );
 --> statement-breakpoint
+CREATE TABLE "quiz_slot_version_events" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"slot_id" uuid NOT NULL,
+	"question_id" uuid NOT NULL,
+	"from_version" integer,
+	"to_version" integer NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "quiz_slots" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -884,6 +939,9 @@ CREATE TABLE "quiz_slots" (
 	"question_id" uuid,
 	"category_id" uuid,
 	"max_mark" double precision DEFAULT 1 NOT NULL,
+	"version_mode" text DEFAULT 'follow_latest' NOT NULL,
+	"pinned_version_id" uuid,
+	"pinned_version_number" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "quiz_slots_quiz_slot_unique" UNIQUE("quiz_id","slot")
@@ -2043,14 +2101,27 @@ CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> 
 CREATE INDEX "question_category_idx" ON "question" ("category");--> statement-breakpoint
 CREATE INDEX "question_created_by_idx" ON "question" ("created_by");--> statement-breakpoint
 CREATE INDEX "question_modified_by_idx" ON "question" ("modified_by");--> statement-breakpoint
+CREATE INDEX "question_derived_from_idx" ON "question" ("derived_from_question_id");--> statement-breakpoint
 CREATE INDEX "question_answers_question_version_id_idx" ON "question_answers" ("question_version_id");--> statement-breakpoint
 CREATE INDEX "question_attempt_steps_user_id_idx" ON "question_attempt_steps" ("user_id");--> statement-breakpoint
 CREATE INDEX "question_attempts_question_id_idx" ON "question_attempts" ("question_id");--> statement-breakpoint
 CREATE INDEX "question_attempts_question_version_id_idx" ON "question_attempts" ("question_version_id");--> statement-breakpoint
 CREATE INDEX "question_attempts_user_id_idx" ON "question_attempts" ("user_id");--> statement-breakpoint
+CREATE INDEX "question_bank_contributions_target_bank_idx" ON "question_bank_contributions" ("target_bank_id");--> statement-breakpoint
+CREATE INDEX "question_bank_contributions_question_idx" ON "question_bank_contributions" ("question_id");--> statement-breakpoint
+CREATE INDEX "question_bank_contributions_proposer_idx" ON "question_bank_contributions" ("proposer_id");--> statement-breakpoint
+CREATE INDEX "question_bank_contributions_status_idx" ON "question_bank_contributions" ("status");--> statement-breakpoint
 CREATE INDEX "question_bank_entries_question_category_id_idx" ON "question_bank_entries" ("question_category_id");--> statement-breakpoint
+CREATE INDEX "question_banks_scope_idx" ON "question_banks" ("scope");--> statement-breakpoint
+CREATE INDEX "question_banks_kind_idx" ON "question_banks" ("bank_kind");--> statement-breakpoint
+CREATE INDEX "question_banks_owner_id_idx" ON "question_banks" ("owner_id");--> statement-breakpoint
+CREATE INDEX "question_banks_scope_ref_id_idx" ON "question_banks" ("scope_ref_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_personal_owner_kind_unique" ON "question_banks" ("owner_id","bank_kind") WHERE scope = 'personal';--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_scope_ref_kind_unique" ON "question_banks" ("scope","scope_ref_id","bank_kind") WHERE scope_ref_id is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_school_kind_unique" ON "question_banks" ("scope","bank_kind") WHERE scope = 'school';--> statement-breakpoint
 CREATE INDEX "question_categories_context_id_idx" ON "question_categories" ("context_id");--> statement-breakpoint
 CREATE INDEX "question_categories_parent_idx" ON "question_categories" ("parent");--> statement-breakpoint
+CREATE INDEX "question_categories_bank_id_idx" ON "question_categories" ("bank_id");--> statement-breakpoint
 CREATE INDEX "question_truefalse_true_answer_idx" ON "question_truefalse" ("true_answer");--> statement-breakpoint
 CREATE INDEX "question_truefalse_false_answer_idx" ON "question_truefalse" ("false_answer");--> statement-breakpoint
 CREATE INDEX "question_usages_instance_id_idx" ON "question_usages" ("instance_id");--> statement-breakpoint
@@ -2062,6 +2133,8 @@ CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statemen
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
+CREATE INDEX "quiz_slot_version_events_slot_idx" ON "quiz_slot_version_events" ("slot_id");--> statement-breakpoint
+CREATE INDEX "quiz_slot_version_events_quiz_idx" ON "quiz_slot_version_events" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
@@ -2309,8 +2382,11 @@ ALTER TABLE "question_attempt_steps" ADD CONSTRAINT "question_attempt_steps_KOb6
 ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_question_usage_id_question_usages_id_fkey" FOREIGN KEY ("question_usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_attempts" ADD CONSTRAINT "question_attempts_question_version_id_question_versions_id_fkey" FOREIGN KEY ("question_version_id") REFERENCES "question_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "question_bank_contributions" ADD CONSTRAINT "question_bank_contributions_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_bank_contributions" ADD CONSTRAINT "question_bank_contributions_MgHALFjkbgfv_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_BhJIQCl6jHum_fkey" FOREIGN KEY ("question_category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_categories" ADD CONSTRAINT "question_categories_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_VREOpGcldK6H_fkey" FOREIGN KEY ("question_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_true_answer_question_answers_id_fkey" FOREIGN KEY ("true_answer") REFERENCES "question_answers"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_false_answer_question_answers_id_fkey" FOREIGN KEY ("false_answer") REFERENCES "question_answers"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2320,6 +2396,8 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_st
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_slot_id_quiz_slots_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "quiz_slots"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint

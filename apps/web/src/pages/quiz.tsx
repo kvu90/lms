@@ -73,6 +73,8 @@ export function QuizPage() {
 
   // Dựng đề: ngân hàng câu hỏi + lựa chọn đang soạn.
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
+  /** Danh mục đã tải xong hay chưa — hai form dựng đề chỉ render khi đã có danh sách, để ô chọn danh mục không bao giờ mở ra rỗng rồi đua với lượt tải (điểm chặn 5, PR #83). */
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [bankQuestions, setBankQuestions] = useState<QuestionView[]>([]);
   const [pickCategoryId, setPickCategoryId] = useState('');
   const [pickQuestionId, setPickQuestionId] = useState('');
@@ -120,7 +122,8 @@ export function QuizPage() {
     if (!data?.permissions.manage) return;
     void apiJson<QuestionCategory[]>('/api/v1/questions/categories')
       .then(setCategories)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setCategoriesLoaded(true));
   }, [data?.permissions.manage]);
 
   useEffect(() => {
@@ -322,7 +325,32 @@ export function QuizPage() {
                     <span>
                       {t('quizSlotLine', { slot: s.slot, page: s.page })}{' '}
                       {s.questionId ? (slotNames[s.id] ?? t('quizSlotFixed')) : t('quizSlotRandom')}
+                      {s.bankName ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {t('slotBankLine', { bank: s.bankName })}
+                          {s.versionMode === 'pinned' && s.pinnedVersion !== null
+                            ? ` · ${t('slotPinnedLine', { version: s.pinnedVersion })}`
+                            : ` · ${t('slotFollowLatest')}`}
+                          {s.hasNewerVersion && s.latestVersion !== null ? ` · ${t('slotHasNewerLine', { version: s.latestVersion })}` : ''}
+                          {s.questionStatus === 'hidden' ? ` · ${t('slotQuestionWithdrawn')}` : ''}
+                        </span>
+                      ) : null}
                     </span>
+                    {s.hasNewerVersion && s.latestVersion !== null ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void act(() =>
+                            apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}/upgrade-version`, { method: 'POST', body: '{}' }),
+                          )
+                        }
+                      >
+                        {t('slotUpgradeVersion', { version: s.latestVersion })}
+                      </Button>
+                    ) : null}
                     <Label htmlFor={`slot-mark-${s.id}`}>{t('quizSlotMark')}</Label>
                     <Input
                       id={`slot-mark-${s.id}`}
@@ -394,7 +422,7 @@ export function QuizPage() {
                 {quiz.slots.length === 0 ? <li className="text-sm text-muted-foreground">{t('quizNoQuestions')}</li> : null}
               </ul>
 
-              <form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
+              {categoriesLoaded && (<form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddFixedSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
@@ -440,9 +468,9 @@ export function QuizPage() {
                     {t('quizAddSlot')}
                   </Button>
                 </div>
-              </form>
+              </form>)}
 
-              <form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
+              {categoriesLoaded && (<form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddRandomSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
@@ -469,7 +497,7 @@ export function QuizPage() {
                     {t('quizAddRandomSubmit')}
                   </Button>
                 </div>
-              </form>
+              </form>)}
             </CardContent>
           </Card>
 
