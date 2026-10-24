@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
@@ -319,13 +320,17 @@ describe('Dashboard theo vai trò', () => {
     expect(screen.queryByText('Học tập của tôi')).not.toBeInTheDocument();
   });
 
-  it('sidebar của admin có nhóm quản trị, sidebar của student thì không', async () => {
+  it('sidebar của admin có các nhóm quản trị thu/mở được, sidebar của student thì không', async () => {
     stubFetch(baseHandler('admin'));
     renderApp(true);
+    // Mục quản trị nay nằm trong nhóm cha thu/mở: mở nhóm "Người dùng
+    // & quyền" mới thấy Người dùng và Vai trò.
+    await userEvent.click(await screen.findByRole('button', { name: 'Người dùng & quyền' }));
     expect(await screen.findByText('Người dùng')).toBeInTheDocument();
     expect(screen.getByText('Vai trò')).toBeInTheDocument();
-    // Ngân hàng câu hỏi được phép với admin.
-    expect(screen.getByText('Câu hỏi')).toBeInTheDocument();
+    // Ngân hàng câu hỏi được phép với admin — nằm trong nhóm Học tập.
+    await userEvent.click(screen.getByRole('button', { name: 'Học tập' }));
+    expect(await screen.findByText('Câu hỏi')).toBeInTheDocument();
   });
 
   it('sidebar của student không có mục quản trị và không có ngân hàng câu hỏi', async () => {

@@ -23,7 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import { NavMain, type NavItem } from '#components/nav-main';
+import { NavMain, type NavEntry } from '#components/nav-main';
 import { NavUser } from '#components/nav-user';
 import { apiJson } from '#lib/api';
 import { useNotificationUnreadStream } from '#lib/notification-unread-stream';
@@ -36,27 +36,55 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from '@lms/ui/components/sidebar';
 import { usePermissions } from '#lib/permissions';
 import '../i18n';
 
+/** Khoá localStorage lưu các nhóm điều hướng đang mở (hồ sơ UI/UX §4.3). */
+const OPEN_GROUPS_STORAGE_KEY = 'lms:sidebar:open-groups';
+
 /**
- * Sidebar điều hướng của khu vực đã đăng nhập (khung block dashboard-01),
- * LỌC THEO QUYỀN THẬT của người đang đăng nhập:
+ * Đọc lười danh sách nhóm đang mở đã lưu ở lần render đầu tiên, theo
+ * đúng mẫu `readSidebarDefaultOpen` của shell: giá trị hỏng/không phải
+ * mảng chuỗi thì coi như chưa lưu gì. Nhóm chứa route đang xem luôn mở
+ * bất kể giá trị đã lưu — quy tắc đó nằm ở NavMain, không ở đây.
+ */
+function readStoredOpenGroups(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(OPEN_GROUPS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Sidebar điều hướng của khu vực đã đăng nhập, LỌC THEO QUYỀN THẬT của
+ * người đang đăng nhập (hồ sơ UI/UX §4 — cây nhóm thay cho 3 nhóm phẳng
+ * của khung dashboard-01 trước đây):
  *
- * - Nhóm chính và nhóm học tập: các trang mọi người dùng đăng nhập đều tự
- *   phục vụ được (hồ sơ, khoá học, lịch, tin nhắn, thông báo, huy hiệu của
- *   mình, kế hoạch của mình, blog, tìm kiếm).
- * - Mục ngân hàng câu hỏi: chỉ hiện khi API cho phép đọc danh mục câu hỏi
- *   (canUseQuestionBank) — học viên thuần không nhìn thấy.
- * - Nhóm quản trị: chỉ hiện khi người dùng có ít nhất một capability quản
- *   trị cấp hệ thống (canAdminister do PermissionsProvider đọc từ ảnh chụp
- *   quyền GET /users/me/capabilities). Phần tử không có quyền thì KHÔNG
+ * - 6 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông báo,
+ *   Tìm kiếm): các trang mọi người dùng đăng nhập đều tự phục vụ được.
+ * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog và —
+ *   chỉ khi API cho phép đọc danh mục câu hỏi (canUseQuestionBank) —
+ *   Ngân hàng câu hỏi; học viên thuần không nhìn thấy mục đó.
+ * - Hai nhóm quản trị ("Người dùng & quyền", "Hệ thống & dữ liệu") chỉ
+ *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
+ *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
+ *   GET /users/me/capabilities). Phần tử không có quyền thì KHÔNG
  *   render — không render rồi disable, không để link dẫn tới trang 403.
  * - Mục Thông báo mang huy hiệu số chưa đọc: số ban đầu từ GET
  *   /notifications/unread-count, sau đó được stream SSE đẩy cập nhật
  *   thời gian thực (không polling) — đây là chỗ duy nhất báo tin chưa
  *   đọc trong khung đã đăng nhập, header không còn chuông thông báo.
+ * - Thu sidebar là thu về rail icon (`collapsible="icon"` + SidebarRail)
+ *   thay vì mất hẳn điều hướng như `offcanvas` trước đây; trạng thái
+ *   thu/mở của từng nhóm lưu ở localStorage, trạng thái sidebar toàn
+ *   cục vẫn do cookie `sidebar_state` của SidebarProvider giữ.
  */
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { t } = useTranslation(['app', 'dashboard']);
@@ -72,39 +100,74 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   });
   const unreadNotifications = unreadQuery.data?.unread ?? 0;
 
-  const mainItems: NavItem[] = [
+  // Trạng thái mở của các nhóm collapse: đọc lười từ localStorage ở
+  // lần render đầu, ghi lại mỗi lần người dùng thu/mở một nhóm.
+  const [openGroups, setOpenGroups] = React.useState<string[]>(readStoredOpenGroups);
+  const handleOpenGroupChange = React.useCallback((groupId: string, open: boolean) => {
+    setOpenGroups((prev) => {
+      const next = open ? [...new Set([...prev, groupId])] : prev.filter((id) => id !== groupId);
+      try {
+        window.localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // localStorage có thể bị chặn (chế độ riêng tư…) — trạng thái
+        // vẫn sống trong bộ nhớ cho phiên hiện tại, chỉ không bền qua F5.
+      }
+      return next;
+    });
+  }, []);
+
+  const entries: NavEntry[] = [
     { title: t('dashboard:itemDashboard'), url: '/', icon: IconLayoutDashboard },
     { title: t('app:navCourses'), url: '/courses', icon: IconBook },
     { title: t('app:navCalendar'), url: '/calendar', icon: IconCalendar },
     { title: t('app:navMessages'), url: '/messages', icon: IconMail },
     { title: t('app:navNotifications'), url: '/notifications', icon: IconBell, badgeCount: unreadNotifications },
     { title: t('app:navSearch'), url: '/search', icon: IconSearch },
+    {
+      groupId: 'learning',
+      title: t('app:navGroupLearning'),
+      icon: IconNotebook,
+      children: [
+        { title: t('app:navBadges'), url: '/badges', icon: IconAward },
+        { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
+        { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
+        ...(perms.canUseQuestionBank
+          ? [{ title: t('app:navQuestions'), url: '/questions', icon: IconQuestionMark }]
+          : []),
+      ],
+    },
+    ...(perms.canAdminister
+      ? [
+          {
+            groupId: 'users-access',
+            title: t('app:navGroupUsersAccess'),
+            icon: IconUsers,
+            children: [
+              { title: t('app:navUsers'), url: '/admin/users', icon: IconUsers },
+              { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
+              { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
+            ],
+          },
+          {
+            groupId: 'system-data',
+            title: t('app:navGroupSystemData'),
+            icon: IconSettings,
+            children: [
+              { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
+              { title: t('app:navReports'), url: '/reports', icon: IconReport },
+              { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
+              { title: t('app:navContentBank'), url: '/contentbank', icon: IconDatabase },
+              { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
+              { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
+              { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },
+            ],
+          },
+        ]
+      : []),
   ];
-
-  const learningItems: NavItem[] = [
-    { title: t('app:navBadges'), url: '/badges', icon: IconAward },
-    { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
-    { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
-    ...(perms.canUseQuestionBank ? [{ title: t('app:navQuestions'), url: '/questions', icon: IconQuestionMark }] : []),
-  ];
-
-  const adminItems: NavItem[] = perms.canAdminister
-    ? [
-        { title: t('app:navUsers'), url: '/admin/users', icon: IconUsers },
-        { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
-        { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
-        { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
-        { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
-        { title: t('app:navReports'), url: '/reports', icon: IconReport },
-        { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
-        { title: t('app:navContentBank'), url: '/contentbank', icon: IconDatabase },
-        { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
-        { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },
-      ]
-    : [];
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -116,13 +179,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={mainItems} />
-        <NavMain label={t('dashboard:groupLearning')} items={learningItems} />
-        <NavMain label={t('dashboard:groupAdmin')} items={adminItems} />
+        <NavMain items={entries} openGroups={openGroups} onOpenGroupChange={handleOpenGroupChange} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
