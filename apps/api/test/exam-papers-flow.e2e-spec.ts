@@ -19,7 +19,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstS
  *  - Đóng góp/duyệt khuôn QB-4 cho đơn vị đề.
  */
 
-const bearer <redacted> (token: string) => ({ Authorization: `Bearer ${token}` });
+const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 interface BankBody {
   id: string; scope: string; bankKind: string; ownerId: string | null;
