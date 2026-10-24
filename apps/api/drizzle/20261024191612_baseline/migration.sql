@@ -905,6 +905,148 @@ CREATE TABLE "quizzes" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "assign_annotations" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"submission_id" uuid NOT NULL,
+	"file_id" uuid NOT NULL,
+	"page" integer DEFAULT 1 NOT NULL,
+	"x" double precision NOT NULL,
+	"y" double precision NOT NULL,
+	"kind" text NOT NULL,
+	"color" text,
+	"text" text,
+	"points" jsonb,
+	"author_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_feedback_messages" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"grade_id" uuid NOT NULL,
+	"author_id" uuid NOT NULL,
+	"body" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_grade_revisions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"grade_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"previous_grade" double precision,
+	"new_grade" double precision,
+	"previous_level" text,
+	"new_level" text,
+	"previous_feedback" text,
+	"new_feedback" text,
+	"reason" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_grades" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"assignment_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"grader_id" uuid NOT NULL,
+	"attempt_number" integer NOT NULL,
+	"grade" double precision,
+	"level" text,
+	"feedback" text,
+	"feedback_progress" text,
+	"feedback_strengths" text,
+	"feedback_weaknesses" text,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"released_at" timestamp with time zone,
+	"released_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "assign_grades_assignment_user_unique" UNIQUE("assignment_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assign_rubric_criteria" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"rubric_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"description_for_student" text,
+	"description_for_grader" text,
+	"mode" text DEFAULT 'levels' NOT NULL,
+	"max_score" double precision,
+	"outcome_id" text,
+	"outcome_text" text,
+	"sort_order" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_rubric_evaluations" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"grade_id" uuid NOT NULL,
+	"criterion_id" uuid NOT NULL,
+	"level_id" uuid,
+	"score" double precision,
+	"note" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "assign_rubric_evaluations_grade_criterion_unique" UNIQUE("grade_id","criterion_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assign_rubric_levels" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"criterion_id" uuid NOT NULL,
+	"label" text NOT NULL,
+	"score" double precision DEFAULT 0 NOT NULL,
+	"sort_order" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_rubrics" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"assignment_id" uuid NOT NULL CONSTRAINT "assign_rubrics_assignment_unique" UNIQUE,
+	"title" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assign_submission_files" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"submission_id" uuid NOT NULL,
+	"file_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "assign_submission_files_submission_file_unique" UNIQUE("submission_id","file_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assign_submissions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"assignment_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"attempt_number" integer DEFAULT 1 NOT NULL,
+	"submitted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "assign_submissions_assignment_user_unique" UNIQUE("assignment_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assignments" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course" uuid NOT NULL,
+	"cm_id" uuid,
+	"name" text NOT NULL,
+	"intro" text DEFAULT '' NOT NULL,
+	"due_date" timestamp with time zone,
+	"max_files" integer DEFAULT 10 NOT NULL,
+	"accepted_file_types" text,
+	"grade" double precision DEFAULT 10 NOT NULL,
+	"result_mode" text DEFAULT 'score_feedback' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "teacher_comment_bank" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"owner_id" uuid NOT NULL,
+	"category" text,
+	"text" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "curricula" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"subject_id" uuid NOT NULL,
@@ -1768,6 +1910,7 @@ CREATE INDEX "grade_outcomes_course_id_idx" ON "grade_outcomes" ("course_id");--
 CREATE INDEX "grade_outcomes_scale_id_idx" ON "grade_outcomes" ("scale_id");--> statement-breakpoint
 CREATE INDEX "scales_course_id_idx" ON "scales" ("course_id");--> statement-breakpoint
 CREATE INDEX "vn_gradebooks_course_id_idx" ON "vn_gradebooks" ("course_id");--> statement-breakpoint
+CREATE INDEX "vn_gradebooks_category_id_idx" ON "vn_gradebooks" ("category_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_book_id_idx" ON "vn_term_results" ("book_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_course_id_idx" ON "vn_term_results" ("course_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> statement-breakpoint
@@ -1797,6 +1940,24 @@ CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> st
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
+CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
+CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
+CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
+CREATE INDEX "assign_grade_revisions_grade_id_idx" ON "assign_grade_revisions" ("grade_id");--> statement-breakpoint
+CREATE INDEX "assign_grades_assignment_id_idx" ON "assign_grades" ("assignment_id");--> statement-breakpoint
+CREATE INDEX "assign_grades_user_id_idx" ON "assign_grades" ("user_id");--> statement-breakpoint
+CREATE INDEX "assign_rubric_criteria_rubric_id_idx" ON "assign_rubric_criteria" ("rubric_id");--> statement-breakpoint
+CREATE INDEX "assign_rubric_evaluations_grade_id_idx" ON "assign_rubric_evaluations" ("grade_id");--> statement-breakpoint
+CREATE INDEX "assign_rubric_evaluations_criterion_id_idx" ON "assign_rubric_evaluations" ("criterion_id");--> statement-breakpoint
+CREATE INDEX "assign_rubric_evaluations_level_id_idx" ON "assign_rubric_evaluations" ("level_id");--> statement-breakpoint
+CREATE INDEX "assign_rubric_levels_criterion_id_idx" ON "assign_rubric_levels" ("criterion_id");--> statement-breakpoint
+CREATE INDEX "assign_submission_files_submission_id_idx" ON "assign_submission_files" ("submission_id");--> statement-breakpoint
+CREATE INDEX "assign_submission_files_file_id_idx" ON "assign_submission_files" ("file_id");--> statement-breakpoint
+CREATE INDEX "assign_submissions_assignment_id_idx" ON "assign_submissions" ("assignment_id");--> statement-breakpoint
+CREATE INDEX "assign_submissions_user_id_idx" ON "assign_submissions" ("user_id");--> statement-breakpoint
+CREATE INDEX "assignments_course_idx" ON "assignments" ("course");--> statement-breakpoint
+CREATE INDEX "assignments_cm_id_idx" ON "assignments" ("cm_id");--> statement-breakpoint
+CREATE INDEX "teacher_comment_bank_owner_id_idx" ON "teacher_comment_bank" ("owner_id");--> statement-breakpoint
 CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_subject_id_idx" ON "curriculum_program_records" ("subject_id");--> statement-breakpoint
@@ -2015,6 +2176,21 @@ ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOR
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_grade_revisions" ADD CONSTRAINT "assign_grade_revisions_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_grades" ADD CONSTRAINT "assign_grades_assignment_id_assignments_id_fkey" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_rubric_criteria" ADD CONSTRAINT "assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey" FOREIGN KEY ("rubric_id") REFERENCES "assign_rubrics"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_rubric_evaluations" ADD CONSTRAINT "assign_rubric_evaluations_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_rubric_evaluations" ADD CONSTRAINT "assign_rubric_evaluations_HlmmYPrbTwKl_fkey" FOREIGN KEY ("criterion_id") REFERENCES "assign_rubric_criteria"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_rubric_evaluations" ADD CONSTRAINT "assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey" FOREIGN KEY ("level_id") REFERENCES "assign_rubric_levels"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "assign_rubric_levels" ADD CONSTRAINT "assign_rubric_levels_F1wj7IWBuE4l_fkey" FOREIGN KEY ("criterion_id") REFERENCES "assign_rubric_criteria"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_rubrics" ADD CONSTRAINT "assign_rubrics_assignment_id_assignments_id_fkey" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_submission_files" ADD CONSTRAINT "assign_submission_files_2yBSlJM0A5zz_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_submission_files" ADD CONSTRAINT "assign_submission_files_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assign_submissions" ADD CONSTRAINT "assign_submissions_assignment_id_assignments_id_fkey" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assignments" ADD CONSTRAINT "assignments_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint

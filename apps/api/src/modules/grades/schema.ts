@@ -104,6 +104,7 @@ export const vnGradebooks = pgTable('vn_gradebooks', {
 },
   (table) => [
       index('vn_gradebooks_course_id_idx').on(table.courseId),
+      index('vn_gradebooks_category_id_idx').on(table.categoryId),
       unique('vn_gradebooks_course_term_unique').on(table.courseId, table.term),
   ]);
 
