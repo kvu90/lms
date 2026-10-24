@@ -157,8 +157,8 @@ export class ContentBankService {
    * Ai được xem một học liệu:
    * - tác giả: luôn được;
    * - người có editcontent tại context neo: được (quản trị);
-   * - tổ/trường đã duyệt (approved): thành viên tổ (org) / người có
-   *   viewcontent tại hệ thống (school);
+   * - tổ/trường đã duyệt (approved): thành viên tổ (org) / đã public
+   *   thì mọi người dùng đã đăng nhập của trường (school);
    * - tổ/trường chưa duyệt: chỉ tác giả + người duyệt — KHÔNG lộ ra ngoài,
    *   kể cả khi visibility bị đặt public thủ công;
    * - cá nhân (gồm các bản ghi kiểu cũ neo ở context khoá): giữ hành vi
@@ -174,7 +174,12 @@ export class ContentBankService {
       if (await this.canReview(userId, row)) return true;
       if (row.reviewStatus !== 'approved') return false;
       if (row.scope === 'org') return row.spaceId ? this.repo.isCohortMember(row.spaceId, userId) : false;
-      return this.evaluator.hasCapability(userId, 'contentbank:viewcontent', await this.systemContextId());
+      // Scope trường đã duyệt + public = công khai trong trường (phân xử
+      // điểm mở probe v86, issue #69): mọi người dùng ĐÃ ĐĂNG NHẬP đều
+      // xem được. Cổng cũ đòi viewcontent tại context hệ thống làm học
+      // liệu public không tới được giáo viên/học sinh (họ chỉ có vai ở
+      // context khoá/tổ) — vòng đời duyệt vì thế vô nghĩa.
+      return row.visibility === 'public';
     }
     if (await this.evaluator.hasCapability(userId, 'contentbank:editcontent', row.contextId)) return true;
     return row.visibility === 'public' && this.evaluator.hasCapability(userId, 'contentbank:viewcontent', row.contextId);
@@ -261,6 +266,22 @@ export class ContentBankService {
     }
   }
 
+  /**
+   * Cổng dùng kho cá nhân (phân xử điểm mở probe v86, issue #69): quyền
+   * suy ra từ CHỦ SỞ HỮU bank + "vai trò được dùng kho cá nhân" — actor
+   * phải giữ `contentbank:upload` từ một gán vai THẬT ở đâu đó (giáo
+   * viên có vai ở một khoá bất kỳ là đủ), thay vì đòi capability tại
+   * context cá nhân (nơi theo thiết kế không ai được gán vai) hay gán
+   * vai cấp hệ thống. Học sinh thuần vẫn bị chặn: vai student không có
+   * upload ở bất kỳ context nào. Cố ý KHÔNG tự gán vai/capability tại
+   * context cá nhân cho chính chủ — nếu không, bất kỳ ai (kể cả học
+   * sinh) cũng tự mở quyền cho mình chỉ bằng cách gọi tạo học liệu.
+   */
+  private async assertCanUsePersonalBank(actorId: string): Promise<void> {
+    if (await this.evaluator.hasCapabilityFromRealAssignmentAnywhere(actorId, 'contentbank:upload')) return;
+    throw new ForbiddenException({ message: 'Missing capability contentbank:upload for your personal content bank', code: 'access.capability_denied' });
+  }
+
   async create(actorId: string, input: LibraryItemInput): Promise<ContentRow> {
     const scope = input.scope ?? 'personal';
     if (!SCOPES.includes(scope as never)) throw new BadRequestException({ message: `Unknown scope ${scope}`, code: 'contentbank.bad_scope' });
@@ -271,7 +292,15 @@ export class ContentBankService {
     if (input.derivedFromId) await this.assertDerivedFromValid(null, input.derivedFromId);
     if (scope === 'org' && input.spaceId) await this.assertOrgMembership(actorId, input.spaceId);
     const contextId = input.contextId ?? (await this.resolveContext(actorId, scope, input.spaceId));
-    await this.evaluator.requireCapability(actorId, 'contentbank:upload', contextId);
+    if (scope === 'personal' && contextId === (await this.personalContextId(actorId))) {
+      // Tạo trong kho cá nhân của CHÍNH MÌNH (đường mặc định của UI,
+      // không contextId): cổng riêng theo chủ sở hữu — xem
+      // assertCanUsePersonalBank. Các đường còn lại (contextId tường
+      // minh, scope tổ/trường) giữ cổng capability tại context neo.
+      await this.assertCanUsePersonalBank(actorId);
+    } else {
+      await this.evaluator.requireCapability(actorId, 'contentbank:upload', contextId);
+    }
     const row = await this.repo.insert({
       name: input.name, contextId, creatorId: actorId,
       contentType: input.contentType ?? 'file-based',

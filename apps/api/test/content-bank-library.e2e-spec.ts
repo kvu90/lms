@@ -31,6 +31,12 @@ import { createCategory, createCourse, getFirstSectionId } from './course-enrolm
  *   hỏi — cắm vào khoá bị từ chối;
  * - người không có vai trò (học sinh) không tạo được học liệu, không
  *   xem được học liệu chưa duyệt.
+ *
+ * Bổ sung theo phân xử điểm mở probe v86 (issue #69 mở lại): giáo viên
+ * CHỈ có vai tại context khoá tạo được học liệu trong kho cá nhân của
+ * mình theo đường mặc định của UI (không contextId); học liệu trường
+ * approved+public mở cho mọi người dùng đã đăng nhập (kể cả học sinh
+ * chỉ có vai ở khoá) — trạng thái draft/pending vẫn gác chặt.
  */
 describe('Content bank library (CB-1, issue #69)', () => {
   let app: INestApplication;
@@ -49,6 +55,10 @@ describe('Content bank library (CB-1, issue #69)', () => {
   let colleagueId: string;
   let courseId: string;
   let sectionId: string;
+  // Chữ ký probe live v86 (điểm mở quyền CB-1): giáo viên/học sinh CHỈ
+  // có vai tại context khoá, không có gán vai nào ở hệ thống.
+  let courseTeacherToken: string;
+  let courseStudentToken: string;
 
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
   const fileBody = { fileName: 'phieu-bai-tap.pdf', contentBase64: Buffer.from('cb1-file-content').toString('base64'), mimeType: 'application/pdf' };
@@ -122,6 +132,15 @@ describe('Content bank library (CB-1, issue #69)', () => {
       .find((c) => c.contextLevel === 50 && c.instanceId === courseId);
     expect(courseCtx).toBeDefined();
     await assignRole(app, admin, colleagueId, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx!.id);
+
+    // Giáo viên + học sinh chỉ có vai tại context khoá này (đúng mô
+    // hình gán vai của seed/đời thật khiến probe v86 lộ hai lỗi quyền).
+    const courseTeacher = await createUserViaApi(app, admin);
+    await assignRole(app, admin, courseTeacher.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx!.id);
+    courseTeacherToken = (await login(app, courseTeacher.username, STRONG_PASSWORD)).accessToken;
+    const courseStudent = await createUserViaApi(app, admin);
+    await assignRole(app, admin, courseStudent.id, await roleIdByShortname(app, admin, 'student'), courseCtx!.id);
+    courseStudentToken = (await login(app, courseStudent.username, STRONG_PASSWORD)).accessToken;
   }, 180_000);
   afterAll(async () => { await app.close(); });
 
@@ -409,6 +428,63 @@ describe('Content bank library (CB-1, issue #69)', () => {
     const plainToken = (await login(app, plain.username, STRONG_PASSWORD)).accessToken;
     const denied = await http(app).post('/api/v1/contentbank').set(bearer(plainToken)).send({ name: 'X', scope: 'personal' });
     expect(denied.status).toBe(403);
+  });
+
+  it('personal bank: teacher whose only role is at a course context creates without contextId; course-only student still cannot (probe v86)', async () => {
+    // Đường mặc định của UI: không contextId, scope personal. Giáo viên
+    // chỉ có editingteacher tại context khoá vẫn dùng được kho của mình.
+    const created = await http(app).post('/api/v1/contentbank').set(bearer(courseTeacherToken)).send({
+      name: uniqueName('Hoc lieu ca nhan GV khoa'), resourceType: 'reference', scope: 'personal',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.scope).toBe('personal');
+    expect(created.body.reviewStatus).toBe('approved');
+    const own = await http(app).get(`/api/v1/contentbank/${created.body.id}`).set(bearer(courseTeacherToken));
+    expect(own.status).toBe(200);
+
+    // Chiều giữ nguyên: học sinh (vai student chỉ ở context khoá) tạo → 403.
+    const denied = await http(app).post('/api/v1/contentbank').set(bearer(courseStudentToken)).send({
+      name: uniqueName('Hoc sinh tu tao'), resourceType: 'reference', scope: 'personal',
+    });
+    expect(denied.status).toBe(403);
+    expect(denied.body.code).toBe('access.capability_denied');
+  });
+
+  it('school scope: approved+public opens to course-only students and teachers; draft/pending stay hidden from them (probe v86)', async () => {
+    const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Tai lieu truong cong khai'), resourceType: 'multimedia_lecture', scope: 'school',
+      subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta,
+      originalAuthor: 'Nguyễn Văn A', sourceKind: 'self', license: 'Chỉ dùng nội bộ trường',
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id as string;
+    await http(app).post(`/api/v1/contentbank/${id}/file`).set(bearer(authorToken)).send(fileBody);
+
+    // Draft: học sinh chỉ có vai ở khoá không xem được, không thấy trong danh sách.
+    const draftView = await http(app).get(`/api/v1/contentbank/${id}`).set(bearer(courseStudentToken));
+    expect(draftView.status).toBe(403);
+    expect(draftView.body.code).toBe('contentbank.view_denied');
+    expect(await listIds(courseStudentToken, 'scope=school')).not.toContain(id);
+
+    const submit = await http(app).post(`/api/v1/contentbank/${id}/submit`).set(bearer(authorToken)).send({});
+    expect(submit.status).toBe(201);
+    // Pending: vẫn chặn cả xem lẫn danh sách.
+    const pendingView = await http(app).get(`/api/v1/contentbank/${id}`).set(bearer(courseStudentToken));
+    expect(pendingView.status).toBe(403);
+    expect(await listIds(courseStudentToken, 'scope=school')).not.toContain(id);
+
+    const review = await http(app).post(`/api/v1/contentbank/${id}/review`).set(bearer(admin)).send({ decision: 'approved', checklist: fullChecklist });
+    expect(review.status).toBe(201);
+    expect(review.body.visibility).toBe('public');
+
+    // Approved + public: học sinh lẫn giáo viên (chỉ có vai ở khoá) đều
+    // đọc được theo id và thấy trong danh sách scope trường.
+    const studentView = await http(app).get(`/api/v1/contentbank/${id}`).set(bearer(courseStudentToken));
+    expect(studentView.status).toBe(200);
+    expect(await listIds(courseStudentToken, 'scope=school')).toContain(id);
+    const teacherView = await http(app).get(`/api/v1/contentbank/${id}`).set(bearer(courseTeacherToken));
+    expect(teacherView.status).toBe(200);
+    expect(await listIds(courseTeacherToken, 'scope=school')).toContain(id);
   });
 
   it('spaces endpoint lists personal, my departments and school', async () => {
