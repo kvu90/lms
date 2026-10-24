@@ -767,6 +767,38 @@ CREATE TABLE "stimuli" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "question_import_batches" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"category_id" uuid NOT NULL,
+	"uploaded_by" uuid NOT NULL,
+	"file_name" text NOT NULL,
+	"file_kind" text NOT NULL,
+	"file_size" integer NOT NULL,
+	"content_hash" text NOT NULL,
+	"status" text DEFAULT 'in_review' NOT NULL,
+	"total_items" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "question_import_items" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"batch_id" uuid NOT NULL,
+	"ordinal" integer NOT NULL,
+	"source_number" integer,
+	"qtype" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"payload" jsonb NOT NULL,
+	"issues" jsonb DEFAULT '[]' NOT NULL,
+	"raw_text" text DEFAULT '' NOT NULL,
+	"question_id" uuid,
+	"reviewed_by" uuid,
+	"reviewed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "question_import_items_batch_ordinal_unique" UNIQUE("batch_id","ordinal")
+);
+--> statement-breakpoint
 CREATE TABLE "quiz_attempts" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -1606,6 +1638,10 @@ CREATE INDEX "question_versions_question_id_idx" ON "question_versions" ("questi
 CREATE INDEX "question_versions_stimulus_id_idx" ON "question_versions" ("stimulus_id");--> statement-breakpoint
 CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statement-breakpoint
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
+CREATE INDEX "question_import_batches_category_id_idx" ON "question_import_batches" ("category_id");--> statement-breakpoint
+CREATE INDEX "question_import_batches_uploaded_by_idx" ON "question_import_batches" ("uploaded_by");--> statement-breakpoint
+CREATE INDEX "question_import_items_batch_id_idx" ON "question_import_items" ("batch_id");--> statement-breakpoint
+CREATE INDEX "question_import_items_question_id_idx" ON "question_import_items" ("question_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
@@ -1793,6 +1829,9 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_1NDKL1LfCtcc_f
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_stimuli_id_fkey" FOREIGN KEY ("stimulus_id") REFERENCES "stimuli"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_import_batches" ADD CONSTRAINT "question_import_batches_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_import_items" ADD CONSTRAINT "question_import_items_batch_id_question_import_batches_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "question_import_batches"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_import_items" ADD CONSTRAINT "question_import_items_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
