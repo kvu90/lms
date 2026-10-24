@@ -204,7 +204,7 @@ describe('Question editor — four qtypes', () => {
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Thủ đô của Việt Nam là gì?');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'Hà Nội');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'Huế');
-    await userEvent.click(questionForm().getAllByLabelText('Đáp án đúng')[0]!);
+    await userEvent.click(questionForm().getAllByRole('radio', { name: 'Đáp án đúng' })[0]!);
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
@@ -250,7 +250,9 @@ describe('Question editor — four qtypes', () => {
     await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Trời mưa');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Trời đang mưa.');
-    await userEvent.click(questionForm().getByLabelText('Đáp án đúng là "sai"'));
+    // Bấm vào NHÃN như người dùng thật: nhãn trỏ tới input ẩn của
+    // RadioGroupItem (Base UI) — chọn qua nhãn phải đổi đáp án đúng.
+    await userEvent.click(questionForm().getByText('Đáp án đúng là "sai"'));
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
