@@ -118,3 +118,127 @@ export async function fetchFrameUnitsFor(
   const tree = await fetchTree(curriculum.id, forCourseId);
   return { curriculumId: curriculum.id, units: flattenFrameUnits(tree.nodes) };
 }
+
+// --- Tầng SGK "Kết nối tri thức với cuộc sống" (K0b) ---------------------------
+
+/** Trạng thái nạp của một dataset SGK trong manifest phía máy chủ. */
+export interface BookDatasetStatus {
+  datasetKey: string;
+  subjectName: string;
+  slug: string;
+  bookTitle: string;
+  grade: number;
+  totalRecords: number;
+  importedRecords: number;
+  mappedRecords: number;
+  bookId: string | null;
+  subjectId: string | null;
+  lastImportedAt: string | null;
+}
+
+/** Một cuốn SGK đã nạp. */
+export interface Book {
+  id: string;
+  kind: string;
+  title: string;
+  subjectId: string | null;
+  grade: number | null;
+  series: string | null;
+  author: string | null;
+  publisher: string | null;
+  publishedYear: number | null;
+  isbn: string | null;
+  attributionPublic: boolean;
+  position: number;
+}
+
+/** Một đích ánh xạ của một bài SGK (mã bản ghi chương trình để truy vết). */
+export interface BookMappingView {
+  curriculumNodeId: string | null;
+  learningOutcomeId: string | null;
+  programRecordId: string | null;
+  targetTitle: string | null;
+}
+
+/** Một bài SGK trong cây sách, kèm ánh xạ và YCCĐ suy qua ánh xạ. */
+export interface BookLessonView {
+  id: string;
+  title: string;
+  volume: number | null;
+  lessonNumber: number | null;
+  position: number;
+  recordId: string | null;
+  mappings: BookMappingView[];
+  outcomes: { outcomeId: string; content: string }[];
+}
+
+/** Cây đầy đủ của một cuốn SGK: chủ đề → bài. */
+export interface BookTree {
+  book: Book;
+  subject: { id: string; name: string; slug: string } | null;
+  chapters: {
+    id: string;
+    title: string;
+    volume: number | null;
+    position: number;
+    lessons: BookLessonView[];
+  }[];
+}
+
+/** Trạng thái nạp của mọi dataset SGK (bề mặt quản trị — cần curriculum:view hệ thống). */
+export async function fetchBookDatasetStatus(): Promise<BookDatasetStatus[]> {
+  return apiJson<BookDatasetStatus[]>('/api/v1/books/dataset-import');
+}
+
+/** Danh sách SGK đã nạp; kèm subjectId lọc theo môn, forCourseId mở nhánh chọn khung cho khoá. */
+export async function fetchBooks(subjectId?: string, forCourseId?: string): Promise<Book[]> {
+  const params = new URLSearchParams();
+  if (subjectId) params.set('subjectId', subjectId);
+  if (forCourseId) params.set('forCourseId', forCourseId);
+  const query = params.toString();
+  return apiJson<Book[]>(`/api/v1/books${query ? `?${query}` : ''}`);
+}
+
+/** Cây sách đầy đủ của một cuốn SGK. */
+export async function fetchBookTree(bookId: string, forCourseId?: string): Promise<BookTree> {
+  const frame = forCourseId ? `?forCourseId=${forCourseId}` : '';
+  return apiJson<BookTree>(`/api/v1/books/${bookId}/tree${frame}`);
+}
+
+/** Một đơn vị khung SGK chọn được: một chủ đề + số bài + số YCCĐ suy qua ánh xạ của cả chủ đề. */
+export interface BookFrameChapter {
+  nodeId: string;
+  title: string;
+  lessonCount: number;
+  outcomeCount: number;
+}
+
+/**
+ * Đơn vị khung SGK của cặp (môn, khối): không có cuốn sách nào cho
+ * khối đó thì trả bookId null + danh sách rỗng.
+ */
+export async function fetchBookFrameChaptersFor(
+  subjectId: string,
+  grade: number,
+  forCourseId?: string,
+): Promise<{ bookId: string | null; chapters: BookFrameChapter[] }> {
+  const books = await fetchBooks(subjectId, forCourseId);
+  const book = books.find((b) => b.grade === grade);
+  if (!book) return { bookId: null, chapters: [] };
+  const tree = await fetchBookTree(book.id, forCourseId);
+  return {
+    bookId: book.id,
+    chapters: tree.chapters.map((chapter) => {
+      const outcomeIds = new Set<string>();
+      for (const lesson of chapter.lessons) {
+        for (const outcome of lesson.outcomes) outcomeIds.add(outcome.outcomeId);
+      }
+      return {
+        nodeId: chapter.id,
+        title: chapter.title,
+        lessonCount: chapter.lessons.length,
+        outcomeCount: outcomeIds.size,
+      };
+    }),
+  };
+}

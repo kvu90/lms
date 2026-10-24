@@ -14,6 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { curricula, curriculumNodes, learningOutcomes, subjects } from '../curriculum/schema';
+import { bookNodes, books } from '../books/schema';
 
 /** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. */
 export const courseCategories = pgTable('course_categories', {
@@ -176,6 +177,75 @@ export const courseSectionAnchorOutcomes = pgTable('course_section_anchor_outcom
       index('course_section_anchor_outcomes_anchor_idx').on(table.anchorId, table.position),
       index('course_section_anchor_outcomes_outcome_id_idx').on(table.outcomeId),
       check('course_section_anchor_outcomes_position_check', sql`${table.position} > 0`),
+  ]);
+
+/**
+ * Neo khung SGK trên section (K0b, issue #67 — đối ứng của
+ * `course_section_anchors` ở khung chương trình): khi giáo viên nạp một
+ * chủ đề SGK vào khoá, section được tạo là bản sao độc lập; dòng neo
+ * này ghi lại node chủ đề nguồn + cuốn sách + **tựa chụp tại thời điểm
+ * nạp**. Một section chỉ mang tối đa một neo SGK và không đồng thời
+ * mang neo chương trình (tầng service bảo đảm: nạp khung SGK chỉ tạo
+ * section mới). Node/cuốn nguồn bị xoá về sau → FK về null, bản chụp
+ * vẫn còn.
+ */
+export const courseSectionBookAnchors = pgTable('course_section_book_anchors', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  sectionId: uuid('section_id').notNull().references(() => courseSections.id, { onDelete: 'cascade' }),
+  bookNodeId: uuid('book_node_id').references(() => bookNodes.id, { onDelete: 'set null' }),
+  bookId: uuid('book_id').references(() => books.id, { onDelete: 'set null' }),
+  nodeTitle: text('node_title').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('course_section_book_anchors_section_unique').on(table.sectionId),
+      index('course_section_book_anchors_node_id_idx').on(table.bookNodeId),
+      index('course_section_book_anchors_book_id_idx').on(table.bookId),
+  ]);
+
+/**
+ * Một mục bài SGK trong một section đã nạp khung SGK: bản sao của một
+ * node `lesson` trong cây sách (Bài = mục, theo phạm vi K0b), giữ tựa
+ * chụp + thứ tự tại thời điểm nạp; `book_node_id` là truy vết về
+ * bài nguồn (nguồn bị xoá → null, bản chụp giữ nguyên) và là khoá để
+ * truy tiếp sang YCCĐ chương trình qua bảng ánh xạ khi cần đối chiếu
+ * trực tiếp với tầng SGK.
+ */
+export const courseSectionBookItems = pgTable('course_section_book_items', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  anchorId: uuid('anchor_id').notNull().references(() => courseSectionBookAnchors.id, { onDelete: 'cascade' }),
+  bookNodeId: uuid('book_node_id').references(() => bookNodes.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  position: integer('position').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('course_section_book_items_anchor_idx').on(table.anchorId, table.position),
+      index('course_section_book_items_node_id_idx').on(table.bookNodeId),
+      check('course_section_book_items_position_check', sql`${table.position} > 0`),
+  ]);
+
+/**
+ * YCCĐ chụp kèm theo một mục bài SGK: mỗi dòng là một yêu cầu cần đạt
+ * của chương trình GDPT 2018 mà bài đó ánh xạ tới (suy qua bảng ánh xạ
+ * SGK ↔ chương trình **tại thời điểm nạp**, chép nguyên văn nội dung) —
+ * đây là nửa "neo kép" của mục: mục truy được về bài SGK qua
+ * `book_node_id` và về YCCĐ chương trình qua các dòng này.
+ * `outcome_id` chỉ còn vai trò truy vết về YCCĐ gốc (gốc bị xoá →
+ * null, bản chụp giữ nguyên), đúng mẫu của khung chương trình K0a.
+ */
+export const courseSectionBookItemOutcomes = pgTable('course_section_book_item_outcomes', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  itemId: uuid('item_id').notNull().references(() => courseSectionBookItems.id, { onDelete: 'cascade' }),
+  outcomeId: uuid('outcome_id').references(() => learningOutcomes.id, { onDelete: 'set null' }),
+  content: text('content').notNull(),
+  position: integer('position').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('course_section_book_item_outcomes_item_idx').on(table.itemId, table.position),
+      index('course_section_book_item_outcomes_outcome_id_idx').on(table.outcomeId),
+      check('course_section_book_item_outcomes_position_check', sql`${table.position} > 0`),
   ]);
 
 /** Per-course format options (Moodle `course_format_options`). */

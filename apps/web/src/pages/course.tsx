@@ -235,6 +235,25 @@ export function CoursePage() {
                   </ul>
                 </div>
               ) : null}
+              {section.bookFrame ? (
+                <div className="mb-3 rounded border border-dashed p-3">
+                  <p className="text-sm font-medium">{t('courseBookFrameItems')}</p>
+                  <ul className="mt-1 space-y-2 text-sm">
+                    {section.bookFrame.items.map((item, index) => (
+                      <li key={item.nodeId ?? `book-item-${index}`}>
+                        <span className="font-medium">{item.title}</span>
+                        {item.outcomes.length > 0 ? (
+                          <ul className="mt-0.5 list-disc space-y-0.5 pl-5 text-muted-foreground">
+                            {item.outcomes.map((outcome, outcomeIndex) => (
+                              <li key={outcome.outcomeId ?? `book-outcome-${outcomeIndex}`}>{outcome.content}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <ul className="space-y-2">
                 {section.modules.map((rawCm) => {
                   const cm = rawCm as CourseModuleView;

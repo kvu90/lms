@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   course, courseCategories, courseFormatOptions, courseModules, courseSectionAnchorOutcomes, courseSectionAnchors,
+  courseSectionBookAnchors, courseSectionBookItemOutcomes, courseSectionBookItems,
   courseSections, subjects,
 } from '../../db/schema';
 
@@ -13,6 +14,9 @@ export type SectionRow = typeof courseSections.$inferSelect;
 export type CmRow = typeof courseModules.$inferSelect;
 export type SectionAnchorRow = typeof courseSectionAnchors.$inferSelect;
 export type SectionAnchorOutcomeRow = typeof courseSectionAnchorOutcomes.$inferSelect;
+export type SectionBookAnchorRow = typeof courseSectionBookAnchors.$inferSelect;
+export type SectionBookItemRow = typeof courseSectionBookItems.$inferSelect;
+export type SectionBookItemOutcomeRow = typeof courseSectionBookItemOutcomes.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -173,6 +177,38 @@ export class CoursesRepository {
     return this.db.select().from(courseSectionAnchorOutcomes)
       .where(inArray(courseSectionAnchorOutcomes.anchorId, anchorIds))
       .orderBy(asc(courseSectionAnchorOutcomes.position), asc(courseSectionAnchorOutcomes.createdAt));
+  }
+  /** Ghi neo khung SGK cho một section vừa tạo từ khung sách (K0b). */
+  async insertSectionBookAnchor(v: typeof courseSectionBookAnchors.$inferInsert, tx?: DbTx): Promise<SectionBookAnchorRow> {
+    const [row] = await (tx ?? this.db).insert(courseSectionBookAnchors).values(v).returning(); return row!;
+  }
+  /** Ghi một mục bài SGK chụp trong một neo khung SGK. */
+  async insertSectionBookItem(v: typeof courseSectionBookItems.$inferInsert, tx?: DbTx): Promise<SectionBookItemRow> {
+    const [row] = await (tx ?? this.db).insert(courseSectionBookItems).values(v).returning(); return row!;
+  }
+  /** Ghi các YCCĐ chụp kèm một mục bài SGK (đúng thứ tự position truyền vào). */
+  async insertSectionBookItemOutcomes(v: (typeof courseSectionBookItemOutcomes.$inferInsert)[], tx?: DbTx): Promise<void> {
+    if (v.length === 0) return;
+    await (tx ?? this.db).insert(courseSectionBookItemOutcomes).values(v);
+  }
+  /** Toàn bộ neo khung SGK của nhiều section (dựng khung SGK hiển thị trong nội dung khoá). */
+  async listBookAnchorsForSections(sectionIds: string[]): Promise<SectionBookAnchorRow[]> {
+    if (sectionIds.length === 0) return [];
+    return this.db.select().from(courseSectionBookAnchors).where(inArray(courseSectionBookAnchors.sectionId, sectionIds));
+  }
+  /** Toàn bộ mục bài SGK chụp của nhiều neo, theo position. */
+  async listBookItems(anchorIds: string[]): Promise<SectionBookItemRow[]> {
+    if (anchorIds.length === 0) return [];
+    return this.db.select().from(courseSectionBookItems)
+      .where(inArray(courseSectionBookItems.anchorId, anchorIds))
+      .orderBy(asc(courseSectionBookItems.position), asc(courseSectionBookItems.createdAt));
+  }
+  /** Toàn bộ YCCĐ chụp của nhiều mục bài SGK, theo position. */
+  async listBookItemOutcomes(itemIds: string[]): Promise<SectionBookItemOutcomeRow[]> {
+    if (itemIds.length === 0) return [];
+    return this.db.select().from(courseSectionBookItemOutcomes)
+      .where(inArray(courseSectionBookItemOutcomes.itemId, itemIds))
+      .orderBy(asc(courseSectionBookItemOutcomes.position), asc(courseSectionBookItemOutcomes.createdAt));
   }
   /**
    * Lấy section theo id.

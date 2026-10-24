@@ -12,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -211,3 +212,4 @@ export const curriculumProgramRecords = pgTable('curriculum_program_records', {
       index('curriculum_program_records_node_id_idx').on(table.nodeId),
       index('curriculum_program_records_curriculum_id_idx').on(table.curriculumId),
   ]);
+

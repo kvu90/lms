@@ -57,7 +57,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
-    // 124 bảng nghiệp vụ: 109 trước đây + session, account, verification,
+    // 131 bảng nghiệp vụ: 109 trước đây + session, account, verification,
     // two_factor (đợt Better Auth giai đoạn 1, issue #7) + subjects,
     // curricula, curriculum_nodes, learning_outcomes (đợt GDPT 2018, issue #20)
     // + course_completion_crit_compl (đợt đủ 8 loại tiêu chí completion, issue #23)
@@ -66,8 +66,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + question_subjects, question_learning_outcomes (Chặng 2 của issue #20 —
     // hai bảng nối câu hỏi ↔ chương trình có id đại diện theo thiết kế A.1)
     // + curriculum_program_records, course_section_anchors,
-    // course_section_anchor_outcomes (đợt K0a nạp khung chương trình, issue #66).
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(124);
+    // course_section_anchor_outcomes (đợt K0a nạp khung chương trình, issue #66)
+    // + books, book_nodes,
+    // book_mappings, book_records,
+    // course_section_book_anchors, course_section_book_items,
+    // course_section_book_item_outcomes (đợt K0b tầng SGK, issue #67).
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(131);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -82,7 +86,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(124);
+    expect(defaults.rows.length).toBe(131);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

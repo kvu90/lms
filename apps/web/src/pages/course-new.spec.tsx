@@ -129,8 +129,8 @@ describe('Wizard tạo khoá K1', () => {
     stubFetch(calls);
     renderWizard();
 
-    await userEvent.click(await screen.findByTestId('wizard-path-textbook'));
-    const panel = await screen.findByTestId('wizard-textbook-panel');
+    await userEvent.click(await screen.findByTestId('wizard-path-book'));
+    const panel = await screen.findByTestId('wizard-book-panel');
     expect(panel.textContent).toContain('K0b');
   });
 });

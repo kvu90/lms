@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "f01fe24c-25b6-4963-9c15-6979c9f8494e",
+  "id": "f4e94a06-0500-42d1-82fa-edc5d4cc660e",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -632,6 +632,64 @@
         "n|type|public.course_section_anchors",
         "n|rel|public.course_section_anchors_pkey",
         "n|rel|public.course_section_anchors_section_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_anchors"
+      ],
+      "writes": [
+        "s|tbl|public.course_section_book_anchors",
+        "n|tbl|public.course_section_book_anchors",
+        "e|tbl|public.course_section_book_anchors",
+        "n|rel|public.course_section_book_anchors",
+        "n|type|public.course_section_book_anchors",
+        "n|rel|public.course_section_book_anchors_pkey",
+        "n|rel|public.course_section_book_anchors_section_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_item_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.course_section_book_item_outcomes",
+        "n|tbl|public.course_section_book_item_outcomes",
+        "e|tbl|public.course_section_book_item_outcomes",
+        "n|rel|public.course_section_book_item_outcomes",
+        "n|type|public.course_section_book_item_outcomes",
+        "n|rel|public.course_section_book_item_outcomes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_items"
+      ],
+      "writes": [
+        "s|tbl|public.course_section_book_items",
+        "n|tbl|public.course_section_book_items",
+        "e|tbl|public.course_section_book_items",
+        "n|rel|public.course_section_book_items",
+        "n|type|public.course_section_book_items",
+        "n|rel|public.course_section_book_items_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -1517,6 +1575,85 @@
         "n|type|public.subjects",
         "n|rel|public.subjects_pkey",
         "n|rel|public.subjects_slug_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_mappings"
+      ],
+      "writes": [
+        "s|tbl|public.book_mappings",
+        "n|tbl|public.book_mappings",
+        "e|tbl|public.book_mappings",
+        "n|rel|public.book_mappings",
+        "n|type|public.book_mappings",
+        "n|rel|public.book_mappings_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_nodes"
+      ],
+      "writes": [
+        "s|tbl|public.book_nodes",
+        "n|tbl|public.book_nodes",
+        "e|tbl|public.book_nodes",
+        "n|rel|public.book_nodes",
+        "n|type|public.book_nodes",
+        "n|rel|public.book_nodes_pkey",
+        "n|rel|public.book_nodes_book_id_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_records"
+      ],
+      "writes": [
+        "s|tbl|public.book_records",
+        "n|tbl|public.book_records",
+        "e|tbl|public.book_records",
+        "n|rel|public.book_records",
+        "n|type|public.book_records",
+        "n|rel|public.book_records_pkey",
+        "n|rel|public.book_records_dataset_record_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "books"
+      ],
+      "writes": [
+        "s|tbl|public.books",
+        "n|tbl|public.books",
+        "e|tbl|public.books",
+        "n|rel|public.books",
+        "n|type|public.books",
+        "n|rel|public.books_pkey",
+        "n|rel|public.books_subject_grade_title_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -3257,6 +3394,128 @@
       "statementTarget": [
         "index",
         "public",
+        "course_section_book_anchors",
+        "course_section_book_anchors_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_anchors_node_id_idx",
+        "n|idx|public.course_section_book_anchors_node_id_idx",
+        "e|idx|public.course_section_book_anchors_node_id_idx",
+        "n|rel|public.course_section_book_anchors_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_book_anchors.book_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_book_anchors",
+        "course_section_book_anchors_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_anchors_book_id_idx",
+        "n|idx|public.course_section_book_anchors_book_id_idx",
+        "e|idx|public.course_section_book_anchors_book_id_idx",
+        "n|rel|public.course_section_book_anchors_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_book_anchors.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_book_item_outcomes",
+        "course_section_book_item_outcomes_item_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_item_outcomes_item_idx",
+        "n|idx|public.course_section_book_item_outcomes_item_idx",
+        "e|idx|public.course_section_book_item_outcomes_item_idx",
+        "n|rel|public.course_section_book_item_outcomes_item_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_item_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_book_item_outcomes.item_id",
+        "n|col|public.course_section_book_item_outcomes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_book_item_outcomes",
+        "course_section_book_item_outcomes_outcome_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_item_outcomes_outcome_id_idx",
+        "n|idx|public.course_section_book_item_outcomes_outcome_id_idx",
+        "e|idx|public.course_section_book_item_outcomes_outcome_id_idx",
+        "n|rel|public.course_section_book_item_outcomes_outcome_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_item_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_book_item_outcomes.outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_book_items",
+        "course_section_book_items_anchor_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_items_anchor_idx",
+        "n|idx|public.course_section_book_items_anchor_idx",
+        "e|idx|public.course_section_book_items_anchor_idx",
+        "n|rel|public.course_section_book_items_anchor_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_items",
+        "n|sch|public",
+        "n|col|public.course_section_book_items.anchor_id",
+        "n|col|public.course_section_book_items.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_section_book_items",
+        "course_section_book_items_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_section_book_items_node_id_idx",
+        "n|idx|public.course_section_book_items_node_id_idx",
+        "e|idx|public.course_section_book_items_node_id_idx",
+        "n|rel|public.course_section_book_items_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_items",
+        "n|sch|public",
+        "n|col|public.course_section_book_items.book_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "cohort",
         "cohort_context_id_idx"
       ],
@@ -4695,6 +4954,210 @@
         "n|tbl|public.subjects",
         "n|sch|public",
         "n|col|public.subjects.context_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_mappings",
+        "book_mappings_node_unique"
+      ],
+      "writes": [
+        "s|idx|public.book_mappings_node_unique",
+        "n|idx|public.book_mappings_node_unique",
+        "e|idx|public.book_mappings_node_unique",
+        "n|rel|public.book_mappings_node_unique"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|col|public.book_mappings.book_node_id",
+        "n|col|public.book_mappings.curriculum_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_mappings",
+        "book_mappings_outcome_unique"
+      ],
+      "writes": [
+        "s|idx|public.book_mappings_outcome_unique",
+        "n|idx|public.book_mappings_outcome_unique",
+        "e|idx|public.book_mappings_outcome_unique",
+        "n|rel|public.book_mappings_outcome_unique"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|col|public.book_mappings.book_node_id",
+        "n|col|public.book_mappings.learning_outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_mappings",
+        "book_mappings_book_node_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_mappings_book_node_idx",
+        "n|idx|public.book_mappings_book_node_idx",
+        "e|idx|public.book_mappings_book_node_idx",
+        "n|rel|public.book_mappings_book_node_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|col|public.book_mappings.book_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_mappings",
+        "book_mappings_curriculum_node_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_mappings_curriculum_node_idx",
+        "n|idx|public.book_mappings_curriculum_node_idx",
+        "e|idx|public.book_mappings_curriculum_node_idx",
+        "n|rel|public.book_mappings_curriculum_node_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|col|public.book_mappings.curriculum_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_mappings",
+        "book_mappings_outcome_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_mappings_outcome_idx",
+        "n|idx|public.book_mappings_outcome_idx",
+        "e|idx|public.book_mappings_outcome_idx",
+        "n|rel|public.book_mappings_outcome_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|col|public.book_mappings.learning_outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_nodes",
+        "book_nodes_tree_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_nodes_tree_idx",
+        "n|idx|public.book_nodes_tree_idx",
+        "e|idx|public.book_nodes_tree_idx",
+        "n|rel|public.book_nodes_tree_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.book_nodes.book_id",
+        "n|col|public.book_nodes.parent_id",
+        "n|col|public.book_nodes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_records",
+        "book_records_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_records_book_id_idx",
+        "n|idx|public.book_records_book_id_idx",
+        "e|idx|public.book_records_book_id_idx",
+        "n|rel|public.book_records_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_records",
+        "n|sch|public",
+        "n|col|public.book_records.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "book_records",
+        "book_records_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.book_records_node_id_idx",
+        "n|idx|public.book_records_node_id_idx",
+        "e|idx|public.book_records_node_id_idx",
+        "n|rel|public.book_records_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.book_records",
+        "n|sch|public",
+        "n|col|public.book_records.node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "books",
+        "books_subject_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.books_subject_id_idx",
+        "n|idx|public.books_subject_id_idx",
+        "e|idx|public.books_subject_id_idx",
+        "n|rel|public.books_subject_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|col|public.books.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "books",
+        "books_kind_idx"
+      ],
+      "writes": [
+        "s|idx|public.books_kind_idx",
+        "n|idx|public.books_kind_idx",
+        "e|idx|public.books_kind_idx",
+        "n|rel|public.books_kind_idx"
+      ],
+      "reads": [
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|col|public.books.kind"
       ]
     },
     {
@@ -7475,6 +7938,167 @@
       "statementTarget": [
         "table",
         "public",
+        "course_section_book_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_anchors.course_section_book_anchors_section_id_course_sections_id_fkey",
+        "n|fk|public.course_section_book_anchors.course_section_book_anchors_section_id_course_sections_id_fkey",
+        "e|fk|public.course_section_book_anchors.course_section_book_anchors_section_id_course_sections_id_fkey",
+        "n|con|public.course_section_book_anchors.course_section_book_anchors_section_id_course_sections_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|tbl|public.course_sections",
+        "n|sch|public",
+        "n|col|public.course_section_book_anchors.section_id",
+        "n|col|public.course_sections.id",
+        "e|uniqueness|public.course_sections.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_anchors.course_section_book_anchors_book_node_id_book_nodes_id_fkey",
+        "n|fk|public.course_section_book_anchors.course_section_book_anchors_book_node_id_book_nodes_id_fkey",
+        "e|fk|public.course_section_book_anchors.course_section_book_anchors_book_node_id_book_nodes_id_fkey",
+        "n|con|public.course_section_book_anchors.course_section_book_anchors_book_node_id_book_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.course_section_book_anchors.book_node_id",
+        "n|col|public.book_nodes.id",
+        "e|uniqueness|public.book_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_anchors"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_anchors.course_section_book_anchors_book_id_books_id_fkey",
+        "n|fk|public.course_section_book_anchors.course_section_book_anchors_book_id_books_id_fkey",
+        "e|fk|public.course_section_book_anchors.course_section_book_anchors_book_id_books_id_fkey",
+        "n|con|public.course_section_book_anchors.course_section_book_anchors_book_id_books_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|col|public.course_section_book_anchors.book_id",
+        "n|col|public.books.id",
+        "e|uniqueness|public.books.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_item_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_V5jrCyXF8694_fkey",
+        "n|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_V5jrCyXF8694_fkey",
+        "e|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_V5jrCyXF8694_fkey",
+        "n|con|public.course_section_book_item_outcomes.course_section_book_item_outcomes_V5jrCyXF8694_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_item_outcomes",
+        "n|sch|public",
+        "n|tbl|public.course_section_book_items",
+        "n|sch|public",
+        "n|col|public.course_section_book_item_outcomes.item_id",
+        "n|col|public.course_section_book_items.id",
+        "e|uniqueness|public.course_section_book_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_item_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_niCrfwnBDPmN_fkey",
+        "n|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_niCrfwnBDPmN_fkey",
+        "e|fk|public.course_section_book_item_outcomes.course_section_book_item_outcomes_niCrfwnBDPmN_fkey",
+        "n|con|public.course_section_book_item_outcomes.course_section_book_item_outcomes_niCrfwnBDPmN_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_item_outcomes",
+        "n|sch|public",
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.course_section_book_item_outcomes.outcome_id",
+        "n|col|public.learning_outcomes.id",
+        "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_items"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_items.course_section_book_items_Rj7bOpLW65Bx_fkey",
+        "n|fk|public.course_section_book_items.course_section_book_items_Rj7bOpLW65Bx_fkey",
+        "e|fk|public.course_section_book_items.course_section_book_items_Rj7bOpLW65Bx_fkey",
+        "n|con|public.course_section_book_items.course_section_book_items_Rj7bOpLW65Bx_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_items",
+        "n|sch|public",
+        "n|tbl|public.course_section_book_anchors",
+        "n|sch|public",
+        "n|col|public.course_section_book_items.anchor_id",
+        "n|col|public.course_section_book_anchors.id",
+        "e|uniqueness|public.course_section_book_anchors.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_section_book_items"
+      ],
+      "writes": [
+        "s|fk|public.course_section_book_items.course_section_book_items_book_node_id_book_nodes_id_fkey",
+        "n|fk|public.course_section_book_items.course_section_book_items_book_node_id_book_nodes_id_fkey",
+        "e|fk|public.course_section_book_items.course_section_book_items_book_node_id_book_nodes_id_fkey",
+        "n|con|public.course_section_book_items.course_section_book_items_book_node_id_book_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_section_book_items",
+        "n|sch|public",
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.course_section_book_items.book_node_id",
+        "n|col|public.book_nodes.id",
+        "e|uniqueness|public.book_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "course_sections"
       ],
       "writes": [
@@ -8880,6 +9504,192 @@
       "statementTarget": [
         "table",
         "public",
+        "book_mappings"
+      ],
+      "writes": [
+        "s|fk|public.book_mappings.book_mappings_book_node_id_book_nodes_id_fkey",
+        "n|fk|public.book_mappings.book_mappings_book_node_id_book_nodes_id_fkey",
+        "e|fk|public.book_mappings.book_mappings_book_node_id_book_nodes_id_fkey",
+        "n|con|public.book_mappings.book_mappings_book_node_id_book_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.book_mappings.book_node_id",
+        "n|col|public.book_nodes.id",
+        "e|uniqueness|public.book_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_mappings"
+      ],
+      "writes": [
+        "s|fk|public.book_mappings.book_mappings_curriculum_node_id_curriculum_nodes_id_fkey",
+        "n|fk|public.book_mappings.book_mappings_curriculum_node_id_curriculum_nodes_id_fkey",
+        "e|fk|public.book_mappings.book_mappings_curriculum_node_id_curriculum_nodes_id_fkey",
+        "n|con|public.book_mappings.book_mappings_curriculum_node_id_curriculum_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.book_mappings.curriculum_node_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_mappings"
+      ],
+      "writes": [
+        "s|fk|public.book_mappings.book_mappings_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|fk|public.book_mappings.book_mappings_learning_outcome_id_learning_outcomes_id_fkey",
+        "e|fk|public.book_mappings.book_mappings_learning_outcome_id_learning_outcomes_id_fkey",
+        "n|con|public.book_mappings.book_mappings_learning_outcome_id_learning_outcomes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_mappings",
+        "n|sch|public",
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.book_mappings.learning_outcome_id",
+        "n|col|public.learning_outcomes.id",
+        "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_nodes"
+      ],
+      "writes": [
+        "s|fk|public.book_nodes.book_nodes_book_id_books_id_fkey",
+        "n|fk|public.book_nodes.book_nodes_book_id_books_id_fkey",
+        "e|fk|public.book_nodes.book_nodes_book_id_books_id_fkey",
+        "n|con|public.book_nodes.book_nodes_book_id_books_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|col|public.book_nodes.book_id",
+        "n|col|public.books.id",
+        "e|uniqueness|public.books.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_nodes"
+      ],
+      "writes": [
+        "s|fk|public.book_nodes.book_nodes_parent_fk",
+        "n|fk|public.book_nodes.book_nodes_parent_fk",
+        "e|fk|public.book_nodes.book_nodes_parent_fk",
+        "n|con|public.book_nodes.book_nodes_parent_fk"
+      ],
+      "reads": [
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.book_nodes.book_id",
+        "n|col|public.book_nodes.parent_id",
+        "n|col|public.book_nodes.book_id",
+        "n|col|public.book_nodes.id",
+        "e|uniqueness|public.book_nodes.book_id.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_records"
+      ],
+      "writes": [
+        "s|fk|public.book_records.book_records_book_id_books_id_fkey",
+        "n|fk|public.book_records.book_records_book_id_books_id_fkey",
+        "e|fk|public.book_records.book_records_book_id_books_id_fkey",
+        "n|con|public.book_records.book_records_book_id_books_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_records",
+        "n|sch|public",
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|col|public.book_records.book_id",
+        "n|col|public.books.id",
+        "e|uniqueness|public.books.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "book_records"
+      ],
+      "writes": [
+        "s|fk|public.book_records.book_records_node_id_book_nodes_id_fkey",
+        "n|fk|public.book_records.book_records_node_id_book_nodes_id_fkey",
+        "e|fk|public.book_records.book_records_node_id_book_nodes_id_fkey",
+        "n|con|public.book_records.book_records_node_id_book_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.book_records",
+        "n|sch|public",
+        "n|tbl|public.book_nodes",
+        "n|sch|public",
+        "n|col|public.book_records.node_id",
+        "n|col|public.book_nodes.id",
+        "e|uniqueness|public.book_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "books"
+      ],
+      "writes": [
+        "s|fk|public.books.books_subject_id_subjects_id_fkey",
+        "n|fk|public.books.books_subject_id_subjects_id_fkey",
+        "e|fk|public.books.books_subject_id_subjects_id_fkey",
+        "n|con|public.books.books_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.books",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.books.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "message"
       ],
       "writes": [
@@ -9761,6 +10571,24 @@
     },
     {
       "schema": "public",
+      "name": "course_section_book_anchors",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "course_section_book_item_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "course_section_book_items",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "course_sections",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -10026,6 +10854,30 @@
     {
       "schema": "public",
       "name": "subjects",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "book_mappings",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "book_nodes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "book_records",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "books",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -13760,6 +14612,240 @@
     {
       "schema": "public",
       "table": "course_section_anchors",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "section_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "book_node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "node_title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "content",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "anchor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "book_node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -18817,6 +19903,513 @@
     {
       "schema": "public",
       "table": "subjects",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "curriculum_node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "learning_outcome_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "parent_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'lesson'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "volume",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "lesson_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "dataset_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "record_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "content_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "source",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'textbook'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "grade",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "series",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "author",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "publisher",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "published_year",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "isbn",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "attribution_public",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "books",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -25444,6 +27037,146 @@
     },
     {
       "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_item_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_outcome_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_anchor_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "anchor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "cohort",
       "name": "cohort_context_id_idx",
       "nameExplicit": true,
@@ -26976,6 +28709,244 @@
       "columns": [
         {
           "value": "context_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_node_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "curriculum_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"curriculum_node_id\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_outcome_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "learning_outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"learning_outcome_id\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_book_node_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_curriculum_node_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_outcome_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "learning_outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_tree_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "parent_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_subject_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_kind_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "kind",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -29737,6 +31708,125 @@
     },
     {
       "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_section_id_course_sections_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "section_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_sections",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_book_node_id_book_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "book_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_book_id_books_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "books",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_V5jrCyXF8694_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_section_book_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_niCrfwnBDPmN_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "outcome_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_Rj7bOpLW65Bx_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "anchor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_section_book_anchors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_book_node_id_book_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "book_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "course_sections",
       "name": "course_sections_course_course_id_fkey",
       "nameExplicit": false,
@@ -30776,6 +32866,144 @@
     },
     {
       "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_book_node_id_book_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "book_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_curriculum_node_id_curriculum_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curriculum_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_learning_outcome_id_learning_outcomes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "learning_outcome_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_book_id_books_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "books",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_parent_fk",
+      "nameExplicit": true,
+      "columns": [
+        "book_id",
+        "parent_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "book_nodes",
+      "columnsTo": [
+        "book_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_book_id_books_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "books",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_node_id_book_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "book_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_id_message_conversations_id_fkey",
       "nameExplicit": false,
@@ -31672,6 +33900,36 @@
     },
     {
       "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "course_sections",
       "name": "course_sections_pkey",
       "columns": [
@@ -32094,6 +34352,46 @@
       "schema": "public",
       "table": "subjects",
       "name": "subjects_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_pkey",
       "columns": [
         "id"
       ],
@@ -32737,6 +35035,17 @@
     },
     {
       "schema": "public",
+      "table": "course_section_book_anchors",
+      "name": "course_section_book_anchors_section_unique",
+      "nameExplicit": true,
+      "columns": [
+        "section_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "course_sections",
       "name": "course_sections_course_section_unique",
       "nameExplicit": true,
@@ -33078,6 +35387,43 @@
       "columns": [
         "question_id",
         "subject_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_book_id_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "book_id",
+        "id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "book_records",
+      "name": "book_records_dataset_record_unique",
+      "nameExplicit": true,
+      "columns": [
+        "dataset_key",
+        "record_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_subject_grade_title_unique",
+      "nameExplicit": true,
+      "columns": [
+        "subject_id",
+        "grade",
+        "title"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
@@ -33534,6 +35880,20 @@
     },
     {
       "schema": "public",
+      "table": "course_section_book_item_outcomes",
+      "name": "course_section_book_item_outcomes_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
       "table": "curricula",
       "name": "curricula_grade_check",
       "value": "\"grade\" between 1 and 12",
@@ -33599,6 +35959,62 @@
       "schema": "public",
       "table": "subjects",
       "name": "subjects_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_mappings",
+      "name": "book_mappings_one_target_check",
+      "value": "(\"curriculum_node_id\" is null) <> (\"learning_outcome_id\" is null)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_parent_not_self_check",
+      "value": "\"parent_id\" is null or \"parent_id\" <> \"id\"",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_kind_check",
+      "value": "\"kind\" in ('chapter', 'lesson')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_volume_check",
+      "value": "\"volume\" is null or \"volume\" between 1 and 2",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_lesson_number_check",
+      "value": "\"lesson_number\" is null or \"lesson_number\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "book_nodes",
+      "name": "book_nodes_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_grade_check",
+      "value": "\"grade\" is null or \"grade\" between 1 and 12",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "books",
+      "name": "books_position_check",
       "value": "\"position\" > 0",
       "entityType": "checks"
     }

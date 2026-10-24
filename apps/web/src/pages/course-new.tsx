@@ -31,11 +31,11 @@ import {
  *     tạo qua cùng endpoint nhân bản.
  * Tạo xong chuyển thẳng tới Builder Outline của khoá mới.
  */
-type WizardPath = 'frame' | 'textbook' | 'duplicate' | 'blank' | 'template';
+type WizardPath = 'frame' | 'book' | 'duplicate' | 'blank' | 'template';
 
 const PATHS: { key: WizardPath; titleKey: string; descKey: string }[] = [
   { key: 'frame', titleKey: 'wizardPathFrame', descKey: 'wizardPathFrameDesc' },
-  { key: 'textbook', titleKey: 'wizardPathTextbook', descKey: 'wizardPathTextbookDesc' },
+  { key: 'book', titleKey: 'wizardPathBook', descKey: 'wizardPathBookDesc' },
   { key: 'duplicate', titleKey: 'wizardPathDuplicate', descKey: 'wizardPathDuplicateDesc' },
   { key: 'blank', titleKey: 'wizardPathBlank', descKey: 'wizardPathBlankDesc' },
   { key: 'template', titleKey: 'wizardPathTemplate', descKey: 'wizardPathTemplateDesc' },
@@ -212,9 +212,9 @@ export function CourseNewPage() {
             ))}
           </div>
 
-          {path === 'textbook' ? (
-            <div className="space-y-3" data-testid="wizard-textbook-panel">
-              <p className="text-sm">{t('wizardTextbookPending')}</p>
+          {path === 'book' ? (
+            <div className="space-y-3" data-testid="wizard-book-panel">
+              <p className="text-sm">{t('wizardBookPending')}</p>
               <Button type="button" variant="outline" onClick={() => setPath('frame')}>
                 {t('wizardUseFrameInstead')}
               </Button>

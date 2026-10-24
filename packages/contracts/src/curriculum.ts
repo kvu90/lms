@@ -210,3 +210,4 @@ export const applyCurriculumFrameSchema = z.strictObject({
   insertAtSection: z.number().int().min(1).optional(),
 });
 export type ApplyCurriculumFrame = z.infer<typeof applyCurriculumFrameSchema>;
+
