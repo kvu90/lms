@@ -144,6 +144,24 @@ export class MessagingRealtimeService implements OnModuleDestroy {
    */
   async distributeNewMessage(messageRow: MessageRow, memberIds: string[]): Promise<void> {
     if (!this.server) return;
+    // Cùng cổng chặn với distributeMessageDeleted (việc nối tiếp #33,
+    // vòng 3 PR #94): tin gửi sát trước lúc chặn, outbox tiêu thụ
+    // muộn sau khi chặn, không được lộ sang phía bị chặn — kể cả
+    // conversation.updated vào userRoom (kèm nội dung tin cuối), dù
+    // message.new vào room hội thoại đã bị chặn ở tầng gateway.
+    // Hội thoại nhóm không bị chạm.
+    const conversation = await this.repo.getConversation(messageRow.conversationId).catch(() => undefined);
+    if (conversation?.type === 1 && memberIds.length === 2) {
+      const first = memberIds[0];
+      const second = memberIds[1];
+      if (first === undefined || second === undefined) return;
+      const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
+      if (blocked.includes(second)) {
+        await this.evictUserFromConversation(first, messageRow.conversationId);
+        await this.evictUserFromConversation(second, messageRow.conversationId);
+        return;
+      }
+    }
     const wire = toWireMessage(messageRow);
     const newPayload: RealtimeNewMessagePayload = { conversationId: messageRow.conversationId, message: wire };
     // Rà soát room NGAY TRƯỚC khi phát: socket của thành viên đã bị gỡ
