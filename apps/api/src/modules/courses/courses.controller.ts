@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService, type CategoryDeleteMode } from './courses.service';
-import { applyCurriculumFrameSchema, copyCourseContentSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, duplicateCourseSchema, reorderCourseModulesSchema, reorderCourseSectionsSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CopyContentDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type DuplicateCourseDto, type ReorderModulesDto, type ReorderSectionsDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto, applyTextbookFrameSchema, type ApplyTextbookFrameDto } from './dto/courses.dto';
+import { applyCurriculumFrameSchema, copyCourseContentSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, duplicateCourseSchema, reorderCourseModulesSchema, reorderCourseSectionsSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CopyContentDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type DuplicateCourseDto, type ReorderModulesDto, type ReorderSectionsDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto, applyBookFrameSchema, type ApplyBookFrameDto } from './dto/courses.dto';
 
 @ApiTags('courses')
 @Controller({ path: 'courses', version: '1' })
@@ -122,12 +122,12 @@ export class CoursesController {
   async applyFrame(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: applyCurriculumFrameSchema }) dto: ApplyFrameDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.courses.applyCurriculumFrame(actor.id, id, dto);
   }
-  @Post(':id/textbook-frame')
+  @Post(':id/book-frame')
   /**
-   * POST /courses/:id/textbook-frame — nạp khung SGK vào khoá (bản sao có neo kép: mục bài truy về SGK và YCCĐ chương trình, K0b).
+   * POST /courses/:id/book-frame — nạp khung SGK vào khoá (bản sao có neo kép: mục bài truy về SGK và YCCĐ chương trình, K0b).
    */
-  async applyTextbookFrame(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: applyTextbookFrameSchema }) dto: ApplyTextbookFrameDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.courses.applyTextbookFrame(actor.id, id, dto);
+  async applyBookFrame(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: applyBookFrameSchema }) dto: ApplyBookFrameDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.applyBookFrame(actor.id, id, dto);
   }
   @Patch(':id')
   /**

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
-import { courseSectionFrameSchema, courseSectionTextbookFrameSchema } from './curriculum.js';
+import { courseSectionFrameSchema, courseSectionBookFrameSchema } from './curriculum.js';
 
 /** Course & Enrolment contracts — the single shape source between api and web. */
 
@@ -111,7 +111,7 @@ export const courseSectionSchema = z.object({
   /** Neo khung chương trình đã nạp (K0a) — null khi section không xuất phát từ khung. */
   frame: courseSectionFrameSchema.nullable().optional(),
   /** Neo khung SGK đã nạp (K0b) — null khi section không xuất phát từ khung SGK; một section chỉ mang một loại neo. */
-  textbookFrame: courseSectionTextbookFrameSchema.nullable().optional(),
+  bookFrame: courseSectionBookFrameSchema.nullable().optional(),
   modules: z.array(courseModuleSchema),
 });
 export type CourseSection = z.infer<typeof courseSectionSchema>;

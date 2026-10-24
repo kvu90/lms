@@ -11,9 +11,9 @@ import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson, ApiError } from '#lib/api';
 import {
-  fetchCurricula, fetchSubjects, fetchSystemContextId, fetchTextbookDatasetStatus, fetchTextbooks, fetchTextbookTree, fetchTree,
+  fetchCurricula, fetchSubjects, fetchSystemContextId, fetchBookDatasetStatus, fetchBooks, fetchBookTree, fetchTree,
   type Curriculum, type CurriculumSubject, type CurriculumTree, type CurriculumTreeNode,
-  type Textbook, type TextbookDatasetStatus, type TextbookTree,
+  type Book, type BookDatasetStatus, type BookTree,
 } from '#lib/curriculum';
 import '../i18n';
 
@@ -47,7 +47,7 @@ interface ImportResult {
   totalRecords: number;
 }
 
-interface TextbookImportResult {
+interface BookImportResult {
   created: number;
   updated: number;
   skipped: number;
@@ -96,12 +96,12 @@ export function AdminCurriculumPage() {
   const [openSubjects, setOpenSubjects] = useState<string[]>([]);
   const [importing, setImporting] = useState<string | null>(null);
   const [importResults, setImportResults] = useState<Record<string, ImportResult>>({});
-  const [textbookDatasets, setTextbookDatasets] = useState<TextbookDatasetStatus[]>([]);
-  const [textbookImporting, setTextbookImporting] = useState<string | null>(null);
-  const [textbookImportResults, setTextbookImportResults] = useState<Record<string, TextbookImportResult>>({});
-  const [textbooks, setTextbooks] = useState<Textbook[]>([]);
-  const [openTextbooks, setOpenTextbooks] = useState<string[]>([]);
-  const [textbookTrees, setTextbookTrees] = useState<Record<string, TextbookTree>>({});
+  const [bookDatasets, setBookDatasets] = useState<BookDatasetStatus[]>([]);
+  const [bookImporting, setBookImporting] = useState<string | null>(null);
+  const [bookImportResults, setBookImportResults] = useState<Record<string, BookImportResult>>({});
+  const [books, setBooks] = useState<Book[]>([]);
+  const [openBooks, setOpenBooks] = useState<string[]>([]);
+  const [bookTrees, setBookTrees] = useState<Record<string, BookTree>>({});
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,8 +115,8 @@ export function AdminCurriculumPage() {
       setDatasets(status);
       if (contextId) setSubjects(await fetchSubjects(contextId));
       // Tầng SGK (K0b): trạng thái dataset sách + danh sách sách đã nạp.
-      setTextbookDatasets(await fetchTextbookDatasetStatus());
-      setTextbooks(await fetchTextbooks());
+      setBookDatasets(await fetchBookDatasetStatus());
+      setBooks(await fetchBooks());
       setForbidden(false);
       setError(null);
     } catch (err) {
@@ -169,35 +169,35 @@ export function AdminCurriculumPage() {
   }
 
   /** Nạp một dataset SGK đã kiểm chứng vào cây sách + ánh xạ (idempotent phía API). */
-  async function importTextbookDataset(dataset: TextbookDatasetStatus) {
-    setTextbookImporting(dataset.datasetKey);
+  async function importBookDataset(dataset: BookDatasetStatus) {
+    setBookImporting(dataset.datasetKey);
     setMessage(null);
     try {
-      const result = await apiJson<TextbookImportResult>('/api/v1/curriculum/textbook-import', {
+      const result = await apiJson<BookImportResult>('/api/v1/books/dataset-import', {
         method: 'POST',
         body: JSON.stringify({ datasetKey: dataset.datasetKey }),
       });
-      setTextbookImportResults((prev) => ({ ...prev, [dataset.datasetKey]: result }));
-      setMessage(t('textbookImportDone', { book: dataset.bookTitle }));
+      setBookImportResults((prev) => ({ ...prev, [dataset.datasetKey]: result }));
+      setMessage(t('bookImportDone', { book: dataset.bookTitle }));
       await reload();
     } catch (err) {
-      setMessage(errorText(err, t('textbookImportFailed')));
+      setMessage(errorText(err, t('bookImportFailed')));
     } finally {
-      setTextbookImporting(null);
+      setBookImporting(null);
     }
   }
 
   /** Thu/mở một cuốn SGK: mở lần đầu thì tải cây sách (chủ đề → bài → ánh xạ). */
-  async function toggleTextbook(book: Textbook) {
-    if (openTextbooks.includes(book.id)) {
-      setOpenTextbooks(openTextbooks.filter((id) => id !== book.id));
+  async function toggleBook(book: Book) {
+    if (openBooks.includes(book.id)) {
+      setOpenBooks(openBooks.filter((id) => id !== book.id));
       return;
     }
-    setOpenTextbooks([...openTextbooks, book.id]);
-    if (!textbookTrees[book.id]) {
+    setOpenBooks([...openBooks, book.id]);
+    if (!bookTrees[book.id]) {
       try {
-        const tree = await fetchTextbookTree(book.id);
-        setTextbookTrees((prev) => ({ ...prev, [book.id]: tree }));
+        const tree = await fetchBookTree(book.id);
+        setBookTrees((prev) => ({ ...prev, [book.id]: tree }));
       } catch {
         setError(t('curriculumLoadFailed'));
       }
@@ -291,34 +291,34 @@ export function AdminCurriculumPage() {
       {!forbidden ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t('textbookImportTitle')}</CardTitle>
+            <CardTitle>{t('bookImportTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">{t('textbookImportDescription')}</p>
-            {textbookDatasets.map((dataset) => {
-              const result = textbookImportResults[dataset.datasetKey];
+            <p className="text-sm text-muted-foreground">{t('bookImportDescription')}</p>
+            {bookDatasets.map((dataset) => {
+              const result = bookImportResults[dataset.datasetKey];
               return (
                 <div key={dataset.datasetKey} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-medium">
-                    {t('textbookImportBook', { book: dataset.bookTitle, grade: dataset.grade })}
+                    {t('bookImportBook', { book: dataset.bookTitle, grade: dataset.grade })}
                   </span>
                   <Badge variant={dataset.importedRecords >= dataset.totalRecords ? 'default' : 'secondary'}>
-                    {t('textbookImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
+                    {t('bookImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
                   </Badge>
                   <span className="text-muted-foreground">
-                    {t('textbookImportMapped', { mapped: dataset.mappedRecords })}
+                    {t('bookImportMapped', { mapped: dataset.mappedRecords })}
                   </span>
                   <Button
                     type="button"
                     size="sm"
-                    disabled={textbookImporting === dataset.datasetKey}
-                    onClick={() => void importTextbookDataset(dataset)}
+                    disabled={bookImporting === dataset.datasetKey}
+                    onClick={() => void importBookDataset(dataset)}
                   >
-                    {t('textbookImportRun')}
+                    {t('bookImportRun')}
                   </Button>
                   {result ? (
                     <span className="text-muted-foreground">
-                      {t('textbookImportResult', {
+                      {t('bookImportResult', {
                         created: result.created, updated: result.updated, skipped: result.skipped,
                         mappings: result.mappingsWritten,
                       })}
@@ -334,20 +334,20 @@ export function AdminCurriculumPage() {
       {!forbidden ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t('textbookListTitle')}</CardTitle>
+            <CardTitle>{t('bookListTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            {textbooks.length === 0 ? (
+            {books.length === 0 ? (
               <Empty className="p-6">
                 <EmptyHeader>
-                  <EmptyTitle>{t('textbookNoBooks')}</EmptyTitle>
+                  <EmptyTitle>{t('bookNoBooks')}</EmptyTitle>
                 </EmptyHeader>
               </Empty>
             ) : (
-              <ul className="flex flex-col gap-2" aria-label={t('textbookListTitle')}>
-                {textbooks.map((book) => {
-                  const open = openTextbooks.includes(book.id);
-                  const tree = textbookTrees[book.id];
+              <ul className="flex flex-col gap-2" aria-label={t('bookListTitle')}>
+                {books.map((book) => {
+                  const open = openBooks.includes(book.id);
+                  const tree = bookTrees[book.id];
                   const subjectName = subjects.find((s) => s.id === book.subjectId)?.name ?? '';
                   return (
                     <li key={book.id} className="rounded border p-3">
@@ -357,7 +357,7 @@ export function AdminCurriculumPage() {
                           size="sm"
                           variant="outline"
                           aria-expanded={open}
-                          onClick={() => void toggleTextbook(book)}
+                          onClick={() => void toggleBook(book)}
                         >
                           {open ? '▾' : '▸'}
                         </Button>
@@ -367,7 +367,7 @@ export function AdminCurriculumPage() {
                         </span>
                         {tree ? (
                           <Badge variant="secondary">
-                            {t('textbookLessonsCount', {
+                            {t('bookLessonsCount', {
                               count: tree.chapters.reduce((n, c) => n + c.lessons.length, 0),
                             })}
                           </Badge>
@@ -387,13 +387,13 @@ export function AdminCurriculumPage() {
                                     <li key={lesson.id} className="flex flex-wrap items-center gap-2 text-sm">
                                       <span>{lesson.title}</span>
                                       {codes.length > 0 ? (
-                                        <Badge variant="outline">{t('textbookMappedTo', { codes: codes.join(', ') })}</Badge>
+                                        <Badge variant="outline">{t('bookMappedTo', { codes: codes.join(', ') })}</Badge>
                                       ) : (
-                                        <Badge variant="secondary">{t('textbookUnmapped')}</Badge>
+                                        <Badge variant="secondary">{t('bookUnmapped')}</Badge>
                                       )}
                                       {lesson.outcomes.length > 0 ? (
                                         <span className="text-muted-foreground">
-                                          {t('textbookOutcomesCount', { count: lesson.outcomes.length })}
+                                          {t('bookOutcomesCount', { count: lesson.outcomes.length })}
                                         </span>
                                       ) : null}
                                     </li>

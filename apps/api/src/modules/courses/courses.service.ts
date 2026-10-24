@@ -69,7 +69,7 @@ export interface CurriculumFrameProvider {
 }
 
 /** Một đơn vị khung SGK: một chủ đề của cuốn sách — các bài trong chủ đề là mục của section sẽ tạo. */
-export interface TextbookFrameUnit {
+export interface BookFrameUnit {
   chapterNodeId: string;
   title: string;
   items: { lessonNodeId: string; title: string; outcomes: { outcomeId: string; content: string }[] }[];
@@ -78,11 +78,11 @@ export interface TextbookFrameUnit {
 /**
  * Nguồn đơn vị khung SGK — CurriculumModule đăng ký lúc khởi tạo (K0b,
  * cùng mẫu dependency inversion với CurriculumFrameProvider). Cổng
- * quyền là `course:update` tại khoá đích do applyTextbookFrame kiểm
+ * quyền là `course:update` tại khoá đích do applyBookFrame kiểm
  * TRƯỚC khi gọi provider — provider không đòi thêm quyền.
  */
-export interface TextbookFrameProvider {
-  getTextbookFrameUnits(actorId: string, textbookId: string): Promise<TextbookFrameUnit[]>;
+export interface BookFrameProvider {
+  getBookFrameUnits(actorId: string, bookId: string): Promise<BookFrameUnit[]>;
 }
 
 /** Khung đã neo trên một section trong khung hiển thị nội dung khoá (bản chụp lúc nạp). */
@@ -93,9 +93,9 @@ export interface SectionFrameView {
 }
 
 /** Khung SGK đã neo trên một section (bản chụp lúc nạp, K0b): node chủ đề nguồn + các mục bài + YCCĐ chụp của từng mục. */
-export interface SectionTextbookFrameView {
+export interface SectionBookFrameView {
   nodeId: string | null;
-  textbookId: string | null;
+  bookId: string | null;
   nodeTitle: string;
   items: { nodeId: string | null; title: string; outcomes: { outcomeId: string | null; content: string }[] }[];
 }
@@ -112,7 +112,7 @@ export interface CourseContentView {
     frame?: SectionFrameView | null;
     modules: (CmRow & { status?: CourseItemStatus; contextId?: string; availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] } })[];
     /** Neo khung SGK (K0b): null khi section không xuất phát từ khung SGK. */
-    textbookFrame?: SectionTextbookFrameView | null;
+    bookFrame?: SectionBookFrameView | null;
   })[];
 }
 
@@ -136,7 +136,7 @@ export class CoursesService {
   /** Registered by CurriculumModule: đơn vị khung chương trình cho cơ chế nạp khung vào khoá (K0a). */
   private frameProvider?: CurriculumFrameProvider;
   /** Registered by CurriculumModule: đơn vị khung SGK cho cơ chế nạp khung vào khoá (K0b). */
-  private textbookFrameProvider?: TextbookFrameProvider;
+  private bookFrameProvider?: BookFrameProvider;
 
   /**
    * Đăng ký nguồn đơn vị khung chương trình (module curriculum cắm vào khi khởi tạo).
@@ -148,8 +148,8 @@ export class CoursesService {
   /**
    * Đăng ký nguồn đơn vị khung SGK (module curriculum cắm vào khi khởi tạo).
    */
-  registerTextbookFrameProvider(provider: TextbookFrameProvider): void {
-    this.textbookFrameProvider = provider;
+  registerBookFrameProvider(provider: BookFrameProvider): void {
+    this.bookFrameProvider = provider;
   }
 
   /**
@@ -1366,23 +1366,23 @@ export class CoursesService {
    * Quyền: course:update tại context khoá đích là cổng duy nhất (như
    * K0a — provider khung tin cậy cổng này).
    */
-  async applyTextbookFrame(actorId: string, courseId: string, input: {
-    textbookId: string; chapterNodeIds: string[]; insertAtSection?: number;
-  }): Promise<(SectionRow & { textbookFrame: SectionTextbookFrameView })[]> {
+  async applyBookFrame(actorId: string, courseId: string, input: {
+    bookId: string; chapterNodeIds: string[]; insertAtSection?: number;
+  }): Promise<(SectionRow & { bookFrame: SectionBookFrameView })[]> {
     await this.getCourse(courseId);
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(courseId));
-    if (!this.textbookFrameProvider) {
-      throw new BadRequestException({ message: 'Textbook frame provider is not registered', code: 'course.textbook_frame_provider_missing' });
+    if (!this.bookFrameProvider) {
+      throw new BadRequestException({ message: 'Book frame provider is not registered', code: 'course.book_frame_provider_missing' });
     }
-    const units = await this.textbookFrameProvider.getTextbookFrameUnits(actorId, input.textbookId);
+    const units = await this.bookFrameProvider.getBookFrameUnits(actorId, input.bookId);
     const wanted = new Set(input.chapterNodeIds);
     const selected = units.filter((u) => wanted.has(u.chapterNodeId));
     if (selected.length !== wanted.size) {
       const found = new Set(selected.map((u) => u.chapterNodeId));
       const missing = input.chapterNodeIds.filter((id) => !found.has(id));
       throw new BadRequestException({
-        message: `Textbook chapters not selectable in this textbook: ${missing.join(', ')}`,
-        code: 'course.textbook_chapter_not_selectable',
+        message: `Book chapters not selectable in this book: ${missing.join(', ')}`,
+        code: 'course.book_chapter_not_selectable',
       });
     }
     const existing = await this.repo.listSections(courseId);
@@ -1391,11 +1391,11 @@ export class CoursesService {
     if (insertAt > maxSection + 1) {
       throw new BadRequestException({
         message: `insertAtSection ${insertAt} is beyond the end of the outline`,
-        code: 'course.textbook_frame_insert_beyond_end',
+        code: 'course.book_frame_insert_beyond_end',
       });
     }
     const count = selected.length;
-    const created: (SectionRow & { textbookFrame: SectionTextbookFrameView })[] = [];
+    const created: (SectionRow & { bookFrame: SectionBookFrameView })[] = [];
     await this.repo.dbHandle.transaction(async (tx) => {
       const handle = tx as never;
       if (input.insertAtSection !== undefined && insertAt <= maxSection) {
@@ -1407,15 +1407,15 @@ export class CoursesService {
         const section = await this.repo.insertSection({
           course: courseId, section: insertAt + i, name: unit.title, summary: '', visible: true,
         }, handle);
-        const anchor = await this.repo.insertSectionTextbookAnchor({
-          sectionId: section.id, textbookNodeId: unit.chapterNodeId, textbookId: input.textbookId, nodeTitle: unit.title,
+        const anchor = await this.repo.insertSectionBookAnchor({
+          sectionId: section.id, bookNodeId: unit.chapterNodeId, bookId: input.bookId, nodeTitle: unit.title,
         }, handle);
-        const items: SectionTextbookFrameView['items'] = [];
+        const items: SectionBookFrameView['items'] = [];
         for (const [j, item] of unit.items.entries()) {
-          const itemRow = await this.repo.insertSectionTextbookItem({
-            anchorId: anchor.id, textbookNodeId: item.lessonNodeId, title: item.title, position: j + 1,
+          const itemRow = await this.repo.insertSectionBookItem({
+            anchorId: anchor.id, bookNodeId: item.lessonNodeId, title: item.title, position: j + 1,
           }, handle);
-          await this.repo.insertSectionTextbookItemOutcomes(
+          await this.repo.insertSectionBookItemOutcomes(
             item.outcomes.map((o, k) => ({ itemId: itemRow.id, outcomeId: o.outcomeId, content: o.content, position: k + 1 })),
             handle,
           );
@@ -1426,7 +1426,7 @@ export class CoursesService {
         }
         created.push({
           ...section,
-          textbookFrame: { nodeId: unit.chapterNodeId, textbookId: input.textbookId, nodeTitle: unit.title, items },
+          bookFrame: { nodeId: unit.chapterNodeId, bookId: input.bookId, nodeTitle: unit.title, items },
         });
       }
     });
@@ -1453,16 +1453,16 @@ export class CoursesService {
       });
     }
     // Neo khung SGK (K0b): cũng đọc bản chụp (neo → mục bài → YCCĐ chụp).
-    const textbookAnchors = await this.repo.listTextbookAnchorsForSections(sections.map((s) => s.id));
-    const textbookItems = await this.repo.listTextbookItems(textbookAnchors.map((a) => a.id));
-    const textbookItemOutcomes = await this.repo.listTextbookItemOutcomes(textbookItems.map((i) => i.id));
-    const textbookFrameBySection = new Map<string, SectionTextbookFrameView>();
-    for (const anchor of textbookAnchors) {
-      textbookFrameBySection.set(anchor.sectionId, {
-        nodeId: anchor.textbookNodeId, textbookId: anchor.textbookId, nodeTitle: anchor.nodeTitle,
-        items: textbookItems.filter((i) => i.anchorId === anchor.id).map((i) => ({
-          nodeId: i.textbookNodeId, title: i.title,
-          outcomes: textbookItemOutcomes.filter((o) => o.itemId === i.id)
+    const bookAnchors = await this.repo.listBookAnchorsForSections(sections.map((s) => s.id));
+    const bookItems = await this.repo.listBookItems(bookAnchors.map((a) => a.id));
+    const bookItemOutcomes = await this.repo.listBookItemOutcomes(bookItems.map((i) => i.id));
+    const bookFrameBySection = new Map<string, SectionBookFrameView>();
+    for (const anchor of bookAnchors) {
+      bookFrameBySection.set(anchor.sectionId, {
+        nodeId: anchor.bookNodeId, bookId: anchor.bookId, nodeTitle: anchor.nodeTitle,
+        items: bookItems.filter((i) => i.anchorId === anchor.id).map((i) => ({
+          nodeId: i.bookNodeId, title: i.title,
+          outcomes: bookItemOutcomes.filter((o) => o.itemId === i.id)
             .map((o) => ({ outcomeId: o.outcomeId, content: o.content })),
         })),
       });
@@ -1480,7 +1480,7 @@ export class CoursesService {
         if (!access.visible && !canSeeHidden) continue;
         modules.push({ ...cm, status: courseItemStatus(cm.visible, cm.openAt, now), contextId: await this.cmContextId(cm.id), availabilityResult: access });
       }
-      outSections.push({ ...section, status: courseItemStatus(section.visible, section.openAt, now), availabilityResult: sAccess, frame: frameBySection.get(section.id) ?? null, textbookFrame: textbookFrameBySection.get(section.id) ?? null, modules });
+      outSections.push({ ...section, status: courseItemStatus(section.visible, section.openAt, now), availabilityResult: sAccess, frame: frameBySection.get(section.id) ?? null, bookFrame: bookFrameBySection.get(section.id) ?? null, modules });
     }
     return {
       course: courseRow,

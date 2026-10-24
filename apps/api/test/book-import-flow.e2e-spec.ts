@@ -13,7 +13,7 @@ import {
  * Oracle: file dataset đã kiểm chứng nguyên văn với mục lục in trong
  * cuốn SGK Toán 1 (Tập 1 + Tập 2) và mục lục Sách giáo viên Toán 1 của
  * NXB Giáo dục Việt Nam (nguồn khai ở Bước 0 trên issue #67) — bản sao
- * vendor tại `src/modules/curriculum/textbook-data/`. Spec đối chiếu
+ * vendor tại `src/modules/books/book-data/`. Spec đối chiếu
  * TỪNG bản ghi qua API cây sách: đúng chủ đề/tựa bài/thứ tự, ánh xạ
  * đúng mã bản ghi chương trình, và YCCĐ của bài đúng bằng hợp YCCĐ của
  * các node chương trình được ánh xạ (đọc từ cây chương trình, truy vết
@@ -21,7 +21,7 @@ import {
  * không node SGK nào lọt vào cây chương trình chuẩn.
  */
 
-interface TextbookRecord {
+interface BookRecord {
   id: string; volume: number; chapter: string; chapter_number: number;
   lesson: string; lesson_number: number | null; program_records: string[];
 }
@@ -29,9 +29,9 @@ interface ProgramRecord {
   id: string; grade: number; outcomes: string[]; outcome_text: string;
 }
 
-const textbookFile = JSON.parse(
-  readFileSync(join(process.cwd(), 'src/modules/curriculum/textbook-data/textbook-toan-1.json'), 'utf8'),
-) as { records: TextbookRecord[] };
+const bookFile = JSON.parse(
+  readFileSync(join(process.cwd(), 'src/modules/books/book-data/book-toan-1.json'), 'utf8'),
+) as { records: BookRecord[] };
 const programFile = JSON.parse(
   readFileSync(join(process.cwd(), 'src/modules/curriculum/program-data/program-toan.json'), 'utf8'),
 ) as { records: ProgramRecord[] };
@@ -41,8 +41,8 @@ function outcomeTexts(r: ProgramRecord): string[] {
   if (r.outcome_text.trim().length > 0) return [r.outcome_text];
   return [];
 }
-/** YCCĐ kỳ vọng của một bài: hợp theo thứ tự ánh xạ, khử trùng theo nội dung (khớp quy tắc của TextbookService). */
-function expectedLessonOutcomes(record: TextbookRecord): string[] {
+/** YCCĐ kỳ vọng của một bài: hợp theo thứ tự ánh xạ, khử trùng theo nội dung (khớp quy tắc của BookService). */
+function expectedLessonOutcomes(record: BookRecord): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const code of record.program_records) {
@@ -71,8 +71,8 @@ function gradeOneLessons(nodes: ProgTreeNode[], out: ProgTreeNode[] = []): ProgT
   return out;
 }
 
-interface TextbookTreeBody {
-  textbook: { id: string; grade: number; title: string };
+interface BookTreeBody {
+  book: { id: string; grade: number; title: string };
   chapters: {
     id: string; title: string; volume: number | null; position: number;
     lessons: {
@@ -85,13 +85,13 @@ interface TextbookTreeBody {
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0b textbook import (verified Toán 1 TOC → textbook tree + programme mappings)', () => {
+describe('K0b book import (verified Toán 1 TOC → book tree + programme mappings)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
   let plainToken: string;
   let teacherToken: string;
-  let textbookId: string;
+  let bookId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -105,70 +105,70 @@ describe('K0b textbook import (verified Toán 1 TOC → textbook tree + programm
   }, 120_000);
   afterAll(async () => { await app.close(); });
 
-  it('reports textbook dataset status and denies users without curriculum capabilities', async () => {
-    const status = await http(app).get('/api/v1/curriculum/textbook-import').set(bearer(admin));
+  it('reports book dataset status and denies users without curriculum capabilities', async () => {
+    const status = await http(app).get('/api/v1/books/dataset-import').set(bearer(admin));
     expect(status.status).toBe(200);
     const rows = status.body as { datasetKey: string; totalRecords: number; mappedRecords: number }[];
     const row = rows.find((r) => r.datasetKey === 'sgk-toan-1');
     expect(row?.totalRecords).toBe(42);
     expect(row?.mappedRecords).toBe(41);
 
-    const plainStatus = await http(app).get('/api/v1/curriculum/textbook-import').set(bearer(plainToken));
+    const plainStatus = await http(app).get('/api/v1/books/dataset-import').set(bearer(plainToken));
     expect(plainStatus.status).toBe(403);
     expect(plainStatus.body.code).toBe('access.capability_denied');
-    const plainImport = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(plainToken)).send({ datasetKey: 'sgk-toan-1' });
+    const plainImport = await http(app).post('/api/v1/books/dataset-import').set(bearer(plainToken)).send({ datasetKey: 'sgk-toan-1' });
     expect(plainImport.status).toBe(403);
     // Giáo viên hệ thống có curriculum:view nhưng không có curriculum:manage → đọc được, nạp bị từ chối.
-    const teacherStatus = await http(app).get('/api/v1/curriculum/textbook-import').set(bearer(teacherToken));
+    const teacherStatus = await http(app).get('/api/v1/books/dataset-import').set(bearer(teacherToken));
     expect(teacherStatus.status).toBe(200);
-    const teacherImport = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(teacherToken)).send({ datasetKey: 'sgk-toan-1' });
+    const teacherImport = await http(app).post('/api/v1/books/dataset-import').set(bearer(teacherToken)).send({ datasetKey: 'sgk-toan-1' });
     expect(teacherImport.status).toBe(403);
     // Dataset không có trong manifest → 404 tường minh.
-    const bogus = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(admin)).send({ datasetKey: 'sgk-ngu-van-1' });
+    const bogus = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-ngu-van-1' });
     expect(bogus.status).toBe(404);
-    expect(bogus.body.code).toBe('curriculum.textbook_dataset_not_found');
+    expect(bogus.body.code).toBe('book.dataset_not_found');
   });
 
   it('refuses to import when the programme dataset is missing, then imports after it', async () => {
     // Thứ tự spec trong cùng DB không bảo đảm: nếu dataset chương trình
     // chưa từng được nạp ở DB này, lượt nạp SGK phải lỗi cứng
-    // textbook_mapping_unresolved và KHÔNG ghi dở; nếu đã nạp rồi thì
+    // book_mapping_unresolved và KHÔNG ghi dở; nếu đã nạp rồi thì
     // lượt nạp SGK chạy thẳng. Cả hai đường đều phải kết thúc ở trạng
     // thái đã nạp xong chương trình rồi mới nạp SGK thành công.
     const probe = await http(app).get('/api/v1/curriculum/program-import').set(bearer(admin));
     const toanRow = (probe.body as { datasetKey: string; importedRecords: number }[]).find((r) => r.datasetKey === 'toan');
     if ((toanRow?.importedRecords ?? 0) === 0) {
-      const early = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
+      const early = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
       expect(early.status).toBe(400);
-      expect(early.body.code).toBe('curriculum.textbook_mapping_unresolved');
-      const books = await http(app).get('/api/v1/curriculum/textbooks').set(bearer(admin));
+      expect(early.body.code).toBe('book.mapping_unresolved');
+      const books = await http(app).get('/api/v1/books').set(bearer(admin));
       expect((books.body as unknown[]).length).toBe(0);
     }
     const imp = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'toan' });
     expect(imp.status).toBe(201);
 
-    const res = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
+    const res = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
     expect(res.status).toBe(201);
     const result = res.body as {
-      textbookId: string; totalRecords: number; created: number; updated: number; skipped: number; mappingsWritten: number;
+      bookId: string; totalRecords: number; created: number; updated: number; skipped: number; mappingsWritten: number;
     };
-    textbookId = result.textbookId;
+    bookId = result.bookId;
     expect(result.totalRecords).toBe(42);
     expect(result.created + result.updated + result.skipped).toBe(42);
-    const expectedMappings = textbookFile.records.reduce((n, r) => n + r.program_records.length, 0);
+    const expectedMappings = bookFile.records.reduce((n, r) => n + r.program_records.length, 0);
     if (result.created === 42) expect(result.mappingsWritten).toBe(expectedMappings);
   }, 300_000);
 
-  it('textbook tree matches the verified dataset record by record, with programme outcomes resolved through mappings', async () => {
-    const treeRes = await http(app).get(`/api/v1/curriculum/textbooks/${textbookId}/tree`).set(bearer(admin));
+  it('book tree matches the verified dataset record by record, with programme outcomes resolved through mappings', async () => {
+    const treeRes = await http(app).get(`/api/v1/books/${bookId}/tree`).set(bearer(admin));
     expect(treeRes.status).toBe(200);
-    const tree = treeRes.body as TextbookTreeBody;
-    expect(tree.textbook.title).toBe('Toán 1');
-    expect(tree.textbook.grade).toBe(1);
+    const tree = treeRes.body as BookTreeBody;
+    expect(tree.book.title).toBe('Toán 1');
+    expect(tree.book.grade).toBe(1);
 
     // Chủ đề: đúng số lượng, đúng tựa + tập theo thứ tự dataset.
     const expectedChapters: { title: string; volume: number }[] = [];
-    for (const r of textbookFile.records) {
+    for (const r of bookFile.records) {
       if (!expectedChapters.some((c) => c.title === r.chapter && c.volume === r.volume)) {
         expectedChapters.push({ title: r.chapter, volume: r.volume });
       }
@@ -179,7 +179,7 @@ describe('K0b textbook import (verified Toán 1 TOC → textbook tree + programm
     // Từng bài: đúng chủ đề, tựa, số bài, mã bản ghi, ánh xạ và YCCĐ.
     const allLessons = tree.chapters.flatMap((c) => c.lessons.map((l) => ({ chapter: c, lesson: l })));
     expect(allLessons.length).toBe(42);
-    for (const record of textbookFile.records) {
+    for (const record of bookFile.records) {
       const found = allLessons.find((x) => x.lesson.recordId === record.id);
       expect(found, `record ${record.id}`).toBeTruthy();
       expect(found!.chapter.title, `${record.id} chapter`).toBe(record.chapter);
@@ -205,7 +205,7 @@ describe('K0b textbook import (verified Toán 1 TOC → textbook tree + programm
     expect(unmapped[0]!.lesson.outcomes).toEqual([]);
   }, 120_000);
 
-  it('no textbook node leaks into the standard programme tree', async () => {
+  it('no book node leaks into the standard programme tree', async () => {
     const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(admin));
     const subject = (subjects.body as { id: string; slug: string }[]).find((s) => s.slug === 'toan');
     const curricula = await http(app).get(`/api/v1/curriculum/curricula?subjectId=${subject!.id}`).set(bearer(admin));
@@ -216,20 +216,20 @@ describe('K0b textbook import (verified Toán 1 TOC → textbook tree + programm
     // Cây chuẩn lớp 1 vẫn đúng 12 node nội dung của dataset chương trình.
     expect(lessons.length).toBe(programFile.records.filter((r) => r.grade === 1).length);
     const programTitles = new Set(lessons.map((l) => l.title));
-    for (const record of textbookFile.records) {
-      expect(programTitles.has(record.lesson), `textbook lesson "${record.lesson}" leaked`).toBe(false);
-      expect(programTitles.has(record.chapter), `textbook chapter "${record.chapter}" leaked`).toBe(false);
+    for (const record of bookFile.records) {
+      expect(programTitles.has(record.lesson), `book lesson "${record.lesson}" leaked`).toBe(false);
+      expect(programTitles.has(record.chapter), `book chapter "${record.chapter}" leaked`).toBe(false);
     }
   });
 
-  it('re-importing the textbook dataset is a no-op: every record skipped', async () => {
-    const res = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
+  it('re-importing the book dataset is a no-op: every record skipped', async () => {
+    const res = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
     expect(res.status).toBe(201);
     const result = res.body as { created: number; updated: number; skipped: number };
     expect(result.created).toBe(0);
     expect(result.updated).toBe(0);
     expect(result.skipped).toBe(42);
-    const status = await http(app).get('/api/v1/curriculum/textbook-import').set(bearer(admin));
+    const status = await http(app).get('/api/v1/books/dataset-import').set(bearer(admin));
     const row = (status.body as { datasetKey: string; importedRecords: number }[]).find((r) => r.datasetKey === 'sgk-toan-1');
     expect(row?.importedRecords).toBe(42);
   }, 120_000);

@@ -4,13 +4,12 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CurriculumService } from './curriculum.service';
 import { ProgramImportService } from './program-import.service';
-import { TextbookService } from './textbook.service';
 import {
   createCurriculumNodeSchema, createCurriculumSchema, createLearningOutcomeSchema, createSubjectSchema,
-  importProgramDatasetSchema, importTextbookDatasetSchema,
+  importProgramDatasetSchema,
   updateCurriculumNodeSchema, updateCurriculumSchema, updateLearningOutcomeSchema, updateSubjectSchema,
   type CreateCurriculumDto, type CreateCurriculumNodeDto, type CreateLearningOutcomeDto, type CreateSubjectDto,
-  type ImportProgramDatasetDto, type ImportTextbookDatasetDto,
+  type ImportProgramDatasetDto,
   type UpdateCurriculumDto, type UpdateCurriculumNodeDto, type UpdateLearningOutcomeDto, type UpdateSubjectDto,
 } from './dto/curriculum.dto';
 
@@ -29,7 +28,6 @@ export class CurriculumController {
   constructor(
     private readonly curriculum: CurriculumService,
     private readonly programImport: ProgramImportService,
-    private readonly textbooks: TextbookService,
   ) {}
 
   // --- nạp dữ liệu chương trình chuẩn (K0a) -------------------------------------
@@ -43,29 +41,6 @@ export class CurriculumController {
   /** POST /curriculum/program-import — nạp/nạp lại một dataset vào cây chương trình (idempotent theo sổ đăng ký). */
   async importProgramDataset(@Body({ schema: importProgramDatasetSchema }) dto: ImportProgramDatasetDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.programImport.importDataset(actor.id, dto.datasetKey);
-  }
-
-  // --- tầng SGK "Kết nối tri thức với cuộc sống" (K0b) ---------------------------
-
-  @Get('textbook-import')
-  /** GET /curriculum/textbook-import — trạng thái nạp của từng dataset SGK đã kiểm chứng. */
-  async listTextbookImportStatus(@CurrentUser() actor: AuthenticatedUser) {
-    return this.textbooks.listDatasetStatus(actor.id);
-  }
-  @Post('textbook-import')
-  /** POST /curriculum/textbook-import — nạp/nạp lại một dataset SGK vào cây sách + ánh xạ (idempotent theo sổ đăng ký; ánh xạ không phân giải được → lỗi cứng, không ghi dở). */
-  async importTextbookDataset(@Body({ schema: importTextbookDatasetSchema }) dto: ImportTextbookDatasetDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.textbooks.importDataset(actor.id, dto.datasetKey);
-  }
-  @Get('textbooks')
-  /** GET /curriculum/textbooks?subjectId=&forCourseId= — danh sách SGK (forCourseId: nhánh chọn khung cho khoá như bề mặt chương trình). */
-  async listTextbooks(@Query('subjectId') subjectId: string | undefined, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.textbooks.listTextbooks(actor.id, subjectId, forCourseId);
-  }
-  @Get('textbooks/:id/tree')
-  /** GET /curriculum/textbooks/:id/tree?forCourseId= — cây sách đầy đủ: chủ đề → bài, mỗi bài kèm ánh xạ + YCCĐ suy qua ánh xạ. */
-  async getTextbookTree(@Param('id', { schema: uuidIdSchema }) id: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.textbooks.getTextbookTree(actor.id, id, forCourseId);
   }
 
   // --- subjects ---------------------------------------------------------------

@@ -1,22 +1,18 @@
 import {
-  applyTextbookFrameSchema,
   createCurriculumNodeSchema,
   createCurriculumSchema,
   createLearningOutcomeSchema,
   createSubjectSchema,
   importProgramDatasetSchema,
-  importTextbookDatasetSchema,
   updateCurriculumNodeSchema,
   updateCurriculumSchema,
   updateLearningOutcomeSchema,
   updateSubjectSchema,
-  type ApplyTextbookFrame,
   type CreateCurriculum,
   type CreateCurriculumNode,
   type CreateLearningOutcome,
   type CreateSubject,
   type ImportProgramDataset,
-  type ImportTextbookDataset,
   type UpdateCurriculum,
   type UpdateCurriculumNode,
   type UpdateLearningOutcome,
@@ -28,21 +24,17 @@ import {
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
 export {
-  applyTextbookFrameSchema,
   createCurriculumNodeSchema,
   createCurriculumSchema,
   createLearningOutcomeSchema,
   createSubjectSchema,
   importProgramDatasetSchema,
-  importTextbookDatasetSchema,
   updateCurriculumNodeSchema,
   updateCurriculumSchema,
   updateLearningOutcomeSchema,
   updateSubjectSchema,
 };
 export type ImportProgramDatasetDto = ImportProgramDataset;
-export type ImportTextbookDatasetDto = ImportTextbookDataset;
-export type ApplyTextbookFrameDto = ApplyTextbookFrame;
 export type CreateSubjectDto = CreateSubject;
 export type UpdateSubjectDto = UpdateSubject;
 export type CreateCurriculumDto = CreateCurriculum;

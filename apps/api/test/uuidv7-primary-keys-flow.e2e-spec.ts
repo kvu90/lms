@@ -67,10 +67,10 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // hai bảng nối câu hỏi ↔ chương trình có id đại diện theo thiết kế A.1)
     // + curriculum_program_records, course_section_anchors,
     // course_section_anchor_outcomes (đợt K0a nạp khung chương trình, issue #66)
-    // + curriculum_textbooks, curriculum_textbook_nodes,
-    // curriculum_textbook_mappings, curriculum_textbook_records,
-    // course_section_textbook_anchors, course_section_textbook_items,
-    // course_section_textbook_item_outcomes (đợt K0b tầng SGK, issue #67).
+    // + books, book_nodes,
+    // book_mappings, book_records,
+    // course_section_book_anchors, course_section_book_items,
+    // course_section_book_item_outcomes (đợt K0b tầng SGK, issue #67).
     expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(131);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);

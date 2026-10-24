@@ -122,7 +122,7 @@ export async function fetchFrameUnitsFor(
 // --- Tầng SGK "Kết nối tri thức với cuộc sống" (K0b) ---------------------------
 
 /** Trạng thái nạp của một dataset SGK trong manifest phía máy chủ. */
-export interface TextbookDatasetStatus {
+export interface BookDatasetStatus {
   datasetKey: string;
   subjectName: string;
   slug: string;
@@ -131,23 +131,29 @@ export interface TextbookDatasetStatus {
   totalRecords: number;
   importedRecords: number;
   mappedRecords: number;
-  textbookId: string | null;
+  bookId: string | null;
   subjectId: string | null;
   lastImportedAt: string | null;
 }
 
 /** Một cuốn SGK đã nạp. */
-export interface Textbook {
+export interface Book {
   id: string;
-  subjectId: string;
-  grade: number;
+  kind: string;
   title: string;
-  series: string;
+  subjectId: string | null;
+  grade: number | null;
+  series: string | null;
+  author: string | null;
+  publisher: string | null;
+  publishedYear: number | null;
+  isbn: string | null;
+  attributionPublic: boolean;
   position: number;
 }
 
 /** Một đích ánh xạ của một bài SGK (mã bản ghi chương trình để truy vết). */
-export interface TextbookMappingView {
+export interface BookMappingView {
   curriculumNodeId: string | null;
   learningOutcomeId: string | null;
   programRecordId: string | null;
@@ -155,52 +161,52 @@ export interface TextbookMappingView {
 }
 
 /** Một bài SGK trong cây sách, kèm ánh xạ và YCCĐ suy qua ánh xạ. */
-export interface TextbookLessonView {
+export interface BookLessonView {
   id: string;
   title: string;
   volume: number | null;
   lessonNumber: number | null;
   position: number;
   recordId: string | null;
-  mappings: TextbookMappingView[];
+  mappings: BookMappingView[];
   outcomes: { outcomeId: string; content: string }[];
 }
 
 /** Cây đầy đủ của một cuốn SGK: chủ đề → bài. */
-export interface TextbookTree {
-  textbook: Textbook;
-  subject: { id: string; name: string; slug: string };
+export interface BookTree {
+  book: Book;
+  subject: { id: string; name: string; slug: string } | null;
   chapters: {
     id: string;
     title: string;
     volume: number | null;
     position: number;
-    lessons: TextbookLessonView[];
+    lessons: BookLessonView[];
   }[];
 }
 
 /** Trạng thái nạp của mọi dataset SGK (bề mặt quản trị — cần curriculum:view hệ thống). */
-export async function fetchTextbookDatasetStatus(): Promise<TextbookDatasetStatus[]> {
-  return apiJson<TextbookDatasetStatus[]>('/api/v1/curriculum/textbook-import');
+export async function fetchBookDatasetStatus(): Promise<BookDatasetStatus[]> {
+  return apiJson<BookDatasetStatus[]>('/api/v1/books/dataset-import');
 }
 
 /** Danh sách SGK đã nạp; kèm subjectId lọc theo môn, forCourseId mở nhánh chọn khung cho khoá. */
-export async function fetchTextbooks(subjectId?: string, forCourseId?: string): Promise<Textbook[]> {
+export async function fetchBooks(subjectId?: string, forCourseId?: string): Promise<Book[]> {
   const params = new URLSearchParams();
   if (subjectId) params.set('subjectId', subjectId);
   if (forCourseId) params.set('forCourseId', forCourseId);
   const query = params.toString();
-  return apiJson<Textbook[]>(`/api/v1/curriculum/textbooks${query ? `?${query}` : ''}`);
+  return apiJson<Book[]>(`/api/v1/books${query ? `?${query}` : ''}`);
 }
 
 /** Cây sách đầy đủ của một cuốn SGK. */
-export async function fetchTextbookTree(textbookId: string, forCourseId?: string): Promise<TextbookTree> {
+export async function fetchBookTree(bookId: string, forCourseId?: string): Promise<BookTree> {
   const frame = forCourseId ? `?forCourseId=${forCourseId}` : '';
-  return apiJson<TextbookTree>(`/api/v1/curriculum/textbooks/${textbookId}/tree${frame}`);
+  return apiJson<BookTree>(`/api/v1/books/${bookId}/tree${frame}`);
 }
 
 /** Một đơn vị khung SGK chọn được: một chủ đề + số bài + số YCCĐ suy qua ánh xạ của cả chủ đề. */
-export interface TextbookFrameChapter {
+export interface BookFrameChapter {
   nodeId: string;
   title: string;
   lessonCount: number;
@@ -209,19 +215,19 @@ export interface TextbookFrameChapter {
 
 /**
  * Đơn vị khung SGK của cặp (môn, khối): không có cuốn sách nào cho
- * khối đó thì trả textbookId null + danh sách rỗng.
+ * khối đó thì trả bookId null + danh sách rỗng.
  */
-export async function fetchTextbookFrameChaptersFor(
+export async function fetchBookFrameChaptersFor(
   subjectId: string,
   grade: number,
   forCourseId?: string,
-): Promise<{ textbookId: string | null; chapters: TextbookFrameChapter[] }> {
-  const books = await fetchTextbooks(subjectId, forCourseId);
+): Promise<{ bookId: string | null; chapters: BookFrameChapter[] }> {
+  const books = await fetchBooks(subjectId, forCourseId);
   const book = books.find((b) => b.grade === grade);
-  if (!book) return { textbookId: null, chapters: [] };
-  const tree = await fetchTextbookTree(book.id, forCourseId);
+  if (!book) return { bookId: null, chapters: [] };
+  const tree = await fetchBookTree(book.id, forCourseId);
   return {
-    textbookId: book.id,
+    bookId: book.id,
     chapters: tree.chapters.map((chapter) => {
       const outcomeIds = new Set<string>();
       for (const lesson of chapter.lessons) {

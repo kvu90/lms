@@ -22,15 +22,15 @@ import { courseContextId } from './engagement-helpers';
  * tự ánh xạ) — cùng quy tắc với spec nạp SGK.
  */
 
-interface TextbookRecord {
+interface BookRecord {
   id: string; volume: number; chapter: string; chapter_number: number;
   lesson: string; lesson_number: number | null; program_records: string[];
 }
 interface ProgramRecord { id: string; outcomes: string[]; outcome_text: string }
 
-const textbookFile = JSON.parse(
-  readFileSync(join(process.cwd(), 'src/modules/curriculum/textbook-data/textbook-toan-1.json'), 'utf8'),
-) as { records: TextbookRecord[] };
+const bookFile = JSON.parse(
+  readFileSync(join(process.cwd(), 'src/modules/books/book-data/book-toan-1.json'), 'utf8'),
+) as { records: BookRecord[] };
 const programFile = JSON.parse(
   readFileSync(join(process.cwd(), 'src/modules/curriculum/program-data/program-toan.json'), 'utf8'),
 ) as { records: ProgramRecord[] };
@@ -40,7 +40,7 @@ function outcomeTexts(r: ProgramRecord): string[] {
   if (r.outcome_text.trim().length > 0) return [r.outcome_text];
   return [];
 }
-function expectedLessonOutcomes(record: TextbookRecord): string[] {
+function expectedLessonOutcomes(record: BookRecord): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const code of record.program_records) {
@@ -55,11 +55,11 @@ function expectedLessonOutcomes(record: TextbookRecord): string[] {
   return out;
 }
 /** Các bản ghi của một chủ đề theo thứ tự sách. */
-function chapterRecords(chapter: string, volume: number): TextbookRecord[] {
-  return textbookFile.records.filter((r) => r.chapter === chapter && r.volume === volume);
+function chapterRecords(chapter: string, volume: number): BookRecord[] {
+  return bookFile.records.filter((r) => r.chapter === chapter && r.volume === volume);
 }
 
-interface TextbookTreeBody {
+interface BookTreeBody {
   chapters: {
     id: string; title: string; volume: number | null;
     lessons: { id: string; title: string; recordId: string | null }[];
@@ -68,21 +68,21 @@ interface TextbookTreeBody {
 interface ContentSection {
   id: string; section: number; name: string | null;
   frame: unknown;
-  textbookFrame: {
-    nodeId: string | null; textbookId: string | null; nodeTitle: string;
+  bookFrame: {
+    nodeId: string | null; bookId: string | null; nodeTitle: string;
     items: { nodeId: string | null; title: string; outcomes: { outcomeId: string | null; content: string }[] }[];
   } | null;
 }
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0b textbook frame (SGK chapters → course sections with dual anchors)', () => {
+describe('K0b book frame (SGK chapters → course sections with dual anchors)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
   let subjectId: string;
-  let textbookId: string;
-  let tree: TextbookTreeBody;
+  let bookId: string;
+  let tree: BookTreeBody;
   let courseA: string;
   let courseB: string;
   let teacherA: string;
@@ -96,15 +96,15 @@ describe('K0b textbook frame (SGK chapters → course sections with dual anchors
     systemCtxId = await systemContextId(app, admin);
     const impProgram = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'toan' });
     expect(impProgram.status).toBe(201);
-    const impBook = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
+    const impBook = await http(app).post('/api/v1/books/dataset-import').set(bearer(admin)).send({ datasetKey: 'sgk-toan-1' });
     expect(impBook.status).toBe(201);
-    textbookId = (impBook.body as { textbookId: string }).textbookId;
+    bookId = (impBook.body as { bookId: string }).bookId;
 
     const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(admin));
     subjectId = (subjects.body as { id: string; slug: string }[]).find((s) => s.slug === 'toan')!.id;
-    const treeRes = await http(app).get(`/api/v1/curriculum/textbooks/${textbookId}/tree`).set(bearer(admin));
+    const treeRes = await http(app).get(`/api/v1/books/${bookId}/tree`).set(bearer(admin));
     expect(treeRes.status).toBe(200);
-    tree = treeRes.body as TextbookTreeBody;
+    tree = treeRes.body as BookTreeBody;
 
     const category = await createCategory(app, admin);
     courseA = (await createCourse(app, admin, category.id, { subjectId, grade: 1 })).id;
@@ -128,22 +128,22 @@ describe('K0b textbook frame (SGK chapters → course sections with dual anchors
   }, 300_000);
   afterAll(async () => { await app.close(); });
 
-  it('course teacher reads the textbook picker surface for their own course via forCourseId, other-course teacher and student are denied', async () => {
-    const books = await http(app).get(`/api/v1/curriculum/textbooks?subjectId=${subjectId}&forCourseId=${courseA}`).set(bearer(teacherA));
+  it('course teacher reads the book picker surface for their own course via forCourseId, other-course teacher and student are denied', async () => {
+    const books = await http(app).get(`/api/v1/books?subjectId=${subjectId}&forCourseId=${courseA}`).set(bearer(teacherA));
     expect(books.status).toBe(200);
-    expect((books.body as { id: string }[]).some((b) => b.id === textbookId)).toBe(true);
-    const ownTree = await http(app).get(`/api/v1/curriculum/textbooks/${textbookId}/tree?forCourseId=${courseA}`).set(bearer(teacherA));
+    expect((books.body as { id: string }[]).some((b) => b.id === bookId)).toBe(true);
+    const ownTree = await http(app).get(`/api/v1/books/${bookId}/tree?forCourseId=${courseA}`).set(bearer(teacherA));
     expect(ownTree.status).toBe(200);
 
     // Giáo viên khoá B đọc bề mặt SGK cho khoá A → 403.
-    const otherTree = await http(app).get(`/api/v1/curriculum/textbooks/${textbookId}/tree?forCourseId=${courseA}`).set(bearer(teacherB));
+    const otherTree = await http(app).get(`/api/v1/books/${bookId}/tree?forCourseId=${courseA}`).set(bearer(teacherB));
     expect(otherTree.status).toBe(403);
     // Học sinh: mọi bề mặt quản trị SGK/ánh xạ đều 403, kể cả kèm forCourseId của khoá mình học.
-    const studentBooks = await http(app).get(`/api/v1/curriculum/textbooks?subjectId=${subjectId}&forCourseId=${courseA}`).set(bearer(studentA));
+    const studentBooks = await http(app).get(`/api/v1/books?subjectId=${subjectId}&forCourseId=${courseA}`).set(bearer(studentA));
     expect(studentBooks.status).toBe(403);
-    const studentTree = await http(app).get(`/api/v1/curriculum/textbooks/${textbookId}/tree`).set(bearer(studentA));
+    const studentTree = await http(app).get(`/api/v1/books/${bookId}/tree`).set(bearer(studentA));
     expect(studentTree.status).toBe(403);
-    const studentImport = await http(app).post('/api/v1/curriculum/textbook-import').set(bearer(studentA)).send({ datasetKey: 'sgk-toan-1' });
+    const studentImport = await http(app).post('/api/v1/books/dataset-import').set(bearer(studentA)).send({ datasetKey: 'sgk-toan-1' });
     expect(studentImport.status).toBe(403);
   });
 
@@ -154,23 +154,23 @@ describe('K0b textbook frame (SGK chapters → course sections with dual anchors
     expect(chapter3).toBeTruthy();
 
     // Học sinh không nạp được khung; giáo viên khoá khác cũng không.
-    const byStudent = await http(app).post(`/api/v1/courses/${courseA}/textbook-frame`).set(bearer(studentA))
-      .send({ textbookId, chapterNodeIds: [chapter1.id] });
+    const byStudent = await http(app).post(`/api/v1/courses/${courseA}/book-frame`).set(bearer(studentA))
+      .send({ bookId, chapterNodeIds: [chapter1.id] });
     expect(byStudent.status).toBe(403);
-    const byOther = await http(app).post(`/api/v1/courses/${courseA}/textbook-frame`).set(bearer(teacherB))
-      .send({ textbookId, chapterNodeIds: [chapter1.id] });
+    const byOther = await http(app).post(`/api/v1/courses/${courseA}/book-frame`).set(bearer(teacherB))
+      .send({ bookId, chapterNodeIds: [chapter1.id] });
     expect(byOther.status).toBe(403);
     // Node bài (không phải chủ đề) không phải đơn vị chọn được → 400.
     const lessonId = chapter1.lessons[0]!.id;
-    const badUnit = await http(app).post(`/api/v1/courses/${courseA}/textbook-frame`).set(bearer(teacherA))
-      .send({ textbookId, chapterNodeIds: [lessonId] });
+    const badUnit = await http(app).post(`/api/v1/courses/${courseA}/book-frame`).set(bearer(teacherA))
+      .send({ bookId, chapterNodeIds: [lessonId] });
     expect(badUnit.status).toBe(400);
-    expect(badUnit.body.code).toBe('course.textbook_chapter_not_selectable');
+    expect(badUnit.body.code).toBe('course.book_chapter_not_selectable');
 
-    const applied = await http(app).post(`/api/v1/courses/${courseA}/textbook-frame`).set(bearer(teacherA))
-      .send({ textbookId, chapterNodeIds: [chapter1.id, chapter3.id] });
+    const applied = await http(app).post(`/api/v1/courses/${courseA}/book-frame`).set(bearer(teacherA))
+      .send({ bookId, chapterNodeIds: [chapter1.id, chapter3.id] });
     expect(applied.status).toBe(201);
-    const created = applied.body as { id: string; name: string; textbookFrame: ContentSection['textbookFrame'] }[];
+    const created = applied.body as { id: string; name: string; bookFrame: ContentSection['bookFrame'] }[];
     expect(created.length).toBe(2);
     expect(created.map((s) => s.name)).toEqual([chapter1.title, chapter3.title]);
 
@@ -178,17 +178,17 @@ describe('K0b textbook frame (SGK chapters → course sections with dual anchors
     const content = await http(app).get(`/api/v1/courses/${courseA}/content`).set(bearer(teacherA));
     expect(content.status).toBe(200);
     const sections = (content.body as { sections: ContentSection[] }).sections
-      .filter((s) => s.textbookFrame !== null);
+      .filter((s) => s.bookFrame !== null);
     expect(sections.length).toBe(2);
     for (const chapter of [chapter1, chapter3]) {
-      const section = sections.find((s) => s.textbookFrame!.nodeId === chapter.id);
+      const section = sections.find((s) => s.bookFrame!.nodeId === chapter.id);
       expect(section, `section for chapter ${chapter.title}`).toBeTruthy();
-      expect(section!.textbookFrame!.textbookId).toBe(textbookId);
-      expect(section!.textbookFrame!.nodeTitle).toBe(chapter.title);
+      expect(section!.bookFrame!.bookId).toBe(bookId);
+      expect(section!.bookFrame!.nodeTitle).toBe(chapter.title);
       expect(section!.frame).toBeNull();
       const expected = chapterRecords(chapter.title, chapter.volume ?? 1);
-      expect(section!.textbookFrame!.items.length).toBe(expected.length);
-      section!.textbookFrame!.items.forEach((item, i) => {
+      expect(section!.bookFrame!.items.length).toBe(expected.length);
+      section!.bookFrame!.items.forEach((item, i) => {
         const record = expected[i]!;
         expect(item.title, `${record.id} item title`).toBe(record.lesson);
         expect(item.nodeId, `${record.id} item anchor`).toBe(chapter.lessons.find((l) => l.recordId === record.id)?.id);
@@ -203,13 +203,13 @@ describe('K0b textbook frame (SGK chapters → course sections with dual anchors
     const content = await http(app).get(`/api/v1/courses/${courseA}/content`).set(bearer(studentA));
     expect(content.status).toBe(200);
     const sections = (content.body as { sections: ContentSection[] }).sections
-      .filter((s) => s.textbookFrame !== null);
+      .filter((s) => s.bookFrame !== null);
     expect(sections.length).toBe(2);
     const first = sections.find((s) => s.name === 'Các số từ 0 đến 10');
     expect(first).toBeTruthy();
-    expect(first!.textbookFrame!.items.map((i) => i.title)).toContain('Các số 0, 1, 2, 3, 4, 5');
+    expect(first!.bookFrame!.items.map((i) => i.title)).toContain('Các số 0, 1, 2, 3, 4, 5');
     // Mục bài truy được về YCCĐ ngay trong nội dung học sinh thấy.
-    const bai1 = first!.textbookFrame!.items.find((i) => i.title === 'Các số 0, 1, 2, 3, 4, 5');
+    const bai1 = first!.bookFrame!.items.find((i) => i.title === 'Các số 0, 1, 2, 3, 4, 5');
     expect(bai1!.outcomes.length).toBeGreaterThan(0);
   });
 });

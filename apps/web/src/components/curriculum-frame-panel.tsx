@@ -8,8 +8,8 @@ import '../i18n';
 import { apiJson } from '#lib/api';
 import { FrameUnitPicker } from './frame-picker';
 import {
-  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId, fetchTextbookFrameChaptersFor,
-  type CurriculumSubject, type FrameUnit, type TextbookFrameChapter,
+  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId, fetchBookFrameChaptersFor,
+  type CurriculumSubject, type FrameUnit, type BookFrameChapter,
 } from '#lib/curriculum';
 
 /**
@@ -215,10 +215,10 @@ export function CurriculumFramePanel({
  * khoá (panel khung chương trình ở trên), nạp các chủ đề của cuốn SGK
  * đã nạp thành section mới — các bài thành mục của section, YCCĐ của
  * mỗi bài suy qua ánh xạ sang chương trình và chụp tại lúc nạp (POST
- * textbook-frame). Đường đọc đi kèm forCourseId = khoá này, cùng nhánh
+ * book-frame). Đường đọc đi kèm forCourseId = khoá này, cùng nhánh
  * quyền với panel khung chương trình.
  */
-export function TextbookFramePanel({
+export function BookFramePanel({
   courseId,
   course,
   sections,
@@ -230,8 +230,8 @@ export function TextbookFramePanel({
   onApplied: () => void;
 }) {
   const { t } = useTranslation('app');
-  const [textbookId, setTextbookId] = useState<string | null>(null);
-  const [chapters, setChapters] = useState<TextbookFrameChapter[]>([]);
+  const [bookId, setBookId] = useState<string | null>(null);
+  const [chapters, setChapters] = useState<BookFrameChapter[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [insertAt, setInsertAt] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -241,39 +241,39 @@ export function TextbookFramePanel({
     const subjectId = course?.subjectId ?? '';
     const grade = course?.grade ?? null;
     if (!subjectId || grade == null) {
-      setTextbookId(null);
+      setBookId(null);
       setChapters([]);
       return;
     }
-    void fetchTextbookFrameChaptersFor(subjectId, grade, courseId)
-      .then(({ textbookId: found, chapters: foundChapters }) => {
-        setTextbookId(found);
+    void fetchBookFrameChaptersFor(subjectId, grade, courseId)
+      .then(({ bookId: found, chapters: foundChapters }) => {
+        setBookId(found);
         setChapters(foundChapters);
       })
       .catch(() => {
-        setTextbookId(null);
+        setBookId(null);
         setChapters([]);
       });
   }, [course?.subjectId, course?.grade, courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Nạp các chủ đề SGK đã chọn vào khoá ở vị trí đã chọn. */
-  async function applyTextbookFrame() {
-    if (!textbookId || selected.length === 0) return;
+  async function applyBookFrame() {
+    if (!bookId || selected.length === 0) return;
     setMessage(null);
     try {
-      const result = await apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/textbook-frame`, {
+      const result = await apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/book-frame`, {
         method: 'POST',
         body: JSON.stringify({
-          textbookId,
+          bookId,
           chapterNodeIds: selected,
           ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
         }),
       });
-      setMessage(t('textbookFrameApplied', { count: result.sections.length }));
+      setMessage(t('bookFrameApplied', { count: result.sections.length }));
       setSelected([]);
       onApplied();
     } catch {
-      setMessage(t('textbookFrameApplyFailed'));
+      setMessage(t('bookFrameApplyFailed'));
     }
   }
 
@@ -281,22 +281,22 @@ export function TextbookFramePanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('textbookFramePanelTitle')}</CardTitle>
-        <CardDescription>{t('textbookFramePanelDescription')}</CardDescription>
+        <CardTitle>{t('bookFramePanelTitle')}</CardTitle>
+        <CardDescription>{t('bookFramePanelDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {!textbookId ? (
-          <p className="text-sm text-muted-foreground">{t('textbookFrameNoBook')}</p>
+        {!bookId ? (
+          <p className="text-sm text-muted-foreground">{t('bookFrameNoBook')}</p>
         ) : (
           <>
             <div className="space-y-2">
-              <Label>{t('textbookFrameChaptersTitle')}</Label>
+              <Label>{t('bookFrameChaptersTitle')}</Label>
               <ul className="flex flex-col gap-1">
                 {chapters.map((chapter) => (
                   <li key={chapter.nodeId} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      id={`textbook-frame-${chapter.nodeId}`}
+                      id={`book-frame-${chapter.nodeId}`}
                       checked={selected.includes(chapter.nodeId)}
                       onChange={(e) =>
                         setSelected((prev) =>
@@ -304,18 +304,18 @@ export function TextbookFramePanel({
                         )
                       }
                     />
-                    <label htmlFor={`textbook-frame-${chapter.nodeId}`}>{chapter.title}</label>
+                    <label htmlFor={`book-frame-${chapter.nodeId}`}>{chapter.title}</label>
                     <span className="text-muted-foreground">
-                      {t('textbookFrameChapterMeta', { lessons: chapter.lessonCount, outcomes: chapter.outcomeCount })}
+                      {t('bookFrameChapterMeta', { lessons: chapter.lessonCount, outcomes: chapter.outcomeCount })}
                     </span>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="textbook-frame-insert-at">{t('frameInsertAt')}</Label>
+              <Label htmlFor="book-frame-insert-at">{t('frameInsertAt')}</Label>
               <select
-                id="textbook-frame-insert-at"
+                id="book-frame-insert-at"
                 className={selectClass}
                 value={insertAt}
                 onChange={(e) => setInsertAt(e.target.value)}
@@ -330,8 +330,8 @@ export function TextbookFramePanel({
                   ))}
               </select>
             </div>
-            <Button type="button" disabled={selected.length === 0} onClick={() => void applyTextbookFrame()}>
-              {t('textbookFrameApply')}
+            <Button type="button" disabled={selected.length === 0} onClick={() => void applyBookFrame()}>
+              {t('bookFrameApply')}
             </Button>
           </>
         )}
