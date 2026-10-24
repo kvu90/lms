@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -68,6 +72,7 @@ export function BadgesPage() {
   const [issuedBadgeId, setIssuedBadgeId] = useState<string | null>(null);
   const [issuedList, setIssuedList] = useState<IssuedView[]>([]);
   const [issuedError, setIssuedError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   /**
    * Nạp lại huy hiệu của tôi và (chỉ để tra tên dự phòng + panel quản trị)
@@ -81,7 +86,9 @@ export function BadgesPage() {
   }, []);
 
   useEffect(() => {
-    void reload().catch(() => setError(t('badgesLoadFailed')));
+    void reload()
+      .catch(() => setError(t('badgesLoadFailed')))
+      .finally(() => setLoading(false));
   }, [reload, t]);
 
   /** Tên huy hiệu của một bản ghi đã cấp: ưu tiên badge lồng trong /mine. */
@@ -150,31 +157,68 @@ export function BadgesPage() {
   const issuedBadgeName = all.find((b) => b.id === issuedBadgeId)?.name ?? '';
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      {error ? <p role="alert">{error}</p> : null}
+    <PageShell width="medium">
+      <PageHeader title={t('badgesHeading')} />
+      {error ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setError(t('badgesLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{t('myBadges')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2" aria-label={t('myBadgesLabel')}>
-            {mine.map((i) => (
-              <li key={i.id} className="rounded border p-2">
-                <p className="font-medium">
-                  {badgeName(i)}
-                  {i.revoked ? ` ${t('revokedSuffix')}` : ''}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t('issuedLine', {
-                    date: new Date(i.dateIssued).toLocaleDateString(),
-                    hash: i.uniqueHash.slice(0, 12),
-                  })}
-                  {i.dateExpire ? ` ${t('expiresSuffix', { date: new Date(i.dateExpire).toLocaleDateString() })}` : ''}
-                </p>
-              </li>
-            ))}
-            {mine.length === 0 ? <li>{t('noBadgesYet')}</li> : null}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul className="space-y-2" aria-label={t('myBadgesLabel')}>
+                {mine.map((i) => (
+                  <li key={i.id} className="rounded border p-2">
+                    <p className="font-medium">
+                      {badgeName(i)}
+                      {i.revoked ? ` ${t('revokedSuffix')}` : ''}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('issuedLine', {
+                        date: new Date(i.dateIssued).toLocaleDateString(),
+                        hash: i.uniqueHash.slice(0, 12),
+                      })}
+                      {i.dateExpire ? ` ${t('expiresSuffix', { date: new Date(i.dateExpire).toLocaleDateString() })}` : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              {mine.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noBadgesYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
       {canAdminister ? (
@@ -183,7 +227,11 @@ export function BadgesPage() {
             <CardTitle>{t('badgeAdministration')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {message ? <p>{message}</p> : null}
+            {message ? (
+              <Alert>
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            ) : null}
             <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
               {all.map((b) => (
                 <li key={b.id} className="flex items-center gap-3 text-sm">
@@ -200,7 +248,11 @@ export function BadgesPage() {
                 </li>
               ))}
             </ul>
-            {issuedError ? <p role="alert">{issuedError}</p> : null}
+            {issuedError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{issuedError}</AlertDescription>
+              </Alert>
+            ) : null}
             {issuedBadgeId ? (
               <div className="space-y-2">
                 <p className="font-medium">{t('issuedListTitle', { name: issuedBadgeName })}</p>
@@ -223,36 +275,44 @@ export function BadgesPage() {
                 </ul>
               </div>
             ) : null}
-            <form onSubmit={(e) => void createBadge(e)} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="badge-name">{t('badgeName')}</Label>
-                <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <Button type="submit">{t('createBadge')}</Button>
+            <form onSubmit={(e) => void createBadge(e)}>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="badge-name">{t('badgeName')}</FieldLabel>
+                  <Input id="badge-name" value={name} onChange={(e) => setName(e.target.value)} />
+                </Field>
+                <div className="flex justify-end">
+                  <Button type="submit">{t('createBadge')}</Button>
+                </div>
+              </FieldGroup>
             </form>
-            <form onSubmit={(e) => void setCriteria(e)} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="criteria-badge">{t('badgeId')}</Label>
-                <Input
-                  id="criteria-badge"
-                  value={criteriaBadgeId}
-                  onChange={(e) => setCriteriaBadgeId(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="criteria-course">{t('criteriaCourseId')}</Label>
-                <Input
-                  id="criteria-course"
-                  value={criteriaCourseId}
-                  onChange={(e) => setCriteriaCourseId(e.target.value)}
-                />
-              </div>
-              <Button type="submit">{t('setCriteriaAll')}</Button>
+            <form onSubmit={(e) => void setCriteria(e)}>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="criteria-badge">{t('badgeId')}</FieldLabel>
+                  <Input
+                    id="criteria-badge"
+                    value={criteriaBadgeId}
+                    onChange={(e) => setCriteriaBadgeId(e.target.value)}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="criteria-course">{t('criteriaCourseId')}</FieldLabel>
+                  <Input
+                    id="criteria-course"
+                    value={criteriaCourseId}
+                    onChange={(e) => setCriteriaCourseId(e.target.value)}
+                  />
+                </Field>
+                <div className="flex justify-end">
+                  <Button type="submit">{t('setCriteriaAll')}</Button>
+                </div>
+              </FieldGroup>
             </form>
           </CardContent>
         </Card>
       ) : null}
-    </main>
+    </PageShell>
   );
 }
 

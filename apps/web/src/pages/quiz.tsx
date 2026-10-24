@@ -8,11 +8,17 @@ import {
   type QuizView,
   type RichTextDocument,
 } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Checkbox } from '@lms/ui/components/checkbox';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -199,13 +205,35 @@ export function QuizPage() {
 
   if (error)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <p role="alert">{error}</p>
-      </main>
+      <PageShell width="medium">
+        <PageHeader title={t('quizHeading')} />
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              void reload().catch(() => setError(t('quizLoadFailed')));
+            }}
+          >
+            {t('retry')}
+          </Button>
+        </div>
+      </PageShell>
     );
   if (!data)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('quizLoading')}</main>
+      <PageShell width="medium">
+        <PageHeader title={t('quizHeading')} />
+        <div className="space-y-2" aria-label={t('quizLoading')}>
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-4 w-80" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+      </PageShell>
     );
 
   const { quiz, permissions } = data;
@@ -221,12 +249,9 @@ export function QuizPage() {
             : null;
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={quiz.name} description={t('quizIntroLine', { total: quiz.sumGrades, grade: quiz.grade })} />
       <Card>
-        <CardHeader>
-          <CardTitle>{quiz.name}</CardTitle>
-          <CardDescription>{t('quizIntroLine', { total: quiz.sumGrades, grade: quiz.grade })}</CardDescription>
-        </CardHeader>
         <CardContent className="space-y-3">
           {quiz.intro ? <p className="text-sm whitespace-pre-wrap">{quiz.intro}</p> : null}
           <ul className="text-sm text-muted-foreground">
@@ -235,7 +260,11 @@ export function QuizPage() {
             <li>{t('quizAttemptsLine', { count: quiz.attemptsAllowed === 0 ? t('quizUnlimited') : quiz.attemptsAllowed })}</li>
             <li>{t('quizGradeMethodLine', { method: t(`quizGradeMethod_${quiz.gradeMethod}`) })}</li>
           </ul>
-          {actionError ? <p role="alert">{actionError}</p> : null}
+          {actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {permissions.attempt && data.inProgressAttemptId ? (
               <Button type="button" onClick={() => void navigate(`/quiz-attempts/${data.inProgressAttemptId}`)}>
@@ -368,28 +397,34 @@ export function QuizPage() {
               <form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddFixedSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
-                  <select
-                    aria-label={t('quizPickCategory')}
-                    value={pickCategoryId}
-                    onChange={(e) => { setPickCategoryId(e.target.value); setPickQuestionId(''); }}
+                  <Select
+                    value={pickCategoryId === '' ? null : pickCategoryId}
+                    onValueChange={(v) => { setPickCategoryId(v ?? ''); setPickQuestionId(''); }}
                   >
-                    <option value="">{t('quizPickCategory')}</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label={t('quizPickQuestion')}
-                    value={pickQuestionId}
-                    onChange={(e) => setPickQuestionId(e.target.value)}
+                    <SelectTrigger aria-label={t('quizPickCategory')} className="w-52">
+                      <SelectValue placeholder={t('quizPickCategory')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={pickQuestionId === '' ? null : pickQuestionId}
+                    onValueChange={(v) => setPickQuestionId(v ?? '')}
                   >
-                    <option value="">{t('quizPickQuestion')}</option>
-                    {bankQuestions.map((q) => (
-                      <option key={q.question.id} value={q.question.id}>
-                        {q.question.name} ({q.question.qtype})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label={t('quizPickQuestion')} className="w-52">
+                      <SelectValue placeholder={t('quizPickQuestion')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankQuestions.map((q) => (
+                        <SelectItem key={q.question.id} value={q.question.id}>
+                          {q.question.name} ({q.question.qtype})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     aria-label={t('quizSlotMark')}
                     className="w-24"
@@ -406,16 +441,19 @@ export function QuizPage() {
               <form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddRandomSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
-                  <select
-                    aria-label={t('quizPickCategory')}
-                    value={randomCategoryId}
-                    onChange={(e) => setRandomCategoryId(e.target.value)}
+                  <Select
+                    value={randomCategoryId === '' ? null : randomCategoryId}
+                    onValueChange={(v) => setRandomCategoryId(v ?? '')}
                   >
-                    <option value="">{t('quizPickCategory')}</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label={t('quizPickCategory')} className="w-52">
+                      <SelectValue placeholder={t('quizPickCategory')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     aria-label={t('quizSlotMark')}
                     className="w-24"
@@ -435,55 +473,63 @@ export function QuizPage() {
               <CardTitle>{t('quizSettingsTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={(e) => void saveSettings(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-name">{t('quizSettingsName')}</Label>
-                  <Input id="quiz-name" value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="quiz-intro">{t('quizSettingsIntro')}</Label>
-                  <Input id="quiz-intro" value={intro} onChange={(e) => setIntro(e.target.value)} />
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-open">{t('quizSettingsOpen')}</Label>
-                    <Input id="quiz-open" type="datetime-local" value={timeOpen} onChange={(e) => setTimeOpen(e.target.value)} />
+              <form onSubmit={(e) => void saveSettings(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="quiz-name">{t('quizSettingsName')}</FieldLabel>
+                    <Input id="quiz-name" value={name} onChange={(e) => setName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="quiz-intro">{t('quizSettingsIntro')}</FieldLabel>
+                    <Input id="quiz-intro" value={intro} onChange={(e) => setIntro(e.target.value)} />
+                  </Field>
+                  <div className="flex flex-wrap gap-3">
+                    <Field className="w-auto">
+                      <FieldLabel htmlFor="quiz-open">{t('quizSettingsOpen')}</FieldLabel>
+                      <Input id="quiz-open" type="datetime-local" value={timeOpen} onChange={(e) => setTimeOpen(e.target.value)} />
+                    </Field>
+                    <Field className="w-auto">
+                      <FieldLabel htmlFor="quiz-close">{t('quizSettingsClose')}</FieldLabel>
+                      <Input id="quiz-close" type="datetime-local" value={timeClose} onChange={(e) => setTimeClose(e.target.value)} />
+                    </Field>
+                    <Field className="w-auto">
+                      <FieldLabel htmlFor="quiz-limit">{t('quizSettingsTimeLimit')}</FieldLabel>
+                      <Input id="quiz-limit" value={timeLimitMinutes} onChange={(e) => setTimeLimitMinutes(e.target.value)} />
+                    </Field>
+                    <Field className="w-auto">
+                      <FieldLabel htmlFor="quiz-attempts">{t('quizSettingsAttempts')}</FieldLabel>
+                      <Input id="quiz-attempts" value={attemptsAllowed} onChange={(e) => setAttemptsAllowed(e.target.value)} />
+                    </Field>
+                    <Field className="w-auto">
+                      <FieldLabel htmlFor="quiz-grade">{t('quizSettingsGrade')}</FieldLabel>
+                      <Input id="quiz-grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
+                    </Field>
+                    <Field className="w-auto">
+                      <FieldLabel id="quiz-method-label">{t('quizSettingsMethod')}</FieldLabel>
+                      <Select value={gradeMethod} onValueChange={(v) => setGradeMethod(v ?? 'highest')}>
+                        <SelectTrigger aria-labelledby="quiz-method-label" className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(['highest', 'average', 'first', 'last'] as const).map((m) => (
+                            <SelectItem key={m} value={m}>{t(`quizGradeMethod_${m}`)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <div className="flex items-end gap-2 pb-1">
+                      <Checkbox
+                        id="quiz-shuffle"
+                        checked={shuffleAnswers}
+                        onCheckedChange={(checked) => setShuffleAnswers(checked === true)}
+                      />
+                      <Label htmlFor="quiz-shuffle">{t('quizSettingsShuffle')}</Label>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-close">{t('quizSettingsClose')}</Label>
-                    <Input id="quiz-close" type="datetime-local" value={timeClose} onChange={(e) => setTimeClose(e.target.value)} />
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={busy}>{t('quizSettingsSave')}</Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-limit">{t('quizSettingsTimeLimit')}</Label>
-                    <Input id="quiz-limit" value={timeLimitMinutes} onChange={(e) => setTimeLimitMinutes(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-attempts">{t('quizSettingsAttempts')}</Label>
-                    <Input id="quiz-attempts" value={attemptsAllowed} onChange={(e) => setAttemptsAllowed(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-grade">{t('quizSettingsGrade')}</Label>
-                    <Input id="quiz-grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quiz-method">{t('quizSettingsMethod')}</Label>
-                    <select id="quiz-method" value={gradeMethod} onChange={(e) => setGradeMethod(e.target.value)}>
-                      {(['highest', 'average', 'first', 'last'] as const).map((m) => (
-                        <option key={m} value={m}>{t(`quizGradeMethod_${m}`)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <input
-                      id="quiz-shuffle"
-                      type="checkbox"
-                      checked={shuffleAnswers}
-                      onChange={(e) => setShuffleAnswers(e.target.checked)}
-                    />
-                    <Label htmlFor="quiz-shuffle">{t('quizSettingsShuffle')}</Label>
-                  </div>
-                </div>
-                <Button type="submit" disabled={busy}>{t('quizSettingsSave')}</Button>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -493,7 +539,7 @@ export function QuizPage() {
       <p className="text-sm">
         <Link to={`/courses/${courseId}`}>{t('quizBackToCourse')}</Link>
       </p>
-    </main>
+    </PageShell>
   );
 }
 
