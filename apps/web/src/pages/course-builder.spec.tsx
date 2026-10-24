@@ -111,6 +111,60 @@ const CONTENT_TWO_SECTIONS = {
   ],
 };
 
+/** Học liệu trong Kho (CB-1) mà panel "Thêm từ kho" của builder liệt kê. */
+const BANK_ITEM_LECTURE = {
+  id: '01900000-0000-7000-8000-00000000ba01',
+  name: 'Bài giảng video: Dao động điều hoà',
+  contentType: 'file-based',
+  contextId: '01900000-0000-7000-8000-0000000000c1',
+  creatorId: TEACHER_ID,
+  visibility: 'public',
+  fileId: '01900000-0000-7000-8000-00000000f101',
+  resourceType: 'multimedia_lecture',
+  scope: 'personal',
+  spaceId: null,
+  subjectId: null,
+  grade: 11,
+  level: 'upper_secondary',
+  curriculumNodeId: null,
+  outcomeIds: null,
+  questionCategoryId: null,
+  externalUrl: null,
+  description: 'Video bài giảng chương Dao động',
+  keywords: ['dao động', 'video'],
+  targetAudience: 'students',
+  lessonPosition: 'new_knowledge',
+  techFormat: 'mp4',
+  sizeBytes: 1024,
+  durationSeconds: 600,
+  language: 'vi',
+  originalAuthor: 'Nguyễn Lan Anh',
+  sourceKind: 'self',
+  sourceCitation: null,
+  license: null,
+  derivedFromId: null,
+  reviewStatus: 'approved',
+  reviewedBy: null,
+  reviewNote: null,
+  reviewChecklist: null,
+};
+
+const BANK_ITEM_QUESTION_SET = {
+  ...BANK_ITEM_LECTURE,
+  id: '01900000-0000-7000-8000-00000000ba02',
+  name: 'Bộ câu hỏi trắc nghiệm chương 1',
+  fileId: null,
+  resourceType: 'question_set',
+  scope: 'org',
+  spaceId: '01900000-0000-7000-8000-00000000cc01',
+  questionCategoryId: '01900000-0000-7000-8000-00000000ca01',
+  description: 'Tham chiếu ngân hàng câu hỏi',
+  keywords: ['trắc nghiệm'],
+  techFormat: null,
+};
+
+const BANK_ITEMS = [BANK_ITEM_LECTURE, BANK_ITEM_QUESTION_SET];
+
 const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
 
 interface RecordedCall {
@@ -120,7 +174,7 @@ interface RecordedCall {
 }
 
 /** Stub fetch ghi lại mọi lời gọi; giáo viên có editingteacher tại context khoá kèm course:update + completion:manage. */
-function stubFetch(calls: RecordedCall[], content: unknown = CONTENT) {
+function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems: unknown = BANK_ITEMS) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -192,6 +246,15 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT) {
       }
       if (url === `/api/v1/courses/${COURSE_ID}/completion/recalculate` && init?.method === 'POST')
         return respond({ courseId: COURSE_ID, enrolled: 1, evaluated: 1, completed: 0 });
+      if (url === '/api/v1/contentbank' && method === 'GET') return respond(bankItems);
+      if (url.startsWith('/api/v1/contentbank/') && url.endsWith('/insert') && method === 'POST')
+        return respond({
+          cmId: '01900000-0000-7000-8000-0000000010ff',
+          courseId: COURSE_ID,
+          sectionId: SECTION_ID,
+          fileId: '01900000-0000-7000-8000-00000000f1ff',
+          sourceContentId: url.split('/')[4],
+        });
       return respond({}, 404);
     }),
   );
@@ -411,5 +474,58 @@ describe('Builder Outline K1 (teacher)', () => {
     const body = patch?.body as { visible: boolean; openAt: string };
     expect(body.visible).toBe(true);
     expect(body.openAt.slice(0, 10)).toBe('2026-11-02');
+  });
+});
+
+describe('Builder — Thêm từ kho học liệu (CB-1, issue #107)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('mở panel trong section, lọc theo từ khoá và cắm học liệu qua POST /contentbank/:id/insert', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseBuilder();
+
+    const sectionBox = await screen.findByTestId(`section-builder-${SECTION_ID}`);
+    await userEvent.click(within(sectionBox).getByRole('button', { name: 'Thêm từ kho' }));
+
+    // Panel liệt kê cả hai học liệu lấy từ GET /contentbank.
+    const lectureRow = await screen.findByTestId(`bank-item-${BANK_ITEM_LECTURE.id}`);
+    expect(within(lectureRow).getByText('Bài giảng video: Dao động điều hoà')).toBeTruthy();
+    expect(screen.getByTestId(`bank-item-${BANK_ITEM_QUESTION_SET.id}`)).toBeTruthy();
+    expect(calls.some((c) => c.url === '/api/v1/contentbank' && c.method === 'GET')).toBe(true);
+
+    // Lọc theo từ khoá "video": chỉ còn bài giảng, bộ câu hỏi biến mất.
+    await userEvent.type(within(sectionBox).getByLabelText('Tìm học liệu trong kho'), 'video');
+    await waitFor(() => expect(screen.queryByTestId(`bank-item-${BANK_ITEM_QUESTION_SET.id}`)).toBeNull());
+    await userEvent.clear(within(sectionBox).getByLabelText('Tìm học liệu trong kho'));
+
+    await userEvent.click(within(lectureRow).getByRole('button', { name: 'Thêm vào section' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/contentbank/${BANK_ITEM_LECTURE.id}/insert` && c.method === 'POST'),
+      ).toBe(true),
+    );
+    const insert = calls.find((c) => c.url === `/api/v1/contentbank/${BANK_ITEM_LECTURE.id}/insert`);
+    expect(insert?.body).toEqual({ courseId: COURSE_ID, sectionId: SECTION_ID });
+    expect(await screen.findByText('Đã thêm học liệu "Bài giảng video: Dao động điều hoà" từ kho vào section.')).toBeTruthy();
+  });
+
+  it('bộ câu hỏi tham chiếu (question_set không file) không có nút Thêm — chỉ hiện ghi chú, không gọi insert', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseBuilder();
+
+    const sectionBox = await screen.findByTestId(`section-builder-${SECTION_ID}`);
+    await userEvent.click(within(sectionBox).getByRole('button', { name: 'Thêm từ kho' }));
+
+    const qsetRow = await screen.findByTestId(`bank-item-${BANK_ITEM_QUESTION_SET.id}`);
+    expect(within(qsetRow).getByText('Bộ câu hỏi tham chiếu — dùng từ ngân hàng câu hỏi')).toBeTruthy();
+    expect(within(qsetRow).queryByRole('button', { name: 'Thêm vào section' })).toBeNull();
+    expect(calls.some((c) => c.url.endsWith('/insert') && c.method === 'POST')).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import {
 } from '@lms/contracts';
 import { AvailabilityEditor } from '#components/availability-editor';
 import { CurriculumFramePanel, BookFramePanel } from '#components/curriculum-frame-panel';
+import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
@@ -13,6 +14,7 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '#lib/api';
+import { fetchItems, insertItem, type LibraryItem } from '#lib/content-bank';
 import { usePermissions } from '#lib/permissions';
 
 /**
@@ -21,11 +23,13 @@ import { usePermissions } from '#lib/permissions';
  * (+ cờ khoá mẫu tổ/trường), panel "Thêm từ khung" (K0a), outline
  * section/module với kéo–thả đổi thứ tự (kèm nút lên/xuống), nhân
  * bản/xoá ngay tại dòng, thêm nội dung bằng MENU chọn loại (không gõ
- * chuỗi component), trạng thái Nháp/Đã mở/Mở theo lịch qua trường
- * ngày mở `openAt` riêng, điều kiện truy cập nâng cao (availability)
- * giữ nguyên từ bản cũ, panel "Dùng lại từ khoá khác" và tiêu chí
- * hoàn thành khoá. Quyền: teaching của khoá hoặc quản trị hệ thống —
- * API vẫn thực thi capability thật cho từng thao tác ghi.
+ * chuỗi component), khối "Thêm từ kho" trong từng section (CB-1 —
+ * issue #107: cắm học liệu của Kho học liệu vào section qua endpoint
+ * insert sẵn có của CB-1), trạng thái Nháp/Đã mở/Mở theo lịch qua
+ * trường ngày mở `openAt` riêng, điều kiện truy cập nâng cao
+ * (availability) giữ nguyên từ bản cũ, panel "Dùng lại từ khoá khác"
+ * và tiêu chí hoàn thành khoá. Quyền: teaching của khoá hoặc quản trị
+ * hệ thống — API vẫn thực thi capability thật cho từng thao tác ghi.
  */
 type ItemStatusChoice = 'draft' | 'open' | 'scheduled';
 
@@ -39,6 +43,34 @@ function moveItem<T>(items: T[], from: number, to: number): T[] {
   const [moved] = next.splice(from, 1);
   next.splice(to, 0, moved!);
   return next;
+}
+
+/** Key i18n nhãn loại học liệu của Kho (CB-1) — dùng chung catalog platform với trang kho. */
+function bankTypeKey(resourceType: string): string {
+  return resourceType === 'multimedia_lecture'
+    ? 'platform:libraryTypeMultimediaLecture'
+    : resourceType === 'lab_guide'
+      ? 'platform:libraryTypeLabGuide'
+      : resourceType === 'simulation'
+        ? 'platform:libraryTypeSimulation'
+        : resourceType === 'question_set'
+          ? 'platform:libraryTypeQuestionSet'
+          : 'platform:libraryTypeReference';
+}
+
+/** Key i18n nhãn phạm vi (không gian) của học liệu trong Kho. */
+function bankScopeKey(scope: string): string {
+  return scope === 'org' ? 'platform:libraryScopeOrg' : scope === 'school' ? 'platform:libraryScopeSchool' : 'platform:libraryScopePersonal';
+}
+
+/**
+ * Học liệu cắm được vào khoá: mọi học liệu trừ bộ câu hỏi THAM CHIẾU
+ * (`question_set` không có file — chỉ tham chiếu Ngân hàng câu hỏi),
+ * khớp đúng cổng ở endpoint insert của CB-1
+ * (`contentbank.question_set_not_insertable`).
+ */
+function bankItemInsertable(item: LibraryItem): boolean {
+  return !(item.resourceType === 'question_set' && !item.fileId);
 }
 
 export function CourseBuilderPage() {
@@ -78,6 +110,12 @@ export function CourseBuilderPage() {
   const [sectionEdits, setSectionEdits] = useState<Record<string, { name: string; status: ItemStatusChoice; openAt: string }>>({});
   const [moduleEdits, setModuleEdits] = useState<Record<string, { name: string; status: ItemStatusChoice; openAt: string }>>({});
   const [moduleDrafts, setModuleDrafts] = useState<Record<string, { component: string; name: string }>>({});
+  // Thêm từ kho học liệu (CB-1, issue #107).
+  const [bankOpenSectionId, setBankOpenSectionId] = useState<string | null>(null);
+  const [bankItems, setBankItems] = useState<LibraryItem[] | null>(null);
+  const [bankQuery, setBankQuery] = useState('');
+  const [bankLoadError, setBankLoadError] = useState<string | null>(null);
+  const [bankBusyId, setBankBusyId] = useState<string | null>(null);
   const [availabilityDrafts, setAvailabilityDrafts] = useState<Record<string, unknown>>({});
   const [dragSectionId, setDragSectionId] = useState<string | null>(null);
   const [dragModule, setDragModule] = useState<{ sectionId: string; moduleId: string } | null>(null);
@@ -335,6 +373,49 @@ export function CourseBuilderPage() {
     }
   }
 
+  /**
+   * Mở/đóng panel "Thêm từ kho" của một section. Danh sách học liệu
+   * tải lười biếng một lần cho cả trang (API list của CB-1 đã lọc
+   * theo quyền xem: học liệu của mình + đã duyệt của đồng nghiệp).
+   */
+  async function toggleBankPanel(sectionId: string) {
+    if (bankOpenSectionId === sectionId) {
+      setBankOpenSectionId(null);
+      return;
+    }
+    setBankOpenSectionId(sectionId);
+    setBankQuery('');
+    if (bankItems === null) {
+      setBankLoadError(null);
+      try {
+        setBankItems(await fetchItems());
+      } catch {
+        setBankItems([]);
+        setBankLoadError(t('builderBankLoadFailed'));
+      }
+    }
+  }
+
+  /**
+   * Cắm một học liệu từ kho vào section: API insert của CB-1 tạo
+   * module `mod_resource` bằng bản sao file trong context của module
+   * mới (sửa ở kho không đổi bản đã cắm); reload để module hiện ngay
+   * trong outline.
+   */
+  async function insertFromBank(item: LibraryItem, sectionId: string) {
+    setMessage(null);
+    setBankBusyId(item.id);
+    try {
+      await insertItem(item.id, courseId, sectionId);
+      setMessage(t('builderBankInserted', { name: item.name }));
+      await reload();
+    } catch {
+      setMessage(t('builderBankInsertFailed'));
+    } finally {
+      setBankBusyId(null);
+    }
+  }
+
   async function saveModule(cmId: string) {
     const edit = moduleEdits[cmId];
     if (!edit) return;
@@ -481,6 +562,12 @@ export function CourseBuilderPage() {
   }
 
   const sections = content?.sections ?? [];
+  const bankQueryNormalized = bankQuery.trim().toLowerCase();
+  const bankFiltered = (bankItems ?? []).filter((item) => {
+    if (!bankQueryNormalized) return true;
+    const haystack = [item.name, item.description ?? '', ...(item.keywords ?? [])].join(' ').toLowerCase();
+    return haystack.includes(bankQueryNormalized);
+  });
   const selectClass = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
   const statusBadge = (status: string | undefined) =>
     status === 'scheduled' ? t('builderStatusScheduled') : status === 'draft' ? t('builderStatusDraft') : t('builderStatusOpen');
@@ -851,6 +938,70 @@ export function CourseBuilderPage() {
                         {t('addModule')}
                       </Button>
                     </form>
+                    <div className="space-y-2" data-testid={`section-bank-${section.id}`}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-expanded={bankOpenSectionId === section.id}
+                        onClick={() => void toggleBankPanel(section.id)}
+                      >
+                        {t('builderAddFromBank')}
+                      </Button>
+                      {bankOpenSectionId === section.id ? (
+                        <div className="space-y-2 rounded border p-2">
+                          <div className="space-y-1">
+                            <Label htmlFor={`bank-search-${section.id}`}>{t('builderBankSearchLabel')}</Label>
+                            <Input
+                              id={`bank-search-${section.id}`}
+                              value={bankQuery}
+                              onChange={(e) => setBankQuery(e.target.value)}
+                              placeholder={t('builderBankSearchPlaceholder')}
+                            />
+                          </div>
+                          {bankLoadError ? (
+                            <p role="alert" className="text-sm">
+                              {bankLoadError}
+                            </p>
+                          ) : bankItems === null ? (
+                            <p className="text-sm text-muted-foreground">{t('loading')}</p>
+                          ) : bankFiltered.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">{t('builderBankEmpty')}</p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {bankFiltered.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex flex-wrap items-center gap-2 rounded border p-2"
+                                  data-testid={`bank-item-${item.id}`}
+                                >
+                                  <span className="text-sm font-medium">{item.name}</span>
+                                  <Badge variant="secondary">{t(bankTypeKey(item.resourceType))}</Badge>
+                                  <span className="text-xs text-muted-foreground">{t(bankScopeKey(item.scope))}</span>
+                                  {item.description ? (
+                                    <span className="w-full text-xs text-muted-foreground">{item.description}</span>
+                                  ) : null}
+                                  {bankItemInsertable(item) ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="ml-auto"
+                                      disabled={bankBusyId === item.id}
+                                      onClick={() => void insertFromBank(item, section.id)}
+                                    >
+                                      {t('builderBankInsert')}
+                                    </Button>
+                                  ) : (
+                                    <span className="ml-auto text-xs text-muted-foreground">{t('builderBankQuestionSetNote')}</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                     <div className="space-y-2" data-testid={`section-availability-${section.id}`}>
                       <h4 className="text-sm font-medium">{t('availabilityTitle')}</h4>
                       <p className="text-sm text-muted-foreground">{t('availabilityDescription')}</p>
