@@ -15,7 +15,7 @@ export class EventLogController {
    * GET /event-logs — truy vấn nhật ký sự kiện: lọc theo người thực hiện
    * (userId), người bị tác động (relatedUserId), khoá (courseId), context,
    * component, loại sự kiện (eventType) và khoảng thời gian (from/to);
-   * phân trang page/pageSize. Quyền `report/log:view` được kiểm trong
+   * phân trang page/pageSize. Quyền `log:view` được kiểm trong
    * service tại context phù hợp với phạm vi truy vấn.
    */
   async list(@Query({ schema: listEventLogsQueryServerSchema }) query: ListEventLogsQueryDto, @CurrentUser() actor: AuthenticatedUser) {

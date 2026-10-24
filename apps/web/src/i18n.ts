@@ -249,7 +249,7 @@ export const appResources = {
       usersTitle: 'Người dùng',
       usersDescription:
         'Quản trị tài khoản (yêu cầu các capability về người dùng; API là nơi thực thi, trang này chỉ hiển thị kết quả).',
-      usersLoadFailed: 'Không tải được người dùng — bạn có thể thiếu capability moodle/user:viewdetails.',
+      usersLoadFailed: 'Không tải được người dùng — bạn có thể thiếu capability user:viewdetails.',
       searchUsers: 'Tìm người dùng',
       searchUsersPlaceholder: 'Tìm theo tên đăng nhập hoặc email',
       search: 'Tìm kiếm',
@@ -266,7 +266,7 @@ export const appResources = {
       rolesTitle: 'Vai trò',
       rolesDescription:
         'Các vai trò lõi chuẩn của Moodle. Quyền được API đánh giá trên cây context — trang này chỉ phục vụ quản trị.',
-      rolesLoadFailed: 'Không tải được vai trò — bạn có thể thiếu capability moodle/role:manage.',
+      rolesLoadFailed: 'Không tải được vai trò — bạn có thể thiếu capability role:manage.',
       archetypeSuffix: '— nguyên mẫu: {{archetype}}',
       capabilityMatrix: 'Ma trận quyền',
       assignRoleTitle: 'Gán vai trò tại một context',
@@ -1021,7 +1021,7 @@ export const appResources = {
       navSiteConfig: 'Cấu hình site',
       compAdminTitle: 'Quản lý khung năng lực',
       compAdminDescription:
-        'Framework, competency và mẫu kế hoạch học tập. Chỉ quản trị viên mới thấy khu này; API vẫn thực thi capability moodle/competency:competencymanage.',
+        'Framework, competency và mẫu kế hoạch học tập. Chỉ quản trị viên mới thấy khu này; API vẫn thực thi capability competency:competencymanage.',
       compFrameworksTitle: 'Framework năng lực',
       compExportFramework: 'Xuất JSON',
       compExported: 'Đã xuất framework "{{name}}" thành file JSON.',
@@ -1101,7 +1101,7 @@ export const appResources = {
       siteConfigDescription:
         'Các cấu hình đã đăng ký trên máy chủ, nhóm theo thành phần. Giá trị ghi đè lưu trong cơ sở dữ liệu thay cho giá trị mặc định trong code.',
       siteConfigLoadFailed: 'Không tải được cấu hình site.',
-      siteConfigForbidden: 'Bạn không có quyền xem cấu hình site (cần capability moodle/site:config).',
+      siteConfigForbidden: 'Bạn không có quyền xem cấu hình site (cần capability site:config).',
       siteConfigSave: 'Lưu',
       siteConfigSaved: 'Đã lưu cấu hình.',
       siteConfigSaveFailed: 'Không thể lưu cấu hình (lỗi quyền hoặc giá trị không đúng kiểu đã đăng ký).',
@@ -1244,7 +1244,7 @@ export const appResources = {
       usersTitle: 'Users',
       usersDescription:
         'Administer accounts (requires user capabilities; the API enforces them, this page only renders the result).',
-      usersLoadFailed: 'Could not load users — you may lack the moodle/user:viewdetails capability.',
+      usersLoadFailed: 'Could not load users — you may lack the user:viewdetails capability.',
       searchUsers: 'Search users',
       searchUsersPlaceholder: 'Search username or email',
       search: 'Search',
@@ -1261,7 +1261,7 @@ export const appResources = {
       rolesTitle: 'Roles',
       rolesDescription:
         'Standard Moodle core roles. Permissions are evaluated by the API over the context tree — this page is administration only.',
-      rolesLoadFailed: 'Could not load roles — you may lack the moodle/role:manage capability.',
+      rolesLoadFailed: 'Could not load roles — you may lack the role:manage capability.',
       archetypeSuffix: '— archetype: {{archetype}}',
       capabilityMatrix: 'Capability matrix',
       assignRoleTitle: 'Assign role at a context',
@@ -2018,7 +2018,7 @@ export const appResources = {
       navSiteConfig: 'Site configuration',
       compAdminTitle: 'Competency framework administration',
       compAdminDescription:
-        'Frameworks, competencies and learning plan templates. Only administrators see this area; the API still enforces the moodle/competency:competencymanage capability.',
+        'Frameworks, competencies and learning plan templates. Only administrators see this area; the API still enforces the competency:competencymanage capability.',
       compFrameworksTitle: 'Competency frameworks',
       compExportFramework: 'Export JSON',
       compExported: 'Framework "{{name}}" exported as a JSON file.',
@@ -2099,7 +2099,7 @@ export const appResources = {
         'Settings registered on the server, grouped by component. An override stored in the database replaces the default value in code.',
       siteConfigLoadFailed: 'Could not load the site configuration.',
       siteConfigForbidden:
-        'You do not have permission to view the site configuration (the moodle/site:config capability is required).',
+        'You do not have permission to view the site configuration (the site:config capability is required).',
       siteConfigSave: 'Save',
       siteConfigSaved: 'Configuration saved.',
       siteConfigSaveFailed:

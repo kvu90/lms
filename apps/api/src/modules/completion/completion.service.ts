@@ -255,7 +255,7 @@ export class CompletionService implements OnModuleInit {
 
   /**
    * Manual marking (completionManual / completion=1): the user themselves,
-   * or an actor with lms/completion:markothers at the course context.
+   * or an actor with completion:markothers at the course context.
    */
   /**
    * Đánh dấu hoàn thành thủ công (self hoặc giáo viên ghi thay theo capability).
@@ -267,7 +267,7 @@ export class CompletionService implements OnModuleInit {
       throw new BadRequestException({ message: 'This activity does not use manual completion', code: 'completion.not_manual' });
     }
     if (actorId !== targetUserId) {
-      await this.evaluator.requireCapability(actorId, 'lms/completion:markothers', await this.courses.courseContextId(cm.course));
+      await this.evaluator.requireCapability(actorId, 'completion:markothers', await this.courses.courseContextId(cm.course));
     } else {
       await this.courses.assertCourseAccess(actorId, cm.course);
     }
@@ -305,7 +305,7 @@ export class CompletionService implements OnModuleInit {
     }[];
   }): Promise<{ method: number; criteria: unknown[] }> {
     await this.courses.getCourse(courseId);
-    await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'completion:manage', await this.courses.courseContextId(courseId));
     const method = input.method ?? AGGREGATION_ALL;
     if (![AGGREGATION_ALL, AGGREGATION_ANY].includes(method)) {
       throw new BadRequestException({ message: `Unknown aggregation method ${method}`, code: 'completion.bad_method' });
@@ -573,7 +573,7 @@ export class CompletionService implements OnModuleInit {
    * Cổng capability quản trị completion tại context khoá học.
    */
   async requireCompletionManage(actorId: string, courseId: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, 'lms/completion:manage', await this.courses.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'completion:manage', await this.courses.courseContextId(courseId));
   }
   notFound(): never { throw new NotFoundException({ message: 'Completion record not found', code: 'completion.not_found' }); }
   /** Ném lỗi 403 chuẩn hoá của module (hàm hỗ trợ nội bộ). */

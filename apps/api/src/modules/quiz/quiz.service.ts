@@ -11,12 +11,12 @@ import { QuizRepository, type QuizAttemptRow, type QuizRow, type QuizSlotRow } f
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
-  view: 'mod/quiz:view',
-  attempt: 'mod/quiz:attempt',
-  manage: 'mod/quiz:manage',
-  grade: 'mod/quiz:grade',
-  viewReports: 'mod/quiz:viewreports',
-  preview: 'mod/quiz:preview',
+  view: 'quiz:view',
+  attempt: 'quiz:attempt',
+  manage: 'quiz:manage',
+  grade: 'quiz:grade',
+  viewReports: 'quiz:viewreports',
+  preview: 'quiz:preview',
 } as const;
 
 /** Một câu trong lượt làm như client nhận: nội dung của version ĐÃ PIN, không lộ fraction đáp án khi đang làm. */
@@ -105,7 +105,7 @@ export class QuizService {
     if (!row) throw new NotFoundException({ message: `Quiz attempt ${id} not found`, code: 'quiz.attempt_not_found' });
     return row;
   }
-  /** Context của course module chứa quiz — mọi capability mod/quiz:* kiểm tại đây. */
+  /** Context của course module chứa quiz — mọi capability quiz:* kiểm tại đây. */
   private async cmContextId(quiz: QuizRow): Promise<string> {
     if (quiz.cmId) {
       const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.MODULE, quiz.cmId);
@@ -190,8 +190,8 @@ export class QuizService {
   /**
    * Tạo quiz: bản ghi quiz + course module (component mod_quiz, completion
    * tự động theo điểm) + grade item 'mod' mang thang điểm của bài. Quyền
-   * tạo hoạt động do CoursesService kiểm (moodle/course:manageactivities);
-   * các thao tác về sau kiểm mod/quiz:manage tại context của module.
+   * tạo hoạt động do CoursesService kiểm (course:manageactivities);
+   * các thao tác về sau kiểm quiz:manage tại context của module.
    */
   async createQuiz(actorId: string, courseId: string, input: {
     sectionId: string; name: string; intro?: string;
@@ -231,7 +231,7 @@ export class QuizService {
   }
 
   /**
-   * Sửa cài đặt quiz (mod/quiz:manage); tên và thang điểm được đồng bộ
+   * Sửa cài đặt quiz (quiz:manage); tên và thang điểm được đồng bộ
    * sang course module và grade item của hoạt động.
    */
   async updateQuiz(actorId: string, quizId: string, input: {
@@ -276,7 +276,7 @@ export class QuizService {
 
   /**
    * Xoá quiz cùng slots, attempts, usages của engine, course module và
-   * grade item của hoạt động (mod/quiz:manage).
+   * grade item của hoạt động (quiz:manage).
    */
   async deleteQuiz(actorId: string, quizId: string): Promise<void> {
     const quiz = await this.getQuiz(quizId);
@@ -305,7 +305,7 @@ export class QuizService {
   // --- slots -------------------------------------------------------------------
 
   /**
-   * Thêm slot vào cuối đề (mod/quiz:manage): câu cố định (maxMark mặc
+   * Thêm slot vào cuối đề (quiz:manage): câu cố định (maxMark mặc
    * định lấy từ default_mark hiện tại của câu) hoặc slot ngẫu nhiên theo
    * category (maxMark phải được cho hoặc mặc định 1).
    */
@@ -335,7 +335,7 @@ export class QuizService {
   }
 
   /**
-   * Sửa một slot (mod/quiz:manage): điểm, trang hoặc vị trí trong đề —
+   * Sửa một slot (quiz:manage): điểm, trang hoặc vị trí trong đề —
    * đổi vị trí là hoán đổi số slot với slot đang giữ số đó (giữ bất biến
    * duy nhất của cặp quiz+slot).
    */
@@ -362,7 +362,7 @@ export class QuizService {
   }
 
   /**
-   * Xoá một slot khỏi đề (mod/quiz:manage); các slot sau nó được đánh số
+   * Xoá một slot khỏi đề (quiz:manage); các slot sau nó được đánh số
    * lại liên tục. Lượt làm đã bắt đầu không bị ảnh hưởng (attempt của
    * engine đã pin câu và maxMark tại thời điểm bắt đầu).
    */
@@ -488,7 +488,7 @@ export class QuizService {
    * Bắt đầu lượt làm mới (hoặc trả về lượt đang dở để tiếp tục): kiểm cửa
    * sổ mở–đóng và số lần cho phép phía server, rút câu cho slot ngẫu
    * nhiên, tạo usage của engine với maxMark lấy từ TỪNG SLOT, pin phiên
-   * bản câu ngay lúc bắt đầu. Preview của giáo viên (mod/quiz:preview)
+   * bản câu ngay lúc bắt đầu. Preview của giáo viên (quiz:preview)
    * bỏ qua cửa sổ/giới hạn và không ghi điểm về sau.
    */
   async startAttempt(actorId: string, quizId: string, opts: { preview?: boolean } = {}): Promise<QuizAttemptView> {
@@ -648,7 +648,7 @@ export class QuizService {
     };
   }
 
-  /** Quyền xem một lượt: chủ lượt, hoặc người có mod/quiz:grade/viewreports tại module. */
+  /** Quyền xem một lượt: chủ lượt, hoặc người có quiz:grade/viewreports tại module. */
   private async requireAttemptReadable(actorId: string, quiz: QuizRow, row: QuizAttemptRow): Promise<void> {
     if (row.userId === actorId) return;
     const ctx = await this.cmContextId(quiz);
@@ -763,7 +763,7 @@ export class QuizService {
   // --- báo cáo + chấm tay ---------------------------------------------------------
 
   /**
-   * Trang kết quả của giáo viên (mod/quiz:viewreports): mọi lượt làm,
+   * Trang kết quả của giáo viên (quiz:viewreports): mọi lượt làm,
    * điểm bài hiện tại theo từng học sinh, và hàng đợi essay chờ chấm tay.
    */
   async getResults(actorId: string, quizId: string): Promise<{
@@ -797,7 +797,7 @@ export class QuizService {
   }
 
   /**
-   * Chấm tay một câu essay đang chờ (mod/quiz:grade): điểm đi qua bước
+   * Chấm tay một câu essay đang chờ (quiz:grade): điểm đi qua bước
    * chấm của question engine (ghi step + fraction), tổng điểm của lượt
    * được đồng bộ lại; khi câu cuối cùng được chấm, lượt về finished và
    * điểm bài được ghi lại vào sổ điểm.

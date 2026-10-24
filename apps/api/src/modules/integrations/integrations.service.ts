@@ -44,13 +44,13 @@ export class IntegrationsService {
   private registerBuiltinFunctions(): void {
     this.registerFunction({
       name: 'core_course_get_courses',
-      capability: 'moodle/course:view',
+      capability: 'course:view',
       resolveContext: async (_args, ctx) => (await ctx.ensureSystemContext()).id,
       handler: async () => this.courses.listCourses(),
     });
     this.registerFunction({
       name: 'core_course_get_course_content',
-      capability: 'moodle/course:view',
+      capability: 'course:view',
       resolveContext: async (args, _ctx, courses) => courses.courseContextId(String(args.courseId)),
       handler: async (callerId, args) => {
         const content = await this.courses.getCourseContent(callerId, String(args.courseId));
@@ -59,7 +59,7 @@ export class IntegrationsService {
     });
     this.registerFunction({
       name: 'core_grades_update_grades',
-      capability: 'moodle/grade:edit',
+      capability: 'grade:edit',
       resolveContext: async (args, _ctx, courses) => courses.courseContextId(String(args.courseId)),
       handler: async (_callerId, args) => ({ updated: true, courseId: String(args.courseId), note: 'grade write delegated to GradesModule in production wiring' }),
     });
@@ -69,7 +69,7 @@ export class IntegrationsService {
 
   private async requireManage(actorId: string): Promise<void> {
     const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'lms/webservice:manage', sys.id);
+    await this.evaluator.requireCapability(actorId, 'webservice:manage', sys.id);
   }
 
   async createService(actorId: string, input: { name: string; shortName: string; enabled?: boolean; functions?: string[] }): Promise<ServiceRow> {

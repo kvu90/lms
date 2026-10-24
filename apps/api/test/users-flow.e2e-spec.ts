@@ -27,7 +27,7 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
     expect(dup.body.code).toBe('user.email_taken');
   });
 
-  it('hides identity fields (email) from users without moodle/site:viewuseridentity, shows them to admins', async () => {
+  it('hides identity fields (email) from users without site:viewuseridentity, shows them to admins', async () => {
     const target = await createUserViaApi(app, admin);
     const viewer = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, viewer.username, STRONG_PASSWORD);
@@ -140,8 +140,8 @@ describe('Users: self-service capabilities view', () => {
       .find((c) => c.contextId === systemId);
     expect(systemView).toBeDefined();
     // Student archetype resolves at the system context; admin-only caps do not.
-    expect(systemView!.capabilities).toContain('lms/files:view');
-    expect(systemView!.capabilities).not.toContain('moodle/site:config');
+    expect(systemView!.capabilities).toContain('files:view');
+    expect(systemView!.capabilities).not.toContain('site:config');
   });
 
   it('the site admin sees isSiteAdmin=true and the full capability set at the system context', async () => {
@@ -151,8 +151,8 @@ describe('Users: self-service capabilities view', () => {
     const systemView = (res.body.contexts as { contextLevel: number; capabilities: string }[])
       .find((c) => c.contextLevel === 10);
     expect(systemView).toBeDefined();
-    expect(systemView!.capabilities).toContain('moodle/site:config');
-    expect(systemView!.capabilities).toContain('moodle/course:view');
+    expect(systemView!.capabilities).toContain('site:config');
+    expect(systemView!.capabilities).toContain('course:view');
   });
 
   it('requires authentication', async () => {

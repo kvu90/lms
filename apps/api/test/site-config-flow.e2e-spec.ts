@@ -8,9 +8,9 @@ import {
  * Site Config flow (admin settings).
  * Oracle: blueprint §2#30 (Config/Admin) — config phân tầng: mặc định code
  * < giá trị admin lưu DB < config theo plugin (`component + name`); mọi
- * thay đổi qua UI/API đều qua capability `moodle/site:config` và có vết.
+ * thay đổi qua UI/API đều qua capability `site:config` và có vết.
  * Hành vi tương ứng phía Moodle: get_config/set_config (config + config_plugins)
- * và admin setting tree chỉ dành cho user có moodle/site:config.
+ * và admin setting tree chỉ dành cho user có site:config.
  */
 describe('Site config (admin settings)', () => {
   let app: INestApplication;
@@ -89,7 +89,7 @@ describe('Site config (admin settings)', () => {
     expect(unknown.body.code).toBe('site_config.unknown_setting');
   });
 
-  it('users without moodle/site:config can neither read nor write site configuration', async () => {
+  it('users without site:config can neither read nor write site configuration', async () => {
     const plain = await createUserViaApi(app, admin);
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
     const read = await http(app).get('/api/v1/site-config').set('Authorization', `Bearer ${plainLogin.accessToken}`);

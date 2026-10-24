@@ -110,9 +110,9 @@ export class AuthController {
   }
 
   @Post('mfa/users/:userId/reset')
-  @RequireCapability('moodle/user:update')
+  @RequireCapability('user:update')
   /**
-   * POST /auth/mfa/users/:userId/reset — quản trị gỡ MFA cho user bị mất authenticator (capability moodle/user:update).
+   * POST /auth/mfa/users/:userId/reset — quản trị gỡ MFA cho user bị mất authenticator (capability user:update).
    */
   async mfaReset(@Param('userId', { schema: uuidIdSchema }) userId: string) {
     await this.auth.resetTotp(userId);

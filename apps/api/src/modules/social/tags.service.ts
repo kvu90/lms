@@ -103,7 +103,7 @@ export class TagsService {
     component: string; itemType: string; itemId: string; contextId: string; tags: string[];
   }): Promise<{ tags: (TagRow & { ordering: number })[] }> {
     this.assertArea(input.component, input.itemType);
-    await this.evaluator.requireCapability(actorId, 'moodle/tag:edit', input.contextId);
+    await this.evaluator.requireCapability(actorId, 'tag:edit', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     await this.repo.deleteInstancesForItem(input.component, input.itemType, input.itemId, input.contextId);
     const seen = new Set<string>();

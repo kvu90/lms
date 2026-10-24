@@ -90,7 +90,7 @@ export class EnrolService implements OnModuleInit {
   }
 
   private async requireManage(actorId: string, courseId: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, 'lms/enrol:manage', await this.courses.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'enrol:manage', await this.courses.courseContextId(courseId));
   }
   private async defaultStudentRoleId(): Promise<string> {
     const roleRow = await this.roles.getRoleByShortname('student');
@@ -104,7 +104,7 @@ export class EnrolService implements OnModuleInit {
    * được tính là có — xem PermissionEvaluator.hasCapability).
    */
   private async canManageEnrol(viewerId: string, courseId: string): Promise<boolean> {
-    return this.evaluator.hasCapability(viewerId, 'lms/enrol:manage', await this.courses.courseContextId(courseId));
+    return this.evaluator.hasCapability(viewerId, 'enrol:manage', await this.courses.courseContextId(courseId));
   }
 
   /**

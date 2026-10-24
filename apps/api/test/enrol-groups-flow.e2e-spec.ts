@@ -79,7 +79,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(restored.status).toBe(200);
   });
 
-  it('a suspended user who ALSO holds a real teacher assignment still gets in via moodle/course:view (the documented exception)', async () => {
+  it('a suspended user who ALSO holds a real teacher assignment still gets in via course:view (the documented exception)', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -422,7 +422,7 @@ describe('Enrol & groups/cohorts', () => {
     // The visible-members aggregate spans both groups.
     const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((visibleMembers.body as { groupId: string }[]).map((r) => r.groupId).sort()).toEqual([gA.id, gB.id].sort());
-    // Read-only means read-only: adding a member to group B is still gated by moodle/course:managegroups.
+    // Read-only means read-only: adding a member to group B is still gated by course:managegroups.
     const write = await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ userId: bob.id });
     expect(write.status).toBe(403);
     const create = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ name: 'Gamma' });
@@ -453,7 +453,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((adminInShared.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
   });
 
-  it('a teacher with moodle/course:managegroups sees ALL groups and members in BOTH separate and visible mode, without being a group member', async () => {
+  it('a teacher with course:managegroups sees ALL groups and members in BOTH separate and visible mode, without being a group member', async () => {
     for (const mode of [1, 2]) {
       const { course, gA, gB } = await setupTwoGroups(mode);
       const teacher = await createUserViaApi(app, admin);

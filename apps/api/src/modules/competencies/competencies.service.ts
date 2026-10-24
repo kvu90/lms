@@ -120,7 +120,7 @@ export class CompetenciesService implements OnModuleInit {
     return (await this.contexts.ensureSystemContext()).id;
   }
   private async requireManage(actorId: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, 'moodle/competency:competencymanage', await this.systemCtx());
+    await this.evaluator.requireCapability(actorId, 'competency:competencymanage', await this.systemCtx());
   }
 
   // --- frameworks & competencies -------------------------------------------------
@@ -453,7 +453,7 @@ export class CompetenciesService implements OnModuleInit {
    */
   async linkCourseCompetency(actorId: string, courseId: string, input: { competencyId: string; ruleOutcome: string }) {
     await this.courses.getCourse(courseId);
-    await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'competency:coursecompetencymanage', await this.courses.courseContextId(courseId));
     const competencyRow = await this.getCompetency(input.competencyId);
     return this.repo.insertCourseLink({ courseId: courseId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
@@ -468,7 +468,7 @@ export class CompetenciesService implements OnModuleInit {
    */
   async linkModuleCompetency(actorId: string, cmId: string, input: { competencyId: string; ruleOutcome: string }) {
     const cm = await this.courses.getCm(cmId);
-    await this.evaluator.requireCapability(actorId, 'moodle/competency:coursecompetencymanage', await this.courses.courseContextId(cm.course));
+    await this.evaluator.requireCapability(actorId, 'competency:coursecompetencymanage', await this.courses.courseContextId(cm.course));
     const competencyRow = await this.getCompetency(input.competencyId);
     return this.repo.insertModuleLink({ courseModuleId: cmId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
@@ -548,7 +548,7 @@ export class CompetenciesService implements OnModuleInit {
     void competencyRow;
     await this.users.getUser(input.userId);
     if (input.grade !== undefined) await this.validateGrade(input.competencyId, input.grade);
-    const canRate = await this.evaluator.hasCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+    const canRate = await this.evaluator.hasCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
     const usercomp = await this.getOrCreateUsercomp(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
     let evidence!: EvidenceRow;
     await this.repo.dbHandle.transaction(async (tx) => {
@@ -603,7 +603,7 @@ export class CompetenciesService implements OnModuleInit {
     const systemCtx = await this.systemCtx();
     if (action === 'request') {
       if (actorId !== usercomp.userId) {
-        await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', systemCtx);
+        await this.evaluator.requireCapability(actorId, 'competency:planmanage', systemCtx);
       }
       if (usercomp.status !== USERCOMP_REVIEW.NONE) {
         throw new BadRequestException({ message: 'A review is already in progress for this competency', code: 'competency.review_in_progress' });
@@ -611,7 +611,7 @@ export class CompetenciesService implements OnModuleInit {
       await this.repo.updateUsercomp(usercompId, { status: USERCOMP_REVIEW.WAITING });
       await this.repo.insertEvidence({ userCompetencyId: usercompId, actionUserId: actorId, action: 'review_requested', description: 'Review requested', note: opts?.note ?? '' });
     } else {
-      await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', systemCtx);
+      await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', systemCtx);
       if (action === 'start') {
         if (usercomp.status !== USERCOMP_REVIEW.WAITING) {
           throw new BadRequestException({ message: 'Review can only start from waitingforreview', code: 'competency.review_not_waiting' });
@@ -688,7 +688,7 @@ export class CompetenciesService implements OnModuleInit {
    * Chấm trực tiếp proficiency cho usercomp bởi người có capability.
    */
   async gradeUsercomp(actorId: string, input: { userId: string; competencyId: string; planId?: string; courseId?: string; grade: number; note?: string }): Promise<UsercompRow> {
-    await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+    await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
     const framework = await this.validateGrade(input.competencyId, input.grade);
     const usercomp = await this.getOrCreateUsercomp(input.userId, input.competencyId, { planId: input.planId, courseId: input.courseId });
     await this.repo.updateUsercomp(usercomp.id, { grade: input.grade, proficiency: isProficientGrade(framework, input.grade) });
@@ -852,7 +852,7 @@ export class CompetenciesService implements OnModuleInit {
   async createPlan(actorId: string, input: { userId?: string; name: string; description?: string; templateId?: string }): Promise<PlanRow & { competencies: string[] }> {
     const userId = input.userId ?? actorId;
     if (userId !== actorId) {
-      await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+      await this.evaluator.requireCapability(actorId, 'competency:planmanage', await this.systemCtx());
     }
     await this.users.getUser(userId);
     if (input.templateId) {
@@ -875,7 +875,7 @@ export class CompetenciesService implements OnModuleInit {
     const plan = await this.repo.getPlan(planId);
     if (!plan) throw new NotFoundException({ message: `Learning plan ${planId} not found`, code: 'competency.plan_not_found' });
     if (plan.userId !== actorId) {
-      await this.evaluator.requireCapability(actorId, 'moodle/competency:planview', await this.systemCtx());
+      await this.evaluator.requireCapability(actorId, 'competency:planview', await this.systemCtx());
     }
     const ids = plan.templateId
       ? (await this.repo.listTemplateCompetencies(plan.templateId)).map((c) => c.id)
@@ -896,7 +896,7 @@ export class CompetenciesService implements OnModuleInit {
    */
   async listPlansForUser(actorId: string, userId: string): Promise<PlanRow[]> {
     if (actorId !== userId) {
-      await this.evaluator.requireCapability(actorId, 'moodle/competency:planview', await this.systemCtx());
+      await this.evaluator.requireCapability(actorId, 'competency:planview', await this.systemCtx());
     }
     return this.repo.listPlansForUser(userId);
   }
@@ -910,42 +910,42 @@ export class CompetenciesService implements OnModuleInit {
     let to = from;
     switch (action) {
       case 'activate':
-        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.DRAFT) bad('Only a draft plan can be activated');
         to = PLAN_STATUS.ACTIVE;
         break;
       case 'request-review':
-        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.ACTIVE) bad('Only an active plan can be sent for review');
         to = PLAN_STATUS.WAITING_FOR_REVIEW;
         break;
       case 'cancel-review':
-        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.WAITING_FOR_REVIEW) bad('Only a plan waiting for review can cancel the request');
         to = PLAN_STATUS.ACTIVE;
         break;
       case 'start-review':
-        await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+        await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
         if (from !== PLAN_STATUS.WAITING_FOR_REVIEW) bad('Review can only start for a plan waiting for review');
         to = PLAN_STATUS.IN_REVIEW;
         break;
       case 'stop-review':
-        await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+        await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
         if (from !== PLAN_STATUS.IN_REVIEW) bad('Only a plan in review can stop review');
         to = PLAN_STATUS.ACTIVE;
         break;
       case 'approve':
-        await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+        await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
         if (from !== PLAN_STATUS.IN_REVIEW) bad('Only a plan in review can be approved');
         to = PLAN_STATUS.ACTIVE; // approved review returns the plan to active (Moodle approve_plan)
         break;
       case 'unapprove':
-        await this.evaluator.requireCapability(actorId, 'moodle/competency:usercompetencyreview', await this.systemCtx());
+        await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
         if (from !== PLAN_STATUS.ACTIVE) bad('Only an active (previously approved) plan can be unapproved');
         to = PLAN_STATUS.IN_REVIEW;
         break;
       case 'complete':
-        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/competency:planmanage', await this.systemCtx());
+        if (plan.userId !== actorId) await this.evaluator.requireCapability(actorId, 'competency:planmanage', await this.systemCtx());
         if (from !== PLAN_STATUS.ACTIVE && from !== PLAN_STATUS.IN_REVIEW) bad('Only an active plan can be completed');
         to = PLAN_STATUS.COMPLETE;
         break;

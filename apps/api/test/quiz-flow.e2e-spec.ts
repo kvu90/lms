@@ -371,7 +371,7 @@ describe('Quiz activity (mod_quiz)', () => {
   it('regression F1: preview and real attempts share ONE numbering sequence — no collision, no orphan usage', async () => {
     const ctx = await setup();
     // Một người có cả hai quyền: giáo viên đã có editingteacher (preview);
-    // gán thêm role student tại context khoá để có mod/quiz:attempt.
+    // gán thêm role student tại context khoá để có quiz:attempt.
     const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
       .find((c) => c.contextLevel === 50 && c.instanceId === ctx.course.id)!;

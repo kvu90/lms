@@ -41,7 +41,7 @@ export class CommentsService {
   async addComment(actorId: string, input: {
     contextId: string; component: string; commentArea: string; itemId: string; content: string;
   }): Promise<CommentRow> {
-    await this.evaluator.requireCapability(actorId, 'moodle/comment:post', input.contextId);
+    await this.evaluator.requireCapability(actorId, 'comment:post', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     return this.repo.insertComment({
       contextId: input.contextId, component: input.component, commentArea: input.commentArea,
@@ -55,10 +55,10 @@ export class CommentsService {
   async listComments(viewerId: string, input: {
     contextId: string; component: string; commentArea: string; itemId: string;
   }): Promise<{ comments: CommentRow[]; count: number; canpost: boolean }> {
-    await this.evaluator.requireCapability(viewerId, 'moodle/comment:view', input.contextId);
+    await this.evaluator.requireCapability(viewerId, 'comment:view', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     const rows = await this.repo.listComments(input.component, input.commentArea, input.itemId, input.contextId);
-    const canpost = await this.evaluator.hasCapability(viewerId, 'moodle/comment:post', input.contextId);
+    const canpost = await this.evaluator.hasCapability(viewerId, 'comment:post', input.contextId);
     return { comments: rows, count: rows.length, canpost };
   }
 
@@ -69,9 +69,9 @@ export class CommentsService {
     const comment = await this.repo.getComment(commentId);
     if (!comment || comment.timeDeleted) throw new NotFoundException({ message: `Comment ${commentId} not found`, code: 'comments.not_found' });
     if (comment.userId !== actorId) {
-      const canDelete = await this.evaluator.hasCapability(actorId, 'moodle/comment:delete', comment.contextId);
+      const canDelete = await this.evaluator.hasCapability(actorId, 'comment:delete', comment.contextId);
       if (!canDelete) {
-        throw new ForbiddenException({ message: 'Only the author or a user with moodle/comment:delete can delete this comment', code: 'comments.delete_forbidden' });
+        throw new ForbiddenException({ message: 'Only the author or a user with comment:delete can delete this comment', code: 'comments.delete_forbidden' });
       }
     }
     await this.repo.softDeleteComment(commentId);

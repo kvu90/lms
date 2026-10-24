@@ -5,8 +5,8 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { EventLogRepository, type EventLogRow } from './event-log.repository';
 import type { ListEventLogsQueryDto } from './dto/event-log.dto';
 
-/** Capability đọc nhật ký sự kiện (Moodle `report/log:view`). */
-export const EVENT_LOG_VIEW_CAPABILITY = 'report/log:view';
+/** Capability đọc nhật ký sự kiện (Moodle `log:view`). */
+export const EVENT_LOG_VIEW_CAPABILITY = 'log:view';
 
 export interface EventLogView {
   id: string;

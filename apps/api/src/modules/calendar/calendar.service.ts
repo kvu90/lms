@@ -91,14 +91,14 @@ export class CalendarService {
     if (input.eventType === 'user') {
       if (input.userId !== undefined && input.userId !== actorId) {
         // Managing someone else's personal events needs site-level manageentries.
-        await this.evaluator.requireCapability(actorId, 'moodle/calendar:manageentries', await this.systemCtx());
+        await this.evaluator.requireCapability(actorId, 'calendar:manageentries', await this.systemCtx());
         return;
       }
       const ctx = await this.manageContextId({ ...input, userId: actorId });
-      await this.evaluator.requireCapability(actorId, 'moodle/calendar:manageownentries', ctx);
+      await this.evaluator.requireCapability(actorId, 'calendar:manageownentries', ctx);
       return;
     }
-    const capability = input.eventType === 'group' ? 'moodle/calendar:managegroupentries' : 'moodle/calendar:manageentries';
+    const capability = input.eventType === 'group' ? 'calendar:managegroupentries' : 'calendar:manageentries';
     await this.evaluator.requireCapability(actorId, capability, await this.manageContextId(input));
   }
 
@@ -201,7 +201,7 @@ export class CalendarService {
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
     if (await this.enrol.isEnrolled(courseId, viewerId, { onlyActive: true })) return true;
     const ctx = await this.courses.courseContextId(courseId);
-    return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'moodle/course:view', ctx, { excludeArchetypes: ['student'] });
+    return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'course:view', ctx, { excludeArchetypes: ['student'] });
   }
 
   /**
@@ -224,7 +224,7 @@ export class CalendarService {
           if (await this.canViewCoursePart(viewerId, c.id)) return true;
         }
         const ctx = await this.courses.categoryContextId(event.categoryId!);
-        return this.evaluator.hasCapability(viewerId, 'moodle/calendar:manageentries', ctx);
+        return this.evaluator.hasCapability(viewerId, 'calendar:manageentries', ctx);
       }
       case 'course':
         return this.canViewCoursePart(viewerId, event.courseId ?? undefined);
@@ -232,7 +232,7 @@ export class CalendarService {
         if (!(await this.canViewCoursePart(viewerId, event.courseId ?? undefined))) return false;
         if (await this.groups.isMember(event.groupId!, viewerId)) return true;
         const ctx = await this.courses.courseContextId(event.courseId!);
-        return this.evaluator.hasCapability(viewerId, 'moodle/group:accessallgroups', ctx);
+        return this.evaluator.hasCapability(viewerId, 'group:accessallgroups', ctx);
       }
       default:
         return false;
@@ -344,9 +344,9 @@ export class CalendarService {
   async createSubscription(actorId: string, input: { name: string; url?: string; icsData?: string; eventType?: string; courseId?: string; categoryId?: string; pollInterval?: number }): Promise<CalendarSubscriptionRow> {
     const eventType = input.eventType ?? 'site';
     if (eventType === 'site') {
-      await this.evaluator.requireCapability(actorId, 'moodle/calendar:managesubscriptions', await this.systemCtx());
+      await this.evaluator.requireCapability(actorId, 'calendar:managesubscriptions', await this.systemCtx());
     } else if (eventType === 'course' && input.courseId) {
-      await this.evaluator.requireCapability(actorId, 'moodle/calendar:manageentries', await this.courses.courseContextId(input.courseId));
+      await this.evaluator.requireCapability(actorId, 'calendar:manageentries', await this.courses.courseContextId(input.courseId));
     }
     const subscription = await this.repo.insertSubscription({
       name: input.name, url: input.url ?? null, icsData: input.icsData ?? null,
@@ -372,7 +372,7 @@ export class CalendarService {
   async requestImport(actorId: string, subscriptionId: string): Promise<{ queued: boolean; subscriptionId: string }> {
     const sub = await this.repo.getSubscription(subscriptionId);
     if (!sub) throw new NotFoundException({ message: `Subscription ${subscriptionId} not found`, code: 'calendar.subscription_not_found' });
-    await this.evaluator.requireCapability(actorId, 'moodle/calendar:managesubscriptions', await this.systemCtx());
+    await this.evaluator.requireCapability(actorId, 'calendar:managesubscriptions', await this.systemCtx());
     await this.importQueue.add('import', { subscriptionId }, { jobId: `cal-import-${subscriptionId}-${Date.now()}`, attempts: 3 });
     return { queued: true, subscriptionId };
   }

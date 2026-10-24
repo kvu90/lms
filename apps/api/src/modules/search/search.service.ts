@@ -133,7 +133,7 @@ export class SearchService {
 
   /**
    * Tìm kiếm toàn cục cho một user: engine trả ứng viên, sau đó lọc bằng
-   * PermissionEvaluator tại thời điểm truy vấn (moodle/course:view ở context
+   * PermissionEvaluator tại thời điểm truy vấn (course:view ở context
    * của tài liệu) và RE-CHECK bằng cách fetch lại bản ghi gốc qua area —
    * tài liệu gốc đã suspended/deleted/ẩn thì bị loại dù index còn sót.
    */
@@ -142,17 +142,17 @@ export class SearchService {
     const out: SearchDocRow[] = [];
     /** Capability bắt buộc theo từng area — mỗi area khai báo đúng một capability để re-check, không OR nhiều capability. */
     const areaCapability: Record<string, string> = {
-      courses: 'moodle/course:view',
-      users: 'moodle/user:viewdetails',
-      contentbank: 'moodle/contentbank:viewcontent',
-      blog: 'moodle/blog:view',
+      courses: 'course:view',
+      users: 'user:viewdetails',
+      contentbank: 'contentbank:viewcontent',
+      blog: 'blog:view',
     };
     for (const doc of candidates) {
       // Lớp 1: quyền tại thời điểm truy vấn ở context của tài liệu. Một
       // tài liệu sót trong index mà context đã bị xoá (hoặc không còn
       // phân giải được) thì không ai có quyền trên nó — bỏ qua tài liệu
       // đó thay vì để cả truy vấn tìm kiếm sập theo.
-      const capability = areaCapability[doc.area] ?? 'moodle/course:view';
+      const capability = areaCapability[doc.area] ?? 'course:view';
       let allowed = false;
       try {
         allowed = await this.evaluator.hasCapability(userId, capability, doc.contextId);

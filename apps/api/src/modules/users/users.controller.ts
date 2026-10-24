@@ -15,9 +15,9 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   @Post()
-  @RequireCapability('moodle/user:create')
+  @RequireCapability('user:create')
   /**
-   * POST /users — tạo tài khoản (capability moodle/user:create).
+   * POST /users — tạo tài khoản (capability user:create).
    */
   async create(@Body({ schema: createUserSchema }) dto: CreateUserDto) {
     const user = await this.users.createUser(dto);
@@ -25,9 +25,9 @@ export class UsersController {
   }
 
   @Get()
-  @RequireCapability('moodle/user:viewdetails')
+  @RequireCapability('user:viewdetails')
   /**
-   * GET /users — tìm kiếm/phân trang tài khoản (moodle/user:viewdetails).
+   * GET /users — tìm kiếm/phân trang tài khoản (user:viewdetails).
    */
   async list(@Query({ schema: listUsersQueryServerSchema }) query: ListUsersQueryDto, @CurrentUser() viewer: AuthenticatedUser) {
     const result = await this.users.listUsers(query.search, query.page ?? 1, query.pageSize ?? 20);
@@ -54,7 +54,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @RequireCapability('moodle/user:viewdetails', 'param:userId:userctx')
+  @RequireCapability('user:viewdetails', 'param:userId:userctx')
   /**
    * GET /users/:id — hồ sơ một user (email ẩn nếu thiếu capability).
    */
@@ -73,7 +73,7 @@ export class UsersController {
   }
 
   @Post(':id/suspend')
-  @RequireCapability('moodle/user:update')
+  @RequireCapability('user:update')
   /**
    * POST /users/:id/suspend — đình chỉ tài khoản.
    */
@@ -82,7 +82,7 @@ export class UsersController {
     return { id: user.id, suspended: user.suspended };
   }
   @Post(':id/unsuspend')
-  @RequireCapability('moodle/user:update')
+  @RequireCapability('user:update')
   /**
    * POST /users/:id/unsuspend — khôi phục tài khoản.
    */
@@ -91,7 +91,7 @@ export class UsersController {
     return { id: user.id, suspended: user.suspended };
   }
   @Delete(':id')
-  @RequireCapability('moodle/user:delete')
+  @RequireCapability('user:delete')
   /**
    * DELETE /users/:id — xoá mềm tài khoản.
    */

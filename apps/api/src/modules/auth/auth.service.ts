@@ -346,7 +346,7 @@ export class AuthService {
   }
 
   /**
-   * "Login as" (Moodle): an admin holding moodle/user:loginas acts as another
+   * "Login as" (Moodle): an admin holding user:loginas acts as another
    * user. The session records who logged in as whom; role assignments of the
    * admin are NOT carried over — evaluation always uses the target identity.
    */
@@ -355,7 +355,7 @@ export class AuthService {
    */
   async loginAs(adminId: string, targetUserId: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: TokenPair }> {
     const system = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(adminId, 'moodle/user:loginas', system.id);
+    await this.evaluator.requireCapability(adminId, 'user:loginas', system.id);
     const target = await this.users.getUser(targetUserId);
     if (target.deleted || target.suspended) throw new ForbiddenException({ message: 'Target account is not active', code: 'auth.account_inactive' });
     if (await this.evaluator.isSiteAdmin(target.id)) throw new ForbiddenException({ message: 'Cannot log in as a site administrator', code: 'auth.loginas_admin_denied' });

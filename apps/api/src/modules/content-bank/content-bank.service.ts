@@ -31,13 +31,13 @@ export class ContentBankService {
   /** Ai được xem: nội dung public cần viewcontent; draft chỉ tác giả hoặc người có editcontent. */
   async canView(userId: string, row: ContentRow): Promise<boolean> {
     if (row.creatorId === userId) return true;
-    if (await this.evaluator.hasCapability(userId, 'moodle/contentbank:editcontent', row.contextId)) return true;
+    if (await this.evaluator.hasCapability(userId, 'contentbank:editcontent', row.contextId)) return true;
     if (row.visibility !== 'public') return false;
-    return this.evaluator.hasCapability(userId, 'moodle/contentbank:viewcontent', row.contextId);
+    return this.evaluator.hasCapability(userId, 'contentbank:viewcontent', row.contextId);
   }
 
   async create(actorId: string, input: { name: string; contextId: string; contentType?: string; visibility?: string; fileId?: string }): Promise<ContentRow> {
-    await this.evaluator.requireCapability(actorId, 'moodle/contentbank:upload', input.contextId);
+    await this.evaluator.requireCapability(actorId, 'contentbank:upload', input.contextId);
     const row = await this.repo.insert({
       name: input.name, contextId: input.contextId, creatorId: actorId,
       contentType: input.contentType ?? 'file-based', visibility: input.visibility ?? 'draft', fileId: input.fileId ?? null,
@@ -61,7 +61,7 @@ export class ContentBankService {
 
   async update(actorId: string, id: string, input: { name?: string; visibility?: string; fileId?: string }): Promise<ContentRow> {
     const row = await this.get(id);
-    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextId);
+    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'contentbank:editcontent', row.contextId);
     await this.repo.update(id, { name: input.name ?? row.name, visibility: input.visibility ?? row.visibility, fileId: input.fileId ?? row.fileId });
     const updated = await this.get(id);
     // Đồng bộ index: public thì index, draft thì gỡ.
@@ -72,7 +72,7 @@ export class ContentBankService {
 
   async remove(actorId: string, id: string): Promise<void> {
     const row = await this.get(id);
-    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextId);
+    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'contentbank:editcontent', row.contextId);
     await this.repo.remove(id);
     await this.search.removeDoc('contentbank', id);
   }
@@ -80,7 +80,7 @@ export class ContentBankService {
   /** Upload file qua FilesModule và gắn vào nội dung. */
   async uploadFile(actorId: string, id: string, input: { fileName: string; contentBase64: string; mimeType?: string }): Promise<ContentRow> {
     const row = await this.get(id);
-    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'moodle/contentbank:editcontent', row.contextId);
+    if (row.creatorId !== actorId) await this.evaluator.requireCapability(actorId, 'contentbank:editcontent', row.contextId);
     const data = Buffer.from(input.contentBase64, 'base64');
     const file = await this.files.upload({
       contextId: row.contextId, component: 'core_contentbank', fileArea: 'content', itemId: row.id,

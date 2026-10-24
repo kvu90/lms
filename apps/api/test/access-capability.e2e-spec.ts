@@ -8,7 +8,7 @@ import {
   hasCapability, http, roleIdByShortname, setOverride, systemContextId, uniqueName,
 } from './identity-access-helpers';
 
-const CAP = 'moodle/course:update';
+const CAP = 'course:update';
 const ALLOW = 1, PREVENT = -1, PROHIBIT = -1000;
 
 /**
@@ -103,17 +103,17 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     const res = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${admin}`);
     const adminId = res.body.id as string;
     expect(await hasCapability(app, admin, adminId, CAP, modId)).toBe(true);
-    expect(await hasCapability(app, admin, adminId, 'moodle/site:config', systemId)).toBe(true);
+    expect(await hasCapability(app, admin, adminId, 'site:config', systemId)).toBe(true);
   });
 
   it('guest account evaluates through the guest role only', async () => {
     const users = app.get(UsersService);
     const evaluator = app.get(PermissionEvaluator);
     const guest = await users.ensureGuestUser();
-    // Seeded archetype default: guest role ALLOWs moodle/course:view at system.
-    expect(await evaluator.hasCapability(guest.id, 'moodle/course:view', systemId, { isGuest: true })).toBe(true);
+    // Seeded archetype default: guest role ALLOWs course:view at system.
+    expect(await evaluator.hasCapability(guest.id, 'course:view', systemId, { isGuest: true })).toBe(true);
     // …but the guest role grants nothing else, and the authenticated-user default must NOT leak in.
-    expect(await evaluator.hasCapability(guest.id, 'moodle/user:viewdetails', systemId, { isGuest: true })).toBe(false);
+    expect(await evaluator.hasCapability(guest.id, 'user:viewdetails', systemId, { isGuest: true })).toBe(false);
   });
 
   it('changing an override changes the result (dirty marking invalidates the cache)', async () => {

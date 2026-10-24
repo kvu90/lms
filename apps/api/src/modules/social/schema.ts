@@ -139,8 +139,8 @@ export const blogAssociation = pgTable(
 /**
  * Notes about a user (Moodle `note` → `notes`). publish_state decides who can
  * read: 'draft' = personal (creator only), 'public' = course note (readers
- * need moodle/notes:view at the COURSE context — in practice the course's
- * teachers), 'site' = site note (moodle/notes:view at system).
+ * need notes:view at the COURSE context — in practice the course's
+ * teachers), 'site' = site note (notes:view at system).
  */
 export const notes = pgTable('notes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

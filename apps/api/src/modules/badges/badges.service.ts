@@ -126,11 +126,11 @@ export class BadgesService implements OnModuleInit {
     const type = input.type ?? 1;
     if (type === 2 && !input.courseId) throw new BadRequestException({ message: 'A course badge requires courseId', code: 'badges.course_required' });
     const ctx = type === 2 ? await this.courses.courseContextId(input.courseId!) : await this.systemCtx();
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:createbadge', ctx);
+    await this.evaluator.requireCapability(actorId, 'badges:createbadge', ctx);
     if (type === 1 && !(await this.evaluator.isSiteAdmin(actorId))) {
       // Site badges are a system-context artefact: only manager/site-admin paths.
       const manager = await this.roles.getRoleByShortname('manager');
-      const assignments = manager ? await this.evaluator.hasCapability(actorId, 'moodle/badges:createbadge', ctx) : false;
+      const assignments = manager ? await this.evaluator.hasCapability(actorId, 'badges:createbadge', ctx) : false;
       if (!assignments) throw new ForbiddenException({ message: 'Site badges require a manager role at the system context', code: 'badges.site_badge_manager_only' });
     }
     return this.repo.insertBadge({
@@ -161,7 +161,7 @@ export class BadgesService implements OnModuleInit {
    */
   async updateBadge(actorId: string, id: string, input: { name?: string; description?: string; issuerName?: string; expirePeriod?: number }): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:configurecriteria', await this.badgeContextId(badgeRow));
     const patch: Partial<BadgeRow> = { userModified: actorId };
     if (input.name !== undefined) patch.name = input.name;
     if (input.description !== undefined) patch.description = input.description;
@@ -177,7 +177,7 @@ export class BadgesService implements OnModuleInit {
    */
   async archiveBadge(actorId: string, id: string): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:configurecriteria', await this.badgeContextId(badgeRow));
     await this.repo.updateBadge(id, { status: BADGE_STATUS.ARCHIVED, userModified: actorId });
     return this.getBadge(id);
   }
@@ -187,7 +187,7 @@ export class BadgesService implements OnModuleInit {
    */
   async setStatus(actorId: string, id: string, status: number): Promise<BadgeRow> {
     const badgeRow = await this.getBadge(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:configurecriteria', await this.badgeContextId(badgeRow));
     if (![BADGE_STATUS.INACTIVE, BADGE_STATUS.ACTIVE, BADGE_STATUS.DISABLED].includes(status as never)) {
       throw new BadRequestException({ message: `Status ${status} cannot be set directly`, code: 'badges.bad_status' });
     }
@@ -238,7 +238,7 @@ export class BadgesService implements OnModuleInit {
    */
   async setCriteria(actorId: string, badgeId: string, input: CriteriaInput): Promise<{ method: number; criteria: CriteriaRow[] }> {
     const badgeRow = await this.getBadge(badgeId);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:configurecriteria', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:configurecriteria', await this.badgeContextId(badgeRow));
     await this.assertCriteriaEditable(badgeRow);
     if (![CRITERIA_AGGREGATION.ALL, CRITERIA_AGGREGATION.ANY].includes(input.method as never)) {
       throw new BadRequestException({ message: 'Criteria method must be 1 (ALL) or 2 (ANY)', code: 'badges.bad_method' });
@@ -271,7 +271,7 @@ export class BadgesService implements OnModuleInit {
    */
   async duplicateBadge(actorId: string, badgeId: string): Promise<BadgeRow> {
     const source = await this.getBadge(badgeId);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:createbadge', await this.badgeContextId(source));
+    await this.evaluator.requireCapability(actorId, 'badges:createbadge', await this.badgeContextId(source));
     const copy = await this.repo.insertBadge({
       name: `${source.name} (copy)`, description: source.description, type: source.type,
       courseId: source.courseId, issuerName: source.issuerName, issuerUrl: source.issuerUrl,
@@ -492,7 +492,7 @@ export class BadgesService implements OnModuleInit {
       throw new BadRequestException({ message: 'Only an active badge can be awarded', code: 'badges.not_active' });
     }
     const ctx = await this.badgeContextId(badgeRow);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:awardbadge', ctx);
+    await this.evaluator.requireCapability(actorId, 'badges:awardbadge', ctx);
     await this.users.getUser(recipientId);
     const { criteria } = await this.getCriteria(badgeId);
     const manualLeaf = criteria.find((c) => c.criteriaType === 'manual');
@@ -502,7 +502,7 @@ export class BadgesService implements OnModuleInit {
     const roleIdParam = (manualLeaf.params as Record<string, unknown>)?.roleId;
     let issuerRole: string | null = null;
     if (roleIdParam) {
-      const assignments = await this.evaluator.hasCapabilityFromRealAssignment(actorId, 'moodle/badges:awardbadge', ctx);
+      const assignments = await this.evaluator.hasCapabilityFromRealAssignment(actorId, 'badges:awardbadge', ctx);
       if (!assignments) throw new ForbiddenException({ message: 'Issuer does not hold the required awarding role', code: 'badges.issuer_role' });
       issuerRole = typeof roleIdParam === 'string' ? roleIdParam : null;
     }
@@ -531,7 +531,7 @@ export class BadgesService implements OnModuleInit {
    */
   async listIssuedForBadge(actorId: string, badgeId: string): Promise<IssuedRow[]> {
     const badgeRow = await this.getBadge(badgeId);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:awardbadge', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:awardbadge', await this.badgeContextId(badgeRow));
     return this.repo.listIssuedForBadge(badgeId);
   }
   /**
@@ -550,7 +550,7 @@ export class BadgesService implements OnModuleInit {
   async revokeIssued(actorId: string, issuedId: string): Promise<IssuedRow> {
     const issued = await this.getIssued(issuedId);
     const badgeRow = await this.getBadge(issued.badgeId);
-    await this.evaluator.requireCapability(actorId, 'moodle/badges:revokebadge', await this.badgeContextId(badgeRow));
+    await this.evaluator.requireCapability(actorId, 'badges:revokebadge', await this.badgeContextId(badgeRow));
     await this.repo.updateIssued(issuedId, { revoked: true, revokedAt: new Date(), visible: false });
     await this.outbox.enqueueStandalone({ aggregate: 'badges', type: 'badge_revoked', payload: { badgeId: issued.badgeId, userId: issued.userId, issuedId } });
     return this.getIssued(issuedId);

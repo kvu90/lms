@@ -138,7 +138,7 @@ export class QuestionsService {
    */
   async createCategory(actorId: string, input: { name: string; contextId: string; info?: string; parent?: string }): Promise<QCategoryRow> {
     const ctx = await this.contextOrSystem(input.contextId);
-    await this.requireCap(actorId, 'moodle/question:managecategory', ctx.id);
+    await this.requireCap(actorId, 'question:managecategory', ctx.id);
     return this.repo.insertCategory({
       name: input.name, contextId: ctx.id, info: input.info ?? '', parent: input.parent ?? null,
       stamp: `qcat-${Date.now().toString(36)}`,
@@ -166,7 +166,7 @@ export class QuestionsService {
    */
   async createStimulus(actorId: string, input: { categoryId: string; content: RichTextInput }): Promise<StimulusRow> {
     const category = await this.getCategory(input.categoryId);
-    await this.requireCap(actorId, 'moodle/question:add', category.contextId);
+    await this.requireCap(actorId, 'question:add', category.contextId);
     const row = await this.repo.insertStimulus({
       categoryId: category.id, createdBy: actorId, content: toRichTextDocument(input.content) as never,
     });
@@ -202,7 +202,7 @@ export class QuestionsService {
   async updateStimulus(actorId: string, id: string, input: { content: RichTextInput }): Promise<StimulusRow> {
     const stimulus = await this.getStimulus(id);
     const category = await this.getCategory(stimulus.categoryId);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
+    await this.requireCap(actorId, 'question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.updateStimulus(id, { content: toRichTextDocument(input.content) as never });
     await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_updated', payload: { stimulusId: id } });
@@ -214,7 +214,7 @@ export class QuestionsService {
   async deleteStimulus(actorId: string, id: string): Promise<void> {
     const stimulus = await this.getStimulus(id);
     const category = await this.getCategory(stimulus.categoryId);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
+    await this.requireCap(actorId, 'question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.deleteStimulus(id);
     await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_deleted', payload: { stimulusId: id } });
@@ -452,7 +452,7 @@ export class QuestionsService {
     categoryId: string; qtype: string; name: string;
   } & QuestionContentInput): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
-    await this.requireCap(actorId, 'moodle/question:add', category.contextId);
+    await this.requireCap(actorId, 'question:add', category.contextId);
     this.assertSupportedQtype(input.qtype);
     const content = this.normaliseContent(input.qtype, input);
     const stimulus = input.stimulusId ? await this.resolveStimulus(input.stimulusId, category.id) : null;
@@ -532,7 +532,7 @@ export class QuestionsService {
   } & QuestionContentInput): Promise<QuestionView> {
     const { question: q, entry, latestVersion } = await this.getQuestion(questionId);
     const category = await this.getCategory(q.category);
-    await this.requireCap(actorId, 'moodle/question:editall', category.contextId);
+    await this.requireCap(actorId, 'question:editall', category.contextId);
     this.assertSupportedQtype(q.qtype);
     const hasNewContent = input.answers !== undefined || input.answer !== undefined || input.options !== undefined;
     const content = hasNewContent ? this.normaliseContent(q.qtype, input) : null;

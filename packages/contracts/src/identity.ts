@@ -27,7 +27,7 @@ export const customFieldValueSchema = z.object({
 });
 export type CustomFieldValue = z.infer<typeof customFieldValueSchema>;
 
-/** Profile view: `email` is an identity field — absent unless the viewer holds moodle/site:viewuseridentity (or is the owner/admin). */
+/** Profile view: `email` is an identity field — absent unless the viewer holds site:viewuseridentity (or is the owner/admin). */
 export const userProfileSchema = z.object({
   id: uuidIdSchema,
   username: z.string(),

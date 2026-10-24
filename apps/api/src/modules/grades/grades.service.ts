@@ -231,7 +231,7 @@ export class GradesService implements OnModuleInit {
     aggregateOnlyGraded?: boolean; hidden?: boolean;
   }): Promise<CategoryRow> {
     await this.courses.getCourse(courseId);
-    await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    await this.requireCap(actorId, 'grade:manage', courseId);
     const aggregation = (input.aggregation ?? 'natural') as AggregationStrategy;
     if (!AGGREGATIONS.includes(aggregation)) {
       throw new BadRequestException({ message: `Unknown aggregation ${input.aggregation}`, code: 'grades.bad_aggregation' });
@@ -279,7 +279,7 @@ export class GradesService implements OnModuleInit {
     aggregateOnlyGraded?: boolean; hidden?: boolean;
   }): Promise<CategoryRow> {
     const cat = await this.getCategory(categoryId);
-    await this.requireCap(actorId, 'moodle/grade:manage', cat.courseId);
+    await this.requireCap(actorId, 'grade:manage', cat.courseId);
     if (input.aggregation !== undefined && !AGGREGATIONS.includes(input.aggregation as AggregationStrategy)) {
       throw new BadRequestException({ message: `Unknown aggregation ${input.aggregation}`, code: 'grades.bad_aggregation' });
     }
@@ -314,7 +314,7 @@ export class GradesService implements OnModuleInit {
    */
   async deleteCategory(actorId: string, categoryId: string): Promise<void> {
     const cat = await this.getCategory(categoryId);
-    await this.requireCap(actorId, 'moodle/grade:manage', cat.courseId);
+    await this.requireCap(actorId, 'grade:manage', cat.courseId);
     const root = await this.repo.rootCategory(cat.courseId);
     if (root && root.id === categoryId) {
       throw new BadRequestException({ message: 'The course category cannot be deleted', code: 'grades.root_category' });
@@ -343,7 +343,7 @@ export class GradesService implements OnModuleInit {
     multiplicator?: number; plusFactor?: number; hidden?: boolean;
   }): Promise<ItemRow> {
     await this.courses.getCourse(courseId);
-    await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    await this.requireCap(actorId, 'grade:manage', courseId);
     const itemType = input.itemType ?? 'manual';
     if (!['manual', 'mod', 'calculated'].includes(itemType)) {
       throw new BadRequestException({ message: `grade item type ${itemType} is created by the system`, code: 'grades.bad_itemtype' });
@@ -429,7 +429,7 @@ export class GradesService implements OnModuleInit {
     multiplicator?: number; plusFactor?: number; hidden?: boolean; locked?: boolean;
   }): Promise<ItemRow> {
     const item = await this.getItem(itemId);
-    await this.requireCap(actorId, 'moodle/grade:manage', item.courseId);
+    await this.requireCap(actorId, 'grade:manage', item.courseId);
     // Công thức/idNumber/outcome được kiểm tra lại đầy đủ mỗi lần sửa, giống lúc tạo.
     const nextIdnumber = input.idNumber !== undefined ? input.idNumber : item.idNumber;
     if (input.idNumber !== undefined) await this.assertIdnumberFree(item.courseId, input.idNumber, itemId);
@@ -499,7 +499,7 @@ export class GradesService implements OnModuleInit {
    */
   async deleteItem(actorId: string, itemId: string): Promise<void> {
     const item = await this.getItem(itemId);
-    await this.requireCap(actorId, 'moodle/grade:manage', item.courseId);
+    await this.requireCap(actorId, 'grade:manage', item.courseId);
     if (item.itemType === 'course' || item.itemType === 'category') {
       throw new BadRequestException({ message: 'Category/course total items are deleted with their category', code: 'grades.system_item' });
     }
@@ -526,7 +526,7 @@ export class GradesService implements OnModuleInit {
    */
   async setGrade(actorId: string, itemId: string, userId: string, input: { rawGrade?: number | null; feedback?: string }): Promise<GradeRow> {
     const item = await this.getItem(itemId);
-    await this.requireCap(actorId, 'moodle/grade:edit', item.courseId);
+    await this.requireCap(actorId, 'grade:edit', item.courseId);
     if (item.itemType === 'course' || item.itemType === 'category' || item.itemType === 'calculated') {
       throw new BadRequestException({ message: 'Category/course totals and calculated items are calculated, not entered', code: 'grades.calculated_item' });
     }
@@ -634,7 +634,7 @@ export class GradesService implements OnModuleInit {
     const grade = await this.repo.getGradeById(gradeId);
     if (!grade) throw new NotFoundException({ message: `Grade ${gradeId} not found`, code: 'grades.grade_not_found' });
     const item = await this.getItem(grade.itemId);
-    await this.requireCap(actorId, 'moodle/grade:edit', item.courseId);
+    await this.requireCap(actorId, 'grade:edit', item.courseId);
     const patch: Partial<GradeRow> = {};
     if (input.overridden !== undefined) patch.overridden = input.overridden;
     if (input.finalGrade !== undefined) patch.finalGrade = input.finalGrade;
@@ -828,7 +828,7 @@ export class GradesService implements OnModuleInit {
    * Đưa yêu cầu regrade vào hàng đợi (worker) khi thay đổi lớn.
    */
   async triggerRegrade(actorId: string, courseId: string): Promise<{ courseId: string; users: number }> {
-    await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    await this.requireCap(actorId, 'grade:manage', courseId);
     return this.regradeCourse(courseId);
   }
 
@@ -916,7 +916,7 @@ export class GradesService implements OnModuleInit {
    * Đặt bảng grade letters của khoá học.
    */
   async setLetters(actorId: string, courseId: string, letters: { letter: string; lowerBoundary: number }[]): Promise<LetterRow[]> {
-    await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    await this.requireCap(actorId, 'grade:manage', courseId);
     const contextId = await this.courses.courseContextId(courseId);
     await this.repo.replaceLetters(contextId, letters);
     return this.repo.listLetters(contextId);
@@ -933,14 +933,14 @@ export class GradesService implements OnModuleInit {
    * Tạo scale điểm tuỳ biến.
    */
   async createScale(actorId: string, courseId: string, input: { name: string; scale: string; description?: string }): Promise<ScaleRow> {
-    await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+    await this.requireCap(actorId, 'grade:manage', courseId);
     return this.repo.insertScale({ courseId: courseId, name: input.name, scale: input.scale, description: input.description ?? '' });
   }
   /**
    * Tạo scale mức site (courseId = null) — dùng được cho outcome mức site và mọi khoá học.
    */
   async createSiteScale(actorId: string, input: { name: string; scale: string; description?: string }): Promise<ScaleRow> {
-    await this.requireSiteCap(actorId, 'moodle/grade:manage');
+    await this.requireSiteCap(actorId, 'grade:manage');
     return this.repo.insertScale({ courseId: null, name: input.name, scale: input.scale, description: input.description ?? '' });
   }
   /**
@@ -952,14 +952,14 @@ export class GradesService implements OnModuleInit {
 
   /**
    * Tạo grade outcome: mức khoá học khi có courseId, mức site khi courseId = null.
-   * Capability dùng chung của grades: moodle/grade:manage tại context khoá học (hoặc hệ thống với outcome site).
+   * Capability dùng chung của grades: grade:manage tại context khoá học (hoặc hệ thống với outcome site).
    */
   async createOutcome(actorId: string, courseId: string | null, input: { name: string; scaleId: string; description?: string }): Promise<OutcomeRow> {
     if (courseId !== null) {
       await this.courses.getCourse(courseId);
-      await this.requireCap(actorId, 'moodle/grade:manage', courseId);
+      await this.requireCap(actorId, 'grade:manage', courseId);
     } else {
-      await this.requireSiteCap(actorId, 'moodle/grade:manage');
+      await this.requireSiteCap(actorId, 'grade:manage');
     }
     await this.scaleForOutcome(input.scaleId, courseId);
     const row = await this.repo.insertOutcome({
@@ -978,8 +978,8 @@ export class GradesService implements OnModuleInit {
 
   /** Kiểm capability phù hợp phạm vi của outcome (site → context hệ thống, khoá học → context khoá học). */
   private async requireOutcomeCap(actorId: string, outcome: OutcomeRow): Promise<void> {
-    if (outcome.courseId === null) await this.requireSiteCap(actorId, 'moodle/grade:manage');
-    else await this.requireCap(actorId, 'moodle/grade:manage', outcome.courseId);
+    if (outcome.courseId === null) await this.requireSiteCap(actorId, 'grade:manage');
+    else await this.requireCap(actorId, 'grade:manage', outcome.courseId);
   }
 
   /**
@@ -1049,7 +1049,7 @@ export class GradesService implements OnModuleInit {
 
   /**
    * Gradebook view for one target user. The viewer sees their OWN book; other
-   * users' books require moodle/grade:viewall at the course context. Hidden
+   * users' books require grade:viewall at the course context. Hidden
    * items/categories (and hidden grades) are filtered for viewers without
    * viewall — hiding is enforced here, at the API, not just in the UI.
    */
@@ -1060,10 +1060,10 @@ export class GradesService implements OnModuleInit {
     courseId: string; userId: string; categories: GradebookCategoryView[]; courseTotal: GradebookItemView | null;
   }> {
     const canViewAll = viewerId === targetUserId
-      ? await this.evaluator.hasCapability(viewerId, 'moodle/grade:viewall', await this.courses.courseContextId(courseId)).catch(() => false)
+      ? await this.evaluator.hasCapability(viewerId, 'grade:viewall', await this.courses.courseContextId(courseId)).catch(() => false)
       : false;
     if (viewerId !== targetUserId) {
-      await this.requireCap(viewerId, 'moodle/grade:viewall', courseId);
+      await this.requireCap(viewerId, 'grade:viewall', courseId);
     } else if (!canViewAll) {
       await this.courses.assertCourseAccess(viewerId, courseId);
     }
@@ -1116,7 +1116,7 @@ export class GradesService implements OnModuleInit {
       outcomes: { itemId: string; outcomeId: string; outcomeName: string; scaleValue: string | null; finalGrade: number | null }[];
     }[];
   }> {
-    await this.requireCap(viewerId, 'moodle/grade:viewall', courseId);
+    await this.requireCap(viewerId, 'grade:viewall', courseId);
     const { courseItem } = await this.ensureCourseCategory(courseId);
     const letters = await this.getLetters(courseId);
     const items = await this.repo.listItems(courseId);
@@ -1168,12 +1168,12 @@ export class GradesService implements OnModuleInit {
    * Export điểm của một khoá học ra CSV (issue #24, theo mẫu grade export của Moodle):
    * một dòng cho mỗi người học đã ghi danh; cột định danh userId/username/firstName/
    * lastName/email, sau đó một cột cho mỗi grade item (điểm tổng khoá học ở cột cuối)
-   * mang finalGrade hiện tại, ô trống khi chưa có điểm. Quyền: moodle/grade:viewall
+   * mang finalGrade hiện tại, ô trống khi chưa có điểm. Quyền: grade:viewall
    * tại context khoá học — cùng quyền với báo cáo lớp.
    */
   async exportGradesCsv(actorId: string, courseId: string): Promise<{ filename: string; csv: string }> {
     await this.courses.getCourse(courseId);
-    await this.requireCap(actorId, 'moodle/grade:viewall', courseId);
+    await this.requireCap(actorId, 'grade:viewall', courseId);
     await this.ensureCourseCategory(courseId);
     const items = await this.repo.listItems(courseId);
     // Course total xuống cột cuối như Moodle; các item còn lại giữ thứ tự sổ điểm.
@@ -1216,7 +1216,7 @@ export class GradesService implements OnModuleInit {
     opts: { userIdentifier?: string } = {},
   ): Promise<GradeImportResult> {
     await this.courses.getCourse(courseId);
-    await this.requireCap(actorId, 'moodle/grade:edit', courseId);
+    await this.requireCap(actorId, 'grade:edit', courseId);
     const identifier = (opts.userIdentifier ?? 'username') as GradeImportUserIdentifier;
     if (!GRADE_IMPORT_USER_IDENTIFIERS.includes(identifier)) {
       throw new BadRequestException({ message: `Unknown user identifier '${opts.userIdentifier}' (expected one of ${GRADE_IMPORT_USER_IDENTIFIERS.join(', ')})`, code: 'grades.import_bad_user_identifier' });

@@ -87,7 +87,7 @@ function accessView(role: 'admin' | 'teacher' | 'student') {
           contextId: SYS_CTX_ID,
           contextLevel: 10,
           contextPath: '/1',
-          capabilities: ['moodle/user:viewdetails', 'moodle/role:manage'],
+          capabilities: ['user:viewdetails', 'role:manage'],
         },
       ],
     };
@@ -115,8 +115,8 @@ function accessView(role: 'admin' | 'teacher' | 'student') {
         contextPath: '/1/9/10',
         capabilities:
           role === 'teacher'
-            ? ['moodle/grade:viewall', 'moodle/course:update', 'moodle/question:useall']
-            : ['moodle/course:view'],
+            ? ['grade:viewall', 'course:update', 'question:useall']
+            : ['course:view'],
       },
     ],
   };

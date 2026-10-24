@@ -117,7 +117,7 @@ export class CoursesService {
       const parentCat = await this.getCategory(parent);
       parentCtxId = await this.categoryContextId(parentCat.id);
     }
-    await this.evaluator.requireCapability(actorId, 'moodle/category:manage', parentCtxId);
+    await this.evaluator.requireCapability(actorId, 'category:manage', parentCtxId);
     const sortOrder = await this.repo.countSiblingCategories(parent);
     const cat = await this.repo.insertCategory({
       name: input.name, idNumber: input.idNumber ?? null, description: input.description ?? '',
@@ -165,7 +165,7 @@ export class CoursesService {
    */
   async updateCategory(actorId: string, id: string, input: { name?: string; idNumber?: string; description?: string; visible?: boolean; parent?: string }): Promise<CategoryRow> {
     const cat = await this.getCategory(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
+    await this.evaluator.requireCapability(actorId, 'category:manage', await this.categoryContextId(id));
     if (input.parent !== undefined && input.parent !== cat.parent) {
       await this.moveCategory(cat, input.parent, actorId);
     }
@@ -211,7 +211,7 @@ export class CoursesService {
    */
   async deleteCategory(actorId: string, id: string, mode?: CategoryDeleteMode): Promise<{ deleted: true; mode: CategoryDeleteMode | 'empty' }> {
     const cat = await this.getCategory(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/category:manage', await this.categoryContextId(id));
+    await this.evaluator.requireCapability(actorId, 'category:manage', await this.categoryContextId(id));
     const children = await this.repo.childrenOf(id);
     const coursesHere = await this.repo.listCourses(id);
     if ((children.length || coursesHere.length) && !mode) {
@@ -262,7 +262,7 @@ export class CoursesService {
     const category = await this.getCategory(input.category);
     const categoryCtxId = await this.categoryContextId(category.id);
     // Creating a course requires the capability in the CATEGORY context (Moodle rule).
-    await this.evaluator.requireCapability(actorId, 'moodle/course:create', categoryCtxId);
+    await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {
       throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });
@@ -331,7 +331,7 @@ export class CoursesService {
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(id));
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(id));
     if (input.shortName !== undefined && input.shortName.trim() !== existing.shortName) {
       if (await this.repo.getCourseByShortname(input.shortName.trim())) {
         throw new ConflictException({ message: `Course shortName ${input.shortName} is taken`, code: 'course.shortname_taken' });
@@ -372,7 +372,7 @@ export class CoursesService {
    */
   async deleteCourse(actorId: string, id: string): Promise<void> {
     const courseRow = await this.getCourse(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:delete', await this.courseContextId(id));
+    await this.evaluator.requireCapability(actorId, 'course:delete', await this.courseContextId(id));
     await this.deleteCourseInternal(courseRow, actorId);
   }
 
@@ -389,7 +389,7 @@ export class CoursesService {
   /**
    * The course-content gate (report §2#5): enrolment and capability are
    * INDEPENDENT conditions. Access = site admin, OR an ACTIVE enrolment, OR
-   * a real (non-student) role assignment granting moodle/course:view.
+   * a real (non-student) role assignment granting course:view.
    * A suspended enrolment therefore blocks even a user who holds the student
    * role — the role alone never opens the course.
    */
@@ -400,11 +400,11 @@ export class CoursesService {
     const courseRow = await this.getCourse(courseId);
     if (await this.evaluator.isSiteAdmin(userId)) return courseRow;
     const ctxId = await this.courseContextId(courseId);
-    if (!courseRow.visible && !(await this.evaluator.hasCapability(userId, 'moodle/course:viewhiddencourses', ctxId))) {
+    if (!courseRow.visible && !(await this.evaluator.hasCapability(userId, 'course:viewhiddencourses', ctxId))) {
       throw new ForbiddenException({ message: 'Course is hidden', code: 'course.hidden' });
     }
     if (this.enrolChecker && (await this.enrolChecker.isEnrolled(courseId, userId, { onlyActive: true }))) return courseRow;
-    if (await this.evaluator.hasCapabilityFromRealAssignment(userId, 'moodle/course:view', ctxId, { excludeArchetypes: ['student'] })) return courseRow;
+    if (await this.evaluator.hasCapabilityFromRealAssignment(userId, 'course:view', ctxId, { excludeArchetypes: ['student'] })) return courseRow;
     throw new ForbiddenException({ message: 'User is not enrolled in this course (or the enrolment is not active)', code: 'course.not_enrolled' });
   }
 
@@ -413,7 +413,7 @@ export class CoursesService {
    */
   async canViewHiddenActivities(userId: string, courseId: string): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
-    return this.evaluator.hasCapability(userId, 'moodle/course:viewhiddenactivities', await this.courseContextId(courseId));
+    return this.evaluator.hasCapability(userId, 'course:viewhiddenactivities', await this.courseContextId(courseId));
   }
 
   // --- sections & modules ------------------------------------------------------
@@ -422,7 +422,7 @@ export class CoursesService {
    */
   async createSection(actorId: string, courseId: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
     await this.getCourse(courseId);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(courseId));
     if (input.availability !== undefined) this.availability.parse(input.availability);
     const existing = await this.repo.listSections(courseId);
     const nextNumber = existing.length ? Math.max(...existing.map((s) => s.section)) + 1 : 0;
@@ -449,7 +449,7 @@ export class CoursesService {
    */
   async updateSection(actorId: string, id: string, input: { name?: string; summary?: string; visible?: boolean; availability?: unknown }): Promise<SectionRow> {
     const section = await this.getSection(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(section.course));
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(section.course));
     if (input.availability !== undefined) this.availability.parse(input.availability);
     const patch: Partial<SectionRow> = {};
     if (input.name !== undefined) patch.name = input.name;
@@ -464,7 +464,7 @@ export class CoursesService {
    */
   async deleteSection(actorId: string, id: string): Promise<void> {
     const section = await this.getSection(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:update', await this.courseContextId(section.course));
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(section.course));
     const cms = await this.repo.listCmsInSection(id);
     for (const cm of cms) await this.deleteCmInternal(cm, actorId);
     await this.repo.deleteSection(id);
@@ -479,7 +479,7 @@ export class CoursesService {
     completionManual?: boolean; completionExpected?: string;
   }): Promise<CmRow> {
     const courseRow = await this.getCourse(courseId);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(courseId));
     const section = await this.getSection(input.sectionId);
     if (section.course !== courseId) throw new BadRequestException({ message: 'Section does not belong to this course', code: 'course.section_course_mismatch' });
     if (input.availability !== undefined) this.availability.parse(input.availability);
@@ -518,7 +518,7 @@ export class CoursesService {
     completionView?: boolean; completionUseGrade?: boolean; completionManual?: boolean; completionExpected?: string | null; sectionId?: string;
   }): Promise<CmRow> {
     const cm = await this.getCm(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(cm.course));
+    await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(cm.course));
     if (input.availability !== undefined) this.availability.parse(input.availability);
     const patch: Partial<CmRow> = {};
     if (input.name !== undefined) patch.name = input.name;
@@ -561,7 +561,7 @@ export class CoursesService {
    */
   async deleteCm(actorId: string, id: string): Promise<void> {
     const cm = await this.getCm(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/course:manageactivities', await this.courseContextId(cm.course));
+    await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courseContextId(cm.course));
     await this.deleteCmInternal(cm, actorId);
   }
 

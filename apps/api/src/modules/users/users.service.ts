@@ -286,7 +286,7 @@ export class UsersService {
   /**
    * Profile view with Moodle's privacy-by-capability rule: identity fields
    * (email) are exposed only to the owner, site admins, or viewers holding
-   * `moodle/site:viewuseridentity` — enforced here, not in the UI.
+   * `site:viewuseridentity` — enforced here, not in the UI.
    */
   /**
    * Dựng dữ liệu hiển thị hồ sơ: email chỉ lộ khi người xem có capability xem định danh.
@@ -296,8 +296,8 @@ export class UsersService {
     const userCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, targetId);
     const systemCtx = await this.contexts.ensureSystemContext();
     const canSeeIdentity = viewerId === targetId
-      || (userCtx ? await this.evaluator.hasCapability(viewerId, 'moodle/site:viewuseridentity', userCtx.id) : false)
-      || (await this.evaluator.hasCapability(viewerId, 'moodle/site:viewuseridentity', systemCtx.id));
+      || (userCtx ? await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', userCtx.id) : false)
+      || (await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', systemCtx.id));
     const custom = await this.customFields.getValuesForInstance(USER_COMPONENT, USER_AREA, targetId);
     return {
       id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName,
@@ -308,15 +308,15 @@ export class UsersService {
     };
   }
 
-  /** Guard helper for profile mutation: self-service or holders of moodle/user:update. */
+  /** Guard helper for profile mutation: self-service or holders of user:update. */
   /**
-   * Chặn cập nhật hồ sơ người khác khi thiếu capability moodle/user:update.
+   * Chặn cập nhật hồ sơ người khác khi thiếu capability user:update.
    */
   async assertCanUpdateProfile(actorId: string, targetId: string): Promise<void> {
     if (actorId === targetId) return;
     const systemCtx = await this.contexts.ensureSystemContext();
-    if (!(await this.evaluator.hasCapability(actorId, 'moodle/user:update', systemCtx.id))) {
-      throw new ForbiddenException({ message: 'Missing capability moodle/user:update', code: 'access.capability_denied' });
+    if (!(await this.evaluator.hasCapability(actorId, 'user:update', systemCtx.id))) {
+      throw new ForbiddenException({ message: 'Missing capability user:update', code: 'access.capability_denied' });
     }
   }
 }

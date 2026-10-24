@@ -104,13 +104,13 @@ export class FilesService {
    * Kiểm quyền xem file tại context của nó.
    */
   async assertCanView(file: FileRow, actor: { id: string; username?: string }): Promise<void> {
-    await this.evaluator.requireCapability(actor.id, 'lms/files:view', file.contextId, { isGuest: actor.username === 'guest' });
+    await this.evaluator.requireCapability(actor.id, 'files:view', file.contextId, { isGuest: actor.username === 'guest' });
   }
   /**
    * Kiểm quyền tải file lên context đích.
    */
   async assertCanUpload(contextId: string, actor: { id: string; username?: string }): Promise<void> {
-    await this.evaluator.requireCapability(actor.id, 'lms/files:upload', contextId, { isGuest: actor.username === 'guest' });
+    await this.evaluator.requireCapability(actor.id, 'files:upload', contextId, { isGuest: actor.username === 'guest' });
   }
 
   /** Capability-checked signed URL issuance: the check happens HERE (server), the signature only transports the result briefly. */
@@ -119,7 +119,7 @@ export class FilesService {
    */
   async createSignedUrl(fileId: string, userId: string, isGuest = false): Promise<{ url: string; expiresAt: number }> {
     const file = await this.getFile(fileId);
-    await this.evaluator.requireCapability(userId, 'lms/files:view', file.contextId, { isGuest });
+    await this.evaluator.requireCapability(userId, 'files:view', file.contextId, { isGuest });
     const { token, expiresAt } = this.signing.sign(fileId);
     return { url: `/api/v1/files/${fileId}/download?sig=${encodeURIComponent(token)}`, expiresAt };
   }

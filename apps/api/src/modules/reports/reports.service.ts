@@ -96,7 +96,7 @@ export class ReportsService {
     audienceUserIds?: string[]; audienceRoles?: string[];
   }): Promise<ReportRow> {
     const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
+    await this.evaluator.requireCapability(actorId, 'reportbuilder:manage', sys.id);
     const ds = this.datasources.get(input.dataSource);
     if (!ds) throw new BadRequestException({ message: `Unknown dataSource ${input.dataSource}`, code: 'report.unknown_datasource' });
     const columns = input.columns?.length ? input.columns : ds.columns;
@@ -136,7 +136,7 @@ export class ReportsService {
 
   /**
    * Chạy báo cáo cho một viewer: audience ∩ lọc từng dòng theo quyền.
-   * Một dòng course chỉ hiện nếu viewer có moodle/course:view ở course
+   * Một dòng course chỉ hiện nếu viewer có course:view ở course
    * context của dòng (hoặc là chính chủ dòng dữ liệu của mình cho grades/
    * enrolments/completion của bản thân — học viên xem được dòng của mình).
    */
@@ -164,8 +164,8 @@ export class ReportsService {
         const ctxId = ctxCache.get(courseId)!;
         if (ctxId) {
           // Staff có grade:viewall thấy mọi dòng của course; người thường chỉ thấy dòng của chính mình trong course họ được xem.
-          allowed = (await this.evaluator.hasCapability(viewerId, 'moodle/grade:viewall', ctxId))
-            || ((await this.evaluator.hasCapability(viewerId, 'moodle/course:view', ctxId)) && String(row.userId) === viewerId);
+          allowed = (await this.evaluator.hasCapability(viewerId, 'grade:viewall', ctxId))
+            || ((await this.evaluator.hasCapability(viewerId, 'course:view', ctxId)) && String(row.userId) === viewerId);
         }
       } else {
         allowed = String(row.userId) === viewerId;
@@ -183,7 +183,7 @@ export class ReportsService {
   async createSchedule(actorId: string, reportId: string, cron = 'daily'): Promise<ScheduleRow> {
     const report = await this.getReport(reportId);
     const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'lms/reportbuilder:manage', sys.id);
+    await this.evaluator.requireCapability(actorId, 'reportbuilder:manage', sys.id);
     return this.repo.insertSchedule({ reportId: report.id, createdBy: actorId, cron, enabled: true });
   }
   async listSchedules(): Promise<ScheduleRow[]> { return this.repo.listSchedules(); }

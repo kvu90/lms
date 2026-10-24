@@ -6,9 +6,9 @@ import {
 } from './curriculum.repository';
 
 /** Capability đọc cây curriculum tại context của môn học. */
-export const CURRICULUM_VIEW = 'lms/curriculum:view';
+export const CURRICULUM_VIEW = 'curriculum:view';
 /** Capability quản trị (tạo/sửa/xoá) cây curriculum tại context của môn học. */
-export const CURRICULUM_MANAGE = 'lms/curriculum:manage';
+export const CURRICULUM_MANAGE = 'curriculum:manage';
 
 /** Một node của cây nội dung kèm outcomes của chính nó và các node con (đệ quy). */
 export interface CurriculumNodeView extends CurriculumNodeRow {
@@ -38,8 +38,8 @@ function isUniqueViolation(err: unknown): boolean {
  * Curriculum — port của giaokhoa (subjects → curricula → cây nodes →
  * learning_outcomes) cho chương trình GDPT 2018.
  * Phân quyền bám mẫu ngân hàng câu hỏi/stimulus: môn học neo vào một
- * context; mọi thao tác đọc cần `lms/curriculum:view`, thao tác ghi cần
- * `lms/curriculum:manage` tại context đó qua PermissionEvaluator — không
+ * context; mọi thao tác đọc cần `curriculum:view`, thao tác ghi cần
+ * `curriculum:manage` tại context đó qua PermissionEvaluator — không
  * theo sở hữu cá nhân. Site admin bỏ qua kiểm tra như mọi bounded context.
  */
 export class CurriculumService {

@@ -9,13 +9,13 @@ import { setSiteSettingSchema, type SetSettingDto } from './dto/site-config.dto'
 @Controller({ path: 'site-config', version: '1' })
 /**
  * API cấu hình site và cấu hình theo plugin (chỉ quản trị có capability
- * `moodle/site:config` ở context hệ thống mới đọc/ghi được).
+ * `site:config` ở context hệ thống mới đọc/ghi được).
  */
 export class SiteConfigController {
   constructor(private readonly service: SiteConfigService) {}
 
   @Get()
-  @RequireCapability('moodle/site:config')
+  @RequireCapability('site:config')
   /**
    * GET /site-config — mọi setting đã đăng ký kèm giá trị hiệu lực và nguồn.
    */
@@ -24,7 +24,7 @@ export class SiteConfigController {
   }
 
   @Get('audit')
-  @RequireCapability('moodle/site:config')
+  @RequireCapability('site:config')
   /**
    * GET /site-config/audit — vết thay đổi cấu hình, lọc theo `settingKey` nếu có.
    */
@@ -33,7 +33,7 @@ export class SiteConfigController {
   }
 
   @Get(':component/:name')
-  @RequireCapability('moodle/site:config')
+  @RequireCapability('site:config')
   /**
    * GET /site-config/:component/:name — một setting kèm giá trị hiệu lực.
    */
@@ -42,7 +42,7 @@ export class SiteConfigController {
   }
 
   @Put(':component/:name')
-  @RequireCapability('moodle/site:config')
+  @RequireCapability('site:config')
   /**
    * PUT /site-config/:component/:name — đặt giá trị ghi đè (đã kiểm chứng kiểu).
    */
@@ -56,7 +56,7 @@ export class SiteConfigController {
   }
 
   @Delete(':component/:name')
-  @RequireCapability('moodle/site:config')
+  @RequireCapability('site:config')
   /**
    * DELETE /site-config/:component/:name — xoá ghi đè, trở về mặc định code.
    */

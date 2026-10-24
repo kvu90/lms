@@ -37,7 +37,7 @@ function formatValue(value: unknown): string {
  * → select, còn lại → ô văn bản), Lưu qua PUT, Đặt lại qua DELETE chỉ khi
  * setting đang có ghi đè (`source = 'database'`). Cuối trang là danh sách
  * vết thay đổi gần nhất từ GET /api/v1/site-config/audit. API khoá mọi
- * endpoint bằng capability `moodle/site:config`: bị 403 thì trang hiện
+ * endpoint bằng capability `site:config`: bị 403 thì trang hiện
  * thông báo không có quyền thay vì sập.
  */
 export function AdminSiteConfigPage() {

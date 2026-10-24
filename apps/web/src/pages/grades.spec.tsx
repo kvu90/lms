@@ -424,7 +424,7 @@ describe('Gradebook administration (teacher of the course)', () => {
   /**
    * Stub fetch cho giáo viên của khoá: ảnh chụp quyền
    * (GET /users/me/capabilities) khai gán editingteacher tại context khoá
-   * kèm moodle/grade:viewall nên trang kết luận là staff và mới tải thêm
+   * kèm grade:viewall nên trang kết luận là staff và mới tải thêm
    * categories/items/letters/scales. Mọi lời gọi đều được ghi lại để
    * khẳng định URL/method/body đúng controller phía API.
    */
@@ -468,7 +468,7 @@ describe('Gradebook administration (teacher of the course)', () => {
                 contextId: '01900000-0000-7000-8000-000000000055',
                 contextLevel: 50,
                 contextPath: '/1/9/10',
-                capabilities: ['moodle/grade:viewall', 'moodle/grade:edit', 'moodle/question:useall'],
+                capabilities: ['grade:viewall', 'grade:edit', 'question:useall'],
               },
             ],
           });
