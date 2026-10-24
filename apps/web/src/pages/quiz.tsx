@@ -73,6 +73,8 @@ export function QuizPage() {
 
   // Dựng đề: ngân hàng câu hỏi + lựa chọn đang soạn.
   const [categories, setCategories] = useState<QuestionCategory[]>([]);
+  /** Danh mục đã tải xong hay chưa — hai form dựng đề chỉ render khi đã có danh sách, để ô chọn danh mục không bao giờ mở ra rỗng rồi đua với lượt tải (điểm chặn 5, PR #83). */
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [bankQuestions, setBankQuestions] = useState<QuestionView[]>([]);
   const [pickCategoryId, setPickCategoryId] = useState('');
   const [pickQuestionId, setPickQuestionId] = useState('');
@@ -120,7 +122,8 @@ export function QuizPage() {
     if (!data?.permissions.manage) return;
     void apiJson<QuestionCategory[]>('/api/v1/questions/categories')
       .then(setCategories)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setCategoriesLoaded(true));
   }, [data?.permissions.manage]);
 
   useEffect(() => {
@@ -419,7 +422,7 @@ export function QuizPage() {
                 {quiz.slots.length === 0 ? <li className="text-sm text-muted-foreground">{t('quizNoQuestions')}</li> : null}
               </ul>
 
-              <form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
+              {categoriesLoaded && (<form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddFixedSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
@@ -465,9 +468,9 @@ export function QuizPage() {
                     {t('quizAddSlot')}
                   </Button>
                 </div>
-              </form>
+              </form>)}
 
-              <form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
+              {categoriesLoaded && (<form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
                 <h4 className="text-sm font-medium">{t('quizAddRandomSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
@@ -494,7 +497,7 @@ export function QuizPage() {
                     {t('quizAddRandomSubmit')}
                   </Button>
                 </div>
-              </form>
+              </form>)}
             </CardContent>
           </Card>
 

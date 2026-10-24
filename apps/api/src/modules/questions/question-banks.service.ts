@@ -145,12 +145,21 @@ export class QuestionBanksService {
    * listBanks gọi vô điều kiện nên mọi tài khoản đều nhận bank + quyền
    * soạn câu. Người không đủ tư cách mà đã có bank từ trước vẫn không
    * được tạo mới; listBanks cũng không liệt kê bank đó cho họ. */
-  async ensurePersonalBank(userId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
+  async ensurePersonalBank(userId: string, kind: BankKind = 'question', opts?: { forCopy?: boolean }): Promise<QuestionBankRow> {
     const existing = await this.repo.getPersonalBank(userId, kind);
     if (existing) return existing;
+    // Cổng staff chỉ áp cho tạo thụ động (mở bề mặt bank / tạo tường minh):
+    // học sinh không tự sinh bank + vai qbanklead chỉ vì mở danh sách.
+    // Ngoại lệ duy nhất là đích copy: copyQuestion đã kiểm tra quyền copy
+    // trên câu nguồn TRƯỚC khi tới đây, nên quyền copy nguồn mới là cổng
+    // thật — tạo bank đích cho người copy có quyền (kể cả thành viên tổ
+    // không phải staff) là hành vi có chủ đích, không phải tạo thụ động.
+    // Bank đích vẫn cấp vai lead như thường để cổng question:add ở
+    // category đích sau đó đạt; người không có quyền copy nguồn vẫn bị
+    // chặn từ assertCanCopySource trước khi bank nào được tạo.
     const isStaff = (await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES)).includes(userId)
       || (await this.evaluator.isSiteAdmin(userId));
-    if (!isStaff) {
+    if (!isStaff && !opts?.forCopy) {
       throw new ForbiddenException({ message: 'Only staff can have a personal question bank', code: 'question.personal_bank_staff_only' });
     }
     const system = await this.contexts.ensureSystemContext();
@@ -628,7 +637,7 @@ export class QuestionBanksService {
     await this.assertCanCopySource(actorId, source);
     const targetBank = input.targetBankId
       ? await this.getBankOrThrow(input.targetBankId)
-      : await this.ensurePersonalBank(actorId);
+      : await this.ensurePersonalBank(actorId, 'question', { forCopy: true });
     await this.syncMembership(targetBank);
     let targetCategory: QCategoryRow;
     if (input.targetCategoryId) {
