@@ -391,12 +391,30 @@ export class GroupsService implements OnModuleInit {
     await this.repo.deleteCohort(id);
   }
   /**
-   * Thành viên cohort.
+   * Thành viên cohort. Khi có `actorId` (đường HTTP), người xem phải có
+   * capability `cohort:view` hoặc `cohort:manage` tại context của cohort —
+   * cùng chuẩn capability/context với các thao tác cohort khác; người ngoài
+   * nhận 404 `cohort.not_found` giống hệt cohort không tồn tại, để không lộ
+   * sự tồn tại của cohort (issue #44). Không truyền `actorId` là đường nội
+   * bộ giữa các module (đồng bộ ghi danh theo cohort, sinh learning plan),
+   * trả về toàn bộ.
    */
-  async listCohortMembers(cohortId: string): Promise<{ userId: string; timeAdded: Date }[]> {
-    await this.getCohort(cohortId);
+  async listCohortMembers(cohortId: string, actorId?: string): Promise<{ userId: string; timeAdded: Date }[]> {
+    const cohortRow = await this.getCohort(cohortId);
+    if (actorId !== undefined) await this.requireCohortViewer(actorId, cohortRow);
     const rows = await this.repo.listCohortMembers(cohortId);
     return rows.map((r) => ({ userId: r.userId, timeAdded: r.timeAdded }));
+  }
+  /**
+   * Cổng xem cohort cho các đường đọc dữ liệu thành viên: đạt khi có
+   * `cohort:view` hoặc `cohort:manage` tại context của cohort (site admin
+   * được PermissionEvaluator tính là có cả hai). Không đạt thì ném đúng 404
+   * `cohort.not_found` như khi cohort vắng.
+   */
+  private async requireCohortViewer(actorId: string, cohortRow: CohortRow): Promise<void> {
+    const canView = await this.evaluator.hasCapability(actorId, 'cohort:view', cohortRow.contextId);
+    const canManage = canView ? false : await this.evaluator.hasCapability(actorId, 'cohort:manage', cohortRow.contextId);
+    if (!canView && !canManage) throw new NotFoundException({ message: `Cohort ${cohortRow.id} not found`, code: 'cohort.not_found' });
   }
   /**
    * Kiểm tra thành viên cohort.
