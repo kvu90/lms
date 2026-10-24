@@ -145,9 +145,30 @@ export class DashboardService {
   ): Promise<DashboardNewResultView[]> {
     const results: DashboardNewResultView[] = [];
 
-    const gradeRows = await this.repo.gradeRowsSince(enrolled, userId, since);
-    const rowsByCourse = new Map<string, typeof gradeRows>();
-    for (const row of gradeRows) {
+    // Vết công bố theo item: vết mới nhất quyết định hiệu lực hiện tại và,
+    // với item manual, thời điểm điểm TRỞ NÊN hiển thị.
+    const itemPubs = await this.repo.itemPublications(enrolled);
+    const latestPubByItem = new Map<string, (typeof itemPubs)[number]>();
+    for (const p of itemPubs) {
+      if (p.itemId) latestPubByItem.set(p.itemId, p); // rows tăng dần theo createdAt → cuối là mới nhất
+    }
+    // Ứng viên từ công bố: item có vết publish hiệu lực nằm sau mốc.
+    const publishedAfterSince = new Set<string>();
+    for (const [itemId, p] of latestPubByItem) {
+      if (p.action === 'publish' && p.createdAt > since) publishedAfterSince.add(itemId);
+    }
+
+    type GradeRow = Awaited<ReturnType<DashboardRepository['gradeRowsSince']>>[number];
+    const candidateByGradeId = new Map<string, GradeRow>();
+    for (const row of await this.repo.gradeRowsSince(enrolled, userId, since)) {
+      candidateByGradeId.set(row.gradeId, row);
+    }
+    for (const row of await this.repo.gradeRowsForItems([...publishedAfterSince], userId)) {
+      candidateByGradeId.set(row.gradeId, row);
+    }
+
+    const rowsByCourse = new Map<string, GradeRow[]>();
+    for (const row of candidateByGradeId.values()) {
       if (row.itemType !== 'mod' && row.itemType !== 'manual') continue; // chỉ item lá, bỏ total/category
       const list = rowsByCourse.get(row.courseId) ?? [];
       list.push(row);
@@ -158,6 +179,14 @@ export class DashboardService {
       for (const row of rows) {
         // Cổng công bố PH-0: chưa công bố thì loại hoàn toàn khỏi payload.
         if (!(states.get(row.itemId)?.published ?? true)) continue;
+        // Thời điểm hiệu lực: item manual lấy mốc công bố nếu công bố
+        // muộn hơn lần sửa điểm (điểm chấm trước, công bố sau vẫn là mới
+        // tại thời điểm công bố).
+        const pub = latestPubByItem.get(row.itemId);
+        const effectiveAt = pub && pub.action === 'publish' && pub.createdAt > row.updatedAt
+          ? pub.createdAt
+          : row.updatedAt;
+        if (effectiveAt <= since) continue;
         results.push({
           courseId,
           courseName: names.get(courseId) ?? '',
@@ -167,7 +196,7 @@ export class DashboardService {
           finalGrade: row.finalGrade,
           gradeMax: row.gradeMax,
           feedback: row.feedback,
-          changedAt: row.updatedAt.toISOString(),
+          changedAt: effectiveAt.toISOString(),
         });
       }
     }

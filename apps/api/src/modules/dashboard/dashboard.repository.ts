@@ -152,6 +152,48 @@ export class DashboardRepository {
       .orderBy(asc(gradeGrades.updatedAt));
   }
 
+  /**
+   * Mọi vết công bố scope item trong tập khoá — service suy ra: (a) hiệu
+   * lực công bố hiện tại theo vết mới nhất, (b) ứng viên "mới": điểm chấm
+   * TRƯỚC mốc nhưng chỉ được CÔNG BỐ sau mốc thì thời điểm trở nên hiển
+   * thị là thời điểm công bố, không phải thời điểm chấm.
+   */
+  async itemPublications(courseIds: string[]) {
+    if (!courseIds.length) return [];
+    return this.db
+      .select()
+      .from(gradePublications)
+      .where(and(
+        inArray(gradePublications.courseId, courseIds),
+        eq(gradePublications.scope, 'item'),
+      ))
+      .orderBy(asc(gradePublications.createdAt));
+  }
+
+  /** Điểm của chính user trên một tập item cụ thể (ứng viên từ vết công bố sau mốc). */
+  async gradeRowsForItems(itemIds: string[], userId: string) {
+    if (!itemIds.length) return [];
+    return this.db
+      .select({
+        gradeId: gradeGrades.id,
+        courseId: gradeItems.courseId,
+        itemId: gradeItems.id,
+        itemName: gradeItems.itemName,
+        itemType: gradeItems.itemType,
+        finalGrade: gradeGrades.finalGrade,
+        gradeMax: gradeItems.gradeMax,
+        feedback: gradeGrades.feedback,
+        updatedAt: gradeGrades.updatedAt,
+      })
+      .from(gradeGrades)
+      .innerJoin(gradeItems, eq(gradeItems.id, gradeGrades.itemId))
+      .where(and(
+        eq(gradeGrades.userId, userId),
+        inArray(gradeGrades.itemId, itemIds),
+        sql`(${gradeGrades.finalGrade} is not null or (${gradeGrades.feedback} is not null and ${gradeGrades.feedback} <> ''))`,
+      ));
+  }
+
   /** Mọi vết công bố VN (publish/unpublish) của chính user sau mốc — service lấy vết hiệu lực mới nhất. */
   async vnPublicationsSince(userId: string, since: Date) {
     return this.db
