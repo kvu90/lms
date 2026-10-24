@@ -1871,8 +1871,22 @@ CREATE TABLE "content_bank_content" (
 	"visibility" text DEFAULT 'draft' NOT NULL,
 	"file_id" uuid,
 	"config_data" jsonb,
+	"resource_type" text DEFAULT 'other' NOT NULL,
+	"scope" text DEFAULT 'personal' NOT NULL,
+	"space_id" uuid,
+	"subject_id" uuid,
+	"grade" smallint,
+	"curriculum_node_id" uuid,
+	"outcome_ids" jsonb,
+	"question_category_id" uuid,
+	"external_url" text,
+	"review_status" text DEFAULT 'draft' NOT NULL,
+	"reviewed_by" uuid,
+	"reviewed_at" timestamp with time zone,
+	"review_note" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "content_bank_content_grade_check" CHECK ("grade" is null or ("grade" between 1 and 12))
 );
 --> statement-breakpoint
 CREATE TABLE "payment_accounts" (
@@ -2194,6 +2208,10 @@ CREATE INDEX "report_builder_schedule_created_by_idx" ON "report_builder_schedul
 CREATE INDEX "content_bank_content_context_id_idx" ON "content_bank_content" ("context_id");--> statement-breakpoint
 CREATE INDEX "content_bank_content_creator_id_idx" ON "content_bank_content" ("creator_id");--> statement-breakpoint
 CREATE INDEX "content_bank_content_file_id_idx" ON "content_bank_content" ("file_id");--> statement-breakpoint
+CREATE INDEX "content_bank_content_scope_idx" ON "content_bank_content" ("scope");--> statement-breakpoint
+CREATE INDEX "content_bank_content_space_id_idx" ON "content_bank_content" ("space_id");--> statement-breakpoint
+CREATE INDEX "content_bank_content_subject_id_idx" ON "content_bank_content" ("subject_id");--> statement-breakpoint
+CREATE INDEX "content_bank_content_review_status_idx" ON "content_bank_content" ("review_status");--> statement-breakpoint
 CREATE INDEX "payment_refunds_payment_id_idx" ON "payment_refunds" ("payment_id");--> statement-breakpoint
 CREATE INDEX "payments_account_id_idx" ON "payments" ("account_id");--> statement-breakpoint
 CREATE INDEX "payments_user_id_idx" ON "payments" ("user_id");--> statement-breakpoint
@@ -2359,6 +2377,9 @@ ALTER TABLE "analytics_predictions" ADD CONSTRAINT "analytics_predictions_model_
 ALTER TABLE "insights" ADD CONSTRAINT "insights_model_id_analytics_models_id_fkey" FOREIGN KEY ("model_id") REFERENCES "analytics_models"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "report_builder_audience" ADD CONSTRAINT "report_builder_audience_report_id_report_builder_report_id_fkey" FOREIGN KEY ("report_id") REFERENCES "report_builder_report"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "report_builder_schedule" ADD CONSTRAINT "report_builder_schedule_report_id_report_builder_report_id_fkey" FOREIGN KEY ("report_id") REFERENCES "report_builder_report"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_2sh6wRttD61R_fkey" FOREIGN KEY ("curriculum_node_id") REFERENCES "curriculum_nodes"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_cC6kSo4nHuXc_fkey" FOREIGN KEY ("question_category_id") REFERENCES "question_categories"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;

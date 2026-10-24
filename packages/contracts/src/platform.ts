@@ -81,7 +81,14 @@ export const reportSchema = z.object({
 });
 export type Report = z.infer<typeof reportSchema>;
 
-/* ---- Content Bank ---- */
+/* ---- Content Bank / Kho học liệu (CB-1) ---- */
+export const contentBankResourceTypeSchema = z.enum(['lecture', 'worksheet', 'video', 'question_set', 'other']);
+export type ContentBankResourceType = z.infer<typeof contentBankResourceTypeSchema>;
+export const contentBankScopeSchema = z.enum(['personal', 'org', 'school']);
+export type ContentBankScope = z.infer<typeof contentBankScopeSchema>;
+export const contentBankReviewStatusSchema = z.enum(['draft', 'pending', 'approved', 'rejected']);
+export type ContentBankReviewStatus = z.infer<typeof contentBankReviewStatusSchema>;
+
 export const contentBankContentSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
@@ -90,8 +97,29 @@ export const contentBankContentSchema = z.object({
   creatorId: uuidIdSchema,
   visibility: z.enum(['draft', 'public']),
   fileId: uuidIdSchema.nullable(),
+  resourceType: contentBankResourceTypeSchema,
+  scope: contentBankScopeSchema,
+  spaceId: uuidIdSchema.nullable(),
+  subjectId: uuidIdSchema.nullable(),
+  grade: z.number().int().min(1).max(12).nullable(),
+  curriculumNodeId: uuidIdSchema.nullable(),
+  outcomeIds: z.array(uuidIdSchema).nullable(),
+  questionCategoryId: uuidIdSchema.nullable(),
+  externalUrl: z.string().nullable(),
+  reviewStatus: contentBankReviewStatusSchema,
+  reviewedBy: uuidIdSchema.nullable(),
+  reviewNote: z.string().nullable(),
 });
 export type ContentBankContent = z.infer<typeof contentBankContentSchema>;
+
+/** Một không gian của Kho học liệu: cá nhân, một tổ chuyên môn (cohort), hoặc toàn trường. */
+export const contentBankSpaceSchema = z.object({
+  scope: contentBankScopeSchema,
+  spaceId: uuidIdSchema.nullable(),
+  name: z.string(),
+  canReview: z.boolean(),
+});
+export type ContentBankSpace = z.infer<typeof contentBankSpaceSchema>;
 
 /* ---- Payments ---- */
 export const paymentSchema = z.object({
@@ -224,22 +252,51 @@ export const listEventLogsQuerySchema = z.strictObject({
 });
 export type ListEventLogsQuery = z.infer<typeof listEventLogsQuerySchema>;
 
-/** Payload tạo nội dung Content Bank (loại nội dung là extension point, mặc định file-based). */
+/**
+ * Payload tạo học liệu Kho học liệu (CB-1). `contextId` không còn bắt buộc:
+ * server tự suy theo `scope` (personal → context của tác giả, org/school →
+ * context hệ thống); chỉ truyền khi cần bám hành vi cũ. Metadata chương
+ * trình (môn/khối/node/YCCĐ) bắt buộc khi gửi duyệt scope org/school —
+ * server kiểm ở bước submit.
+ */
 export const createContentBankContentSchema = z.strictObject({
   name: z.string().min(1),
-  contextId: uuidIdSchema,
+  contextId: uuidIdSchema.optional(),
   contentType: z.string().optional(),
   visibility: z.enum(['draft', 'public']).optional(),
   fileId: uuidIdSchema.optional(),
+  resourceType: contentBankResourceTypeSchema.optional(),
+  scope: contentBankScopeSchema.optional(),
+  spaceId: uuidIdSchema.optional(),
+  subjectId: uuidIdSchema.optional(),
+  grade: z.number().int().min(1).max(12).optional(),
+  curriculumNodeId: uuidIdSchema.optional(),
+  outcomeIds: z.array(uuidIdSchema).optional(),
+  questionCategoryId: uuidIdSchema.optional(),
+  externalUrl: z.string().url().optional(),
 });
 export type CreateContentBankContent = z.infer<typeof createContentBankContentSchema>;
 
-/** Payload sửa nội dung Content Bank. */
+/** Payload sửa học liệu Content Bank. */
 export const updateContentBankContentSchema = createContentBankContentSchema
   .omit({ contextId: true })
   .partial()
   .extend({ fileId: uuidIdSchema.optional() });
 export type UpdateContentBankContent = z.infer<typeof updateContentBankContentSchema>;
+
+/** Payload duyệt học liệu (tổ trưởng/quản trị): quyết định + ghi chú tuỳ chọn. */
+export const reviewContentBankContentSchema = z.strictObject({
+  decision: z.enum(['approved', 'rejected']),
+  note: z.string().max(1000).optional(),
+});
+export type ReviewContentBankContent = z.infer<typeof reviewContentBankContentSchema>;
+
+/** Payload cắm học liệu vào khoá ("Thêm từ kho"): tạo module tài nguyên bằng bản sao file. */
+export const insertContentBankContentSchema = z.strictObject({
+  courseId: uuidIdSchema,
+  sectionId: uuidIdSchema,
+});
+export type InsertContentBankContent = z.infer<typeof insertContentBankContentSchema>;
 
 /** Payload upload file cho một nội dung (nội dung file dạng base64 qua JSON để giữ envelope thống nhất). */
 export const uploadContentBankFileSchema = z.strictObject({
