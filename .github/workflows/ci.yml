@@ -102,18 +102,16 @@ jobs:
       - name: Capture center-v2 output
         if: always()
         run: |
-          {
-            echo "=== date ==="; date; date -u; echo "TZ env: ${TZ:-<unset>}"
-            echo "=== pg facts ==="
-            PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -c "show timezone" -c "select now() as pg_now, (now() at time zone 'Asia/Saigon') as saigon_wall, to_char((now() at time zone 'Asia/Saigon')::date, 'YYYY-MM-DD') as saigon_day"
-            echo "=== node facts ==="
-            node -e "const f=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Saigon',year:'numeric',month:'2-digit',day:'2-digit'}); console.log('node now:', new Date().toISOString(), 'saigonDay(now):', f.format(new Date()))"
-            echo "=== vitest center-v2 (verbose) ==="
-            pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts --reporter=verbose 2>&1 || true
-          } > probe-n2-output.txt 2>&1
-          git config user.email probe@ci.local
-          git config user.name probe
-          git checkout --orphan probe-log-capture
-          git add -f probe-n2-output.txt
-          git commit -m "probe: capture center-v2 output"
-          git push -f origin probe-log-capture || echo "PUSH FAILED (token khong co quyen ghi)"
+          pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts --reporter=verbose > probe-n2-output.txt 2>&1 || true
+          echo "=== date ===" >> probe-n2-output.txt
+          date >> probe-n2-output.txt 2>&1 || true
+          date -u >> probe-n2-output.txt 2>&1 || true
+          echo "=== pg timezone ===" >> probe-n2-output.txt
+          PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -t -c "show timezone" >> probe-n2-output.txt 2>&1 || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -t -c "select now()" >> probe-n2-output.txt 2>&1 || true
+          git config user.email probe@ci.local || true
+          git config user.name probe || true
+          git checkout --orphan probe-log-capture || true
+          git add -f probe-n2-output.txt || true
+          git commit -m "probe: capture center-v2 output" || true
+          git push -f origin probe-log-capture || echo "PUSH FAILED"
