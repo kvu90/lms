@@ -2,12 +2,24 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { assignGrades, assignSubmissionFiles, assignSubmissions, assignments } from '../../db/schema';
+import {
+  assignAnnotations, assignFeedbackMessages, assignGradeRevisions, assignGrades,
+  assignRubricCriteria, assignRubricEvaluations, assignRubricLevels, assignRubrics,
+  assignSubmissionFiles, assignSubmissions, assignments, teacherCommentBank,
+} from '../../db/schema';
 
 export type AssignmentRow = typeof assignments.$inferSelect;
 export type AssignSubmissionRow = typeof assignSubmissions.$inferSelect;
 export type AssignSubmissionFileRow = typeof assignSubmissionFiles.$inferSelect;
 export type AssignGradeRow = typeof assignGrades.$inferSelect;
+export type AssignAnnotationRow = typeof assignAnnotations.$inferSelect;
+export type AssignRubricRow = typeof assignRubrics.$inferSelect;
+export type AssignRubricCriterionRow = typeof assignRubricCriteria.$inferSelect;
+export type AssignRubricLevelRow = typeof assignRubricLevels.$inferSelect;
+export type AssignRubricEvaluationRow = typeof assignRubricEvaluations.$inferSelect;
+export type AssignGradeRevisionRow = typeof assignGradeRevisions.$inferSelect;
+export type AssignFeedbackMessageRow = typeof assignFeedbackMessages.$inferSelect;
+export type TeacherCommentBankRow = typeof teacherCommentBank.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -83,17 +95,135 @@ export class AssignmentsRepository {
   async listGrades(assignmentId: string): Promise<AssignGradeRow[]> {
     return this.db.select().from(assignGrades).where(eq(assignGrades.assignmentId, assignmentId));
   }
-  /** Ghi hoặc cập nhật điểm/lời phê (một bản ghi hiện hành cho mỗi học sinh). */
+  /** Ghi hoặc cập nhật gói chấm (một bản ghi hiện hành cho mỗi học sinh). */
   async upsertGrade(v: typeof assignGrades.$inferInsert, tx?: DbTx): Promise<AssignGradeRow> {
     const [row] = await (tx ?? this.db).insert(assignGrades).values(v)
       .onConflictDoUpdate({
         target: [assignGrades.assignmentId, assignGrades.userId],
         set: {
           graderId: v.graderId, attemptNumber: v.attemptNumber,
-          grade: v.grade ?? null, feedback: v.feedback ?? null, updatedAt: new Date(),
+          grade: v.grade ?? null, level: v.level ?? null,
+          feedback: v.feedback ?? null,
+          feedbackProgress: v.feedbackProgress ?? null,
+          feedbackStrengths: v.feedbackStrengths ?? null,
+          feedbackWeaknesses: v.feedbackWeaknesses ?? null,
+          status: v.status ?? 'draft',
+          releasedAt: v.releasedAt ?? null, releasedBy: v.releasedBy ?? null,
+          updatedAt: new Date(),
         },
       })
       .returning();
     return row!;
+  }
+  /** Cập nhật một phần gói chấm theo id. */
+  async updateGrade(id: string, patch: Partial<AssignGradeRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(assignGrades).set({ ...patch, updatedAt: new Date() }).where(eq(assignGrades.id, id));
+  }
+
+  /** Các dấu chấm vector trên một bài nộp, theo thứ tự tạo. */
+  async listAnnotations(submissionId: string): Promise<AssignAnnotationRow[]> {
+    return this.db.select().from(assignAnnotations).where(eq(assignAnnotations.submissionId, submissionId))
+      .orderBy(asc(assignAnnotations.createdAt), asc(assignAnnotations.id));
+  }
+  /** Một dấu chấm theo id. */
+  async getAnnotation(id: string): Promise<AssignAnnotationRow | undefined> {
+    const [row] = await this.db.select().from(assignAnnotations).where(eq(assignAnnotations.id, id)); return row;
+  }
+  /** Thêm một dấu chấm. */
+  async insertAnnotation(v: typeof assignAnnotations.$inferInsert, tx?: DbTx): Promise<AssignAnnotationRow> {
+    const [row] = await (tx ?? this.db).insert(assignAnnotations).values(v).returning(); return row!;
+  }
+  /** Sửa một dấu chấm. */
+  async updateAnnotation(id: string, patch: Partial<AssignAnnotationRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(assignAnnotations).set({ ...patch, updatedAt: new Date() }).where(eq(assignAnnotations.id, id));
+  }
+  /** Xoá một dấu chấm. */
+  async deleteAnnotation(id: string): Promise<void> {
+    await this.db.delete(assignAnnotations).where(eq(assignAnnotations.id, id));
+  }
+
+  /** Bảng chấm của một bài tập (nếu có). */
+  async getRubric(assignmentId: string): Promise<AssignRubricRow | undefined> {
+    const [row] = await this.db.select().from(assignRubrics).where(eq(assignRubrics.assignmentId, assignmentId)); return row;
+  }
+  /** Tạo bảng chấm mới. */
+  async insertRubric(v: typeof assignRubrics.$inferInsert, tx?: DbTx): Promise<AssignRubricRow> {
+    const [row] = await (tx ?? this.db).insert(assignRubrics).values(v).returning(); return row!;
+  }
+  /** Xoá bảng chấm của bài (tiêu chí/mức/đánh giá cascade theo khoá ngoại). */
+  async deleteRubricByAssignment(assignmentId: string): Promise<void> {
+    await this.db.delete(assignRubrics).where(eq(assignRubrics.assignmentId, assignmentId));
+  }
+  /** Các tiêu chí của một bảng chấm theo thứ tự hiển thị. */
+  async listCriteria(rubricId: string): Promise<AssignRubricCriterionRow[]> {
+    return this.db.select().from(assignRubricCriteria).where(eq(assignRubricCriteria.rubricId, rubricId))
+      .orderBy(asc(assignRubricCriteria.sortOrder), asc(assignRubricCriteria.id));
+  }
+  /** Thêm một tiêu chí. */
+  async insertCriterion(v: typeof assignRubricCriteria.$inferInsert, tx?: DbTx): Promise<AssignRubricCriterionRow> {
+    const [row] = await (tx ?? this.db).insert(assignRubricCriteria).values(v).returning(); return row!;
+  }
+  /** Các mức của một tiêu chí theo thứ tự hiển thị. */
+  async listLevels(criterionId: string): Promise<AssignRubricLevelRow[]> {
+    return this.db.select().from(assignRubricLevels).where(eq(assignRubricLevels.criterionId, criterionId))
+      .orderBy(asc(assignRubricLevels.sortOrder), asc(assignRubricLevels.id));
+  }
+  /** Thêm một mức cho tiêu chí. */
+  async insertLevel(v: typeof assignRubricLevels.$inferInsert, tx?: DbTx): Promise<AssignRubricLevelRow> {
+    const [row] = await (tx ?? this.db).insert(assignRubricLevels).values(v).returning(); return row!;
+  }
+
+  /** Kết quả theo tiêu chí của một gói chấm. */
+  async listEvaluations(gradeId: string): Promise<AssignRubricEvaluationRow[]> {
+    return this.db.select().from(assignRubricEvaluations).where(eq(assignRubricEvaluations.gradeId, gradeId))
+      .orderBy(asc(assignRubricEvaluations.createdAt), asc(assignRubricEvaluations.id));
+  }
+  /** Ghi/cập nhật kết quả của một tiêu chí trong gói chấm. */
+  async upsertEvaluation(v: typeof assignRubricEvaluations.$inferInsert, tx?: DbTx): Promise<AssignRubricEvaluationRow> {
+    const [row] = await (tx ?? this.db).insert(assignRubricEvaluations).values(v)
+      .onConflictDoUpdate({
+        target: [assignRubricEvaluations.gradeId, assignRubricEvaluations.criterionId],
+        set: { levelId: v.levelId ?? null, score: v.score ?? null, note: v.note ?? null, updatedAt: new Date() },
+      })
+      .returning();
+    return row!;
+  }
+  /** Xoá toàn bộ kết quả theo tiêu chí của gói chấm (khi giáo viên gửi lại bộ đánh giá mới). */
+  async deleteEvaluations(gradeId: string): Promise<void> {
+    await this.db.delete(assignRubricEvaluations).where(eq(assignRubricEvaluations.gradeId, gradeId));
+  }
+
+  /** Ghi một dòng vết kiểm toán sửa gói chấm sau trả bài. */
+  async insertRevision(v: typeof assignGradeRevisions.$inferInsert, tx?: DbTx): Promise<AssignGradeRevisionRow> {
+    const [row] = await (tx ?? this.db).insert(assignGradeRevisions).values(v).returning(); return row!;
+  }
+  /** Các dòng vết kiểm toán của một gói chấm, cũ → mới. */
+  async listRevisions(gradeId: string): Promise<AssignGradeRevisionRow[]> {
+    return this.db.select().from(assignGradeRevisions).where(eq(assignGradeRevisions.gradeId, gradeId))
+      .orderBy(asc(assignGradeRevisions.createdAt), asc(assignGradeRevisions.id));
+  }
+
+  /** Hội thoại phản hồi của một gói chấm, cũ → mới. */
+  async listMessages(gradeId: string): Promise<AssignFeedbackMessageRow[]> {
+    return this.db.select().from(assignFeedbackMessages).where(eq(assignFeedbackMessages.gradeId, gradeId))
+      .orderBy(asc(assignFeedbackMessages.createdAt), asc(assignFeedbackMessages.id));
+  }
+  /** Thêm một tin nhắn vào hội thoại phản hồi. */
+  async insertMessage(v: typeof assignFeedbackMessages.$inferInsert, tx?: DbTx): Promise<AssignFeedbackMessageRow> {
+    const [row] = await (tx ?? this.db).insert(assignFeedbackMessages).values(v).returning(); return row!;
+  }
+
+  /** Ngân hàng lời phê của một giáo viên, mới nhất trước. */
+  async listCommentBank(ownerId: string): Promise<TeacherCommentBankRow[]> {
+    return this.db.select().from(teacherCommentBank).where(eq(teacherCommentBank.ownerId, ownerId))
+      .orderBy(asc(teacherCommentBank.createdAt), asc(teacherCommentBank.id));
+  }
+  /** Thêm một câu vào ngân hàng lời phê. */
+  async insertCommentBankEntry(v: typeof teacherCommentBank.$inferInsert, tx?: DbTx): Promise<TeacherCommentBankRow> {
+    const [row] = await (tx ?? this.db).insert(teacherCommentBank).values(v).returning(); return row!;
+  }
+  /** Xoá một câu khỏi ngân hàng lời phê của chính chủ sở hữu. */
+  async deleteCommentBankEntry(id: string, ownerId: string): Promise<void> {
+    await this.db.delete(teacherCommentBank).where(and(eq(teacherCommentBank.id, id), eq(teacherCommentBank.ownerId, ownerId)));
   }
 }

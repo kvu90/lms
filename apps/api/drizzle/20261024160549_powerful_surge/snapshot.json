@@ -1,0 +1,2418 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "0e64a678-0b77-4b5f-a971-0fb9ade4d02b",
+  "prevIds": [
+    "c1ab9e6a-b3ff-413f-91eb-d8e38e8a69c2"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_annotations"
+      ],
+      "writes": [
+        "s|tbl|public.assign_annotations",
+        "n|tbl|public.assign_annotations",
+        "e|tbl|public.assign_annotations",
+        "n|rel|public.assign_annotations",
+        "n|type|public.assign_annotations",
+        "n|rel|public.assign_annotations_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_feedback_messages"
+      ],
+      "writes": [
+        "s|tbl|public.assign_feedback_messages",
+        "n|tbl|public.assign_feedback_messages",
+        "e|tbl|public.assign_feedback_messages",
+        "n|rel|public.assign_feedback_messages",
+        "n|type|public.assign_feedback_messages",
+        "n|rel|public.assign_feedback_messages_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_grade_revisions"
+      ],
+      "writes": [
+        "s|tbl|public.assign_grade_revisions",
+        "n|tbl|public.assign_grade_revisions",
+        "e|tbl|public.assign_grade_revisions",
+        "n|rel|public.assign_grade_revisions",
+        "n|type|public.assign_grade_revisions",
+        "n|rel|public.assign_grade_revisions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_criteria"
+      ],
+      "writes": [
+        "s|tbl|public.assign_rubric_criteria",
+        "n|tbl|public.assign_rubric_criteria",
+        "e|tbl|public.assign_rubric_criteria",
+        "n|rel|public.assign_rubric_criteria",
+        "n|type|public.assign_rubric_criteria",
+        "n|rel|public.assign_rubric_criteria_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_evaluations"
+      ],
+      "writes": [
+        "s|tbl|public.assign_rubric_evaluations",
+        "n|tbl|public.assign_rubric_evaluations",
+        "e|tbl|public.assign_rubric_evaluations",
+        "n|rel|public.assign_rubric_evaluations",
+        "n|type|public.assign_rubric_evaluations",
+        "n|rel|public.assign_rubric_evaluations_pkey",
+        "n|rel|public.assign_rubric_evaluations_grade_criterion_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_levels"
+      ],
+      "writes": [
+        "s|tbl|public.assign_rubric_levels",
+        "n|tbl|public.assign_rubric_levels",
+        "e|tbl|public.assign_rubric_levels",
+        "n|rel|public.assign_rubric_levels",
+        "n|type|public.assign_rubric_levels",
+        "n|rel|public.assign_rubric_levels_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubrics"
+      ],
+      "writes": [
+        "s|tbl|public.assign_rubrics",
+        "n|tbl|public.assign_rubrics",
+        "e|tbl|public.assign_rubrics",
+        "n|rel|public.assign_rubrics",
+        "n|type|public.assign_rubrics",
+        "n|rel|public.assign_rubrics_pkey",
+        "n|rel|public.assign_rubrics_assignment_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "teacher_comment_bank"
+      ],
+      "writes": [
+        "s|tbl|public.teacher_comment_bank",
+        "n|tbl|public.teacher_comment_bank",
+        "e|tbl|public.teacher_comment_bank",
+        "n|rel|public.teacher_comment_bank",
+        "n|type|public.teacher_comment_bank",
+        "n|rel|public.teacher_comment_bank_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "level"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.level",
+        "n|col|public.assign_grades.level",
+        "e|col|public.assign_grades.level"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "feedback_progress"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.feedback_progress",
+        "n|col|public.assign_grades.feedback_progress",
+        "e|col|public.assign_grades.feedback_progress"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "feedback_strengths"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.feedback_strengths",
+        "n|col|public.assign_grades.feedback_strengths",
+        "e|col|public.assign_grades.feedback_strengths"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "feedback_weaknesses"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.feedback_weaknesses",
+        "n|col|public.assign_grades.feedback_weaknesses",
+        "e|col|public.assign_grades.feedback_weaknesses"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "status"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.status",
+        "n|col|public.assign_grades.status",
+        "e|col|public.assign_grades.status"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "released_at"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.released_at",
+        "n|col|public.assign_grades.released_at",
+        "e|col|public.assign_grades.released_at"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assign_grades",
+        "released_by"
+      ],
+      "writes": [
+        "s|col|public.assign_grades.released_by",
+        "n|col|public.assign_grades.released_by",
+        "e|col|public.assign_grades.released_by"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "assignments",
+        "result_mode"
+      ],
+      "writes": [
+        "s|col|public.assignments.result_mode",
+        "n|col|public.assignments.result_mode",
+        "e|col|public.assignments.result_mode"
+      ],
+      "reads": [
+        "n|tbl|public.assignments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_annotations",
+        "assign_annotations_submission_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_annotations_submission_id_idx",
+        "n|idx|public.assign_annotations_submission_id_idx",
+        "e|idx|public.assign_annotations_submission_id_idx",
+        "n|rel|public.assign_annotations_submission_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_annotations",
+        "n|sch|public",
+        "n|col|public.assign_annotations.submission_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_annotations",
+        "assign_annotations_file_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_annotations_file_id_idx",
+        "n|idx|public.assign_annotations_file_id_idx",
+        "e|idx|public.assign_annotations_file_id_idx",
+        "n|rel|public.assign_annotations_file_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_annotations",
+        "n|sch|public",
+        "n|col|public.assign_annotations.file_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_feedback_messages",
+        "assign_feedback_messages_grade_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_feedback_messages_grade_id_idx",
+        "n|idx|public.assign_feedback_messages_grade_id_idx",
+        "e|idx|public.assign_feedback_messages_grade_id_idx",
+        "n|rel|public.assign_feedback_messages_grade_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_feedback_messages",
+        "n|sch|public",
+        "n|col|public.assign_feedback_messages.grade_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_grade_revisions",
+        "assign_grade_revisions_grade_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_grade_revisions_grade_id_idx",
+        "n|idx|public.assign_grade_revisions_grade_id_idx",
+        "e|idx|public.assign_grade_revisions_grade_id_idx",
+        "n|rel|public.assign_grade_revisions_grade_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grade_revisions",
+        "n|sch|public",
+        "n|col|public.assign_grade_revisions.grade_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_rubric_criteria",
+        "assign_rubric_criteria_rubric_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_rubric_criteria_rubric_id_idx",
+        "n|idx|public.assign_rubric_criteria_rubric_id_idx",
+        "e|idx|public.assign_rubric_criteria_rubric_id_idx",
+        "n|rel|public.assign_rubric_criteria_rubric_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_criteria",
+        "n|sch|public",
+        "n|col|public.assign_rubric_criteria.rubric_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_rubric_evaluations",
+        "assign_rubric_evaluations_grade_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_rubric_evaluations_grade_id_idx",
+        "n|idx|public.assign_rubric_evaluations_grade_id_idx",
+        "e|idx|public.assign_rubric_evaluations_grade_id_idx",
+        "n|rel|public.assign_rubric_evaluations_grade_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_evaluations",
+        "n|sch|public",
+        "n|col|public.assign_rubric_evaluations.grade_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_rubric_levels",
+        "assign_rubric_levels_criterion_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_rubric_levels_criterion_id_idx",
+        "n|idx|public.assign_rubric_levels_criterion_id_idx",
+        "e|idx|public.assign_rubric_levels_criterion_id_idx",
+        "n|rel|public.assign_rubric_levels_criterion_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_levels",
+        "n|sch|public",
+        "n|col|public.assign_rubric_levels.criterion_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "teacher_comment_bank",
+        "teacher_comment_bank_owner_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.teacher_comment_bank_owner_id_idx",
+        "n|idx|public.teacher_comment_bank_owner_id_idx",
+        "e|idx|public.teacher_comment_bank_owner_id_idx",
+        "n|rel|public.teacher_comment_bank_owner_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.teacher_comment_bank",
+        "n|sch|public",
+        "n|col|public.teacher_comment_bank.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_annotations"
+      ],
+      "writes": [
+        "s|fk|public.assign_annotations.assign_annotations_submission_id_assign_submissions_id_fkey",
+        "n|fk|public.assign_annotations.assign_annotations_submission_id_assign_submissions_id_fkey",
+        "e|fk|public.assign_annotations.assign_annotations_submission_id_assign_submissions_id_fkey",
+        "n|con|public.assign_annotations.assign_annotations_submission_id_assign_submissions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_annotations",
+        "n|sch|public",
+        "n|tbl|public.assign_submissions",
+        "n|sch|public",
+        "n|col|public.assign_annotations.submission_id",
+        "n|col|public.assign_submissions.id",
+        "e|uniqueness|public.assign_submissions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_annotations"
+      ],
+      "writes": [
+        "s|fk|public.assign_annotations.assign_annotations_file_id_files_id_fkey",
+        "n|fk|public.assign_annotations.assign_annotations_file_id_files_id_fkey",
+        "e|fk|public.assign_annotations.assign_annotations_file_id_files_id_fkey",
+        "n|con|public.assign_annotations.assign_annotations_file_id_files_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_annotations",
+        "n|sch|public",
+        "n|tbl|public.files",
+        "n|sch|public",
+        "n|col|public.assign_annotations.file_id",
+        "n|col|public.files.id",
+        "e|uniqueness|public.files.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_feedback_messages"
+      ],
+      "writes": [
+        "s|fk|public.assign_feedback_messages.assign_feedback_messages_grade_id_assign_grades_id_fkey",
+        "n|fk|public.assign_feedback_messages.assign_feedback_messages_grade_id_assign_grades_id_fkey",
+        "e|fk|public.assign_feedback_messages.assign_feedback_messages_grade_id_assign_grades_id_fkey",
+        "n|con|public.assign_feedback_messages.assign_feedback_messages_grade_id_assign_grades_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_feedback_messages",
+        "n|sch|public",
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|col|public.assign_feedback_messages.grade_id",
+        "n|col|public.assign_grades.id",
+        "e|uniqueness|public.assign_grades.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_grade_revisions"
+      ],
+      "writes": [
+        "s|fk|public.assign_grade_revisions.assign_grade_revisions_grade_id_assign_grades_id_fkey",
+        "n|fk|public.assign_grade_revisions.assign_grade_revisions_grade_id_assign_grades_id_fkey",
+        "e|fk|public.assign_grade_revisions.assign_grade_revisions_grade_id_assign_grades_id_fkey",
+        "n|con|public.assign_grade_revisions.assign_grade_revisions_grade_id_assign_grades_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grade_revisions",
+        "n|sch|public",
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|col|public.assign_grade_revisions.grade_id",
+        "n|col|public.assign_grades.id",
+        "e|uniqueness|public.assign_grades.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_criteria"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubric_criteria.assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey",
+        "n|fk|public.assign_rubric_criteria.assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey",
+        "e|fk|public.assign_rubric_criteria.assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey",
+        "n|con|public.assign_rubric_criteria.assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_criteria",
+        "n|sch|public",
+        "n|tbl|public.assign_rubrics",
+        "n|sch|public",
+        "n|col|public.assign_rubric_criteria.rubric_id",
+        "n|col|public.assign_rubrics.id",
+        "e|uniqueness|public.assign_rubrics.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_evaluations"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_grade_id_assign_grades_id_fkey",
+        "n|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_grade_id_assign_grades_id_fkey",
+        "e|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_grade_id_assign_grades_id_fkey",
+        "n|con|public.assign_rubric_evaluations.assign_rubric_evaluations_grade_id_assign_grades_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_evaluations",
+        "n|sch|public",
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|col|public.assign_rubric_evaluations.grade_id",
+        "n|col|public.assign_grades.id",
+        "e|uniqueness|public.assign_grades.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_evaluations"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_HlmmYPrbTwKl_fkey",
+        "n|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_HlmmYPrbTwKl_fkey",
+        "e|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_HlmmYPrbTwKl_fkey",
+        "n|con|public.assign_rubric_evaluations.assign_rubric_evaluations_HlmmYPrbTwKl_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_evaluations",
+        "n|sch|public",
+        "n|tbl|public.assign_rubric_criteria",
+        "n|sch|public",
+        "n|col|public.assign_rubric_evaluations.criterion_id",
+        "n|col|public.assign_rubric_criteria.id",
+        "e|uniqueness|public.assign_rubric_criteria.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_evaluations"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey",
+        "n|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey",
+        "e|fk|public.assign_rubric_evaluations.assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey",
+        "n|con|public.assign_rubric_evaluations.assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_evaluations",
+        "n|sch|public",
+        "n|tbl|public.assign_rubric_levels",
+        "n|sch|public",
+        "n|col|public.assign_rubric_evaluations.level_id",
+        "n|col|public.assign_rubric_levels.id",
+        "e|uniqueness|public.assign_rubric_levels.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubric_levels"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubric_levels.assign_rubric_levels_F1wj7IWBuE4l_fkey",
+        "n|fk|public.assign_rubric_levels.assign_rubric_levels_F1wj7IWBuE4l_fkey",
+        "e|fk|public.assign_rubric_levels.assign_rubric_levels_F1wj7IWBuE4l_fkey",
+        "n|con|public.assign_rubric_levels.assign_rubric_levels_F1wj7IWBuE4l_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubric_levels",
+        "n|sch|public",
+        "n|tbl|public.assign_rubric_criteria",
+        "n|sch|public",
+        "n|col|public.assign_rubric_levels.criterion_id",
+        "n|col|public.assign_rubric_criteria.id",
+        "e|uniqueness|public.assign_rubric_criteria.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_rubrics"
+      ],
+      "writes": [
+        "s|fk|public.assign_rubrics.assign_rubrics_assignment_id_assignments_id_fkey",
+        "n|fk|public.assign_rubrics.assign_rubrics_assignment_id_assignments_id_fkey",
+        "e|fk|public.assign_rubrics.assign_rubrics_assignment_id_assignments_id_fkey",
+        "n|con|public.assign_rubrics.assign_rubrics_assignment_id_assignments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_rubrics",
+        "n|sch|public",
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|col|public.assign_rubrics.assignment_id",
+        "n|col|public.assignments.id",
+        "e|uniqueness|public.assignments.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_annotations",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_feedback_messages",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_grade_revisions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_rubric_criteria",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_rubric_evaluations",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_rubric_levels",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_rubrics",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "teacher_comment_bank",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "submission_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "file_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "page",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "x",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "y",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "color",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "text",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "points",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "author_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "grade_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "author_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "body",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "grade_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "actor_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "previous_grade",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "new_grade",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "previous_level",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "new_level",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "previous_feedback",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "new_feedback",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "level",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "feedback_progress",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "feedback_strengths",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "feedback_weaknesses",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'draft'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "released_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "released_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "rubric_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "description_for_student",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "description_for_grader",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "mode",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'levels'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "max_score",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "outcome_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "outcome_text",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "sort_order",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "grade_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "criterion_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "level_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "score",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "criterion_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "label",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "score",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "sort_order",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "assignment_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "title",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "result_mode",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'score_feedback'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "owner_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "category",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "text",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "assign_annotations_submission_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "submission_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "assign_annotations_file_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "file_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "assign_feedback_messages_grade_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "grade_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "assign_grade_revisions_grade_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "grade_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "assign_rubric_criteria_rubric_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "rubric_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_grade_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "grade_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "assign_rubric_levels_criterion_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "criterion_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "teacher_comment_bank_owner_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "assign_annotations_submission_id_assign_submissions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "submission_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_submissions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "assign_annotations_file_id_files_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "file_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "files",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "assign_feedback_messages_grade_id_assign_grades_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "grade_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_grades",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "assign_grade_revisions_grade_id_assign_grades_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "grade_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_grades",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "assign_rubric_criteria_rubric_id_assign_rubrics_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "rubric_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_rubrics",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_grade_id_assign_grades_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "grade_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_grades",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_HlmmYPrbTwKl_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "criterion_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_rubric_criteria",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_level_id_assign_rubric_levels_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "level_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_rubric_levels",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "assign_rubric_levels_F1wj7IWBuE4l_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "criterion_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_rubric_criteria",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "assign_rubrics_assignment_id_assignments_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "assignment_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assignments",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_annotations",
+        "name": "assign_annotations_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_feedback_messages",
+        "name": "assign_feedback_messages_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grade_revisions",
+        "name": "assign_grade_revisions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_criteria",
+        "name": "assign_rubric_criteria_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_levels",
+        "name": "assign_rubric_levels_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "assign_rubrics_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "teacher_comment_bank",
+        "name": "teacher_comment_bank_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubric_evaluations",
+        "name": "assign_rubric_evaluations_grade_criterion_unique",
+        "nameExplicit": true,
+        "columns": [
+          "grade_id",
+          "criterion_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_rubrics",
+        "name": "assign_rubrics_assignment_unique",
+        "nameExplicit": true,
+        "columns": [
+          "assignment_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { CoursesModule } from '../courses/courses.module';
 import { EnrolModule } from '../enrol/enrol.module';
 import { FilesModule } from '../files/files.module';
 import { GradesModule } from '../grades/grades.module';
-import { AssignmentsController, CourseAssignmentsController } from './assignments.controller';
+import { AssignCommentBankController, AssignmentsController, CourseAssignmentsController } from './assignments.controller';
 import { AssignmentsRepository } from './assignments.repository';
 import { AssignmentsService } from './assignments.service';
 
@@ -19,7 +19,7 @@ import { AssignmentsService } from './assignments.service';
  */
 @Module({
   imports: [AccessModule, CoursesModule, EnrolModule, FilesModule, GradesModule, EventsModule],
-  controllers: [CourseAssignmentsController, AssignmentsController],
+  controllers: [CourseAssignmentsController, AssignmentsController, AssignCommentBankController],
   providers: [AssignmentsRepository, AssignmentsService],
   exports: [AssignmentsService],
 })
