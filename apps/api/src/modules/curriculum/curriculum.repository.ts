@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { curricula, curriculumNodes, learningOutcomes, subjects } from './schema';
+import { question, questionBankEntries } from '../questions/schema';
+import { curricula, curriculumNodes, learningOutcomes, questionLearningOutcomes, subjects } from './schema';
 
 export type SubjectRow = typeof subjects.$inferSelect;
 export type CurriculumRow = typeof curricula.$inferSelect;
@@ -114,6 +115,26 @@ export class CurriculumRepository {
   /** Sửa yêu cầu cần đạt. */
   async updateOutcome(id: string, v: Partial<typeof learningOutcomes.$inferInsert>): Promise<void> {
     await this.db.update(learningOutcomes).set({ ...v, updatedAt: new Date() }).where(eq(learningOutcomes.id, id));
+  }
+  /**
+   * Đếm câu hỏi sẵn sàng đã gắn vào một YCCĐ, nhóm theo (mức × dạng câu).
+   * "Sẵn sàng" = trạng thái ready ở cấp danh tính câu hỏi
+   * (question_bank_entries.status) — nền cho đếm ứng viên ma trận (A.6).
+   */
+  async countReadyQuestionsForOutcome(outcomeId: string): Promise<{ cognitiveLevel: string; qtype: string; count: number }[]> {
+    const rows = await this.db
+      .select({
+        cognitiveLevel: questionLearningOutcomes.cognitiveLevel,
+        qtype: question.qtype,
+        count: sql<number>`count(distinct ${questionLearningOutcomes.questionId})::int`,
+      })
+      .from(questionLearningOutcomes)
+      .innerJoin(question, eq(question.id, questionLearningOutcomes.questionId))
+      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
+      .where(sql`${questionLearningOutcomes.learningOutcomeId} = ${outcomeId} and ${questionBankEntries.status} = 'ready'`)
+      .groupBy(questionLearningOutcomes.cognitiveLevel, question.qtype)
+      .orderBy(asc(questionLearningOutcomes.cognitiveLevel), asc(question.qtype));
+    return rows;
   }
   /** Xoá yêu cầu cần đạt. */
   async deleteOutcome(id: string): Promise<void> {

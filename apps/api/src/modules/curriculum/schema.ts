@@ -12,7 +12,9 @@ import {
   timestamp,
   unique,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
+import { question } from '../questions/schema';
 
 /**
  * Môn học — cấp gốc của chương trình (port từ giaokhoa `subjects`).
@@ -56,7 +58,13 @@ export const curricula = pgTable('curricula', {
  * Một node trong cây nội dung của chương trình (port từ giaokhoa
  * `curriculum_nodes`). Bổ sung cho số hoá GDPT 2018:
  * - `kind` là tầng tường minh của node: 'strand' = mạch nội dung (thường ở
- *   cấp gốc của cây), 'topic' = chủ đề, 'lesson' = bài/nội dung. Chọn cột
+ *   cấp gốc của cây), 'topic' = chủ đề, 'lesson' = **nội dung của chương
+ *   trình** (quy ước Chặng 2, mục A.4 của hồ sơ thiết kế): node 'lesson'
+ *   là một đơn vị nội dung trong văn bản Chương trình môn học GDPT 2018
+ *   (ví dụ "Tính đơn điệu của hàm số" trong CT Toán 12), KHÔNG phải
+ *   chương/bài của bất kỳ cuốn SGK nào — cây này chỉ chứa node trích từ
+ *   chương trình; dữ liệu chương/bài SGK thuộc tầng ánh xạ riêng đặt
+ *   ngoài cây chuẩn, không bao giờ nhập thành node ở đây. Chọn cột
  *   phân loại tường minh thay vì bảng mạch riêng vì mạch có đúng cấu trúc
  *   của một node (tiêu đề, thứ tự, thời lượng, node con, outcomes treo bên
  *   dưới) — bảng riêng sẽ nhân đôi cơ chế cây của giaokhoa.
@@ -96,16 +104,76 @@ export const curriculumNodes = pgTable('curriculum_nodes', {
  * Yêu cầu cần đạt (port từ giaokhoa `learning_outcomes`): mỗi node nội
  * dung mang nhiều YCCD; đây là điểm neo để Chặng 2 gắn câu hỏi vào
  * chương trình (question_learning_outcomes).
+ * Truy vết nguồn (Chặng 2, mục A.3 của hồ sơ thiết kế): `source_kind`
+ * phân biệt YCCĐ **nguyên văn chương trình** ('program' — chép nguyên
+ * văn từ văn bản Chương trình môn học của Bộ, thẩm quyền Bộ, bất biến)
+ * với YCCĐ **tổ chuyên môn biên tập/tách theo mức** ('derived' — thẩm
+ * quyền trường, trỏ về YCCĐ gốc qua `derived_from_id`); `source_ref` là
+ * trích dẫn nguồn nguyên văn (ví dụ "TT 32/2018/TT-BGDĐT — CT môn Toán,
+ * lớp 12"). Định danh trình bày cho người dùng là vị trí trong chương
+ * trình, không hiển thị uuid và không có "mã YCCĐ" (Bộ không ban hành mã).
  */
 export const learningOutcomes = pgTable('learning_outcomes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   nodeId: uuid('node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   position: integer('position').notNull().default(1),
+  sourceKind: text('source_kind').notNull().default('program'),
+  sourceRef: text('source_ref'),
+  derivedFromId: uuid('derived_from_id').references((): AnyPgColumn => learningOutcomes.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       check('learning_outcomes_position_check', sql`${table.position} > 0`),
+      check('learning_outcomes_source_kind_check', sql`${table.sourceKind} in ('program', 'derived')`),
       index('learning_outcomes_node_id_idx').on(table.nodeId, table.position),
+      index('learning_outcomes_derived_from_id_idx').on(table.derivedFromId),
+  ]);
+
+/**
+ * Gắn câu hỏi ↔ môn học ở CẤP DANH TÍNH CÂU HỎI (Chặng 2, mục A.1):
+ * nối `question.id`, không nối phiên bản — sửa câu (ra version mới)
+ * không làm mất gắn kết. Bảng này cho câu mới gắn ở mức môn (chưa/chưa
+ * cần gắn YCCĐ cụ thể) và cho lọc/đếm câu theo môn; neo chính xác cho
+ * ma trận đề là `question_learning_outcomes` bên dưới.
+ */
+export const questionSubjects = pgTable('question_subjects', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('question_subjects_question_subject_unique').on(table.questionId, table.subjectId),
+      index('question_subjects_subject_id_idx').on(table.subjectId),
+      index('question_subjects_question_id_idx').on(table.questionId),
+  ]);
+
+/**
+ * Gắn câu hỏi ↔ YCCĐ ở CẤP DANH TÍNH CÂU HỎI (Chặng 2, mục A.1 + A.2):
+ * đây là neo chính xác cho ma trận đề của Quiz Chặng 3 — YCCĐ suy ngược
+ * ra node → curriculum → môn + khối nên dòng nối không lưu thừa
+ * subject/curriculum. **Mức độ nhận thức nằm trên dòng nối này**
+ * (`cognitive_level`), không nằm trên câu hỏi hay phiên bản câu: bản
+ * đặc tả của Bộ ghi mức ngay trên dòng YCCĐ, và một câu có thể đo hai
+ * YCCĐ ở hai mức khác nhau. Khoá mức dạng text: 'biet' / 'hieu' /
+ * 'van_dung' (khung 3 mức hiện hành cho trung học); check cho phép thêm
+ * 'van_dung_cao' để biến thể 4 mức dùng được mà không sửa schema sau
+ * này — tập mức đang áp do preset của ma trận quyết định, không do cột
+ * này. Index (learning_outcome_id, cognitive_level) phục vụ đếm ứng
+ * viên cho ô ma trận ở Chặng 3.
+ */
+export const questionLearningOutcomes = pgTable('question_learning_outcomes', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
+  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  cognitiveLevel: text('cognitive_level').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('question_learning_outcomes_question_outcome_unique').on(table.questionId, table.learningOutcomeId),
+      check('question_learning_outcomes_cognitive_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
+      index('question_learning_outcomes_outcome_level_idx').on(table.learningOutcomeId, table.cognitiveLevel),
+      index('question_learning_outcomes_question_id_idx').on(table.questionId),
   ]);

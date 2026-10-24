@@ -27,6 +27,30 @@ const QTYPE_LABEL_KEYS: Record<Qtype, string> = {
   essay: 'qtypeEssay',
 };
 
+/** Mức độ nhận thức trên dòng nối câu hỏi × YCCĐ (issue #20 Chặng 2, mục A.2). */
+const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
+const LEVEL_LABEL_KEYS: Record<(typeof COGNITIVE_LEVELS)[number], string> = {
+  biet: 'levelBiet',
+  hieu: 'levelHieu',
+  van_dung: 'levelVanDung',
+  van_dung_cao: 'levelVanDungCao',
+};
+
+/** Gắn kết chương trình của một câu hỏi — hình dạng của GET /questions/:id/curriculum-links. */
+interface CurriculumLinksView {
+  questionId: string;
+  subjectIds: string[];
+  outcomes: { outcomeId: string; cognitiveLevel: string }[];
+}
+
+/** Một node trong cây chương trình trả về bởi GET /curriculum/curricula/:id/tree. */
+interface CurriculumTreeNode {
+  id: string;
+  title: string;
+  outcomes: { id: string; content: string }[];
+  children: CurriculumTreeNode[];
+}
+
 /** Một dòng đáp án đang soạn trong form (fraction giữ dạng chuỗi để nhập liệu tự do). */
 interface AnswerDraft {
   text: string;
@@ -265,6 +289,14 @@ export function QuestionsPage() {
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
   const editOptionsRequestRef = useRef(0);
+  // Gắn kết chương trình (issue #20 Chặng 2) của câu hỏi đang sửa.
+  const [links, setLinks] = useState<CurriculumLinksView | null>(null);
+  const [linkSubjects, setLinkSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [linkSubjectPick, setLinkSubjectPick] = useState('');
+  const [linkOutcomeOptions, setLinkOutcomeOptions] = useState<{ id: string; label: string }[]>([]);
+  const [linkOutcomePick, setLinkOutcomePick] = useState('');
+  const [linkLevelPick, setLinkLevelPick] = useState<string>('biet');
+  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, string>>({});
 
   const patchForm = useCallback((patch: Partial<QuestionFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -348,6 +380,13 @@ export function QuestionsPage() {
     const requestId = ++editOptionsRequestRef.current;
     setEditing(view);
     setForm(formFromView(view));
+    // Gắn kết chương trình gắn ở cấp danh tính câu hỏi: nạp kèm khi mở editor.
+    setLinks(null);
+    setLinkSubjectPick('');
+    setLinkOutcomePick('');
+    setLinkOutcomeOptions([]);
+    void loadCurriculumLinks(view.question.id);
+    void loadLinkSubjects();
 
     const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
       ? (view.question.qtype as Qtype)
@@ -374,6 +413,10 @@ export function QuestionsPage() {
     editOptionsRequestRef.current += 1;
     setEditing(null);
     setForm(emptyForm('multichoice'));
+    setLinks(null);
+    setLinkSubjectPick('');
+    setLinkOutcomePick('');
+    setLinkOutcomeOptions([]);
   }
 
   async function submitStimulus(event: FormEvent) {
@@ -414,6 +457,128 @@ export function QuestionsPage() {
       await loadStimuli(qCategory);
     } catch {
       setMessage(t('stimulusDeleteFailed'));
+    }
+  }
+
+  /**
+   * Môn học cho khối Chương trình: chương trình quốc gia GDPT 2018 neo ở
+   * context hệ thống (contextLevel 10). Lỗi tải chỉ làm khối này trống —
+   * không chặn việc soạn câu hỏi.
+   */
+  async function loadLinkSubjects() {
+    try {
+      const contexts = await apiJson<{ id: string; contextLevel: number }[]>('/api/v1/access/contexts');
+      const system = contexts.find((c) => c.contextLevel === 10);
+      if (!system) return;
+      const rows = await apiJson<{ id: string; name: string }[]>(`/api/v1/curriculum/subjects?contextId=${system.id}`);
+      setLinkSubjects(rows);
+    } catch {
+      // Khối chương trình là phụ trợ của editor; bỏ qua khi không tải được.
+    }
+  }
+
+  /** Nạp gắn kết chương trình của câu hỏi + nhãn nội dung cho các YCCĐ đã gắn. */
+  async function loadCurriculumLinks(questionId: string) {
+    try {
+      const view = await apiJson<CurriculumLinksView>(`/api/v1/questions/${questionId}/curriculum-links`);
+      setLinks(view);
+      const labels: Record<string, string> = {};
+      for (const o of view.outcomes) {
+        try {
+          const oc = await apiJson<{ id: string; content: string }>(`/api/v1/curriculum/outcomes/${o.outcomeId}`);
+          labels[oc.id] = oc.content;
+        } catch {
+          // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
+        }
+      }
+      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
+    } catch {
+      setLinks(null);
+    }
+  }
+
+  /** Chọn môn → nạp cây của mọi khối thuộc môn đó → danh sách YCCĐ chọn được. */
+  async function pickLinkSubject(subjectId: string) {
+    setLinkSubjectPick(subjectId);
+    setLinkOutcomePick('');
+    setLinkOutcomeOptions([]);
+    if (!subjectId) return;
+    try {
+      const curricula = await apiJson<{ id: string; grade: number }[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}`);
+      const options: { id: string; label: string }[] = [];
+      const labels: Record<string, string> = {};
+      for (const curr of curricula) {
+        const tree = await apiJson<{ nodes: CurriculumTreeNode[] }>(`/api/v1/curriculum/curricula/${curr.id}/tree`);
+        const walk = (nodes: CurriculumTreeNode[]): void => {
+          for (const node of nodes) {
+            for (const outcome of node.outcomes) {
+              options.push({ id: outcome.id, label: `${curr.grade} · ${node.title} · ${outcome.content}` });
+              labels[outcome.id] = outcome.content;
+            }
+            walk(node.children);
+          }
+        };
+        walk(tree.nodes);
+      }
+      setLinkOutcomeOptions(options);
+      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
+    } catch {
+      setMessage(t('programmeLoadFailed'));
+    }
+  }
+
+  async function attachLinkSubject() {
+    if (!editing || !linkSubjectPick) return;
+    try {
+      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects`, {
+        method: 'POST',
+        body: JSON.stringify({ subjectId: linkSubjectPick }),
+      }));
+    } catch {
+      setMessage(t('programmeSaveFailed'));
+    }
+  }
+
+  async function detachLinkSubject(subjectId: string) {
+    if (!editing) return;
+    try {
+      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects/${subjectId}`, { method: 'DELETE' }));
+    } catch {
+      setMessage(t('programmeSaveFailed'));
+    }
+  }
+
+  async function attachLinkOutcome() {
+    if (!editing || !linkOutcomePick) return;
+    try {
+      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes`, {
+        method: 'POST',
+        body: JSON.stringify({ outcomeId: linkOutcomePick, cognitiveLevel: linkLevelPick }),
+      }));
+      setLinkOutcomePick('');
+    } catch {
+      setMessage(t('programmeSaveFailed'));
+    }
+  }
+
+  async function changeOutcomeLevel(outcomeId: string, cognitiveLevel: string) {
+    if (!editing) return;
+    try {
+      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cognitiveLevel }),
+      }));
+    } catch {
+      setMessage(t('programmeSaveFailed'));
+    }
+  }
+
+  async function detachLinkOutcome(outcomeId: string) {
+    if (!editing) return;
+    try {
+      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, { method: 'DELETE' }));
+    } catch {
+      setMessage(t('programmeSaveFailed'));
     }
   }
 
@@ -920,6 +1085,115 @@ export function QuestionsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {editing && (
+        <Card data-testid="question-programme">
+          <CardHeader>
+            <CardTitle>{t('programmeHeading')}</CardTitle>
+            <CardDescription>{t('programmeDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {links === null ? (
+              <p className="text-sm text-muted-foreground">{t('programmeLoadFailed')}</p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>{t('programmeSubjects')}</Label>
+                  <ul className="space-y-2">
+                    {links.subjectIds.map((subjectId) => (
+                      <li key={subjectId} data-testid={`programme-subject-${subjectId}`} className="flex items-center gap-2">
+                        <span className="flex-1 text-sm">{linkSubjects.find((s) => s.id === subjectId)?.name ?? subjectId}</span>
+                        <Button type="button" variant="outline" onClick={() => void detachLinkSubject(subjectId)}>
+                          {t('programmeDetach')}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-2">
+                    <select
+                      id="programme-subject-pick"
+                      aria-label={t('programmePickSubject')}
+                      className="h-9 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={linkSubjectPick}
+                      onChange={(e) => void pickLinkSubject(e.target.value)}
+                    >
+                      <option value="">{t('programmePickSubject')}</option>
+                      {linkSubjects
+                        .filter((s) => !links.subjectIds.includes(s.id))
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                    </select>
+                    <Button type="button" onClick={() => void attachLinkSubject()} disabled={!linkSubjectPick}>
+                      {t('programmeAttach')}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('programmeOutcomes')}</Label>
+                  <ul className="space-y-2">
+                    {links.outcomes.map((o) => (
+                      <li key={o.outcomeId} data-testid={`programme-outcome-${o.outcomeId}`} className="flex items-center gap-2">
+                        <span className="flex-1 text-sm">{outcomeLabels[o.outcomeId] ?? o.outcomeId}</span>
+                        <select
+                          aria-label={t('programmeLevel')}
+                          className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                          value={o.cognitiveLevel}
+                          onChange={(e) => void changeOutcomeLevel(o.outcomeId, e.target.value)}
+                        >
+                          {COGNITIVE_LEVELS.map((level) => (
+                            <option key={level} value={level}>
+                              {t(LEVEL_LABEL_KEYS[level])}
+                            </option>
+                          ))}
+                        </select>
+                        <Button type="button" variant="outline" onClick={() => void detachLinkOutcome(o.outcomeId)}>
+                          {t('programmeDetach')}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-2">
+                    <select
+                      id="programme-outcome-pick"
+                      aria-label={t('programmePickOutcome')}
+                      className="h-9 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={linkOutcomePick}
+                      onChange={(e) => setLinkOutcomePick(e.target.value)}
+                    >
+                      <option value="">{t('programmePickOutcome')}</option>
+                      {linkOutcomeOptions
+                        .filter((o) => !links.outcomes.some((l) => l.outcomeId === o.id))
+                        .map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.label}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      aria-label={t('programmeLevel')}
+                      className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={linkLevelPick}
+                      onChange={(e) => setLinkLevelPick(e.target.value)}
+                    >
+                      {COGNITIVE_LEVELS.map((level) => (
+                        <option key={level} value={level}>
+                          {t(LEVEL_LABEL_KEYS[level])}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="button" onClick={() => void attachLinkOutcome()} disabled={!linkOutcomePick}>
+                      {t('programmeAttach')}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
