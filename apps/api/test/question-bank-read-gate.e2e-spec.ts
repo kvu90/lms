@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { QuestionsService } from '../src/modules/questions/questions.service';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
@@ -24,6 +25,7 @@ describe('Question bank read gate (issue #55)', () => {
   let admin: string;
   let teacher: string;
   let student: string;
+  let studentId: string;
   let systemCtxId: string;
   let courseCtxId: string;
   let courseCatId: string;
@@ -54,6 +56,7 @@ describe('Question bank read gate (issue #55)', () => {
     teacher = (await login(app, teacherUser.username, STRONG_PASSWORD)).accessToken;
 
     const studentUser = await createUserViaApi(app, admin);
+    studentId = studentUser.id;
     student = (await login(app, studentUser.username, STRONG_PASSWORD)).accessToken;
 
     // Ngân hàng ở context khoá (admin tạo) + ngân hàng ở context hệ thống.
@@ -217,11 +220,20 @@ describe('Question bank read gate (issue #55)', () => {
   });
 
   it('student attempt flow through the engine is untouched (activity-created usage)', async () => {
-    const usageRes = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${admin}`)
-      .send({ component: 'mod_quiz', slots: [{ questionId }] });
-    expect(usageRes.status).toBeLessThan(300);
-    const usageId = usageRes.body.usage.id as string;
-    const attemptId = usageRes.body.attempts[0].id as string;
+    // Mẫu dựng sau khi #60 + #55 cùng có mặt trên main: usage của lượt
+    // làm thật do HOẠT ĐỘNG tạo ở tầng service với actor là chính học
+    // sinh (mô hình mà assertCanCreateUsage của #55 ghi: cổng tạo chỉ áp
+    // ở controller, quiz tạo usage ở tầng service bằng actor là học
+    // sinh) — chủ sở hữu usage là học sinh nên các thao tác thô
+    // start/submit/finish của chính chủ qua cổng #60 bình thường.
+    // Trước đây spec cho admin tạo usage qua HTTP rồi học sinh thao
+    // tác: lệch chủ sở hữu nên #60 chặn 404 — đó là đổi mẫu dựng dữ
+    // liệu, mọi assertion hành vi bên dưới giữ nguyên.
+    const created = await app.get(QuestionsService).createUsage(studentId, {
+      component: 'mod_quiz', slots: [{ questionId }],
+    });
+    const usageId = created.usage.id as string;
+    const attemptId = created.attempts[0].id as string;
 
     const start = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`)
       .set('Authorization', `Bearer ${student}`);
