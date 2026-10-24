@@ -92,14 +92,44 @@ export interface CurriculumTreeNode {
   children: CurriculumTreeNode[];
 }
 
-/** Bank câu hỏi như API lớp bank trả về (feat Ngân hàng câu hỏi chung, issue #70). */
+/** Bank như API lớp bank trả về (feat Ngân hàng câu hỏi chung, issue #70; bankKind + capabilities.matrix* là của MB-1, issue #111). */
 interface BankLite {
   id: string;
   name: string;
   scope: string;
+  bankKind: string;
   defaultCategoryId: string | null;
   categoryIds: string[];
-  capabilities: { use: boolean; add: boolean; moderate: boolean; copy: boolean };
+  capabilities: {
+    use: boolean; add: boolean; moderate: boolean; copy: boolean;
+    matrixView?: boolean; matrixManage?: boolean; matrixCopy?: boolean; matrixShare?: boolean; matrixModerate?: boolean;
+  };
+}
+
+/** Một ma trận trong ngân hàng ma trận (MB-1) — hình dạng ExamMatrixView của API. */
+interface MatrixLite {
+  id: string;
+  name: string;
+  subjectId: string;
+  curriculumId: string;
+  bankId: string | null;
+  status: string;
+  isTemplate: boolean;
+  derivedFromMatrixId: string | null;
+  version: number;
+  presetKind: string;
+  cells: { id: string }[];
+}
+
+/** Một đề xuất đóng góp ma trận trong hàng chờ duyệt (MB-1). */
+interface MatrixContributionLite {
+  id: string;
+  matrixId: string;
+  matrixName: string | null;
+  proposerName: string | null;
+  status: string;
+  note: string;
+  rejectReason: string | null;
 }
 
 /** Dòng ghi công của một câu copy (GET /questions/:id/attribution). */
@@ -385,6 +415,20 @@ export function QuestionsPage() {
   const [previewItem, setPreviewItem] = useState<QuestionView | null>(null);
   const [proposeQuestionId, setProposeQuestionId] = useState('');
   const [proposeBankId, setProposeBankId] = useState('');
+  // Ngân hàng ma trận (MB-1, issue #111): khu riêng "Ma trận của tôi" +
+  // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
+  // vực phân biệt của ngân hàng câu hỏi.
+  const [matrixBanks, setMatrixBanks] = useState<BankLite[]>([]);
+  const [myMatrixOpen, setMyMatrixOpen] = useState(false);
+  const [myMatrices, setMyMatrices] = useState<MatrixLite[]>([]);
+  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
+  const [sharedMatrices, setSharedMatrices] = useState<MatrixLite[]>([]);
+  const [matrixSubjectFilter, setMatrixSubjectFilter] = useState('');
+  const [matrixPresetFilter, setMatrixPresetFilter] = useState('');
+  const [matrixContributions, setMatrixContributions] = useState<MatrixContributionLite[]>([]);
+  const [proposeMatrixId, setProposeMatrixId] = useState('');
+  const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
 
   const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
@@ -470,6 +514,138 @@ export function QuestionsPage() {
   useEffect(() => {
     void loadBanks();
   }, [loadBanks]);
+
+  // --- ngân hàng ma trận (MB-1) -------------------------------------------------
+
+  const personalMatrixBank = matrixBanks.find((b) => b.scope === 'personal');
+  const sharedMatrixBanks = matrixBanks.filter((b) => b.scope !== 'personal');
+
+  const loadMyMatrices = useCallback(async (bankList: BankLite[]) => {
+    const mine = bankList.find((b) => b.scope === 'personal');
+    if (!mine) {
+      setMyMatrices([]);
+      return;
+    }
+    try {
+      setMyMatrices(await apiJson<MatrixLite[]>(`/api/v1/question-banks/${mine.id}/matrices`));
+    } catch {
+      setMyMatrices([]);
+    }
+  }, []);
+
+  const loadMatrixBanks = useCallback(async () => {
+    try {
+      const rows = await apiJson<BankLite[]>('/api/v1/question-banks?kind=matrix');
+      setMatrixBanks(rows);
+      await loadMyMatrices(rows);
+    } catch {
+      setMatrixBanks([]);
+    }
+  }, [loadMyMatrices]);
+
+  useEffect(() => {
+    void loadMatrixBanks();
+  }, [loadMatrixBanks]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setSubjects(await apiJson<{ id: string; name: string }[]>('/api/v1/curriculum/subjects'));
+      } catch {
+        setSubjects([]);
+      }
+    })();
+  }, []);
+
+  /** Nạp ma trận + hàng chờ đóng góp của một bank ma trận chung đang chọn. */
+  async function loadSharedMatrices(bankId: string) {
+    if (!bankId) {
+      setSharedMatrices([]);
+      setMatrixContributions([]);
+      return;
+    }
+    try {
+      setSharedMatrices(await apiJson<MatrixLite[]>(`/api/v1/question-banks/${bankId}/matrices`));
+    } catch {
+      setSharedMatrices([]);
+    }
+    try {
+      setMatrixContributions(
+        await apiJson<MatrixContributionLite[]>(`/api/v1/question-banks/${bankId}/matrix-contributions?status=pending`),
+      );
+    } catch {
+      setMatrixContributions([]);
+    }
+  }
+
+  /** Copy một ma trận chung về ngân hàng ma trận cá nhân (cầu nối hai khu vực, MB-1). */
+  async function copyMatrixToMyBank(matrixId: string) {
+    try {
+      await apiJson(`/api/v1/exam-matrices/${matrixId}/copy`, { method: 'POST', body: '{}' });
+      setMessage(t('matrixCopiedToMyBank'));
+      await loadMatrixBanks();
+    } catch {
+      setMessage(t('matrixCopyFailed'));
+    }
+  }
+
+  /** Xoá một ma trận của mình ngay tại dòng (§9). */
+  async function deleteMyMatrix(matrixId: string) {
+    if (!window.confirm(t('matrixDeleteConfirm'))) return;
+    try {
+      await apiJson(`/api/v1/exam-matrices/${matrixId}`, { method: 'DELETE' });
+      setMessage(t('matrixDeleted'));
+      await loadMatrixBanks();
+    } catch {
+      setMessage(t('matrixDeleteFailed'));
+    }
+  }
+
+  /** Đề xuất đóng góp một ma trận ready của mình lên bank ma trận chung. */
+  async function proposeMatrixToBank(matrixId: string, targetBankId: string) {
+    if (!matrixId || !targetBankId) return;
+    try {
+      await apiJson(`/api/v1/exam-matrices/${matrixId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ targetBankId }),
+      });
+      setMessage(t('proposedOk'));
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+  /** Duyệt/từ chối một đóng góp ma trận (từ chối hỏi lý do — bắt buộc). */
+  async function reviewMatrixContribution(bankId: string, contributionId: string, approve: boolean) {
+    try {
+      if (approve) {
+        await apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${contributionId}/approve`, {
+          method: 'POST',
+          body: '{}',
+        });
+      } else {
+        const reason = window.prompt(t('contributionReject')) ?? '';
+        if (!reason.trim()) return;
+        await apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${contributionId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+      }
+      await loadSharedMatrices(bankId);
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+  const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
+  const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
+  const matrixPresetKey = (kind: string) =>
+    kind === 'cv7991_periodic' ? 'matrixPresetPeriodic' : kind === 'qd764_graduation' ? 'matrixPresetGraduation' : 'matrixPresetCustom';
+  const filteredSharedMatrices = sharedMatrices.filter(
+    (m) =>
+      (!matrixSubjectFilter || m.subjectId === matrixSubjectFilter) &&
+      (!matrixPresetFilter || m.presetKind === matrixPresetFilter),
+  );
 
   useEffect(() => {
     void loadAttributionsFor(questions);
@@ -944,6 +1120,110 @@ export function QuestionsPage() {
         )}
       </Card>
 
+      {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): collapse
+          riêng phân biệt hẳn với Ngân hàng hệ thống, cùng hành vi §9
+          như ngân hàng riêng: mở ra là danh sách ma trận của chính giáo
+          viên + Thêm mới ngay trong collapse, Sửa/Xoá tại dòng. */}
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            aria-expanded={myMatrixOpen}
+            onClick={() => {
+              setMyMatrixOpen((v) => !v);
+              void loadMatrixBanks();
+            }}
+            className="text-left"
+          >
+            <CardTitle>{t('myMatrixBank')}</CardTitle>
+            <CardDescription>{t('myMatrixBankDescription')}</CardDescription>
+          </button>
+        </CardHeader>
+        {myMatrixOpen && (
+          <CardContent className="space-y-4">
+            <Button type="button" onClick={() => navigate('/questions/matrices/new')} disabled={!personalMatrixBank}>
+              {t('addNew')}
+            </Button>
+            {myMatrices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {myMatrices.map((m) => (
+                  <li key={m.id} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1">
+                      {m.name}
+                      {m.isTemplate ? (
+                        <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('matrixTemplateBadge')}</span>
+                      ) : null}
+                      <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
+                      <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {subjectName(m.subjectId)} · {t(matrixPresetKey(m.presetKind))} · {t('matrixCellsCount', { count: m.cells.length })}
+                        {m.derivedFromMatrixId ? ` · ${t('matrixDerivedNote')}` : ''}
+                      </span>
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => navigate(`/questions/matrices/${m.id}/edit`)}>
+                      {t('editRow')}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => void deleteMyMatrix(m.id)}>
+                      {t('deleteRow')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {sharedMatrixBanks.length > 0 && myMatrices.some((m) => m.status === 'ready') ? (
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <Label htmlFor="propose-matrix">{t('proposeToBank')}</Label>
+                    <select
+                      id="propose-matrix"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={proposeMatrixId}
+                      onChange={(e) => setProposeMatrixId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {myMatrices
+                        .filter((m) => m.status === 'ready')
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="propose-matrix-bank">{t('pickBank')}</Label>
+                    <select
+                      id="propose-matrix-bank"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={proposeMatrixBankId}
+                      onChange={(e) => setProposeMatrixBankId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {sharedMatrixBanks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!proposeMatrixId || !proposeMatrixBankId}
+                    onClick={() => void proposeMatrixToBank(proposeMatrixId, proposeMatrixBankId)}
+                  >
+                    {t('propose')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
+              </div>
+            ) : null}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
           (câu hỏi / đề / ma trận). Feat này dựng ngân hàng câu hỏi chung;
           đề chung + ma trận chung chừa cấu trúc, chưa thi công. */}
@@ -1076,9 +1356,121 @@ export function QuestionsPage() {
               <h3 className="font-medium">{t('sharedExamBank')}</h3>
               <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
             </section>
-            <section className="space-y-1 opacity-60">
+            <section className="space-y-3">
               <h3 className="font-medium">{t('sharedMatrixBank')}</h3>
-              <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="shared-matrix-bank">{t('pickBank')}</Label>
+                  <select
+                    id="shared-matrix-bank"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={sharedMatrixBankId}
+                    onChange={(e) => {
+                      setSharedMatrixBankId(e.target.value);
+                      void loadSharedMatrices(e.target.value);
+                    }}
+                  >
+                    <option value="">—</option>
+                    {sharedMatrixBanks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="matrix-subject-filter">{t('matrixFilterSubject')}</Label>
+                  <select
+                    id="matrix-subject-filter"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={matrixSubjectFilter}
+                    onChange={(e) => setMatrixSubjectFilter(e.target.value)}
+                  >
+                    <option value="">{t('matrixAllSubjects')}</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="matrix-preset-filter">{t('matrixFilterPreset')}</Label>
+                  <select
+                    id="matrix-preset-filter"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={matrixPresetFilter}
+                    onChange={(e) => setMatrixPresetFilter(e.target.value)}
+                  >
+                    <option value="">{t('matrixAllPresets')}</option>
+                    <option value="cv7991_periodic">{t('matrixPresetPeriodic')}</option>
+                    <option value="qd764_graduation">{t('matrixPresetGraduation')}</option>
+                    <option value="custom">{t('matrixPresetCustom')}</option>
+                  </select>
+                </div>
+              </div>
+              {!sharedMatrixBankId ? (
+                <p className="text-sm text-muted-foreground">{t('discoveryEmpty')}</p>
+              ) : filteredSharedMatrices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {filteredSharedMatrices.map((m) => (
+                    <li key={m.id} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        {m.name}
+                        {m.isTemplate ? (
+                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('matrixTemplateBadge')}</span>
+                        ) : null}
+                        <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
+                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {subjectName(m.subjectId)} · {t(matrixPresetKey(m.presetKind))} ·{' '}
+                          {t('matrixCellsCount', { count: m.cells.length })}
+                        </span>
+                      </span>
+                      <Button type="button" variant="outline" onClick={() => void copyMatrixToMyBank(m.id)}>
+                        {t('copyToMyBank')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {sharedMatrixBankId ? (
+                <div className="space-y-2">
+                  <h4 className="font-medium">{t('contributionQueue')}</h4>
+                  {matrixContributions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('contributionEmpty')}</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {matrixContributions.map((c) => (
+                        <li key={c.id} className="flex flex-wrap items-center gap-2">
+                          <span className="min-w-0 flex-1">
+                            {c.matrixName ?? c.matrixId}
+                            <span className="block text-xs text-muted-foreground">
+                              {t('contributionBy', { name: c.proposerName ?? '—' })}
+                            </span>
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void reviewMatrixContribution(sharedMatrixBankId, c.id, true)}
+                          >
+                            {t('contributionApprove')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void reviewMatrixContribution(sharedMatrixBankId, c.id, false)}
+                          >
+                            {t('contributionReject')}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </section>
           </CardContent>
         )}
