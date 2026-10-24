@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   smallint,
   text,
@@ -176,4 +177,37 @@ export const questionLearningOutcomes = pgTable('question_learning_outcomes', {
       check('question_learning_outcomes_cognitive_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
       index('question_learning_outcomes_outcome_level_idx').on(table.learningOutcomeId, table.cognitiveLevel),
       index('question_learning_outcomes_question_id_idx').on(table.questionId),
+  ]);
+
+/**
+ * Sổ đăng ký nạp dữ liệu chương trình chuẩn (K0a): mỗi bản ghi của một
+ * dataset đã kiểm chứng (ví dụ bản ghi TOAN-0001 trong
+ * `program-data/program-toan.json`, trích nguyên văn từ văn bản ban hành
+ * kèm Thông tư 32/2018/TT-BGDĐT) tương ứng đúng một node `lesson` trong
+ * cây. Cặp (dataset_key, record_id) là **định danh ổn định của bản ghi**
+ * làm khoá cho cơ chế nạp lại không nhân đôi: nạp lại tra sổ theo cặp
+ * này, `content_hash` (sha256 của bản ghi gốc dạng chuẩn hoá) quyết định
+ * bỏ qua (khớp) hay cập nhật node + toàn bộ YCCĐ của nó (lệch — dataset
+ * được đính chính ở nguồn). Cột `source` giữ nguyên văn đối tượng truy
+ * vết nguồn của dataset (văn bản, file PDF, cổng công bố, trang) để mọi
+ * lần đối chiếu tự động truy được về văn bản chính chủ mà không phải mở
+ * lại file dataset.
+ */
+export const curriculumProgramRecords = pgTable('curriculum_program_records', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  datasetKey: text('dataset_key').notNull(),
+  recordId: text('record_id').notNull(),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  curriculumId: uuid('curriculum_id').notNull().references(() => curricula.id, { onDelete: 'cascade' }),
+  nodeId: uuid('node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'cascade' }),
+  contentHash: text('content_hash').notNull(),
+  source: jsonb('source').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('curriculum_program_records_dataset_record_unique').on(table.datasetKey, table.recordId),
+      index('curriculum_program_records_subject_id_idx').on(table.subjectId),
+      index('curriculum_program_records_node_id_idx').on(table.nodeId),
+      index('curriculum_program_records_curriculum_id_idx').on(table.curriculumId),
   ]);

@@ -24,12 +24,41 @@ export interface EnrolChecker {
   isEnrolled(courseId: string, userId: string, opts?: { onlyActive?: boolean }): Promise<boolean>;
 }
 
+/** Một đơn vị khung chương trình chọn được để nạp vào khoá (K0a): node khung + toàn bộ YCCĐ trong subtree của nó. */
+export interface CurriculumFrameUnit {
+  nodeId: string;
+  title: string;
+  kind: string;
+  outcomes: { outcomeId: string; content: string }[];
+}
+
+/**
+ * Nguồn đơn vị khung chương trình — CurriculumModule đăng ký lúc khởi
+ * tạo (dependency inversion như EnrolChecker/grade provider: Courses
+ * không import ngược Curriculum). Cổng quyền của đường này là
+ * `course:update` tại khoá đích do applyCurriculumFrame kiểm TRƯỚC khi
+ * gọi provider — provider không đòi thêm `curriculum:view` tại context
+ * hệ thống (giáo viên thật chỉ có vai tại context khoá, issue #66).
+ */
+export interface CurriculumFrameProvider {
+  getFrameUnits(actorId: string, curriculumId: string): Promise<CurriculumFrameUnit[]>;
+}
+
+/** Khung đã neo trên một section trong khung hiển thị nội dung khoá (bản chụp lúc nạp). */
+export interface SectionFrameView {
+  nodeId: string | null;
+  nodeTitle: string;
+  outcomes: { outcomeId: string | null; content: string }[];
+}
+
 export interface CourseContentView {
   course: CourseRow;
   contextId: string;
   customFields: { shortName: string; value: string | null }[];
   sections: (SectionRow & {
     availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] };
+    /** Neo khung chương trình (K0a): null khi section không xuất phát từ khung. */
+    frame?: SectionFrameView | null;
     modules: (CmRow & { contextId?: string; availabilityResult?: { available: boolean; visible: boolean; failedDescriptions: string[] } })[];
   })[];
 }
@@ -51,6 +80,15 @@ export class CoursesService {
   private enrolChecker?: EnrolChecker;
   /** Registered by GradesModule: grade percentages (0-100) per user+course for availability 'grade' leaves. */
   private gradeProvider?: (userId: string, courseId: string) => Promise<Record<string, number>>;
+  /** Registered by CurriculumModule: đơn vị khung chương trình cho cơ chế nạp khung vào khoá (K0a). */
+  private frameProvider?: CurriculumFrameProvider;
+
+  /**
+   * Đăng ký nguồn đơn vị khung chương trình (module curriculum cắm vào khi khởi tạo).
+   */
+  registerCurriculumFrameProvider(provider: CurriculumFrameProvider): void {
+    this.frameProvider = provider;
+  }
 
   /**
    * Đăng ký provider điểm cho availability (module grades cắm vào khi khởi tạo).
@@ -257,12 +295,14 @@ export class CoursesService {
   async createCourse(actorId: string, input: {
     fullName: string; shortName: string; category: string; idNumber?: string; summary?: string;
     format?: string; visible?: boolean; startDate?: string; endDate?: string; groupMode?: number; groupModeForce?: boolean;
+    subjectId?: string | null; grade?: number | null;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const category = await this.getCategory(input.category);
     const categoryCtxId = await this.categoryContextId(category.id);
     // Creating a course requires the capability in the CATEGORY context (Moodle rule).
     await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+    if (input.subjectId != null) await this.assertSubjectExists(input.subjectId);
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {
       throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });
@@ -280,6 +320,7 @@ export class CoursesService {
         startDate: input.startDate ? new Date(input.startDate) : null,
         endDate: input.endDate ? new Date(input.endDate) : null,
         groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
+        subjectId: input.subjectId ?? null, grade: input.grade ?? null,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId } });
       return row;
@@ -294,6 +335,13 @@ export class CoursesService {
     }
     if (input.customFields) await this.customFields.setValuesForInstance(COURSE_COMPONENT, COURSE_AREA, created.id, input.customFields);
     return created;
+  }
+
+  /** Neo môn của khoá phải trỏ tới một môn học có thật trong cây chương trình (K0a). */
+  private async assertSubjectExists(subjectId: string): Promise<void> {
+    if (!(await this.repo.getSubjectById(subjectId))) {
+      throw new BadRequestException({ message: `Subject ${subjectId} not found`, code: 'course.subject_not_found' });
+    }
   }
 
   /**
@@ -328,6 +376,7 @@ export class CoursesService {
   async updateCourse(actorId: string, id: string, input: {
     fullName?: string; shortName?: string; category?: string; idNumber?: string; summary?: string;
     format?: string; visible?: boolean; startDate?: string | null; endDate?: string | null; groupMode?: number; groupModeForce?: boolean;
+    subjectId?: string | null; grade?: number | null;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
@@ -349,6 +398,11 @@ export class CoursesService {
     if (input.endDate !== undefined) patch.endDate = input.endDate ? new Date(input.endDate) : null;
     if (input.groupMode !== undefined) patch.groupMode = input.groupMode;
     if (input.groupModeForce !== undefined) patch.groupModeForce = input.groupModeForce;
+    if (input.subjectId !== undefined) {
+      if (input.subjectId !== null) await this.assertSubjectExists(input.subjectId);
+      patch.subjectId = input.subjectId;
+    }
+    if (input.grade !== undefined) patch.grade = input.grade;
     if (input.category !== undefined && input.category !== existing.category) {
       const newCategory = await this.getCategory(input.category);
       patch.category = newCategory.id;
@@ -619,6 +673,77 @@ export class CoursesService {
     return { available: r.available, visible: r.visible, failedDescriptions: r.failedDescriptions };
   }
 
+  /**
+   * Nạp khung chương trình vào khoá (K0a — bản sao có neo): mỗi node
+   * khung được chọn thành một section mới mang tựa của node và toàn bộ
+   * YCCĐ trong subtree của nó, chụp nguyên văn vào neo. `insertAtSection`
+   * chèn trước section mang số đó (đẩy các section từ đó xuống cuối
+   * đoạn chèn), bỏ trống thì nối cuối outline. Sửa cây chương trình sau
+   * đó không đổi các section đã nạp vì chúng đọc từ bản chụp.
+   * Quyền: course:update tại context khoá đích là cổng duy nhất của
+   * đường nạp khung (provider khung tin cậy cổng này — xem
+   * CurriculumFrameProvider).
+   */
+  async applyCurriculumFrame(actorId: string, courseId: string, input: {
+    curriculumId: string; nodeIds: string[]; insertAtSection?: number;
+  }): Promise<(SectionRow & { frame: SectionFrameView })[]> {
+    await this.getCourse(courseId);
+    await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(courseId));
+    if (!this.frameProvider) {
+      throw new BadRequestException({ message: 'Curriculum frame provider is not registered', code: 'course.frame_provider_missing' });
+    }
+    const units = await this.frameProvider.getFrameUnits(actorId, input.curriculumId);
+    const wanted = new Set(input.nodeIds);
+    const selected = units.filter((u) => wanted.has(u.nodeId));
+    if (selected.length !== wanted.size) {
+      const found = new Set(selected.map((u) => u.nodeId));
+      const missing = input.nodeIds.filter((id) => !found.has(id));
+      throw new BadRequestException({
+        message: `Frame nodes not selectable in this curriculum: ${missing.join(', ')}`,
+        code: 'course.frame_node_not_selectable',
+      });
+    }
+    const existing = await this.repo.listSections(courseId);
+    const maxSection = existing.length ? Math.max(...existing.map((s) => s.section)) : -1;
+    const insertAt = input.insertAtSection ?? maxSection + 1;
+    if (insertAt > maxSection + 1) {
+      throw new BadRequestException({
+        message: `insertAtSection ${insertAt} is beyond the end of the outline`,
+        code: 'course.frame_insert_beyond_end',
+      });
+    }
+    const count = selected.length;
+    const created: (SectionRow & { frame: SectionFrameView })[] = [];
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const handle = tx as never;
+      if (input.insertAtSection !== undefined && insertAt <= maxSection) {
+        // Hai pass qua vùng đệm +100000 để unique (course, section) không vỡ giữa chừng.
+        await this.repo.shiftSections(handle, courseId, insertAt, 100000);
+        await this.repo.shiftSections(handle, courseId, insertAt + 100000, count - 100000);
+      }
+      for (const [i, unit] of selected.entries()) {
+        const section = await this.repo.insertSection({
+          course: courseId, section: insertAt + i, name: unit.title, summary: '', visible: true,
+        }, handle);
+        const anchor = await this.repo.insertSectionAnchor({
+          sectionId: section.id, nodeId: unit.nodeId, curriculumId: input.curriculumId, nodeTitle: unit.title,
+        }, handle);
+        await this.repo.insertSectionAnchorOutcomes(
+          unit.outcomes.map((o, j) => ({ anchorId: anchor.id, outcomeId: o.outcomeId, content: o.content, position: j + 1 })),
+          handle,
+        );
+        created.push({
+          ...section,
+          frame: {
+            nodeId: unit.nodeId, nodeTitle: unit.title,
+            outcomes: unit.outcomes.map((o) => ({ outcomeId: o.outcomeId, content: o.content })),
+          },
+        });
+      }
+    });
+    return created;
+  }
+
   /** Full course-content view with per-item availability evaluated for THIS user; hidden-unavailable items are omitted. */
   /**
    * Dựng nội dung khoá học cho người xem: section + cm kèm kết quả availability đã đánh giá theo user.
@@ -627,6 +752,17 @@ export class CoursesService {
     const courseRow = await this.assertCourseAccess(userId, courseId);
     const sections = await this.repo.listSections(courseId);
     const cms = await this.repo.listCms(courseId);
+    // Neo khung (K0a): đọc bản chụp, không đọc lại cây chương trình.
+    const anchors = await this.repo.listAnchorsForSections(sections.map((s) => s.id));
+    const anchorOutcomes = await this.repo.listAnchorOutcomes(anchors.map((a) => a.id));
+    const frameBySection = new Map<string, SectionFrameView>();
+    for (const anchor of anchors) {
+      frameBySection.set(anchor.sectionId, {
+        nodeId: anchor.nodeId, nodeTitle: anchor.nodeTitle,
+        outcomes: anchorOutcomes.filter((o) => o.anchorId === anchor.id)
+          .map((o) => ({ outcomeId: o.outcomeId, content: o.content })),
+      });
+    }
     const canSeeHidden = await this.canViewHiddenActivities(userId, courseId);
     const grades = this.gradeProvider ? await this.gradesForAvailability(userId, courseId) : undefined;
     const outSections: CourseContentView['sections'] = [];
@@ -639,7 +775,7 @@ export class CoursesService {
         if (!access.visible && !canSeeHidden) continue;
         modules.push({ ...cm, contextId: await this.cmContextId(cm.id), availabilityResult: access });
       }
-      outSections.push({ ...section, availabilityResult: sAccess, modules });
+      outSections.push({ ...section, availabilityResult: sAccess, frame: frameBySection.get(section.id) ?? null, modules });
     }
     return {
       course: courseRow,

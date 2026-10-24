@@ -9,6 +9,11 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
+import { FrameUnitPicker } from '../components/frame-picker';
+import {
+  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId,
+  type CurriculumSubject, type FrameUnit,
+} from '#lib/curriculum';
 
 /**
  * Cây danh mục + danh sách khoá học cho mọi người dùng. Khu quản trị danh
@@ -30,6 +35,45 @@ export function CoursesPage() {
   const [courseShort, setCourseShort] = useState('');
   const [courseCategory, setCourseCategory] = useState('');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
+  // K0a: gắn môn × khối cho khoá mới + nạp khung chương trình ngay lúc tạo.
+  const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
+  const [courseSubject, setCourseSubject] = useState('');
+  const [courseGrade, setCourseGrade] = useState('');
+  const [frameUnits, setFrameUnits] = useState<FrameUnit[]>([]);
+  const [frameCurriculumId, setFrameCurriculumId] = useState<string | null>(null);
+  const [frameSelected, setFrameSelected] = useState<string[]>([]);
+
+  // Danh sách môn ở context hệ thống: không có quyền đọc thì ẩn nhẹ khu
+  // chọn môn/khung (giống khối Chương trình trong editor câu hỏi).
+  useEffect(() => {
+    void (async () => {
+      try {
+        const contextId = await fetchSystemContextId();
+        if (contextId) setSubjects(await fetchSubjects(contextId));
+      } catch {
+        setSubjects([]);
+      }
+    })();
+  }, []);
+
+  // Đổi cặp môn × khối thì nạp lại cây khung của khối đó để tích chọn.
+  useEffect(() => {
+    setFrameSelected([]);
+    if (!courseSubject || !courseGrade) {
+      setFrameUnits([]);
+      setFrameCurriculumId(null);
+      return;
+    }
+    void fetchFrameUnitsFor(courseSubject, Number(courseGrade))
+      .then(({ curriculumId, units }) => {
+        setFrameCurriculumId(curriculumId);
+        setFrameUnits(units);
+      })
+      .catch(() => {
+        setFrameCurriculumId(null);
+        setFrameUnits([]);
+      });
+  }, [courseSubject, courseGrade]);
 
   const reload = useCallback(async () => {
     const [t, c] = await Promise.all([
@@ -145,17 +189,44 @@ export function CoursesPage() {
     }
   }
 
-  /** Tạo khoá học qua POST /courses với tối thiểu của `createCourseSchema` (fullName, shortName, category). */
+  /**
+   * Tạo khoá học qua POST /courses (`createCourseSchema`): kèm môn/khối
+   * khi đã chọn, và nếu giáo viên tích chọn đơn vị khung thì nạp khung
+   * ngay sau khi khoá được tạo (K0a). Nạp khung lỗi sau khi khoá đã tạo
+   * thì báo riêng để giáo viên nạp lại từ trang quản trị khoá, không
+   * trình bày như thể tạo khoá thất bại.
+   */
   async function createCourse(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
     try {
-      await apiJson('/api/v1/courses', {
+      const created = await apiJson<Course>('/api/v1/courses', {
         method: 'POST',
-        body: JSON.stringify({ fullName: courseName, shortName: courseShort, category: courseCategory }),
+        body: JSON.stringify({
+          fullName: courseName,
+          shortName: courseShort,
+          category: courseCategory,
+          ...(courseSubject ? { subjectId: courseSubject } : {}),
+          ...(courseGrade ? { grade: Number(courseGrade) } : {}),
+        }),
       });
       setCourseName('');
       setCourseShort('');
+      setFrameSelected([]);
+      if (frameCurriculumId && frameSelected.length > 0) {
+        try {
+          await apiJson(`/api/v1/courses/${created.id}/curriculum-frame`, {
+            method: 'POST',
+            body: JSON.stringify({ curriculumId: frameCurriculumId, nodeIds: frameSelected }),
+          });
+          await reload();
+          setMessage(t('courseCreated'));
+        } catch {
+          await reload();
+          setMessage(t('courseCreatedFrameFailed'));
+        }
+        return;
+      }
       await reload();
       setMessage(t('courseCreated'));
     } catch {
@@ -273,6 +344,55 @@ export function CoursesPage() {
                     ))}
                   </select>
                 </div>
+                {subjects.length > 0 ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="course-subject">{t('courseSubject')}</Label>
+                      <select
+                        id="course-subject"
+                        value={courseSubject}
+                        onChange={(e) => setCourseSubject(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      >
+                        <option value="">{t('courseSubjectNone')}</option>
+                        {subjects.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="course-grade">{t('courseGrade')}</Label>
+                      <select
+                        id="course-grade"
+                        value={courseGrade}
+                        onChange={(e) => setCourseGrade(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      >
+                        <option value="">{t('courseGradeNone')}</option>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
+                          <option key={g} value={g}>
+                            {t('curriculumGradeLabel', { grade: g })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {frameCurriculumId ? (
+                      <div className="space-y-2">
+                        <Label>{t('courseFrameUnitsTitle')}</Label>
+                        <FrameUnitPicker
+                          units={frameUnits}
+                          selected={frameSelected}
+                          idPrefix="create-frame"
+                          onToggle={(nodeId, checked) =>
+                            setFrameSelected((prev) => (checked ? [...prev, nodeId] : prev.filter((id) => id !== nodeId)))
+                          }
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
                 <Button type="submit">{t('createCourse')}</Button>
               </form>
             </CardContent>

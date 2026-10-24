@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CoursesService, type CategoryDeleteMode } from './courses.service';
-import { createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto } from './dto/courses.dto';
+import { applyCurriculumFrameSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto } from './dto/courses.dto';
 
 @ApiTags('courses')
 @Controller({ path: 'courses', version: '1' })
@@ -86,6 +86,13 @@ export class CoursesController {
    */
   async content(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() viewer: AuthenticatedUser) {
     return this.courses.getCourseContent(viewer.id, id);
+  }
+  @Post(':id/curriculum-frame')
+  /**
+   * POST /courses/:id/curriculum-frame — nạp khung chương trình vào khoá (bản sao có neo, K0a).
+   */
+  async applyFrame(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: applyCurriculumFrameSchema }) dto: ApplyFrameDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.applyCurriculumFrame(actor.id, id, dto);
   }
   @Patch(':id')
   /**

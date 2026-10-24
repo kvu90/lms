@@ -3,10 +3,13 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { CurriculumService } from './curriculum.service';
+import { ProgramImportService } from './program-import.service';
 import {
   createCurriculumNodeSchema, createCurriculumSchema, createLearningOutcomeSchema, createSubjectSchema,
+  importProgramDatasetSchema,
   updateCurriculumNodeSchema, updateCurriculumSchema, updateLearningOutcomeSchema, updateSubjectSchema,
   type CreateCurriculumDto, type CreateCurriculumNodeDto, type CreateLearningOutcomeDto, type CreateSubjectDto,
+  type ImportProgramDatasetDto,
   type UpdateCurriculumDto, type UpdateCurriculumNodeDto, type UpdateLearningOutcomeDto, type UpdateSubjectDto,
 } from './dto/curriculum.dto';
 
@@ -17,9 +20,28 @@ import {
  * subjects → curricula → cây nodes → learning outcomes.
  * Đọc cần curriculum:view, ghi cần curriculum:manage tại
  * context của môn học (qua PermissionEvaluator, trong service).
+ * Riêng các GET phục vụ chọn khung (subjects/curricula/tree) nhận thêm
+ * `forCourseId`: người có course:update tại khoá đó cũng đọc được —
+ * nhánh cho giáo viên cấp khoá nạp khung vào khoá mình dạy (issue #66).
  */
 export class CurriculumController {
-  constructor(private readonly curriculum: CurriculumService) {}
+  constructor(
+    private readonly curriculum: CurriculumService,
+    private readonly programImport: ProgramImportService,
+  ) {}
+
+  // --- nạp dữ liệu chương trình chuẩn (K0a) -------------------------------------
+
+  @Get('program-import')
+  /** GET /curriculum/program-import — trạng thái nạp của từng dataset đã kiểm chứng. */
+  async listProgramImportStatus(@CurrentUser() actor: AuthenticatedUser) {
+    return this.programImport.listDatasetStatus(actor.id);
+  }
+  @Post('program-import')
+  /** POST /curriculum/program-import — nạp/nạp lại một dataset vào cây chương trình (idempotent theo sổ đăng ký). */
+  async importProgramDataset(@Body({ schema: importProgramDatasetSchema }) dto: ImportProgramDatasetDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.programImport.importDataset(actor.id, dto.datasetKey);
+  }
 
   // --- subjects ---------------------------------------------------------------
 
@@ -29,9 +51,9 @@ export class CurriculumController {
     return this.curriculum.createSubject(actor.id, dto);
   }
   @Get('subjects')
-  /** GET /curriculum/subjects?contextId= — môn học trong một context. */
-  async listSubjects(@Query('contextId', { schema: uuidIdSchema }) contextId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.curriculum.listSubjects(actor.id, contextId);
+  /** GET /curriculum/subjects?contextId=&forCourseId= — môn học trong một context (forCourseId: nhánh chọn khung cho khoá). */
+  async listSubjects(@Query('contextId', { schema: uuidIdSchema }) contextId: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.listSubjects(actor.id, contextId, forCourseId);
   }
   @Get('subjects/:id')
   /** GET /curriculum/subjects/:id — chi tiết môn học. */
@@ -58,9 +80,9 @@ export class CurriculumController {
     return this.curriculum.createCurriculum(actor.id, dto);
   }
   @Get('curricula')
-  /** GET /curriculum/curricula?subjectId= — chương trình của một môn. */
-  async listCurricula(@Query('subjectId', { schema: uuidIdSchema }) subjectId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.curriculum.listCurricula(actor.id, subjectId);
+  /** GET /curriculum/curricula?subjectId=&forCourseId= — chương trình của một môn (forCourseId: nhánh chọn khung cho khoá). */
+  async listCurricula(@Query('subjectId', { schema: uuidIdSchema }) subjectId: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.listCurricula(actor.id, subjectId, forCourseId);
   }
   @Get('curricula/:id')
   /** GET /curriculum/curricula/:id — chi tiết chương trình. */
@@ -68,9 +90,9 @@ export class CurriculumController {
     return this.curriculum.getCurriculum(actor.id, id);
   }
   @Get('curricula/:id/tree')
-  /** GET /curriculum/curricula/:id/tree — cây nội dung lồng nhau kèm outcomes từng node. */
-  async getTree(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.curriculum.getTree(actor.id, id);
+  /** GET /curriculum/curricula/:id/tree?forCourseId= — cây nội dung lồng nhau kèm outcomes từng node (forCourseId: nhánh chọn khung cho khoá). */
+  async getTree(@Param('id', { schema: uuidIdSchema }) id: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getTree(actor.id, id, forCourseId);
   }
   @Patch('curricula/:id')
   /** PATCH /curriculum/curricula/:id — sửa chương trình (khối). */

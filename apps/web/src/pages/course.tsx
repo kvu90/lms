@@ -225,6 +225,16 @@ export function CoursePage() {
               )}
             </CardHeader>
             <CardContent>
+              {section.frame ? (
+                <div className="mb-3 rounded border border-dashed p-3">
+                  <p className="text-sm font-medium">{t('courseFrameOutcomes')}</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {section.frame.outcomes.map((outcome, index) => (
+                      <li key={outcome.outcomeId ?? `frame-outcome-${index}`}>{outcome.content}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <ul className="space-y-2">
                 {section.modules.map((rawCm) => {
                   const cm = rawCm as CourseModuleView;

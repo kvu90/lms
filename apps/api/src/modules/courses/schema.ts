@@ -1,16 +1,19 @@
 /** Các bảng của bounded context Courses — định nghĩa Drizzle do module courses sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
   pgTable,
+  smallint,
   text,
   timestamp,
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { curricula, curriculumNodes, learningOutcomes, subjects } from '../curriculum/schema';
 
 /** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. */
 export const courseCategories = pgTable('course_categories', {
@@ -45,12 +48,23 @@ export const course = pgTable('course', {
   groupMode: integer('group_mode').notNull().default(0),
   groupModeForce: boolean('group_mode_force').notNull().default(false),
   enableCompletion: boolean('enable_completion').notNull().default(true),
+  /**
+   * Môn × khối của khoá theo chương trình GDPT 2018 (K0a): neo mềm về
+   * môn học trong cây chương trình — môn bị xoá thì khoá chỉ mất neo
+   * (set null), không mất khoá. Đây là căn cứ để chọn đúng khung chương
+   * trình khi nạp khung vào khoá; khoá không đặt hai trường này vẫn hợp
+   * lệ như trước (khoá ngoài chương trình chuẩn).
+   */
+  subjectId: uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
+  grade: smallint('grade'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('course_category_idx').on(table.category),
+      index('course_subject_id_idx').on(table.subjectId),
+      check('course_grade_check', sql`${table.grade} is null or (${table.grade} between 1 and 12)`),
   ]);
 
 
@@ -100,6 +114,48 @@ export const courseModules = pgTable('course_modules', {
       index('course_modules_section_idx').on(table.section),
   ]);
 
+
+/**
+ * Neo khung chương trình trên section (K0a — "bản sao có neo"): khi giáo
+ * viên nạp một node khung (chủ đề/mạch) vào khoá, section được tạo là bản
+ * sao độc lập của khoá; dòng neo này ghi lại node nguồn + **tựa node chụp
+ * tại thời điểm nạp** để truy vết. Node nguồn bị sửa/xoá về sau KHÔNG đổi
+ * section đã nạp (xoá node → node_id về null, bản chụp vẫn còn).
+ */
+export const courseSectionAnchors = pgTable('course_section_anchors', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  sectionId: uuid('section_id').notNull().references(() => courseSections.id, { onDelete: 'cascade' }),
+  nodeId: uuid('node_id').references(() => curriculumNodes.id, { onDelete: 'set null' }),
+  curriculumId: uuid('curriculum_id').references(() => curricula.id, { onDelete: 'set null' }),
+  nodeTitle: text('node_title').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      unique('course_section_anchors_section_unique').on(table.sectionId),
+      index('course_section_anchors_node_id_idx').on(table.nodeId),
+      index('course_section_anchors_curriculum_id_idx').on(table.curriculumId),
+  ]);
+
+/**
+ * YCCĐ chụp kèm theo một neo khung: mỗi dòng là một yêu cầu cần đạt thuộc
+ * subtree của node khung đã nạp, **chép nguyên văn tại thời điểm nạp**
+ * (đây là nội dung hiển thị trong khoá — sửa cây chương trình sau đó
+ * không làm đổi khoá đã nạp); `outcome_id` chỉ còn vai trò truy vết về
+ * YCCĐ gốc (gốc bị xoá → null, bản chụp giữ nguyên).
+ */
+export const courseSectionAnchorOutcomes = pgTable('course_section_anchor_outcomes', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  anchorId: uuid('anchor_id').notNull().references(() => courseSectionAnchors.id, { onDelete: 'cascade' }),
+  outcomeId: uuid('outcome_id').references(() => learningOutcomes.id, { onDelete: 'set null' }),
+  content: text('content').notNull(),
+  position: integer('position').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('course_section_anchor_outcomes_anchor_idx').on(table.anchorId, table.position),
+      index('course_section_anchor_outcomes_outcome_id_idx').on(table.outcomeId),
+      check('course_section_anchor_outcomes_position_check', sql`${table.position} > 0`),
+  ]);
 
 /** Per-course format options (Moodle `course_format_options`). */
 export const courseFormatOptions = pgTable(
