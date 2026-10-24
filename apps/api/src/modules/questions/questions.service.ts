@@ -583,6 +583,8 @@ export class QuestionsService {
    */
   async createQuestion(actorId: string, input: {
     categoryId: string; qtype: string; name: string;
+    /** Nguồn ngoài hệ thống (truy vết nội bộ); vắng thì mặc định 'manual' — giáo viên tự soạn. */
+    sourceKind?: string; sourceRef?: string;
   } & QuestionContentInput): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
     await this.requireCap(actorId, 'question:add', category.contextId);
@@ -593,6 +595,7 @@ export class QuestionsService {
     await this.repo.dbHandle.transaction(async (tx) => {
       const q = await this.repo.insertQuestion({
         category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
+        sourceKind: input.sourceKind ?? 'manual', sourceRef: input.sourceRef ?? null,
       }, tx);
       const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
       const version = await this.repo.insertVersion({

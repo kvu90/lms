@@ -503,6 +503,10 @@ export class QuestionBanksService {
         derivedFromVersionId: sourceVersion.id,
         derivedFromBankId: sourceBank?.id ?? null,
         originalAuthorId: sourceQ.originalAuthorId ?? sourceQ.createdBy,
+        // Nguồn ngoài hệ thống được kế thừa nguyên qua copy (nguồn gốc
+        // của câu không đổi khi câu di chuyển giữa các bank).
+        sourceKind: sourceQ.sourceKind ?? null,
+        sourceRef: sourceQ.sourceRef ?? null,
         copyCount: 0,
       }, tx);
       const entry = await this.questionsRepo.insertEntry({

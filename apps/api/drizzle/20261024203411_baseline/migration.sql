@@ -743,6 +743,8 @@ CREATE TABLE "question" (
 	"derived_from_version_id" uuid,
 	"derived_from_bank_id" uuid,
 	"original_author_id" uuid,
+	"source_kind" text,
+	"source_ref" text,
 	"idnumber" text,
 	"copy_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,

@@ -118,6 +118,24 @@ export const question = pgTable('question', {
   derivedFromVersionId: uuid('derived_from_version_id'),
   derivedFromBankId: uuid('derived_from_bank_id'),
   originalAuthorId: uuid('original_author_id'),
+  /**
+   * Nguồn gốc NGOÀI hệ thống của câu hỏi (ghi nhận thiết kế 24/10/2026):
+   * cặp (source_kind, source_ref) theo mẫu truy vết của dữ liệu chương
+   * trình — source_kind ∈ book (sách, thực thể `books` độc lập) / exam
+   * (đề thi, thực thể exam_papers ở lát EB-1) / manual (giáo viên tự
+   * soạn, mặc định khi tạo câu) / import (nạp từ ngoài); source_ref là
+   * tham chiếu dạng chữ (id sách/đề hoặc tham chiếu ngoài) — KHÔNG FK
+   * cứng và KHÔNG khoá vào bank nội bộ, để gắn book/exam sau này không
+   * cần di trú. Khác derived_from_* (chuỗi copy TRONG hệ bank): nguồn
+   * ngoài được KẾ THỪA nguyên qua các đời copy.
+   * QUY TẮC BẢN QUYỀN (Lão gia chốt 22:58 24/10/2026): cặp trường này
+   * chỉ để TRUY VẾT NỘI BỘ phía server/quản trị — bề mặt học viên
+   * (attempt/usage/quiz attempt) KHÔNG BAO GIỜ trả chúng; việc hiện
+   * nguồn công khai sau này quyết bởi cờ của SÁCH (theo sách, không
+   * theo câu; mặc định tắt), không phải bởi dữ liệu ở đây.
+   */
+  sourceKind: text('source_kind'),
+  sourceRef: text('source_ref'),
   idnumber: text('idnumber'),
   /** Số lượt câu này đã được copy đi (tín hiệu QB-4; use_count tính trực tiếp từ quiz_slots khi hiển thị). */
   copyCount: integer('copy_count').notNull().default(0),

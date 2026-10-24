@@ -181,6 +181,55 @@ describe('Shared question bank (feat #70)', () => {
     expect(bad.status).toBe(400);
   });
 
+  it('source: nguồn ngoài hệ thống (book/exam/manual/import) là truy vết nội bộ — copy kế thừa, bề mặt attempt không lộ', async () => {
+    const dave = await mkUser();
+    const bank = await myPersonalBank(dave.token);
+
+    // Tạo câu khai nguồn sách: phía quản trị (GET câu hỏi) thấy đủ cặp nguồn.
+    const res = await http(app).post('/api/v1/questions').set(bearer(dave.token)).send({
+      categoryId: bank.defaultCategoryId!, qtype: 'multichoice', name: 'Câu từ SGK', questionText: 'Thân câu SGK?',
+      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
+      options: { single: true },
+      sourceKind: 'book', sourceRef: 'sgk-toan-6-kntt-trang-42',
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const created = res.body as QuestionViewBody & {
+      question: QuestionViewBody['question'] & { sourceKind: string | null; sourceRef: string | null };
+    };
+    expect(created.question.sourceKind).toBe('book');
+    expect(created.question.sourceRef).toBe('sgk-toan-6-kntt-trang-42');
+
+    // Câu tạo thường không khai nguồn → mặc định 'manual', ref trống.
+    const plain = await createQuestion(dave.token, bank.defaultCategoryId!, 'Câu tự soạn', 'Thân câu tự soạn?');
+    expect((plain.question as { sourceKind?: string | null }).sourceKind).toBe('manual');
+    expect((plain.question as { sourceRef?: string | null }).sourceRef).toBeNull();
+
+    // Copy trong bank kế thừa nguyên nguồn ngoài (derived_from ghi chuỗi copy riêng).
+    const copyRes = await http(app).post(`/api/v1/questions/${created.question.id}/copy`).set(bearer(dave.token)).send({});
+    expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
+    const copied = copyRes.body as { question: { sourceKind: string | null; sourceRef: string | null } };
+    expect(copied.question.sourceKind).toBe('book');
+    expect(copied.question.sourceRef).toBe('sgk-toan-6-kntt-trang-42');
+
+    // Quy tắc bản quyền: bề mặt attempt/usage (phía học viên) KHÔNG chứa
+    // bất kỳ trường nguồn/truy vết nào trong payload.
+    const usageRes = await http(app).post('/api/v1/question-usages').set(bearer(dave.token))
+      .send({ component: 'question_bank', slots: [{ questionId: created.question.id }] });
+    expect(usageRes.status, JSON.stringify(usageRes.body)).toBe(201);
+    const usageId = (usageRes.body as { usage: { id: string } }).usage.id;
+    // Bắt đầu usage = đã bắt đầu các attempt của nó (payload attempt phía học viên).
+    const started = await http(app).post(`/api/v1/question-usages/${usageId}/start`).set(bearer(dave.token));
+    expect(started.status, JSON.stringify(started.body)).toBe(201);
+    const usageGet = await http(app).get(`/api/v1/question-usages/${usageId}`).set(bearer(dave.token));
+    expect(usageGet.status).toBe(200);
+    for (const payload of [JSON.stringify(started.body), JSON.stringify(usageGet.body)]) {
+      expect(payload).not.toContain('sourceKind');
+      expect(payload).not.toContain('sourceRef');
+      expect(payload).not.toContain('derivedFrom');
+      expect(payload).not.toContain('sgk-toan-6-kntt');
+    }
+  });
+
   it('QB-1: bank tổ theo cohort — thành viên dùng/copy được, không thêm thẳng; tổ trưởng toàn quyền; người ngoài bị chặn', async () => {
     const leader = await mkUser();
     const member = await mkUser();

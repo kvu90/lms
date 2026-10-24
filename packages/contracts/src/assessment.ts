@@ -555,10 +555,14 @@ export type QuestionOptionsInput = z.infer<typeof questionOptionsInputSchema>;
  * `answers`/`options`. Tầng nghiệp vụ bắt buộc payload mang một trong hai
  * dạng (`answers`/`options` mới hoặc `answer` cũ) tuỳ theo qtype.
  */
+/** Nguồn gốc ngoài hệ thống của câu hỏi (truy vết nội bộ — không hiển thị cho học viên, quy tắc bản quyền 24/10/2026). */
+export const QUESTION_SOURCE_KINDS = ['book', 'exam', 'manual', 'import'] as const;
 export const createQuestionSchema = z.strictObject({
   categoryId: uuidIdSchema,
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
   name: z.string().min(1),
+  sourceKind: z.enum(QUESTION_SOURCE_KINDS).optional(),
+  sourceRef: z.string().min(1).optional(),
   questionText: richTextInputSchema,
   generalFeedback: richTextInputSchema.optional(),
   guidance: richTextInputSchema.optional(),
