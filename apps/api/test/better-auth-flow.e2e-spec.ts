@@ -16,7 +16,10 @@ import type { CredentialBridgeService } from '../src/modules/auth/better-auth/cr
  * phiên hiệu lực ngay, endpoint đổi trạng thái thiếu Origin bị 403 (kèm
  * cookie — kiểm tra Origin của 1.7.12 chỉ kích hoạt khi request mang
  * cookie, xem Giai đoạn 0), phiên tạo theo chương trình cho login-as,
- * cầu nối hash từ hệ cũ, và route auth cũ vẫn chạy khi cờ bật.
+ * cầu nối hash từ hệ cũ, và route auth cũ vẫn chạy khi cờ bật. Hai cổng
+ * của điểm nối tiếp 2.1 (issue #7): gọi linkExistingPasswordHash đồng
+ * thời hai lần chỉ sinh đúng một dòng credential, và lỗi ép tại bước
+ * tạo account thì rollback cả dòng user (không để user mồ côi).
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp
  * (ConfigModule validate cấu hình ngay khi module được import), nên các
@@ -214,6 +217,75 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
       .send({ username: legacy.username, password: helpers.STRONG_PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe(legacy.username);
+  });
+
+  it('two concurrent linkExistingPasswordHash calls yield exactly one credential row', async () => {
+    const token = await helpers.adminToken(app);
+    const legacy = await helpers.createUserViaApi(app, token);
+    const results = await Promise.all([
+      bridge.linkExistingPasswordHash(legacy.id),
+      bridge.linkExistingPasswordHash(legacy.id),
+    ]);
+    // Đúng một lời gọi thực sự chèn (true); lời còn lại nhận false thay
+    // vì văng lỗi trùng UNIQUE (user_id, provider_id) — chèn idempotent
+    // của điểm 2.1 (hồ sơ Giai đoạn 2).
+    expect(results.filter((r) => r === true)).toHaveLength(1);
+    expect(results.filter((r) => r === false)).toHaveLength(1);
+    const rows = await pg.query(
+      "select count(*)::int as n from account where user_id = $1 and provider_id = 'credential'",
+      [legacy.id],
+    );
+    expect(rows.rows[0].n).toBe(1);
+  });
+
+  it('a failure at account creation rolls the user back (no orphan user)', async () => {
+    const orphanName = helpers.uniqueName('baorphan');
+    // Ép lỗi tại đúng bước chèn account BÊN TRONG transaction của cầu
+    // nối: trigger chặn INSERT vào account khi user của nó mang
+    // username của test này. Dòng user đã chèn ngay trước đó trong
+    // cùng transaction phải bị rollback theo — tiêu chí "không còn
+    // user mồ côi" của điểm 2.1 (hồ sơ Giai đoạn 2).
+    await pg.query(`
+      create or replace function test_fail_account_insert() returns trigger as $fn$
+      begin
+        if exists (select 1 from users u where u.id = new.user_id and u.username = '${orphanName}') then
+          raise exception 'forced account creation failure (test)';
+        end if;
+        return new;
+      end
+      $fn$ language plpgsql
+    `);
+    await pg.query(
+      'create trigger test_fail_account_insert before insert on account for each row execute function test_fail_account_insert()',
+    );
+    let caught: unknown;
+    try {
+      await bridge.createUserWithCredential({
+        email: `${orphanName}@example.com`,
+        username: orphanName,
+        firstName: 'Orphan',
+        lastName: 'Rollback',
+        password: FLOW_PASSWORD,
+      });
+    } catch (err) {
+      caught = err;
+    } finally {
+      await pg.query('drop trigger if exists test_fail_account_insert on account');
+      await pg.query('drop function if exists test_fail_account_insert()');
+    }
+    expect(caught).toBeTruthy();
+    // Thông điệp lỗi phải là lỗi bị ép tại bước account (không phải
+    // lỗi khác tình cờ) — duyệt cả chuỗi cause vì tầng ORM có thể bọc.
+    const texts: string[] = [];
+    let current: unknown = caught;
+    while (current && typeof current === 'object' && texts.length < 6) {
+      const message = (current as { message?: unknown }).message;
+      if (typeof message === 'string') texts.push(message);
+      current = (current as { cause?: unknown }).cause;
+    }
+    expect(texts.join(' | ')).toMatch(/forced account creation failure/);
+    const users = await pg.query('select count(*)::int as n from users where username = $1', [orphanName]);
+    expect(users.rows[0].n).toBe(0);
   });
 
   it('public sign-up stays closed', async () => {
