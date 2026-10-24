@@ -600,7 +600,7 @@ export type QuestionOptionsInput = z.infer<typeof questionOptionsInputSchema>;
  * dạng (`answers`/`options` mới hoặc `answer` cũ) tuỳ theo qtype.
  */
 /** Nguồn gốc ngoài hệ thống của câu hỏi (truy vết nội bộ — không hiển thị cho học viên, quy tắc bản quyền 24/10/2026). */
-export const QUESTION_SOURCE_KINDS = ['book', 'exam', 'manual', 'import'] as const;
+export const QUESTION_SOURCE_KINDS = ['book', 'exam', 'manual', 'import', 'ai'] as const;
 export const createQuestionSchema = z.strictObject({
   categoryId: uuidIdSchema,
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
