@@ -278,8 +278,9 @@ describe('Content bank library (CB-1, issue #69)', () => {
     const submit = await http(app).post(`/api/v1/contentbank/${id}/submit`).set(bearer(authorToken)).send({});
     expect(submit.status).toBe(400);
     expect(submit.body.code).toBe('contentbank.metadata_incomplete');
-    expect(String(submit.body.message)).toContain('license');
-    expect(String(submit.body.message)).toContain('sourceCitation');
+    const detail = String(submit.body.detail ?? submit.body.message ?? '');
+    expect(detail).toContain('license');
+    expect(detail).toContain('sourceCitation');
   });
 
   it('review gates: rejection needs a reason, approval needs the full checklist (CB1-B3)', async () => {
