@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
+import type { BetterAuthOptions } from 'better-auth';
 import { makeSignature } from 'better-auth/crypto';
 import { createInternalAdapter } from 'better-auth/db';
 import { and, eq } from 'drizzle-orm';
@@ -68,14 +69,29 @@ export class CredentialBridgeService {
       );
     }
     const user = await adapterTransaction(async (trx) => {
-      const txInternalAdapter = createInternalAdapter(trx, {
-        options: ctx.options,
-        logger: ctx.logger,
-        hooks: ctx.options.databaseHooks
-          ? [{ source: 'user', hooks: ctx.options.databaseHooks }]
-          : [],
-        generateId: ctx.generateId,
-      });
+      // Ép kiểu ở hai điểm, cả hai đều an toàn tại runtime: `trx` là
+      // adapter đầy đủ do factory dựng trên transaction handle (chỉ
+      // bị tắt khả năng mở transaction lồng — thứ createInternalAdapter
+      // không hề dùng), và `ctx.options` là options đã phân giải của
+      // instance (đúng kiểu BetterAuthOptions mà lõi truyền cho
+      // internalAdapter của nó, chỉ hẹp hơn ở tầng type do factory của
+      // dự án suy luận kiểu trực tiếp từ object literal).
+      const txInternalAdapter = createInternalAdapter(
+        trx as unknown as Parameters<typeof createInternalAdapter>[0],
+        {
+          options: ctx.options as BetterAuthOptions,
+          logger: ctx.logger,
+          hooks: (ctx.options as BetterAuthOptions).databaseHooks
+            ? [
+                {
+                  source: 'user',
+                  hooks: (ctx.options as BetterAuthOptions).databaseHooks!,
+                },
+              ]
+            : [],
+          generateId: ctx.generateId,
+        },
+      );
       // Tham số nguồn tạo user là bắt buộc trong type của 1.7.12: cầu
       // nối này phục vụ các luồng do hệ thống/quản trị khởi tạo nên
       // khai method "admin" (đúng cách plugin admin của chính Better
