@@ -647,9 +647,9 @@ export class BackupService {
     }
     const courseRow = scope === 'course' ? await this.courses.getCourse(courseId!) : null;
     if (scope === 'course') {
-      await this.evaluator.requireCapability(actorId, 'lms/backup:backupcourse', await this.courses.courseContextId(courseId!));
+      await this.evaluator.requireCapability(actorId, 'backup:backupcourse', await this.courses.courseContextId(courseId!));
     } else {
-      await this.evaluator.requireCapability(actorId, 'lms/backup:backupcourse', (await this.contexts.ensureSystemContext()).id);
+      await this.evaluator.requireCapability(actorId, 'backup:backupcourse', (await this.contexts.ensureSystemContext()).id);
     }
     const job = await this.repo.insertJob({ type: 'backup', scope, courseId: courseId, userId: actorId, anonymize, status: 'running' });
     try {
@@ -703,7 +703,7 @@ export class BackupService {
       if (mode !== 'new' || targetCourseId) {
         throw new BadRequestException({ message: 'A site backup can only be restored as new site-level data, without a target course', code: 'backup.site_target_forbidden' });
       }
-      await this.evaluator.requireCapability(actorId, 'lms/backup:restorecourse', (await this.contexts.ensureSystemContext()).id);
+      await this.evaluator.requireCapability(actorId, 'backup:restorecourse', (await this.contexts.ensureSystemContext()).id);
       const job = await this.repo.insertJob({
         type: 'restore', scope: 'site', courseId: null, targetCourseId: null, mode, userId: actorId, status: 'running',
       });
@@ -737,7 +737,7 @@ export class BackupService {
 
     let targetId: string;
     if (mode === 'new') {
-      await this.evaluator.requireCapability(actorId, 'lms/backup:restorecourse', await this.courses.categoryContextId(archive.course.category));
+      await this.evaluator.requireCapability(actorId, 'backup:restorecourse', await this.courses.categoryContextId(archive.course.category));
       const created = await this.courses.createCourse(actorId, {
         fullName: archive.course.fullName, shortName: `${archive.course.shortName}-r${Date.now().toString(36)}`,
         category: archive.course.category, summary: archive.course.summary,
@@ -745,7 +745,7 @@ export class BackupService {
       targetId = created.id;
     } else {
       targetId = targetCourseId!;
-      await this.evaluator.requireCapability(actorId, 'lms/backup:restorecourse', await this.courses.courseContextId(targetId));
+      await this.evaluator.requireCapability(actorId, 'backup:restorecourse', await this.courses.courseContextId(targetId));
     }
 
     const job = await this.repo.insertJob({

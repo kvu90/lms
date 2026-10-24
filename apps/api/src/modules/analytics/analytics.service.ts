@@ -107,7 +107,7 @@ export class AnalyticsService {
     const allUsers = await db.select().from(users);
     for (const u of allUsers) {
       if (u.suspended || u.deleted || u.isGuest) continue;
-      if (await this.evaluator.hasCapability(u.id, 'moodle/analytics:viewinsights', ctxId)) recipients.push(u.id);
+      if (await this.evaluator.hasCapability(u.id, 'analytics:viewinsights', ctxId)) recipients.push(u.id);
     }
     let predictions = 0; let insightCount = 0;
     for (const userId of activeUserIds) {
@@ -143,7 +143,7 @@ export class AnalyticsService {
     const rows = await this.repo.listInsightsForRecipient(userId);
     const out: InsightRow[] = [];
     for (const row of rows) {
-      if (await this.evaluator.hasCapability(userId, 'moodle/analytics:viewinsights', row.contextId)) out.push(row);
+      if (await this.evaluator.hasCapability(userId, 'analytics:viewinsights', row.contextId)) out.push(row);
     }
     return out;
   }

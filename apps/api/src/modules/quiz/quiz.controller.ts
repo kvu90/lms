@@ -53,7 +53,7 @@ export class QuizzesController {
   }
   @Patch(':id')
   /**
-   * PATCH /quizzes/:id — sửa cài đặt quiz (mod/quiz:manage).
+   * PATCH /quizzes/:id — sửa cài đặt quiz (quiz:manage).
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateQuizSchema }) dto: UpdateQuizDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.updateQuiz(actor.id, id, dto);
@@ -90,7 +90,7 @@ export class QuizzesController {
   @Get(':id/attempts')
   /**
    * GET /quizzes/:id/attempts — các lượt làm (của chính người xem, hoặc
-   * của cả lớp khi có mod/quiz:viewreports).
+   * của cả lớp khi có quiz:viewreports).
    */
   async listAttempts(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.listAttemptSummaries(actor.id, id);
@@ -106,7 +106,7 @@ export class QuizzesController {
   @Get(':id/results')
   /**
    * GET /quizzes/:id/results — kết quả lớp + hàng đợi chấm tay
-   * (mod/quiz:viewreports).
+   * (quiz:viewreports).
    */
   async results(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getResults(actor.id, id);
@@ -148,7 +148,7 @@ export class QuizAttemptsController {
   @Post(':id/questions/:questionAttemptId/grade')
   /**
    * POST /quiz-attempts/:id/questions/:questionAttemptId/grade — chấm
-   * tay một câu essay (mod/quiz:grade).
+   * tay một câu essay (quiz:grade).
    */
   async grade(@Param('id', { schema: uuidIdSchema }) id: string, @Param('questionAttemptId', { schema: uuidIdSchema }) questionAttemptId: string, @Body({ schema: manualGradeQuizSchema }) dto: ManualGradeQuizDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.manualGrade(actor.id, id, { questionAttemptId, mark: dto.mark, comment: dto.comment });

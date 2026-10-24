@@ -141,7 +141,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(suspendedMe.status).toBe(401);
   });
 
-  it('login-as: an admin with moodle/user:loginas can act as another user; a normal user cannot', async () => {
+  it('login-as: an admin with user:loginas can act as another user; a normal user cannot', async () => {
     const target = await createUserViaApi(app, admin);
     const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id });
     expect(as.status).toBe(201);

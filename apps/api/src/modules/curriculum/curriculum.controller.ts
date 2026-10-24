@@ -15,7 +15,7 @@ import {
 /**
  * API chương trình (curriculum GDPT 2018, port từ giaokhoa):
  * subjects → curricula → cây nodes → learning outcomes.
- * Đọc cần lms/curriculum:view, ghi cần lms/curriculum:manage tại
+ * Đọc cần curriculum:view, ghi cần curriculum:manage tại
  * context của môn học (qua PermissionEvaluator, trong service).
  */
 export class CurriculumController {

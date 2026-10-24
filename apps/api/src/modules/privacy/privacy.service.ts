@@ -170,7 +170,7 @@ export class PrivacyService {
     const target = input.userId ?? actorId;
     if (target !== actorId) {
       const sys = await this.contexts.ensureSystemContext();
-      await this.evaluator.requireCapability(actorId, 'lms/privacy:manage', sys.id);
+      await this.evaluator.requireCapability(actorId, 'privacy:manage', sys.id);
     }
     if (!['export', 'delete'].includes(input.type)) throw new BadRequestException({ message: 'Unknown privacy request type', code: 'privacy.bad_type' });
     const user = await this.usersService.getByIdOrUndefined(target);
@@ -184,14 +184,14 @@ export class PrivacyService {
   }
   async listRequestsFor(actorId: string): Promise<PrivacyRequestRow[]> {
     const sys = await this.contexts.ensureSystemContext();
-    if (await this.evaluator.hasCapability(actorId, 'lms/privacy:manage', sys.id)) return this.repo.listRequests();
+    if (await this.evaluator.hasCapability(actorId, 'privacy:manage', sys.id)) return this.repo.listRequests();
     return this.repo.listRequestsForUser(actorId);
   }
 
   /** Phê duyệt/từ chối bởi admin có capability privacy:manage; approve ⇒ xử lý ngay (API twin của worker job). */
   async decide(actorId: string, id: string, decision: 'approved' | 'rejected'): Promise<PrivacyRequestRow> {
     const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'lms/privacy:manage', sys.id);
+    await this.evaluator.requireCapability(actorId, 'privacy:manage', sys.id);
     const req = await this.getRequest(id);
     if (req.status !== 'pending') throw new BadRequestException({ message: `Request is ${req.status}, not pending`, code: 'privacy.not_pending' });
     if (decision === 'rejected') {

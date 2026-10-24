@@ -19,13 +19,17 @@ export class RolesService {
     private readonly outbox: OutboxService,
   ) {}
 
-  /** Idempotent seed: sync capability definitions from code, create the standard Moodle core roles and their archetype defaults at the system context. */
+  /** Idempotent seed: sync capability definitions from code (definitions no longer in the registry are pruned, together with their role overrides), create the standard Moodle core roles and their archetype defaults at the system context. */
   /**
    * Gieo các role archetype chuẩn của Moodle (manager, coursecreator, editingteacher, teacher, student, guest, user) cùng ma trận quyền mặc định tại context hệ thống; idempotent.
+   * Đồng bộ hai chiều: định nghĩa capability không còn trong sổ đăng ký ở code (vd tên cũ còn tiền tố, đã bỏ từ issue #35) bị xoá khỏi DB cùng mọi override trỏ tới chúng, để hai hệ tên không cùng tồn tại sau seed.
    */
   async seedDefaults(): Promise<void> {
     const system = await this.contexts.ensureSystemContext();
     for (const def of CAPABILITY_DEFINITIONS) await this.repo.upsertCapability(def);
+    const registryNames = CAPABILITY_DEFINITIONS.map((c) => c.name);
+    await this.repo.deleteRoleCapabilitiesNotIn(registryNames);
+    await this.repo.deleteCapabilitiesNotIn(registryNames);
     for (const def of DEFAULT_ROLES) {
       let roleRow = await this.repo.getRoleByShortname(def.shortName);
       if (!roleRow) roleRow = await this.repo.insertRole({ ...def, description: '' });

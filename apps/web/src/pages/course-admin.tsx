@@ -60,17 +60,17 @@ export function CourseAdminPage() {
   const canBuild =
     perms.canAdminister ||
     perms.teaching.some((c) => c.course.id === courseId) ||
-    (courseAccess?.capabilities.includes('moodle/course:update') ?? false);
-  /** Sửa tiêu chí hoàn thành khoá cần `lms/completion:manage` tại context khoá (đúng capability backend đòi ở completion service) hoặc quyền quản trị hệ thống. */
+    (courseAccess?.capabilities.includes('course:update') ?? false);
+  /** Sửa tiêu chí hoàn thành khoá cần `completion:manage` tại context khoá (đúng capability backend đòi ở completion service) hoặc quyền quản trị hệ thống. */
   const canManageCompletion =
-    perms.canAdminister || (courseAccess?.capabilities.includes('lms/completion:manage') ?? false);
-  /** Quản lý grouping cần `moodle/course:managegroups` tại context khoá (đúng capability backend đòi ở groups service) hoặc quyền quản trị hệ thống. */
+    perms.canAdminister || (courseAccess?.capabilities.includes('completion:manage') ?? false);
+  /** Quản lý grouping cần `course:managegroups` tại context khoá (đúng capability backend đòi ở groups service) hoặc quyền quản trị hệ thống. */
   const canManageGroups =
-    perms.canAdminister || (courseAccess?.capabilities.includes('moodle/course:managegroups') ?? false);
-  /** Quản lý thành viên cohort cần `moodle/cohort:manage` ở context của cohort; giao diện hiện thao tác khi capability này xuất hiện trong ảnh chụp quyền ở bất kỳ context nào hoặc là quản trị hệ thống — API vẫn thực thi theo đúng context của từng cohort. */
+    perms.canAdminister || (courseAccess?.capabilities.includes('course:managegroups') ?? false);
+  /** Quản lý thành viên cohort cần `cohort:manage` ở context của cohort; giao diện hiện thao tác khi capability này xuất hiện trong ảnh chụp quyền ở bất kỳ context nào hoặc là quản trị hệ thống — API vẫn thực thi theo đúng context của từng cohort. */
   const canManageCohorts =
     perms.canAdminister ||
-    (perms.access?.contexts.some((c) => c.capabilities.includes('moodle/cohort:manage')) ?? false);
+    (perms.access?.contexts.some((c) => c.capabilities.includes('cohort:manage')) ?? false);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);

@@ -34,7 +34,7 @@ export class BlogService {
   async createPost(actorId: string, input: { subject: string; summary?: string; content: string; publishState?: string }): Promise<BlogPostRow> {
     const userCtx = await this.contexts.getByLevelInstance(30, actorId);
     const systemCtx = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'moodle/blog:create', userCtx?.id ?? systemCtx.id);
+    await this.evaluator.requireCapability(actorId, 'blog:create', userCtx?.id ?? systemCtx.id);
     const publishState = input.publishState ?? 'draft';
     if (!['draft', 'site'].includes(publishState)) {
       throw new ForbiddenException({ message: `Unknown publishState ${publishState}`, code: 'blog.bad_publishstate' });
@@ -61,7 +61,7 @@ export class BlogService {
     const post = await this.getPost(postId);
     if (post.userId !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
-      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
+      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can associate this post', code: 'blog.associate_forbidden' });
     }
     let contextId: string;
@@ -84,7 +84,7 @@ export class BlogService {
     if (await this.evaluator.isSiteAdmin(viewerId)) return true;
     if (post.publishState === 'draft') return false;
     const systemCtx = await this.contexts.ensureSystemContext();
-    if (!(await this.evaluator.hasCapability(viewerId, 'moodle/blog:view', systemCtx.id))) return false;
+    if (!(await this.evaluator.hasCapability(viewerId, 'blog:view', systemCtx.id))) return false;
     const associations = await this.repo.listAssociations(post.id);
     const courseAssociations = associations.filter((a) => a.assocType === 'course');
     if (!courseAssociations.length) return true;
@@ -138,7 +138,7 @@ export class BlogService {
     const post = await this.getPost(id);
     if (post.userId !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
-      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
+      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can edit this post', code: 'blog.edit_forbidden' });
     }
     const patch: Partial<BlogPostRow> = {};
@@ -157,7 +157,7 @@ export class BlogService {
     const post = await this.getPost(id);
     if (post.userId !== actorId) {
       const userCtx = await this.contexts.getByLevelInstance(30, post.userId);
-      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'moodle/blog:manageentries', userCtx.id) : false;
+      const canManage = userCtx ? await this.evaluator.hasCapability(actorId, 'blog:manageentries', userCtx.id) : false;
       if (!canManage) throw new ForbiddenException({ message: 'Only the author can delete this post', code: 'blog.delete_forbidden' });
     }
     await this.repo.deletePost(id);

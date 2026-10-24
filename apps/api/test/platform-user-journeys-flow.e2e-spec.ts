@@ -59,7 +59,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     // tìm kiếm PHP (autocomplete chỉ liệt kê user của khoá đang chọn trong
     // "Search within") — đó là chi tiết cài đặt UI, bỏ qua theo quy ước dịch
     // oracle và ghi trong traceability. Phần nghiệp vụ tương ứng ở mức API
-    // (tài liệu users chỉ hiện với người có moodle/user:viewdetails tại
+    // (tài liệu users chỉ hiện với người có user:viewdetails tại
     // context của user đó) đã được kiểm ở flow test PROHIBIT/re-check của
     // search; ở đây chỉ khẳng định control: tài liệu của outsider THẬT SỰ có
     // trong index (admin thấy), để các assertion "không thấy" không rỗng.

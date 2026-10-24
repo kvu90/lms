@@ -95,7 +95,7 @@ export class PermissionEvaluator {
    * user/guest default roles), optionally ignoring assignments of given
    * archetypes. Enrol uses this for the enrol gate's exception (report §2#5):
    * a suspended enrolment still blocks a user whose only path to
-   * `moodle/course:view` is the student role the enrolment itself granted,
+   * `course:view` is the student role the enrolment itself granted,
    * while a genuine staff assignment (teacher/manager/…) still lets them in.
    */
   /**

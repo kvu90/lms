@@ -52,11 +52,11 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(found.status).toBe(200);
     expect((found.body as { itemId: string }[]).some((d) => d.itemId === course.id)).toBe(true);
     void q;
-    // User bị PROHIBIT moodle/course:view tại course context: tạo role riêng + assignment + PROHIBIT override.
+    // User bị PROHIBIT course:view tại course context: tạo role riêng + assignment + PROHIBIT override.
     const blocked = await createUserViaApi(app, admin);
     const roleId = await createRoleViaApi(app, admin);
     await assignRole(app, admin, blocked.id, roleId, ctxId);
-    await setOverride(app, admin, roleId, 'moodle/course:view', ctxId, PROHIBIT);
+    await setOverride(app, admin, roleId, 'course:view', ctxId, PROHIBIT);
     const blockedToken = (await login(app, blocked.username, STRONG_PASSWORD)).accessToken;
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent('Course')}`).set('Authorization', `Bearer ${blockedToken}`);
     expect(res.status).toBe(200);

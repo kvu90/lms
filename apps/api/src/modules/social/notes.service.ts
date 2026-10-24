@@ -8,9 +8,9 @@ import { SocialRepository, type NoteRow } from './social.repository';
  * NotesModule (Moodle core_notes): notes ABOUT a user, in three states
  * (report §2#16): 'draft' = personal note (only its creator),
  * 'public' = course note (courseId set; readable only with
- * moodle/notes:view at the COURSE context — in practice the course's
+ * notes:view at the COURSE context — in practice the course's
  * teachers, NOT other students and NOT the subject), 'site' = site note
- * (moodle/notes:view at the system context).
+ * (notes:view at the system context).
  */
 @Injectable()
 /**
@@ -44,7 +44,7 @@ export class NotesService {
     const ctxId = (publishState === 'public' || (publishState === 'draft' && input.courseId))
       ? await this.courses.courseContextId(input.courseId!)
       : (await this.contexts.ensureSystemContext()).id;
-    await this.evaluator.requireCapability(actorId, 'moodle/notes:create', ctxId);
+    await this.evaluator.requireCapability(actorId, 'notes:create', ctxId);
     return this.repo.insertNote({
       courseId: input.courseId ?? null, userId: input.userId, createdBy: actorId,
       content: input.content, publishState, groupId: input.groupId ?? null, userModified: actorId,
@@ -60,11 +60,11 @@ export class NotesService {
     if (note.publishState === 'draft') return false;
     if (note.publishState === 'public') {
       const ctx = await this.courses.courseContextId(note.courseId!);
-      return this.evaluator.hasCapability(viewerId, 'moodle/notes:view', ctx);
+      return this.evaluator.hasCapability(viewerId, 'notes:view', ctx);
     }
     // site note
     const systemCtx = await this.contexts.ensureSystemContext();
-    return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'moodle/notes:view', systemCtx.id);
+    return this.evaluator.hasCapabilityFromRealAssignment(viewerId, 'notes:view', systemCtx.id);
   }
 
   /**
@@ -102,7 +102,7 @@ export class NotesService {
       const ctx = note.publishState === 'public'
         ? await this.courses.courseContextId(note.courseId!)
         : (await this.contexts.ensureSystemContext()).id;
-      await this.evaluator.requireCapability(actorId, 'moodle/notes:manage', ctx);
+      await this.evaluator.requireCapability(actorId, 'notes:manage', ctx);
     }
     await this.repo.deleteNote(id);
     return { deleted: true };

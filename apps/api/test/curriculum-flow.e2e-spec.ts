@@ -11,7 +11,7 @@ import {
  * (packages/database/src/schema/curriculum.ts): subjects (slug duy nhất) →
  * curricula (duy nhất theo môn + khối 1–12) → curriculum_nodes (cây, khoá
  * ngoại ghép giữ node con trong cùng chương trình) → learning_outcomes.
- * Phần LMS bổ sung: môn neo context + capability lms/curriculum:view|manage
+ * Phần LMS bổ sung: môn neo context + capability curriculum:view|manage
  * qua PermissionEvaluator (mẫu ngân hàng câu hỏi/stimulus), node có kind
  * (strand = mạch nội dung) và thời lượng/% thời lượng cho số hoá GDPT 2018.
  */
@@ -174,10 +174,10 @@ describe('Curriculum flow (subjects → curricula → node tree → outcomes)', 
   it('gates reads and writes by capability at the subject context', async () => {
     // Kiểm tra thẳng qua evaluator API: user thường không có cả view lẫn manage;
     // editingteacher được view theo archetype nhưng không có manage.
-    expect(await hasCapability(app, admin, plainId, 'lms/curriculum:view', systemCtxId)).toBe(false);
-    expect(await hasCapability(app, admin, plainId, 'lms/curriculum:manage', systemCtxId)).toBe(false);
-    expect(await hasCapability(app, admin, teacherId, 'lms/curriculum:view', systemCtxId)).toBe(true);
-    expect(await hasCapability(app, admin, teacherId, 'lms/curriculum:manage', systemCtxId)).toBe(false);
+    expect(await hasCapability(app, admin, plainId, 'curriculum:view', systemCtxId)).toBe(false);
+    expect(await hasCapability(app, admin, plainId, 'curriculum:manage', systemCtxId)).toBe(false);
+    expect(await hasCapability(app, admin, teacherId, 'curriculum:view', systemCtxId)).toBe(true);
+    expect(await hasCapability(app, admin, teacherId, 'curriculum:manage', systemCtxId)).toBe(false);
 
     // User không quyền: đọc bị từ chối 403 với mã capability_denied.
     const plainList = await http(app).get('/api/v1/curriculum/subjects').query({ contextId: systemCtxId }).set(bearer(plainToken));

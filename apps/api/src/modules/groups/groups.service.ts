@@ -14,7 +14,7 @@ import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } fro
  *
  * Separate groups is a DATA law, not a UI filter (report §2#6): when a
  * course (or cm) is in SEPARATEGROUPS mode, a user without
- * `moodle/group:accessallgroups` (or `moodle/course:managegroups`, or site
+ * `group:accessallgroups` (or `course:managegroups`, or site
  * admin) can only ever see their own groups and their members — enforced
  * here in the service for every read. VISIBLEGROUPS imposes no read
  * restriction (writes stay capability-gated). A course with
@@ -66,7 +66,7 @@ export class GroupsService implements OnModuleInit {
 
   // --- groups ---------------------------------------------------------------
   private async requireManageGroups(actorId: string, courseId: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, 'moodle/course:managegroups', await this.courses.courseContextId(courseId));
+    await this.evaluator.requireCapability(actorId, 'course:managegroups', await this.courses.courseContextId(courseId));
   }
 
   /**
@@ -74,7 +74,7 @@ export class GroupsService implements OnModuleInit {
    * được tính là có — xem PermissionEvaluator.hasCapability).
    */
   async canManageGroups(actorId: string, courseId: string): Promise<boolean> {
-    return this.evaluator.hasCapability(actorId, 'moodle/course:managegroups', await this.courses.courseContextId(courseId));
+    return this.evaluator.hasCapability(actorId, 'course:managegroups', await this.courses.courseContextId(courseId));
   }
 
   /**
@@ -127,15 +127,15 @@ export class GroupsService implements OnModuleInit {
 
   /**
    * Người xem có đặc quyền thấy mọi nhóm của khoá học ở mọi chế độ hay không:
-   * site admin, hoặc có `moodle/group:accessallgroups`, hoặc có
-   * `moodle/course:managegroups` tại context khoá học (đối chiếu Moodle:
+   * site admin, hoặc có `group:accessallgroups`, hoặc có
+   * `course:managegroups` tại context khoá học (đối chiếu Moodle:
    * người quản lý nhóm không bị luật separate groups giới hạn).
    */
   async canSeeAllGroups(actorId: string, courseId: string): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(actorId)) return true;
     const ctxId = await this.courses.courseContextId(courseId);
-    if (await this.evaluator.hasCapability(actorId, 'moodle/group:accessallgroups', ctxId)) return true;
-    return this.evaluator.hasCapability(actorId, 'moodle/course:managegroups', ctxId);
+    if (await this.evaluator.hasCapability(actorId, 'group:accessallgroups', ctxId)) return true;
+    return this.evaluator.hasCapability(actorId, 'course:managegroups', ctxId);
   }
 
   /**
@@ -353,7 +353,7 @@ export class GroupsService implements OnModuleInit {
    */
   async createCohort(actorId: string, input: { name: string; idNumber?: string; description?: string; categoryId?: string; visible?: boolean }): Promise<CohortRow> {
     const contextId = await this.cohortContextId(input);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', contextId);
+    await this.evaluator.requireCapability(actorId, 'cohort:manage', contextId);
     const row = await this.repo.insertCohort({
       name: input.name, idNumber: input.idNumber ?? '', description: input.description ?? '',
       contextId, visible: input.visible ?? true,
@@ -378,7 +378,7 @@ export class GroupsService implements OnModuleInit {
    */
   async updateCohort(actorId: string, id: string, input: { name?: string; idNumber?: string; description?: string; visible?: boolean }): Promise<CohortRow> {
     const cohortRow = await this.getCohort(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
+    await this.evaluator.requireCapability(actorId, 'cohort:manage', cohortRow.contextId);
     await this.repo.updateCohort(id, input);
     return this.getCohort(id);
   }
@@ -387,7 +387,7 @@ export class GroupsService implements OnModuleInit {
    */
   async deleteCohort(actorId: string, id: string): Promise<void> {
     const cohortRow = await this.getCohort(id);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
+    await this.evaluator.requireCapability(actorId, 'cohort:manage', cohortRow.contextId);
     await this.repo.deleteCohort(id);
   }
   /**
@@ -413,7 +413,7 @@ export class GroupsService implements OnModuleInit {
    */
   async addCohortMember(actorId: string, cohortId: string, userId: string): Promise<void> {
     const cohortRow = await this.getCohort(cohortId);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
+    await this.evaluator.requireCapability(actorId, 'cohort:manage', cohortRow.contextId);
     const added = await this.repo.addCohortMember(cohortId, userId);
     if (!added) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });
@@ -424,7 +424,7 @@ export class GroupsService implements OnModuleInit {
    */
   async removeCohortMember(actorId: string, cohortId: string, userId: string): Promise<void> {
     const cohortRow = await this.getCohort(cohortId);
-    await this.evaluator.requireCapability(actorId, 'moodle/cohort:manage', cohortRow.contextId);
+    await this.evaluator.requireCapability(actorId, 'cohort:manage', cohortRow.contextId);
     const removed = await this.repo.removeCohortMember(cohortId, userId);
     if (!removed) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });

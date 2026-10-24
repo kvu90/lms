@@ -121,7 +121,7 @@ export function GradebookPage() {
   const isStaff =
     perms.canAdminister ||
     perms.teaching.some((c) => c.course.id === courseId) ||
-    (courseAccess?.capabilities.includes('moodle/grade:viewall') ?? false);
+    (courseAccess?.capabilities.includes('grade:viewall') ?? false);
 
   const [adminCategories, setAdminCategories] = useState<GradeCategory[]>([]);
   const [adminItems, setAdminItems] = useState<GradeItem[]>([]);

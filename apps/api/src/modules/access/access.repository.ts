@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { capabilities, config, context, role, roleAssignments, roleCapabilities } from '../../db/schema';
 
@@ -86,6 +86,19 @@ export class AccessRepository {
    */
   async listCapabilities(): Promise<(typeof capabilities.$inferSelect)[]> {
     return this.db.select().from(capabilities).orderBy(capabilities.name);
+  }
+  /**
+   * Xoá các định nghĩa capability không còn trong sổ đăng ký ở code (đồng bộ seed:
+   * tên đã đổi/bỏ thì hàng cũ không được sót lại trong DB).
+   */
+  async deleteCapabilitiesNotIn(names: string[]): Promise<void> {
+    await this.db.delete(capabilities).where(notInArray(capabilities.name, names));
+  }
+  /**
+   * Xoá các override role_capabilities trỏ tới capability không còn trong sổ đăng ký ở code.
+   */
+  async deleteRoleCapabilitiesNotIn(capabilityNames: string[]): Promise<void> {
+    await this.db.delete(roleCapabilities).where(notInArray(roleCapabilities.capability, capabilityNames));
   }
 
   // --- roles ----------------------------------------------------------------

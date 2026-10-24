@@ -332,7 +332,7 @@ describe('Grades & questions', () => {
       .send({ name: 'Outcome scale', scale: 'Not yet,Partially,Fully' });
     expect(scaleRes.status).toBe(201);
     const scaleId = scaleRes.body.id as string;
-    // Học viên không có moodle/grade:manage ⇒ không tạo được outcome.
+    // Học viên không có grade:manage ⇒ không tạo được outcome.
     const denied = await http(app).post(`/api/v1/courses/${course.id}/grades/outcomes`).set('Authorization', `Bearer ${studentToken}`)
       .send({ name: 'Nope', scaleId });
     expect(denied.status).toBe(403);

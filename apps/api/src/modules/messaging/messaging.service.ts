@@ -554,13 +554,13 @@ export class MessagingService {
 
   /**
    * Staff của khoá theo đúng nghĩa GroupsModule dùng: site admin, hoặc có
-   * capability `moodle/course:managegroups` tại context của khoá.
+   * capability `course:managegroups` tại context của khoá.
    */
   private async isCourseStaff(userId: string, courseId: string): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
     const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
     if (!courseCtx) return false;
-    return this.evaluator.hasCapability(userId, 'moodle/course:managegroups', courseCtx.id);
+    return this.evaluator.hasCapability(userId, 'course:managegroups', courseCtx.id);
   }
 
   /**
@@ -794,7 +794,7 @@ export class MessagingService {
   async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string; clientMessageId?: string }): Promise<MessageRow> {
     const systemCtx = await this.contexts.ensureSystemContext();
     const senderCtx = await this.contexts.getByLevelInstance(30, actorId);
-    await this.evaluator.requireCapability(actorId, 'moodle/site:sendmessage', senderCtx?.id ?? systemCtx.id);
+    await this.evaluator.requireCapability(actorId, 'site:sendmessage', senderCtx?.id ?? systemCtx.id);
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     // Conversation gắn group: đồng bộ thành viên theo group trước khi kiểm

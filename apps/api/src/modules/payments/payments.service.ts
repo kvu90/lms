@@ -38,7 +38,7 @@ export class PaymentsService {
 
   private async requireManageAccounts(actorId: string): Promise<void> {
     const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'lms/payment:manageaccounts', sys.id);
+    await this.evaluator.requireCapability(actorId, 'payment:manageaccounts', sys.id);
   }
 
   async createAccount(actorId: string, input: { name: string; gateway?: string }): Promise<AccountRow> {

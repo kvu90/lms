@@ -14,7 +14,7 @@ import { CourseAdminPage } from './course-admin';
  * dung hiện có qua GET /courses/:id/content. Khu này chỉ render khi người
  * dùng thuộc teaching của khoá — stub dưới đây khai ảnh chụp quyền
  * (GET /users/me/capabilities) của giáo viên có gán editingteacher tại
- * context khoá kèm moodle/grade:viewall và moodle/course:update, đúng
+ * context khoá kèm grade:viewall và course:update, đúng
  * nguồn PermissionsProvider dùng để phân loại teaching.
  */
 const TEACHER_ID = '01900000-0000-7000-8000-0000000000a2';
@@ -135,10 +135,10 @@ function stubFetch(calls: RecordedCall[]) {
               contextLevel: 50,
               contextPath: '/1/9/10',
               capabilities: [
-                'moodle/grade:viewall',
-                'moodle/course:update',
-                'moodle/question:useall',
-                'lms/completion:manage',
+                'grade:viewall',
+                'course:update',
+                'question:useall',
+                'completion:manage',
               ],
             },
           ],
@@ -209,7 +209,7 @@ function renderCourseAdmin() {
   );
 }
 
-describe('Course completion criteria (teacher with lms/completion:manage)', () => {
+describe('Course completion criteria (teacher with completion:manage)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -328,8 +328,8 @@ const COHORT_ROW = {
 };
 
 /**
- * Stub cho giáo viên có thêm `moodle/course:managegroups` tại context khoá
- * và `moodle/cohort:manage` — đúng hai capability backend đòi cho khu
+ * Stub cho giáo viên có thêm `course:managegroups` tại context khoá
+ * và `cohort:manage` — đúng hai capability backend đòi cho khu
  * grouping và thành viên cohort. Trạng thái grouping/thành viên giữ trong
  * closure để các thao tác POST/DELETE phản ánh lại ở lần GET sau.
  */
@@ -375,10 +375,10 @@ function stubFetchGroups(calls: RecordedCall[]) {
               contextLevel: 50,
               contextPath: '/1/9/10',
               capabilities: [
-                'moodle/grade:viewall',
-                'moodle/course:update',
-                'moodle/course:managegroups',
-                'moodle/cohort:manage',
+                'grade:viewall',
+                'course:update',
+                'course:managegroups',
+                'cohort:manage',
               ],
             },
           ],

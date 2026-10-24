@@ -22,7 +22,7 @@ export interface RatingAggregate {
  * (average/count/sum/min/max) is computed over the ratings OF THIS ITEM
  * only (oracle: rating/tests/rating_test test_get_ratings_sql — items with
  * ratings 1,3 aggregate to 2; 1,4 to 2.5; 3,5 to 4). Capabilities:
- * lms/rating:rate to rate, lms/rating:view for aggregates, lms/rating:viewall
+ * rating:rate to rate, rating:view for aggregates, rating:viewall
  * for the individual rating list — three separate gates, as in Moodle.
  */
 @Injectable()
@@ -64,7 +64,7 @@ export class RatingsService {
   async rate(actorId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string; scaleId: number; rating: number;
   }): Promise<RatingRow> {
-    await this.evaluator.requireCapability(actorId, 'lms/rating:rate', input.contextId);
+    await this.evaluator.requireCapability(actorId, 'rating:rate', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     const max = await this.scaleMax(input.scaleId);
     if (!Number.isInteger(input.rating) || input.rating < 0 || (max > 0 && input.rating > max)) {
@@ -85,7 +85,7 @@ export class RatingsService {
   async aggregate(viewerId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string;
   }): Promise<RatingAggregate> {
-    await this.evaluator.requireCapability(viewerId, 'lms/rating:view', input.contextId);
+    await this.evaluator.requireCapability(viewerId, 'rating:view', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     const rows = await this.repo.listRatings(input.component, input.ratingArea, input.itemId, input.contextId);
     const values = rows.map((r) => r.rating);
@@ -106,7 +106,7 @@ export class RatingsService {
   async listRatings(viewerId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string;
   }): Promise<RatingRow[]> {
-    await this.evaluator.requireCapability(viewerId, 'lms/rating:viewall', input.contextId);
+    await this.evaluator.requireCapability(viewerId, 'rating:viewall', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     return this.repo.listRatings(input.component, input.ratingArea, input.itemId, input.contextId);
   }

@@ -14,37 +14,37 @@ import { createCustomFieldCategorySchema, createCustomFieldSchema, type CreateCa
 export class CustomFieldsController {
   constructor(private readonly service: CustomFieldsService) {}
   @Post('categories')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * POST /custom-fields/categories — tạo category.
    */
   async createCategory(@Body({ schema: createCustomFieldCategorySchema }) dto: CreateCategoryDto) { return this.service.createCategory(dto); }
   @Get('categories')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * GET /custom-fields/categories — liệt kê category theo component/area.
    */
   async listCategories(@Query('component') component = 'core_user', @Query('area') area = 'user') { return this.service.listCategories(component, area); }
   @Delete('categories/:id')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * DELETE /custom-fields/categories/:id — xoá category.
    */
   async deleteCategory(@Param('id', { schema: uuidIdSchema }) id: string) { await this.service.deleteCategory(id); return { deleted: true }; }
   @Post('fields')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * POST /custom-fields/categories/:id/fields — thêm field vào category.
    */
   async createField(@Body({ schema: createCustomFieldSchema }) dto: CreateFieldDto) { return this.service.createField(dto.categoryId, { ...dto, configData: dto.configData as FieldConfig | undefined }); }
   @Get('fields')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * GET /custom-fields/categories/:id/fields — liệt kê field.
    */
   async listFields(@Query('component') component = 'core_user', @Query('area') area = 'user') { return this.service.listFields(component, area); }
   @Delete('fields/:id')
-  @RequireCapability('lms/customfield:manage')
+  @RequireCapability('customfield:manage')
   /**
    * DELETE /custom-fields/fields/:id — xoá field.
    */

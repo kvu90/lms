@@ -40,10 +40,10 @@ const CONTEXT_LEVEL = { SYSTEM: 10, COURSECAT: 40, COURSE: 50 } as const;
 
 /** Các capability mở quyền dùng ngân hàng câu hỏi ở ít nhất một context. */
 const QUESTION_CAPABILITIES = [
-  'moodle/question:useall',
-  'moodle/question:add',
-  'moodle/question:editall',
-  'moodle/question:managecategory',
+  'question:useall',
+  'question:add',
+  'question:editall',
+  'question:managecategory',
 ] as const;
 
 /**
@@ -63,9 +63,9 @@ export interface PermissionsState {
   ready: boolean;
   /** Toàn bộ ảnh chụp quyền từ API (null khi chưa tải được). */
   access: MyAccessView | null;
-  /** Có moodle/user:viewdetails tại context hệ thống (hoặc là site admin). */
+  /** Có user:viewdetails tại context hệ thống (hoặc là site admin). */
   canViewUsers: boolean;
-  /** Có moodle/role:manage tại context hệ thống (hoặc là site admin). */
+  /** Có role:manage tại context hệ thống (hoặc là site admin). */
   canManageRoles: boolean;
   /** Có ít nhất một quyền quản trị cấp hệ thống — điều kiện hiện khối quản trị. */
   canAdminister: boolean;
@@ -125,7 +125,7 @@ function courseCapabilities(access: MyAccessView, course: Course): string[] {
 /** Người dùng thuộc đội giảng dạy của khoá khi có grade:viewall tại context khoá (site admin luôn đúng). */
 function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess): boolean {
   if (!access) return false;
-  return access.isSiteAdmin || courseAccess.capabilities.includes('moodle/grade:viewall');
+  return access.isSiteAdmin || courseAccess.capabilities.includes('grade:viewall');
 }
 
 /** Ba lượt dò dữ liệu hiển thị của một khoá, chạy song song trong một query. */
@@ -207,8 +207,8 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       };
     });
     const sysCaps = access ? systemCapabilities(access) : [];
-    const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/user:viewdetails');
-    const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('moodle/role:manage');
+    const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('user:viewdetails');
+    const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('role:manage');
     const teaching = courses.filter((c) => c.enrolment?.enrolled && isCourseStaff(access, c));
     const learning = courses.filter((c) => c.enrolment?.enrolled && c.enrolment.active && !isCourseStaff(access, c));
     return {
@@ -216,14 +216,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       access,
       canViewUsers,
       canManageRoles,
-      // Cổng mở UI quản trị KHÔNG được tính moodle/user:viewdetails: đó
+      // Cổng mở UI quản trị KHÔNG được tính user:viewdetails: đó
       // là capability nền mà API phân giải cho mọi người dùng đã xác
       // thực ở context hệ thống (để xem hồ sơ lẫn nhau), nên nếu tính
       // cả nó thì mọi học viên đều thấy khối quản trị rồi bị 403 ở các
       // endpoint con. Chỉ các capability quản trị thật (quản vai trò,
       // cấu hình site) hoặc cờ site admin mới mở được khu vực này —
       // API vẫn là nơi thực thi quyền thật ở từng endpoint.
-      canAdminister: (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('moodle/site:config'),
+      canAdminister: (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('site:config'),
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>
