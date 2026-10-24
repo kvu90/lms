@@ -11,7 +11,7 @@ import { RolesService } from '../access/roles.service';
 import { GroupsService } from '../groups/groups.service';
 import { QuestionsRepository, type DbTx, type QCategoryRow, type QuestionRow } from './questions.repository';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
-import { QuestionBanksRepository, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
+import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
 
 /** Vai chuyên dụng của lớp bank, gán TẠI context của từng bank (không phải archetype toàn cục). */
 export const QBANK_MEMBER_ROLE = 'qbankmember';
@@ -110,20 +110,24 @@ export class QuestionBanksService {
    * vai chuyên dụng tại context bank.
    */
   private async buildBank(actorId: string, input: {
-    name: string; scope: BankScope; ownerId: string | null; scopeRefId: string | null;
+    name: string; scope: BankScope; bankKind?: BankKind; ownerId: string | null; scopeRefId: string | null;
     parentContextId: string; contextLevel: number;
   }): Promise<QuestionBankRow> {
+    const kind = input.bankKind ?? 'question';
     const { memberRoleId, leadRoleId } = await this.ensureBankRoles();
     const bankId = uuidv7();
     const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId);
     const bank = await this.repo.insertBank({
-      id: bankId, name: input.name, scope: input.scope, ownerId: input.ownerId,
+      id: bankId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
       scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
     });
-    await this.questionsRepo.insertCategory({
-      name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
-      stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
-    });
+    // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
+    if (kind === 'question') {
+      await this.questionsRepo.insertCategory({
+        name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
+        stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
+      });
+    }
     await this.grantCaps(memberRoleId, ctx.id, MEMBER_CAPS);
     await this.grantCaps(leadRoleId, ctx.id, LEAD_CAPS);
     if (input.ownerId) await this.ensureAssignment(input.ownerId, leadRoleId, ctx.id);
@@ -134,55 +138,55 @@ export class QuestionBanksService {
     return bank;
   }
 
-  /** Bank cá nhân của người dùng — tạo lười ở lần chạm đầu tiên ("Ngân hàng của tôi"). */
-  async ensurePersonalBank(userId: string): Promise<QuestionBankRow> {
-    const existing = await this.repo.getPersonalBank(userId);
+  /** Bank cá nhân của người dùng cho một loại món — tạo lười ở lần chạm đầu tiên ("Ngân hàng của tôi"). */
+  async ensurePersonalBank(userId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
+    const existing = await this.repo.getPersonalBank(userId, kind);
     if (existing) return existing;
     const system = await this.contexts.ensureSystemContext();
     try {
       return await this.buildBank(userId, {
-        name: 'Ngân hàng của tôi', scope: 'personal', ownerId: userId, scopeRefId: null,
+        name: 'Ngân hàng của tôi', scope: 'personal', bankKind: kind, ownerId: userId, scopeRefId: null,
         parentContextId: system.id, contextLevel: CONTEXT_LEVELS.USER,
       });
     } catch (err) {
-      const again = await this.repo.getPersonalBank(userId);
+      const again = await this.repo.getPersonalBank(userId, kind);
       if (again) return again;
       throw err;
     }
   }
 
-  /** Bank trường duy nhất — tạo lười bởi người đầu tiên đủ quyền (admin/giáo viên). */
-  async ensureSchoolBank(actorId: string): Promise<QuestionBankRow> {
-    const existing = await this.repo.getSchoolBank();
+  /** Bank trường duy nhất cho một loại món — tạo lười bởi người đầu tiên đủ quyền (admin/giáo viên). */
+  async ensureSchoolBank(actorId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
+    const existing = await this.repo.getSchoolBank(kind);
     if (existing) return existing;
     const system = await this.contexts.ensureSystemContext();
     try {
       const bank = await this.buildBank(actorId, {
-        name: 'Ngân hàng trường', scope: 'school', ownerId: null, scopeRefId: null,
+        name: 'Ngân hàng trường', scope: 'school', bankKind: kind, ownerId: null, scopeRefId: null,
         parentContextId: system.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
       });
       await this.syncSchoolMembers(bank);
       return bank;
     } catch (err) {
-      const again = await this.repo.getSchoolBank();
+      const again = await this.repo.getSchoolBank(kind);
       if (again) return again;
       throw err;
     }
   }
 
-  /** Bank của một khoá — tạo lười, context bank là con của context khoá. */
-  async ensureCourseBank(actorId: string, courseId: string, name?: string): Promise<QuestionBankRow> {
-    const existing = await this.repo.getBankByScopeRef('course', courseId);
+  /** Bank của một khoá cho một loại món — tạo lười, context bank là con của context khoá. */
+  async ensureCourseBank(actorId: string, courseId: string, name?: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
+    const existing = await this.repo.getBankByScopeRef('course', courseId, kind);
     if (existing) return existing;
     const courseCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSE, courseId);
     if (!courseCtx) throw new NotFoundException({ message: `No context for course ${courseId}`, code: 'question.course_context_missing' });
     try {
       return await this.buildBank(actorId, {
-        name: name ?? 'Ngân hàng khoá học', scope: 'course', ownerId: null, scopeRefId: courseId,
+        name: name ?? 'Ngân hàng khoá học', scope: 'course', bankKind: kind, ownerId: null, scopeRefId: courseId,
         parentContextId: courseCtx.id, contextLevel: CONTEXT_LEVELS.COURSE,
       });
     } catch (err) {
-      const again = await this.repo.getBankByScopeRef('course', courseId);
+      const again = await this.repo.getBankByScopeRef('course', courseId, kind);
       if (again) return again;
       throw err;
     }
@@ -196,19 +200,23 @@ export class QuestionBanksService {
    * - school: chỉ người có `question:managecategory` tại hệ thống.
    * - course: scopeRefId = course; cổng `question:managecategory` tại khoá.
    */
-  async createBank(actorId: string, input: { name: string; scope: string; scopeRefId?: string; leaderId?: string }): Promise<BankView> {
+  async createBank(actorId: string, input: { name: string; scope: string; bankKind?: string; scopeRefId?: string; leaderId?: string }): Promise<BankView> {
     if (!(BANK_SCOPES as readonly string[]).includes(input.scope)) {
       throw new BadRequestException({ message: `Unknown bank scope ${input.scope}`, code: 'question.bank_scope_invalid' });
     }
+    const kind = (input.bankKind ?? 'question') as BankKind;
+    if (!(BANK_KINDS as readonly string[]).includes(kind)) {
+      throw new BadRequestException({ message: `Unknown bank kind ${String(input.bankKind)}`, code: 'question.bank_kind_invalid' });
+    }
     const scope = input.scope as BankScope;
     if (scope === 'personal') {
-      const bank = await this.ensurePersonalBank(actorId);
+      const bank = await this.ensurePersonalBank(actorId, kind);
       return this.bankView(actorId, bank);
     }
     if (scope === 'school') {
       const system = await this.contexts.ensureSystemContext();
       await this.evaluator.requireCapability(actorId, 'question:managecategory', system.id);
-      const bank = await this.ensureSchoolBank(actorId);
+      const bank = await this.ensureSchoolBank(actorId, kind);
       return this.bankView(actorId, bank);
     }
     if (scope === 'course') {
@@ -216,12 +224,12 @@ export class QuestionBanksService {
       const courseCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSE, input.scopeRefId);
       if (!courseCtx) throw new NotFoundException({ message: `No context for course ${input.scopeRefId}`, code: 'question.course_context_missing' });
       await this.evaluator.requireCapability(actorId, 'question:managecategory', courseCtx.id);
-      const bank = await this.ensureCourseBank(actorId, input.scopeRefId, input.name);
+      const bank = await this.ensureCourseBank(actorId, input.scopeRefId, input.name, kind);
       return this.bankView(actorId, bank);
     }
     // team
     if (!input.scopeRefId) throw new BadRequestException({ message: 'scopeRefId (cohort id) is required for a team bank', code: 'question.bank_scope_ref_required' });
-    const existing = await this.repo.getBankByScopeRef('team', input.scopeRefId);
+    const existing = await this.repo.getBankByScopeRef('team', input.scopeRefId, kind);
     if (existing) return this.bankView(actorId, existing);
     const cohort = await this.groups.getCohort(input.scopeRefId);
     const members = await this.groups.listCohortMembers(cohort.id);
@@ -236,7 +244,7 @@ export class QuestionBanksService {
     const parentCtx = await this.contexts.getContext(cohort.contextId).catch(() => undefined)
       ?? (await this.contexts.ensureSystemContext());
     const bank = await this.buildBank(actorId, {
-      name: input.name, scope: 'team', ownerId: leaderId, scopeRefId: cohort.id,
+      name: input.name, scope: 'team', bankKind: kind, ownerId: leaderId, scopeRefId: cohort.id,
       parentContextId: parentCtx.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
     });
     await this.syncTeamMembers(bank);
@@ -327,12 +335,12 @@ export class QuestionBanksService {
    * mình có quyền dùng câu. Bank cá nhân và bank trường được đảm bảo tồn
    * tại cho người đủ tư cách (tạo lười).
    */
-  async listBanks(actorId: string): Promise<BankView[]> {
-    await this.ensurePersonalBank(actorId);
+  async listBanks(actorId: string, kind: BankKind = 'question'): Promise<BankView[]> {
+    await this.ensurePersonalBank(actorId, kind);
     const isStaff = (await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES)).includes(actorId)
       || (await this.evaluator.isSiteAdmin(actorId));
-    if (isStaff) await this.ensureSchoolBank(actorId);
-    const all = await this.repo.listBanks();
+    if (isStaff) await this.ensureSchoolBank(actorId, kind);
+    const all = (await this.repo.listBanks()).filter((b) => b.bankKind === kind);
     const out: BankView[] = [];
     for (const bank of all) {
       await this.syncMembership(bank);
@@ -407,7 +415,7 @@ export class QuestionBanksService {
    * nhất và version `ready` mới nhất (đích của follow_latest / nút nâng).
    */
   async getQuestionBankInfo(questionId: string): Promise<{
-    bank: QuestionBankRow | null; entryStatus: string; latestVersion: number; latestVersionId: string | null;
+    bank: QuestionBankRow | null; bankExplicit: boolean; entryStatus: string; latestVersion: number; latestVersionId: string | null;
     latestReadyVersionId: string | null; latestReadyVersionNumber: number | null;
   } | null> {
     const q = await this.questionsRepo.getQuestion(questionId);
@@ -421,7 +429,12 @@ export class QuestionBanksService {
     const latestReady = ready.length ? ready[ready.length - 1]! : null;
     const latest = versions.length ? versions[versions.length - 1]! : null;
     return {
-      bank, entryStatus: entry.status, latestVersion: entry.latestVersion,
+      bank,
+      // bankExplicit: category gắn bank tường minh (bank_id) — phân biệt
+      // với bank suy từ context cho category cũ (QB-1), nơi hành vi mặc
+      // định của slot không đổi.
+      bankExplicit: category?.bankId != null && bank !== null && category.bankId === bank.id,
+      entryStatus: entry.status, latestVersion: entry.latestVersion,
       latestVersionId: latest?.id ?? null,
       latestReadyVersionId: latestReady?.id ?? null, latestReadyVersionNumber: latestReady?.version ?? null,
     };

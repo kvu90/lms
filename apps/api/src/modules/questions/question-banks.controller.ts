@@ -3,6 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionBanksService } from './question-banks.service';
+import { BANK_KINDS, type BankKind } from './question-banks.repository';
 import {
   approveContributionSchema, createContributionSchema, createQuestionBankSchema, rejectContributionSchema,
   type ApproveContributionDto, type CreateContributionDto, type CreateQuestionBankDto, type RejectContributionDto,
@@ -26,10 +27,13 @@ export class QuestionBanksController {
   }
   @Get()
   /**
-   * GET /question-banks — các bank actor vào được, kèm capability của actor tại từng bank (bộ chuyển bank cho UI).
+   * GET /question-banks?kind= — các bank actor vào được theo loại món
+   * (mặc định question; exam/matrix dùng cùng khuôn bank đa loại), kèm
+   * capability của actor tại từng bank (bộ chuyển bank cho UI).
    */
-  async list(@CurrentUser() actor: AuthenticatedUser) {
-    return this.banks.listBanks(actor.id);
+  async list(@Query('kind') kind: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    const k: BankKind = (BANK_KINDS as readonly string[]).includes(kind ?? '') ? (kind as BankKind) : 'question';
+    return this.banks.listBanks(actor.id, k);
   }
   @Get(':id')
   /**

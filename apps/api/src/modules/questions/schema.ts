@@ -15,20 +15,27 @@ import {
 import { sql } from 'drizzle-orm';
 
 /**
- * Ngân hàng câu hỏi có danh tính (feat Ngân hàng câu hỏi chung, issue #70,
- * QB-1) — lớp BANK nằm TRÊN category/context hiện hữu: mỗi bank sở hữu một
- * context riêng (context_id) để tái dùng nguyên PermissionEvaluator +
- * capability `question:*` tại context của bank; category thuộc bank qua
- * `question_categories.bank_id`, context của category thuộc bank chính là
- * context của bank. Bốn scope: personal (owner_id = chủ sở hữu), team
- * (scope_ref_id = cohort tổ chuyên môn, owner_id = tổ trưởng), school
- * (scope_ref_id null — bank trường duy nhất), course (scope_ref_id =
- * course id; context của bank là con của context khoá nên quyền tại khoá
- * thừa hưởng xuống bank theo cây context).
+ * Bảng BANK ĐA LOẠI dùng chung của hệ thống (giữ tên vật lý
+ * `question_banks` vì toàn bộ bề mặt QB đã quanh tên này — xem ghi nhận
+ * trên issue #70): mỗi dòng là một bank của MỘT loại món theo `bank_kind`
+ * (question / exam / matrix — research ngân hàng đề/ma trận điểm E-1/A.3)
+ * tại MỘT scope. Lớp bank nằm TRÊN category/context hiện hữu: mỗi bank
+ * sở hữu một context riêng (context_id) để tái dùng nguyên
+ * PermissionEvaluator + capability tại context của bank; category câu
+ * hỏi thuộc bank qua `question_categories.bank_id`, context của
+ * category thuộc bank chính là context của bank. Bốn scope: personal
+ * (owner_id = chủ sở hữu), team (scope_ref_id = cohort tổ chuyên môn,
+ * owner_id = tổ trưởng), school (scope_ref_id null — bank trường duy
+ * nhất cho mỗi kind), course (scope_ref_id = course id; context của
+ * bank là con của context khoá nên quyền tại khoá thừa hưởng xuống bank
+ * theo cây context). Ràng buộc duy nhất theo (scope, kind): mỗi chủ thể
+ * có đúng một bank cho mỗi loại món.
  */
 export const questionBanks = pgTable('question_banks', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
+  /** Loại món của bank: question | exam | matrix (mặc định question — toàn bộ hành vi QB-1..4). */
+  bankKind: text('bank_kind').notNull().default('question'),
   scope: text('scope').notNull(),
   ownerId: uuid('owner_id'),
   scopeRefId: uuid('scope_ref_id'),
@@ -40,11 +47,12 @@ export const questionBanks = pgTable('question_banks', {
 },
   (table) => [
       index('question_banks_scope_idx').on(table.scope),
+      index('question_banks_kind_idx').on(table.bankKind),
       index('question_banks_owner_id_idx').on(table.ownerId),
       index('question_banks_scope_ref_id_idx').on(table.scopeRefId),
-      uniqueIndex('question_banks_personal_owner_unique').on(table.ownerId).where(sql`scope = 'personal'`),
-      uniqueIndex('question_banks_scope_ref_unique').on(table.scope, table.scopeRefId).where(sql`scope_ref_id is not null`),
-      uniqueIndex('question_banks_school_unique').on(table.scope).where(sql`scope = 'school'`),
+      uniqueIndex('question_banks_personal_owner_kind_unique').on(table.ownerId, table.bankKind).where(sql`scope = 'personal'`),
+      uniqueIndex('question_banks_scope_ref_kind_unique').on(table.scope, table.scopeRefId, table.bankKind).where(sql`scope_ref_id is not null`),
+      uniqueIndex('question_banks_school_kind_unique').on(table.scope, table.bankKind).where(sql`scope = 'school'`),
   ]);
 
 /** Question categories live in a context (Moodle `question_categories`). */

@@ -1148,9 +1148,12 @@ export type CreateTeacherCommentBankEntry = z.infer<typeof createTeacherCommentB
 export const QUESTION_BANK_SCOPES = ['personal', 'team', 'school', 'course'] as const;
 
 /** Payload tạo bank: `scopeRefId` là cohort (team) hoặc course (course); `leaderId` là tổ trưởng của bank tổ (mặc định người tạo). */
+/** Loại món của bank đa loại (bank_kind): question là mặc định của feat Ngân hàng câu hỏi chung; exam/matrix dùng chung khuôn bank. */
+export const QUESTION_BANK_KINDS = ['question', 'exam', 'matrix'] as const;
 export const createQuestionBankSchema = z.strictObject({
   name: z.string().min(1),
   scope: z.enum(QUESTION_BANK_SCOPES),
+  bankKind: z.enum(QUESTION_BANK_KINDS).optional(),
   scopeRefId: uuidIdSchema.optional(),
   leaderId: uuidIdSchema.optional(),
 });

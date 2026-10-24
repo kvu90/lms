@@ -834,6 +834,7 @@ CREATE TABLE "question_bank_entries" (
 CREATE TABLE "question_banks" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"name" text NOT NULL,
+	"bank_kind" text DEFAULT 'question' NOT NULL,
 	"scope" text NOT NULL,
 	"owner_id" uuid,
 	"scope_ref_id" uuid,
@@ -2110,11 +2111,12 @@ CREATE INDEX "question_bank_contributions_proposer_idx" ON "question_bank_contri
 CREATE INDEX "question_bank_contributions_status_idx" ON "question_bank_contributions" ("status");--> statement-breakpoint
 CREATE INDEX "question_bank_entries_question_category_id_idx" ON "question_bank_entries" ("question_category_id");--> statement-breakpoint
 CREATE INDEX "question_banks_scope_idx" ON "question_banks" ("scope");--> statement-breakpoint
+CREATE INDEX "question_banks_kind_idx" ON "question_banks" ("bank_kind");--> statement-breakpoint
 CREATE INDEX "question_banks_owner_id_idx" ON "question_banks" ("owner_id");--> statement-breakpoint
 CREATE INDEX "question_banks_scope_ref_id_idx" ON "question_banks" ("scope_ref_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "question_banks_personal_owner_unique" ON "question_banks" ("owner_id") WHERE scope = 'personal';--> statement-breakpoint
-CREATE UNIQUE INDEX "question_banks_scope_ref_unique" ON "question_banks" ("scope","scope_ref_id") WHERE scope_ref_id is not null;--> statement-breakpoint
-CREATE UNIQUE INDEX "question_banks_school_unique" ON "question_banks" ("scope") WHERE scope = 'school';--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_personal_owner_kind_unique" ON "question_banks" ("owner_id","bank_kind") WHERE scope = 'personal';--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_scope_ref_kind_unique" ON "question_banks" ("scope","scope_ref_id","bank_kind") WHERE scope_ref_id is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_school_kind_unique" ON "question_banks" ("scope","bank_kind") WHERE scope = 'school';--> statement-breakpoint
 CREATE INDEX "question_categories_context_id_idx" ON "question_categories" ("context_id");--> statement-breakpoint
 CREATE INDEX "question_categories_parent_idx" ON "question_categories" ("parent");--> statement-breakpoint
 CREATE INDEX "question_categories_bank_id_idx" ON "question_categories" ("bank_id");--> statement-breakpoint

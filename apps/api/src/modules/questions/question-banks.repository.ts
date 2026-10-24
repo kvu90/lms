@@ -11,6 +11,10 @@ export type QuestionBankRow = typeof questionBanks.$inferSelect;
 export type ContributionRow = typeof questionBankContributions.$inferSelect;
 export type BankCategoryRow = typeof questionCategories.$inferSelect;
 
+/** Loại món của bank (bank_kind) — 'question' là mặc định của mọi luồng QB hiện hữu. */
+export const BANK_KINDS = ['question', 'exam', 'matrix'] as const;
+export type BankKind = typeof BANK_KINDS[number];
+
 @Injectable()
 /**
  * Kho dữ liệu lớp BANK của feat Ngân hàng câu hỏi chung (issue #70):
@@ -36,21 +40,22 @@ export class QuestionBanksRepository {
   async listBanks(): Promise<QuestionBankRow[]> {
     return this.db.select().from(questionBanks).orderBy(asc(questionBanks.createdAt), asc(questionBanks.id));
   }
-  /** Bank cá nhân của một chủ sở hữu (duy nhất theo ràng buộc partial unique). */
-  async getPersonalBank(ownerId: string): Promise<QuestionBankRow | undefined> {
+  /** Bank cá nhân của một chủ sở hữu cho một loại món (duy nhất theo ràng buộc partial unique (owner, kind)). */
+  async getPersonalBank(ownerId: string, kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
     const [row] = await this.db.select().from(questionBanks)
-      .where(and(eq(questionBanks.scope, 'personal'), eq(questionBanks.ownerId, ownerId)));
+      .where(and(eq(questionBanks.scope, 'personal'), eq(questionBanks.ownerId, ownerId), eq(questionBanks.bankKind, kind)));
     return row;
   }
-  /** Bank trường duy nhất. */
-  async getSchoolBank(): Promise<QuestionBankRow | undefined> {
-    const [row] = await this.db.select().from(questionBanks).where(eq(questionBanks.scope, 'school'));
+  /** Bank trường duy nhất cho một loại món. */
+  async getSchoolBank(kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
+    const [row] = await this.db.select().from(questionBanks)
+      .where(and(eq(questionBanks.scope, 'school'), eq(questionBanks.bankKind, kind)));
     return row;
   }
-  /** Bank theo (scope, scope_ref_id) — bank tổ theo cohort, bank khoá theo course. */
-  async getBankByScopeRef(scope: string, scopeRefId: string): Promise<QuestionBankRow | undefined> {
+  /** Bank theo (scope, scope_ref_id, kind) — bank tổ theo cohort, bank khoá theo course. */
+  async getBankByScopeRef(scope: string, scopeRefId: string, kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
     const [row] = await this.db.select().from(questionBanks)
-      .where(and(eq(questionBanks.scope, scope), eq(questionBanks.scopeRefId, scopeRefId)));
+      .where(and(eq(questionBanks.scope, scope), eq(questionBanks.scopeRefId, scopeRefId), eq(questionBanks.bankKind, kind)));
     return row;
   }
 
