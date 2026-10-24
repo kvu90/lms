@@ -5,7 +5,7 @@ import {
   type Course, type CourseContent, type CourseGroup, type CourseGrouping, type GradeItem,
 } from '@lms/contracts';
 import { AvailabilityEditor } from '#components/availability-editor';
-import { CurriculumFramePanel } from '#components/curriculum-frame-panel';
+import { CurriculumFramePanel, TextbookFramePanel } from '#components/curriculum-frame-panel';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
@@ -543,6 +543,13 @@ export function CourseBuilderPage() {
       </Card>
 
       <CurriculumFramePanel
+        courseId={courseId}
+        course={course}
+        sections={sections.map((s) => ({ section: s.section, name: s.name }))}
+        onApplied={() => void reload()}
+      />
+
+      <TextbookFramePanel
         courseId={courseId}
         course={course}
         sections={sections.map((s) => ({ section: s.section, name: s.name }))}

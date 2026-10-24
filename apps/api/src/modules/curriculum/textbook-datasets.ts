@@ -52,6 +52,21 @@ export interface TextbookDatasetFile {
   records: TextbookRecord[];
 }
 
+/** Hình dạng thô của một bản ghi trong file vendor (khoá snake_case như hồ sơ dữ liệu nguồn). */
+interface RawTextbookRecord {
+  id: string;
+  subject: string;
+  grade: number;
+  volume: number;
+  chapter_number: number;
+  chapter: string;
+  lesson_number: number | null;
+  lesson: string;
+  periods: number | null;
+  program_records: string[];
+  source: TextbookRecordSource;
+}
+
 /** Một dataset SGK nạp được: khoá ổn định + môn/khối đích + dataset chương trình dùng để phân giải ánh xạ. */
 export interface TextbookDatasetDef {
   key: string;
@@ -77,10 +92,29 @@ export function textbookDatasetByKey(key: string): TextbookDatasetDef | undefine
   return TEXTBOOK_DATASETS.find((d) => d.key === key);
 }
 
-/** Đọc + parse một file dataset SGK đã vendor (đường dẫn theo vị trí module, chạy được cả ở src lẫn dist). */
+/** Đọc + parse một file dataset SGK đã vendor (đường dẫn theo vị trí module, chạy được cả ở src lẫn dist); chuẩn hoá khoá snake_case của file sang hình dạng bản ghi dùng trong code. */
 export function loadTextbookDataset(def: TextbookDatasetDef): TextbookDatasetFile {
-  const raw = readFileSync(join(__dirname, 'textbook-data', def.fileName), 'utf8');
-  return JSON.parse(raw) as TextbookDatasetFile;
+  const raw = JSON.parse(readFileSync(join(__dirname, 'textbook-data', def.fileName), 'utf8')) as {
+    book: string; series: string; publisher: string; records: RawTextbookRecord[];
+  };
+  return {
+    book: raw.book,
+    series: raw.series,
+    publisher: raw.publisher,
+    records: raw.records.map((r) => ({
+      id: r.id,
+      subject: r.subject,
+      grade: r.grade,
+      volume: r.volume,
+      chapterNumber: r.chapter_number,
+      chapter: r.chapter,
+      lessonNumber: r.lesson_number,
+      lesson: r.lesson,
+      periods: r.periods,
+      programRecords: r.program_records,
+      source: r.source,
+    })),
+  };
 }
 
 /**

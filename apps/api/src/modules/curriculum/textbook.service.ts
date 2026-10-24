@@ -213,8 +213,8 @@ export class TextbookService implements OnModuleInit {
             textbookId: book.id, parentId: chapter.id, title: record.lesson, kind: 'lesson',
             volume: record.volume, lessonNumber: record.lessonNumber, position,
           }, tx as never);
-          for (const nodeId of mappingNodeIds) {
-            await this.repo.insertMapping({ textbookNodeId: lesson.id, curriculumNodeId: nodeId, learningOutcomeId: null }, tx as never);
+          for (const [mi, nodeId] of mappingNodeIds.entries()) {
+            await this.repo.insertMapping({ textbookNodeId: lesson.id, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx as never);
           }
           await this.repo.insertTextbookRecord({
             datasetKey: def.key, recordId: record.id, textbookId: book.id,
@@ -237,8 +237,8 @@ export class TextbookService implements OnModuleInit {
         }
         await this.repo.updateTextbookNode(reg.nodeId, patch, tx as never);
         await this.repo.deleteMappingsForNode(reg.nodeId, tx as never);
-        for (const nodeId of mappingNodeIds) {
-          await this.repo.insertMapping({ textbookNodeId: reg.nodeId, curriculumNodeId: nodeId, learningOutcomeId: null }, tx as never);
+        for (const [mi, nodeId] of mappingNodeIds.entries()) {
+          await this.repo.insertMapping({ textbookNodeId: reg.nodeId, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx as never);
         }
         await this.repo.updateTextbookRecord(reg.id, {
           textbookId: book.id, nodeId: reg.nodeId, contentHash: hash, source: record.source,

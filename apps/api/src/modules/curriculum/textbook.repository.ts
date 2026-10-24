@@ -75,13 +75,13 @@ export class TextbookRepository {
   /** Mọi dòng ánh xạ của một node bài. */
   async listMappingsForNode(textbookNodeId: string): Promise<TextbookMappingRow[]> {
     return this.db.select().from(curriculumTextbookMappings).where(eq(curriculumTextbookMappings.textbookNodeId, textbookNodeId))
-      .orderBy(asc(curriculumTextbookMappings.createdAt));
+      .orderBy(asc(curriculumTextbookMappings.position), asc(curriculumTextbookMappings.createdAt));
   }
   /** Mọi dòng ánh xạ của nhiều node bài (cho cây sách/đơn vị khung). */
   async listMappingsForNodes(textbookNodeIds: string[]): Promise<TextbookMappingRow[]> {
     if (textbookNodeIds.length === 0) return [];
     return this.db.select().from(curriculumTextbookMappings).where(inArray(curriculumTextbookMappings.textbookNodeId, textbookNodeIds))
-      .orderBy(asc(curriculumTextbookMappings.createdAt));
+      .orderBy(asc(curriculumTextbookMappings.position), asc(curriculumTextbookMappings.createdAt));
   }
   /** Xoá toàn bộ ánh xạ của một node bài (thay mới khi dataset đính chính). */
   async deleteMappingsForNode(textbookNodeId: string, tx?: DbTx): Promise<void> {

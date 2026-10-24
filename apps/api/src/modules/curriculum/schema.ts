@@ -302,6 +302,8 @@ export const curriculumTextbookMappings = pgTable('curriculum_textbook_mappings'
   textbookNodeId: uuid('textbook_node_id').notNull().references(() => curriculumTextbookNodes.id, { onDelete: 'cascade' }),
   curriculumNodeId: uuid('curriculum_node_id').references(() => curriculumNodes.id, { onDelete: 'cascade' }),
   learningOutcomeId: uuid('learning_outcome_id').references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  /** Thứ tự ánh xạ của bài (thứ tự dataset) — quyết định thứ tự YCCĐ suy qua ánh xạ; created_at trong cùng transaction không phân biệt được. */
+  position: integer('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [

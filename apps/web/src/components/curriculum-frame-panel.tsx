@@ -8,8 +8,8 @@ import '../i18n';
 import { apiJson } from '#lib/api';
 import { FrameUnitPicker } from './frame-picker';
 import {
-  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId,
-  type CurriculumSubject, type FrameUnit,
+  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId, fetchTextbookFrameChaptersFor,
+  type CurriculumSubject, type FrameUnit, type TextbookFrameChapter,
 } from '#lib/curriculum';
 
 /**
@@ -199,6 +199,140 @@ export function CurriculumFramePanel({
                 </Button>
               </>
             ) : null}
+          </>
+        )}
+        {message ? (
+          <p role="status" className="text-sm">
+            {message}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+/**
+ * Panel khung SGK (K0b) trong quản trị khoá: với môn × khối đã gắn cho
+ * khoá (panel khung chương trình ở trên), nạp các chủ đề của cuốn SGK
+ * đã nạp thành section mới — các bài thành mục của section, YCCĐ của
+ * mỗi bài suy qua ánh xạ sang chương trình và chụp tại lúc nạp (POST
+ * textbook-frame). Đường đọc đi kèm forCourseId = khoá này, cùng nhánh
+ * quyền với panel khung chương trình.
+ */
+export function TextbookFramePanel({
+  courseId,
+  course,
+  sections,
+  onApplied,
+}: {
+  courseId: string;
+  course: Course | null;
+  sections: { section: number; name: string | null }[];
+  onApplied: () => void;
+}) {
+  const { t } = useTranslation('app');
+  const [textbookId, setTextbookId] = useState<string | null>(null);
+  const [chapters, setChapters] = useState<TextbookFrameChapter[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [insertAt, setInsertAt] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected([]);
+    const subjectId = course?.subjectId ?? '';
+    const grade = course?.grade ?? null;
+    if (!subjectId || grade == null) {
+      setTextbookId(null);
+      setChapters([]);
+      return;
+    }
+    void fetchTextbookFrameChaptersFor(subjectId, grade, courseId)
+      .then(({ textbookId: found, chapters: foundChapters }) => {
+        setTextbookId(found);
+        setChapters(foundChapters);
+      })
+      .catch(() => {
+        setTextbookId(null);
+        setChapters([]);
+      });
+  }, [course?.subjectId, course?.grade, courseId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Nạp các chủ đề SGK đã chọn vào khoá ở vị trí đã chọn. */
+  async function applyTextbookFrame() {
+    if (!textbookId || selected.length === 0) return;
+    setMessage(null);
+    try {
+      const result = await apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/textbook-frame`, {
+        method: 'POST',
+        body: JSON.stringify({
+          textbookId,
+          chapterNodeIds: selected,
+          ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
+        }),
+      });
+      setMessage(t('textbookFrameApplied', { count: result.sections.length }));
+      setSelected([]);
+      onApplied();
+    } catch {
+      setMessage(t('textbookFrameApplyFailed'));
+    }
+  }
+
+  const selectClass = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('textbookFramePanelTitle')}</CardTitle>
+        <CardDescription>{t('textbookFramePanelDescription')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {!textbookId ? (
+          <p className="text-sm text-muted-foreground">{t('textbookFrameNoBook')}</p>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label>{t('textbookFrameChaptersTitle')}</Label>
+              <ul className="flex flex-col gap-1">
+                {chapters.map((chapter) => (
+                  <li key={chapter.nodeId} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      id={`textbook-frame-${chapter.nodeId}`}
+                      checked={selected.includes(chapter.nodeId)}
+                      onChange={(e) =>
+                        setSelected((prev) =>
+                          e.target.checked ? [...prev, chapter.nodeId] : prev.filter((x) => x !== chapter.nodeId),
+                        )
+                      }
+                    />
+                    <label htmlFor={`textbook-frame-${chapter.nodeId}`}>{chapter.title}</label>
+                    <span className="text-muted-foreground">
+                      {t('textbookFrameChapterMeta', { lessons: chapter.lessonCount, outcomes: chapter.outcomeCount })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="textbook-frame-insert-at">{t('frameInsertAt')}</Label>
+              <select
+                id="textbook-frame-insert-at"
+                className={selectClass}
+                value={insertAt}
+                onChange={(e) => setInsertAt(e.target.value)}
+              >
+                <option value="">{t('frameInsertEnd')}</option>
+                {sections
+                  .filter((s) => s.section >= 1)
+                  .map((s) => (
+                    <option key={s.section} value={s.section}>
+                      {t('frameInsertBefore', { number: s.section, name: s.name ?? '' })}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <Button type="button" disabled={selected.length === 0} onClick={() => void applyTextbookFrame()}>
+              {t('textbookFrameApply')}
+            </Button>
           </>
         )}
         {message ? (
