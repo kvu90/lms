@@ -78,6 +78,7 @@ export const quizPaperScans = pgTable('quiz_paper_scans', {
       index('quiz_paper_scans_batch_idx').on(table.batchId),
       index('quiz_paper_scans_status_idx').on(table.quizId, table.status),
       index('quiz_paper_scans_student_idx').on(table.studentId),
+      index('quiz_paper_scans_attempt_idx').on(table.attemptId),
       check('quiz_paper_scans_status_check', sql`${table.status} in ('needs_identity', 'needs_review', 'ready', 'recorded')`),
       check('quiz_paper_scans_identity_source_check', sql`${table.identitySource} is null or ${table.identitySource} in ('qr', 'bubbles', 'manual')`),
   ]);
