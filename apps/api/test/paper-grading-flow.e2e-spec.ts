@@ -1,0 +1,279 @@
+import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { computeSheetGeometry } from '../src/modules/paper-grading/domain/sheet-layout';
+import { renderSheetRgba, simulatePhoto, type SlotFill } from '../src/modules/paper-grading/domain/sheet-render';
+import { sheetQrPayload } from '../src/modules/paper-grading/domain/sheet-pdf';
+
+/**
+ * CAM-0 — Chấm bài giấy bằng camera (issue #112), luồng đầu-cuối:
+ * sinh lô phiếu (ghim layout + roster) → tải PDF → dựng ảnh chụp mô
+ * phỏng bằng chính template hệ thống → tải ảnh qua cổng chất lượng →
+ * OMR + định danh (QR / ô tô mã) → hai hàng chờ (ca mơ hồ, gán định
+ * danh) → ghi attempt "thi giấy" — điểm khớp chấm tay và attempt mang
+ * dấu nguồn giấy trong DB. Nguyên tắc cứng được kiểm ở đây: ảnh hỏng
+ * bị từ chối ở cổng, ca mơ hồ không bao giờ bị đoán, học sinh không
+ * chạm được bề mặt chấm giấy.
+ */
+describe('CAM-0 paper grading flow', () => {
+  let app: INestApplication;
+  let admin: string;
+  let pg: Client;
+
+  const CORRECT = [1, 0, 3, 2]; // vị trí đáp án đúng của 4 câu trắc nghiệm (0-based)
+  const OPTION_COUNTS = [4, 4, 4, 4, 2];
+
+  interface Ctx {
+    courseId: string;
+    quizId: string;
+    teacher: string;
+    studentA: { id: string; username: string };
+    studentB: { id: string; username: string };
+    tokenA: string;
+    batch: { id: string; variantCode: string; roster: { code: string; userId: string }[]; layout: { slot: number; optionCount: number }[] };
+  }
+  let ctx: Ctx;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    admin = await adminToken(app);
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const sectionId = await getFirstSectionId(app, admin, course.id);
+    const instance = await createEnrolInstance(app, admin, course.id);
+    const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
+    const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
+      .find((c) => c.contextLevel === 50 && c.instanceId === course.id)!;
+    const systemCtx = (contexts.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
+
+    const teacherUser = await createUserViaApi(app, admin);
+    await assignRole(app, admin, teacherUser.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
+    const teacher = (await login(app, teacherUser.username, STRONG_PASSWORD)).accessToken;
+
+    const studentA = await createUserViaApi(app, admin);
+    const studentB = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, studentA.id);
+    await enrolUser(app, admin, course.id, instance.id, studentB.id);
+    const tokenA = (await login(app, studentA.username, STRONG_PASSWORD)).accessToken;
+
+    const bankRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
+      .send({ name: 'Paper bank', contextId: systemCtx.id });
+    const bankCatId = bankRes.body.id as string;
+    async function makeQuestion(body: Record<string, unknown>): Promise<string> {
+      const res = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`).send({ categoryId: bankCatId, ...body });
+      if (res.status !== 201 && res.status !== 200) throw new Error(`create question failed: ${res.status} ${JSON.stringify(res.body)}`);
+      return res.body.question.id as string;
+    }
+    const mcIds: string[] = [];
+    for (let q = 0; q < 4; q++) {
+      mcIds.push(await makeQuestion({
+        qtype: 'multichoice', name: `MC${q + 1}`, questionText: `Question ${q + 1}?`, defaultMark: 2,
+        answers: [0, 1, 2, 3].map((k) => ({ text: `Option ${k}`, fraction: k === CORRECT[q] ? 1 : 0 })),
+        options: { single: true },
+      }));
+    }
+    const tfId = await makeQuestion({
+      qtype: 'truefalse', name: 'TF1', questionText: 'The sky is blue.', defaultMark: 2, answer: { correct: true },
+    });
+
+    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set('Authorization', `Bearer ${teacher}`)
+      .send({ sectionId, name: 'Paper Quiz', grade: 10, gradeMethod: 'highest' });
+    if (quizRes.status !== 201) throw new Error(`create quiz failed: ${quizRes.status} ${JSON.stringify(quizRes.body)}`);
+    const quizId = quizRes.body.id as string;
+    for (const qid of [...mcIds, tfId]) {
+      const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${teacher}`)
+        .send({ questionId: qid, maxMark: 2 });
+      if (slotRes.status !== 201 && slotRes.status !== 200) throw new Error(`add slot failed: ${slotRes.status} ${JSON.stringify(slotRes.body)}`);
+    }
+
+    const batchRes = await http(app).post(`/api/v1/quizzes/${quizId}/paper-batches`).set('Authorization', `Bearer ${teacher}`).send({});
+    if (batchRes.status !== 201) throw new Error(`create batch failed: ${batchRes.status} ${JSON.stringify(batchRes.body)}`);
+
+    ctx = {
+      courseId: course.id, quizId, teacher,
+      studentA: { id: studentA.id, username: studentA.username },
+      studentB: { id: studentB.id, username: studentB.username },
+      tokenA, batch: batchRes.body,
+    };
+  });
+  afterAll(async () => { await pg.end(); await app.close(); });
+
+  function photoFor(input: { qrText: string | null; bubbleCode: string | null; fills: Map<number, SlotFill>; seed: number; blurPasses?: number }): Buffer {
+    const geometry = computeSheetGeometry(OPTION_COUNTS);
+    const sheet = renderSheetRgba({ geometry, qrText: input.qrText, bubbleCode: input.bubbleCode, fills: input.fills });
+    return simulatePhoto(sheet, { seed: input.seed, blurPasses: input.blurPasses ?? 0 });
+  }
+
+  function upload(photo: Buffer, name: string, token: string) {
+    return http(app)
+      .post(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/scans`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('files', photo, name);
+  }
+
+  it('batch pins the layout and snapshots a student-only roster with bubble codes', () => {
+    expect(ctx.batch.variantCode).toBe('A');
+    expect(ctx.batch.layout).toHaveLength(5);
+    expect(ctx.batch.layout.map((l) => l.optionCount)).toEqual(OPTION_COUNTS);
+    const rosterIds = ctx.batch.roster.map((r) => r.userId).sort();
+    expect(rosterIds).toEqual([ctx.studentA.id, ctx.studentB.id].sort());
+    for (const entry of ctx.batch.roster) expect(entry.code).toMatch(/^\d{4}$/);
+  });
+
+  it('rejects a duplicate variant code for the same quiz', async () => {
+    const res = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ variantCode: 'A' });
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('paper.variant_exists');
+  });
+
+  it('serves personalized and blank sheet PDFs', async () => {
+    const all = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(all.status).toBe(200);
+    expect(all.headers['content-type']).toContain('application/pdf');
+    expect((all.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+    const blank = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf?kind=blank&copies=1`)
+      .set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(blank.status).toBe(200);
+  });
+
+  it('students cannot touch the paper grading surface at all', async () => {
+    const create = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.tokenA}`).send({});
+    expect(create.status).toBe(403);
+    const list = await http(app).get(`/api/v1/paper-scans?quizId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`);
+    expect(list.status).toBe(403);
+  });
+
+  it('personalized sheet: QR identity, all certain → ready → recorded with hand-checked grade', async () => {
+    const fills = new Map<number, SlotFill>([
+      [1, { choice: CORRECT[0]!, style: 'full' }],
+      [2, { choice: CORRECT[1]!, style: 'full' }],
+      [3, { choice: (CORRECT[2]! + 1) % 4, style: 'full' }], // sai một câu
+      [4, { choice: CORRECT[3]!, style: 'full' }],
+      [5, { choice: 0, style: 'full' }], // đúng/sai: Đ = đúng
+    ]);
+    const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, ctx.studentA.id), bubbleCode: null, fills, seed: 111 });
+    const res = await upload(photo, 'a.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as { fileName: string; stored: boolean; scan?: { id: string; status: string; studentId: string; identitySource: string } }[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.status).toBe('ready');
+    expect(outcome.scan!.studentId).toBe(ctx.studentA.id);
+    expect(outcome.scan!.identitySource).toBe('qr');
+
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(201);
+    expect(rec.body.status).toBe('recorded');
+    expect(rec.body.sumGrades).toBe(8); // 4 câu đúng × 2 điểm, 1 câu sai
+    expect(rec.body.attemptId).toBeTruthy();
+
+    const attempt = await pg.query<{ state: string; sum_grades: string; source: string }>(
+      `select state, sum_grades, applied_settings->>'source' as source from quiz_attempts where id = $1`, [rec.body.attemptId]);
+    expect(attempt.rows[0]!.state).toBe('finished');
+    expect(Number(attempt.rows[0]!.sum_grades)).toBe(8);
+    expect(attempt.rows[0]!.source).toBe('paper-scan');
+
+    // Ghi trùng một phiếu đã ghi → 409, không tạo attempt thứ hai.
+    const again = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe('paper.already_recorded');
+  });
+
+  it('blank sheet: bubble-code identity, one ambiguous answer waits for the teacher, then records full marks', async () => {
+    const codeB = ctx.batch.roster.find((r) => r.userId === ctx.studentB.id)!.code;
+    const fills = new Map<number, SlotFill>([
+      [1, { choice: CORRECT[0]!, style: 'full' }],
+      [2, { choice: CORRECT[1]!, style: 'light' }], // tô mờ → mơ hồ, không được đoán
+      [3, { choice: CORRECT[2]!, style: 'full' }],
+      [4, { choice: CORRECT[3]!, style: 'full' }],
+      [5, { choice: 0, style: 'full' }],
+    ]);
+    const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, null), bubbleCode: codeB, fills, seed: 222 });
+    const res = await upload(photo, 'b.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as { stored: boolean; scan?: { id: string; status: string; studentId: string; identitySource: string } }[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.studentId).toBe(ctx.studentB.id);
+    expect(outcome.scan!.identitySource).toBe('bubbles');
+    expect(outcome.scan!.status).toBe('needs_review');
+
+    // Chưa xác nhận ca mơ hồ thì không ghi được.
+    const early = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(early.status).toBe(409);
+    expect(early.body.code).toBe('paper.scan_not_ready');
+
+    const resolved = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/resolve-readings`)
+      .set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ readings: [{ slot: 2, chosen: CORRECT[1] }] });
+    expect(resolved.status).toBe(201);
+    expect(resolved.body.status).toBe('ready');
+
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(201);
+    expect(rec.body.sumGrades).toBe(10);
+  });
+
+  it('tampered bubble code lands in the identity queue; manual assignment fixes it; unrecorded scans can be deleted', async () => {
+    const good = ctx.batch.roster.find((r) => r.userId === ctx.studentA.id)!.code;
+    const tampered = `${good.slice(0, 3)}${(Number(good[3]) + 1) % 10}`;
+    const fills = new Map<number, SlotFill>([
+      [1, { choice: CORRECT[0]!, style: 'full' }],
+      [2, { choice: CORRECT[1]!, style: 'full' }],
+      [3, { choice: CORRECT[2]!, style: 'full' }],
+      [4, { choice: CORRECT[3]!, style: 'full' }],
+      [5, { choice: 0, style: 'full' }],
+    ]);
+    const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, null), bubbleCode: tampered, fills, seed: 333 });
+    const res = await upload(photo, 'c.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as { stored: boolean; scan?: { id: string; status: string; studentId: string | null; identityCode: string | null } }[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.status).toBe('needs_identity');
+    expect(outcome.scan!.studentId).toBeNull();
+    expect(outcome.scan!.identityCode).toBe(tampered);
+
+    // Gán học sinh ngoài roster → 400; gán đúng → ready.
+    const outsider = await createUserViaApi(app, admin);
+    const bad = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/assign-identity`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: outsider.id });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe('paper.student_not_in_roster');
+    const assigned = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/assign-identity`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: ctx.studentA.id });
+    expect(assigned.status).toBe(201);
+    expect(assigned.body.status).toBe('ready');
+    expect(assigned.body.identitySource).toBe('manual');
+
+    // Học sinh không xem được ảnh phiếu; giáo viên xem được.
+    const imgDenied = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.tokenA}`);
+    expect(imgDenied.status).toBe(403);
+    const imgOk = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(imgOk.status).toBe(200);
+
+    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(del.status).toBe(200);
+    const gone = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(gone.status).toBe(404);
+  });
+
+  it('quality gate rejects a heavily blurred photo outright (422, nothing stored)', async () => {
+    const fills = new Map<number, SlotFill>([[1, { choice: 0, style: 'full' }]]);
+    const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, ctx.studentA.id), bubbleCode: null, fills, seed: 444, blurPasses: 8 });
+    const res = await upload(photo, 'blur.png', ctx.teacher);
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('paper.all_images_rejected');
+    const queue = await http(app).get(`/api/v1/paper-scans?quizId=${ctx.quizId}&status=needs_identity`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(queue.status).toBe(200);
+    expect((queue.body as unknown[]).length).toBe(0);
+  });
+});

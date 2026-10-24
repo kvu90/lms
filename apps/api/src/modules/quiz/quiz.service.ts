@@ -2780,10 +2780,13 @@ export class QuizService {
         : { version: view.latestVersion, answers: view.answers, options: view.options };
       let answerIds: string[];
       if (qtype === 'truefalse') {
-        const tf = (content.options as { truefalse?: { trueanswerId: string; falseanswerId: string } } | null)?.truefalse;
-        if (!tf) throw new UnprocessableEntityException({ message: 'True/false question is missing its true/false answer mapping', code: 'paper.bad_truefalse' });
+        // Options view của truefalse là { trueAnswer, falseAnswer } (xem
+        // QuestionsService.optionsView) — trỏ thẳng vào 2 dòng đáp án
+        // đúng/sai của version.
+        const tf = content.options as { trueAnswer?: string; falseAnswer?: string } | null;
+        if (!tf?.trueAnswer || !tf?.falseAnswer) throw new UnprocessableEntityException({ message: 'True/false question is missing its true/false answer mapping', code: 'paper.bad_truefalse' });
         // Thứ tự in của câu đúng/sai: ô 1 = Đ (trueanswer), ô 2 = S (falseanswer).
-        answerIds = [tf.trueanswerId, tf.falseanswerId];
+        answerIds = [tf.trueAnswer, tf.falseAnswer];
       } else {
         if (content.answers.length < 2 || content.answers.length > 5) {
           throw new UnprocessableEntityException({ message: 'A printed multichoice question needs 2–5 answers', code: 'paper.bad_option_count' });
