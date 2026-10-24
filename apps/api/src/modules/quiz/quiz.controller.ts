@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
@@ -271,6 +271,33 @@ export class ExamMatricesController {
    */
   async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.generateQuizFromMatrix(actor.id, id, dto);
+  }
+  @Get(':id/specification')
+  /**
+   * GET /exam-matrices/:id/specification — view model bản đặc tả theo
+   * Mẫu 2 CV 7991; truyền `quizId` của đề đã sinh từ ma trận này để có
+   * vị trí câu thật.
+   */
+  async specification(@Param('id', { schema: uuidIdSchema }) id: string, @Query('quizId') quizId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    if (quizId !== undefined && !uuidIdSchema.safeParse(quizId).success) {
+      throw new BadRequestException({ message: 'quizId must be a uuid', code: 'quiz.spec_quiz_invalid' });
+    }
+    return this.quiz.getMatrixSpecification(actor.id, id, quizId);
+  }
+  @Get(':id/specification/export')
+  /**
+   * GET /exam-matrices/:id/specification/export?format=xlsx|docx —
+   * xuất bản đặc tả ra file nộp/lưu hồ sơ (kèm `quizId` khi cần vị trí
+   * câu thật).
+   */
+  async exportSpecification(@Param('id', { schema: uuidIdSchema }) id: string, @Query('format') format: string | undefined, @Query('quizId') quizId: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    if (quizId !== undefined && !uuidIdSchema.safeParse(quizId).success) {
+      throw new BadRequestException({ message: 'quizId must be a uuid', code: 'quiz.spec_quiz_invalid' });
+    }
+    const { filename, contentType, buffer } = await this.quiz.exportMatrixSpecification(actor.id, id, format ?? 'xlsx', quizId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }
 

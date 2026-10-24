@@ -39,6 +39,7 @@
     "bullmq": "^6.4.0",
     "cache-manager": "^7.2.9",
     "compression": "^1.8.2",
+    "docx": "^9.14.0",
     "drizzle-kit": "1.0.0-rc.5",
     "drizzle-orm": "1.0.0-rc.5",
     "exceljs": "^4.4.0",

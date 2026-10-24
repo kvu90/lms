@@ -49,6 +49,105 @@ export const REVIEW_WINDOW = {
 /** Khoảng cửa sổ "ngay sau nộp" tính bằng mili-giây. */
 export const REVIEW_IMMEDIATELY_AFTER_MS = 2 * 60 * 1000;
 
+/** Nhãn hiển thị của các dạng câu trong tài liệu đặc tả. */
+export const QTYPE_LABELS: Record<string, string> = {
+  multichoice: 'Trắc nghiệm',
+  truefalse: 'Đúng–Sai',
+  shortanswer: 'Trả lời ngắn',
+  essay: 'Tự luận',
+};
+
+/** Nhãn hiển thị của các mức nhận thức trong tài liệu đặc tả. */
+export const LEVEL_LABELS: Record<string, string> = {
+  biet: 'Biết',
+  hieu: 'Hiểu',
+  van_dung: 'Vận dụng',
+  van_dung_cao: 'Vận dụng cao',
+};
+
+/** View model bản đặc tả (mục C.6) — nguồn duy nhất cho cả JSON lẫn hai định dạng xuất file. */
+export interface MatrixSpecification {
+  matrix: { id: string; name: string; presetKind: string; totalScore: number; levelSet: string };
+  subject: { id: string; name: string };
+  curriculum: { id: string; grade: number };
+  purpose: string;
+  structure: { qtype: string; questionCount: number; score: number; percent: number }[];
+  topics: {
+    topicId: string | null;
+    topicTitle: string;
+    nodes: {
+      nodeId: string;
+      nodeTitle: string;
+      outcomes: {
+        outcomeId: string;
+        content: string;
+        sourceKind: string;
+        sourceRef: string | null;
+        /** Nguyên văn YCCĐ chương trình (bản thân outcome khi là 'program', hoặc outcome gốc khi là 'derived'). */
+        programContent: string | null;
+        /** Bản tách mức của tổ chuyên môn khi outcome của ô là bản 'derived'. */
+        derivedContent: string | null;
+        cells: {
+          cellId: string;
+          cognitiveLevel: string;
+          qtype: string;
+          questionCount: number;
+          cellScore: number;
+          minutes: number | null;
+          slotNumbers: number[] | null;
+          drawNote: string | null;
+          /** Để dành cho nhãn năng lực (điểm nối curriculum ↔ competency) — chưa có cơ chế gắn mã ở chặng này. */
+          competencyRefs: string[];
+        }[];
+      }[];
+    }[];
+  }[];
+  totals: {
+    byForm: { qtype: string; questionCount: number; score: number; percent: number }[];
+    totalScore: number;
+    totalQuestions: number;
+  };
+  quiz: { id: string; name: string } | null;
+}
+
+/** Bung view model đặc tả thành các dòng phẳng cho bảng xuất file (một dòng = một ô ma trận). */
+export function flattenSpecification(spec: MatrixSpecification): {
+  index: number; topicTitle: string; nodeTitle: string; outcomeText: string;
+  levelLabel: string; qtypeLabel: string; questionCount: number; cellScore: number; slotText: string;
+}[] {
+  const rows: {
+    index: number; topicTitle: string; nodeTitle: string; outcomeText: string;
+    levelLabel: string; qtypeLabel: string; questionCount: number; cellScore: number; slotText: string;
+  }[] = [];
+  let index = 0;
+  for (const topic of spec.topics) {
+    for (const node of topic.nodes) {
+      for (const outcome of node.outcomes) {
+        for (const cell of outcome.cells) {
+          index += 1;
+          const slotText = cell.slotNumbers && cell.slotNumbers.length
+            ? (cell.drawNote ? `${cell.drawNote} (vị trí ${cell.slotNumbers.join(', ')})` : cell.slotNumbers.join(', '))
+            : (cell.drawNote ?? '');
+          rows.push({
+            index,
+            topicTitle: topic.topicTitle,
+            nodeTitle: node.nodeTitle,
+            outcomeText: outcome.derivedContent
+              ? `${outcome.programContent ?? ''}\n(Tách mức: ${outcome.derivedContent})`
+              : (outcome.programContent ?? outcome.content),
+            levelLabel: LEVEL_LABELS[cell.cognitiveLevel] ?? cell.cognitiveLevel,
+            qtypeLabel: QTYPE_LABELS[cell.qtype] ?? cell.qtype,
+            questionCount: cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount,
+            cellScore: cell.cellScore,
+            slotText,
+          });
+        }
+      }
+    }
+  }
+  return rows;
+}
+
 /** Cài đặt thi HIỆU LỰC của một người dùng sau khi hợp nhất override (user > nhóm > quiz) — xem resolveEffectiveSettings. */
 export interface EffectiveQuizSettings {
   timeOpen: Date | null;
@@ -1383,6 +1482,209 @@ export class QuizService {
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slots_unclustered', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
     return this.quizView(quiz);
+  }
+
+  // --- bản đặc tả (Chặng 3, mục C.6) ------------------------------------------------
+
+  /**
+   * Dựng view model bản đặc tả theo Mẫu 2 của phụ lục CV 7991: hàng
+   * Chủ đề → Nội dung/đơn vị kiến thức → YCCĐ (nguyên văn chương trình
+   * `source_kind='program'` + bản tách mức của tổ chuyên môn khi YCCĐ
+   * của ô là bản `derived`), cột số câu/điểm theo dạng × mức từ các ô;
+   * khi đã sinh đề (quizId của đề sinh từ chính ma trận này) thì thêm
+   * vị trí slot thật — đề per_student ghi rõ rút ngẫu nhiên theo ô.
+   * Chân bảng: tổng theo dạng (điểm + %). Trường nhãn năng lực để dành
+   * trong view model (competencyRefs) — chặng này chưa có cơ chế gắn
+   * mã năng lực vào outcome nên luôn rỗng.
+   */
+  async getMatrixSpecification(actorId: string, matrixId: string, quizId?: string): Promise<MatrixSpecification> {
+    const matrix = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.viewMatrix);
+    const subject = await this.curriculum.getSubject(actorId, matrix.subjectId);
+    const curriculum = await this.curriculum.getCurriculum(actorId, matrix.curriculumId);
+    const cells = await this.repo.listMatrixCells(matrix.id);
+    let quiz: QuizRow | null = null;
+    let slots: QuizSlotRow[] = [];
+    if (quizId) {
+      quiz = await this.getQuiz(quizId);
+      if (quiz.matrixId !== matrix.id) {
+        throw new BadRequestException({ message: 'The quiz was not generated from this matrix', code: 'quiz.spec_quiz_mismatch' });
+      }
+      slots = await this.repo.listSlots(quiz.id);
+    }
+    const nodeCache = new Map<string, Awaited<ReturnType<CurriculumService['getNode']>>>();
+    const getNode = async (id: string) => {
+      let node = nodeCache.get(id);
+      if (!node) {
+        node = await this.curriculum.getNode(actorId, id);
+        nodeCache.set(id, node);
+      }
+      return node;
+    };
+    interface OutcomeAcc {
+      outcomeId: string; content: string; sourceKind: string; sourceRef: string | null;
+      programContent: string | null; derivedContent: string | null;
+      cells: MatrixSpecification['topics'][number]['nodes'][number]['outcomes'][number]['cells'];
+    }
+    const topicMap = new Map<string, { topicId: string | null; topicTitle: string; nodes: Map<string, { nodeId: string; nodeTitle: string; outcomes: Map<string, OutcomeAcc> }> }>();
+    const byForm = new Map<string, { qtype: string; questionCount: number; score: number }>();
+    let totalQuestions = 0;
+    for (const cell of cells) {
+      const outcome = await this.curriculum.getOutcome(actorId, cell.learningOutcomeId);
+      const node = await getNode(outcome.nodeId);
+      // Chủ đề = node tổ tiên có kind 'topic'; không có thì lấy node gốc cao nhất của chuỗi.
+      let topic = node;
+      let cursor = node;
+      while (cursor.parentId) {
+        const parent = await getNode(cursor.parentId);
+        if (parent.kind === 'topic' && topic.kind !== 'topic') topic = parent;
+        cursor = parent;
+      }
+      if (topic.kind !== 'topic') topic = cursor;
+      const topicKey = topic.id;
+      let topicAcc = topicMap.get(topicKey);
+      if (!topicAcc) {
+        topicAcc = { topicId: topic.id, topicTitle: topic.title, nodes: new Map() };
+        topicMap.set(topicKey, topicAcc);
+      }
+      let nodeAcc = topicAcc.nodes.get(node.id);
+      if (!nodeAcc) {
+        nodeAcc = { nodeId: node.id, nodeTitle: node.title, outcomes: new Map() };
+        topicAcc.nodes.set(node.id, nodeAcc);
+      }
+      let outcomeAcc = nodeAcc.outcomes.get(outcome.id);
+      if (!outcomeAcc) {
+        let programContent: string | null = null;
+        let derivedContent: string | null = null;
+        if (outcome.sourceKind === 'derived' && outcome.derivedFromId) {
+          const parent = await this.curriculum.getOutcome(actorId, outcome.derivedFromId).catch(() => undefined);
+          programContent = parent?.content ?? null;
+          derivedContent = outcome.content;
+        } else {
+          programContent = outcome.content;
+        }
+        outcomeAcc = {
+          outcomeId: outcome.id, content: outcome.content, sourceKind: outcome.sourceKind,
+          sourceRef: outcome.sourceRef, programContent, derivedContent, cells: [],
+        };
+        nodeAcc.outcomes.set(outcome.id, outcomeAcc);
+      }
+      const cellSlots = slots.filter((s) => s.matrixCellId === cell.id);
+      const perStudent = cellSlots.length > 0 && cellSlots.every((s) => s.questionId === null);
+      outcomeAcc.cells.push({
+        cellId: cell.id, cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
+        questionCount: cell.questionCount, cellScore: cell.cellScore, minutes: cell.minutes,
+        slotNumbers: quiz ? cellSlots.map((s) => s.slot).sort((a, b) => a - b) : null,
+        drawNote: quiz && perStudent ? 'Rút ngẫu nhiên theo ô' : null,
+        competencyRefs: [],
+      });
+      const formAcc = byForm.get(cell.qtype) ?? { qtype: cell.qtype, questionCount: 0, score: 0 };
+      formAcc.questionCount += cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount;
+      formAcc.score += cell.cellScore;
+      byForm.set(cell.qtype, formAcc);
+      totalQuestions += cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount;
+    }
+    const totalScore = cells.reduce((s, c) => s + c.cellScore, 0);
+    const formTotals = [...byForm.values()].map((f) => ({
+      ...f, percent: totalScore > 0 ? Math.round((f.score / totalScore) * 1000) / 10 : 0,
+    }));
+    const purpose = matrix.presetKind === 'qd764_graduation'
+      ? `Đề thi tốt nghiệp THPT môn ${subject.name} (lớp ${curriculum.grade}) xây dựng theo cấu trúc định dạng đề thi của Quyết định 764/QĐ-BGDĐT, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`
+      : matrix.presetKind === 'cv7991_periodic'
+        ? `Đề kiểm tra định kỳ môn ${subject.name} (lớp ${curriculum.grade}) xây dựng theo hướng dẫn của Công văn 7991/BGDĐT-GDTrH, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`
+        : `Đề kiểm tra môn ${subject.name} (lớp ${curriculum.grade}) do tổ chuyên môn xây dựng theo ma trận riêng, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`;
+    return {
+      matrix: { id: matrix.id, name: matrix.name, presetKind: matrix.presetKind, totalScore: matrix.totalScore, levelSet: matrix.levelSet },
+      subject: { id: subject.id, name: subject.name },
+      curriculum: { id: curriculum.id, grade: curriculum.grade },
+      purpose,
+      structure: formTotals,
+      topics: [...topicMap.values()].map((t) => ({
+        topicId: t.topicId, topicTitle: t.topicTitle,
+        nodes: [...t.nodes.values()].map((n) => ({
+          nodeId: n.nodeId, nodeTitle: n.nodeTitle,
+          outcomes: [...n.outcomes.values()],
+        })),
+      })),
+      totals: { byForm: formTotals, totalScore, totalQuestions },
+      quiz: quiz ? { id: quiz.id, name: quiz.name } : null,
+    };
+  }
+
+  /**
+   * Xuất bản đặc tả ra file (xlsx qua exceljs — cùng hạ tầng với xuất
+   * điểm vnEdu; docx qua gói docx): cùng một view model, hai định dạng
+   * nộp/lưu hồ sơ. Định dạng khác → 400 quiz.spec_export_format.
+   */
+  async exportMatrixSpecification(actorId: string, matrixId: string, format: string, quizId?: string): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
+    if (format !== 'xlsx' && format !== 'docx') {
+      throw new BadRequestException({ message: 'Specification export format must be xlsx or docx', code: 'quiz.spec_export_format' });
+    }
+    const spec = await this.getMatrixSpecification(actorId, matrixId, quizId);
+    const flat = flattenSpecification(spec);
+    if (format === 'xlsx') {
+      const ExcelJS = await import('exceljs');
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Bản đặc tả');
+      ws.columns = [
+        { width: 6 }, { width: 24 }, { width: 28 }, { width: 46 },
+        { width: 12 }, { width: 14 }, { width: 9 }, { width: 9 }, { width: 16 },
+      ];
+      ws.mergeCells('A1:I1');
+      ws.getCell('A1').value = `BẢN ĐẶC TẢ ĐỀ KIỂM TRA — ${spec.subject.name.toUpperCase()} LỚP ${spec.curriculum.grade}`;
+      ws.getCell('A1').font = { bold: true, size: 14 };
+      ws.mergeCells('A2:I2');
+      ws.getCell('A2').value = `Ma trận: ${spec.matrix.name}`;
+      ws.mergeCells('A3:I3');
+      ws.getCell('A3').value = spec.purpose;
+      ws.getCell('A3').alignment = { wrapText: true, vertical: 'top' };
+      ws.addRow([]);
+      const header = ws.addRow(['STT', 'Chủ đề', 'Nội dung / Đơn vị kiến thức', 'Yêu cầu cần đạt', 'Mức', 'Dạng câu hỏi', 'Số câu', 'Điểm', 'Số thứ tự câu trong đề']);
+      header.font = { bold: true };
+      for (const row of flat) {
+        ws.addRow([
+          row.index, row.topicTitle, row.nodeTitle, row.outcomeText, row.levelLabel,
+          row.qtypeLabel, row.questionCount, row.cellScore, row.slotText,
+        ]);
+      }
+      ws.addRow([]);
+      ws.addRow(['', '', '', 'Tổng theo dạng câu hỏi', '', '', '', '', '']);
+      for (const f of spec.totals.byForm) {
+        ws.addRow(['', '', '', QTYPE_LABELS[f.qtype] ?? f.qtype, '', '', f.questionCount, f.score, `${f.percent}%`]);
+      }
+      ws.addRow(['', '', '', 'Tổng cộng', '', '', spec.totals.totalQuestions, spec.totals.totalScore, '']);
+      const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+      return { filename: `ban-dac-ta-${spec.matrix.id.slice(0, 8)}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer };
+    }
+    const docx = await import('docx');
+    const cellOf = (text: string) => new docx.TableCell({ children: [new docx.Paragraph(text)] });
+    const table = new docx.Table({
+      rows: [
+        new docx.TableRow({
+          children: ['STT', 'Chủ đề', 'Nội dung / Đơn vị kiến thức', 'Yêu cầu cần đạt', 'Mức', 'Dạng câu hỏi', 'Số câu', 'Điểm', 'Số thứ tự câu trong đề'].map(cellOf),
+        }),
+        ...flat.map((row) => new docx.TableRow({
+          children: [
+            String(row.index), row.topicTitle, row.nodeTitle, row.outcomeText, row.levelLabel,
+            row.qtypeLabel, String(row.questionCount), String(row.cellScore), row.slotText,
+          ].map(cellOf),
+        })),
+      ],
+    });
+    const doc = new docx.Document({
+      sections: [{
+        children: [
+          new docx.Paragraph({ children: [new docx.TextRun({ text: `BẢN ĐẶC TẢ ĐỀ KIỂM TRA — ${spec.subject.name.toUpperCase()} LỚP ${spec.curriculum.grade}`, bold: true })] }),
+          new docx.Paragraph(`Ma trận: ${spec.matrix.name}`),
+          new docx.Paragraph(spec.purpose),
+          table,
+          new docx.Paragraph(`Tổng cộng: ${spec.totals.totalQuestions} câu — ${spec.totals.totalScore} điểm.`),
+          ...spec.totals.byForm.map((f) => new docx.Paragraph(`${QTYPE_LABELS[f.qtype] ?? f.qtype}: ${f.questionCount} câu, ${f.score} điểm (${f.percent}%).`)),
+        ],
+      }],
+    });
+    const buffer = await docx.Packer.toBuffer(doc);
+    return { filename: `ban-dac-ta-${spec.matrix.id.slice(0, 8)}.docx`, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer };
   }
 
   // --- thông tin cho người xem ---------------------------------------------------
