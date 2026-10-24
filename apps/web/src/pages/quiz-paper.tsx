@@ -99,7 +99,7 @@ function RowCrop({ scanId, centers }: { scanId: string; centers: { x: number; y:
 
 export default function QuizPaperPage() {
   const { id: courseId, quizId } = useParams();
-  const { t } = useTranslation();
+  const { t } = useTranslation('app');
   const [batches, setBatches] = useState<PaperBatch[] | null>(null);
   const [scans, setScans] = useState<PaperScan[] | null>(null);
   const [failed, setFailed] = useState(false);
