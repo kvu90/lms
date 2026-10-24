@@ -44,8 +44,9 @@ export interface SpaceView {
  * Trên khung Content Bank sẵn có (bảng/API/Files): học liệu mang metadata
  * chương trình (môn–khối–node–YCCĐ) + loại học liệu, sống trong một không
  * gian (cá nhân / tổ chuyên môn qua cohort / toàn trường) và học liệu chia
- * sẻ phải qua duyệt của tổ trưởng (`contentbank:reviewcontent` tại context
- * hệ thống) mới hiện với đồng nghiệp. Học liệu chưa duyệt KHÔNG hiện ở
+ * sẻ phải qua duyệt của tổ trưởng (`contentbank:reviewcontent` +
+ * `cohort:manage` tại context của tổ; cấp trường là reviewcontent tại
+ * context hệ thống) mới hiện với đồng nghiệp. Học liệu chưa duyệt KHÔNG hiện ở
  * scope tổ/trường với người ngoài (chỉ tác giả + người duyệt thấy).
  * Ngân hàng câu hỏi là kho TÁCH RIÊNG: loại `question_set` chỉ THAM CHIẾU
  * category của ngân hàng câu hỏi, không chứa bản sao câu hỏi.
@@ -101,13 +102,24 @@ export class ContentBankService {
     }
   }
 
-  /** Người duyệt: có contentbank:reviewcontent tại hệ thống; với scope org phải là thành viên tổ hoặc có cohort:manage. */
+  /**
+   * Người duyệt (tổ trưởng):
+   * - scope tổ: có `contentbank:reviewcontent` VÀ `cohort:manage` tại
+   *   context của chính tổ đó — giáo viên thường (editingteacher) là
+   *   thành viên tổ KHÔNG tự thành người duyệt; tổ trưởng là người được
+   *   gán vai quản lý tại context của tổ. Site admin qua bypass.
+   * - scope trường: có reviewcontent tại context hệ thống.
+   */
   async canReview(userId: string, row: ContentRow): Promise<boolean> {
-    const sys = await this.systemContextId();
-    if (!(await this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', sys))) return false;
-    if (row.scope !== 'org' || !row.spaceId) return true;
-    if (await this.repo.isCohortMember(row.spaceId, userId)) return true;
-    return this.evaluator.hasCapability(userId, 'cohort:manage', sys);
+    if (row.scope === 'org' && row.spaceId) {
+      const cohortRow = await this.repo.getCohort(row.spaceId);
+      if (!cohortRow) return false;
+      return (
+        (await this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', cohortRow.contextId)) &&
+        (await this.evaluator.hasCapability(userId, 'cohort:manage', cohortRow.contextId))
+      );
+    }
+    return this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', await this.systemContextId());
   }
 
   // --- quyền xem ---------------------------------------------------------------
@@ -116,20 +128,27 @@ export class ContentBankService {
    * Ai được xem một học liệu:
    * - tác giả: luôn được;
    * - người có editcontent tại context neo: được (quản trị);
-   * - cá nhân: chỉ tác giả (và quản trị như trên);
    * - tổ/trường đã duyệt (approved): thành viên tổ (org) / người có
    *   viewcontent tại hệ thống (school);
-   * - tổ/trường chưa duyệt: chỉ tác giả + người duyệt — KHÔNG lộ ra ngoài.
+   * - tổ/trường chưa duyệt: chỉ tác giả + người duyệt — KHÔNG lộ ra ngoài,
+   *   kể cả khi visibility bị đặt public thủ công;
+   * - cá nhân (gồm các bản ghi kiểu cũ neo ở context khoá): giữ hành vi
+   *   nền cũ — public + viewcontent tại context neo thì xem được.
    */
   async canView(userId: string, row: ContentRow): Promise<boolean> {
     if (row.creatorId === userId) return true;
-    if (await this.evaluator.hasCapability(userId, 'contentbank:editcontent', row.contextId)) return true;
-    if (row.scope === 'personal') return false;
-    if (row.reviewStatus === 'approved') {
+    if (row.scope === 'org' || row.scope === 'school') {
+      // Kho chia sẻ KHÔNG dùng lối tắt editcontent tại context neo (neo ở
+      // hệ thống nên mọi vai trò cấp hệ thống sẽ lọt): chưa duyệt chỉ tác
+      // giả + người duyệt; đã duyệt mới mở cho đúng đối tượng của scope.
+      // Site admin vẫn qua được nhờ bypass trong evaluator (canReview).
+      if (await this.canReview(userId, row)) return true;
+      if (row.reviewStatus !== 'approved') return false;
       if (row.scope === 'org') return row.spaceId ? this.repo.isCohortMember(row.spaceId, userId) : false;
       return this.evaluator.hasCapability(userId, 'contentbank:viewcontent', await this.systemContextId());
     }
-    return this.canReview(userId, row);
+    if (await this.evaluator.hasCapability(userId, 'contentbank:editcontent', row.contextId)) return true;
+    return row.visibility === 'public' && this.evaluator.hasCapability(userId, 'contentbank:viewcontent', row.contextId);
   }
 
   async getFor(userId: string, id: string): Promise<ContentRow> {
@@ -143,19 +162,25 @@ export class ContentBankService {
   /** Các không gian người dùng thấy ở Kho học liệu: của tôi + các tổ là thành viên (+ mọi tổ nếu là người duyệt) + toàn trường. */
   async listSpaces(userId: string): Promise<SpaceView[]> {
     const sys = await this.systemContextId();
-    const reviewer = await this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', sys);
-    const mine = await this.repo.listCohortsForUser(userId);
+    const schoolReviewer = await this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', sys);
+    const orgReview = async (contextId: string): Promise<boolean> =>
+      (await this.evaluator.hasCapability(userId, 'contentbank:reviewcontent', contextId)) &&
+      (await this.evaluator.hasCapability(userId, 'cohort:manage', contextId));
     const byId = new Map<string, SpaceView>();
-    for (const c of mine) byId.set(c.id, { scope: 'org', spaceId: c.id, name: c.name, canReview: reviewer });
-    if (reviewer) {
+    for (const c of await this.repo.listCohortsForUser(userId)) {
+      byId.set(c.id, { scope: 'org', spaceId: c.id, name: c.name, canReview: await orgReview(c.contextId) });
+    }
+    // Chỉ người quản trị cohort ở cấp hệ thống mới thấy MỌI tổ; tổ trưởng
+    // chỉ thấy tổ của mình (đúng phạm vi duyệt của họ).
+    if (await this.evaluator.hasCapability(userId, 'cohort:manage', sys)) {
       for (const c of await this.repo.listAllCohorts()) {
-        if (!byId.has(c.id)) byId.set(c.id, { scope: 'org', spaceId: c.id, name: c.name, canReview: true });
+        if (!byId.has(c.id)) byId.set(c.id, { scope: 'org', spaceId: c.id, name: c.name, canReview: await orgReview(c.contextId) });
       }
     }
     return [
       { scope: 'personal', spaceId: null, name: 'Của tôi', canReview: false },
       ...byId.values(),
-      { scope: 'school', spaceId: null, name: 'Toàn trường', canReview: reviewer },
+      { scope: 'school', spaceId: null, name: 'Toàn trường', canReview: schoolReviewer },
     ];
   }
 
@@ -172,7 +197,10 @@ export class ContentBankService {
     await this.evaluator.requireCapability(actorId, 'contentbank:upload', contextId);
     const row = await this.repo.insert({
       name: input.name, contextId, creatorId: actorId,
-      contentType: input.contentType ?? 'file-based', visibility: input.visibility ?? 'draft', fileId: input.fileId ?? null,
+      contentType: input.contentType ?? 'file-based',
+      // Học liệu chia sẻ luôn bắt đầu ở draft (chỉ public sau khi duyệt).
+      visibility: scope === 'personal' ? (input.visibility ?? 'draft') : 'draft',
+      fileId: input.fileId ?? null,
       resourceType: input.resourceType ?? 'other', scope, spaceId: scope === 'org' ? (input.spaceId ?? null) : null,
       subjectId: input.subjectId ?? null, grade: input.grade ?? null, curriculumNodeId: input.curriculumNodeId ?? null,
       outcomeIds: input.outcomeIds ?? null, questionCategoryId: input.questionCategoryId ?? null,
@@ -232,6 +260,9 @@ export class ContentBankService {
       if (row.reviewStatus === 'approved') changes.visibility = 'draft';
     }
     if (scope === 'personal') changes.reviewStatus = 'approved';
+    // Bất biến của kho chia sẻ: chưa duyệt thì không được public — kể cả
+    // khi client gửi visibility public thủ công (tránh lộ qua tìm kiếm).
+    if (scope !== 'personal' && changes.reviewStatus !== 'approved') changes.visibility = 'draft';
     await this.repo.update(id, changes);
     const updated = await this.get(id);
     if (updated.visibility === 'public' && updated.reviewStatus === 'approved') await this.search.indexItem('contentbank', updated.id);
