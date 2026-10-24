@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/car
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson, ApiError } from '#lib/api';
 import {
@@ -54,8 +55,6 @@ interface BookImportResult {
   mappingsWritten: number;
   totalRecords: number;
 }
-
-const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 
 /** Thông điệp lỗi từ API (problem detail) hoặc thông điệp dự phòng theo i18n. */
 function errorText(err: unknown, fallback: string): string {
@@ -800,14 +799,23 @@ export function AdminCurriculumNewPage() {
           </Alert>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="curriculum-grade">{t('curriculumGrade')}</Label>
-          <select id="curriculum-grade" className={SELECT_CLASS} value={grade} onChange={(e) => setGrade(e.target.value)}>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={g}>
-                {t('curriculumGradeLabel', { grade: g })}
-              </option>
-            ))}
-          </select>
+          <span id="curriculum-grade-label" className="text-sm font-medium">
+            {t('curriculumGrade')}
+          </span>
+          <Select items={Object.fromEntries(
+              Array.from({ length: 12 }, (_, i) => i + 1).map((g) => [String(g), t('curriculumGradeLabel', { grade: g })]),
+            )} value={grade} onValueChange={(v) => v && setGrade(v)}>
+            <SelectTrigger aria-labelledby="curriculum-grade-label">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
+                <SelectItem key={g} value={String(g)}>
+                  {t('curriculumGradeLabel', { grade: g })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Button type="submit">{t('curriculumSave')}</Button>
       </form>
@@ -852,14 +860,23 @@ export function AdminCurriculumEditPage() {
           </Alert>
         ) : null}
         <div className="space-y-2">
-          <Label htmlFor="curriculum-grade-edit">{t('curriculumGrade')}</Label>
-          <select id="curriculum-grade-edit" className={SELECT_CLASS} value={grade} onChange={(e) => setGrade(e.target.value)}>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
-              <option key={g} value={g}>
-                {t('curriculumGradeLabel', { grade: g })}
-              </option>
-            ))}
-          </select>
+          <span id="curriculum-grade-edit-label" className="text-sm font-medium">
+            {t('curriculumGrade')}
+          </span>
+          <Select items={Object.fromEntries(
+            Array.from({ length: 12 }, (_, i) => i + 1).map((g) => [String(g), t('curriculumGradeLabel', { grade: g })]),
+          )} value={grade} onValueChange={(v) => v && setGrade(v)}>
+            <SelectTrigger aria-labelledby="curriculum-grade-edit-label">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
+                <SelectItem key={g} value={String(g)}>
+                  {t('curriculumGradeLabel', { grade: g })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Button type="submit">{t('curriculumSave')}</Button>
       </form>
@@ -944,24 +961,55 @@ function NodeForm({ curriculumId, initial, parentId }: { curriculumId: string; i
         <Input id="node-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="node-kind">{t('curriculumNodeKind')}</Label>
-        <select id="node-kind" className={SELECT_CLASS} value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="strand">{t('curriculumKind_strand')}</option>
-          <option value="topic">{t('curriculumKind_topic')}</option>
-          <option value="lesson">{t('curriculumKind_lesson')}</option>
-        </select>
+        <span id="node-kind-label" className="text-sm font-medium">
+          {t('curriculumNodeKind')}
+        </span>
+        <Select
+          items={{
+            strand: t('curriculumKind_strand'),
+            topic: t('curriculumKind_topic'),
+            lesson: t('curriculumKind_lesson'),
+          }}
+          value={kind}
+          onValueChange={(v) => v && setKind(v)}
+        >
+          <SelectTrigger aria-labelledby="node-kind-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="strand">{t('curriculumKind_strand')}</SelectItem>
+            <SelectItem value="topic">{t('curriculumKind_topic')}</SelectItem>
+            <SelectItem value="lesson">{t('curriculumKind_lesson')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="node-parent">{t('curriculumNodeParent')}</Label>
-        <select id="node-parent" className={SELECT_CLASS} value={parent} onChange={(e) => setParent(e.target.value)}>
-          <option value="">{t('curriculumNodeParentRoot')}</option>
-          {parentOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {'— '.repeat(option.depth)}
-              {option.title}
-            </option>
-          ))}
-        </select>
+        <span id="node-parent-label" className="text-sm font-medium">
+          {t('curriculumNodeParent')}
+        </span>
+        <Select
+          items={Object.fromEntries([
+            ['root', t('curriculumNodeParentRoot')],
+            ...parentOptions.map(
+              (option) => [option.id, `${'— '.repeat(option.depth)}${option.title}`] as [string, string],
+            ),
+          ])}
+          value={parent === '' ? 'root' : parent}
+          onValueChange={(v) => setParent(!v || v === 'root' ? '' : v)}
+        >
+          <SelectTrigger aria-labelledby="node-parent-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="root">{t('curriculumNodeParentRoot')}</SelectItem>
+            {parentOptions.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {'— '.repeat(option.depth)}
+                {option.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label htmlFor="node-position">{t('curriculumPosition')}</Label>
@@ -1083,11 +1131,22 @@ function OutcomeForm({ nodeId, initial, backTo }: { nodeId: string; initial?: Ou
         <Input id="outcome-position" type="number" min={1} value={position} onChange={(e) => setPosition(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="outcome-source-kind">{t('curriculumOutcomeSourceKind')}</Label>
-        <select id="outcome-source-kind" className={SELECT_CLASS} value={sourceKind} onChange={(e) => setSourceKind(e.target.value)}>
-          <option value="program">{t('curriculumSourceKind_program')}</option>
-          <option value="derived">{t('curriculumSourceKind_derived')}</option>
-        </select>
+        <span id="outcome-source-kind-label" className="text-sm font-medium">
+          {t('curriculumOutcomeSourceKind')}
+        </span>
+        <Select
+          items={{ program: t('curriculumSourceKind_program'), derived: t('curriculumSourceKind_derived') }}
+          value={sourceKind}
+          onValueChange={(v) => v && setSourceKind(v)}
+        >
+          <SelectTrigger aria-labelledby="outcome-source-kind-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="program">{t('curriculumSourceKind_program')}</SelectItem>
+            <SelectItem value="derived">{t('curriculumSourceKind_derived')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label htmlFor="outcome-source-ref">{t('curriculumOutcomeSourceRef')}</Label>

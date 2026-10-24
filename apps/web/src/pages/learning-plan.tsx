@@ -589,6 +589,10 @@ function CompetencyAdmin() {
                     <Field>
                       <FieldLabel id="comp-parent-label">{t('compCompetencyParent')}</FieldLabel>
                       <Select
+                        items={Object.fromEntries([
+                          ['none', t('compNoParent')],
+                          ...competencies.map((c) => [c.id, c.shortName] as [string, string]),
+                        ])}
                         value={compDraft.parentId === '' ? 'none' : compDraft.parentId}
                         onValueChange={(v) =>
                           setCompDraft({ ...compDraft, parentId: v === 'none' || v === null ? '' : v })
@@ -730,6 +734,10 @@ function CompetencyAdmin() {
               <Field>
                 <FieldLabel id="review-user-select-label">{t('compReviewUser')}</FieldLabel>
                 <Select
+                  items={Object.fromEntries([
+                    ['none', '—'],
+                    ...users.map((u) => [u.id, `${u.username} (${u.id})`] as [string, string]),
+                  ])}
                   value={reviewUserId === '' ? 'none' : reviewUserId}
                   onValueChange={(v) => setReviewUserId(v === 'none' || v === null ? '' : v)}
                 >

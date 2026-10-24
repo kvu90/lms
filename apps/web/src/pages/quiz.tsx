@@ -398,6 +398,7 @@ export function QuizPage() {
                 <h4 className="text-sm font-medium">{t('quizAddFixedSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
+                    items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
                     value={pickCategoryId === '' ? null : pickCategoryId}
                     onValueChange={(v) => { setPickCategoryId(v ?? ''); setPickQuestionId(''); }}
                   >
@@ -411,6 +412,9 @@ export function QuizPage() {
                     </SelectContent>
                   </Select>
                   <Select
+                    items={Object.fromEntries(
+                      bankQuestions.map((q) => [q.question.id, `${q.question.name} (${q.question.qtype})`]),
+                    )}
                     value={pickQuestionId === '' ? null : pickQuestionId}
                     onValueChange={(v) => setPickQuestionId(v ?? '')}
                   >
@@ -442,6 +446,7 @@ export function QuizPage() {
                 <h4 className="text-sm font-medium">{t('quizAddRandomSlot')}</h4>
                 <div className="flex flex-wrap gap-2">
                   <Select
+                    items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
                     value={randomCategoryId === '' ? null : randomCategoryId}
                     onValueChange={(v) => setRandomCategoryId(v ?? '')}
                   >
@@ -506,7 +511,13 @@ export function QuizPage() {
                     </Field>
                     <Field className="w-auto">
                       <FieldLabel id="quiz-method-label">{t('quizSettingsMethod')}</FieldLabel>
-                      <Select value={gradeMethod} onValueChange={(v) => setGradeMethod(v ?? 'highest')}>
+                      <Select
+                        items={Object.fromEntries(
+                          (['highest', 'average', 'first', 'last'] as const).map((m) => [m, t(`quizGradeMethod_${m}`)]),
+                        )}
+                        value={gradeMethod}
+                        onValueChange={(v) => setGradeMethod(v ?? 'highest')}
+                      >
                         <SelectTrigger aria-labelledby="quiz-method-label" className="w-44">
                           <SelectValue />
                         </SelectTrigger>

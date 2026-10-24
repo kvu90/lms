@@ -7,6 +7,7 @@ import { Checkbox } from '@lms/ui/components/checkbox';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
@@ -180,19 +181,25 @@ export function AdminSiteConfigPage() {
                               </Label>
                             </span>
                           ) : enumOptions ? (
-                            <select
-                              id={inputId}
-                              aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
-                              className="flex h-9 min-w-40 flex-1 rounded-md border border-input bg-transparent px-3 text-sm"
+                            <Select
+                              items={Object.fromEntries(enumOptions.map((option) => [option, option]))}
                               value={String(draft)}
-                              onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                              onValueChange={(v) => v && setDrafts((prev) => ({ ...prev, [key]: v }))}
                             >
-                              {enumOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger
+                                aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
+                                className="min-w-40 flex-1"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {enumOptions.map((option) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           ) : (
                             <Input
                               id={inputId}

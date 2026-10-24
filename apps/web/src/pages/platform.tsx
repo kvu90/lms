@@ -536,7 +536,11 @@ export function ReportsPage() {
               <FieldLabel id="report-datasource-label" className="sr-only">
                 {t('dataSource')}
               </FieldLabel>
-              <Select value={dataSource} onValueChange={(v) => setDatasource(v ?? 'enrolments')}>
+              <Select
+                items={{ enrolments: t('dsEnrolments'), grades: t('dsGrades'), completion: t('dsCompletion') }}
+                value={dataSource}
+                onValueChange={(v) => setDatasource(v ?? 'enrolments')}
+              >
                 <SelectTrigger aria-labelledby="report-datasource-label" className="w-44">
                   <SelectValue />
                 </SelectTrigger>

@@ -282,7 +282,13 @@ export function CalendarPage() {
                   </Field>
                   <Field>
                     <FieldLabel id="ev-type-label">{t('eventType')}</FieldLabel>
-                    <Select value={evType} onValueChange={(v) => setEvType((v ?? 'user') as (typeof EVENT_TYPES)[number])}>
+                    <Select
+                      items={Object.fromEntries(
+                        EVENT_TYPES.map((type) => [type, t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)]),
+                      )}
+                      value={evType}
+                      onValueChange={(v) => setEvType((v ?? 'user') as (typeof EVENT_TYPES)[number])}
+                    >
                       <SelectTrigger aria-labelledby="ev-type-label" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -380,7 +386,13 @@ export function CalendarPage() {
           <div className="flex items-end gap-2">
             <Field>
               <FieldLabel id="type-filter-label">{t('eventType')}</FieldLabel>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter((v ?? 'all') as (typeof TYPES)[number])}>
+              <Select
+                items={Object.fromEntries(
+                  TYPES.map((type) => [type, t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)]),
+                )}
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter((v ?? 'all') as (typeof TYPES)[number])}
+              >
                 <SelectTrigger aria-labelledby="type-filter-label" className="w-48">
                   <SelectValue />
                 </SelectTrigger>

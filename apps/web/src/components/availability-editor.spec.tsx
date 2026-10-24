@@ -61,18 +61,20 @@ describe('AvailabilityEditor', () => {
     );
 
     const root = screen.getByTestId('availability-node-root');
-    expect(screen.getByTestId('avail-op-root')).toHaveValue('&');
+    // Select của @lms/ui: trigger hiện chữ của tuỳ chọn đang chọn thay cho value của <select> native.
+    expect(screen.getByTestId('avail-op-root')).toHaveTextContent('Tất cả điều kiện (AND)');
     expect(within(root).getByLabelText('Mốc thời gian')).not.toHaveValue('');
     const nested = screen.getByTestId('availability-node-1');
-    expect(screen.getByTestId('avail-op-1')).toHaveValue('|');
-    expect(within(nested).getByLabelText('Nhóm')).toHaveValue(GROUP_ID);
+    expect(screen.getByTestId('avail-op-1')).toHaveTextContent('Bất kỳ điều kiện nào (OR)');
+    expect(within(nested).getByLabelText('Nhóm')).toHaveTextContent('Nhóm 1');
   });
 
   it('emits the tree with the new operator when the root operator changes', async () => {
     const calls: unknown[] = [];
     renderEditor({ op: '&', c: [{ type: 'group', id: GROUP_ID }] }, calls);
 
-    await userEvent.selectOptions(screen.getByTestId('avail-op-root'), '!|');
+    await userEvent.click(screen.getByTestId('avail-op-root'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Không điều kiện nào đúng (NOT OR)' }));
 
     expect(lastPayload(calls).op).toBe('!|');
     expect(lastPayload(calls).c).toEqual([{ type: 'group', id: GROUP_ID }]);
@@ -83,7 +85,8 @@ describe('AvailabilityEditor', () => {
     renderEditor(null, calls);
     const root = screen.getByTestId('availability-node-root');
 
-    await userEvent.selectOptions(within(root).getByLabelText('Loại điều kiện mới'), 'grade');
+    await userEvent.click(within(root).getByLabelText('Loại điều kiện mới'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Điểm' }));
     await userEvent.click(within(root).getByRole('button', { name: 'Thêm điều kiện' }));
 
     const payload = lastPayload(calls);
@@ -98,7 +101,8 @@ describe('AvailabilityEditor', () => {
 
     await userEvent.click(within(root).getByRole('button', { name: 'Thêm nhóm điều kiện' }));
     const nested = screen.getByTestId('availability-node-0');
-    await userEvent.selectOptions(within(nested).getByLabelText('Loại điều kiện mới'), 'completion');
+    await userEvent.click(within(nested).getByLabelText('Loại điều kiện mới'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Hoàn thành hoạt động' }));
     await userEvent.click(within(nested).getByRole('button', { name: 'Thêm điều kiện' }));
 
     const payload = lastPayload(calls);
@@ -121,7 +125,8 @@ describe('AvailabilityEditor', () => {
     renderEditor({ op: '&', c: [{ type: 'futureplugin', level: 3 }] }, calls);
 
     expect(screen.getAllByText(/futureplugin/).length).toBeGreaterThan(0);
-    await userEvent.selectOptions(screen.getByTestId('avail-op-root'), '|');
+    await userEvent.click(screen.getByTestId('avail-op-root'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Bất kỳ điều kiện nào (OR)' }));
 
     expect(lastPayload(calls).c).toEqual([{ type: 'futureplugin', level: 3 }]);
   });

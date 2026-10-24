@@ -267,7 +267,14 @@ export function CoursesPage() {
                   </Field>
                   <Field>
                     <FieldLabel id="cat-parent-label">{t('parentCategory')}</FieldLabel>
-                    <Select value={catParent} onValueChange={(v) => setCatParent(v ?? '0')}>
+                    <Select
+                      items={Object.fromEntries([
+                        ['0', t('topLevel')],
+                        ...flatCategories.map((c) => [c.id, c.name] as [string, string]),
+                      ])}
+                      value={catParent}
+                      onValueChange={(v) => setCatParent(v ?? '0')}
+                    >
                       <SelectTrigger aria-labelledby="cat-parent-label" className="w-full">
                         <SelectValue />
                       </SelectTrigger>

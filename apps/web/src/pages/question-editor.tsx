@@ -358,6 +358,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
               <Field>
                 <FieldLabel id="q-type-label">{t('questionType')}</FieldLabel>
                 <Select
+                  items={Object.fromEntries(QTYPES.map((qtype) => [qtype, t(QTYPE_LABEL_KEYS[qtype])]))}
                   value={form.qtype}
                   disabled={editing !== null}
                   onValueChange={(v) => setForm(emptyForm((v ?? 'multichoice') as Qtype))}
@@ -389,6 +390,10 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
               <Field>
                 <FieldLabel id="q-stimulus-label">{t('attachedStimulus')}</FieldLabel>
                 <Select
+                  items={Object.fromEntries([
+                    ['none', t('noStimulus')],
+                    ...stimuli.map((s) => [s.id, plainText(s.content).slice(0, 80)] as [string, string]),
+                  ])}
                   value={form.stimulusId === '' ? 'none' : form.stimulusId}
                   onValueChange={(v) => patchForm({ stimulusId: v === 'none' || v === null ? '' : v })}
                 >
@@ -587,6 +592,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                   <Field>
                     <FieldLabel id="q-essay-format-label">{t('responseFormat')}</FieldLabel>
                     <Select
+                      items={{ editor: t('responseFormatEditor'), plain: t('responseFormatPlain') }}
                       value={form.essayResponseFormat}
                       onValueChange={(v) => patchForm({ essayResponseFormat: v ?? 'editor' })}
                     >
@@ -702,6 +708,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     <Field className="flex-1">
                       <FieldLabel id="programme-subject-pick-label">{t('programmePickSubject')}</FieldLabel>
                       <Select
+                        items={Object.fromEntries(linkSubjects.map((s) => [s.id, s.name]))}
                         value={linkSubjectPick === '' ? null : linkSubjectPick}
                         onValueChange={(v) => void pickLinkSubject(v ?? '')}
                       >
@@ -731,6 +738,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       <li key={o.outcomeId} data-testid={`programme-outcome-${o.outcomeId}`} className="flex items-center gap-2">
                         <span className="flex-1 text-sm">{outcomeLabels[o.outcomeId] ?? o.outcomeId}</span>
                         <Select
+                          items={Object.fromEntries(COGNITIVE_LEVELS.map((level) => [level, t(LEVEL_LABEL_KEYS[level])]))}
                           value={o.cognitiveLevel}
                           onValueChange={(v) => void changeOutcomeLevel(o.outcomeId, v ?? o.cognitiveLevel)}
                         >
@@ -755,6 +763,11 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     <Field className="flex-1">
                       <FieldLabel id="programme-outcome-pick-label">{t('programmePickOutcome')}</FieldLabel>
                       <Select
+                        items={Object.fromEntries(
+                          linkOutcomeOptions
+                            .filter((o) => !links.outcomes.some((l) => l.outcomeId === o.id))
+                            .map((o) => [o.id, o.label]),
+                        )}
                         value={linkOutcomePick === '' ? null : linkOutcomePick}
                         onValueChange={(v) => setLinkOutcomePick(v ?? '')}
                       >
@@ -774,7 +787,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     </Field>
                     <Field>
                       <FieldLabel id="programme-level-pick-label">{t('programmeLevel')}</FieldLabel>
-                      <Select value={linkLevelPick} onValueChange={(v) => setLinkLevelPick(v ?? 'biet')}>
+                      <Select items={Object.fromEntries(COGNITIVE_LEVELS.map((level) => [level, t(LEVEL_LABEL_KEYS[level])]))} value={linkLevelPick} onValueChange={(v) => setLinkLevelPick(v ?? 'biet')}>
                         <SelectTrigger aria-labelledby="programme-level-pick-label" className="w-40">
                           <SelectValue />
                         </SelectTrigger>

@@ -180,6 +180,7 @@ export function AdminRolesPage() {
             <Field>
               <FieldLabel id="assign-role-label">{t('role')}</FieldLabel>
               <Select
+                items={Object.fromEntries(roles.map((r) => [r.id, r.shortName]))}
                 value={assign.roleId === '' ? null : assign.roleId}
                 onValueChange={(v) => setAssign({ ...assign, roleId: v ?? '' })}
               >
@@ -198,6 +199,12 @@ export function AdminRolesPage() {
             <Field>
               <FieldLabel id="assign-context-label">{t('context')}</FieldLabel>
               <Select
+                items={Object.fromEntries(
+                  contexts.map((c) => [
+                    c.id,
+                    t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path }),
+                  ]),
+                )}
                 value={assign.contextId === '' ? null : assign.contextId}
                 onValueChange={(v) => setAssign({ ...assign, contextId: v ?? '' })}
               >

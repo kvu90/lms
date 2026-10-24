@@ -816,7 +816,11 @@ export function GradebookPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field>
                     <FieldLabel id="vnedu-semester-label">{t('vneduSemester')}</FieldLabel>
-                    <Select value={vneduSemester} onValueChange={(v) => setVneduSemester(v ?? '1')}>
+                    <Select
+                      items={{ '1': t('vneduSemester1'), '2': t('vneduSemester2') }}
+                      value={vneduSemester}
+                      onValueChange={(v) => setVneduSemester(v ?? '1')}
+                    >
                       <SelectTrigger aria-labelledby="vnedu-semester-label" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -860,6 +864,12 @@ export function GradebookPage() {
                         {item.itemName}
                       </FieldLabel>
                       <Select
+                        items={{
+                          none: t('vneduKindNone'),
+                          regular: t('vneduKindRegular'),
+                          midterm: t('vneduKindMidterm'),
+                          final: t('vneduKindFinal'),
+                        }}
                         value={vneduKinds[item.id] ?? 'none'}
                         onValueChange={(v) =>
                           setVneduKinds((prev) => ({ ...prev, [item.id]: (v ?? 'none') as VneduColumnKind }))
@@ -937,7 +947,11 @@ export function GradebookPage() {
                   </Field>
                   <Field>
                     <FieldLabel id="grade-cat-aggregation-label">{t('gradeCategoryAggregation')}</FieldLabel>
-                    <Select value={newCatAggregation} onValueChange={(v) => setNewCatAggregation(v ?? 'natural')}>
+                    <Select
+                      items={Object.fromEntries(AGGREGATIONS.map((a) => [a, t(`gradeAggregation_${a}`)]))}
+                      value={newCatAggregation}
+                      onValueChange={(v) => setNewCatAggregation(v ?? 'natural')}
+                    >
                       <SelectTrigger aria-labelledby="grade-cat-aggregation-label" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
@@ -1017,6 +1031,10 @@ export function GradebookPage() {
                   <Field>
                     <FieldLabel id="grade-item-category-label">{t('gradeItemCategory')}</FieldLabel>
                     <Select
+                      items={Object.fromEntries([
+                        ['none', t('gradeItemNoCategory')],
+                        ...adminCategories.map((c) => [c.id, c.fullName || t('gradeCourseFallback')] as [string, string]),
+                      ])}
                       value={newItemCategoryId === '' ? 'none' : newItemCategoryId}
                       onValueChange={(v) => setNewItemCategoryId(v === 'none' || v === null ? '' : v)}
                     >
@@ -1177,6 +1195,7 @@ export function GradebookPage() {
                   <Field>
                     <FieldLabel id="outcome-scale-label">{t('outcomeScale')}</FieldLabel>
                     <Select
+                      items={Object.fromEntries(adminScales.map((s) => [s.id, s.name]))}
                       value={outcomeScaleId === '' ? null : outcomeScaleId}
                       onValueChange={(v) => setOutcomeScaleId(v ?? '')}
                     >
@@ -1219,6 +1238,7 @@ export function GradebookPage() {
                   <Field>
                     <FieldLabel id="history-item-label">{t('gradeItem')}</FieldLabel>
                     <Select
+                      items={Object.fromEntries(adminItems.map((i) => [i.id, i.itemName]))}
                       value={historyItemId === '' ? null : historyItemId}
                       onValueChange={(v) => setHistoryItemId(v ?? '')}
                     >

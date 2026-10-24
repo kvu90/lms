@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@lms/ui/components/button';
+import { Checkbox } from '@lms/ui/components/checkbox';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 
@@ -52,8 +54,6 @@ export interface AvailabilityOption {
 const OPS: AvailabilityOp[] = ['&', '|', '!&', '!|'];
 const LEAF_TYPES = ['date', 'grade', 'completion', 'group', 'grouping', 'profile'] as const;
 const STANDARD_PROFILE_FIELDS = ['username', 'firstName', 'lastName', 'email'] as const;
-
-const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs';
 
 /** Phân biệt nút cây (có op + mảng c) với điều kiện lá. */
 export function isAvailabilityNode(child: AvailabilityChildModel): child is AvailabilityNodeModel {
@@ -187,16 +187,22 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       return (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-direction`}>{t('availabilityDateDirection')}</Label>
-            <select
-              id={`${idPrefix}-direction`}
-              className={SELECT_CLASS}
+            <span id={`${idPrefix}-direction-label`} className="text-sm font-medium">
+              {t('availabilityDateDirection')}
+            </span>
+            <Select
+              items={{ '>=': t('availabilityDateFrom'), '<': t('availabilityDateUntil') }}
               value={direction}
-              onChange={(e) => onChange({ ...leaf, d: e.target.value })}
+              onValueChange={(v) => v && onChange({ ...leaf, d: v })}
             >
-              <option value=">=">{t('availabilityDateFrom')}</option>
-              <option value="<">{t('availabilityDateUntil')}</option>
-            </select>
+              <SelectTrigger aria-labelledby={`${idPrefix}-direction-label`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=">=">{t('availabilityDateFrom')}</SelectItem>
+                <SelectItem value="<">{t('availabilityDateUntil')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label htmlFor={`${idPrefix}-time`}>{t('availabilityDateValue')}</Label>
@@ -219,20 +225,26 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       return (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-grade-item`}>{t('availabilityGradeItem')}</Label>
+            <span id={`${idPrefix}-grade-item-label`} className="text-sm font-medium">
+              {t('availabilityGradeItem')}
+            </span>
             {ctx.gradeItems.length > 0 ? (
-              <select
-                id={`${idPrefix}-grade-item`}
-                className={SELECT_CLASS}
+              <Select
+                items={Object.fromEntries(ctx.gradeItems.map((item) => [item.id, item.name]))}
                 value={String(leaf.id ?? '')}
-                onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+                onValueChange={(v) => v && onChange({ ...leaf, id: v })}
               >
-                {ctx.gradeItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-labelledby={`${idPrefix}-grade-item-label`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ctx.gradeItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : (
               <Input
                 id={`${idPrefix}-grade-item`}
@@ -280,32 +292,48 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       return (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-completion-cm`}>{t('availabilityCompletionActivity')}</Label>
-            <select
-              id={`${idPrefix}-completion-cm`}
-              className={SELECT_CLASS}
+            <span id={`${idPrefix}-completion-cm-label`} className="text-sm font-medium">
+              {t('availabilityCompletionActivity')}
+            </span>
+            <Select
+              items={Object.fromEntries(ctx.modules.map((m) => [m.id, m.name]))}
               value={String(leaf.id ?? '')}
-              onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+              onValueChange={(v) => v && onChange({ ...leaf, id: v })}
             >
-              {ctx.modules.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger aria-labelledby={`${idPrefix}-completion-cm-label`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ctx.modules.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-completion-state`}>{t('availabilityCompletionState')}</Label>
-            <select
-              id={`${idPrefix}-completion-state`}
-              className={SELECT_CLASS}
+            <span id={`${idPrefix}-completion-state-label`} className="text-sm font-medium">
+              {t('availabilityCompletionState')}
+            </span>
+            <Select
+              items={{
+                '1': t('availabilityCompletionComplete'),
+                '2': t('availabilityCompletionPass'),
+                '3': t('availabilityCompletionFail'),
+              }}
               value={String(leaf.state ?? 1)}
-              onChange={(e) => onChange({ ...leaf, state: Number(e.target.value) })}
+              onValueChange={(v) => v && onChange({ ...leaf, state: Number(v) })}
             >
-              <option value="1">{t('availabilityCompletionComplete')}</option>
-              <option value="2">{t('availabilityCompletionPass')}</option>
-              <option value="3">{t('availabilityCompletionFail')}</option>
-            </select>
+              <SelectTrigger aria-labelledby={`${idPrefix}-completion-state-label`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">{t('availabilityCompletionComplete')}</SelectItem>
+                <SelectItem value="2">{t('availabilityCompletionPass')}</SelectItem>
+                <SelectItem value="3">{t('availabilityCompletionFail')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       );
@@ -316,19 +344,25 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       const label = leaf.type === 'group' ? t('availabilityGroupSelect') : t('availabilityGroupingSelect');
       return (
         <div className="space-y-1">
-          <Label htmlFor={`${idPrefix}-membership`}>{label}</Label>
-          <select
-            id={`${idPrefix}-membership`}
-            className={SELECT_CLASS}
+          <span id={`${idPrefix}-membership-label`} className="text-sm font-medium">
+            {label}
+          </span>
+          <Select
+            items={Object.fromEntries(options.map((o) => [o.id, o.name]))}
             value={String(leaf.id ?? '')}
-            onChange={(e) => onChange({ ...leaf, id: e.target.value })}
+            onValueChange={(v) => v && onChange({ ...leaf, id: v })}
           >
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-labelledby={`${idPrefix}-membership-label`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -340,19 +374,31 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
       return (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-profile-field`}>{t('availabilityProfileField')}</Label>
-            <select
-              id={`${idPrefix}-profile-field`}
-              className={SELECT_CLASS}
+            <span id={`${idPrefix}-profile-field-label`} className="text-sm font-medium">
+              {t('availabilityProfileField')}
+            </span>
+            <Select
+              items={{
+                username: t('availabilityProfileUsername'),
+                firstName: t('availabilityProfileFirstname'),
+                lastName: t('availabilityProfileLastname'),
+                email: t('availabilityProfileEmail'),
+                __custom: t('availabilityProfileCustomOption'),
+              }}
               value={isStandard ? field : '__custom'}
-              onChange={(e) => onChange({ ...leaf, field: e.target.value === '__custom' ? '' : e.target.value })}
+              onValueChange={(v) => v && onChange({ ...leaf, field: v === '__custom' ? '' : v })}
             >
-              <option value="username">{t('availabilityProfileUsername')}</option>
-              <option value="firstName">{t('availabilityProfileFirstname')}</option>
-              <option value="lastName">{t('availabilityProfileLastname')}</option>
-              <option value="email">{t('availabilityProfileEmail')}</option>
-              <option value="__custom">{t('availabilityProfileCustomOption')}</option>
-            </select>
+              <SelectTrigger aria-labelledby={`${idPrefix}-profile-field-label`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="username">{t('availabilityProfileUsername')}</SelectItem>
+                <SelectItem value="firstName">{t('availabilityProfileFirstname')}</SelectItem>
+                <SelectItem value="lastName">{t('availabilityProfileLastname')}</SelectItem>
+                <SelectItem value="email">{t('availabilityProfileEmail')}</SelectItem>
+                <SelectItem value="__custom">{t('availabilityProfileCustomOption')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {!isStandard ? (
             <div className="space-y-1">
@@ -365,18 +411,29 @@ function LeafEditor({ leaf, idPrefix, ctx, onChange }: LeafEditorProps) {
             </div>
           ) : null}
           <div className="space-y-1">
-            <Label htmlFor={`${idPrefix}-profile-operator`}>{t('availabilityProfileOperator')}</Label>
-            <select
-              id={`${idPrefix}-profile-operator`}
-              className={SELECT_CLASS}
+            <span id={`${idPrefix}-profile-operator-label`} className="text-sm font-medium">
+              {t('availabilityProfileOperator')}
+            </span>
+            <Select
+              items={{
+                eq: t('availabilityProfileOpEq'),
+                contains: t('availabilityProfileOpContains'),
+                notempty: t('availabilityProfileOpNotEmpty'),
+                isempty: t('availabilityProfileOpIsEmpty'),
+              }}
               value={operator}
-              onChange={(e) => onChange({ ...leaf, operator: e.target.value })}
+              onValueChange={(v) => v && onChange({ ...leaf, operator: v })}
             >
-              <option value="eq">{t('availabilityProfileOpEq')}</option>
-              <option value="contains">{t('availabilityProfileOpContains')}</option>
-              <option value="notempty">{t('availabilityProfileOpNotEmpty')}</option>
-              <option value="isempty">{t('availabilityProfileOpIsEmpty')}</option>
-            </select>
+              <SelectTrigger aria-labelledby={`${idPrefix}-profile-operator-label`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="eq">{t('availabilityProfileOpEq')}</SelectItem>
+                <SelectItem value="contains">{t('availabilityProfileOpContains')}</SelectItem>
+                <SelectItem value="notempty">{t('availabilityProfileOpNotEmpty')}</SelectItem>
+                <SelectItem value="isempty">{t('availabilityProfileOpIsEmpty')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {needsValue ? (
             <div className="space-y-1">
@@ -450,29 +507,39 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
     <div data-testid={`availability-node-${pathKey}`} className="space-y-3 rounded border p-3">
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label htmlFor={`avail-${pathKey}-op`}>{t('availabilityOperator')}</Label>
-          <select
-            id={`avail-${pathKey}-op`}
-            data-testid={`avail-op-${pathKey}`}
-            className={SELECT_CLASS}
+          <span id={`avail-${pathKey}-op-label`} className="text-sm font-medium">
+            {t('availabilityOperator')}
+          </span>
+          <Select
+            items={{
+              '&': t('availabilityOpAnd'),
+              '|': t('availabilityOpOr'),
+              '!&': t('availabilityOpNotAnd'),
+              '!|': t('availabilityOpNotOr'),
+            }}
             value={node.op}
-            onChange={(e) => replaceSelf({ ...node, op: e.target.value as AvailabilityOp })}
+            onValueChange={(v) => v && replaceSelf({ ...node, op: v as AvailabilityOp })}
           >
-            <option value="&">{t('availabilityOpAnd')}</option>
-            <option value="|">{t('availabilityOpOr')}</option>
-            <option value="!&">{t('availabilityOpNotAnd')}</option>
-            <option value="!|">{t('availabilityOpNotOr')}</option>
-          </select>
+            <SelectTrigger data-testid={`avail-op-${pathKey}`} aria-labelledby={`avail-${pathKey}-op-label`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="&">{t('availabilityOpAnd')}</SelectItem>
+              <SelectItem value="|">{t('availabilityOpOr')}</SelectItem>
+              <SelectItem value="!&">{t('availabilityOpNotAnd')}</SelectItem>
+              <SelectItem value="!|">{t('availabilityOpNotOr')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {isRoot ? (
-          <label className="flex items-center gap-2 pb-2 text-sm">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2 pb-2 text-sm">
+            <Checkbox
+              aria-label={t('availabilityRootShow')}
               checked={node.show ?? true}
-              onChange={(e) => replaceSelf({ ...node, show: e.target.checked })}
+              onCheckedChange={(checked) => replaceSelf({ ...node, show: checked === true })}
             />
-            {t('availabilityRootShow')}
-          </label>
+            <span>{t('availabilityRootShow')}</span>
+          </div>
         ) : null}
         {onRemoveSelf ? (
           <Button type="button" variant="destructive" size="sm" onClick={onRemoveSelf}>
@@ -485,18 +552,17 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
       <ul className="space-y-3">
         {node.c.map((child, index) => (
           <li key={index} className="space-y-2 rounded border border-dashed p-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 text-sm">
+              <Checkbox
                 aria-label={t('availabilityShowChild')}
                 checked={node.showc?.[index] ?? true}
-                onChange={(e) => {
-                  const showc = node.c.map((_, i) => (i === index ? e.target.checked : (node.showc?.[i] ?? true)));
+                onCheckedChange={(checked) => {
+                  const showc = node.c.map((_, i) => (i === index ? checked === true : (node.showc?.[i] ?? true)));
                   replaceSelf({ ...node, showc });
                 }}
               />
-              {t('availabilityShowChild')}
-            </label>
+              <span>{t('availabilityShowChild')}</span>
+            </div>
             {isAvailabilityNode(child) ? (
               <NodeEditor
                 node={child}
@@ -548,19 +614,21 @@ function NodeEditor({ node, path, isRoot, ctx, onUpdate, onRemoveSelf }: NodeEdi
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label htmlFor={`avail-${pathKey}-new-type`}>{t('availabilityNewConditionType')}</Label>
-          <select
-            id={`avail-${pathKey}-new-type`}
-            className={SELECT_CLASS}
-            value={newLeafType}
-            onChange={(e) => setNewLeafType(e.target.value)}
-          >
-            {LEAF_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {LEAF_LABELS[type]}
-              </option>
-            ))}
-          </select>
+          <span id={`avail-${pathKey}-new-type-label`} className="text-sm font-medium">
+            {t('availabilityNewConditionType')}
+          </span>
+          <Select items={LEAF_LABELS} value={newLeafType} onValueChange={(v) => v && setNewLeafType(v)}>
+            <SelectTrigger aria-labelledby={`avail-${pathKey}-new-type-label`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LEAF_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {LEAF_LABELS[type]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Button
           type="button"
