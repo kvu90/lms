@@ -70,9 +70,12 @@ function stubFetch(calls: RecordedCall[]) {
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(PROFILE);
-      if (url.startsWith('/api/v1/messages/people/search'))
+      if (url === '/api/v1/messages/courses')
+        return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
+      if (url.startsWith(`/api/v1/messages/courses/${COURSE_ID}/members`))
         return respond({
-          results: [{ userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', relationship: 'contact' }],
+          members: [{ userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', role: 'student', relationship: 'contact' }],
+          nextCursor: null,
         });
       if (url === '/api/v1/messages/conversations' && method === 'POST')
         return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] });
@@ -350,13 +353,15 @@ describe('Messages page — optimistic send and realtime updates', () => {
 });
 
 const THIRD_ID = '01900000-0000-7000-8000-0000000000c9';
+const COURSE_ID = '01900000-0000-7000-8000-0000000000f1';
 
 /**
  * Stub fetch cho các test Lớp B (issue #33): danh bạ chuyển sang luồng
  * yêu cầu–chấp nhận (hàng chờ có trạng thái), xoá mềm trả dòng tin kèm
- * dấu vết, báo cáo trả 201. Kèm việc nối tiếp: tìm bạn theo TÊN qua
- * GET /messages/people/search và tên hiển thị đi kèm các response
- * danh sách (profiles / displayName trên từng mục hàng chờ).
+ * dấu vết, báo cáo trả 201. Kèm mô hình chốt lại 24/10/2026: tìm bạn
+ * theo KHOÁ qua GET /messages/courses + roster thành viên của khoá,
+ * và tên hiển thị đi kèm các response danh sách (profiles / displayName
+ * trên từng mục hàng chờ).
  */
 function stubDomainFetch(calls: RecordedCall[]) {
   const PEOPLE: Record<string, { userId: string; displayName: string; username: string }> = {
@@ -409,10 +414,24 @@ function stubDomainFetch(calls: RecordedCall[]) {
         });
       if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: state.incoming, outgoing: state.outgoing });
       if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
-      if (url.startsWith('/api/v1/messages/people/search')) {
-        const q = decodeURIComponent(url.split('q=')[1] ?? '');
-        return respond({ results: q.includes('Ba') ? [{ ...PEOPLE[THIRD_ID], relationship: 'none' }] : [] });
-      }
+      if (url === '/api/v1/messages/courses')
+        return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
+      if (url.startsWith(`/api/v1/messages/courses/${COURSE_ID}/members`))
+        return respond({
+          members: [
+            {
+              ...PEOPLE[THIRD_ID],
+              role: 'student',
+              relationship: state.outgoing.some((o) => o.userId === THIRD_ID) ? 'pending_outgoing' : 'none',
+            },
+            {
+              ...PEOPLE[OTHER_ID],
+              role: 'teacher',
+              relationship: state.contacts.includes(OTHER_ID) ? 'contact' : 'pending_incoming',
+            },
+          ],
+          nextCursor: null,
+        });
       if (url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && method === 'POST') {
         state.contacts = [OTHER_ID];
         state.incoming = [];
@@ -449,7 +468,7 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
     realtime.handlers = null;
   });
 
-  it('accepts an incoming contact request and sends a new request from people search results', async () => {
+  it('accepts an incoming contact request and sends a new request from the course roster', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
@@ -469,12 +488,12 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
     expect(contactRow).toHaveTextContent('Bạn Học');
     expect(screen.queryByTestId(`incoming-request-${OTHER_ID}`)).not.toBeInTheDocument();
 
-    // Tìm bạn theo TÊN (không còn form nhập ID): gõ tên → kết quả hiện
-    // tên + nút Kết bạn → POST contacts/:userId, trạng thái chờ duyệt
-    // hiện ra bằng tên người nhận.
-    const searchInput = screen.getByLabelText('Tìm người theo tên');
-    await userEvent.type(searchInput, 'Thứ Ba');
-    const resultRow = await screen.findByTestId(`search-result-${THIRD_ID}`);
+    // Tìm bạn theo KHOÁ (không còn tìm theo tên, không còn form nhập
+    // ID): mở khoá của mình → dòng roster hiện tên + username → bấm
+    // Kết bạn → POST contacts/:userId, trạng thái chờ duyệt hiện ra
+    // bằng tên người nhận.
+    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
+    const resultRow = await screen.findByTestId(`roster-member-${THIRD_ID}`);
     expect(resultRow).toHaveTextContent('Người Thứ Ba');
     expect(resultRow).toHaveTextContent('@thirduser');
     await userEvent.click(within(resultRow).getByRole('button', { name: 'Kết bạn' }));
@@ -534,16 +553,16 @@ describe('Messages page — create conversation contract', () => {
     localStorage.clear();
   });
 
-  it('posts memberIds when starting a conversation from a people search result and opens it with the designated user as a member', async () => {
+  it('posts memberIds when starting a conversation from a course roster contact and opens it with the designated user as a member', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
 
-    // Bắt đầu cuộc trò chuyện từ kết quả tìm theo tên (form nhập ID đã bỏ).
-    const searchInput = await screen.findByLabelText('Tìm người theo tên');
-    await userEvent.type(searchInput, 'Bạn Học');
-    const resultRow = await screen.findByTestId(`search-result-${OTHER_ID}`);
+    // Bắt đầu cuộc trò chuyện từ dòng roster của một liên hệ trong khoá
+    // của mình (tìm theo tên và form nhập ID đều đã bỏ).
+    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
+    const resultRow = await screen.findByTestId(`roster-member-${OTHER_ID}`);
     expect(resultRow).toHaveTextContent('Bạn Học');
     await userEvent.click(within(resultRow).getByRole('button', { name: 'Nhắn tin' }));
 

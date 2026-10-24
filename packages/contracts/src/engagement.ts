@@ -232,16 +232,6 @@ export const updateReportStatusSchema = z.strictObject({
 export type UpdateReportStatus = z.infer<typeof updateReportStatusSchema>;
 
 /**
- * Query tìm người theo tên hiển thị/username (việc nối tiếp Lớp B của
- * issue #33: tìm bạn phải theo TÊN, không phải nhập UUID). Độ dài tối
- * thiểu sau khi cắt khoảng trắng và trần số kết quả chốt ở tầng service.
- */
-export const searchPeopleQuerySchema = z.strictObject({
-  q: z.string().min(1).max(100),
-});
-export type SearchPeopleQuery = z.infer<typeof searchPeopleQuerySchema>;
-
-/**
  * Tóm tắt hiển thị của một user, trả kèm trong các response danh sách
  * của messaging để client hiện TÊN thay cho UUID thô.
  */
@@ -252,7 +242,7 @@ export const personSummarySchema = z.strictObject({
 });
 export type PersonSummary = z.infer<typeof personSummarySchema>;
 
-/** Trạng thái quan hệ của một người so với người đang tìm. */
+/** Trạng thái quan hệ của một người so với người xem. */
 export const contactRelationshipSchema = z.enum([
   'contact',
   'pending_incoming',
@@ -262,11 +252,49 @@ export const contactRelationshipSchema = z.enum([
 ]);
 export type ContactRelationship = z.infer<typeof contactRelationshipSchema>;
 
-/** Một kết quả tìm người: tóm tắt hiển thị + trạng thái quan hệ với người tìm. */
-export const peopleSearchResultSchema = personSummarySchema.extend({
+/**
+ * Vai trò của một thành viên trong danh sách khoá (roster): `teacher`
+ * khi có gán vai trò staff (theo archetype) tại context khoá, còn lại
+ * là `student` (ghi danh hoặc gán vai trò học viên).
+ */
+export const courseRosterRoleSchema = z.enum(['teacher', 'student']);
+export type CourseRosterRole = z.infer<typeof courseRosterRoleSchema>;
+
+/**
+ * Một dòng của danh sách thành viên khoá (mô hình khám phá bạn bè đã
+ * chốt lại của issue #33: bỏ hẳn tìm người theo tên — vào khoá mình
+ * thuộc về, xem thành viên, bấm kết bạn tại dòng). Người có quan hệ
+ * chặn với người xem (cả hai chiều) bị giấu khỏi danh sách nên trạng
+ * thái `blocked` không xuất hiện trong thực tế.
+ */
+export const courseRosterMemberSchema = personSummarySchema.extend({
+  role: courseRosterRoleSchema,
   relationship: contactRelationshipSchema,
 });
-export type PeopleSearchResult = z.infer<typeof peopleSearchResultSchema>;
+export type CourseRosterMember = z.infer<typeof courseRosterMemberSchema>;
+
+/** Một khoá mà người dùng thuộc về (ghi danh hoặc gán vai tại context khoá) — đầu vào của luồng tìm bạn theo khoá. */
+export const messagingCourseSchema = z.strictObject({
+  courseId: uuidIdSchema,
+  fullName: z.string(),
+  shortName: z.string(),
+});
+export type MessagingCourse = z.infer<typeof messagingCourseSchema>;
+
+/**
+ * Query phân trang cho danh sách thành viên khoá: roster có thể rất
+ * đông (khoá 50.000 thành viên trả hết là ~6,3 MB JSON — số đo của đội
+ * kiểm tra độc lập trên issue #33) nên PHÂN TRANG CON TRỎ là bắt buộc,
+ * không có chế độ lấy hết. Con trỏ là chuỗi mờ (opaque) do server phát
+ * hành, neo theo khoá sắp xếp (displayName, username, id) của dòng
+ * cuối trang trước; trần mỗi trang 100 (phân trang OFFSET sâu đã đo
+ * là chậm hơn hẳn nên không dùng).
+ */
+export const listCourseRosterQuerySchema = z.strictObject({
+  limit: z.number().int().min(1).max(100).optional(),
+  cursor: z.string().min(1).max(512).optional(),
+});
+export type ListCourseRosterQuery = z.infer<typeof listCourseRosterQuerySchema>;
 
 /* ---- Sự kiện realtime của messaging (Socket.IO, namespace /messaging) ---- */
 

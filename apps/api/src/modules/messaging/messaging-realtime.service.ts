@@ -319,14 +319,30 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     }
   }
 
-  /** Phát `presence.changed` tới room của mọi conversation mà user là thành viên. */
+  /**
+   * Phát `presence.changed` tới room của mọi conversation mà user là
+   * thành viên — NGOẠI TRỪ room 1–1 với đối tác đang có quan hệ chặn
+   * (bất kỳ chiều nào): trạng thái trực tuyến không lộ qua bề mặt 1–1
+   * khi đang chặn (chuẩn app nhắn tin, issue #33). Room nhóm không đổi.
+   */
   private async broadcastPresence(userId: string, online: boolean): Promise<void> {
     if (!this.server) return;
     try {
       const conversations = await this.repo.listConversationsForUser(userId);
       if (!conversations.length) return;
+      const blockedCounterparts = new Set(await this.repo.listBlockedCounterpartIds(userId));
+      const rooms: string[] = [];
+      for (const c of conversations) {
+        if (c.type === 1 && blockedCounterparts.size > 0) {
+          const members = await this.repo.listMembers(c.id);
+          const other = members.find((id) => id !== userId);
+          if (other && blockedCounterparts.has(other)) continue;
+        }
+        rooms.push(conversationRoom(c.id));
+      }
+      if (!rooms.length) return;
       this.server
-        .to(conversations.map((c) => conversationRoom(c.id)))
+        .to(rooms)
         .emit(MESSAGING_SOCKET_EVENTS.presenceChanged, { userId, online });
     } catch (error) {
       this.logger.warn(`Không phát được presence: ${(error as Error).message}`);

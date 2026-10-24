@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "7e5b4936-936e-4faa-a5b1-87c1121bc96b",
+  "id": "5830b818-49e0-49d2-9f04-e5f7f7472458",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -3309,6 +3309,27 @@
       "reads": [
         "n|tbl|public.user_enrolments",
         "n|sch|public",
+        "n|col|public.user_enrolments.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_enrolments",
+        "user_enrolments_enrol_id_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.user_enrolments_enrol_id_user_id_idx",
+        "n|idx|public.user_enrolments_enrol_id_user_id_idx",
+        "e|idx|public.user_enrolments_enrol_id_user_id_idx",
+        "n|rel|public.user_enrolments_enrol_id_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.user_enrolments",
+        "n|sch|public",
+        "n|col|public.user_enrolments.enrol_id",
         "n|col|public.user_enrolments.user_id"
       ]
     },
@@ -24716,6 +24737,34 @@
       "name": "user_enrolments_user_id_idx",
       "nameExplicit": true,
       "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "user_enrolments",
+      "name": "user_enrolments_enrol_id_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "enrol_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
         {
           "value": "user_id",
           "isExpression": false,

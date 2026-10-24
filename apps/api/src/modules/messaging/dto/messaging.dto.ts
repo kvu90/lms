@@ -2,19 +2,19 @@ import { z } from 'zod';
 import {
   createConversationSchema,
   createGroupConversationSchema,
+  listCourseRosterQuerySchema,
   listMessagesQuerySchema,
   notifyUserSchema,
   reportConversationSchema,
-  searchPeopleQuerySchema,
   sendMessageSchema,
   setMessagePreferenceSchema,
   updateConversationSchema,
   updateReportStatusSchema,
   type CreateConversation,
   type CreateGroupConversation,
+  type ListCourseRosterQuery,
   type NotifyUser,
   type ReportConversation,
-  type SearchPeopleQuery,
   type SendMessage,
   type SetMessagePreference,
   type UpdateConversation,
@@ -25,7 +25,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, reportConversationSchema, searchPeopleQuerySchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -34,7 +34,6 @@ export type NotifyDto = NotifyUser;
 export type UpdateConversationDto = UpdateConversation;
 export type ReportConversationDto = ReportConversation;
 export type UpdateReportStatusDto = UpdateReportStatus;
-export type SearchPeopleQueryDto = SearchPeopleQuery;
 
 /**
  * Schema phía server cho query phân trang tin nhắn — EXTEND từ schema
@@ -49,3 +48,15 @@ export const listMessagesQueryServerSchema = listMessagesQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ListMessagesQueryDto = z.infer<typeof listMessagesQueryServerSchema>;
+
+/**
+ * Schema phía server cho query phân trang roster thành viên khoá —
+ * cùng kỷ luật ép kiểu từ query string như phân trang tin nhắn ở trên:
+ * `limit` ép sang số (mặc định và trần 100 chốt ở tầng service theo
+ * contracts), `cursor` là chuỗi mờ do server phát hành, giữ nguyên.
+ */
+export const listCourseRosterQueryServerSchema = listCourseRosterQuerySchema.extend({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().min(1).max(512).optional(),
+});
+export type ListCourseRosterQueryDto = ListCourseRosterQuery;
