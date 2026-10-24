@@ -40,7 +40,9 @@ describe('Notification centre v2 (N2, issue #51)', () => {
 
   /** Ngày lịch Asia/Saigon dạng YYYY-MM-DD của một thời điểm (khớp khoá ngày phía API). */
   function saigonDay(d: Date): string {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Saigon', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Saigon', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+    const byType = new Map(parts.map((p) => [p.type, p.value]));
+    return `${byType.get('year')}-${byType.get('month')}-${byType.get('day')}`;
   }
 
   interface SeedSpec {
