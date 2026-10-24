@@ -9,15 +9,51 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+
+/**
+ * Ngân hàng câu hỏi có danh tính (feat Ngân hàng câu hỏi chung, issue #70,
+ * QB-1) — lớp BANK nằm TRÊN category/context hiện hữu: mỗi bank sở hữu một
+ * context riêng (context_id) để tái dùng nguyên PermissionEvaluator +
+ * capability `question:*` tại context của bank; category thuộc bank qua
+ * `question_categories.bank_id`, context của category thuộc bank chính là
+ * context của bank. Bốn scope: personal (owner_id = chủ sở hữu), team
+ * (scope_ref_id = cohort tổ chuyên môn, owner_id = tổ trưởng), school
+ * (scope_ref_id null — bank trường duy nhất), course (scope_ref_id =
+ * course id; context của bank là con của context khoá nên quyền tại khoá
+ * thừa hưởng xuống bank theo cây context).
+ */
+export const questionBanks = pgTable('question_banks', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  name: text('name').notNull(),
+  scope: text('scope').notNull(),
+  ownerId: uuid('owner_id'),
+  scopeRefId: uuid('scope_ref_id'),
+  contextId: uuid('context_id').notNull(),
+  status: text('status').notNull().default('active'),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('question_banks_scope_idx').on(table.scope),
+      index('question_banks_owner_id_idx').on(table.ownerId),
+      index('question_banks_scope_ref_id_idx').on(table.scopeRefId),
+      uniqueIndex('question_banks_personal_owner_unique').on(table.ownerId).where(sql`scope = 'personal'`),
+      uniqueIndex('question_banks_scope_ref_unique').on(table.scope, table.scopeRefId).where(sql`scope_ref_id is not null`),
+      uniqueIndex('question_banks_school_unique').on(table.scope).where(sql`scope = 'school'`),
+  ]);
 
 /** Question categories live in a context (Moodle `question_categories`). */
 export const questionCategories = pgTable('question_categories', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
   contextId: uuid('context_id').notNull(),
+  /** Bank sở hữu category (feat Ngân hàng câu hỏi chung, QB-1); null với category cũ chưa gán bank — bank mặc định được suy từ context khi cần. */
+  bankId: uuid('bank_id').references(() => questionBanks.id, { onDelete: 'set null' }),
   info: text('info').notNull().default(''),
   parent: uuid('parent'),
   sortOrder: integer('sort_order').notNull().default(0),
@@ -28,6 +64,7 @@ export const questionCategories = pgTable('question_categories', {
   (table) => [
       index('question_categories_context_id_idx').on(table.contextId),
       index('question_categories_parent_idx').on(table.parent),
+      index('question_categories_bank_id_idx').on(table.bankId),
   ]);
 
 
@@ -61,6 +98,21 @@ export const question = pgTable('question', {
   name: text('name').notNull(),
   createdBy: uuid('created_by'),
   modifiedBy: uuid('modified_by'),
+  /**
+   * Truy vết nguồn gốc khi câu là bản copy (feat Ngân hàng câu hỏi chung,
+   * QB-2): câu nguồn + version nguồn đã copy + bank nguồn + tác giả gốc
+   * (giữ nguyên qua các đời copy — ghi công không tắt được). Các cột là
+   * con trỏ truy vết (không FK cứng) như các con trỏ xuyên module khác.
+   * `idnumber` là mã định danh tuỳ chọn của câu TRONG bank (Moodle
+   * question.idnumber) phục vụ đối soát/chống trùng ở QB-4.
+   */
+  derivedFromQuestionId: uuid('derived_from_question_id'),
+  derivedFromVersionId: uuid('derived_from_version_id'),
+  derivedFromBankId: uuid('derived_from_bank_id'),
+  originalAuthorId: uuid('original_author_id'),
+  idnumber: text('idnumber'),
+  /** Số lượt câu này đã được copy đi (tín hiệu QB-4; use_count tính trực tiếp từ quiz_slots khi hiển thị). */
+  copyCount: integer('copy_count').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -68,6 +120,7 @@ export const question = pgTable('question', {
       index('question_category_idx').on(table.category),
       index('question_created_by_idx').on(table.createdBy),
       index('question_modified_by_idx').on(table.modifiedBy),
+      index('question_derived_from_idx').on(table.derivedFromQuestionId),
   ]);
 
 
@@ -84,13 +137,52 @@ export const questionBankEntries = pgTable(
     questionCategoryId: uuid('question_category_id').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
     questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
     latestVersion: integer('latest_version').notNull().default(1),
+    /** Trạng thái hiển thị của câu trong bank: draft / ready / hidden. hidden = đã rút (QB-3): mất khỏi khám phá + không thêm mới vào đề, version đã ghim vẫn phục vụ đề hiện hữu. */
     status: text('status').notNull().default('ready'),
+    /** Truy vết lần rút câu gần nhất (QB-3): lý do bắt buộc + người rút + thời điểm. */
+    withdrawnReason: text('withdrawn_reason'),
+    withdrawnBy: uuid('withdrawn_by'),
+    withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
       index('question_bank_entries_question_category_id_idx').on(table.questionCategoryId),unique('question_bank_entries_question_unique').on(table.questionId)],
 );
+
+/**
+ * Đề xuất đóng góp câu hỏi vào bank chung (feat Ngân hàng câu hỏi chung,
+ * QB-4): một dòng = một đề xuất của một giáo viên đưa câu của mình (ở bank
+ * nguồn) vào bank đích (tổ/trường/khoá). `mode` = 'new' (câu mới — duyệt
+ * đạt thì COPY vào bank đích bằng cơ chế QB-2) hoặc 'update' (đề xuất bản
+ * mới cho câu đã có ở bank đích qua liên kết derived_from — duyệt đạt thì
+ * tạo version mới trên chính danh tính câu đích). Chống trùng: content_hash
+ * của version nguồn tại thời điểm đề xuất + near_duplicate_of trỏ câu gần
+ * trùng trong bank đích để người duyệt cân nhắc.
+ */
+export const questionBankContributions = pgTable('question_bank_contributions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
+  targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
+  targetQuestionId: uuid('target_question_id'),
+  proposerId: uuid('proposer_id').notNull(),
+  note: text('note').notNull().default(''),
+  mode: text('mode').notNull().default('new'),
+  status: text('status').notNull().default('pending'),
+  contentHash: text('content_hash').notNull().default(''),
+  nearDuplicateOf: uuid('near_duplicate_of'),
+  rejectReason: text('reject_reason'),
+  reviewerId: uuid('reviewer_id'),
+  resultQuestionId: uuid('result_question_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('question_bank_contributions_target_bank_idx').on(table.targetBankId),
+      index('question_bank_contributions_question_idx').on(table.questionId),
+      index('question_bank_contributions_proposer_idx').on(table.proposerId),
+      index('question_bank_contributions_status_idx').on(table.status),
+  ]);
 
 /**
  * Immutable question content versions (Moodle `question_versions` + bản ghi

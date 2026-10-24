@@ -66,6 +66,16 @@ export const quizSlots = pgTable(
     questionId: uuid('question_id').references(() => question.id, { onDelete: 'cascade' }),
     categoryId: uuid('category_id').references(() => questionCategories.id, { onDelete: 'cascade' }),
     maxMark: doublePrecision('max_mark').notNull().default(1),
+    /**
+     * Kỷ luật version của slot (feat Ngân hàng câu hỏi chung, QB-3):
+     * 'pinned' = slot ghim cứng vào pinned_version_id (mặc định khi thêm
+     * câu từ bank tổ/trường); 'follow_latest' = mỗi lượt làm lấy version
+     * ready mới nhất (hành vi cũ). pinned_version_number là bản sao số
+     * version để hiển thị "đang ghim v[n] · đã có v[m]" không cần join.
+     */
+    versionMode: text('version_mode').notNull().default('follow_latest'),
+    pinnedVersionId: uuid('pinned_version_id'),
+    pinnedVersionNumber: integer('pinned_version_number'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -73,6 +83,26 @@ export const quizSlots = pgTable(
       index('quiz_slots_question_id_idx').on(table.questionId),
       index('quiz_slots_category_id_idx').on(table.categoryId),unique('quiz_slots_quiz_slot_unique').on(table.quizId, table.slot)],
 );
+
+/**
+ * Nhật ký nâng version đã ghim của slot (QB-3): mỗi lần giáo viên bấm
+ * "Nâng lên v[m]" ghi một dòng (slot, câu, từ version nào lên version
+ * nào, ai nâng, khi nào) — truy vết đầy đủ cho đề dùng câu của bank chung.
+ */
+export const quizSlotVersionEvents = pgTable('quiz_slot_version_events', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  slotId: uuid('slot_id').notNull().references(() => quizSlots.id, { onDelete: 'cascade' }),
+  questionId: uuid('question_id').notNull(),
+  fromVersion: integer('from_version'),
+  toVersion: integer('to_version').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('quiz_slot_version_events_slot_idx').on(table.slotId),
+      index('quiz_slot_version_events_quiz_idx').on(table.quizId),
+  ]);
 
 /**
  * Một lượt làm bài của một học sinh (Moodle `quiz_attempts`): gắn đúng một
