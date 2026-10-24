@@ -48,6 +48,8 @@ export default [
     route('questions/matrices/new', 'routes/question-matrix-new.tsx'),
     route('questions/matrices/:matrixId/edit', 'routes/question-matrix-edit.tsx'),
     route('question-usages/:id', 'routes/question-usage.tsx'),
+    route('exam-papers/new', 'routes/exam-paper-new.tsx'),
+    route('exam-papers/:paperId/edit', 'routes/exam-paper-edit.tsx'),
     route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
     route('calendar', 'pages/calendar.tsx'),
