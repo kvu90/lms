@@ -407,7 +407,7 @@ export class QuestionBanksService {
    * nhất và version `ready` mới nhất (đích của follow_latest / nút nâng).
    */
   async getQuestionBankInfo(questionId: string): Promise<{
-    bank: QuestionBankRow | null; entryStatus: string; latestVersion: number;
+    bank: QuestionBankRow | null; entryStatus: string; latestVersion: number; latestVersionId: string | null;
     latestReadyVersionId: string | null; latestReadyVersionNumber: number | null;
   } | null> {
     const q = await this.questionsRepo.getQuestion(questionId);
@@ -419,8 +419,10 @@ export class QuestionBanksService {
     const versions = await this.questionsRepo.listVersions(entry.id);
     const ready = versions.filter((v) => v.status === 'ready');
     const latestReady = ready.length ? ready[ready.length - 1]! : null;
+    const latest = versions.length ? versions[versions.length - 1]! : null;
     return {
       bank, entryStatus: entry.status, latestVersion: entry.latestVersion,
+      latestVersionId: latest?.id ?? null,
       latestReadyVersionId: latestReady?.id ?? null, latestReadyVersionNumber: latestReady?.version ?? null,
     };
   }

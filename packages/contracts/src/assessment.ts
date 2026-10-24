@@ -652,6 +652,18 @@ export const quizSlotViewSchema = z.object({
   questionId: uuidIdSchema.nullable(),
   categoryId: uuidIdSchema.nullable(),
   maxMark: z.number(),
+  /** Kỷ luật version của slot (QB-3): `pinned`/`follow_latest` cho slot cố định, null cho slot ngẫu nhiên. */
+  versionMode: z.enum(['pinned', 'follow_latest']).nullable(),
+  /** Số version đang ghim (slot pinned) và version ready mới nhất của câu — UI hiện "đang ghim v[n] · đã có v[m]". */
+  pinnedVersion: z.number().int().nullable(),
+  latestVersion: z.number().int().nullable(),
+  hasNewerVersion: z.boolean(),
+  /** Bank nguồn của câu trong slot (null với slot ngẫu nhiên hoặc câu chưa thuộc bank nào). */
+  bankId: uuidIdSchema.nullable(),
+  bankName: z.string().nullable(),
+  bankScope: z.string().nullable(),
+  /** Trạng thái của câu trong bank (ready/hidden/…) để UI báo câu đã rút. */
+  questionStatus: z.string().nullable(),
 });
 export type QuizSlotView = z.infer<typeof quizSlotViewSchema>;
 

@@ -87,6 +87,13 @@ export class QuizzesController {
   async removeSlot(@Param('id', { schema: uuidIdSchema }) id: string, @Param('slotId', { schema: uuidIdSchema }) slotId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.removeSlot(actor.id, id, slotId);
   }
+  @Post(':id/slots/:slotId/upgrade-version')
+  /**
+   * POST /quizzes/:id/slots/:slotId/upgrade-version — nâng version đã ghim của slot lên bản ready mới nhất (QB-3, ghi nhật ký).
+   */
+  async upgradeSlotVersion(@Param('id', { schema: uuidIdSchema }) id: string, @Param('slotId', { schema: uuidIdSchema }) slotId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.upgradeSlotVersion(actor.id, id, slotId);
+  }
   @Get(':id/attempts')
   /**
    * GET /quizzes/:id/attempts — các lượt làm (của chính người xem, hoặc

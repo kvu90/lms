@@ -874,7 +874,7 @@ export class QuestionsService {
    */
   async createUsage(actorId: string, input: {
     component: string; instanceId?: string; contextId?: string; preferredBehaviour?: string;
-    slots: { questionId: string; maxMark?: number }[];
+    slots: { questionId: string; maxMark?: number; pinnedVersionId?: string }[];
   }): Promise<UsageView> {
     const behaviour = input.preferredBehaviour ?? 'deferredfeedback';
     if (!BEHAVIOURS[behaviour]) {
@@ -888,9 +888,16 @@ export class QuestionsService {
     let slot = 1;
     for (const s of input.slots) {
       const view = await this.getQuestion(s.questionId);
+      if (s.pinnedVersionId) {
+        // Slot ghim cứng (QB-3): version mang sẵn trên attempt, startAttempt tôn trọng tuyệt đối.
+        const pinned = await this.repo.getVersion(s.pinnedVersionId);
+        if (!pinned || pinned.questionId !== s.questionId) {
+          throw new BadRequestException({ message: `Pinned version ${s.pinnedVersionId} does not belong to question ${s.questionId}`, code: 'question.pinned_version_mismatch' });
+        }
+      }
       await this.repo.insertAttempt({
         questionUsageId: usage.id, slot: slot++, behaviour,
-        questionId: s.questionId, questionVersionId: null,
+        questionId: s.questionId, questionVersionId: s.pinnedVersionId ?? null,
         maxMark: s.maxMark ?? view.latestVersion.defaultMark,
         questionSummary: extractRichTextPlainText(view.latestVersion.questionText as RichTextDocument), userId: actorId,
         state: 'notstarted',
@@ -907,6 +914,19 @@ export class QuestionsService {
   async listQuestionIdsInCategory(categoryId: string): Promise<string[]> {
     const rows = await this.repo.listQuestionsInCategory(categoryId);
     return rows.map((r) => r.id);
+  }
+  /**
+   * Id câu hỏi còn DÙNG ĐƯỢC trong category (loại câu đã rút — trạng thái
+   * hidden, QB-3): slot ngẫu nhiên của quiz chỉ rút trong tập này.
+   */
+  async listUsableQuestionIdsInCategory(categoryId: string): Promise<string[]> {
+    const rows = await this.repo.listQuestionsInCategory(categoryId);
+    const out: string[] = [];
+    for (const r of rows) {
+      const entry = await this.repo.getEntryByQuestion(r.id);
+      if (entry && entry.status !== 'hidden') out.push(r.id);
+    }
+    return out;
   }
   /**
    * Xoá một usage cùng mọi attempt/step của nó (hoạt động sở hữu usage
@@ -1108,9 +1128,20 @@ export class QuestionsService {
     const attempt = await this.getAttempt(attemptId);
     await this.requireOwnedAttempt(userId, attempt);
     await this.transition(attempt, 'todo');
-    const { entry, latestVersion } = await this.getQuestion(attempt.questionId);
-    void entry;
-    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionVersionId: latestVersion.id, userId: userId });
+    // Kỷ luật version (QB-3): attempt đã mang version ghim cứng từ
+    // createUsage (slot pinned của quiz) thì tôn trọng tuyệt đối; ngược
+    // lại follow_latest — chỉ nhận version `ready` mới nhất (bỏ qua bản
+    // draft ở đầu), không có bản ready nào mới lùi về version mới nhất.
+    let pinnedVersionId = attempt.questionVersionId;
+    if (!pinnedVersionId) {
+      const { entry } = await this.getQuestion(attempt.questionId);
+      const versions = await this.repo.listVersions(entry.id);
+      const ready = versions.filter((v) => v.status === 'ready');
+      const chosen = ready.length ? ready[ready.length - 1]! : versions[versions.length - 1];
+      if (!chosen) throw new NotFoundException({ message: `Question ${attempt.questionId} latest version missing`, code: 'question.version_missing' });
+      pinnedVersionId = chosen.id;
+    }
+    await this.repo.updateAttempt(attempt.id, { state: 'todo', questionVersionId: pinnedVersionId, userId: userId });
     const updated = await this.getAttempt(attempt.id);
     await this.appendStep(updated, userId, 'todo', null);
     const usage = await this.getUsage(attempt.questionUsageId);
