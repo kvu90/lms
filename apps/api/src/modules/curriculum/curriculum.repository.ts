@@ -179,4 +179,10 @@ export class CurriculumRepository {
     await (tx ?? this.db).update(curriculumProgramRecords).set({ ...v, updatedAt: new Date() })
       .where(eq(curriculumProgramRecords.id, id));
   }
+  /** Toàn bộ dòng sổ của một môn (mọi dataset) — tầng SGK (K0b) truy vết mã bản ghi theo node đích của ánh xạ. */
+  async listProgramRecordsBySubject(subjectId: string): Promise<ProgramRecordRow[]> {
+    return this.db.select().from(curriculumProgramRecords)
+      .where(eq(curriculumProgramRecords.subjectId, subjectId))
+      .orderBy(asc(curriculumProgramRecords.recordId));
+  }
 }

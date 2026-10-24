@@ -1,6 +1,7 @@
 import {
   applyCurriculumFrameSchema,
   copyCourseContentSchema,
+  applyTextbookFrameSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
@@ -14,6 +15,7 @@ import {
   updateCourseSectionSchema,
   type ApplyCurriculumFrame,
   type CopyCourseContent,
+  type ApplyTextbookFrame,
   type CreateCourse,
   type CreateCourseCategory,
   type CreateCourseModule,
@@ -34,6 +36,7 @@ import {
 export {
   applyCurriculumFrameSchema,
   copyCourseContentSchema,
+  applyTextbookFrameSchema,
   createCourseCategorySchema,
   createCourseModuleSchema,
   createCourseSchema,
@@ -47,6 +50,7 @@ export {
   updateCourseSectionSchema,
 };
 export type ApplyFrameDto = ApplyCurriculumFrame;
+export type ApplyTextbookFrameDto = ApplyTextbookFrame;
 export type CreateCategoryDto = CreateCourseCategory;
 export type UpdateCategoryDto = UpdateCourseCategory;
 export type CreateCourseDto = CreateCourse;

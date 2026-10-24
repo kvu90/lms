@@ -1,0 +1,870 @@
+{
+  "book": "Toán 1",
+  "series": "Kết nối tri thức với cuộc sống",
+  "publisher": "NXB Giáo dục Việt Nam",
+  "records": [
+    {
+      "id": "SGK-TOAN1-001",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": null,
+      "lesson": "Tiết học đầu tiên",
+      "periods": null,
+      "program_records": [],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-002",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 1,
+      "lesson": "Các số 0, 1, 2, 3, 4, 5",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0001"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-003",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 2,
+      "lesson": "Các số 6, 7, 8, 9, 10",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0001"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-004",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 3,
+      "lesson": "Nhiều hơn, ít hơn, bằng nhau",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-005",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 4,
+      "lesson": "So sánh số",
+      "periods": 4,
+      "program_records": [
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-006",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 5,
+      "lesson": "Mấy và mấy",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-007",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 1,
+      "chapter": "Các số từ 0 đến 10",
+      "lesson_number": 6,
+      "lesson": "Luyện tập chung",
+      "periods": 4,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-008",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 2,
+      "chapter": "Làm quen với một số hình phẳng",
+      "lesson_number": 7,
+      "lesson": "Hình vuông, hình tròn, hình tam giác, hình chữ nhật",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0006"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-009",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 2,
+      "chapter": "Làm quen với một số hình phẳng",
+      "lesson_number": 8,
+      "lesson": "Thực hành lắp ghép, xếp hình",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0007"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-010",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 2,
+      "chapter": "Làm quen với một số hình phẳng",
+      "lesson_number": 9,
+      "lesson": "Luyện tập chung",
+      "periods": 1,
+      "program_records": [
+        "TOAN-0006",
+        "TOAN-0007"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-011",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 3,
+      "chapter": "Phép cộng, phép trừ trong phạm vi 10",
+      "lesson_number": 10,
+      "lesson": "Phép cộng trong phạm vi 10",
+      "periods": 6,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-012",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 3,
+      "chapter": "Phép cộng, phép trừ trong phạm vi 10",
+      "lesson_number": 11,
+      "lesson": "Phép trừ trong phạm vi 10",
+      "periods": 6,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-013",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 3,
+      "chapter": "Phép cộng, phép trừ trong phạm vi 10",
+      "lesson_number": 12,
+      "lesson": "Bảng cộng, bảng trừ trong phạm vi 10",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0003",
+        "TOAN-0004"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-014",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 3,
+      "chapter": "Phép cộng, phép trừ trong phạm vi 10",
+      "lesson_number": 13,
+      "lesson": "Luyện tập chung",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0003",
+        "TOAN-0004"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-015",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 4,
+      "chapter": "Làm quen với một số hình khối",
+      "lesson_number": 14,
+      "lesson": "Khối lập phương, khối hộp chữ nhật",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0006"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-016",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 4,
+      "chapter": "Làm quen với một số hình khối",
+      "lesson_number": 15,
+      "lesson": "Vị trí, định hướng trong không gian",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0006"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-017",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 4,
+      "chapter": "Làm quen với một số hình khối",
+      "lesson_number": 16,
+      "lesson": "Luyện tập chung",
+      "periods": 1,
+      "program_records": [
+        "TOAN-0006",
+        "TOAN-0007"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-018",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 5,
+      "chapter": "Ôn tập học kì 1",
+      "lesson_number": 17,
+      "lesson": "Ôn tập các số trong phạm vi 10",
+      "periods": null,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-019",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 5,
+      "chapter": "Ôn tập học kì 1",
+      "lesson_number": 18,
+      "lesson": "Ôn tập phép cộng, phép trừ trong phạm vi 10",
+      "periods": null,
+      "program_records": [
+        "TOAN-0003",
+        "TOAN-0004"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-020",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 5,
+      "chapter": "Ôn tập học kì 1",
+      "lesson_number": 19,
+      "lesson": "Ôn tập hình học",
+      "periods": null,
+      "program_records": [
+        "TOAN-0006",
+        "TOAN-0007"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-021",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 1,
+      "chapter_number": 5,
+      "chapter": "Ôn tập học kì 1",
+      "lesson_number": 20,
+      "lesson": "Ôn tập chung",
+      "periods": null,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0002",
+        "TOAN-0003",
+        "TOAN-0006"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 1",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 1; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-022",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 6,
+      "chapter": "Các số đến 100",
+      "lesson_number": 21,
+      "lesson": "Số có hai chữ số",
+      "periods": 6,
+      "program_records": [
+        "TOAN-0001"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-023",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 6,
+      "chapter": "Các số đến 100",
+      "lesson_number": 22,
+      "lesson": "So sánh số có hai chữ số",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-024",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 6,
+      "chapter": "Các số đến 100",
+      "lesson_number": 23,
+      "lesson": "Bảng các số từ 1 đến 100",
+      "periods": 1,
+      "program_records": [
+        "TOAN-0001"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-025",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 6,
+      "chapter": "Các số đến 100",
+      "lesson_number": 24,
+      "lesson": "Luyện tập chung",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0002"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-026",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 7,
+      "chapter": "Độ dài và đo độ dài",
+      "lesson_number": 25,
+      "lesson": "Dài hơn, ngắn hơn",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-027",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 7,
+      "chapter": "Độ dài và đo độ dài",
+      "lesson_number": 26,
+      "lesson": "Đơn vị đo độ dài",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-028",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 7,
+      "chapter": "Độ dài và đo độ dài",
+      "lesson_number": 27,
+      "lesson": "Thực hành ước lượng và đo độ dài",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0009"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-029",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 7,
+      "chapter": "Độ dài và đo độ dài",
+      "lesson_number": 28,
+      "lesson": "Luyện tập chung",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008",
+        "TOAN-0009"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-030",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 8,
+      "chapter": "Phép cộng, phép trừ (không nhớ) trong phạm vi 100",
+      "lesson_number": 29,
+      "lesson": "Phép cộng số có hai chữ số với số có một chữ số",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-031",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 8,
+      "chapter": "Phép cộng, phép trừ (không nhớ) trong phạm vi 100",
+      "lesson_number": 30,
+      "lesson": "Phép cộng số có hai chữ số với số có hai chữ số",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-032",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 8,
+      "chapter": "Phép cộng, phép trừ (không nhớ) trong phạm vi 100",
+      "lesson_number": 31,
+      "lesson": "Phép trừ số có hai chữ số cho số có một chữ số",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-033",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 8,
+      "chapter": "Phép cộng, phép trừ (không nhớ) trong phạm vi 100",
+      "lesson_number": 32,
+      "lesson": "Phép trừ số có hai chữ số cho số có hai chữ số",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-034",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 8,
+      "chapter": "Phép cộng, phép trừ (không nhớ) trong phạm vi 100",
+      "lesson_number": 33,
+      "lesson": "Luyện tập chung",
+      "periods": 4,
+      "program_records": [
+        "TOAN-0003",
+        "TOAN-0004",
+        "TOAN-0005"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-035",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 9,
+      "chapter": "Thời gian. Giờ và lịch",
+      "lesson_number": 34,
+      "lesson": "Xem giờ đúng trên đồng hồ",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-036",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 9,
+      "chapter": "Thời gian. Giờ và lịch",
+      "lesson_number": 35,
+      "lesson": "Các ngày trong tuần",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-037",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 9,
+      "chapter": "Thời gian. Giờ và lịch",
+      "lesson_number": 36,
+      "lesson": "Thực hành xem lịch và giờ",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008",
+        "TOAN-0009"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-038",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 9,
+      "chapter": "Thời gian. Giờ và lịch",
+      "lesson_number": 37,
+      "lesson": "Luyện tập chung",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0008",
+        "TOAN-0009"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-039",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 10,
+      "chapter": "Ôn tập cuối năm",
+      "lesson_number": 38,
+      "lesson": "Ôn tập các số và phép tính trong phạm vi 10",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-040",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 10,
+      "chapter": "Ôn tập cuối năm",
+      "lesson_number": 39,
+      "lesson": "Ôn tập các số và phép tính trong phạm vi 100",
+      "periods": 3,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0002",
+        "TOAN-0003"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-041",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 10,
+      "chapter": "Ôn tập cuối năm",
+      "lesson_number": 40,
+      "lesson": "Ôn tập hình học và đo lường",
+      "periods": 2,
+      "program_records": [
+        "TOAN-0006",
+        "TOAN-0008",
+        "TOAN-0009"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    },
+    {
+      "id": "SGK-TOAN1-042",
+      "subject": "Toán",
+      "grade": 1,
+      "volume": 2,
+      "chapter_number": 10,
+      "chapter": "Ôn tập cuối năm",
+      "lesson_number": 41,
+      "lesson": "Ôn tập chung",
+      "periods": 1,
+      "program_records": [
+        "TOAN-0001",
+        "TOAN-0003",
+        "TOAN-0006",
+        "TOAN-0008"
+      ],
+      "source": {
+        "document": "SGK Toán 1 — bộ \"Kết nối tri thức với cuộc sống\" (NXB Giáo dục Việt Nam)",
+        "volume": "Tập 2",
+        "artifact": "Mục lục in trong SGK Toán 1 Tập 2; đối chiếu Mục lục Sách giáo viên Toán 1 (NXB Giáo dục Việt Nam)",
+        "portal": "Hành trang số — hanhtrangso.nxbgd.vn (cổng sách điện tử chính thức của NXB Giáo dục Việt Nam)"
+      }
+    }
+  ]
+}
