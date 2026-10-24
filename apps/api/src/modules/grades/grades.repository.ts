@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, gradeOutcomes, scales,
+  vnGradebooks, vnTermResults,
 } from '../../db/schema';
 
 export type CategoryRow = typeof gradeCategories.$inferSelect;
@@ -12,6 +13,8 @@ export type GradeRow = typeof gradeGrades.$inferSelect;
 export type LetterRow = typeof gradeLetters.$inferSelect;
 export type ScaleRow = typeof scales.$inferSelect;
 export type OutcomeRow = typeof gradeOutcomes.$inferSelect;
+export type VnBookRow = typeof vnGradebooks.$inferSelect;
+export type VnTermResultRow = typeof vnTermResults.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -265,5 +268,71 @@ export class GradesRepository {
     const [row] = await this.db.select().from(gradeItems)
       .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.idNumber, idNumber)));
     return row;
+  }
+
+  // vn gradebooks (GB-VN-1)
+  /**
+   * Chèn sổ VN.
+   */
+  async insertVnBook(v: typeof vnGradebooks.$inferInsert): Promise<VnBookRow> {
+    const [row] = await this.db.insert(vnGradebooks).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy sổ VN theo id.
+   */
+  async getVnBook(id: string): Promise<VnBookRow | undefined> {
+    const [row] = await this.db.select().from(vnGradebooks).where(eq(vnGradebooks.id, id)); return row;
+  }
+  /**
+   * Sổ VN của một khoá học.
+   */
+  async listVnBooks(courseId: string): Promise<VnBookRow[]> {
+    return this.db.select().from(vnGradebooks).where(eq(vnGradebooks.courseId, courseId)).orderBy(asc(vnGradebooks.term));
+  }
+  /**
+   * Mọi sổ VN của một học kì (mọi khoá học) — đầu vào xếp mức chung của học sinh (Điều 9).
+   */
+  async listVnBooksByTerm(term: string): Promise<VnBookRow[]> {
+    return this.db.select().from(vnGradebooks).where(eq(vnGradebooks.term, term)).orderBy(asc(vnGradebooks.id));
+  }
+  /**
+   * Cập nhật sổ VN.
+   */
+  async updateVnBook(id: string, patch: Partial<VnBookRow>): Promise<void> {
+    await this.db.update(vnGradebooks).set({ ...patch, updatedAt: new Date() }).where(eq(vnGradebooks.id, id));
+  }
+  /**
+   * Các cột điểm thuộc một sổ VN, theo thứ tự hiển thị.
+   */
+  async listItemsByVnBook(bookId: string): Promise<ItemRow[]> {
+    return this.db.select().from(gradeItems).where(eq(gradeItems.vnBookId, bookId)).orderBy(asc(gradeItems.sortOrder), asc(gradeItems.id));
+  }
+  /**
+   * Chèn bản chốt kết quả sổ VN.
+   */
+  async insertVnTermResult(v: typeof vnTermResults.$inferInsert): Promise<VnTermResultRow> {
+    const [row] = await this.db.insert(vnTermResults).values(v).returning(); return row!;
+  }
+  /**
+   * Các bản chốt của một sổ cho một học sinh, mới nhất cuối danh sách.
+   */
+  async listVnTermResults(bookId: string, userId: string): Promise<VnTermResultRow[]> {
+    return this.db.select().from(vnTermResults)
+      .where(and(eq(vnTermResults.bookId, bookId), eq(vnTermResults.userId, userId)))
+      .orderBy(asc(vnTermResults.version));
+  }
+  /**
+   * Bản chốt cả năm của một học sinh trong một khoá học.
+   */
+  async listVnYearResults(courseId: string, userId: string): Promise<VnTermResultRow[]> {
+    return this.db.select().from(vnTermResults)
+      .where(and(eq(vnTermResults.courseId, courseId), eq(vnTermResults.userId, userId), eq(vnTermResults.scope, 'year')))
+      .orderBy(asc(vnTermResults.version));
+  }
+  /**
+   * Mọi bản chốt (term + year) của một học sinh — đầu vào xếp mức chung.
+   */
+  async listVnResultsForUser(userId: string): Promise<VnTermResultRow[]> {
+    return this.db.select().from(vnTermResults).where(eq(vnTermResults.userId, userId)).orderBy(asc(vnTermResults.id));
   }
 }

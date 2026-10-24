@@ -3,9 +3,13 @@ import {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  createVnGradebookSchema,
   exportGradesVneduSchema,
+  finalizeVnTermResultSchema,
+  finalizeVnYearResultSchema,
   setGradeLettersSchema,
   setGradeSchema,
+  setVnCommentResultSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
   updateGradeOutcomeSchema,
@@ -14,9 +18,13 @@ import {
   type CreateGradeItem,
   type CreateGradeOutcome,
   type CreateGradeScale,
+  type CreateVnGradebook,
   type ExportGradesVnedu,
+  type FinalizeVnTermResult,
+  type FinalizeVnYearResult,
   type SetGrade,
   type SetGradeLetters,
+  type SetVnCommentResult,
   type UpdateGrade,
   type UpdateGradeCategory,
   type UpdateGradeItem,
@@ -32,9 +40,13 @@ export {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  createVnGradebookSchema,
   exportGradesVneduSchema,
+  finalizeVnTermResultSchema,
+  finalizeVnYearResultSchema,
   setGradeLettersSchema,
   setGradeSchema,
+  setVnCommentResultSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
   updateGradeOutcomeSchema,
@@ -48,6 +60,10 @@ export type SetGradeDto = SetGrade;
 export type UpdateGradeDto = UpdateGrade;
 export type SetLettersDto = SetGradeLetters;
 export type ExportGradesVneduDto = ExportGradesVnedu;
+export type CreateVnGradebookDto = CreateVnGradebook;
+export type FinalizeVnTermResultDto = FinalizeVnTermResult;
+export type SetVnCommentResultDto = SetVnCommentResult;
+export type FinalizeVnYearResultDto = FinalizeVnYearResult;
 export type CreateScaleDto = CreateGradeScale;
 export type CreateGradeOutcomeDto = CreateGradeOutcome;
 export type UpdateGradeOutcomeDto = UpdateGradeOutcome;

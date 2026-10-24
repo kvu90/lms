@@ -421,6 +421,40 @@ export const exportGradesVneduSchema = z.strictObject({
 });
 export type ExportGradesVnedu = z.infer<typeof exportGradesVneduSchema>;
 
+/**
+ * Payload mở sổ điểm VN (GB-VN-1, issue #95) cho một khoá học × học kì theo
+ * TT 22/2021: `subjectPeriodsPerYear` là số tiết/năm của môn — hệ thống suy
+ * số cột ĐĐGtx theo Điều 6.2b. `assessmentMode` bỏ trống thì phía server suy
+ * từ môn học của khoá (nhóm chỉ-nhận-xét ở Điều 5.3a); môn chỉ-nhận-xét
+ * không cần số tiết. `regime` ở lát này chỉ nhận `tt22`.
+ */
+export const createVnGradebookSchema = z.strictObject({
+  term: z.enum(['hk1', 'hk2']),
+  subjectPeriodsPerYear: z.number().int().min(1).max(1000).optional(),
+  assessmentMode: z.enum(['score', 'comment']).optional(),
+  regime: z.enum(['tt22', 'tt27', 'free']).optional(),
+});
+export type CreateVnGradebook = z.infer<typeof createVnGradebookSchema>;
+
+/** Payload chốt kết quả học kì của một học sinh trong một sổ VN: ghi bản snapshot vào vn_term_results kèm nhận xét kì. */
+export const finalizeVnTermResultSchema = z.strictObject({
+  comment: z.string().max(2000).optional(),
+});
+export type FinalizeVnTermResult = z.infer<typeof finalizeVnTermResultSchema>;
+
+/** Payload ghi kết quả môn chỉ-nhận-xét (Điều 5.3a) cho một học sinh trong một học kì. */
+export const setVnCommentResultSchema = z.strictObject({
+  result: z.enum(['Đạt', 'Chưa đạt']),
+  comment: z.string().max(2000).optional(),
+});
+export type SetVnCommentResult = z.infer<typeof setVnCommentResultSchema>;
+
+/** Payload chốt kết quả cả năm của một học sinh trong một khoá học (ĐTBmcn từ hai bản chốt học kì). */
+export const finalizeVnYearResultSchema = z.strictObject({
+  comment: z.string().max(2000).optional(),
+});
+export type FinalizeVnYearResult = z.infer<typeof finalizeVnYearResultSchema>;
+
 /** Một mốc chữ cái trong thang điểm chữ (grade letter). */
 export const gradeLetterBoundarySchema = z.strictObject({
   letter: z.string().min(1),

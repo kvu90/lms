@@ -73,6 +73,42 @@ export const gradeCategories = pgTable('grade_categories', {
 
 
 /**
+ * Sổ điểm VN (GB-VN-1, issue #95): lớp preset quốc gia TT 22 đặt TRÊN gradebook
+ * engine hiện có — một sổ là một khoá học × một học kì. Cột điểm của sổ vẫn là
+ * grade_items thường (gắn qua vn_book_id/vn_role/vn_ordinal), nằm trong một
+ * grade category `weightedmean` (hệ số 1/2/3) do sổ sở hữu qua category_id.
+ * Môn chỉ-nhận-xét (Điều 5.3a) có assessment_mode='comment' và KHÔNG sinh cột điểm.
+ */
+export const vnGradebooks = pgTable('vn_gradebooks', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  /** Học kì: hk1 | hk2. */
+  term: text('term').notNull(),
+  /** Chế độ đánh giá: tt22 | tt27 | free (lát GB-VN-1 chỉ thi công tt22). */
+  regime: text('regime').notNull().default('tt22'),
+  /** score = môn điểm số kết hợp nhận xét; comment = môn chỉ-nhận-xét (Điều 5.3a). */
+  assessmentMode: text('assessment_mode').notNull().default('score'),
+  /** Số tiết/năm của môn — đầu vào suy quota ĐĐGtx (Điều 6.2b); null ở môn nhận xét khi không khai. */
+  subjectPeriodsPerYear: integer('subject_periods_per_year'),
+  /** Số cột ĐĐGtx đã suy ra (lưu để truy vết quyết định sinh cột). */
+  dgtxQuota: integer('dgtx_quota').notNull().default(0),
+  /** Category weightedmean chứa các cột của sổ (null ở môn nhận xét — không có cột điểm). */
+  categoryId: uuid('category_id').references(() => gradeCategories.id, { onDelete: 'set null' }),
+  /** open | closed — chốt sổ theo đợt là GB-VN-4; lát này chỉ ghi trạng thái mở. */
+  status: text('status').notNull().default('open'),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+  closedBy: uuid('closed_by'),
+  closeNote: text('close_note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('vn_gradebooks_course_id_idx').on(table.courseId),
+      unique('vn_gradebooks_course_term_unique').on(table.courseId, table.term),
+  ]);
+
+
+/**
  * Grade items (Moodle `grade_items`). item_type: course|category|manual|mod.
  * For 'mod', item_instance = course_modules id and item_module = component.
  * For 'category', item_instance = grade_categories id. For 'course', item_instance = course id.
@@ -108,11 +144,18 @@ export const gradeItems = pgTable(
     hidden: boolean('hidden').notNull().default(false),
     locked: boolean('locked').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
+    /** Sổ VN sở hữu cột này (GB-VN-1); null = item gradebook tự do, không thuộc sổ VN nào. */
+    vnBookId: uuid('vn_book_id').references(() => vnGradebooks.id, { onDelete: 'set null' }),
+    /** Vai trò cột TT 22: dgtx|dggk|dgck (môn điểm số); nx_tx|nx_gk|nx_ck|ktdk|tong_hop dành cho GB-VN-3. */
+    vnRole: text('vn_role'),
+    /** Thứ tự cột trong vai trò (ĐĐGtx 1..N); null ở các vai trò đơn cột. */
+    vnOrdinal: integer('vn_ordinal'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
       index('grade_items_category_id_idx').on(table.categoryId),
+      index('grade_items_vn_book_id_idx').on(table.vnBookId),
       index('grade_items_item_instance_idx').on(table.itemInstance),
       index('grade_items_scale_id_idx').on(table.scaleId),index('grade_items_outcome_id_idx').on(table.outcomeId),unique('grade_items_course_id_number_unique').on(table.courseId, table.idNumber),unique('grade_items_course_type_instance_unique').on(table.courseId, table.itemType, table.itemInstance, table.itemModule)],
 );
@@ -186,3 +229,38 @@ export const gradeLetters = pgTable(
   },
   (table) => [unique('grade_letters_context_boundary_unique').on(table.contextId, table.lowerBoundary)],
 );
+
+
+/**
+ * Bản chốt kết quả của sổ VN (GB-VN-1): scope 'term' gắn một sổ (ĐTBmhk của môn
+ * điểm số, hoặc kết quả Đạt/Chưa đạt của môn nhận xét qua comment_result);
+ * scope 'year' gắn khoá học (book_id null) với ĐTBmcn tính từ hai bản chốt kì.
+ * Chốt lại tạo bản mới với version tăng dần — không sửa đè bản cũ;
+ * replaced_by_result_id dành cho điểm đánh giá lại mùa hè (Điều 14, GB-VN-4).
+ */
+export const vnTermResults = pgTable('vn_term_results', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  bookId: uuid('book_id').references(() => vnGradebooks.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
+  /** term = kết quả một học kì của một sổ; year = kết quả cả năm của một khoá học. */
+  scope: text('scope').notNull().default('term'),
+  /** ĐTB môn học kì đã làm tròn 1 chữ số thập phân (scope term, môn điểm số). */
+  dtbHk: doublePrecision('dtb_hk'),
+  /** ĐTB môn cả năm đã làm tròn (scope year). */
+  dtbYear: doublePrecision('dtb_year'),
+  /** Kết quả Đạt | Chưa đạt của môn chỉ-nhận-xét (scope term). */
+  commentResult: text('comment_result'),
+  /** Nhận xét kì đi kèm kết quả (Điều 5.1). */
+  comment: text('comment'),
+  /** Bản chốt này thay thế bản nào (đánh giá lại — Điều 14); không có khoá ngoại để giữ vết độc lập. */
+  replacedByResultId: uuid('replaced_by_result_id'),
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('vn_term_results_book_id_idx').on(table.bookId),
+      index('vn_term_results_course_id_idx').on(table.courseId),
+      index('vn_term_results_user_id_idx').on(table.userId),
+  ]);
