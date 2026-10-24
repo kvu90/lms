@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OutboxRelayService } from '../src/infra/events/outbox-relay.service';
 import {
@@ -45,6 +46,18 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
   // trên cùng DB (relay API không tự chạy theo lịch), nên dưới tải CI
   // nó vượt 30s dù mọi assertion đều đúng — xem bàn giao fix CI PR #76.
   beforeAll(async () => {
+    // Dọn tồn đọng outbox của các spec đã chạy trước trên cùng DB:
+    // relay ở app test chỉ chạy khi gọi tay, nên row chưa publish khi
+    // app trước đóng là row chết — không test nào còn tiêu thụ.
+    // Không dọn thì vòng xả ở cuối beforeAll này phải duyệt toàn bộ
+    // tồn đọng của cả suite (O(backlog)) và vượt trần timeout dưới
+    // tải CI dù mọi assertion đều đúng (CI run 40097046131 trên commit
+    // chỉ nới trần 120s vẫn đỏ). Dọn xong, vòng xả chỉ còn duyệt
+    // event của chính spec này.
+    const stale = new Client({ connectionString: process.env.DATABASE_URL });
+    await stale.connect();
+    await stale.query('DELETE FROM outbox_events WHERE published_at IS NULL');
+    await stale.end();
     app = await createTestApp();
     relay = app.get(OutboxRelayService);
     const adminLogin = await login(app, ADMIN.username, ADMIN.password);
