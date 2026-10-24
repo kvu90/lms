@@ -255,17 +255,19 @@ export class VnGradebooksController {
   @Get(':courseId/grades/vn-books')
   /**
    * GET /courses/:courseId/grades/vn-books — các sổ VN của khoá học kèm cột.
+   * Gác actor ở service: grade:viewall tại khoá (lát cứng hoá nối tiếp #104).
    */
-  async listBooks(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.vn.listBooks(courseId);
+  async listBooks(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.listBooks(actor.id, courseId);
   }
   @Get(':courseId/grades/vn-books/:bookId')
   /**
    * GET /courses/:courseId/grades/vn-books/:bookId — một sổ VN kèm cột.
+   * Gác actor ở service: grade:viewall tại khoá (lát cứng hoá nối tiếp #104).
    */
-  async getBook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string) {
+  async getBook(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
-    return this.vn.getBookView(bookId);
+    return this.vn.getBookView(actor.id, bookId);
   }
   @Get(':courseId/grades/vn-books/:bookId/results/:userId')
   /**
@@ -312,10 +314,11 @@ export class VnGradebooksController {
   @Get(':courseId/grades/vn-books/:bookId/activity-mappings')
   /**
    * GET .../vn-books/:bookId/activity-mappings — các khai vai trò điểm của sổ, kèm truy vết nguồn/đích.
+   * Gác actor ở service: grade:viewall tại khoá (lát cứng hoá nối tiếp #104).
    */
-  async listActivityMappings(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string) {
+  async listActivityMappings(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
-    return this.vn.listActivityMappings(bookId);
+    return this.vn.listActivityMappings(actor.id, bookId);
   }
   @Delete(':courseId/grades/vn-books/:bookId/activity-mappings/:mappingId')
   /**
