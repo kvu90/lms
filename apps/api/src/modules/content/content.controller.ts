@@ -1,11 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { ContentService } from './content.service';
 import {
-  createPageSchema, createResourceSchema, updatePageSchema, updateResourceSchema,
-  type CreatePageDto, type CreateResourceDto, type UpdatePageDto, type UpdateResourceDto,
+  createLessonTemplateSchema, createPageSchema, createResourceSchema, recordProgressSchema,
+  updatePageSchema, updateResourceSchema,
+  type CreateLessonTemplateDto, type CreatePageDto, type CreateResourceDto, type RecordProgressDto, type UpdatePageDto, type UpdateResourceDto,
 } from './dto/content.dto';
 
 @ApiTags('content')
@@ -108,5 +110,32 @@ export class PlayerController {
   /** GET /courses/:courseId/progress/class-markers — mốc "lớp đã học tới đây" theo từng lớp (nhóm). */
   async classMarkers(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() viewer: AuthenticatedUser) {
     return this.content.getClassMarkers(viewer.id, courseId);
+  }
+
+  @Post('modules/:cmId/progress')
+  /** POST /courses/:courseId/modules/:cmId/progress — học sinh báo tiến độ xem (lưu bền; client gửi bù khi rớt mạng). */
+  async recordProgress(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('cmId', { schema: uuidIdSchema }) cmId: string, @Body({ schema: recordProgressSchema }) dto: RecordProgressDto, @CurrentUser() viewer: AuthenticatedUser) {
+    return this.content.recordProgress(viewer.id, courseId, cmId, dto);
+  }
+
+  @Get('progress/report')
+  /** GET /courses/:courseId/progress/report — báo cáo tiến độ cho giáo viên (ma trận lớp × mục + tổng theo mục/HS); ?groupId= lọc theo lớp/nhóm. */
+  async progressReport(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('groupId') groupId: string | undefined, @CurrentUser() viewer: AuthenticatedUser) {
+    return this.content.getProgressReport(viewer.id, courseId, groupId);
+  }
+
+  @Get('progress/report.csv')
+  /** GET /courses/:courseId/progress/report.csv — bản CSV của ma trận tiến độ để tải xuống. */
+  async progressReportCsv(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('groupId') groupId: string | undefined, @CurrentUser() viewer: AuthenticatedUser, @Res() res: Response) {
+    const csv = await this.content.getProgressReportCsv(viewer.id, courseId, groupId);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="progress-report.csv"');
+    res.send(csv);
+  }
+
+  @Post('lesson-template')
+  /** POST /courses/:courseId/lesson-template — tạo bộ section mẫu "bài học" theo khung CV 5512 (khung gợi ý, không ép cứng). */
+  async lessonTemplate(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createLessonTemplateSchema }) dto: CreateLessonTemplateDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.content.createLessonTemplate(actor.id, courseId, dto);
   }
 }

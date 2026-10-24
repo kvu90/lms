@@ -462,8 +462,8 @@ export const enrolUserSchema = z.strictObject({
 });
 export type EnrolUser = z.infer<typeof enrolUserSchema>;
 
-/** Cách một mục nội dung (mod_page/mod_resource) được tính hoàn thành: view = tự động khi học sinh mở xem (completion theo lượt xem), manual = học sinh tự bấm "Đánh dấu đã học" (nội dung không tự đo được như liên kết ngoài), none = không theo dõi tiến độ. */
-export const CONTENT_COMPLETION_MODES = ['view', 'manual', 'none'] as const;
+/** Cách một mục nội dung (mod_page/mod_resource) được tính hoàn thành theo mặc định từng loại nội dung (nghiên cứu học liệu số VN, bảng 2.1): view = tự động khi học sinh mở xem; manual = mở xem + học sinh tự xác nhận "Đã học" (trang đọc/tài liệu — nội dung đọc không đo được đã đọc thật); progress = theo % tiến độ xem (video, mặc định đạt khi xem ≥ 90%); none = chỉ ghi nhận truy cập, không tính vào % hoàn thành (tệp tải về/liên kết ngoài). Không dùng thời lượng ngồi xem làm cổng hoàn thành ở bất kỳ chế độ nào. */
+export const CONTENT_COMPLETION_MODES = ['view', 'manual', 'progress', 'none'] as const;
 export type ContentCompletionMode = (typeof CONTENT_COMPLETION_MODES)[number];
 
 /** Payload tạo trang đọc (mod_page) trong một section: nội dung HTML của trang + chế độ hoàn thành (mặc định view). */
@@ -483,13 +483,14 @@ export const updatePageSchema = z.strictObject({
 });
 export type UpdatePage = z.infer<typeof updatePageSchema>;
 
-/** Payload tạo tài nguyên (mod_resource): đúng một nguồn — fileId (tệp đã tải lên qua Files) hoặc url (liên kết ngoài/video nhúng). Mặc định hoàn thành: file = view, url = manual. */
+/** Payload tạo tài nguyên (mod_resource): đúng một nguồn — fileId (tệp đã tải lên qua Files) hoặc url (liên kết ngoài/video nhúng). Mặc định hoàn thành theo loại nội dung: video = progress (≥90%), tài liệu = manual, tệp khác/liên kết = none. transcript là bản chữ đi kèm video (cho học sinh mạng yếu/khuyết tật đọc thay xem). */
 export const createResourceSchema = z.strictObject({
   sectionId: uuidIdSchema,
   name: z.string().min(1),
   kind: z.enum(['file', 'url']),
   fileId: uuidIdSchema.optional(),
   url: z.string().min(1).optional(),
+  transcript: z.string().optional(),
   completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
 });
 export type CreateResource = z.infer<typeof createResourceSchema>;
@@ -499,6 +500,21 @@ export const updateResourceSchema = z.strictObject({
   name: z.string().min(1).optional(),
   fileId: uuidIdSchema.nullable().optional(),
   url: z.string().min(1).nullable().optional(),
+  transcript: z.string().nullable().optional(),
   completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
 });
 export type UpdateResource = z.infer<typeof updateResourceSchema>;
+
+/** Payload học sinh báo tiến độ xem một mục (video/trang): percent là % đã xem cao nhất, positionSeconds/page là vị trí dở dang để học tiếp đúng chỗ. Sự kiện được lưu bền phía server; client gửi bù khi rớt mạng. */
+export const recordProgressSchema = z.strictObject({
+  percent: z.number().min(0).max(100).optional(),
+  positionSeconds: z.number().min(0).optional(),
+  page: z.number().int().min(1).optional(),
+});
+export type RecordProgress = z.infer<typeof recordProgressSchema>;
+
+/** Payload tạo bộ section mẫu "bài học" theo khung kế hoạch bài dạy (CV 5512): Mở đầu → Hình thành kiến thức mới → Luyện tập → Vận dụng → Kiểm tra nhanh & tổng kết. title là tên bài (tiền tố cho từng section), bỏ trống thì section chỉ mang tên phần. */
+export const createLessonTemplateSchema = z.strictObject({
+  title: z.string().min(1).optional(),
+});
+export type CreateLessonTemplate = z.infer<typeof createLessonTemplateSchema>;

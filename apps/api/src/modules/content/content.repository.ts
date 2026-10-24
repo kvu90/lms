@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { courseLastAccess, pages, resources } from '../../db/schema';
+import { courseLastAccess, courseModuleProgress, learningRecords, pages, resources } from '../../db/schema';
 
 export type PageRow = typeof pages.$inferSelect;
 export type ResourceRow = typeof resources.$inferSelect;
 export type LastAccessRow = typeof courseLastAccess.$inferSelect;
+export type ModuleProgressRow = typeof courseModuleProgress.$inferSelect;
+export type LearningRecordRow = typeof learningRecords.$inferSelect;
 
 @Injectable()
 /**
@@ -83,5 +85,56 @@ export class ContentRepository {
     const rows = await this.db.select().from(courseLastAccess)
       .where(eq(courseLastAccess.userId, userId));
     return rows.find((r) => r.courseId === courseId);
+  }
+
+  /**
+   * Ghi tiến độ xem một mục: percent chỉ TĂNG (giữ giá trị cao nhất đã
+   * đạt — ôn lại không bị phạt), vị trí dở dang lấy theo lần báo mới
+   * nhất.
+   */
+  async upsertModuleProgress(userId: string, courseId: string, cmId: string, patch: {
+    percent?: number; positionSeconds?: number; page?: number;
+  }): Promise<ModuleProgressRow> {
+    const existing = await this.getModuleProgress(userId, cmId);
+    const percent = Math.max(existing?.percent ?? 0, patch.percent ?? 0);
+    const [row] = await this.db.insert(courseModuleProgress)
+      .values({
+        userId, courseId, cmId, percent,
+        positionSeconds: patch.positionSeconds ?? existing?.positionSeconds ?? null,
+        page: patch.page ?? existing?.page ?? null,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [courseModuleProgress.userId, courseModuleProgress.cmId],
+        set: {
+          percent,
+          positionSeconds: patch.positionSeconds ?? existing?.positionSeconds ?? null,
+          page: patch.page ?? existing?.page ?? null,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return row!;
+  }
+  /** Đọc tiến độ xem một mục của một học sinh. */
+  async getModuleProgress(userId: string, cmId: string): Promise<ModuleProgressRow | undefined> {
+    const [row] = await this.db.select().from(courseModuleProgress)
+      .where(eq(courseModuleProgress.cmId, cmId));
+    return row && row.userId === userId ? row : undefined;
+  }
+
+  /**
+   * Ghi bản ghi hồ sơ hoàn thành (chụp tên mục tại thời điểm hoàn
+   * thành). Idempotent: lần hoàn thành đầu tiên của mỗi (HS, mục) là
+   * bản ghi duy nhất — các lần hoàn thành sau không ghi đè.
+   */
+  async insertLearningRecord(v: typeof learningRecords.$inferInsert): Promise<void> {
+    await this.db.insert(learningRecords).values(v).onConflictDoNothing({
+      target: [learningRecords.userId, learningRecords.cmId],
+    });
+  }
+  /** Liệt kê bản ghi hồ sơ hoàn thành của một khoá (cho báo cáo giáo viên). */
+  async listLearningRecords(courseId: string): Promise<LearningRecordRow[]> {
+    return this.db.select().from(learningRecords).where(eq(learningRecords.courseId, courseId));
   }
 }
