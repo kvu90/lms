@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, o
 import type { Database } from '../../db/database';
 import {
   context, course, courseGroups, enrol, gradeGrades, gradeItems, groupsMembers,
-  message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageUsersBlocked,
+  message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
   notificationDispatchLog, notifications, role, roleAssignments, userEnrolments, users,
 } from '../../db/schema';
 
@@ -39,6 +39,14 @@ export interface MessageWindowOptions {
    * đường đọc thường của thành viên luôn lọc bỏ tin đã xoá.
    */
   includeDeleted?: boolean;
+  /**
+   * Người đang xem (vòng đời tin nhắn theo vai): khi có mặt và KHÔNG
+   * ở chế độ truy vết (includeDeleted), cửa sổ lọc bỏ thêm các tin
+   * người này đã XOÁ-PHÍA-MÌNH (bảng `message_user_deletions`) — cờ
+   * cá nhân chỉ áp cho đúng chủ nhân của nó, không ai khác bị ảnh
+   * hưởng. Chế độ truy vết bỏ qua cờ này: dấu vết phải đầy đủ.
+   */
+  viewerId?: string;
 }
 export type NotificationRow = typeof notifications.$inferSelect;
 
@@ -77,6 +85,7 @@ export interface NotificationItemsOptions {
 }
 export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
 export type ContactRow = typeof messageContacts.$inferSelect;
+export type ModeratorActionRow = typeof messageModeratorActions.$inferSelect;
 export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
 export type ReportRow = typeof messageConversationReports.$inferSelect;
 export type CourseGroupRow = typeof courseGroups.$inferSelect;
@@ -177,10 +186,28 @@ export class MessagingRepository {
         SELECT count(*) AS unread FROM message msg
         WHERE msg.conversation_id = c.id AND msg.seq > mine.last_read_seq AND msg.user_id_from <> mine.user_id
           AND msg.deleted_at IS NULL
+          -- Tin đã THU HỒI không còn nội dung để đọc — không đếm chưa
+          -- đọc; tin người xem đã xoá-phía-mình cũng ra khỏi tầm nhìn
+          -- của chính họ nên không đếm (vòng đời theo vai, #33).
+          AND msg.recalled_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM message_user_deletions d
+            WHERE d.message_id = msg.id AND d.user_id = mine.user_id
+          )
       ) u ON true
       LEFT JOIN LATERAL (
         SELECT to_jsonb(msg) AS last_message FROM message msg
-        WHERE msg.conversation_id = c.id AND msg.deleted_at IS NULL ORDER BY msg.seq DESC LIMIT 1
+        WHERE msg.conversation_id = c.id AND msg.deleted_at IS NULL
+          -- Tin cuối là tin cuối CÒN HIỂN THỊ với chính người xem:
+          -- tin họ đã xoá-phía-mình không được làm xem trước của họ.
+          -- Tin đã thu hồi VẪN được chọn (nội dung bị vô hiệu hoá ở
+          -- tầng service — xem trước hiện dòng thu hồi, không lùi về
+          -- tin cũ hơn như thể cuộc trò chuyện trống rỗng đi).
+          AND NOT EXISTS (
+            SELECT 1 FROM message_user_deletions d
+            WHERE d.message_id = msg.id AND d.user_id = mine.user_id
+          )
+        ORDER BY msg.seq DESC LIMIT 1
       ) lm ON true
       WHERE mine.user_id = ${userId}
         -- Chuẩn app nhắn tin (chốt bổ sung trên issue #33, 24/10/2026):
@@ -231,6 +258,8 @@ export class MessagingRepository {
               clientMessageId: (lastMessageRaw.client_message_id as string | null) ?? null,
               deletedAt: lastMessageRaw.deleted_at ? new Date(lastMessageRaw.deleted_at as string) : null,
               deletedBy: (lastMessageRaw.deleted_by as string | null) ?? null,
+              recalledAt: lastMessageRaw.recalled_at ? new Date(lastMessageRaw.recalled_at as string) : null,
+              recalledBy: (lastMessageRaw.recalled_by as string | null) ?? null,
               createdAt: new Date(lastMessageRaw.created_at as string),
             }
           : null,
@@ -300,6 +329,11 @@ export class MessagingRepository {
     // Mặc định: tin đã xoá mềm bị lọc khỏi MỌI cửa sổ đọc — chỉ cửa sổ
     // truy vết của người có thẩm quyền mới truyền includeDeleted.
     if (!opts.includeDeleted) where.push(isNull(message.deletedAt));
+    // Cờ xoá-phía-mình của người xem (vòng đời theo vai): chỉ áp ở
+    // đường đọc thường — chế độ truy vết phải thấy đầy đủ dấu vết.
+    if (opts.viewerId && !opts.includeDeleted) {
+      where.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${opts.viewerId})`);
+    }
     if (opts.afterSeq !== undefined) {
       where.push(gt(message.seq, opts.afterSeq));
       return this.db.select().from(message).where(and(...where)).orderBy(asc(message.seq)).limit(limit);
@@ -309,9 +343,15 @@ export class MessagingRepository {
     return rows.reverse();
   }
   /** Còn tin cũ hơn seq này trong conversation hay không (cho nút tải thêm). */
-  async hasMessagesBefore(conversationId: string, seq: number, includeDeleted = false): Promise<boolean> {
+  async hasMessagesBefore(conversationId: string, seq: number, includeDeleted = false, viewerId?: string): Promise<boolean> {
     const conditions = [eq(message.conversationId, conversationId), lt(message.seq, seq)];
     if (!includeDeleted) conditions.push(isNull(message.deletedAt));
+    // Cùng luật lọc xoá-phía-mình như listMessages: nếu không, mốc
+    // "còn tin cũ hơn" sẽ đúng giả khi mọi tin cũ hơn đã bị chính
+    // người xem ẩn đi (client tải thêm một trang rỗng vô ích).
+    if (viewerId && !includeDeleted) {
+      conditions.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${viewerId})`);
+    }
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
       .where(and(...conditions));
     return (row?.value ?? 0) > 0;
@@ -328,6 +368,78 @@ export class MessagingRepository {
       .where(eq(message.id, id))
       .returning();
     return row;
+  }
+  /**
+   * Đặt cờ XOÁ-PHÍA-MÌNH cho một user trên một tin (lớp (a) của vòng
+   * đời theo vai): idempotent — đặt lại cùng cờ là no-op nhờ PK phức
+   * hợp + onConflictDoNothing. Chỉ ẩn tin khỏi tầm nhìn của chính
+   * user đó; không đụng tới dòng tin.
+   */
+  async markDeletedForUser(messageId: string, userId: string): Promise<void> {
+    await this.db.insert(messageUserDeletions).values({ messageId, userId }).onConflictDoNothing();
+  }
+  /** User này đã đặt cờ xoá-phía-mình trên tin này chưa. */
+  async isDeletedForUser(messageId: string, userId: string): Promise<boolean> {
+    const rows = await this.db.select({ messageId: messageUserDeletions.messageId })
+      .from(messageUserDeletions)
+      .where(and(eq(messageUserDeletions.messageId, messageId), eq(messageUserDeletions.userId, userId)))
+      .limit(1);
+    return rows.length > 0;
+  }
+  /**
+   * Áp dấu THU HỒI lên dòng tin (lớp (b)): chỉ set hai cột dấu vết,
+   * nội dung giữ nguyên trong DB — việc vô hiệu hoá nội dung thuộc
+   * về đường đọc (người xem thường) và đường phân phối realtime.
+   */
+  async applyRecall(id: string, recalledBy: string): Promise<MessageRow | undefined> {
+    const [row] = await this.db.update(message)
+      .set({ recalledAt: new Date(), recalledBy })
+      .where(eq(message.id, id))
+      .returning();
+    return row;
+  }
+  /**
+   * Xoá CỨNG một dòng tin (lớp (c)): xoá vật lý; các cờ xoá-phía-mình
+   * cascade theo, dấu vết moderator_action KHÔNG cascade (cố ý không
+   * khoá ngoại) nên vẫn còn để truy vết.
+   */
+  async hardDeleteMessage(id: string): Promise<void> {
+    await this.db.delete(message).where(eq(message.id, id));
+  }
+  /** Lấy nhiều dòng tin theo id (kiểm tra thẩm quyền hàng loạt trước khi gỡ). */
+  async getMessagesByIds(ids: string[]): Promise<MessageRow[]> {
+    if (ids.length === 0) return [];
+    return this.db.select().from(message).where(inArray(message.id, ids));
+  }
+  /**
+   * Ghi một dòng dấu vết hành động kiểm duyệt. Gọi TRƯỚC khi trạng
+   * thái tin thay đổi (nhất là trước xoá cứng) để dấu vết không bao
+   * giờ thiếu cho một thay đổi đã xảy ra.
+   */
+  async insertModeratorAction(values: {
+    messageId: string;
+    conversationId: string;
+    actorId: string;
+    authorId: string;
+    action: 'recall' | 'hard_delete' | 'bulk_hard_delete';
+    reason?: string | null;
+    messageSeq?: number | null;
+  }): Promise<void> {
+    await this.db.insert(messageModeratorActions).values({
+      messageId: values.messageId,
+      conversationId: values.conversationId,
+      actorId: values.actorId,
+      authorId: values.authorId,
+      action: values.action,
+      reason: values.reason ?? null,
+      messageSeq: values.messageSeq ?? null,
+    });
+  }
+  /** Dấu vết kiểm duyệt của một tin (đường truy vết/test đối chiếu). */
+  async listModeratorActionsForMessage(messageId: string): Promise<ModeratorActionRow[]> {
+    return this.db.select().from(messageModeratorActions)
+      .where(eq(messageModeratorActions.messageId, messageId))
+      .orderBy(asc(messageModeratorActions.createdAt));
   }
   /** Bật/tắt chat của một conversation (giáo viên phụ trách tắt chat nhóm lớp). */
   async setConversationEnabled(id: string, enabled: boolean): Promise<ConversationRow | undefined> {
@@ -374,6 +486,10 @@ export class MessagingRepository {
         lte(message.seq, target),
         ne(message.userIdFrom, readerId),
         isNull(message.deletedAt),
+        // Tin đã thu hồi/đã xoá-phía-mình không tính là "vừa đánh dấu
+        // đọc" — nhất quán với mọi bộ đếm chưa đọc khác của vòng đời.
+        isNull(message.recalledAt),
+        sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${readerId})`,
       ));
     if (target > member.lastReadSeq) {
       await this.db.update(messageConversationMembers)
@@ -391,7 +507,16 @@ export class MessagingRepository {
     const lastReadSeq = await this.getMemberLastReadSeq(conversationId, userId);
     if (lastReadSeq === undefined) return 0;
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(eq(message.conversationId, conversationId), gt(message.seq, lastReadSeq), ne(message.userIdFrom, userId), isNull(message.deletedAt)));
+      .where(and(
+        eq(message.conversationId, conversationId),
+        gt(message.seq, lastReadSeq),
+        ne(message.userIdFrom, userId),
+        isNull(message.deletedAt),
+        // Tin đã thu hồi không còn gì để đọc; tin user đã xoá-phía-mình
+        // không thuộc tầm nhìn của họ — cả hai đều không đếm chưa đọc.
+        isNull(message.recalledAt),
+        sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${userId})`,
+      ));
     return row?.value ?? 0;
   }
   /** Unread conversations for a user (Moodle count_unread_conversations): conversations with ≥1 unread message from others. */
@@ -410,6 +535,11 @@ export class MessagingRepository {
             and msg.seq > ${messageConversationMembers.lastReadSeq}
             and msg.user_id_from <> ${userId}
             and msg.deleted_at is null
+            and msg.recalled_at is null
+            and not exists (
+              select 1 from ${messageUserDeletions} d
+              where d.message_id = msg.id and d.user_id = ${userId}
+            )
         )`,
         // Conversation 1–1 đang bị ẩn vì quan hệ chặn (xem
         // listConversationSummaries) cũng không đếm vào huy hiệu chưa
