@@ -1543,3 +1543,34 @@ export const rejectContributionSchema = z.strictObject({
   reason: z.string().min(1),
 });
 export type RejectContribution = z.infer<typeof rejectContributionSchema>;
+
+/**
+ * Payload đặt chính sách công bố (posting policy) cho một grade item —
+ * PH-0, issue #116, theo Canvas Grade Posting Policy: `auto` = điểm/lời phê
+ * hiện phía học sinh ngay khi chấm (mặc định, giữ hành vi hiện hữu);
+ * `manual` = ẩn hoàn toàn cho tới khi giáo viên bấm công bố cho item.
+ */
+export const setGradePostingPolicySchema = z.strictObject({
+  policy: z.enum(['auto', 'manual']),
+});
+export type SetGradePostingPolicy = z.infer<typeof setGradePostingPolicySchema>;
+
+/** Payload công bố / rút công bố (theo item, theo kết quả kì/năm của một học sinh): ghi chú tuỳ chọn lưu vào vết công bố. */
+export const gradePublicationActionSchema = z.strictObject({
+  note: z.string().max(500).optional(),
+});
+export type GradePublicationAction = z.infer<typeof gradePublicationActionSchema>;
+
+/**
+ * Payload tạo liên kết giám hộ PH–HS (PH-0, issue #116): liên kết do
+ * GV/admin xác lập theo hồ sơ giám hộ đã xác minh (TT 22 Đ.20.6, NĐ
+ * 13/2023 Đ.20) — `relationship` là quan hệ với học sinh (cha/mẹ/người
+ * giám hộ...); `note` ghi nguồn xác minh khi cần truy vết.
+ */
+export const createGuardianLinkSchema = z.strictObject({
+  guardianUserId: uuidIdSchema,
+  studentUserId: uuidIdSchema,
+  relationship: z.string().min(1).max(100),
+  note: z.string().max(500).optional(),
+});
+export type CreateGuardianLink = z.infer<typeof createGuardianLinkSchema>;

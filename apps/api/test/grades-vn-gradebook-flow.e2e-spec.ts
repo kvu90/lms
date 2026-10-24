@@ -209,6 +209,11 @@ describe('Sổ điểm VN TT 22 (GB-VN-1, issue #95)', () => {
       const snap = await finalize(course.id, view.book.id, student.id);
       expect(snap.status).toBe(201);
       expect(snap.body.dtbHk).toBe(x);
+      // PH-0 (issue #116): finalize chỉ là chốt nội bộ — phải công bố kết
+      // quả của sổ cho học sinh thì phía học sinh mới xếp mức được.
+      const pub = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-books/${view.book.id}/results/${student.id}/publish`)
+        .set('Authorization', `Bearer ${admin}`).send({});
+      expect(pub.status).toBe(201);
     }
 
     const asAdmin = await http(app).get(`/api/v1/grades/vn/students/${student.id}/classification`).query({ period: 'hk1' }).set('Authorization', `Bearer ${admin}`);
@@ -279,7 +284,24 @@ describe('Sổ điểm VN TT 22 (GB-VN-1, issue #95)', () => {
       .set('Authorization', `Bearer ${outsiderToken}`);
     expect(notEnrolled.status).toBe(403);
 
-    // (b) Chính chủ đọc được cả ba bề mặt và thấy đúng điểm của mình.
+    // (b0) PH-0 (issue #116): trước công bố, chính chủ cũng chưa đọc được —
+    // finalize chỉ là chốt nội bộ của giáo viên, công bố là bước riêng.
+    const ownBefore = await http(app).get(resultsUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(ownBefore.status).toBe(403);
+    expect(ownBefore.body.code).toBe('grades.vn_result_not_published');
+    const ownSnapsBefore = await http(app).get(snapshotsUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(ownSnapsBefore.status).toBe(200);
+    expect((ownSnapsBefore.body as unknown[]).length).toBe(0);
+    const ownYearBefore = await http(app).get(yearUrl).set('Authorization', `Bearer ${ownerToken}`);
+    expect(ownYearBefore.status).toBe(403);
+    expect(ownYearBefore.body.code).toBe('grades.vn_result_not_published');
+    // Giáo viên công bố kết quả kì 1 và kết quả năm cho owner.
+    const pubTerm = await http(app).post(`${resultsUrl}/publish`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(pubTerm.status).toBe(201);
+    const pubYear = await http(app).post(`${yearUrl}/publish`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(pubYear.status).toBe(201);
+
+    // (b) Sau công bố, chính chủ đọc được cả ba bề mặt và thấy đúng điểm của mình.
     const own = await http(app).get(resultsUrl).set('Authorization', `Bearer ${ownerToken}`);
     expect(own.status).toBe(200);
     expect(own.body.complete).toBe(true);

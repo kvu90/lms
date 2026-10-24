@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
@@ -123,6 +124,7 @@ export class VnGradebooksService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly curriculum: CurriculumService,
+    private readonly outbox: OutboxService,
   ) {}
 
   private async requireCap(actorId: string, capability: string, courseId: string): Promise<void> {
@@ -144,6 +146,83 @@ export class VnGradebooksService {
       return;
     }
     await this.requireCap(actorId, 'grade:viewall', courseId);
+  }
+
+  // --- Công bố kết quả VN (PH-0, issue #116) --------------------------------
+  // Finalize/setCommentResult của GB-VN-1/2 chỉ là CHỐT NỘI BỘ của giáo
+  // viên; kết quả chỉ tới tay học sinh/phụ huynh khi giáo viên CÔNG BỐ
+  // (TT 22 Đ.20.2/20.6: xác nhận xong mới thông báo riêng). Trạng thái hiệu
+  // lực suy từ vết mới nhất trong grade_publications theo đúng phạm vi.
+
+  /** Kết quả kì của một học sinh trong một sổ đã được công bố chưa. */
+  async isTermResultPublished(book: VnBookRow, userId: string): Promise<boolean> {
+    const publications = await this.repo.listPublications(book.courseId);
+    let latest: string | null = null;
+    for (const p of publications) {
+      if (p.scope === 'vn_term' && p.bookId === book.id && p.userId === userId) latest = p.action;
+    }
+    return latest === 'publish';
+  }
+
+  /** Kết quả cả năm của một học sinh trong một khoá đã được công bố chưa. */
+  async isYearResultPublished(courseId: string, userId: string): Promise<boolean> {
+    const publications = await this.repo.listPublications(courseId);
+    let latest: string | null = null;
+    for (const p of publications) {
+      if (p.scope === 'vn_year' && p.userId === userId) latest = p.action;
+    }
+    return latest === 'publish';
+  }
+
+  /** Cổng công bố cho đường đọc của CHÍNH CHỦ: chưa công bố → 403 mã riêng để client hiển thị "chưa công bố" thay vì điểm. */
+  private async assertTermPublishedForSelf(actorId: string, book: VnBookRow, userId: string): Promise<void> {
+    if (actorId !== userId) return;
+    if (!(await this.isTermResultPublished(book, userId))) {
+      throw new ForbiddenException({ message: 'Term result has not been published yet', code: 'grades.vn_result_not_published' });
+    }
+  }
+
+  /** Công bố / rút công bố kết quả học kì của một học sinh trong một sổ (grade:publish tại context khoá); ghi vết grade_publications + event_log qua outbox. */
+  async setTermResultPublication(actorId: string, bookId: string, userId: string, action: 'publish' | 'unpublish', note?: string): Promise<{ published: boolean }> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:publish', book.courseId);
+    await this.repo.insertPublication({
+      courseId: book.courseId, scope: 'vn_term', itemId: null, bookId, userId,
+      action, actorId, note: note ?? null,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'grades', type: action === 'publish' ? 'vn_term_result_published' : 'vn_term_result_unpublished',
+      payload: { actorId, courseId: book.courseId, bookId, userId, objectId: bookId, note: note ?? null },
+    });
+    return { published: action === 'publish' };
+  }
+
+  /** Công bố / rút công bố kết quả cả năm của một học sinh trong một khoá (grade:publish tại context khoá). */
+  async setYearResultPublication(actorId: string, courseId: string, userId: string, action: 'publish' | 'unpublish', note?: string): Promise<{ published: boolean }> {
+    await this.courses.getCourse(courseId);
+    await this.requireCap(actorId, 'grade:publish', courseId);
+    await this.repo.insertPublication({
+      courseId, scope: 'vn_year', itemId: null, bookId: null, userId,
+      action, actorId, note: note ?? null,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'grades', type: action === 'publish' ? 'vn_year_result_published' : 'vn_year_result_unpublished',
+      payload: { actorId, courseId, userId, objectId: courseId, note: note ?? null },
+    });
+    return { published: action === 'publish' };
+  }
+
+  /**
+   * Kết quả kì cho PHỤ HUYNH có liên kết giám hộ (PH-0): GuardiansService đã
+   * kiểm liên kết active trước khi gọi; ở đây chỉ áp cổng công bố — chưa
+   * công bố thì coi như chưa có kết quả (403 cùng mã với đường chính chủ).
+   */
+  async computeTermResultForGuardian(bookId: string, userId: string): Promise<VnTermComputation> {
+    const book = await this.getBook(bookId);
+    if (!(await this.isTermResultPublished(book, userId))) {
+      throw new ForbiddenException({ message: 'Term result has not been published yet', code: 'grades.vn_result_not_published' });
+    }
+    return this.computeTermResultUnchecked(book, userId);
   }
 
   /** Lấy sổ VN; ném grades.vn_book_not_found khi vắng. */
@@ -288,6 +367,7 @@ export class VnGradebooksService {
   async computeTermResult(actorId: string, bookId: string, userId: string): Promise<VnTermComputation> {
     const book = await this.getBook(bookId);
     await this.assertCanReadStudentResult(actorId, book.courseId, userId);
+    await this.assertTermPublishedForSelf(actorId, book, userId);
     return this.computeTermResultUnchecked(book, userId);
   }
 
@@ -382,6 +462,9 @@ export class VnGradebooksService {
   async listTermResults(actorId: string, bookId: string, userId: string): Promise<VnTermResultRow[]> {
     const book = await this.getBook(bookId);
     await this.assertCanReadStudentResult(actorId, book.courseId, userId);
+    // Chính chủ chỉ thấy bản chốt khi kết quả của sổ đã công bố cho mình;
+    // chưa công bố thì danh sách rỗng (bản chốt chưa tồn tại phía học sinh).
+    if (actorId === userId && !(await this.isTermResultPublished(book, userId))) return [];
     return this.repo.listVnTermResults(bookId, userId);
   }
 
@@ -418,6 +501,9 @@ export class VnGradebooksService {
   /** Bản chốt cả năm mới nhất của một học sinh trong một khoá học. Đọc qua cổng actor như computeTermResult. */
   async latestYearResult(actorId: string, courseId: string, userId: string): Promise<VnTermResultRow | undefined> {
     await this.assertCanReadStudentResult(actorId, courseId, userId);
+    if (actorId === userId && !(await this.isYearResultPublished(courseId, userId))) {
+      throw new ForbiddenException({ message: 'Year result has not been published yet', code: 'grades.vn_result_not_published' });
+    }
     return (await this.repo.listVnYearResults(courseId, userId)).at(-1);
   }
 
@@ -444,9 +530,14 @@ export class VnGradebooksService {
       if (!prev || row.version >= prev.version) latestByKey.set(key, row);
     }
     const subjects: VnSubjectLevelInput[] = [];
+    // PH-0: chính chủ chỉ xếp mức trên các bản chốt ĐÃ CÔNG BỐ cho mình —
+    // bản chưa công bố bị loại khỏi đầu vào như chưa tồn tại phía học sinh.
+    const selfView = actorId === userId;
+    let suppressedUnpublished = 0;
     if (period === 'year') {
       for (const row of latestByKey.values()) {
         if (row.scope === 'year' && row.dtbYear != null) {
+          if (selfView && !(await this.isYearResultPublished(row.courseId, userId))) { suppressedUnpublished++; continue; }
           subjects.push({ key: row.courseId, kind: 'score', dtb: row.dtbYear });
         }
       }
@@ -456,6 +547,7 @@ export class VnGradebooksService {
         if (book.assessmentMode !== 'comment') continue;
         const row = latestByKey.get(`term:${book.id}`);
         if (row?.commentResult === 'Đạt' || row?.commentResult === 'Chưa đạt') {
+          if (selfView && !(await this.isTermResultPublished(book, userId))) { suppressedUnpublished++; continue; }
           subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
         }
       }
@@ -464,14 +556,20 @@ export class VnGradebooksService {
       for (const book of books) {
         const row = latestByKey.get(`term:${book.id}`);
         if (!row) continue;
+        const usable = book.assessmentMode === 'comment'
+          ? (row.commentResult === 'Đạt' || row.commentResult === 'Chưa đạt')
+          : row.dtbHk != null;
+        if (!usable) continue;
+        if (selfView && !(await this.isTermResultPublished(book, userId))) { suppressedUnpublished++; continue; }
         if (book.assessmentMode === 'comment') {
-          if (row.commentResult === 'Đạt' || row.commentResult === 'Chưa đạt') {
-            subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
-          }
-        } else if (row.dtbHk != null) {
-          subjects.push({ key: book.courseId, kind: 'score', dtb: row.dtbHk });
+          subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult as VnCommentResult });
+        } else {
+          subjects.push({ key: book.courseId, kind: 'score', dtb: row.dtbHk! });
         }
       }
+    }
+    if (selfView && subjects.length === 0 && suppressedUnpublished > 0) {
+      throw new ForbiddenException({ message: 'Results for this period have not been published yet', code: 'grades.vn_result_not_published' });
     }
     return { userId, period, subjects, ...classifyLearningLevel(subjects) };
   }

@@ -21,6 +21,7 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { CustomFieldsModule } from './modules/custom-fields/custom-fields.module';
 import { EnrolModule } from './modules/enrol/enrol.module';
 import { GradesModule } from './modules/grades/grades.module';
+import { GuardiansModule } from './modules/guardians/guardians.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { QuestionsModule } from './modules/questions/questions.module';
@@ -126,6 +127,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     EnrolModule,
     CompletionModule,
     GradesModule,
+    GuardiansModule,
     QuestionsModule,
     QuizModule,
     AssignmentsModule,

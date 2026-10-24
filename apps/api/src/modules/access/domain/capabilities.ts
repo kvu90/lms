@@ -45,6 +45,15 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'grade:manage', capType: 'write', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'grade:edit', capType: 'write', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'grade:viewall', capType: 'read', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // Công bố điểm/lời phê + kết quả (PH-0, issue #116): giáo viên giữ chốt
+  // công bố theo đúng Canvas posting policy + TT 22 Đ.20 — tách khỏi
+  // grade:edit để trường có thể giao quyền chấm và quyền công bố khác nhau.
+  { name: 'grade:publish', capType: 'write', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // Quản lý liên kết giám hộ PH–HS (PH-0, issue #116): trường xác lập theo
+  // hồ sơ đã xác minh; service kiểm capability này từ gán vai thật ở bất kỳ
+  // context nào (admin hệ thống hoặc GV của lớp/khoá của con) — archetype
+  // tại context user của học sinh.
+  { name: 'guardian:manage', capType: 'write', contextLevel: 30, component: 'core_guardian', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:managecategory', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'question:add', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:editall', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },

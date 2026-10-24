@@ -20,9 +20,17 @@ export const COMPLETION_PASS = 2;
 export const COMPLETION_FAIL = 3;
 export const COMPLETION_DONE = 1;
 
+/** Trạng thái công bố của một item (PH-0, issue #116): policy neo trên item; published = điểm đang hiện phía học sinh. */
+export interface GradePublicationState {
+  policy: 'auto' | 'manual';
+  published: boolean;
+}
+
 export interface GradebookItemView {
   item: ItemRow;
   grade: (GradeRow & { letter: string | null; scaleValue: string | null; outcomeName: string | null }) | null;
+  /** Trạng thái công bố của item (PH-0) — phía không có grade:viewall nhận grade = null khi item manual chưa công bố. */
+  publication: GradePublicationState;
 }
 export interface GradebookCategoryView {
   category: CategoryRow;
@@ -575,6 +583,7 @@ export class GradesService implements OnModuleInit {
     });
     await this.regradeUser(item.courseId, userId);
     await this.refreshCompletionForUser(item.courseId, userId);
+    await this.auditGradeChangeAfterPublish(actorId, item, userId, !!existing);
     void saved;
     return (await this.repo.getGrade(itemId, userId))!;
   }
@@ -667,6 +676,7 @@ export class GradesService implements OnModuleInit {
     });
     await this.regradeUser(item.courseId, grade.userId);
     await this.refreshCompletionForUser(item.courseId, grade.userId);
+    await this.auditGradeChangeAfterPublish(actorId, item, grade.userId, true);
     return (await this.repo.getGradeById(gradeId))!;
   }
 
@@ -1075,6 +1085,29 @@ export class GradesService implements OnModuleInit {
     }
     const seeHidden = viewerId !== targetUserId || canViewAll
       ? (viewerId === targetUserId ? canViewAll : true) : false;
+    // Người có grade:viewall (giáo viên) xem đủ kể cả điểm chưa công bố; học
+    // sinh xem chính mình thì bị cổng công bố của PH-0 (issue #116).
+    const maskUnpublished = viewerId === targetUserId && !canViewAll;
+    return this.buildGradebookView(courseId, targetUserId, { seeHidden, maskUnpublished });
+  }
+
+  /**
+   * Sổ điểm của một học sinh DÀNH CHO PHỤ HUYNH có liên kết giám hộ (PH-0,
+   * issue #116): quyền đọc suy từ liên kết (GuardiansService đã kiểm tra
+   * trước khi gọi) — không yêu cầu ghi danh, ẩn như phía học sinh tự xem
+   * (không thấy item/điểm ẩn, điểm của item manual chưa công bố bị che).
+   */
+  async getGradebookForGuardian(courseId: string, targetUserId: string): Promise<{
+    courseId: string; userId: string; categories: GradebookCategoryView[]; courseTotal: GradebookItemView | null;
+  }> {
+    return this.buildGradebookView(courseId, targetUserId, { seeHidden: false, maskUnpublished: true });
+  }
+
+  /** Dựng cây sổ điểm dùng chung: seeHidden quyết định lộ item/điểm ẩn; maskUnpublished áp cổng công bố PH-0. */
+  private async buildGradebookView(courseId: string, targetUserId: string, opts: { seeHidden: boolean; maskUnpublished: boolean }): Promise<{
+    courseId: string; userId: string; categories: GradebookCategoryView[]; courseTotal: GradebookItemView | null;
+  }> {
+    const { seeHidden, maskUnpublished } = opts;
     const { category: root } = await this.ensureCourseCategory(courseId);
     const categories = await this.repo.listCategories(courseId);
     const items = await this.repo.listItems(courseId);
@@ -1090,26 +1123,119 @@ export class GradesService implements OnModuleInit {
         if (s) scalesById.set(s.id, s);
       }
     }
+    const publicationByItem = await this.publicationStatesForCourse(courseId, items);
 
-    const viewForItem = (item: ItemRow): GradebookItemView => {
+    const viewForItem = (item: ItemRow, maskGrade: boolean): GradebookItemView => {
       const g = gradeByItem.get(item.id);
-      const visibleGrade = g && (seeHidden || !g.hidden) ? g : undefined;
-      return { item, grade: this.withLetter(visibleGrade, item, letters, outcomesById, scalesById) };
+      const visibleGrade = g && (seeHidden || !g.hidden) && !maskGrade ? g : undefined;
+      return {
+        item,
+        grade: this.withLetter(visibleGrade, item, letters, outcomesById, scalesById),
+        publication: publicationByItem.get(item.id) ?? { policy: 'auto', published: true },
+      };
     };
-    const build = (cat: CategoryRow): GradebookCategoryView => {
+    const build = (cat: CategoryRow): { view: GradebookCategoryView; subtreeHasUnpublishedGrade: boolean } => {
       const totalItem = items.find((i) => (i.itemType === 'category' && i.itemInstance === cat.id)
         || (i.itemType === 'course' && cat.parent === null));
       const leafItems = items.filter((i) => i.categoryId === cat.id && i.id !== totalItem?.id
         && (seeHidden || !i.hidden));
+      const childResults = categories.filter((c) => c.parent === cat.id && (seeHidden || !c.hidden)).map(build);
+      // Điểm tổng của category/khoá bị che khi trong phạm vi của nó còn điểm
+      // của item manual chưa công bố — không để tổng lộ phần chưa công bố.
+      const leafHasUnpublished = leafItems.some((i) => {
+        const pub = publicationByItem.get(i.id);
+        return maskUnpublished && pub && !pub.published && gradeByItem.get(i.id);
+      });
+      const subtreeHasUnpublishedGrade = leafHasUnpublished
+        || childResults.some((r) => r.subtreeHasUnpublishedGrade);
+      const totalMasked = maskUnpublished
+        && (subtreeHasUnpublishedGrade || (totalItem ? !(publicationByItem.get(totalItem.id)?.published ?? true) : false));
       return {
-        category: cat,
-        total: totalItem ? viewForItem(totalItem) : null,
-        items: leafItems.map(viewForItem),
-        children: categories.filter((c) => c.parent === cat.id && (seeHidden || !c.hidden)).map(build),
+        subtreeHasUnpublishedGrade,
+        view: {
+          category: cat,
+          total: totalItem ? viewForItem(totalItem, totalMasked) : null,
+          items: leafItems.map((i) => viewForItem(i, maskUnpublished && !(publicationByItem.get(i.id)?.published ?? true))),
+          children: childResults.map((r) => r.view),
+        },
       };
     };
-    const tree = build(root);
+    const { view: tree } = build(root);
     return { courseId, userId: targetUserId, categories: [tree], courseTotal: tree.total };
+  }
+
+  // --- Công bố điểm (PH-0, issue #116) --------------------------------------
+
+  /**
+   * Trạng thái công bố hiệu lực của mọi item trong một khoá: item 'auto' luôn
+   * coi là đã công bố (điểm hiện ngay khi chấm); item 'manual' chỉ hiện khi
+   * vết mới nhất trong grade_publications (scope item) là 'publish'.
+   */
+  async publicationStatesForCourse(courseId: string, items?: ItemRow[]): Promise<Map<string, GradePublicationState>> {
+    const rows = items ?? await this.repo.listItems(courseId);
+    const publications = await this.repo.listPublications(courseId);
+    const latestByItem = new Map<string, string>();
+    for (const p of publications) {
+      if (p.scope === 'item' && p.itemId) latestByItem.set(p.itemId, p.action);
+    }
+    const states = new Map<string, GradePublicationState>();
+    for (const item of rows) {
+      const policy = item.postingPolicy === 'manual' ? 'manual' : 'auto';
+      states.set(item.id, {
+        policy,
+        published: policy === 'auto' ? true : latestByItem.get(item.id) === 'publish',
+      });
+    }
+    return states;
+  }
+
+  /** Trạng thái công bố hiệu lực của một item. */
+  async itemPublicationState(item: ItemRow): Promise<GradePublicationState> {
+    const states = await this.publicationStatesForCourse(item.courseId, [item]);
+    return states.get(item.id) ?? { policy: 'auto', published: true };
+  }
+
+  /** Đặt chính sách công bố cho một item (grade:publish tại context khoá). */
+  async setItemPostingPolicy(actorId: string, itemId: string, policy: 'auto' | 'manual'): Promise<ItemRow> {
+    const item = await this.getItem(itemId);
+    await this.requireCap(actorId, 'grade:publish', item.courseId);
+    await this.repo.updateItem(itemId, { postingPolicy: policy });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'grades', type: 'grade_posting_policy_changed',
+      payload: { actorId, courseId: item.courseId, itemId, objectId: itemId, policy },
+    });
+    return (await this.repo.getItem(itemId))!;
+  }
+
+  /** Công bố / rút công bố điểm của một item cho mọi học sinh (grade:publish tại context khoá); ghi vết vào grade_publications + event_log qua outbox. */
+  async setItemPublication(actorId: string, itemId: string, action: 'publish' | 'unpublish', note?: string): Promise<GradePublicationState> {
+    const item = await this.getItem(itemId);
+    await this.requireCap(actorId, 'grade:publish', item.courseId);
+    await this.repo.insertPublication({
+      courseId: item.courseId, scope: 'item', itemId, bookId: null, userId: null,
+      action, actorId, note: note ?? null,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'grades', type: action === 'publish' ? 'grade_item_published' : 'grade_item_unpublished',
+      payload: { actorId, courseId: item.courseId, itemId, objectId: itemId, note: note ?? null },
+    });
+    return this.itemPublicationState(await this.getItem(itemId));
+  }
+
+  /**
+   * Audit sửa điểm sau công bố (research PH mục 5.2.7): khi giáo viên sửa
+   * một điểm ĐÃ TỒN TẠI trên item đang ở trạng thái công bố hiệu lực, phát
+   * thêm sự kiện grade_changed_after_publish vào event_log qua outbox —
+   * điểm đã tới tay học sinh/phụ huynh mà đổi thì phải có vết riêng.
+   */
+  private async auditGradeChangeAfterPublish(actorId: string, item: ItemRow, userId: string, hadExistingGrade: boolean): Promise<void> {
+    if (!hadExistingGrade) return;
+    const state = await this.itemPublicationState(item).catch(() => null);
+    if (!state?.published) return;
+    await this.outbox.enqueueStandalone({
+      aggregate: 'grades', type: 'grade_changed_after_publish',
+      payload: { actorId, courseId: item.courseId, itemId: item.id, userId, objectId: item.id },
+    }).catch(() => undefined);
   }
 
   /** Teacher report: one row per enrolled user with the course total + letter. */
