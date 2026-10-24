@@ -461,3 +461,44 @@ export const enrolUserSchema = z.strictObject({
   timeEnd: z.string().optional(),
 });
 export type EnrolUser = z.infer<typeof enrolUserSchema>;
+
+/** Cách một mục nội dung (mod_page/mod_resource) được tính hoàn thành: view = tự động khi học sinh mở xem (completion theo lượt xem), manual = học sinh tự bấm "Đánh dấu đã học" (nội dung không tự đo được như liên kết ngoài), none = không theo dõi tiến độ. */
+export const CONTENT_COMPLETION_MODES = ['view', 'manual', 'none'] as const;
+export type ContentCompletionMode = (typeof CONTENT_COMPLETION_MODES)[number];
+
+/** Payload tạo trang đọc (mod_page) trong một section: nội dung HTML của trang + chế độ hoàn thành (mặc định view). */
+export const createPageSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  content: z.string().optional(),
+  completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
+});
+export type CreatePage = z.infer<typeof createPageSchema>;
+
+/** Payload sửa trang đọc (mọi trường tuỳ chọn). */
+export const updatePageSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  content: z.string().optional(),
+  completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
+});
+export type UpdatePage = z.infer<typeof updatePageSchema>;
+
+/** Payload tạo tài nguyên (mod_resource): đúng một nguồn — fileId (tệp đã tải lên qua Files) hoặc url (liên kết ngoài/video nhúng). Mặc định hoàn thành: file = view, url = manual. */
+export const createResourceSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  kind: z.enum(['file', 'url']),
+  fileId: uuidIdSchema.optional(),
+  url: z.string().min(1).optional(),
+  completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
+});
+export type CreateResource = z.infer<typeof createResourceSchema>;
+
+/** Payload sửa tài nguyên (mọi trường tuỳ chọn; fileId/url nhận null để gỡ nguồn). */
+export const updateResourceSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  fileId: uuidIdSchema.nullable().optional(),
+  url: z.string().min(1).nullable().optional(),
+  completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
+});
+export type UpdateResource = z.infer<typeof updateResourceSchema>;
