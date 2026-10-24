@@ -138,10 +138,21 @@ export class QuestionBanksService {
     return bank;
   }
 
-  /** Bank cá nhân của người dùng cho một loại món — tạo lười ở lần chạm đầu tiên ("Ngân hàng của tôi"). */
+  /** Bank cá nhân của người dùng cho một loại món — tạo lười ở lần chạm đầu tiên ("Ngân hàng của tôi").
+   * CHỈ cấp cho người thuộc nhóm vai giáo viên (archetype staff) hoặc
+   * site admin: học sinh mở bề mặt bank không được tạo bank cá nhân
+   * kèm vai qbanklead (điểm chặn 3 phán quyết PR #83) — trước đây
+   * listBanks gọi vô điều kiện nên mọi tài khoản đều nhận bank + quyền
+   * soạn câu. Người không đủ tư cách mà đã có bank từ trước vẫn không
+   * được tạo mới; listBanks cũng không liệt kê bank đó cho họ. */
   async ensurePersonalBank(userId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
     const existing = await this.repo.getPersonalBank(userId, kind);
     if (existing) return existing;
+    const isStaff = (await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES)).includes(userId)
+      || (await this.evaluator.isSiteAdmin(userId));
+    if (!isStaff) {
+      throw new ForbiddenException({ message: 'Only staff can have a personal question bank', code: 'question.personal_bank_staff_only' });
+    }
     const system = await this.contexts.ensureSystemContext();
     try {
       return await this.buildBank(userId, {
@@ -336,13 +347,18 @@ export class QuestionBanksService {
    * tại cho người đủ tư cách (tạo lười).
    */
   async listBanks(actorId: string, kind: BankKind = 'question'): Promise<BankView[]> {
-    await this.ensurePersonalBank(actorId, kind);
     const isStaff = (await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES)).includes(actorId)
       || (await this.evaluator.isSiteAdmin(actorId));
+    // Chỉ người đủ tư cách mới được tạo lười bank cá nhân (điểm chặn 3):
+    // học sinh gọi listBanks không còn tự sinh bank + vai qbanklead.
+    if (isStaff) await this.ensurePersonalBank(actorId, kind);
     if (isStaff) await this.ensureSchoolBank(actorId, kind);
     const all = (await this.repo.listBanks()).filter((b) => b.bankKind === kind);
     const out: BankView[] = [];
     for (const bank of all) {
+      // Hàng tồn từ trước khi có cổng: bank cá nhân của chính người
+      // không đủ tư cách cũng không liệt kê cho họ nữa.
+      if (bank.scope === 'personal' && bank.ownerId === actorId && !isStaff) continue;
       await this.syncMembership(bank);
       if (await this.evaluator.hasCapability(actorId, 'question:useall', bank.contextId)) {
         out.push(await this.bankView(actorId, bank));

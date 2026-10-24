@@ -54,6 +54,15 @@ describe('Shared question bank (feat #70)', () => {
     return { id: u.id, username: u.username, token: session.accessToken };
   }
 
+  /** Người dùng thuộc nhóm vai giáo viên (archetype staff tại hệ thống):
+   * chỉ nhóm này mới được cấp bank cá nhân (điểm chặn 3 phán quyết
+   * PR #83) — người dùng thường không có vai staff thì không có bank. */
+  async function mkStaffUser(): Promise<{ id: string; username: string; token: string }> {
+    const u = await mkUser();
+    await assignRole(app, admin, u.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
+    return u;
+  }
+
   async function myPersonalBank(token: string): Promise<BankBody> {
     const res = await http(app).get('/api/v1/question-banks').set(bearer(token));
     expect(res.status).toBe(200);
@@ -91,7 +100,7 @@ describe('Shared question bank (feat #70)', () => {
   // --- QB-1 + QB-2 ------------------------------------------------------------
 
   it('QB-1/QB-2: bank cá nhân + copy deep copy truy vết, độc lập hai chiều, người ngoài bị chặn', async () => {
-    const alice = await mkUser();
+    const alice = await mkStaffUser();
     const bob = await mkUser();
     const bank = await myPersonalBank(alice.token);
     expect(bank.ownerId).toBe(alice.id);
@@ -147,7 +156,7 @@ describe('Shared question bank (feat #70)', () => {
   });
 
   it('bank_kind: bank đa loại — bank đề cá nhân tách hẳn bank câu hỏi, unique theo (scope, kind)', async () => {
-    const carol = await mkUser();
+    const carol = await mkStaffUser();
     const questionBank = await myPersonalBank(carol.token);
     expect((questionBank as BankBody & { bankKind: string }).bankKind ?? 'question').toBe('question');
 
@@ -182,7 +191,7 @@ describe('Shared question bank (feat #70)', () => {
   });
 
   it('source: nguồn ngoài hệ thống (book/exam/manual/import) là truy vết nội bộ — copy kế thừa, bề mặt attempt không lộ', async () => {
-    const dave = await mkUser();
+    const dave = await mkStaffUser();
     const bank = await myPersonalBank(dave.token);
 
     // Tạo câu khai nguồn sách: phía quản trị (GET câu hỏi) thấy đủ cặp nguồn.
@@ -302,6 +311,21 @@ describe('Shared question bank (feat #70)', () => {
     expect((await http(app).post(`/api/v1/questions/${q.question.id}/copy`).set(bearer(student.token)).send({})).status).toBe(403);
   });
 
+  it('QB-1 (điểm chặn 3 phán quyết PR #83): học sinh không được cấp bank cá nhân', async () => {
+    const { student } = await mkCourseWithTeacherAndStudent();
+    // Mở bề mặt bank cũng không tự sinh bank cá nhân + vai qbanklead.
+    const listed = await http(app).get('/api/v1/question-banks').set(bearer(student.token));
+    expect(listed.status).toBe(200);
+    expect((listed.body as BankBody[]).some((b) => b.scope === 'personal' && b.ownerId === student.id)).toBe(false);
+    // Xin tạo bank cá nhân tường minh cũng bị chặn.
+    const created = await http(app).post('/api/v1/question-banks').set(bearer(student.token))
+      .send({ name: 'Ngân hàng của tôi', scope: 'personal' });
+    expect(created.status).toBe(403);
+    // Gọi lại danh sách vẫn không có bank cá nhân nào của học sinh.
+    const relisted = await http(app).get('/api/v1/question-banks').set(bearer(student.token));
+    expect((relisted.body as BankBody[]).some((b) => b.scope === 'personal' && b.ownerId === student.id)).toBe(false);
+  });
+
   it('QB-1: bank khoá — giáo viên của khoá dùng được qua thừa hưởng context, học sinh không', async () => {
     const { course, teacher, student } = await mkCourseWithTeacherAndStudent();
     const create = await http(app).post('/api/v1/question-banks').set(bearer(teacher.token))
@@ -391,7 +415,7 @@ describe('Shared question bank (feat #70)', () => {
 
   it('QB-4: vòng đời đóng góp — duyệt copy vào bank đích, chống trùng, từ chối có lý do, bản mới qua derived_from', async () => {
     const leader = await mkUser();
-    const member = await mkUser();
+    const member = await mkStaffUser();
     const cohortRes = await http(app).post('/api/v1/cohorts').set(bearer(admin)).send({ name: uniqueName('Tổ Văn') });
     const cohortId = (cohortRes.body as { id: string }).id;
     for (const u of [leader, member]) {
