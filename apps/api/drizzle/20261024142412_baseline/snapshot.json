@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "27b2e315-17a8-4da5-823b-b51908135d6a",
+  "id": "f01fe24c-25b6-4963-9c15-6979c9f8494e",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -13123,6 +13123,19 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "is_template",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "sort_order",
       "type": "integer",
       "typeSchema": null,
@@ -13552,6 +13565,32 @@
     {
       "schema": "public",
       "table": "course_modules",
+      "name": "open_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_modules",
+      "name": "sort_order",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_modules",
       "name": "deletion_in_progress",
       "type": "boolean",
       "typeSchema": null,
@@ -13814,6 +13853,19 @@
       "table": "course_sections",
       "name": "availability",
       "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_sections",
+      "name": "open_at",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
