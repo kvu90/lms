@@ -10,10 +10,25 @@ import { ContentBankRepository, type ContentFilters, type ContentRow } from './c
 /** Các loại nội dung đã đăng ký — loại nội dung là extension point, bản này cài 'file-based' generic. */
 export const CONTENT_TYPES = ['file-based'] as const;
 
-/** Loại học liệu của Kho học liệu (CB-1). */
-export const RESOURCE_TYPES = ['lecture', 'worksheet', 'video', 'question_set', 'other'] as const;
+/** Loại học liệu của Kho học liệu: đúng 5 nhóm Điều 7 TT 09/2021 (CB1-B2). */
+export const RESOURCE_TYPES = ['multimedia_lecture', 'lab_guide', 'simulation', 'question_set', 'reference'] as const;
 /** Không gian của Kho học liệu: cá nhân | tổ chuyên môn | toàn trường. */
 export const SCOPES = ['personal', 'org', 'school'] as const;
+/** Cấp học độc lập với khối (CB1-B2). */
+export const LEVELS = ['primary', 'lower_secondary', 'upper_secondary', 'multi'] as const;
+/** Nguồn gốc học liệu (CB1-B1). */
+export const SOURCE_KINDS = ['self', 'cited', 'derived'] as const;
+export const TARGET_AUDIENCES = ['students', 'teachers', 'both'] as const;
+/** Vị trí dùng trong bài theo khung CV 5512 (CB1-B3). */
+export const LESSON_POSITIONS = ['opening', 'new_knowledge', 'practice', 'application'] as const;
+
+/** Checklist duyệt theo tiêu chí thể lệ bài giảng điện tử của Bộ (CB1-B3). */
+export interface ReviewChecklist {
+  contentAccurate: boolean;
+  sourceClear: boolean;
+  pedagogyAesthetics: boolean;
+  mobileReady: boolean;
+}
 
 export interface LibraryItemInput {
   name: string;
@@ -26,10 +41,24 @@ export interface LibraryItemInput {
   spaceId?: string;
   subjectId?: string;
   grade?: number;
+  level?: string;
   curriculumNodeId?: string;
   outcomeIds?: string[];
   questionCategoryId?: string;
   externalUrl?: string;
+  description?: string;
+  keywords?: string[];
+  targetAudience?: string;
+  lessonPosition?: string;
+  techFormat?: string;
+  sizeBytes?: number;
+  durationSeconds?: number;
+  language?: string;
+  originalAuthor?: string;
+  sourceKind?: string;
+  sourceCitation?: string;
+  license?: string;
+  derivedFromId?: string;
 }
 
 export interface SpaceView {
@@ -186,11 +215,30 @@ export class ContentBankService {
 
   // --- CRUD ---------------------------------------------------------------------
 
+  /** Ép các enum metadata mới (CB1-B1/B2/B3) — giá trị lạ bị từ chối sớm với mã lỗi riêng. */
+  private assertEnumFields(input: Partial<LibraryItemInput>): void {
+    const checks: [string | undefined, readonly string[], string][] = [
+      [input.level, LEVELS, 'contentbank.bad_level'],
+      [input.sourceKind, SOURCE_KINDS, 'contentbank.bad_source_kind'],
+      [input.targetAudience, TARGET_AUDIENCES, 'contentbank.bad_target_audience'],
+      [input.lessonPosition, LESSON_POSITIONS, 'contentbank.bad_lesson_position'],
+    ];
+    for (const [value, allowed, code] of checks) {
+      if (value !== undefined && !allowed.includes(value)) {
+        throw new BadRequestException({ message: `Unknown value ${value}`, code });
+      }
+    }
+  }
+
   async create(actorId: string, input: LibraryItemInput): Promise<ContentRow> {
     const scope = input.scope ?? 'personal';
     if (!SCOPES.includes(scope as never)) throw new BadRequestException({ message: `Unknown scope ${scope}`, code: 'contentbank.bad_scope' });
     if (input.resourceType && !RESOURCE_TYPES.includes(input.resourceType as never)) {
       throw new BadRequestException({ message: `Unknown resourceType ${input.resourceType}`, code: 'contentbank.bad_resource_type' });
+    }
+    this.assertEnumFields(input);
+    if (input.derivedFromId && !(await this.repo.get(input.derivedFromId))) {
+      throw new BadRequestException({ message: `Derived-from item ${input.derivedFromId} not found`, code: 'contentbank.derived_from_not_found' });
     }
     if (scope === 'org' && input.spaceId) await this.assertOrgMembership(actorId, input.spaceId);
     const contextId = input.contextId ?? (await this.resolveContext(actorId, scope, input.spaceId));
@@ -201,10 +249,18 @@ export class ContentBankService {
       // Học liệu chia sẻ luôn bắt đầu ở draft (chỉ public sau khi duyệt).
       visibility: scope === 'personal' ? (input.visibility ?? 'draft') : 'draft',
       fileId: input.fileId ?? null,
-      resourceType: input.resourceType ?? 'other', scope, spaceId: scope === 'org' ? (input.spaceId ?? null) : null,
-      subjectId: input.subjectId ?? null, grade: input.grade ?? null, curriculumNodeId: input.curriculumNodeId ?? null,
+      resourceType: input.resourceType ?? 'reference', scope, spaceId: scope === 'org' ? (input.spaceId ?? null) : null,
+      subjectId: input.subjectId ?? null, grade: input.grade ?? null, level: input.level ?? null,
+      curriculumNodeId: input.curriculumNodeId ?? null,
       outcomeIds: input.outcomeIds ?? null, questionCategoryId: input.questionCategoryId ?? null,
       externalUrl: input.externalUrl ?? null,
+      description: input.description ?? null, keywords: input.keywords ?? null,
+      targetAudience: input.targetAudience ?? null, lessonPosition: input.lessonPosition ?? null,
+      techFormat: input.techFormat ?? null, sizeBytes: input.sizeBytes ?? null,
+      durationSeconds: input.durationSeconds ?? null, language: input.language ?? 'vi',
+      originalAuthor: input.originalAuthor ?? null, sourceKind: input.sourceKind ?? null,
+      sourceCitation: input.sourceCitation ?? null, license: input.license ?? null,
+      derivedFromId: input.derivedFromId ?? null,
       // Cá nhân không qua duyệt; chia sẻ lên tổ/trường bắt đầu ở draft chờ gửi duyệt.
       reviewStatus: scope === 'personal' ? 'approved' : 'draft',
     });
@@ -237,6 +293,13 @@ export class ContentBankService {
     // Đổi scope thì neo lại context (cá nhân neo theo context của CHỦ SỞ HỮU,
     // không theo người đang sửa); giữ nguyên scope thì giữ context cũ.
     const contextId = scope !== row.scope ? await this.resolveContext(row.creatorId, scope, spaceId) : row.contextId;
+    this.assertEnumFields(input);
+    if (input.resourceType && !RESOURCE_TYPES.includes(input.resourceType as never)) {
+      throw new BadRequestException({ message: `Unknown resourceType ${input.resourceType}`, code: 'contentbank.bad_resource_type' });
+    }
+    if (input.derivedFromId && input.derivedFromId !== row.derivedFromId && !(await this.repo.get(input.derivedFromId))) {
+      throw new BadRequestException({ message: `Derived-from item ${input.derivedFromId} not found`, code: 'contentbank.derived_from_not_found' });
+    }
     const changes: Partial<typeof row> = {
       name: input.name ?? row.name,
       visibility: input.visibility ?? row.visibility,
@@ -245,10 +308,24 @@ export class ContentBankService {
       scope, spaceId, contextId,
       subjectId: input.subjectId ?? row.subjectId,
       grade: input.grade ?? row.grade,
+      level: input.level ?? row.level,
       curriculumNodeId: input.curriculumNodeId ?? row.curriculumNodeId,
       outcomeIds: input.outcomeIds ?? row.outcomeIds,
       questionCategoryId: input.questionCategoryId ?? row.questionCategoryId,
       externalUrl: input.externalUrl ?? row.externalUrl,
+      description: input.description ?? row.description,
+      keywords: input.keywords ?? row.keywords,
+      targetAudience: input.targetAudience ?? row.targetAudience,
+      lessonPosition: input.lessonPosition ?? row.lessonPosition,
+      techFormat: input.techFormat ?? row.techFormat,
+      sizeBytes: input.sizeBytes ?? row.sizeBytes,
+      durationSeconds: input.durationSeconds ?? row.durationSeconds,
+      language: input.language ?? row.language,
+      originalAuthor: input.originalAuthor ?? row.originalAuthor,
+      sourceKind: input.sourceKind ?? row.sourceKind,
+      sourceCitation: input.sourceCitation ?? row.sourceCitation,
+      license: input.license ?? row.license,
+      derivedFromId: input.derivedFromId ?? row.derivedFromId,
     };
     // Học liệu chia sẻ đã/chờ duyệt mà bị sửa (nội dung, metadata, phạm vi)
     // thì quay về draft để duyệt lại — duyệt là trên đúng bản đang chia sẻ.
@@ -257,6 +334,7 @@ export class ContentBankService {
       changes.reviewedBy = null;
       changes.reviewedAt = null;
       changes.reviewNote = null;
+      changes.reviewChecklist = null;
       if (row.reviewStatus === 'approved') changes.visibility = 'draft';
     }
     if (scope === 'personal') changes.reviewStatus = 'approved';
@@ -286,10 +364,13 @@ export class ContentBankService {
       contextId: row.contextId, component: 'core_contentbank', fileArea: 'content', itemId: row.id,
       fileName: input.fileName, data, mimeType: input.mimeType, userId: actorId,
     });
-    await this.repo.update(id, { fileId: file.id });
+    // Metadata kỹ thuật tự sinh từ file thật (CB1-B2): định dạng theo đuôi
+    // file + dung lượng đúng số byte đã tải lên.
+    const ext = input.fileName.includes('.') ? input.fileName.split('.').pop()!.toLowerCase() : null;
+    await this.repo.update(id, { fileId: file.id, sizeBytes: data.length, ...(ext ? { techFormat: ext } : {}) });
     // Thay file của học liệu đã/chờ duyệt → quay về draft chờ duyệt lại.
     if (row.scope !== 'personal' && (row.reviewStatus === 'approved' || row.reviewStatus === 'pending')) {
-      await this.repo.update(id, { reviewStatus: 'draft', reviewedBy: null, reviewedAt: null, reviewNote: null, visibility: row.reviewStatus === 'approved' ? 'draft' : row.visibility });
+      await this.repo.update(id, { reviewStatus: 'draft', reviewedBy: null, reviewedAt: null, reviewNote: null, reviewChecklist: null, visibility: row.reviewStatus === 'approved' ? 'draft' : row.visibility });
       await this.search.removeDoc('contentbank', id);
     }
     return this.get(id);
@@ -304,15 +385,37 @@ export class ContentBankService {
 
   // --- duyệt (tổ trưởng) ---------------------------------------------------------
 
-  /** Metadata bắt buộc khi chia sẻ lên tổ/trường: môn – khối – node chương trình; bộ câu hỏi phải có tham chiếu; video phải có file hoặc liên kết. */
+  /**
+   * Metadata bắt buộc khi chia sẻ lên tổ/trường:
+   * - chương trình: môn – khối – node chương trình; bộ câu hỏi tham chiếu
+   *   phải có category (hoặc file bài tập); loại khác phải có file hoặc
+   *   liên kết ngoài;
+   * - sư phạm (CB1-B3): mô tả, từ khoá, đối tượng sử dụng, gợi ý vị trí
+   *   dùng trong bài (khung CV 5512);
+   * - bản quyền (CB1-B1) — CHỈ scope trường: tác giả gốc, nguồn gốc,
+   *   giấy phép; nguồn trích dẫn thì phải ghi nguồn cụ thể, học liệu dẫn
+   *   xuất thì phải trỏ về học liệu gốc. Thiếu là chưa được mở scope
+   *   trường (yêu cầu cứng của TT 09/2021 Điều 4.3, thể lệ QĐ 2915/2021
+   *   và QĐ 1965/QĐ-TTg về tôn trọng quyền tác giả).
+   */
   private assertMetadataComplete(row: ContentRow): void {
     const missing: string[] = [];
     if (!row.subjectId) missing.push('subjectId');
     if (!row.grade) missing.push('grade');
     if (!row.curriculumNodeId) missing.push('curriculumNodeId');
-    if (row.resourceType === 'question_set' && !row.questionCategoryId) missing.push('questionCategoryId');
-    if (row.resourceType === 'video' && !row.fileId && !row.externalUrl) missing.push('fileId|externalUrl');
-    if (row.resourceType !== 'question_set' && row.resourceType !== 'video' && !row.fileId) missing.push('fileId');
+    if (row.resourceType === 'question_set' && !row.questionCategoryId && !row.fileId) missing.push('questionCategoryId|fileId');
+    if (row.resourceType !== 'question_set' && !row.fileId && !row.externalUrl) missing.push('fileId|externalUrl');
+    if (!row.description?.trim()) missing.push('description');
+    if (!row.keywords || (row.keywords as string[]).length === 0) missing.push('keywords');
+    if (!row.targetAudience) missing.push('targetAudience');
+    if (!row.lessonPosition) missing.push('lessonPosition');
+    if (row.scope === 'school') {
+      if (!row.originalAuthor?.trim()) missing.push('originalAuthor');
+      if (!row.sourceKind) missing.push('sourceKind');
+      if (!row.license?.trim()) missing.push('license');
+      if (row.sourceKind === 'cited' && !row.sourceCitation?.trim()) missing.push('sourceCitation');
+      if (row.sourceKind === 'derived' && !row.derivedFromId) missing.push('derivedFromId');
+    }
     if (missing.length) {
       throw new BadRequestException({ message: `Missing required program metadata: ${missing.join(', ')}`, code: 'contentbank.metadata_incomplete' });
     }
@@ -331,8 +434,14 @@ export class ContentBankService {
     return this.get(id);
   }
 
-  /** Duyệt/từ chối một học liệu đang chờ (pending). */
-  async review(actorId: string, id: string, input: { decision: 'approved' | 'rejected'; note?: string }): Promise<ContentRow> {
+  /**
+   * Duyệt/từ chối một học liệu đang chờ (pending). Theo CB1-B3: từ chối
+   * BẮT BUỘC có lý do (ghi chú); phê duyệt BẮT BUỘC checklist 4 tiêu chí
+   * của thể lệ Bộ đều đạt (nội dung chính xác–khoa học / nguồn gốc rõ
+   * ràng / sư phạm–thẩm mỹ / chạy được trên di động) — checklist được
+   * lưu cùng quyết định để truy vết.
+   */
+  async review(actorId: string, id: string, input: { decision: 'approved' | 'rejected'; note?: string; checklist?: ReviewChecklist }): Promise<ContentRow> {
     const row = await this.get(id);
     if (row.scope === 'personal' || row.reviewStatus !== 'pending') {
       throw new BadRequestException({ message: 'Item is not pending review', code: 'contentbank.not_pending' });
@@ -340,8 +449,18 @@ export class ContentBankService {
     if (!(await this.canReview(actorId, row))) {
       throw new ForbiddenException({ message: 'You cannot review this item', code: 'contentbank.review_denied' });
     }
+    if (input.decision === 'rejected' && !input.note?.trim()) {
+      throw new BadRequestException({ message: 'Rejection requires a reason (note)', code: 'contentbank.review_note_required' });
+    }
+    if (input.decision === 'approved') {
+      const c = input.checklist;
+      if (!c || !c.contentAccurate || !c.sourceClear || !c.pedagogyAesthetics || !c.mobileReady) {
+        throw new BadRequestException({ message: 'Approval requires the full review checklist (all criteria met)', code: 'contentbank.review_checklist_incomplete' });
+      }
+    }
     await this.repo.update(id, {
       reviewStatus: input.decision, reviewedBy: actorId, reviewedAt: new Date(), reviewNote: input.note ?? null,
+      reviewChecklist: input.checklist ?? null,
       visibility: input.decision === 'approved' ? 'public' : 'draft',
     });
     const updated = await this.get(id);
@@ -366,7 +485,11 @@ export class ContentBankService {
     if (row.creatorId !== actorId && row.reviewStatus !== 'approved') {
       throw new ForbiddenException({ message: 'Only approved library items can be inserted into a course', code: 'contentbank.not_approved' });
     }
-    if (row.resourceType === 'question_set') {
+    if (row.resourceType === 'question_set' && !row.fileId) {
+      // Bộ câu hỏi THAM CHIẾU (có category, không có file) sống ở Ngân
+      // hàng câu hỏi — không cắm thành tài nguyên khoá. Học liệu nhóm câu
+      // hỏi/bài tập có file đính kèm (phiếu bài tập) thì cắm như tài
+      // nguyên bình thường.
       throw new BadRequestException({ message: 'Question-set references are used from the question bank, not inserted as course resources', code: 'contentbank.question_set_not_insertable' });
     }
     const cm = await this.courses.createCm(actorId, input.courseId, { sectionId: input.sectionId, component: 'mod_resource', name: row.name });

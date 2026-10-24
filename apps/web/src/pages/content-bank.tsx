@@ -12,7 +12,7 @@ import { apiJson, ApiError } from '#lib/api';
 import { fetchSubjects, fetchSystemContextId, type CurriculumSubject } from '#lib/curriculum';
 import {
   RESOURCE_TYPES, REVIEW_STATUSES, deleteItem, fetchItemFileUrl, fetchItems, fetchSpaces, insertItem,
-  reviewItem, submitItem, type LibraryItem, type LibrarySpace,
+  reviewItem, submitItem, type LibraryItem, type LibrarySpace, type ReviewChecklist,
 } from '#lib/content-bank';
 
 const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
@@ -54,6 +54,9 @@ export function ContentBankLibraryPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [reviewChecks, setReviewChecks] = useState<Record<string, ReviewChecklist>>({});
+  const checklistFor = (id: string): ReviewChecklist =>
+    reviewChecks[id] ?? { contentAccurate: false, sourceClear: false, pedagogyAesthetics: false, mobileReady: false };
   const [insertFor, setInsertFor] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [insertCourseId, setInsertCourseId] = useState('');
@@ -153,15 +156,15 @@ export function ContentBankLibraryPage() {
 
   const typeLabel = (type: string) =>
     t(
-      type === 'lecture'
-        ? 'libraryTypeLecture'
-        : type === 'worksheet'
-          ? 'libraryTypeWorksheet'
-          : type === 'video'
-            ? 'libraryTypeVideo'
+      type === 'multimedia_lecture'
+        ? 'libraryTypeMultimediaLecture'
+        : type === 'lab_guide'
+          ? 'libraryTypeLabGuide'
+          : type === 'simulation'
+            ? 'libraryTypeSimulation'
             : type === 'question_set'
               ? 'libraryTypeQuestionSet'
-              : 'libraryTypeOther',
+              : 'libraryTypeReference',
     );
   const statusLabel = (status: string) =>
     t(
@@ -268,13 +271,26 @@ export function ContentBankLibraryPage() {
                             {item.grade ? <span className="text-sm text-muted-foreground">{t('libraryGradeOption', { grade: item.grade })}</span> : null}
                             {item.reviewNote ? <span className="text-sm text-muted-foreground">“{item.reviewNote}”</span> : null}
                           </div>
+                          {item.originalAuthor || item.sourceCitation || item.license || item.derivedFromId ? (
+                            <p className="text-sm text-muted-foreground">
+                              {[
+                                item.originalAuthor ? t('libraryAttributionAuthor', { author: item.originalAuthor }) : null,
+                                item.sourceCitation ? t('libraryAttributionSource', { source: item.sourceCitation }) : null,
+                                item.license ? t('libraryAttributionLicense', { license: item.license }) : null,
+                                item.derivedFromId ? t('libraryAttributionDerived') : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          ) : null}
+                          {item.description ? <p className="text-sm text-muted-foreground">{item.description}</p> : null}
                           <div className="flex flex-wrap items-center gap-2">
                             {item.fileId ? (
                               <Button type="button" variant="outline" size="sm" onClick={() => void download(item)}>
                                 {t('libraryFileDownload')}
                               </Button>
                             ) : null}
-                            {item.resourceType !== 'question_set' ? (
+                            {!(item.resourceType === 'question_set' && !item.fileId) ? (
                               <Button type="button" variant="outline" size="sm" onClick={() => void openInsert(item)}>
                                 {t('libraryInsert')}
                               </Button>
@@ -311,31 +327,69 @@ export function ContentBankLibraryPage() {
                             </Button>
                           </div>
                           {space.canReview && item.reviewStatus === 'pending' ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Input
-                                aria-label={t('libraryReviewNote')}
-                                placeholder={t('libraryReviewNote')}
-                                value={reviewNotes[item.id] ?? ''}
-                                onChange={(e) => setReviewNotes((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                                className="max-w-xs"
-                              />
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={busyId === item.id}
-                                onClick={() => void runAction(item.id, () => reviewItem(item.id, 'approved', reviewNotes[item.id] || undefined))}
-                              >
-                                {t('libraryApprove')}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={busyId === item.id}
-                                onClick={() => void runAction(item.id, () => reviewItem(item.id, 'rejected', reviewNotes[item.id] || undefined))}
-                              >
-                                {t('libraryReject')}
-                              </Button>
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                {(
+                                  [
+                                    ['contentAccurate', 'libraryChecklistContent'],
+                                    ['sourceClear', 'libraryChecklistSource'],
+                                    ['pedagogyAesthetics', 'libraryChecklistPedagogy'],
+                                    ['mobileReady', 'libraryChecklistMobile'],
+                                  ] as const
+                                ).map(([field, labelKey]) => (
+                                  <label key={field} className="flex items-center gap-1 text-sm">
+                                    <input
+                                      type="checkbox"
+                                      checked={checklistFor(item.id)[field]}
+                                      onChange={(e) =>
+                                        setReviewChecks((prev) => ({
+                                          ...prev,
+                                          [item.id]: { ...checklistFor(item.id), [field]: e.target.checked },
+                                        }))
+                                      }
+                                    />
+                                    {t(labelKey)}
+                                  </label>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Input
+                                  aria-label={t('libraryReviewNote')}
+                                  placeholder={t('libraryReviewNote')}
+                                  value={reviewNotes[item.id] ?? ''}
+                                  onChange={(e) => setReviewNotes((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                  className="max-w-xs"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={
+                                    busyId === item.id ||
+                                    !(
+                                      checklistFor(item.id).contentAccurate &&
+                                      checklistFor(item.id).sourceClear &&
+                                      checklistFor(item.id).pedagogyAesthetics &&
+                                      checklistFor(item.id).mobileReady
+                                    )
+                                  }
+                                  onClick={() =>
+                                    void runAction(item.id, () =>
+                                      reviewItem(item.id, 'approved', reviewNotes[item.id] || undefined, checklistFor(item.id)),
+                                    )
+                                  }
+                                >
+                                  {t('libraryApprove')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busyId === item.id || !(reviewNotes[item.id] ?? '').trim()}
+                                  onClick={() => void runAction(item.id, () => reviewItem(item.id, 'rejected', reviewNotes[item.id]))}
+                                >
+                                  {t('libraryReject')}
+                                </Button>
+                              </div>
                             </div>
                           ) : null}
                           {insertFor === item.id ? (

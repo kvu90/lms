@@ -12,7 +12,8 @@ import {
   type CurriculumSubject, type CurriculumTreeNode,
 } from '#lib/curriculum';
 import {
-  RESOURCE_TYPES, createItem, fetchItem, fetchSpaces, fileToBase64, updateItem, uploadItemFile,
+  LESSON_POSITIONS, LEVELS, RESOURCE_TYPES, SOURCE_KINDS, TARGET_AUDIENCES,
+  createItem, fetchItem, fetchSpaces, fileToBase64, updateItem, uploadItemFile,
   type LibraryItemInput, type LibrarySpace,
 } from '#lib/content-bank';
 import { apiJson } from '#lib/api';
@@ -72,16 +73,28 @@ export function ContentBankEditPage() {
   const [currentFileId, setCurrentFileId] = useState<string | null>(null);
 
   const [name, setName] = useState('');
-  const [resourceType, setResourceType] = useState('lecture');
+  const [resourceType, setResourceType] = useState('multimedia_lecture');
   const [scope, setScope] = useState('personal');
   const [spaceId, setSpaceId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [grade, setGrade] = useState('');
+  const [level, setLevel] = useState('');
   const [nodes, setNodes] = useState<FlatNode[]>([]);
   const [nodeId, setNodeId] = useState('');
   const [outcomeIds, setOutcomeIds] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
+  const [description, setDescription] = useState('');
+  const [keywords, setKeywords] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [lessonPosition, setLessonPosition] = useState('');
+  const [language, setLanguage] = useState('vi');
+  const [durationSeconds, setDurationSeconds] = useState('');
+  const [originalAuthor, setOriginalAuthor] = useState('');
+  const [sourceKind, setSourceKind] = useState('');
+  const [sourceCitation, setSourceCitation] = useState('');
+  const [license, setLicense] = useState('');
+  const [derivedFromId, setDerivedFromId] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,10 +117,22 @@ export function ContentBankEditPage() {
           setSpaceId(item.spaceId ?? '');
           setSubjectId(item.subjectId ?? '');
           setGrade(item.grade ? String(item.grade) : '');
+          setLevel(item.level ?? '');
           setNodeId(item.curriculumNodeId ?? '');
           setOutcomeIds(item.outcomeIds ?? []);
           setCategoryId(item.questionCategoryId ?? '');
           setExternalUrl(item.externalUrl ?? '');
+          setDescription(item.description ?? '');
+          setKeywords((item.keywords ?? []).join(', '));
+          setTargetAudience(item.targetAudience ?? '');
+          setLessonPosition(item.lessonPosition ?? '');
+          setLanguage(item.language ?? 'vi');
+          setDurationSeconds(item.durationSeconds ? String(item.durationSeconds) : '');
+          setOriginalAuthor(item.originalAuthor ?? '');
+          setSourceKind(item.sourceKind ?? '');
+          setSourceCitation(item.sourceCitation ?? '');
+          setLicense(item.license ?? '');
+          setDerivedFromId(item.derivedFromId ?? '');
           setCurrentFileId(item.fileId);
         } catch (err) {
           setError(errorText(err, t('libraryLoadFailed')));
@@ -147,10 +172,23 @@ export function ContentBankEditPage() {
       if (scope === 'org' && spaceId) payload.spaceId = spaceId;
       if (subjectId) payload.subjectId = subjectId;
       if (grade) payload.grade = Number(grade);
+      if (level) payload.level = level;
       if (nodeId) payload.curriculumNodeId = nodeId;
       if (outcomeIds.length) payload.outcomeIds = outcomeIds;
       if (resourceType === 'question_set' && categoryId) payload.questionCategoryId = categoryId;
       if (externalUrl) payload.externalUrl = externalUrl;
+      if (description) payload.description = description;
+      const keywordList = keywords.split(',').map((k) => k.trim()).filter(Boolean);
+      if (keywordList.length) payload.keywords = keywordList;
+      if (targetAudience) payload.targetAudience = targetAudience;
+      if (lessonPosition) payload.lessonPosition = lessonPosition;
+      if (language) payload.language = language;
+      if (durationSeconds) payload.durationSeconds = Number(durationSeconds);
+      if (originalAuthor) payload.originalAuthor = originalAuthor;
+      if (sourceKind) payload.sourceKind = sourceKind;
+      if (sourceCitation) payload.sourceCitation = sourceCitation;
+      if (license) payload.license = license;
+      if (derivedFromId) payload.derivedFromId = derivedFromId;
       try {
         const item = editing && id ? await updateItem(id, payload) : await createItem(payload);
         if (file) {
@@ -164,7 +202,7 @@ export function ContentBankEditPage() {
         setBusy(false);
       }
     },
-    [name, resourceType, scope, spaceId, subjectId, grade, nodeId, outcomeIds, categoryId, externalUrl, file, editing, id, navigate, t],
+    [name, resourceType, scope, spaceId, subjectId, grade, level, nodeId, outcomeIds, categoryId, externalUrl, description, keywords, targetAudience, lessonPosition, language, durationSeconds, originalAuthor, sourceKind, sourceCitation, license, derivedFromId, file, editing, id, navigate, t],
   );
 
   if (!loaded) {
@@ -203,15 +241,15 @@ export function ContentBankEditPage() {
                 {RESOURCE_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {t(
-                      type === 'lecture'
-                        ? 'libraryTypeLecture'
-                        : type === 'worksheet'
-                          ? 'libraryTypeWorksheet'
-                          : type === 'video'
-                            ? 'libraryTypeVideo'
+                      type === 'multimedia_lecture'
+                        ? 'libraryTypeMultimediaLecture'
+                        : type === 'lab_guide'
+                          ? 'libraryTypeLabGuide'
+                          : type === 'simulation'
+                            ? 'libraryTypeSimulation'
                             : type === 'question_set'
                               ? 'libraryTypeQuestionSet'
-                              : 'libraryTypeOther',
+                              : 'libraryTypeReference',
                     )}
                   </option>
                 ))}
@@ -294,10 +332,88 @@ export function ContentBankEditPage() {
                 <p className="text-sm text-muted-foreground">{t('libraryFormCategoryHint')}</p>
               </div>
             ) : null}
+            <div className="space-y-1">
+              <Label htmlFor="lib-level">{t('libraryFormLevel')}</Label>
+              <select id="lib-level" className={SELECT_CLASS} value={level} onChange={(e) => setLevel(e.target.value)}>
+                <option value="">{t('libraryFormNone')}</option>
+                {LEVELS.map((lv) => (
+                  <option key={lv} value={lv}>
+                    {t(lv === 'primary' ? 'libraryLevelPrimary' : lv === 'lower_secondary' ? 'libraryLevelLowerSecondary' : lv === 'upper_secondary' ? 'libraryLevelUpperSecondary' : 'libraryLevelMulti')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-language">{t('libraryFormLanguage')}</Label>
+              <Input id="lib-language" value={language} onChange={(e) => setLanguage(e.target.value)} />
+            </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="lib-url">{t('libraryFormExternalUrl')}</Label>
               <Input id="lib-url" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://…" />
             </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="lib-description">{t('libraryFormDescription')}</Label>
+              <Input id="lib-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="lib-keywords">{t('libraryFormKeywords')}</Label>
+              <Input id="lib-keywords" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-audience">{t('libraryFormAudience')}</Label>
+              <select id="lib-audience" className={SELECT_CLASS} value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)}>
+                <option value="">{t('libraryFormNone')}</option>
+                {TARGET_AUDIENCES.map((a) => (
+                  <option key={a} value={a}>
+                    {t(a === 'students' ? 'libraryAudienceStudents' : a === 'teachers' ? 'libraryAudienceTeachers' : 'libraryAudienceBoth')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-position">{t('libraryFormPosition')}</Label>
+              <select id="lib-position" className={SELECT_CLASS} value={lessonPosition} onChange={(e) => setLessonPosition(e.target.value)}>
+                <option value="">{t('libraryFormNone')}</option>
+                {LESSON_POSITIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {t(p === 'opening' ? 'libraryPositionOpening' : p === 'new_knowledge' ? 'libraryPositionNewKnowledge' : p === 'practice' ? 'libraryPositionPractice' : 'libraryPositionApplication')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-duration">{t('libraryFormDuration')}</Label>
+              <Input id="lib-duration" type="number" min="0" value={durationSeconds} onChange={(e) => setDurationSeconds(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-author">{t('libraryFormOriginalAuthor')}</Label>
+              <Input id="lib-author" value={originalAuthor} onChange={(e) => setOriginalAuthor(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-source-kind">{t('libraryFormSourceKind')}</Label>
+              <select id="lib-source-kind" className={SELECT_CLASS} value={sourceKind} onChange={(e) => setSourceKind(e.target.value)}>
+                <option value="">{t('libraryFormNone')}</option>
+                {SOURCE_KINDS.map((s) => (
+                  <option key={s} value={s}>
+                    {t(s === 'self' ? 'librarySourceSelf' : s === 'cited' ? 'librarySourceCited' : 'librarySourceDerived')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="lib-license">{t('libraryFormLicense')}</Label>
+              <Input id="lib-license" value={license} onChange={(e) => setLicense(e.target.value)} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="lib-citation">{t('libraryFormSourceCitation')}</Label>
+              <Input id="lib-citation" value={sourceCitation} onChange={(e) => setSourceCitation(e.target.value)} />
+            </div>
+            {sourceKind === 'derived' ? (
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="lib-derived">{t('libraryFormDerivedFrom')}</Label>
+                <Input id="lib-derived" value={derivedFromId} onChange={(e) => setDerivedFromId(e.target.value)} />
+              </div>
+            ) : null}
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="lib-file">{t('libraryFormFile')}</Label>
               <Input id="lib-file" type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />

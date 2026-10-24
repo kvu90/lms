@@ -13,6 +13,7 @@ export interface ContentFilters {
   creatorId?: string;
   subjectId?: string;
   grade?: number;
+  level?: string;
   curriculumNodeId?: string;
   resourceType?: string;
   reviewStatus?: string;
@@ -41,6 +42,7 @@ export class ContentBankRepository {
     if (f.creatorId) conds.push(eq(contentBankContent.creatorId, f.creatorId));
     if (f.subjectId) conds.push(eq(contentBankContent.subjectId, f.subjectId));
     if (f.grade) conds.push(eq(contentBankContent.grade, f.grade));
+    if (f.level) conds.push(eq(contentBankContent.level, f.level));
     if (f.curriculumNodeId) conds.push(eq(contentBankContent.curriculumNodeId, f.curriculumNodeId));
     if (f.resourceType) conds.push(eq(contentBankContent.resourceType, f.resourceType));
     if (f.reviewStatus) conds.push(eq(contentBankContent.reviewStatus, f.reviewStatus));

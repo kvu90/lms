@@ -12,8 +12,15 @@ import { createCategory, createCourse, getFirstSectionId } from './course-enrolm
  * Vòng đời được kiểm chứng tận API:
  * - học liệu scope tổ (cohort) bắt đầu ở draft, đồng nghiệp trong tổ
  *   KHÔNG thấy khi draft lẫn khi chờ duyệt; chỉ tác giả + người duyệt
- *   (tổ trưởng: contentbank:reviewcontent + thành viên tổ) thấy;
- * - gửi duyệt bắt metadata chương trình đủ (môn–khối–node + file);
+ *   (tổ trưởng: contentbank:reviewcontent + cohort:manage tại context
+ *   của tổ) thấy;
+ * - gửi duyệt bắt metadata chương trình đủ (môn–khối–node + file) +
+ *   metadata sư phạm (mô tả–từ khoá–đối tượng–vị trí trong bài, CB1-B3);
+ *   scope trường bắt thêm trường bản quyền/nguồn gốc (CB1-B1): chưa đủ
+ *   bản quyền thì chưa mở được scope trường;
+ * - loại học liệu là 5 nhóm Điều 7 TT 09/2021 (CB1-B2) + cấp học độc
+ *   lập; duyệt theo checklist tiêu chí Bộ, từ chối bắt buộc có lý do
+ *   (CB1-B3); học liệu dẫn xuất giữ derived_from về học liệu gốc;
  * - duyệt xong học liệu mới hiện với thành viên tổ và cắm được vào khoá
  *   của đồng nghiệp bằng BẢN SAO file (module mod_resource + file riêng
  *   trong context của module; sửa bản gốc sau đó không đổi bản đã cắm);
@@ -118,13 +125,22 @@ describe('Content bank library (CB-1, issue #69)', () => {
   }, 180_000);
   afterAll(async () => { await app.close(); });
 
+  const fullChecklist = { contentAccurate: true, sourceClear: true, pedagogyAesthetics: true, mobileReady: true };
+  /** Metadata sư phạm bắt buộc khi gửi duyệt scope tổ/trường (CB1-B3). */
+  const pedagogicalMeta = {
+    description: 'Phiếu bài tập luyện tập hàm số bậc nhất',
+    keywords: ['hàm số', 'luyện tập'],
+    targetAudience: 'students',
+    lessonPosition: 'practice',
+  };
+
   async function createOrgItem(token: string, withMetadata = true): Promise<{ id: string }> {
     const res = await http(app).post('/api/v1/contentbank').set(bearer(token)).send({
       name: uniqueName('Phieu bai tap'),
-      resourceType: 'worksheet',
+      resourceType: 'question_set',
       scope: 'org',
       spaceId: cohortId,
-      ...(withMetadata ? { subjectId, grade: 10, curriculumNodeId: nodeId } : {}),
+      ...(withMetadata ? { subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta } : {}),
     });
     expect(res.status).toBe(201);
     return res.body as { id: string };
@@ -146,6 +162,9 @@ describe('Content bank library (CB-1, issue #69)', () => {
     const up = await http(app).post(`/api/v1/contentbank/${item.id}/file`).set(bearer(authorToken)).send(fileBody);
     expect(up.status).toBe(201);
     expect(up.body.fileId).toBeTruthy();
+    // Metadata kỹ thuật tự sinh từ file (CB1-B2).
+    expect(up.body.techFormat).toBe('pdf');
+    expect(up.body.sizeBytes).toBe(Buffer.byteLength('cb1-file-content'));
 
     // Draft: đồng nghiệp cùng tổ không thấy, người ngoài tổ cũng không.
     expect(await listIds(colleagueToken, `scope=org&spaceId=${cohortId}`)).not.toContain(item.id);
@@ -164,10 +183,11 @@ describe('Content bank library (CB-1, issue #69)', () => {
     const selfReview = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(colleagueToken)).send({ decision: 'approved' });
     expect(selfReview.status).toBe(403);
 
-    const review = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(leadToken)).send({ decision: 'approved', note: 'Đạt' });
+    const review = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(leadToken)).send({ decision: 'approved', note: 'Đạt', checklist: fullChecklist });
     expect(review.status).toBe(201);
     expect(review.body.reviewStatus).toBe('approved');
     expect(review.body.visibility).toBe('public');
+    expect(review.body.reviewChecklist).toEqual(fullChecklist);
 
     // Đã duyệt: đồng nghiệp thấy và xem được.
     expect(await listIds(colleagueToken, `scope=org&spaceId=${cohortId}`)).toContain(item.id);
@@ -225,8 +245,9 @@ describe('Content bank library (CB-1, issue #69)', () => {
 
   it('school scope: hidden while pending for students, visible school-wide after approval', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
-      name: uniqueName('Tai lieu truong'), resourceType: 'lecture', scope: 'school',
-      subjectId, grade: 10, curriculumNodeId: nodeId,
+      name: uniqueName('Tai lieu truong'), resourceType: 'multimedia_lecture', scope: 'school',
+      subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta,
+      originalAuthor: 'Nguyễn Văn A', sourceKind: 'self', license: 'Chỉ dùng nội bộ trường',
     });
     expect(created.status).toBe(201);
     const id = created.body.id as string;
@@ -238,9 +259,70 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(denied.status).toBe(403);
 
     // Admin duyệt thay mặt cấp trường.
-    const review = await http(app).post(`/api/v1/contentbank/${id}/review`).set(bearer(admin)).send({ decision: 'approved' });
+    const review = await http(app).post(`/api/v1/contentbank/${id}/review`).set(bearer(admin)).send({ decision: 'approved', checklist: fullChecklist });
     expect(review.status).toBe(201);
     expect(await listIds(studentToken, 'scope=school')).toContain(id);
+  });
+
+  it('school scope cannot be submitted without complete copyright fields (CB1-B1)', async () => {
+    const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Tai lieu thieu ban quyen'), resourceType: 'multimedia_lecture', scope: 'school',
+      subjectId, grade: 10, curriculumNodeId: nodeId, ...pedagogicalMeta,
+      // Có tác giả gốc nhưng thiếu nguồn gốc + giấy phép; nguồn trích dẫn
+      // mà không ghi nguồn cụ thể cũng bị chặn.
+      originalAuthor: 'Sưu tầm', sourceKind: 'cited',
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.id as string;
+    await http(app).post(`/api/v1/contentbank/${id}/file`).set(bearer(authorToken)).send(fileBody);
+    const submit = await http(app).post(`/api/v1/contentbank/${id}/submit`).set(bearer(authorToken)).send({});
+    expect(submit.status).toBe(400);
+    expect(submit.body.code).toBe('contentbank.metadata_incomplete');
+    expect(String(submit.body.message)).toContain('license');
+    expect(String(submit.body.message)).toContain('sourceCitation');
+  });
+
+  it('review gates: rejection needs a reason, approval needs the full checklist (CB1-B3)', async () => {
+    const item = await createOrgItem(authorToken);
+    await http(app).post(`/api/v1/contentbank/${item.id}/file`).set(bearer(authorToken)).send(fileBody);
+    await http(app).post(`/api/v1/contentbank/${item.id}/submit`).set(bearer(authorToken)).send({});
+
+    const rejectNoNote = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(leadToken))
+      .send({ decision: 'rejected' });
+    expect(rejectNoNote.status).toBe(400);
+    expect(rejectNoNote.body.code).toBe('contentbank.review_note_required');
+
+    const approveNoChecklist = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(leadToken))
+      .send({ decision: 'approved', note: 'Đạt' });
+    expect(approveNoChecklist.status).toBe(400);
+    expect(approveNoChecklist.body.code).toBe('contentbank.review_checklist_incomplete');
+
+    const partial = await http(app).post(`/api/v1/contentbank/${item.id}/review`).set(bearer(leadToken))
+      .send({ decision: 'approved', checklist: { ...fullChecklist, mobileReady: false } });
+    expect(partial.status).toBe(400);
+  });
+
+  it('derived items keep the derived_from trace to the source item (CB1-B1)', async () => {
+    const source = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Hoc lieu goc'), resourceType: 'reference', scope: 'personal',
+      originalAuthor: 'Trần Thị B', sourceKind: 'self', license: 'Chỉ dùng nội bộ trường',
+    });
+    expect(source.status).toBe(201);
+    const derived = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Hoc lieu dan xuat'), resourceType: 'reference', scope: 'personal',
+      originalAuthor: 'Trần Thị B', sourceKind: 'derived', derivedFromId: source.body.id,
+      sourceCitation: 'Dẫn xuất từ học liệu gốc trong kho', license: 'Chỉ dùng nội bộ trường',
+    });
+    expect(derived.status).toBe(201);
+    expect(derived.body.derivedFromId).toBe(source.body.id);
+    expect(derived.body.sourceKind).toBe('derived');
+
+    const bogus = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Dan xuat ao'), resourceType: 'reference', scope: 'personal',
+      sourceKind: 'derived', derivedFromId: '01900000-0000-7000-8000-000000000099',
+    });
+    expect(bogus.status).toBe(400);
+    expect(bogus.body.code).toBe('contentbank.derived_from_not_found');
   });
 
   it('question_set items only reference the question bank and cannot be inserted as course resources', async () => {
@@ -258,7 +340,7 @@ describe('Content bank library (CB-1, issue #69)', () => {
 
   it('personal items are private to their author; users without roles cannot create library items', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
-      name: uniqueName('Hoc lieu ca nhan'), resourceType: 'other', scope: 'personal',
+      name: uniqueName('Hoc lieu ca nhan'), resourceType: 'reference', scope: 'personal',
     });
     expect(created.status).toBe(201);
     expect(created.body.reviewStatus).toBe('approved');
