@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { QuestionsService } from '../src/modules/questions/questions.service';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
@@ -35,6 +36,7 @@ describe('Question usage owner gate (issue #60)', () => {
     questionId: string;
     tokenA: string;
     tokenB: string;
+    userIdA: string;
   }
 
   /** Khoá + giáo viên + hai học sinh ghi danh + quiz 1 slot truefalse (đáp án đúng: true). */
@@ -52,13 +54,16 @@ describe('Question usage owner gate (issue #60)', () => {
     await assignRole(app, admin, teacherUser.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
     const teacher = (await login(app, teacherUser.username, STRONG_PASSWORD)).accessToken;
 
-    async function enrolledStudent(): Promise<string> {
+    async function enrolledStudent(): Promise<{ token: string; userId: string }> {
       const user = await createUserViaApi(app, admin);
       await enrolUser(app, admin, course.id, instance.id, user.id);
-      return (await login(app, user.username, STRONG_PASSWORD)).accessToken;
+      return { token: (await login(app, user.username, STRONG_PASSWORD)).accessToken, userId: user.id };
     }
-    const tokenA = await enrolledStudent();
-    const tokenB = await enrolledStudent();
+    const studentA = await enrolledStudent();
+    const studentB = await enrolledStudent();
+    const tokenA = studentA.token;
+    const tokenB = studentB.token;
+    const userIdA = studentA.userId;
 
     const bankRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Gate bank', contextId: systemCtx.id });
@@ -76,7 +81,7 @@ describe('Question usage owner gate (issue #60)', () => {
     const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${teacher}`)
       .send({ questionId });
     expect(slotRes.status).toBeLessThan(300);
-    return { quizId, questionId, tokenA, tokenB };
+    return { quizId, questionId, tokenA, tokenB, userIdA };
   }
 
   /** Học sinh bắt đầu lượt quiz và trả lời 'true' qua kênh quiz; trả view hiện tại. */
@@ -183,12 +188,17 @@ describe('Question usage owner gate (issue #60)', () => {
 
   it('free bank usage: the owner runs the full raw flow; strangers get 404 and a mismatched path is not found', async () => {
     const s = await setup();
-    // A tự tạo usage tự do từ ngân hàng (đúng luồng trang ngân hàng trên web).
-    const created = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${s.tokenA}`)
-      .send({ component: 'mod_quiz', slots: [{ questionId: s.questionId }] });
-    expect(created.status).toBe(201);
-    const usageId = created.body.usage.id as string;
-    const attemptId = created.body.attempts[0].id as string;
+    // Mẫu dựng sau khi cổng tạo usage của #55 có mặt: tạo usage thô qua
+    // HTTP đòi `question:useall` (usage thô là đường đọc đáp án) nên học
+    // sinh không tự tạo qua HTTP được nữa; usage tự do của A do hoạt
+    // động tạo ở tầng service với actor là chính A — đúng mô hình mà
+    // assertCanCreateUsage của #55 ghi. Mọi assertion hành vi của cổng
+    // chủ sở hữu bên dưới giữ nguyên.
+    const created = await app.get(QuestionsService).createUsage(s.userIdA, {
+      component: 'mod_quiz', slots: [{ questionId: s.questionId }],
+    });
+    const usageId = created.usage.id as string;
+    const attemptId = created.attempts[0].id as string;
 
     // B thao tác usage của A → 404 ở cả hai cấp.
     const bStart = await http(app).post(`/api/v1/question-usages/${usageId}/start`).set('Authorization', `Bearer ${s.tokenB}`);
@@ -202,9 +212,10 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(bFinish.status).toBe(404);
 
     // Đường dẫn lệch (attempt của usage này đặt dưới usage khác của chính A) → 404 attempt_not_found.
-    const other = await http(app).post('/api/v1/question-usages').set('Authorization', `Bearer ${s.tokenA}`)
-      .send({ component: 'mod_quiz', slots: [{ questionId: s.questionId }] });
-    const otherUsageId = other.body.usage.id as string;
+    const other = await app.get(QuestionsService).createUsage(s.userIdA, {
+      component: 'mod_quiz', slots: [{ questionId: s.questionId }],
+    });
+    const otherUsageId = other.usage.id as string;
     const mismatched = await http(app).post(`/api/v1/question-usages/${otherUsageId}/attempts/${attemptId}/start`)
       .set('Authorization', `Bearer ${s.tokenA}`);
     expect(mismatched.status).toBe(404);
