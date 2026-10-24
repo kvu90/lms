@@ -346,8 +346,10 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   return (
     <PageShell width="medium">
       <PageHeader title={editing ? t('editQuestionTitle', { name: editing.question.name }) : t('newQuestion')} />
+      {/* Thông báo kết quả gửi form giữ vai trò status như trang inline
+          cũ trên main (hợp đồng đã có spec của issue #55). */}
       {message ? (
-        <Alert>
+        <Alert role="status">
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
@@ -710,7 +712,16 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       <Select
                         items={Object.fromEntries(linkSubjects.map((s) => [s.id, s.name]))}
                         value={linkSubjectPick === '' ? null : linkSubjectPick}
-                        onValueChange={(v) => void pickLinkSubject(v ?? '')}
+                        onValueChange={(v) => {
+                          // Base UI tự phát null khi giá trị đang chọn bị
+                          // lọc khỏi options (môn vừa gắn xong bị loại khỏi
+                          // danh sách chọn) — đó không phải thao tác chọn
+                          // của người dùng; bỏ qua để không xoá mất danh
+                          // sách YCCĐ vừa nạp cho môn đó. Select native
+                          // trước đây không có hiệu ứng phụ này.
+                          if (!v) return;
+                          void pickLinkSubject(v);
+                        }}
                       >
                         <SelectTrigger aria-labelledby="programme-subject-pick-label" className="w-full">
                           <SelectValue placeholder={t('programmePickSubject')} />

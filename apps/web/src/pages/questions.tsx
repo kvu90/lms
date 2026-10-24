@@ -725,6 +725,7 @@ export function QuestionsPage() {
               <Field>
                 <FieldLabel id="qcat-context-label">{t('questionCategoryContext')}</FieldLabel>
                 <Select
+                  items={Object.fromEntries(contextOptions.map((option) => [option.id, option.label]))}
                   value={contextId === '' ? null : contextId}
                   onValueChange={(v) => setContextId(v ?? '')}
                 >

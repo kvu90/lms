@@ -228,6 +228,7 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
+    await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu lỗi');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Câu hỏi sai tỷ trọng.');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'A');

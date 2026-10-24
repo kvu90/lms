@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactElement } from 'react';
@@ -90,11 +90,45 @@ describe('UI Lát 3 + 4 — bậc bề rộng PageShell theo hồ sơ §3.2', ()
     ['calendar', <CalendarPage key="cal" />, '/calendar', '/calendar'],
     ['admin-roles', <AdminRolesPage key="ar" />, '/admin/roles', '/admin/roles'],
     ['admin-users', <AdminUsersPage key="au" />, '/admin/users', '/admin/users'],
-    ['questions', <QuestionsPage key="q" />, '/questions', '/questions'],
   ])('full: %s', (_name, element, path, routePath) => {
     stubEmptyFetch();
     const { container } = renderPage(element, path, routePath);
     expectShellWidth(container, 'full');
+  });
+
+  it('full: questions (dựng shell sau khi cổng capability mở)', async () => {
+    // Trang ngân hàng câu hỏi gác theo capability (issue #55): chưa nạp
+    // xong quyền thì hiện trạng thái chờ, vai không có quyền thì hiện
+    // trạng thái cấm — PageShell chỉ dựng khi cổng mở. Stub cấp site
+    // admin như spec riêng của trang rồi chờ shell xuất hiện.
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const json = (body: unknown) =>
+      new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/api/v1/users/me')
+          return json({
+            id: '01900000-0000-7000-8000-0000000000a9',
+            username: 'teacher1',
+            firstName: 'Lan Anh',
+            lastName: 'Nguyễn',
+            email: 'teacher1@example.com',
+            suspended: false,
+            deleted: false,
+            isGuest: false,
+            forcePasswordChange: false,
+            lastLogin: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            customFields: [],
+          });
+        if (url === '/api/v1/users/me/capabilities')
+          return json({ userId: '01900000-0000-7000-8000-0000000000a9', isSiteAdmin: true, assignments: [], contexts: [] });
+        return json([]);
+      }),
+    );
+    const { container } = renderPage(<QuestionsPage />, '/questions', '/questions');
+    await waitFor(() => expectShellWidth(container, 'full'));
   });
 
   it('full: grades theo khoá', () => {

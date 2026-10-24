@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { QuestionsPage } from './questions';
+import { QuestionEditPage } from './question-editor';
 
 /**
  * Spec khối "Chương trình" trong editor câu hỏi (issue #20 Chặng 2, mục
@@ -176,14 +177,24 @@ function stubFetch(calls: RecordedCall[]) {
 
 function renderBank() {
   localStorage.setItem('lms.accessToken', 'test-token');
-  const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-    initialEntries: ['/questions'],
-  });
+  const router = createMemoryRouter(
+    [
+      { path: '/questions', element: <QuestionsPage /> },
+      { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
+    ],
+    { initialEntries: ['/questions'] },
+  );
   render(
     <TestProviders>
       <RouterProvider router={router} />
     </TestProviders>,
   );
+}
+
+/** Chọn một tuỳ chọn trong Select của @lms/ui: bấm trigger theo nhãn rồi bấm option theo chữ hiển thị. */
+async function pickSelectOption(scope: ReturnType<typeof within>, label: string, optionName: string) {
+  await userEvent.click(scope.getByLabelText(label));
+  await userEvent.click(await screen.findByRole('option', { name: optionName }, { timeout: 10000 }));
 }
 
 describe('Question editor — programme links (issue #20 phase 2)', () => {
@@ -199,24 +210,27 @@ describe('Question editor — programme links (issue #20 phase 2)', () => {
     renderBank();
 
     const row = await screen.findByTestId(`question-${QUESTION_ID}`);
-    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
+    // §9: Sửa đi sang màn editor riêng; khối Chương trình nằm ở màn đó.
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
 
     const card = within(await screen.findByTestId('question-programme'));
     expect(card.getByText('Chương trình')).toBeTruthy();
 
     // Chọn môn → gắn môn.
-    await userEvent.selectOptions(card.getByLabelText('Chọn môn học'), SUBJECT_ID);
+    await pickSelectOption(card, 'Chọn môn học', 'Toán');
     await userEvent.click(card.getAllByRole('button', { name: 'Gắn' })[0]!);
     const subjectRow = await screen.findByTestId(`programme-subject-${SUBJECT_ID}`);
     expect(subjectRow).toHaveTextContent('Toán');
     const subjectCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}/subjects` && c.method === 'POST');
     expect(subjectCall?.body).toEqual({ subjectId: SUBJECT_ID });
 
-    // YCCĐ của môn đã nạp qua cây → chọn YCCĐ + mức Vận dụng → gắn.
-    const outcomeSelect = card.getByLabelText('Chọn yêu cầu cần đạt');
-    await waitFor(() => expect((outcomeSelect as HTMLSelectElement).options.length).toBeGreaterThan(1));
-    await userEvent.selectOptions(outcomeSelect, OUTCOME_ID);
-    await userEvent.selectOptions(card.getByLabelText('Mức độ nhận thức'), 'van_dung');
+    // YCCĐ của môn nạp bất đồng bộ qua cây chương trình sau khi chọn
+    // môn: chờ lời gọi cây hoàn tất rồi mới mở Select chọn YCCĐ.
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/curriculum/curricula/${CURRICULUM_ID}/tree`)).toBe(true),
+    );
+    await pickSelectOption(card, 'Chọn yêu cầu cần đạt', '10 · Hàm số · Nhận biết được khái niệm hàm số.');
+    await pickSelectOption(card, 'Mức độ nhận thức', 'Vận dụng');
     await userEvent.click(card.getAllByRole('button', { name: 'Gắn' })[1]!);
     const outcomeRow = await screen.findByTestId(`programme-outcome-${OUTCOME_ID}`);
     expect(outcomeRow).toHaveTextContent('Nhận biết được khái niệm hàm số.');
@@ -224,7 +238,7 @@ describe('Question editor — programme links (issue #20 phase 2)', () => {
     expect(outcomeCall?.body).toEqual({ outcomeId: OUTCOME_ID, cognitiveLevel: 'van_dung' });
 
     // Đổi mức ngay tại dòng gắn → PATCH.
-    await userEvent.selectOptions(within(outcomeRow).getByLabelText('Mức độ nhận thức'), 'hieu');
+    await pickSelectOption(within(outcomeRow), 'Mức độ nhận thức', 'Hiểu');
     await waitFor(() =>
       expect(
         calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}/outcomes/${OUTCOME_ID}` && c.method === 'PATCH'),

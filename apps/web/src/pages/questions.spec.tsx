@@ -234,12 +234,13 @@ describe('Question usage flow — real endpoints', () => {
       </TestProviders>,
     );
 
-    // Ngữ cảnh là một <select> tử tế (không còn ô gõ ID thô điền sẵn "1"),
-    // mặc định ngữ cảnh hệ thống.
-    const contextSelect = (await screen.findByLabelText('Ngữ cảnh')) as HTMLSelectElement;
-    expect(contextSelect.tagName).toBe('SELECT');
-    expect(contextSelect.value).toBe(SYSTEM_CTX_ID);
-    expect(within(contextSelect).getByRole('option', { name: 'Hệ thống' })).toBeInTheDocument();
+    // Ngữ cảnh là một Select tử tế của @lms/ui (không còn ô gõ ID thô
+    // điền sẵn "1"), mặc định ngữ cảnh hệ thống: trigger hiện nhãn "Hệ
+    // thống" và danh sách mở ra có tuỳ chọn đó.
+    const contextTrigger = await screen.findByLabelText('Ngữ cảnh');
+    expect(contextTrigger).toHaveTextContent('Hệ thống');
+    await userEvent.click(contextTrigger);
+    await userEvent.click(await screen.findByRole('option', { name: 'Hệ thống' }));
 
     const createButton = screen.getByRole('button', { name: 'Tạo danh mục' });
     const form = createButton.closest('form');
