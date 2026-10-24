@@ -12,7 +12,16 @@ import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
@@ -40,6 +49,7 @@ export function CourseAdminPage() {
   const [completions, setCompletions] = useState<CourseCompletion[]>([]);
   const [enrolUserId, setEnrolUserId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [groupingDraft, setGroupingDraft] = useState({ name: '', idNumber: '', description: '' });
   const [expandedGroupingId, setExpandedGroupingId] = useState('');
   const [groupingGroups, setGroupingGroups] = useState<Record<string, CourseGroup[]>>({});
@@ -81,7 +91,7 @@ export function CourseAdminPage() {
   }, [courseId]);
 
   useEffect(() => {
-    void reload();
+    void reload().finally(() => setLoading(false));
   }, [reload]);
 
   const manualInstance = instances.find((i) => i.enrol === 'manual');
@@ -252,7 +262,16 @@ export function CourseAdminPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="full">
+      <PageHeader title={t('courseAdminHeading')} />
+      {loading ? (
+        <div className="flex flex-col gap-4" aria-hidden="true">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : null}
+      {!loading && (<>
       {canBuild && (
         <Card>
           <CardHeader>
@@ -323,22 +342,31 @@ export function CourseAdminPage() {
                         {candidates.length > 0 && (
                           <div className="flex flex-wrap items-end gap-2">
                             <div className="space-y-1">
-                              <Label htmlFor={`grouping-add-${g.id}`}>{t('groupingAddGroupLabel')}</Label>
-                              <select
-                                id={`grouping-add-${g.id}`}
-                                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-                                value={groupingAddSelection[g.id] ?? ''}
-                                onChange={(e) =>
-                                  setGroupingAddSelection((prev) => ({ ...prev, [g.id]: e.target.value }))
+                              <span id={`grouping-add-${g.id}-label`} className="text-sm font-medium">
+                                {t('groupingAddGroupLabel')}
+                              </span>
+                              <Select
+                                items={Object.fromEntries([
+                                  ['none', '—'],
+                                  ...candidates.map((gr) => [gr.id, gr.name] as [string, string]),
+                                ])}
+                                value={(groupingAddSelection[g.id] ?? '') === '' ? 'none' : groupingAddSelection[g.id]}
+                                onValueChange={(v) =>
+                                  setGroupingAddSelection((prev) => ({ ...prev, [g.id]: !v || v === 'none' ? '' : v }))
                                 }
                               >
-                                <option value="">—</option>
-                                {candidates.map((gr) => (
-                                  <option key={gr.id} value={gr.id}>
-                                    {gr.name}
-                                  </option>
-                                ))}
-                              </select>
+                                <SelectTrigger aria-labelledby={`grouping-add-${g.id}-label`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">—</SelectItem>
+                                  {candidates.map((gr) => (
+                                    <SelectItem key={gr.id} value={gr.id}>
+                                      {gr.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                             <Button
                               type="button"
@@ -512,7 +540,8 @@ export function CourseAdminPage() {
           )}
         </CardContent>
       </Card>
-    </main>
+      </>)}
+    </PageShell>
   );
 }
 

@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { PageShell } from '../components/page-shell';
 
 export function HomePage() {
   const { t } = useTranslation('app');
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <PageShell width="wide">
       <Card>
         <CardHeader>
           <CardTitle>LMS</CardTitle>
@@ -22,6 +23,6 @@ export function HomePage() {
           </div>
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }

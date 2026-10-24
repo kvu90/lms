@@ -1,9 +1,27 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@lms/ui/components/sheet';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
 
@@ -45,6 +63,8 @@ export function CalendarPage() {
   const [typeFilter, setTypeFilter] = useState<(typeof TYPES)[number]>('all');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [eventSheetOpen, setEventSheetOpen] = useState(false);
   const [evName, setEvName] = useState('');
   const [evDescription, setEvDescription] = useState('');
   const [evType, setEvType] = useState<(typeof EVENT_TYPES)[number]>('user');
@@ -77,7 +97,9 @@ export function CalendarPage() {
   }, [now]);
 
   useEffect(() => {
-    void reload().catch(() => setError(t('calendarLoadFailed')));
+    void reload()
+      .catch(() => setError(t('calendarLoadFailed')))
+      .finally(() => setLoading(false));
   }, [reload, t]);
 
   /** Tạo sự kiện theo đúng DTO: loại sự kiện quyết định id phạm vi đi kèm. */
@@ -103,6 +125,7 @@ export function CalendarPage() {
       setEvDescription('');
       setEvLocation('');
       setMessage(t('eventCreated'));
+      setEventSheetOpen(false);
       await reload();
     } catch {
       setMessage(t('eventCreateFailed'));
@@ -231,126 +254,199 @@ export function CalendarPage() {
     new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {t('calendarTitle', { month: now.toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) })}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {error ? <p role="alert">{error}</p> : null}
-          {message ? <p role="status">{message}</p> : null}
-          <div className="flex items-center gap-2">
-            <Label htmlFor="type-filter">{t('eventType')}</Label>
-            <select
-              id="type-filter"
-              className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as (typeof TYPES)[number])}
+    <PageShell width="full">
+      <PageHeader
+        title={t('calendarTitle', { month: now.toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) })}
+        actions={
+          <Sheet open={eventSheetOpen} onOpenChange={setEventSheetOpen}>
+            <SheetTrigger render={<Button type="button" />}>{t('newEvent')}</SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>{t('createEventTitle')}</SheetTitle>
+              </SheetHeader>
+              {/* §5.6: form sự kiện nằm trong Sheet — danh sách sự kiện là
+                  nội dung chính của trang, form không chiếm chỗ cố định. */}
+              <form onSubmit={(e) => void createEvent(e)} className="px-4">
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="ev-name">{t('eventName')}</FieldLabel>
+                    <Input id="ev-name" value={evName} onChange={(e) => setEvName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="ev-description">{t('eventDescription')}</FieldLabel>
+                    <Input
+                      id="ev-description"
+                      value={evDescription}
+                      onChange={(e) => setEvDescription(e.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel id="ev-type-label">{t('eventType')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries(
+                        EVENT_TYPES.map((type) => [type, t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)]),
+                      )}
+                      value={evType}
+                      onValueChange={(v) => setEvType((v ?? 'user') as (typeof EVENT_TYPES)[number])}
+                    >
+                      <SelectTrigger aria-labelledby="ev-type-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EVENT_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="ev-start">{t('eventStart')}</FieldLabel>
+                    <Input
+                      id="ev-start"
+                      type="datetime-local"
+                      value={evStart}
+                      onChange={(e) => setEvStart(e.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="ev-duration">{t('eventDurationSeconds')}</FieldLabel>
+                    <Input
+                      id="ev-duration"
+                      type="number"
+                      value={evDuration}
+                      onChange={(e) => setEvDuration(e.target.value)}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="ev-location">{t('eventLocation')}</FieldLabel>
+                    <Input id="ev-location" value={evLocation} onChange={(e) => setEvLocation(e.target.value)} />
+                  </Field>
+                  {evType === 'course' || evType === 'group' ? (
+                    <Field>
+                      <FieldLabel htmlFor="ev-course">{t('eventCourseId')}</FieldLabel>
+                      <Input id="ev-course" value={evCourseId} onChange={(e) => setEvCourseId(e.target.value)} />
+                    </Field>
+                  ) : null}
+                  {evType === 'group' ? (
+                    <Field>
+                      <FieldLabel htmlFor="ev-group">{t('eventGroupId')}</FieldLabel>
+                      <Input id="ev-group" value={evGroupId} onChange={(e) => setEvGroupId(e.target.value)} />
+                    </Field>
+                  ) : null}
+                  {evType === 'category' ? (
+                    <Field>
+                      <FieldLabel htmlFor="ev-category">{t('eventCategoryId')}</FieldLabel>
+                      <Input
+                        id="ev-category"
+                        value={evCategoryId}
+                        onChange={(e) => setEvCategoryId(e.target.value)}
+                      />
+                    </Field>
+                  ) : null}
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createEvent')}</Button>
+                  </div>
+                </FieldGroup>
+              </form>
+            </SheetContent>
+          </Sheet>
+        }
+      />
+      {error ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setError(t('calendarLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
             >
-              {TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
-                </option>
-              ))}
-            </select>
+              {t('retry')}
+            </Button>
           </div>
-          {[...byDay.entries()].map(([key, group]) => (
-            <section key={key} aria-label={dayLabel(group.date)}>
-              <h3 className="font-medium">{dayLabel(group.date)}</h3>
-              <ul className="space-y-1">
-                {group.events.map((e) => (
-                  <li key={e.id} className="flex items-center gap-2 rounded border p-2 text-sm">
-                    <span className="font-medium">{e.name}</span>
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · {e.eventType} · {timeLabel(e.timeStart)}
-                    </span>
-                    {e.isException ? <span> {t('adjustedOccurrence')}</span> : null}
-                    <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
-                      {t('remindOneHour')}
-                    </Button>
-                    {e.eventType === 'user' ? (
-                      <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>
-                        {t('deleteEvent')}
-                      </Button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-          {visible.length === 0 ? <p>{t('noEventsThisMonth')}</p> : null}
-        </CardContent>
-      </Card>
-
+        </>
+      ) : null}
+      {message ? (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('createEventTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={(e) => void createEvent(e)} className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="ev-name">{t('eventName')}</Label>
-              <Input id="ev-name" value={evName} onChange={(e) => setEvName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-description">{t('eventDescription')}</Label>
-              <Input id="ev-description" value={evDescription} onChange={(e) => setEvDescription(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-type">{t('eventType')}</Label>
-              <select
-                id="ev-type"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                value={evType}
-                onChange={(e) => setEvType(e.target.value as (typeof EVENT_TYPES)[number])}
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-2">
+            <Field>
+              <FieldLabel id="type-filter-label">{t('eventType')}</FieldLabel>
+              <Select
+                items={Object.fromEntries(
+                  TYPES.map((type) => [type, t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)]),
+                )}
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter((v ?? 'all') as (typeof TYPES)[number])}
               >
-                {EVENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger aria-labelledby="type-filter-label" className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`eventType${type[0]!.toUpperCase()}${type.slice(1)}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-start">{t('eventStart')}</Label>
-              <Input id="ev-start" type="datetime-local" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-duration">{t('eventDurationSeconds')}</Label>
-              <Input
-                id="ev-duration"
-                type="number"
-                value={evDuration}
-                onChange={(e) => setEvDuration(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-location">{t('eventLocation')}</Label>
-              <Input id="ev-location" value={evLocation} onChange={(e) => setEvLocation(e.target.value)} />
-            </div>
-            {evType === 'course' || evType === 'group' ? (
-              <div className="space-y-2">
-                <Label htmlFor="ev-course">{t('eventCourseId')}</Label>
-                <Input id="ev-course" value={evCourseId} onChange={(e) => setEvCourseId(e.target.value)} />
-              </div>
-            ) : null}
-            {evType === 'group' ? (
-              <div className="space-y-2">
-                <Label htmlFor="ev-group">{t('eventGroupId')}</Label>
-                <Input id="ev-group" value={evGroupId} onChange={(e) => setEvGroupId(e.target.value)} />
-              </div>
-            ) : null}
-            {evType === 'category' ? (
-              <div className="space-y-2">
-                <Label htmlFor="ev-category">{t('eventCategoryId')}</Label>
-                <Input id="ev-category" value={evCategoryId} onChange={(e) => setEvCategoryId(e.target.value)} />
-              </div>
-            ) : null}
-            <Button type="submit">{t('createEvent')}</Button>
-          </form>
+          ) : (
+            <>
+              {[...byDay.entries()].map(([key, group]) => (
+                <section key={key} aria-label={dayLabel(group.date)}>
+                  <h3 className="font-medium">{dayLabel(group.date)}</h3>
+                  <ul className="space-y-1">
+                    {group.events.map((e) => (
+                      <li key={e.id} className="flex items-center gap-2 rounded border p-2 text-sm">
+                        <span className="font-medium">{e.name}</span>
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · {e.eventType} · {timeLabel(e.timeStart)}
+                        </span>
+                        {e.isException ? <span> {t('adjustedOccurrence')}</span> : null}
+                        <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
+                          {t('remindOneHour')}
+                        </Button>
+                        {e.eventType === 'user' ? (
+                          <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>
+                            {t('deleteEvent')}
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              {visible.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noEventsThisMonth')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -363,8 +459,8 @@ export function CalendarPage() {
           <Button type="button" variant="outline" onClick={() => void downloadIcs()}>
             {t('downloadIcs')}
           </Button>
-          <div className="space-y-2">
-            <Label htmlFor="export-token-url">{t('exportToken')}</Label>
+          <Field>
+            <FieldLabel htmlFor="export-token-url">{t('exportToken')}</FieldLabel>
             {exportToken ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Input id="export-token-url" readOnly value={exportToken.url} className="max-w-xl" />
@@ -380,7 +476,7 @@ export function CalendarPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </Field>
         </CardContent>
       </Card>
 
@@ -400,21 +496,31 @@ export function CalendarPage() {
               </li>
             ))}
           </ul>
-          {subscriptions.length === 0 ? <p>{t('noSubscriptions')}</p> : null}
-          <form onSubmit={(e) => void createSubscription(e)} className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="sub-name">{t('subscriptionName')}</Label>
-              <Input id="sub-name" value={subName} onChange={(e) => setSubName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sub-url">{t('subscriptionUrl')}</Label>
-              <Input id="sub-url" value={subUrl} onChange={(e) => setSubUrl(e.target.value)} />
-            </div>
-            <Button type="submit">{t('addSubscription')}</Button>
+          {subscriptions.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('noSubscriptions')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
+          <form onSubmit={(e) => void createSubscription(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="sub-name">{t('subscriptionName')}</FieldLabel>
+                <Input id="sub-name" value={subName} onChange={(e) => setSubName(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="sub-url">{t('subscriptionUrl')}</FieldLabel>
+                <Input id="sub-url" value={subUrl} onChange={(e) => setSubUrl(e.target.value)} />
+              </Field>
+              <div className="flex justify-end">
+                <Button type="submit">{t('addSubscription')}</Button>
+              </div>
+            </FieldGroup>
           </form>
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

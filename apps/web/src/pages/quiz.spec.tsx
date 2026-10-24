@@ -116,9 +116,12 @@ describe('Quiz builder page — real endpoints', () => {
     expect(slotEl.querySelector('input')).toHaveValue('5');
 
     // Cả hai form (cố định/ngẫu nhiên) đều có ô chọn danh mục; form cố định đứng trước.
-    const [fixedCategorySelect] = await screen.findAllByLabelText('Chọn danh mục');
-    await userEvent.selectOptions(fixedCategorySelect!, CATEGORY_ID);
-    await userEvent.selectOptions(await screen.findByLabelText('Chọn câu hỏi'), QUESTION_ID);
+    // Select của @lms/ui (Base UI): bấm trigger rồi bấm tuỳ chọn trong popup.
+    const [fixedCategoryTrigger] = await screen.findAllByLabelText('Chọn danh mục');
+    await userEvent.click(fixedCategoryTrigger!);
+    await userEvent.click(await screen.findByRole('option', { name: 'General' }));
+    await userEvent.click(await screen.findByLabelText('Chọn câu hỏi'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Capital (multichoice)' }));
     await userEvent.click(screen.getByRole('button', { name: 'Thêm vào đề' }));
 
     await waitFor(() =>

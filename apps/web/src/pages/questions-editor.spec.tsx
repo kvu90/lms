@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { QuestionsPage, QuestionUsagePage } from './questions';
+import { QuestionEditPage, QuestionNewPage } from './question-editor';
 
 /**
  * Spec editor câu hỏi 4 qtype + ngữ liệu theo hợp đồng API hiện có:
@@ -158,14 +159,31 @@ function questionForm(submitName = 'Tạo câu hỏi') {
 
 function renderBank() {
   localStorage.setItem('lms.accessToken', 'test-token');
-  const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-    initialEntries: ['/questions'],
-  });
+  const router = createMemoryRouter(
+    [
+      { path: '/questions', element: <QuestionsPage /> },
+      { path: '/questions/new', element: <QuestionNewPage /> },
+      { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
+    ],
+    { initialEntries: ['/questions'] },
+  );
   render(
     <TestProviders>
       <RouterProvider router={router} />
     </TestProviders>,
   );
+}
+
+/** §9: tạo mới là màn riêng — từ danh sách bấm "Câu hỏi mới" sang màn editor rồi chờ form hiện. */
+async function openNewQuestionForm() {
+  await userEvent.click(await screen.findByRole('link', { name: 'Câu hỏi mới' }));
+  await screen.findByLabelText('Tên');
+}
+
+/** Chọn một tuỳ chọn trong Select của @lms/ui: bấm trigger theo nhãn rồi bấm option theo chữ hiển thị. */
+async function pickSelectOption(scope: ReturnType<typeof within>, label: string, optionText: string) {
+  await userEvent.click(scope.getByLabelText(label));
+  await userEvent.click(await screen.findByRole('option', { name: optionText }));
 }
 
 describe('Question editor — four qtypes', () => {
@@ -181,11 +199,12 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
+    await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Thủ đô');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Thủ đô của Việt Nam là gì?');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'Hà Nội');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'Huế');
-    await userEvent.click(questionForm().getAllByLabelText('Đáp án đúng')[0]!);
+    await userEvent.click(questionForm().getAllByRole('radio', { name: 'Đáp án đúng' })[0]!);
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
@@ -209,6 +228,7 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
+    await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu lỗi');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Câu hỏi sai tỷ trọng.');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'A');
@@ -226,10 +246,13 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
-    await userEvent.selectOptions(questionForm().getByLabelText('Loại câu hỏi'), 'truefalse');
+    await openNewQuestionForm();
+    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Trời mưa');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Trời đang mưa.');
-    await userEvent.click(questionForm().getByLabelText('Đáp án đúng là "sai"'));
+    // Bấm vào NHÃN như người dùng thật: nhãn trỏ tới input ẩn của
+    // RadioGroupItem (Base UI) — chọn qua nhãn phải đổi đáp án đúng.
+    await userEvent.click(questionForm().getByText('Đáp án đúng là "sai"'));
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
@@ -249,14 +272,15 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
-    await userEvent.selectOptions(questionForm().getByLabelText('Loại câu hỏi'), 'shortanswer');
+    await openNewQuestionForm();
+    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Trả lời ngắn (shortanswer)');
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Thủ đô ngắn');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Thủ đô của Việt Nam?');
     await userEvent.type(questionForm().getByLabelText('Đáp án 1'), 'Hà Nội');
     await userEvent.click(screen.getByRole('button', { name: 'Thêm đáp án' }));
     await userEvent.type(questionForm().getByLabelText('Đáp án 2'), 'Ha Noi');
     await userEvent.type(questionForm().getByLabelText('Tỷ trọng (fraction) của đáp án 2'), '0.5');
-    await userEvent.click(questionForm().getByLabelText('Phân biệt hoa/thường (useCase)'));
+    await userEvent.click(questionForm().getByRole('checkbox', { name: 'Phân biệt hoa/thường (useCase)' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
@@ -280,11 +304,12 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     await screen.findByText('General');
-    await userEvent.selectOptions(questionForm().getByLabelText('Loại câu hỏi'), 'essay');
+    await openNewQuestionForm();
+    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Tự luận (essay)');
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Bài luận');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Hãy phân tích bài thơ.');
-    await userEvent.selectOptions(questionForm().getByLabelText('Định dạng trả lời'), 'plain');
-    await userEvent.click(questionForm().getByLabelText('Bài trả lời bắt buộc'));
+    await pickSelectOption(questionForm(), 'Định dạng trả lời', 'Văn bản thuần (plain)');
+    await userEvent.click(questionForm().getByRole('checkbox', { name: 'Bài trả lời bắt buộc' }));
     await userEvent.clear(questionForm().getByLabelText('Số dòng của trường trả lời'));
     await userEvent.type(questionForm().getByLabelText('Số dòng của trường trả lời'), '12');
     await userEvent.type(questionForm().getByLabelText('Số từ tối thiểu'), '50');
@@ -318,7 +343,8 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     const row = await screen.findByTestId(`question-${QUESTION_ID}`);
-    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
+    await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' });
 
     const editForm = questionForm('Lưu thành phiên bản mới');
     const choice1 = editForm.getByLabelText('Lựa chọn 1');
@@ -349,7 +375,8 @@ describe('Question editor — four qtypes', () => {
       },
       stimulusId: null,
     });
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu thành phiên bản 2');
+    // §9: lưu xong quay về màn danh sách; huy hiệu phiên bản trên dòng đã lên v2.
+    expect(await screen.findByTestId(`version-badge-${QUESTION_ID}`)).toHaveTextContent('v2');
   });
 
   it('preserves non-default multichoice options and feedback documents when editing', async () => {
@@ -374,8 +401,8 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     const row = await screen.findByTestId(`question-${QUESTION_ID}`);
-    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' }));
 
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH')).toBe(true),
@@ -422,10 +449,11 @@ describe('Question editor — four qtypes', () => {
     renderBank();
 
     const row = await screen.findByTestId(`question-${QUESTION_ID}`);
-    await userEvent.click(within(row).getByRole('button', { name: 'Sửa (phiên bản mới)' }));
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
+    await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' });
 
     const editForm = questionForm('Lưu thành phiên bản mới');
-    expect(editForm.getByLabelText('Bài trả lời bắt buộc')).not.toBeChecked();
+    expect(editForm.getByRole('checkbox', { name: 'Bài trả lời bắt buộc' })).not.toBeChecked();
     expect(editForm.getByLabelText('Số dòng của trường trả lời')).toHaveValue(7);
     await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
 
@@ -470,11 +498,12 @@ describe('Stimulus in the question bank UI', () => {
     expect(stimulusCall?.body).toEqual({ categoryId: CATEGORY_ID, content: 'Đoạn văn về thủ đô Hà Nội.' });
     expect(await screen.findByTestId(`stimulus-row-${STIMULUS_ID}`)).toHaveTextContent('Đoạn văn về thủ đô Hà Nội.');
 
+    await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu kèm ngữ liệu');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Theo đoạn văn, thủ đô là gì?');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'Hà Nội');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'Huế');
-    await userEvent.selectOptions(questionForm().getByLabelText('Ngữ liệu gắn kèm'), STIMULUS_ID);
+    await pickSelectOption(questionForm(), 'Ngữ liệu gắn kèm', 'Đoạn văn về thủ đô Hà Nội.');
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));

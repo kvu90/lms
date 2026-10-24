@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CAP, type Capability, type Role } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -53,6 +64,7 @@ export function AdminRolesPage() {
   const [capabilities, setCapabilities] = useState<Capability[]>([]);
   const [contexts, setContexts] = useState<ContextRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [assign, setAssign] = useState({ userId: '', roleId: '', contextId: '' });
   const [matrixRole, setMatrixRole] = useState<Role | null>(null);
   const [matrix, setMatrix] = useState<RoleCapabilityRow[]>([]);
@@ -76,7 +88,7 @@ export function AdminRolesPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load().finally(() => setLoading(false));
   }, [load]);
 
   async function submitAssignment() {
@@ -94,31 +106,59 @@ export function AdminRolesPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="full">
+      <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
+      {error ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoading(true);
+                void load().finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('rolesTitle')}</CardTitle>
-          <CardDescription>{t('rolesDescription')}</CardDescription>
-        </CardHeader>
         <CardContent>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y">
+                {roles.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between py-2">
+                    <span>
+                      <strong>{r.name}</strong> <code>{r.shortName}</code>
+                      {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>
+                      {t('capabilityMatrix')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {roles.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noRolesYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
           )}
-          <ul className="divide-y">
-            {roles.map((r) => (
-              <li key={r.id} className="flex items-center justify-between py-2">
-                <span>
-                  <strong>{r.name}</strong> <code>{r.shortName}</code>
-                  {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
-                </span>
-                <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>
-                  {t('capabilityMatrix')}
-                </Button>
-              </li>
-            ))}
-          </ul>
         </CardContent>
       </Card>
 
@@ -126,50 +166,66 @@ export function AdminRolesPage() {
         <CardHeader>
           <CardTitle>{t('assignRoleTitle')}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="assign-userid">{t('userId')}</Label>
-            <Input
-              id="assign-userid"
-              inputMode="numeric"
-              value={assign.userId}
-              onChange={(e) => setAssign({ ...assign, userId: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="assign-role">{t('role')}</Label>
-            <select
-              id="assign-role"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-              value={assign.roleId}
-              onChange={(e) => setAssign({ ...assign, roleId: e.target.value })}
-            >
-              <option value="">{t('selectRole')}</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.shortName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="assign-context">{t('context')}</Label>
-            <select
-              id="assign-context"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-              value={assign.contextId}
-              onChange={(e) => setAssign({ ...assign, contextId: e.target.value })}
-            >
-              {contexts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path })}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button type="button" onClick={() => void submitAssignment()}>
-            {t('assignRole')}
-          </Button>
+        <CardContent>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="assign-userid">{t('userId')}</FieldLabel>
+              <Input
+                id="assign-userid"
+                inputMode="numeric"
+                value={assign.userId}
+                onChange={(e) => setAssign({ ...assign, userId: e.target.value })}
+              />
+            </Field>
+            <Field>
+              <FieldLabel id="assign-role-label">{t('role')}</FieldLabel>
+              <Select
+                items={Object.fromEntries(roles.map((r) => [r.id, r.shortName]))}
+                value={assign.roleId === '' ? null : assign.roleId}
+                onValueChange={(v) => setAssign({ ...assign, roleId: v ?? '' })}
+              >
+                <SelectTrigger aria-labelledby="assign-role-label" className="w-full">
+                  <SelectValue placeholder={t('selectRole')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.shortName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel id="assign-context-label">{t('context')}</FieldLabel>
+              <Select
+                items={Object.fromEntries(
+                  contexts.map((c) => [
+                    c.id,
+                    t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path }),
+                  ]),
+                )}
+                value={assign.contextId === '' ? null : assign.contextId}
+                onValueChange={(v) => setAssign({ ...assign, contextId: v ?? '' })}
+              >
+                <SelectTrigger aria-labelledby="assign-context-label" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {contexts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {t('contextOption', { level: c.contextLevel, instance: c.instanceId, path: c.path })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => void submitAssignment()}>
+                {t('assignRole')}
+              </Button>
+            </div>
+          </FieldGroup>
         </CardContent>
       </Card>
 
@@ -201,7 +257,7 @@ export function AdminRolesPage() {
           />
         </Card>
       )}
-    </main>
+    </PageShell>
   );
 }
 

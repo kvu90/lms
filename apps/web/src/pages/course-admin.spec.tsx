@@ -362,7 +362,9 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
     await userEvent.click(screen.getByRole('button', { name: 'Tạo grouping' }));
     const groupingRow = await screen.findByTestId(`grouping-${GROUPING_ID}`);
     await userEvent.click(within(groupingRow).getByRole('button', { name: 'Xem nhóm trong grouping' }));
-    await userEvent.selectOptions(within(groupingRow).getByLabelText('Nhóm cần thêm vào grouping'), GROUP_ID);
+    // Select của @lms/ui: bấm trigger theo nhãn rồi bấm option theo chữ hiển thị.
+    await userEvent.click(within(groupingRow).getByLabelText('Nhóm cần thêm vào grouping'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Nhóm 1' }));
     await userEvent.click(within(groupingRow).getByRole('button', { name: 'Thêm vào grouping' }));
 
     await waitFor(() =>

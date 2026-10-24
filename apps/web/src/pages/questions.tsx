@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
   type QuestionCategory,
@@ -8,11 +8,29 @@ import {
   type RichTextDocument,
   type StimulusView,
 } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Checkbox } from '@lms/ui/components/checkbox';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@lms/ui/components/collapsible';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
+import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson, ApiError } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
@@ -21,9 +39,10 @@ import { DataTable, type DataColumn } from '#components/data-table';
 /**
  * Thông báo lỗi kèm lý do thật từ API (ProblemDetails.detail) — trước
  * đây các catch nuốt lỗi gốc và chỉ hiện câu chung chung, giáo viên
- * không biết sai ở đâu (issue #55 mục 3).
+ * không biết sai ở đâu (issue #55 mục 3). Export để màn editor riêng
+ * (question-editor.tsx) dùng chung đúng hành vi này.
  */
-function withApiReason(fallback: string, err: unknown): string {
+export function withApiReason(fallback: string, err: unknown): string {
   if (err instanceof ApiError) {
     const reason = err.problem.detail ?? err.problem.title;
     if (reason) return `${fallback} ${reason}`;
@@ -38,10 +57,10 @@ interface ContextOption {
   label: string;
 }
 
-const QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
-type Qtype = (typeof QTYPES)[number];
+export const QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
+export type Qtype = (typeof QTYPES)[number];
 
-const QTYPE_LABEL_KEYS: Record<Qtype, string> = {
+export const QTYPE_LABEL_KEYS: Record<Qtype, string> = {
   multichoice: 'qtypeMultichoice',
   truefalse: 'qtypeTruefalse',
   shortanswer: 'qtypeShortanswer',
@@ -49,8 +68,8 @@ const QTYPE_LABEL_KEYS: Record<Qtype, string> = {
 };
 
 /** Mức độ nhận thức trên dòng nối câu hỏi × YCCĐ (issue #20 Chặng 2, mục A.2). */
-const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
-const LEVEL_LABEL_KEYS: Record<(typeof COGNITIVE_LEVELS)[number], string> = {
+export const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
+export const LEVEL_LABEL_KEYS: Record<(typeof COGNITIVE_LEVELS)[number], string> = {
   biet: 'levelBiet',
   hieu: 'levelHieu',
   van_dung: 'levelVanDung',
@@ -58,14 +77,14 @@ const LEVEL_LABEL_KEYS: Record<(typeof COGNITIVE_LEVELS)[number], string> = {
 };
 
 /** Gắn kết chương trình của một câu hỏi — hình dạng của GET /questions/:id/curriculum-links. */
-interface CurriculumLinksView {
+export interface CurriculumLinksView {
   questionId: string;
   subjectIds: string[];
   outcomes: { outcomeId: string; cognitiveLevel: string }[];
 }
 
 /** Một node trong cây chương trình trả về bởi GET /curriculum/curricula/:id/tree. */
-interface CurriculumTreeNode {
+export interface CurriculumTreeNode {
   id: string;
   title: string;
   outcomes: { id: string; content: string }[];
@@ -85,7 +104,7 @@ interface AnswerDraft {
  * `updateQuestionSchema` (answers + options theo qtype; truefalse dùng
  * dạng payload `answer: { correct }` mà tầng nghiệp vụ yêu cầu).
  */
-interface QuestionFormState {
+export interface QuestionFormState {
   qtype: Qtype;
   name: string;
   questionText: string;
@@ -112,11 +131,11 @@ interface QuestionFormState {
   essayResponseTemplate: string;
 }
 
-function plainText(doc: RichTextDocument | null | undefined): string {
+export function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
 }
 
-function emptyForm(qtype: Qtype): QuestionFormState {
+export function emptyForm(qtype: Qtype): QuestionFormState {
   return {
     qtype,
     name: '',
@@ -148,7 +167,7 @@ function emptyForm(qtype: Qtype): QuestionFormState {
   };
 }
 
-type OptionsRecord = Record<string, unknown>;
+export type OptionsRecord = Record<string, unknown>;
 
 /** Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form sẽ tìm thêm ở endpoint versions. */
 const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
@@ -175,7 +194,7 @@ const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
   ],
 };
 
-function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | undefined): boolean {
+export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | undefined): boolean {
   if (!options) return false;
   return OPTION_KEYS_BY_QTYPE[qtype].every(
     (key) => Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined,
@@ -187,7 +206,7 @@ function richTextDocument(value: unknown): RichTextDocument | undefined {
 }
 
 /** Nạp một câu hỏi có sẵn vào editor: đáp án/options lấy từ view của phiên bản mới nhất. */
-function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null): QuestionFormState {
+export function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null): QuestionFormState {
   const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
     ? (view.question.qtype as Qtype)
     : 'truefalse';
@@ -234,7 +253,7 @@ function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null
  * ở mức văn bản thuần (chuỗi) như lát hiện tại — hợp đồng API nhận chuỗi
  * và tự chuẩn hoá thành tài liệu Tiptap.
  */
-function formContent(form: QuestionFormState, preserveExistingOptions = false): Record<string, unknown> {
+export function formContent(form: QuestionFormState, preserveExistingOptions = false): Record<string, unknown> {
   const common = { name: form.name, questionText: form.questionText };
   switch (form.qtype) {
     case 'multichoice': {
@@ -303,27 +322,10 @@ export function QuestionsPage() {
     versions: { version: number; questionText: RichTextDocument }[];
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [contextId, setContextId] = useState('');
-  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
-  const [catName, setCatName] = useState('');
   const [qCategory, setQCategory] = useState('');
-  const [form, setForm] = useState<QuestionFormState>(() => emptyForm('multichoice'));
-  const [editing, setEditing] = useState<QuestionView | null>(null);
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
-  const editOptionsRequestRef = useRef(0);
-  // Gắn kết chương trình (issue #20 Chặng 2) của câu hỏi đang sửa.
-  const [links, setLinks] = useState<CurriculumLinksView | null>(null);
-  const [linkSubjects, setLinkSubjects] = useState<{ id: string; name: string }[]>([]);
-  const [linkSubjectPick, setLinkSubjectPick] = useState('');
-  const [linkOutcomeOptions, setLinkOutcomeOptions] = useState<{ id: string; label: string }[]>([]);
-  const [linkOutcomePick, setLinkOutcomePick] = useState('');
-  const [linkLevelPick, setLinkLevelPick] = useState<string>('biet');
-  const [outcomeLabels, setOutcomeLabels] = useState<Record<string, string>>({});
-
-  const patchForm = useCallback((patch: Partial<QuestionFormState>) => {
-    setForm((prev) => ({ ...prev, ...patch }));
-  }, []);
+  const [loading, setLoading] = useState(true);
 
   const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
@@ -344,154 +346,23 @@ export function QuestionsPage() {
     }
   }, [loadQuestions, loadStimuli, qCategory, t]);
 
+  // Thông báo mang về từ màn sửa riêng (vd "Đã lưu thành phiên bản N…"
+  // sau khi sửa câu hỏi) qua router state — giữ phản hồi lưu thành công
+  // mà editor inline trước đây hiện ngay trên trang này.
+  const location = useLocation();
+  useEffect(() => {
+    const notice = (location.state as { notice?: string } | null)?.notice;
+    if (notice) setMessage(notice);
+  }, [location.state]);
+
   useEffect(() => {
     // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
     // trang render trạng thái không-có-quyền ở dưới (issue #55 mục 1).
     if (!perms.ready || !perms.canUseQuestionBank) return;
-    void reload().catch(() => setMessage(t('questionBankLoadFailed')));
+    void reload()
+      .catch(() => setMessage(t('questionBankLoadFailed')))
+      .finally(() => setLoading(false));
   }, [reload, perms.ready, perms.canUseQuestionBank]);
-
-  /**
-   * Ngữ cảnh cho form "Danh mục mới" (issue #55 mục 2): control chọn tử
-   * tế thay ô gõ ID thô điền sẵn "1" — chỉ liệt kê ngữ cảnh người dùng
-   * thật sự có question:managecategory (theo ảnh chụp quyền; site admin
-   * thì mọi ngữ cảnh hệ thống/danh mục/khoá), mặc định ngữ cảnh hệ
-   * thống nếu có trong danh sách, không thì ngữ cảnh đầu tiên.
-   */
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
-          '/api/v1/access/contexts',
-        );
-        const manageable = new Set(
-          (perms.access?.contexts ?? [])
-            .filter((c) => c.capabilities.includes('question:managecategory'))
-            .map((c) => c.contextId),
-        );
-        const courseName = (instanceId: string) =>
-          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
-        const options: ContextOption[] = contexts
-          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
-          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
-          .map((c) => ({
-            id: c.id,
-            level: c.contextLevel,
-            label:
-              c.contextLevel === 10
-                ? t('contextSystem')
-                : c.contextLevel === 50
-                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
-                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
-          }));
-        if (cancelled) return;
-        setContextOptions(options);
-        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
-      } catch {
-        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
-        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
-
-  async function createCategory(event: FormEvent) {
-    event.preventDefault();
-    try {
-      await apiJson('/api/v1/questions/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name: catName, contextId: contextId }),
-      });
-      setCatName('');
-      await reload();
-    } catch (err) {
-      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
-    }
-  }
-
-  async function submitQuestion(event: FormEvent) {
-    event.preventDefault();
-    if (editing) {
-      try {
-        const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            ...formContent(form, true),
-            stimulusId: form.stimulusId === '' ? null : form.stimulusId,
-          }),
-        });
-        setMessage(t('questionSavedAsVersion', { version: updated.entry.latestVersion }));
-        setEditing(null);
-        setForm(emptyForm('multichoice'));
-        await loadQuestions(editing.question.category);
-      } catch (err) {
-        setMessage(withApiReason(t('questionEditFailed'), err));
-      }
-      return;
-    }
-    try {
-      await apiJson('/api/v1/questions', {
-        method: 'POST',
-        body: JSON.stringify({
-          categoryId: qCategory,
-          qtype: form.qtype,
-          ...formContent(form),
-          ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
-        }),
-      });
-      setForm((prev) => ({ ...emptyForm(prev.qtype), stimulusId: prev.stimulusId }));
-      await loadQuestions(qCategory);
-    } catch (err) {
-      setMessage(withApiReason(t('questionCreateFailed'), err));
-    }
-  }
-
-  async function startEdit(view: QuestionView) {
-    const requestId = ++editOptionsRequestRef.current;
-    setEditing(view);
-    setForm(formFromView(view));
-    // Gắn kết chương trình gắn ở cấp danh tính câu hỏi: nạp kèm khi mở editor.
-    setLinks(null);
-    setLinkSubjectPick('');
-    setLinkOutcomePick('');
-    setLinkOutcomeOptions([]);
-    void loadCurriculumLinks(view.question.id);
-    void loadLinkSubjects();
-
-    const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
-      ? (view.question.qtype as Qtype)
-      : 'truefalse';
-    if (hasAllOptions(qtype, view.options)) return;
-
-    try {
-      // Endpoint versions hiện chỉ trả metadata của version; nếu bản ghi của
-      // version mới nhất có kèm options thì dùng nó để lấp trường view còn thiếu.
-      const versions = await apiJson<
-        { id: string; version: number; options?: OptionsRecord | null }[]
-      >(`/api/v1/questions/${view.question.id}/versions`);
-      const latest = versions.find((version) => version.id === view.latestVersion.id)
-        ?? versions.find((version) => version.version === view.entry.latestVersion);
-      if (latest?.options && editOptionsRequestRef.current === requestId) {
-        setForm(formFromView(view, latest.options));
-      }
-    } catch {
-      // Không tải được options bổ sung thì giữ nguyên phần đã nạp từ view.
-    }
-  }
-
-  function cancelEdit() {
-    editOptionsRequestRef.current += 1;
-    setEditing(null);
-    setForm(emptyForm('multichoice'));
-    setLinks(null);
-    setLinkSubjectPick('');
-    setLinkOutcomePick('');
-    setLinkOutcomeOptions([]);
-  }
 
   async function submitStimulus(event: FormEvent) {
     event.preventDefault();
@@ -535,128 +406,6 @@ export function QuestionsPage() {
   }
 
   /**
-   * Môn học cho khối Chương trình: chương trình quốc gia GDPT 2018 neo ở
-   * context hệ thống (contextLevel 10). Lỗi tải chỉ làm khối này trống —
-   * không chặn việc soạn câu hỏi.
-   */
-  async function loadLinkSubjects() {
-    try {
-      const contexts = await apiJson<{ id: string; contextLevel: number }[]>('/api/v1/access/contexts');
-      const system = contexts.find((c) => c.contextLevel === 10);
-      if (!system) return;
-      const rows = await apiJson<{ id: string; name: string }[]>(`/api/v1/curriculum/subjects?contextId=${system.id}`);
-      setLinkSubjects(rows);
-    } catch {
-      // Khối chương trình là phụ trợ của editor; bỏ qua khi không tải được.
-    }
-  }
-
-  /** Nạp gắn kết chương trình của câu hỏi + nhãn nội dung cho các YCCĐ đã gắn. */
-  async function loadCurriculumLinks(questionId: string) {
-    try {
-      const view = await apiJson<CurriculumLinksView>(`/api/v1/questions/${questionId}/curriculum-links`);
-      setLinks(view);
-      const labels: Record<string, string> = {};
-      for (const o of view.outcomes) {
-        try {
-          const oc = await apiJson<{ id: string; content: string }>(`/api/v1/curriculum/outcomes/${o.outcomeId}`);
-          labels[oc.id] = oc.content;
-        } catch {
-          // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
-        }
-      }
-      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
-    } catch {
-      setLinks(null);
-    }
-  }
-
-  /** Chọn môn → nạp cây của mọi khối thuộc môn đó → danh sách YCCĐ chọn được. */
-  async function pickLinkSubject(subjectId: string) {
-    setLinkSubjectPick(subjectId);
-    setLinkOutcomePick('');
-    setLinkOutcomeOptions([]);
-    if (!subjectId) return;
-    try {
-      const curricula = await apiJson<{ id: string; grade: number }[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}`);
-      const options: { id: string; label: string }[] = [];
-      const labels: Record<string, string> = {};
-      for (const curr of curricula) {
-        const tree = await apiJson<{ nodes: CurriculumTreeNode[] }>(`/api/v1/curriculum/curricula/${curr.id}/tree`);
-        const walk = (nodes: CurriculumTreeNode[]): void => {
-          for (const node of nodes) {
-            for (const outcome of node.outcomes) {
-              options.push({ id: outcome.id, label: `${curr.grade} · ${node.title} · ${outcome.content}` });
-              labels[outcome.id] = outcome.content;
-            }
-            walk(node.children);
-          }
-        };
-        walk(tree.nodes);
-      }
-      setLinkOutcomeOptions(options);
-      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
-    } catch {
-      setMessage(t('programmeLoadFailed'));
-    }
-  }
-
-  async function attachLinkSubject() {
-    if (!editing || !linkSubjectPick) return;
-    try {
-      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects`, {
-        method: 'POST',
-        body: JSON.stringify({ subjectId: linkSubjectPick }),
-      }));
-    } catch {
-      setMessage(t('programmeSaveFailed'));
-    }
-  }
-
-  async function detachLinkSubject(subjectId: string) {
-    if (!editing) return;
-    try {
-      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects/${subjectId}`, { method: 'DELETE' }));
-    } catch {
-      setMessage(t('programmeSaveFailed'));
-    }
-  }
-
-  async function attachLinkOutcome() {
-    if (!editing || !linkOutcomePick) return;
-    try {
-      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes`, {
-        method: 'POST',
-        body: JSON.stringify({ outcomeId: linkOutcomePick, cognitiveLevel: linkLevelPick }),
-      }));
-      setLinkOutcomePick('');
-    } catch {
-      setMessage(t('programmeSaveFailed'));
-    }
-  }
-
-  async function changeOutcomeLevel(outcomeId: string, cognitiveLevel: string) {
-    if (!editing) return;
-    try {
-      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ cognitiveLevel }),
-      }));
-    } catch {
-      setMessage(t('programmeSaveFailed'));
-    }
-  }
-
-  async function detachLinkOutcome(outcomeId: string) {
-    if (!editing) return;
-    try {
-      setLinks(await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, { method: 'DELETE' }));
-    } catch {
-      setMessage(t('programmeSaveFailed'));
-    }
-  }
-
-  /**
    * Tạo lượt làm bài từ các câu hỏi đã chọn: slot chỉ cần `questionId`
    * (schema `questionUsageSlotSchema`) — server tự gắn phiên bản mới nhất
    * khi attempt bắt đầu, nên trang không gửi version id nào. Component
@@ -674,6 +423,20 @@ export function QuestionsPage() {
       await navigate(`/question-usages/${created.usage.id}`);
     } catch {
       setMessage(t('usageCreateFailed'));
+    }
+  }
+
+  /** Xoá một câu hỏi qua DELETE /questions/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
+  async function deleteQuestion(view: QuestionView) {
+    if (!window.confirm(t('confirmDeleteQuestion', { name: view.question.name }))) return;
+    setMessage(null);
+    try {
+      await apiJson(`/api/v1/questions/${view.question.id}`, { method: 'DELETE' });
+      setMessage(t('questionDeleted'));
+      setSelected((prev) => prev.filter((qid) => qid !== view.question.id));
+      await loadQuestions(qCategory);
+    } catch {
+      setMessage(t('questionDeleteFailed'));
     }
   }
 
@@ -705,13 +468,12 @@ export function QuestionsPage() {
       id: 'select',
       header: '',
       cell: (view) => (
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
           checked={selected.includes(view.question.id)}
-          onChange={(e) =>
+          onCheckedChange={(checked) =>
             setSelected((prev) =>
-              e.target.checked ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
+              checked === true ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
             )
           }
         />
@@ -762,11 +524,19 @@ export function QuestionsPage() {
       header: t('actions'),
       cell: (view) => (
         <span className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => void startEdit(view)}>
+          {/* §9: Sửa đi sang màn editor riêng; Xoá ngay tại dòng. */}
+          <Button
+            type="button"
+            variant="outline"
+            render={<Link to={`/questions/${view.question.id}/edit?category=${view.question.category}`} />}
+          >
             {t('editNewVersion')}
           </Button>
           <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
             {t('history')}
+          </Button>
+          <Button type="button" variant="destructive" onClick={() => void deleteQuestion(view)}>
+            {t('deleteAction')}
           </Button>
         </span>
       ),
@@ -797,513 +567,99 @@ export function QuestionsPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('questionBank')}</CardTitle>
-          <CardDescription>{t('questionBankDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ul className="space-y-2">
-            {categories.map((cat) => (
-              <li key={cat.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQCategory(String(cat.id));
-                    editOptionsRequestRef.current += 1;
-                    setEditing(null);
-                    void loadQuestions(cat.id);
-                    void loadStimuli(cat.id).catch(() => setMessage(t('stimulusLoadFailed')));
-                  }}
-                >
-                  {cat.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-        <DataTable
-          data={questions}
-          columns={questionColumns}
-          labels={{
-            columns: t('dashboard:tableColumns'),
-            previous: t('dashboard:tablePrevious'),
-            next: t('dashboard:tableNext'),
-            empty: t('dashboard:emptyTable'),
-            filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
-            pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
-          }}
-          getRowId={(view) => view.question.id}
-          rowTestId={(view) => `question-${view.question.id}`}
-        />
-        <CardContent className="space-y-4">
-          <Button type="button" disabled={selected.length === 0} onClick={() => void startUsageFromSelection()}>
-            {t('startAttemptFromSelection')}
-          </Button>
-          {versionsOf && (
-            <div data-testid="version-history">
-              <h3 className="font-medium">{t('versionHistory')}</h3>
-              <ul>
-                {versionsOf.versions.map((v) => (
-                  <li key={v.version}>
-                    v{v.version} — {plainText(v.questionText)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {message && <p role="status">{message}</p>}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('newCategory')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={(e) => void createCategory(e)} className="space-y-3">
-            <div>
-              <Label htmlFor="qcat-name">{t('name')}</Label>
-              <Input id="qcat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="qcat-context">{t('questionCategoryContext')}</Label>
-              <select
-                id="qcat-context"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                value={contextId}
-                onChange={(e) => setContextId(e.target.value)}
-              >
-                {contextOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button type="submit" disabled={!contextId}>
-              {t('createCategory')}
+    <PageShell width="full">
+      <PageHeader
+        title={t('questionBank')}
+        description={t('questionBankDescription')}
+        actions={
+          <>
+            <Button type="button" variant="outline" render={<Link to="/questions/categories/new" />}>
+              {t('newCategory')}
             </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{editing ? t('editQuestionTitle', { name: editing.question.name }) : t('newQuestion')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={(e) => void submitQuestion(e)} className="space-y-3">
-            <div>
-              <Label htmlFor="q-type">{t('questionType')}</Label>
-              <select
-                id="q-type"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                value={form.qtype}
-                disabled={editing !== null}
-                onChange={(e) => setForm(emptyForm(e.target.value as Qtype))}
-              >
-                {QTYPES.map((qtype) => (
-                  <option key={qtype} value={qtype}>
-                    {t(QTYPE_LABEL_KEYS[qtype])}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="q-name">{t('name')}</Label>
-              <Input id="q-name" value={form.name} onChange={(e) => patchForm({ name: e.target.value })} />
-            </div>
-            <div>
-              <Label htmlFor="q-text">{t('questionText')}</Label>
-              <Input id="q-text" value={form.questionText} onChange={(e) => patchForm({ questionText: e.target.value })} />
-            </div>
-            <div>
-              <Label htmlFor="q-stimulus">{t('attachedStimulus')}</Label>
-              <select
-                id="q-stimulus"
-                className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                value={form.stimulusId}
-                onChange={(e) => patchForm({ stimulusId: e.target.value })}
-              >
-                <option value="">{t('noStimulus')}</option>
-                {stimuli.map((stimulus) => (
-                  <option key={stimulus.id} value={stimulus.id}>
-                    {plainText(stimulus.content).slice(0, 80)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {form.qtype === 'multichoice' && (
-              <fieldset className="space-y-3">
-                <legend className="text-sm font-medium">{t('choices')}</legend>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="q-mc-single"
-                    type="checkbox"
-                    checked={form.mcSingle}
-                    onChange={(e) => patchForm({ mcSingle: e.target.checked })}
-                  />
-                  <Label htmlFor="q-mc-single">{t('singleAnswerOnly')}</Label>
-                </div>
-                {form.mcChoices.map((choice, index) => (
-                  <div key={index} className="space-y-2 rounded-md border p-3">
-                    <div>
-                      <Label htmlFor={`q-choice-${index}`}>{t('choiceText', { index: index + 1 })}</Label>
-                      <Input
-                        id={`q-choice-${index}`}
-                        value={choice.text}
-                        onChange={(e) =>
-                          patchForm({
-                            mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, text: e.target.value } : c)),
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`q-choice-fraction-${index}`}>{t('choiceFraction', { index: index + 1 })}</Label>
-                      <Input
-                        id={`q-choice-fraction-${index}`}
-                        type="number"
-                        step="0.05"
-                        min="-1"
-                        max="1"
-                        value={choice.fraction}
-                        onChange={(e) =>
-                          patchForm({
-                            mcChoices: form.mcChoices.map((c, i) =>
-                              i === index ? { ...c, fraction: e.target.value } : c,
-                            ),
-                          })
-                        }
-                      />
-                    </div>
-                    {form.mcSingle && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          id={`q-choice-correct-${index}`}
-                          type="radio"
-                          name="q-correct-choice"
-                          checked={Number(choice.fraction) === 1}
-                          onChange={() =>
-                            patchForm({
-                              mcChoices: form.mcChoices.map((c, i) => ({
-                                ...c,
-                                fraction: i === index ? '1' : '0',
-                              })),
-                            })
-                          }
-                        />
-                        <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={form.mcChoices.length <= 2}
-                      onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
-                    >
-                      {t('removeChoice', { index: index + 1 })}
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => patchForm({ mcChoices: [...form.mcChoices, { text: '', fraction: '0' }] })}
-                >
-                  {t('addChoice')}
-                </Button>
-              </fieldset>
-            )}
-
-            {form.qtype === 'truefalse' && (
-              <fieldset className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    id="q-tf-true"
-                    type="radio"
-                    name="q-tf-correct"
-                    checked={form.tfCorrect}
-                    onChange={() => patchForm({ tfCorrect: true })}
-                  />
-                  <Label htmlFor="q-tf-true">{t('correctAnswerIsTrue')}</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="q-tf-false"
-                    type="radio"
-                    name="q-tf-correct"
-                    checked={!form.tfCorrect}
-                    onChange={() => patchForm({ tfCorrect: false })}
-                  />
-                  <Label htmlFor="q-tf-false">{t('correctAnswerIsFalse')}</Label>
-                </div>
-              </fieldset>
-            )}
-
-            {form.qtype === 'shortanswer' && (
-              <fieldset className="space-y-3">
-                <legend className="text-sm font-medium">{t('acceptedAnswers')}</legend>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="q-sa-usecase"
-                    type="checkbox"
-                    checked={form.saUseCase}
-                    onChange={(e) => patchForm({ saUseCase: e.target.checked })}
-                  />
-                  <Label htmlFor="q-sa-usecase">{t('caseSensitive')}</Label>
-                </div>
-                {form.saAnswers.map((answer, index) => (
-                  <div key={index} className="space-y-2 rounded-md border p-3">
-                    <div>
-                      <Label htmlFor={`q-sa-answer-${index}`}>{t('acceptedAnswerText', { index: index + 1 })}</Label>
-                      <Input
-                        id={`q-sa-answer-${index}`}
-                        value={answer.text}
-                        onChange={(e) =>
-                          patchForm({
-                            saAnswers: form.saAnswers.map((a, i) => (i === index ? { ...a, text: e.target.value } : a)),
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`q-sa-fraction-${index}`}>{t('answerFraction', { index: index + 1 })}</Label>
-                      <Input
-                        id={`q-sa-fraction-${index}`}
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        value={answer.fraction}
-                        onChange={(e) =>
-                          patchForm({
-                            saAnswers: form.saAnswers.map((a, i) =>
-                              i === index ? { ...a, fraction: e.target.value } : a,
-                            ),
-                          })
-                        }
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={form.saAnswers.length <= 1}
-                      onClick={() => patchForm({ saAnswers: form.saAnswers.filter((_, i) => i !== index) })}
-                    >
-                      {t('removeAnswer', { index: index + 1 })}
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '', fraction: '0' }] })}
-                >
-                  {t('addAnswer')}
-                </Button>
-              </fieldset>
-            )}
-
-            {form.qtype === 'essay' && (
-              <fieldset className="space-y-3">
-                <div>
-                  <Label htmlFor="q-essay-format">{t('responseFormat')}</Label>
-                  <select
-                    id="q-essay-format"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={form.essayResponseFormat}
-                    onChange={(e) => patchForm({ essayResponseFormat: e.target.value })}
-                  >
-                    <option value="editor">{t('responseFormatEditor')}</option>
-                    <option value="plain">{t('responseFormatPlain')}</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="q-essay-response-required"
-                    type="checkbox"
-                    checked={form.essayResponseRequired}
-                    onChange={(e) => patchForm({ essayResponseRequired: e.target.checked })}
-                  />
-                  <Label htmlFor="q-essay-response-required">{t('responseRequired')}</Label>
-                </div>
-                <div>
-                  <Label htmlFor="q-essay-response-field-lines">{t('responseFieldLines')}</Label>
-                  <Input
-                    id="q-essay-response-field-lines"
-                    type="number"
-                    min="1"
-                    value={form.essayResponseFieldLines}
-                    onChange={(e) => patchForm({ essayResponseFieldLines: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="q-essay-minwords">{t('minWordLimit')}</Label>
-                  <Input
-                    id="q-essay-minwords"
-                    type="number"
-                    min="0"
-                    value={form.essayMinWords}
-                    onChange={(e) => patchForm({ essayMinWords: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="q-essay-maxwords">{t('maxWordLimit')}</Label>
-                  <Input
-                    id="q-essay-maxwords"
-                    type="number"
-                    min="0"
-                    value={form.essayMaxWords}
-                    onChange={(e) => patchForm({ essayMaxWords: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="q-essay-graderinfo">{t('graderInfo')}</Label>
-                  <textarea
-                    id="q-essay-graderinfo"
-                    className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
-                    rows={3}
-                    value={form.essayGraderInfo}
-                    onChange={(e) => patchForm({ essayGraderInfo: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="q-essay-template">{t('responseTemplate')}</Label>
-                  <textarea
-                    id="q-essay-template"
-                    className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
-                    rows={3}
-                    value={form.essayResponseTemplate}
-                    onChange={(e) => patchForm({ essayResponseTemplate: e.target.value })}
-                  />
-                </div>
-              </fieldset>
-            )}
-
-            <div className="flex gap-2">
-              <Button type="submit">{editing ? t('saveNewVersion') : t('createQuestion')}</Button>
-              {editing && (
-                <Button type="button" variant="outline" onClick={cancelEdit}>
-                  {t('cancelEdit')}
-                </Button>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {editing && (
-        <Card data-testid="question-programme">
-          <CardHeader>
-            <CardTitle>{t('programmeHeading')}</CardTitle>
-            <CardDescription>{t('programmeDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {links === null ? (
-              <p className="text-sm text-muted-foreground">{t('programmeLoadFailed')}</p>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>{t('programmeSubjects')}</Label>
-                  <ul className="space-y-2">
-                    {links.subjectIds.map((subjectId) => (
-                      <li key={subjectId} data-testid={`programme-subject-${subjectId}`} className="flex items-center gap-2">
-                        <span className="flex-1 text-sm">{linkSubjects.find((s) => s.id === subjectId)?.name ?? subjectId}</span>
-                        <Button type="button" variant="outline" onClick={() => void detachLinkSubject(subjectId)}>
-                          {t('programmeDetach')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-2">
-                    <select
-                      id="programme-subject-pick"
-                      aria-label={t('programmePickSubject')}
-                      className="h-9 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={linkSubjectPick}
-                      onChange={(e) => void pickLinkSubject(e.target.value)}
-                    >
-                      <option value="">{t('programmePickSubject')}</option>
-                      {linkSubjects
-                        .filter((s) => !links.subjectIds.includes(s.id))
-                        .map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                    </select>
-                    <Button type="button" onClick={() => void attachLinkSubject()} disabled={!linkSubjectPick}>
-                      {t('programmeAttach')}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('programmeOutcomes')}</Label>
-                  <ul className="space-y-2">
-                    {links.outcomes.map((o) => (
-                      <li key={o.outcomeId} data-testid={`programme-outcome-${o.outcomeId}`} className="flex items-center gap-2">
-                        <span className="flex-1 text-sm">{outcomeLabels[o.outcomeId] ?? o.outcomeId}</span>
-                        <select
-                          aria-label={t('programmeLevel')}
-                          className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                          value={o.cognitiveLevel}
-                          onChange={(e) => void changeOutcomeLevel(o.outcomeId, e.target.value)}
-                        >
-                          {COGNITIVE_LEVELS.map((level) => (
-                            <option key={level} value={level}>
-                              {t(LEVEL_LABEL_KEYS[level])}
-                            </option>
-                          ))}
-                        </select>
-                        <Button type="button" variant="outline" onClick={() => void detachLinkOutcome(o.outcomeId)}>
-                          {t('programmeDetach')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex gap-2">
-                    <select
-                      id="programme-outcome-pick"
-                      aria-label={t('programmePickOutcome')}
-                      className="h-9 flex-1 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={linkOutcomePick}
-                      onChange={(e) => setLinkOutcomePick(e.target.value)}
-                    >
-                      <option value="">{t('programmePickOutcome')}</option>
-                      {linkOutcomeOptions
-                        .filter((o) => !links.outcomes.some((l) => l.outcomeId === o.id))
-                        .map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.label}
-                          </option>
-                        ))}
-                    </select>
-                    <select
-                      aria-label={t('programmeLevel')}
-                      className="h-9 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={linkLevelPick}
-                      onChange={(e) => setLinkLevelPick(e.target.value)}
-                    >
-                      {COGNITIVE_LEVELS.map((level) => (
-                        <option key={level} value={level}>
-                          {t(LEVEL_LABEL_KEYS[level])}
-                        </option>
-                      ))}
-                    </select>
-                    <Button type="button" onClick={() => void attachLinkOutcome()} disabled={!linkOutcomePick}>
-                      {t('programmeAttach')}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
+              {t('newQuestion')}
+            </Button>
+          </>
+        }
+      />
+      {message ? (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {/* §9: mỗi danh mục là một mục thu/mở — bấm vào thì hiện danh sách
+          câu hỏi của chính danh mục đó ngay dưới. */}
+      {categories.map((cat) => {
+        const isActive = qCategory === String(cat.id);
+        return (
+          <Collapsible
+            key={cat.id}
+            open={isActive}
+            onOpenChange={(open) => {
+              if (open) {
+                setQCategory(String(cat.id));
+                void loadQuestions(cat.id);
+                void loadStimuli(cat.id).catch(() => setMessage(t('stimulusLoadFailed')));
+              }
+            }}
+          >
+            <Card>
+              <CardHeader>
+                <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
+                  <span className="font-semibold">{cat.name}</span>
+                </CollapsibleTrigger>
+              </CardHeader>
+              <CollapsibleContent>
+                {isActive ? (
+                  <>
+                    <DataTable
+                      data={questions}
+                      columns={questionColumns}
+                      labels={{
+                        columns: t('dashboard:tableColumns'),
+                        previous: t('dashboard:tablePrevious'),
+                        next: t('dashboard:tableNext'),
+                        empty: t('dashboard:emptyTable'),
+                        filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
+                        pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+                      }}
+                      getRowId={(view) => view.question.id}
+                      rowTestId={(view) => `question-${view.question.id}`}
+                    />
+                    <CardContent className="space-y-4">
+                      <Button
+                        type="button"
+                        disabled={selected.length === 0}
+                        onClick={() => void startUsageFromSelection()}
+                      >
+                        {t('startAttemptFromSelection')}
+                      </Button>
+                      {versionsOf && (
+                        <div data-testid="version-history">
+                          <h3 className="font-medium">{t('versionHistory')}</h3>
+                          <ul>
+                            {versionsOf.versions.map((v) => (
+                              <li key={v.version}>
+                                v{v.version} — {plainText(v.questionText)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </>
+                ) : null}
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+      {loading && categories.length === 0 ? (
+        <div className="space-y-2" aria-label={t('loading')}>
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -1331,36 +687,194 @@ export function QuestionsPage() {
               </li>
             ))}
           </ul>
-          <form onSubmit={(e) => void submitStimulus(e)} className="space-y-3">
-            <div>
-              <Label htmlFor="stimulus-content">{editingStimulus ? t('stimulusContent') : t('newStimulus')}</Label>
-              <textarea
-                id="stimulus-content"
-                className="w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs"
-                rows={4}
-                value={stimulusContent}
-                onChange={(e) => setStimulusContent(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit">{editingStimulus ? t('saveStimulus') : t('createStimulus')}</Button>
-              {editingStimulus && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingStimulus(null);
-                    setStimulusContent('');
-                  }}
-                >
-                  {t('cancelStimulusEdit')}
-                </Button>
-              )}
-            </div>
+          <form onSubmit={(e) => void submitStimulus(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="stimulus-content">
+                  {editingStimulus ? t('stimulusContent') : t('newStimulus')}
+                </FieldLabel>
+                <Textarea
+                  id="stimulus-content"
+                  rows={4}
+                  value={stimulusContent}
+                  onChange={(e) => setStimulusContent(e.target.value)}
+                />
+              </Field>
+              <div className="flex gap-2">
+                <Button type="submit">{editingStimulus ? t('saveStimulus') : t('createStimulus')}</Button>
+                {editingStimulus && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingStimulus(null);
+                      setStimulusContent('');
+                    }}
+                  >
+                    {t('cancelStimulusEdit')}
+                  </Button>
+                )}
+              </div>
+            </FieldGroup>
           </form>
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
+  );
+}
+
+/**
+ * Màn tạo danh mục câu hỏi RIÊNG theo chuẩn §9 (route
+ * /questions/categories/new): trước đây form này nhồi ngay dưới danh
+ * sách ngân hàng trong cùng một trang (§9: tạo mới là màn riêng, không
+ * nhồi form vào danh sách). Ngữ cảnh vẫn là control Select của @lms/ui
+ * chỉ liệt kê ngữ cảnh người dùng thật sự có question:managecategory
+ * (issue #55 mục 2), mặc định ngữ cảnh hệ thống. Tạo xong quay về danh
+ * sách ngân hàng (trang danh sách tự nạp lại khi mở).
+ */
+export function QuestionCategoryNewPage() {
+  const { t } = useTranslation('app');
+  const navigate = useNavigate();
+  const perms = usePermissions();
+  const [catName, setCatName] = useState('');
+  const [contextId, setContextId] = useState('');
+  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!perms.ready || !perms.canUseQuestionBank) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
+          '/api/v1/access/contexts',
+        );
+        const manageable = new Set(
+          (perms.access?.contexts ?? [])
+            .filter((c) => c.capabilities.includes('question:managecategory'))
+            .map((c) => c.contextId),
+        );
+        const courseName = (instanceId: string) =>
+          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
+        const options: ContextOption[] = contexts
+          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
+          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            level: c.contextLevel,
+            label:
+              c.contextLevel === 10
+                ? t('contextSystem')
+                : c.contextLevel === 50
+                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
+                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
+          }));
+        if (cancelled) return;
+        setContextOptions(options);
+        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
+      } catch {
+        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
+        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
+
+  async function createCategory(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await apiJson('/api/v1/questions/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: catName, contextId: contextId }),
+      });
+      navigate('/questions');
+    } catch (err) {
+      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
+    }
+  }
+
+  if (!perms.ready) {
+    return (
+      <PageShell width="medium">
+        <PageHeader title={t('newCategory')} />
+        <div className="space-y-2" aria-label={t('loading')}>
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </PageShell>
+    );
+  }
+  if (!perms.canUseQuestionBank) {
+    return (
+      <PageShell width="medium">
+        <PageHeader title={t('newCategory')} />
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('questionBank')}</CardTitle>
+            <CardDescription>{t('questionBankForbidden')}</CardDescription>
+          </CardHeader>
+        </Card>
+        <p>
+          <Link to="/questions" className="text-sm underline">
+            {t('backToQuestionBankList')}
+          </Link>
+        </p>
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell width="medium">
+      <PageHeader title={t('newCategory')} />
+      {message ? (
+        <Alert role="status">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
+      <Card>
+        <CardContent>
+          <form onSubmit={(e) => void createCategory(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="qcat-name">{t('name')}</FieldLabel>
+                <Input id="qcat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel id="qcat-context-label">{t('questionCategoryContext')}</FieldLabel>
+                <Select
+                  items={Object.fromEntries(contextOptions.map((option) => [option.id, option.label]))}
+                  value={contextId === '' ? null : contextId}
+                  onValueChange={(v) => setContextId(v ?? '')}
+                >
+                  <SelectTrigger aria-labelledby="qcat-context-label" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contextOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={!contextId}>
+                  {t('createCategory')}
+                </Button>
+              </div>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
+      <p>
+        <Link to="/questions" className="text-sm underline">
+          {t('backToQuestionBankList')}
+        </Link>
+      </p>
+    </PageShell>
   );
 }
 
@@ -1474,23 +988,51 @@ export function QuestionUsagePage() {
     );
   if (error)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <p role="alert">{error}</p>
-      </main>
+      <PageShell width="medium">
+        <PageHeader title={t('questionAttemptTitle', { component: '' })} />
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              void reload().catch(() => setError(t('attemptLoadFailed')));
+            }}
+          >
+            {t('retry')}
+          </Button>
+        </div>
+      </PageShell>
     );
-  if (!usage) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('attemptLoading')}</main>;
+  if (!usage)
+    return (
+      <PageShell width="medium">
+        <div className="space-y-2" aria-label={t('attemptLoading')}>
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </PageShell>
+    );
   const usageId = usage.usage.id;
   const gradedStates = ['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'];
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader
+        title={t('questionAttemptTitle', { component: usage.usage.component })}
+        description={t('usageState', { state: usage.state })}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('questionAttemptTitle', { component: usage.usage.component })}</CardTitle>
-          <CardDescription>{t('usageState', { state: usage.state })}</CardDescription>
-        </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{t('deferredFeedbackNote')}</p>
-          {actionError ? <p role="alert">{actionError}</p> : null}
+          {actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="flex gap-2">
             {usage.state === 'notstarted' ? (
               <Button
@@ -1558,14 +1100,14 @@ export function QuestionUsagePage() {
                   ) : null}
                   {started && !finishedAttempt ? (
                     <div className="space-y-2">
-                      <div>
-                        <Label htmlFor={`answer-${a.id}`}>{t('answerForSlot', { slot: a.slot })}</Label>
+                      <Field>
+                        <FieldLabel htmlFor={`answer-${a.id}`}>{t('answerForSlot', { slot: a.slot })}</FieldLabel>
                         <Input
                           id={`answer-${a.id}`}
                           value={answers[a.id] ?? lastAnswer}
                           onChange={(e) => setAnswers((prev) => ({ ...prev, [a.id]: e.target.value }))}
                         />
-                      </div>
+                      </Field>
                       <div className="flex gap-2">
                         <Button
                           type="button"
@@ -1608,7 +1150,7 @@ export function QuestionUsagePage() {
           </p>
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

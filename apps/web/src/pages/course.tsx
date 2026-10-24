@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -223,7 +227,16 @@ export function CoursePage() {
     }
   }
 
-  if (!loaded) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('courseLoading')}</main>;
+  if (!loaded)
+    return (
+      <PageShell width="wide">
+        <div className="space-y-3" aria-label={t('courseLoading')}>
+          <Skeleton className="h-8 w-72" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
+      </PageShell>
+    );
 
   const isEnrolledActive = enrolment?.enrolled === true && enrolment?.active === true;
 
@@ -236,16 +249,13 @@ export function CoursePage() {
       markerNamesByCm.set(marker.markerCmId, [...(markerNamesByCm.get(marker.markerCmId) ?? []), marker.groupName]);
     }
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{content.course.fullName}</CardTitle>
-            <CardDescription>
-              {content.course.shortName}
-              {content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
-            </CardDescription>
-          </CardHeader>
-          {progress && progress.percent !== null ? (
+      <PageShell width="wide">
+        <PageHeader
+          title={content.course.fullName}
+          description={`${content.course.shortName}${content.course.visible ? '' : ` ${t('hiddenCourseSuffix')}`}`}
+        />
+        {progress && progress.percent !== null ? (
+          <Card>
             <CardContent className="flex flex-wrap items-center gap-3">
               <span className="text-sm font-medium">{t('courseProgressLabel', { percent: progress.percent })}</span>
               <span className="text-sm text-muted-foreground">
@@ -273,10 +283,14 @@ export function CoursePage() {
                 {t('progressReportLink')}
               </Link>
             </CardContent>
-          ) : null}
-        </Card>
+          </Card>
+        ) : null}
         {isEnrolledActive ? <p className="text-sm text-muted-foreground">{t('enrolledNotice')}</p> : null}
-        {completionError ? <p role="alert">{completionError}</p> : null}
+        {completionError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{completionError}</AlertDescription>
+          </Alert>
+        ) : null}
         {content.sections.map((section) => (
           <Card key={section.id}>
             <CardHeader>
@@ -380,12 +394,18 @@ export function CoursePage() {
                     </li>
                   );
                 })}
-                {section.modules.length === 0 && <li>{t('noActivities')}</li>}
               </ul>
+              {section.modules.length === 0 ? (
+                <Empty className="p-4">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noActivities')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
             </CardContent>
           </Card>
         ))}
-      </main>
+      </PageShell>
     );
   }
 
@@ -393,22 +413,35 @@ export function CoursePage() {
   const enrolOptions = instances.filter((i) => i.status === 0 && (i.enrol === 'self' || i.enrol === 'fee'));
   const headerCourse = course;
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="wide">
+      <PageHeader
+        title={headerCourse ? headerCourse.fullName : t('enrolPanelTitle')}
+        description={
+          headerCourse
+            ? `${headerCourse.shortName}${headerCourse.visible ? '' : ` ${t('hiddenCourseSuffix')}`}`
+            : undefined
+        }
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>{headerCourse ? headerCourse.fullName : t('enrolPanelTitle')}</CardTitle>
-          {headerCourse ? (
-            <CardDescription>
-              {headerCourse.shortName}
-              {headerCourse.visible ? '' : ` ${t('hiddenCourseSuffix')}`}
-            </CardDescription>
-          ) : null}
-        </CardHeader>
         <CardContent className="space-y-4">
           <p>{t('enrolPanelDescription')}</p>
-          {message ? <p>{message}</p> : null}
-          {actionError ? <p role="alert">{actionError}</p> : null}
-          {enrolOptions.length === 0 ? <p>{t('enrolNoOptions')}</p> : null}
+          {message ? (
+            <Alert>
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
+          {actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : null}
+          {enrolOptions.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('enrolNoOptions')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
           <ul className="space-y-3" aria-label={t('enrolPanelTitle')}>
             {enrolOptions.map((instance) => {
               const myPayments = payments.filter((p) => p.itemId === instance.id);
@@ -466,10 +499,14 @@ export function CoursePage() {
               );
             })}
           </ul>
-          {enrolOptions.length === 0 && !headerCourse ? <p role="alert">{t('courseAccessDenied')}</p> : null}
+          {enrolOptions.length === 0 && !headerCourse ? (
+            <Alert variant="destructive">
+              <AlertDescription>{t('courseAccessDenied')}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

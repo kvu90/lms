@@ -6,6 +6,7 @@ import { TestProviders } from '#test/providers';
 import { PermissionsProvider } from '#lib/permissions';
 import { GradebookPage } from './grades';
 import { QuestionsPage, QuestionUsagePage } from './questions';
+import { QuestionEditPage } from './question-editor';
 
 const ITEM = {
   id: '01900000-0000-7000-8000-000000000005',
@@ -273,11 +274,32 @@ describe('Question bank page', () => {
         edited = true;
         return questionView(2);
       }
+      // Các endpoint màn sửa riêng (/questions/:id/edit) mà nút Sửa điều hướng tới.
+      if (url.startsWith('/api/v1/stimuli')) return [];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/versions')
+        return [questionView(edited ? 2 : 1).latestVersion];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/curriculum-links')
+        return { questionId: '01900000-0000-7000-8000-000000000004', subjectIds: [], outcomes: [] };
+      if (url === '/api/v1/access/contexts')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000001',
+            contextLevel: 10,
+            path: '/1',
+            instanceId: '01900000-0000-7000-8000-000000000001',
+          },
+        ];
       return undefined;
     });
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
-    });
+    const router = createMemoryRouter(
+      [
+        { path: '/questions', element: <QuestionsPage /> },
+        { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
+      ],
+      {
+        initialEntries: ['/questions'],
+      },
+    );
     render(
       <TestProviders>
         <RouterProvider router={router} />
@@ -286,7 +308,7 @@ describe('Question bank page', () => {
     await waitFor(() =>
       expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v1'),
     );
-    await userEvent.click(screen.getByRole('button', { name: /Sửa \(phiên bản mới\)/ }));
+    await userEvent.click(screen.getByRole('link', { name: /Sửa \(phiên bản mới\)/ }));
     // Sửa mở editor theo dạng của câu hỏi; lưu trong editor mới tạo phiên bản mới.
     await userEvent.click(await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' }));
     await waitFor(() =>
@@ -705,10 +727,10 @@ describe('Gradebook administration (teacher of the course)', () => {
     stubTeacherFetch(calls);
     renderAsTeacher();
 
-    // Chờ cả option của mục điểm xuất hiện trong ô chọn (dữ liệu quản trị nạp sau khi xác nhận staff).
-    await screen.findByRole('option', { name: 'Quiz 1' });
-    const itemSelect = screen.getByLabelText('Mục điểm');
-    await userEvent.selectOptions(itemSelect, ITEM.id);
+    // Select của @lms/ui: chờ trigger (nhãn "Mục điểm") xuất hiện cùng dữ liệu
+    // quản trị, bấm mở popup rồi bấm tuỳ chọn "Quiz 1".
+    await userEvent.click(await screen.findByLabelText('Mục điểm'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Quiz 1' }));
     await userEvent.type(fieldById('Học viên (ID người dùng)', 'history-user'), STUDENT_ID);
     await userEvent.click(screen.getByRole('button', { name: 'Xem lịch sử' }));
 
@@ -751,7 +773,8 @@ describe('Gradebook administration (teacher of the course)', () => {
 
     // Gợi ý mặc định theo tên mục: 15 phút → thường xuyên, giữa kỳ → giữa kỳ, cuối kỳ → cuối kỳ.
     await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
-    await userEvent.selectOptions(screen.getByLabelText('Học kỳ'), '2');
+    await userEvent.click(screen.getByLabelText('Học kỳ'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Học kỳ II' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
 
     await waitFor(() =>
@@ -785,7 +808,8 @@ describe('Gradebook administration (teacher of the course)', () => {
 
     await screen.findByRole('button', { name: 'Tải Excel vnEdu' });
     // Giáo viên bỏ gán mục giữa kỳ → ánh xạ không còn hợp lệ, không được gọi API.
-    await userEvent.selectOptions(screen.getByLabelText('Kiểm tra giữa kỳ'), 'none');
+    await userEvent.click(screen.getByLabelText('Kiểm tra giữa kỳ'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Không xuất' }));
     await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
 
     expect(await screen.findByText(/Cần ít nhất 1 mục thường xuyên/)).toBeInTheDocument();

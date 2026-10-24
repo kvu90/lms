@@ -9,12 +9,23 @@ import type {
   GradeReport,
 } from '@lms/contracts';
 import { AGGREGATIONS } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
@@ -598,29 +609,33 @@ export function GradebookPage() {
           cây lồng nhau có tổng hợp theo tầng, san phẳng thành một mô
           hình hàng duy nhất sẽ phá vỡ ngữ nghĩa hiển thị của sổ điểm.
         */}
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className="text-left">{t('gradeItem')}</th>
-              <th className="text-left">{t('grade')}</th>
-              <th className="text-left">{t('letter')}</th>
-              <th className="text-left">{t('max')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {view.items.map(({ item, grade }) => (
-              <tr key={item.id} data-testid={`grade-item-${item.id}`}>
-                <td>
-                  {item.itemName}
-                  {item.extraCredit ? ` ${t('extraCreditSuffix')}` : ''}
-                </td>
-                <td>{grade?.finalGrade ?? '—'}</td>
-                <td>{grade?.letter ?? ''}</td>
-                <td>{item.gradeMax}</td>
+        {/* §5.4: bảng cuộn ngang trong khung; cột đầu (tên mục điểm)
+            dính trái với nền đặc để không bị nội dung cuộn đè lên. */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="sticky left-0 bg-background text-left">{t('gradeItem')}</th>
+                <th className="text-left">{t('grade')}</th>
+                <th className="text-left">{t('letter')}</th>
+                <th className="text-left">{t('max')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {view.items.map(({ item, grade }) => (
+                <tr key={item.id} data-testid={`grade-item-${item.id}`}>
+                  <td className="sticky left-0 bg-background">
+                    {item.itemName}
+                    {item.extraCredit ? ` ${t('extraCreditSuffix')}` : ''}
+                  </td>
+                  <td>{grade?.finalGrade ?? '—'}</td>
+                  <td>{grade?.letter ?? ''}</td>
+                  <td>{item.gradeMax}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {view.children.map((child) => renderCategory(child, depth + 1))}
       </div>
     );
@@ -628,11 +643,36 @@ export function GradebookPage() {
 
   if (error)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <p role="alert">{error}</p>
-      </main>
+      <PageShell width="full">
+        <PageHeader title={t('gradebook')} />
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              void reload().catch(() => setError(t('gradebookLoadFailed')));
+            }}
+          >
+            {t('retry')}
+          </Button>
+        </div>
+      </PageShell>
     );
-  if (!book) return <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('loading')}</main>;
+  if (!book)
+    return (
+      <PageShell width="full">
+        <PageHeader title={t('gradebook')} />
+        <div className="space-y-2" aria-label={t('loading')}>
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-2/3" />
+        </div>
+      </PageShell>
+    );
 
   /** Cột của bảng báo cáo điểm toàn lớp trên DataTable dùng chung: sắp xếp theo học viên và điểm tổng, lọc theo mã học viên. */
   const reportColumns: DataColumn<GradeReport['rows'][number]>[] = [
@@ -653,19 +693,17 @@ export function GradebookPage() {
   ];
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="full">
+      <PageHeader
+        title={t('gradebook')}
+        description={t('courseTotalLine', {
+          grade: book.courseTotal?.grade?.finalGrade ?? '—',
+          letterSuffix: book.courseTotal?.grade?.letter
+            ? t('letterSuffix', { letter: book.courseTotal.grade.letter })
+            : '',
+        })}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('gradebook')}</CardTitle>
-          <CardDescription>
-            {t('courseTotalLine', {
-              grade: book.courseTotal?.grade?.finalGrade ?? '—',
-              letterSuffix: book.courseTotal?.grade?.letter
-                ? t('letterSuffix', { letter: book.courseTotal.grade.letter })
-                : '',
-            })}
-          </CardDescription>
-        </CardHeader>
         <CardContent className="space-y-4">{book.categories.map((c) => renderCategory(c, 0))}</CardContent>
       </Card>
 
@@ -695,21 +733,29 @@ export function GradebookPage() {
           <CardTitle>{t('enterGradeTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => void enterGrade(e)} className="space-y-3">
-            <div>
-              <Label htmlFor="grade-item">{t('gradeItemId')}</Label>
-              <Input id="grade-item" value={gradeItemId} onChange={(e) => setGradeItemId(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="grade-user">{t('studentUserId')}</Label>
-              <Input id="grade-user" value={gradeUserId} onChange={(e) => setGradeUserId(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="grade-value">{t('gradeValue')}</Label>
-              <Input id="grade-value" value={gradeValue} onChange={(e) => setGradeValue(e.target.value)} />
-            </div>
-            <Button type="submit">{t('saveGrade')}</Button>
-            {message && <p role="status">{message}</p>}
+          <form onSubmit={(e) => void enterGrade(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="grade-item">{t('gradeItemId')}</FieldLabel>
+                <Input id="grade-item" value={gradeItemId} onChange={(e) => setGradeItemId(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="grade-user">{t('studentUserId')}</FieldLabel>
+                <Input id="grade-user" value={gradeUserId} onChange={(e) => setGradeUserId(e.target.value)} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="grade-value">{t('gradeValue')}</FieldLabel>
+                <Input id="grade-value" value={gradeValue} onChange={(e) => setGradeValue(e.target.value)} />
+              </Field>
+              <div className="flex justify-end">
+                <Button type="submit">{t('saveGrade')}</Button>
+              </div>
+              {message ? (
+                <Alert>
+                  <AlertDescription>{message}</AlertDescription>
+                </Alert>
+              ) : null}
+            </FieldGroup>
           </form>
         </CardContent>
       </Card>
@@ -731,19 +777,23 @@ export function GradebookPage() {
                 </Button>
               </div>
               <form onSubmit={(e) => void importGradesCsv(e)} className="space-y-2">
-                <div>
-                  <Label htmlFor="grades-import-file">{t('importGradesCsvFile')}</Label>
+                <Field>
+                  <FieldLabel htmlFor="grades-import-file">{t('importGradesCsvFile')}</FieldLabel>
                   <Input
                     id="grades-import-file"
                     type="file"
                     accept=".csv,text/csv"
                     onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
                   />
-                </div>
+                </Field>
                 <Button type="submit" variant="outline" disabled={!importFile}>
                   {t('importGradesCsv')}
                 </Button>
-                {importSummary ? <p role="status">{importSummary}</p> : null}
+                {importSummary ? (
+                  <Alert>
+                    <AlertDescription>{importSummary}</AlertDescription>
+                  </Alert>
+                ) : null}
                 {importErrors.length ? (
                   <ul className="space-y-1 text-sm">
                     {importErrors.map((err) => (
@@ -764,73 +814,94 @@ export function GradebookPage() {
                   <p className="text-sm">{t('vneduExportDescription')}</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="vnedu-semester">{t('vneduSemester')}</Label>
-                    <select
-                      id="vnedu-semester"
+                  <Field>
+                    <FieldLabel id="vnedu-semester-label">{t('vneduSemester')}</FieldLabel>
+                    <Select
+                      items={{ '1': t('vneduSemester1'), '2': t('vneduSemester2') }}
                       value={vneduSemester}
-                      onChange={(e) => setVneduSemester(e.target.value)}
-                      className="border px-2 py-1"
+                      onValueChange={(v) => setVneduSemester(v ?? '1')}
                     >
-                      <option value="1">{t('vneduSemester1')}</option>
-                      <option value="2">{t('vneduSemester2')}</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vnedu-school-year">{t('vneduSchoolYear')}</Label>
+                      <SelectTrigger aria-labelledby="vnedu-semester-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">{t('vneduSemester1')}</SelectItem>
+                        <SelectItem value="2">{t('vneduSemester2')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="vnedu-school-year">{t('vneduSchoolYear')}</FieldLabel>
                     <Input
                       id="vnedu-school-year"
                       value={vneduSchoolYear}
                       onChange={(e) => setVneduSchoolYear(e.target.value)}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vnedu-subject">{t('vneduSubjectName')}</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="vnedu-subject">{t('vneduSubjectName')}</FieldLabel>
                     <Input
                       id="vnedu-subject"
                       value={vneduSubject}
                       onChange={(e) => setVneduSubject(e.target.value)}
                       placeholder={t('vneduSubjectPlaceholder')}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vnedu-class">{t('vneduClassName')}</Label>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="vnedu-class">{t('vneduClassName')}</FieldLabel>
                     <Input
                       id="vnedu-class"
                       value={vneduClass}
                       onChange={(e) => setVneduClass(e.target.value)}
                       placeholder={t('vneduClassPlaceholder')}
                     />
-                  </div>
+                  </Field>
                 </div>
                 <ul className="space-y-2">
                   {adminItems.filter(isVneduExportableItem).map((item) => (
                     <li key={item.id} className="flex flex-wrap items-center gap-2">
-                      <Label htmlFor={`vnedu-kind-${item.id}`} className="min-w-40">
+                      <FieldLabel id={`vnedu-kind-label-${item.id}`} className="min-w-40">
                         {item.itemName}
-                      </Label>
-                      <select
-                        id={`vnedu-kind-${item.id}`}
+                      </FieldLabel>
+                      <Select
+                        items={{
+                          none: t('vneduKindNone'),
+                          regular: t('vneduKindRegular'),
+                          midterm: t('vneduKindMidterm'),
+                          final: t('vneduKindFinal'),
+                        }}
                         value={vneduKinds[item.id] ?? 'none'}
-                        onChange={(e) =>
-                          setVneduKinds((prev) => ({ ...prev, [item.id]: e.target.value as VneduColumnKind }))
+                        onValueChange={(v) =>
+                          setVneduKinds((prev) => ({ ...prev, [item.id]: (v ?? 'none') as VneduColumnKind }))
                         }
-                        className="border px-2 py-1"
                       >
-                        <option value="none">{t('vneduKindNone')}</option>
-                        <option value="regular">{t('vneduKindRegular')}</option>
-                        <option value="midterm">{t('vneduKindMidterm')}</option>
-                        <option value="final">{t('vneduKindFinal')}</option>
-                      </select>
+                        <SelectTrigger aria-labelledby={`vnedu-kind-label-${item.id}`} className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t('vneduKindNone')}</SelectItem>
+                          <SelectItem value="regular">{t('vneduKindRegular')}</SelectItem>
+                          <SelectItem value="midterm">{t('vneduKindMidterm')}</SelectItem>
+                          <SelectItem value="final">{t('vneduKindFinal')}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </li>
                   ))}
                 </ul>
                 <Button type="submit" variant="outline">
                   {t('exportGradesVnedu')}
                 </Button>
-                {vneduMessage ? <p role="status">{vneduMessage}</p> : null}
+                {vneduMessage ? (
+                  <Alert>
+                    <AlertDescription>{vneduMessage}</AlertDescription>
+                  </Alert>
+                ) : null}
               </form>
-              {adminMessage ? <p role="status">{adminMessage}</p> : null}
+              {adminMessage ? (
+                <Alert>
+                  <AlertDescription>{adminMessage}</AlertDescription>
+                </Alert>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -846,14 +917,14 @@ export function GradebookPage() {
                     data-testid={`grade-category-admin-${cat.id}`}
                     className="space-y-2 rounded border p-3"
                   >
-                    <div className="space-y-2">
-                      <Label htmlFor={`grade-cat-edit-${cat.id}`}>{t('gradeCategoryName')}</Label>
+                    <Field>
+                      <FieldLabel htmlFor={`grade-cat-edit-${cat.id}`}>{t('gradeCategoryName')}</FieldLabel>
                       <Input
                         id={`grade-cat-edit-${cat.id}`}
                         value={catEdits[cat.id] ?? cat.fullName}
                         onChange={(e) => setCatEdits((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                       />
-                    </div>
+                    </Field>
                     <p className="text-sm text-muted-foreground">
                       {t('gradeCategoryAggregation')}: {cat.aggregation}
                     </p>
@@ -868,27 +939,35 @@ export function GradebookPage() {
                   </li>
                 ))}
               </ul>
-              <form onSubmit={(e) => void createGradeCategory(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="grade-cat-name">{t('gradeCategoryName')}</Label>
-                  <Input id="grade-cat-name" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="grade-cat-aggregation">{t('gradeCategoryAggregation')}</Label>
-                  <select
-                    id="grade-cat-aggregation"
-                    value={newCatAggregation}
-                    onChange={(e) => setNewCatAggregation(e.target.value)}
-                    className="border px-2 py-1"
-                  >
-                    {AGGREGATIONS.map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button type="submit">{t('createGradeCategory')}</Button>
+              <form onSubmit={(e) => void createGradeCategory(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="grade-cat-name">{t('gradeCategoryName')}</FieldLabel>
+                    <Input id="grade-cat-name" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel id="grade-cat-aggregation-label">{t('gradeCategoryAggregation')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries(AGGREGATIONS.map((a) => [a, t(`gradeAggregation_${a}`)]))}
+                      value={newCatAggregation}
+                      onValueChange={(v) => setNewCatAggregation(v ?? 'natural')}
+                    >
+                      <SelectTrigger aria-labelledby="grade-cat-aggregation-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AGGREGATIONS.map((a) => (
+                          <SelectItem key={a} value={a}>
+                            {a}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createGradeCategory')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -907,8 +986,8 @@ export function GradebookPage() {
                       data-testid={`grade-item-admin-${item.id}`}
                       className="space-y-2 rounded border p-3"
                     >
-                      <div className="space-y-2">
-                        <Label htmlFor={`grade-item-edit-name-${item.id}`}>{t('gradeItemName')}</Label>
+                      <Field>
+                        <FieldLabel htmlFor={`grade-item-edit-name-${item.id}`}>{t('gradeItemName')}</FieldLabel>
                         <Input
                           id={`grade-item-edit-name-${item.id}`}
                           value={edit.itemName}
@@ -916,9 +995,9 @@ export function GradebookPage() {
                             setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemName: e.target.value } }))
                           }
                         />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`grade-item-edit-max-${item.id}`}>{t('gradeItemMax')}</Label>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor={`grade-item-edit-max-${item.id}`}>{t('gradeItemMax')}</FieldLabel>
                         <Input
                           id={`grade-item-edit-max-${item.id}`}
                           value={edit.gradeMax}
@@ -926,7 +1005,7 @@ export function GradebookPage() {
                             setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, gradeMax: e.target.value } }))
                           }
                         />
-                      </div>
+                      </Field>
                       <div className="flex gap-2">
                         <Button type="button" variant="outline" onClick={() => void saveGradeItem(item)}>
                           {t('saveGradeItem')}
@@ -939,32 +1018,43 @@ export function GradebookPage() {
                   );
                 })}
               </ul>
-              <form onSubmit={(e) => void createGradeItem(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="grade-item-name">{t('gradeItemName')}</Label>
-                  <Input id="grade-item-name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="grade-item-max">{t('gradeItemMax')}</Label>
-                  <Input id="grade-item-max" value={newItemMax} onChange={(e) => setNewItemMax(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="grade-item-category">{t('gradeItemCategory')}</Label>
-                  <select
-                    id="grade-item-category"
-                    value={newItemCategoryId}
-                    onChange={(e) => setNewItemCategoryId(e.target.value)}
-                    className="border px-2 py-1"
-                  >
-                    <option value="">{t('gradeItemNoCategory')}</option>
-                    {adminCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.fullName || t('gradeCourseFallback')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button type="submit">{t('createGradeItem')}</Button>
+              <form onSubmit={(e) => void createGradeItem(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="grade-item-name">{t('gradeItemName')}</FieldLabel>
+                    <Input id="grade-item-name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="grade-item-max">{t('gradeItemMax')}</FieldLabel>
+                    <Input id="grade-item-max" value={newItemMax} onChange={(e) => setNewItemMax(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel id="grade-item-category-label">{t('gradeItemCategory')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries([
+                        ['none', t('gradeItemNoCategory')],
+                        ...adminCategories.map((c) => [c.id, c.fullName || t('gradeCourseFallback')] as [string, string]),
+                      ])}
+                      value={newItemCategoryId === '' ? 'none' : newItemCategoryId}
+                      onValueChange={(v) => setNewItemCategoryId(v === 'none' || v === null ? '' : v)}
+                    >
+                      <SelectTrigger aria-labelledby="grade-item-category-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t('gradeItemNoCategory')}</SelectItem>
+                        {adminCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.fullName || t('gradeCourseFallback')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createGradeItem')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -978,8 +1068,8 @@ export function GradebookPage() {
               <form onSubmit={(e) => void saveLetters(e)} className="space-y-3">
                 {letterDrafts.map((draft, index) => (
                   <div key={index} className="flex flex-wrap items-end gap-2">
-                    <div className="space-y-2">
-                      <Label htmlFor={`letter-symbol-${index}`}>{t('letterSymbol')}</Label>
+                    <Field>
+                      <FieldLabel htmlFor={`letter-symbol-${index}`}>{t('letterSymbol')}</FieldLabel>
                       <Input
                         id={`letter-symbol-${index}`}
                         value={draft.letter}
@@ -989,9 +1079,9 @@ export function GradebookPage() {
                           )
                         }
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`letter-boundary-${index}`}>{t('letterLowerBoundary')}</Label>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor={`letter-boundary-${index}`}>{t('letterLowerBoundary')}</FieldLabel>
                       <Input
                         id={`letter-boundary-${index}`}
                         value={draft.lowerBoundary}
@@ -1001,7 +1091,7 @@ export function GradebookPage() {
                           )
                         }
                       />
-                    </div>
+                    </Field>
                     <Button
                       type="button"
                       variant="outline"
@@ -1038,24 +1128,28 @@ export function GradebookPage() {
                 ))}
                 {adminScales.length === 0 ? <li className="text-sm text-muted-foreground">{t('noScales')}</li> : null}
               </ul>
-              <form onSubmit={(e) => void createScale(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="scale-name">{t('scaleName')}</Label>
-                  <Input id="scale-name" value={scaleName} onChange={(e) => setScaleName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="scale-values">{t('scaleValues')}</Label>
-                  <Input id="scale-values" value={scaleValues} onChange={(e) => setScaleValues(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="scale-description">{t('scaleDescriptionLabel')}</Label>
-                  <Input
-                    id="scale-description"
-                    value={scaleDescription}
-                    onChange={(e) => setScaleDescription(e.target.value)}
-                  />
-                </div>
-                <Button type="submit">{t('createScale')}</Button>
+              <form onSubmit={(e) => void createScale(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="scale-name">{t('scaleName')}</FieldLabel>
+                    <Input id="scale-name" value={scaleName} onChange={(e) => setScaleName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="scale-values">{t('scaleValues')}</FieldLabel>
+                    <Input id="scale-values" value={scaleValues} onChange={(e) => setScaleValues(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="scale-description">{t('scaleDescriptionLabel')}</FieldLabel>
+                    <Input
+                      id="scale-description"
+                      value={scaleDescription}
+                      onChange={(e) => setScaleDescription(e.target.value)}
+                    />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createScale')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -1092,35 +1186,43 @@ export function GradebookPage() {
                   <li className="text-sm text-muted-foreground">{t('noOutcomes')}</li>
                 ) : null}
               </ul>
-              <form onSubmit={(e) => void createOutcome(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="outcome-name">{t('outcomeName')}</Label>
-                  <Input id="outcome-name" value={outcomeName} onChange={(e) => setOutcomeName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="outcome-scale">{t('outcomeScale')}</Label>
-                  <select
-                    id="outcome-scale"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    value={outcomeScaleId}
-                    onChange={(e) => setOutcomeScaleId(e.target.value)}
-                  >
-                    {adminScales.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="outcome-description">{t('outcomeDescriptionLabel')}</Label>
-                  <Input
-                    id="outcome-description"
-                    value={outcomeDescription}
-                    onChange={(e) => setOutcomeDescription(e.target.value)}
-                  />
-                </div>
-                <Button type="submit">{t('createOutcome')}</Button>
+              <form onSubmit={(e) => void createOutcome(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="outcome-name">{t('outcomeName')}</FieldLabel>
+                    <Input id="outcome-name" value={outcomeName} onChange={(e) => setOutcomeName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel id="outcome-scale-label">{t('outcomeScale')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries(adminScales.map((s) => [s.id, s.name]))}
+                      value={outcomeScaleId === '' ? null : outcomeScaleId}
+                      onValueChange={(v) => setOutcomeScaleId(v ?? '')}
+                    >
+                      <SelectTrigger aria-labelledby="outcome-scale-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {adminScales.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="outcome-description">{t('outcomeDescriptionLabel')}</FieldLabel>
+                    <Input
+                      id="outcome-description"
+                      value={outcomeDescription}
+                      onChange={(e) => setOutcomeDescription(e.target.value)}
+                    />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createOutcome')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -1131,31 +1233,48 @@ export function GradebookPage() {
               <CardDescription>{t('gradeHistoryDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <form onSubmit={(e) => void loadHistory(e)} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="history-item">{t('gradeItem')}</Label>
-                  <select
-                    id="history-item"
-                    value={historyItemId}
-                    onChange={(e) => setHistoryItemId(e.target.value)}
-                    className="border px-2 py-1"
-                  >
-                    <option value="">{t('gradeItem')}</option>
-                    {adminItems.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.itemName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="history-user">{t('studentUserId')}</Label>
-                  <Input id="history-user" value={historyUserId} onChange={(e) => setHistoryUserId(e.target.value)} />
-                </div>
-                <Button type="submit">{t('viewHistory')}</Button>
+              <form onSubmit={(e) => void loadHistory(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel id="history-item-label">{t('gradeItem')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries(adminItems.map((i) => [i.id, i.itemName]))}
+                      value={historyItemId === '' ? null : historyItemId}
+                      onValueChange={(v) => setHistoryItemId(v ?? '')}
+                    >
+                      <SelectTrigger aria-labelledby="history-item-label" className="w-full">
+                        <SelectValue placeholder={t('gradeItem')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {adminItems.map((i) => (
+                          <SelectItem key={i.id} value={i.id}>
+                            {i.itemName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="history-user">{t('studentUserId')}</FieldLabel>
+                    <Input id="history-user" value={historyUserId} onChange={(e) => setHistoryUserId(e.target.value)} />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('viewHistory')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
-              {historyError ? <p role="alert">{historyError}</p> : null}
-              {historyRows !== null && historyRows.length === 0 ? <p>{t('historyEmpty')}</p> : null}
+              {historyError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{historyError}</AlertDescription>
+                </Alert>
+              ) : null}
+              {historyRows !== null && historyRows.length === 0 ? (
+                <Empty className="p-4">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('historyEmpty')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
               {historyRows !== null && historyRows.length > 0 ? (
                 <ul className="space-y-1 text-sm">
                   {historyRows.map((row) => (
@@ -1179,7 +1298,7 @@ export function GradebookPage() {
           </Card>
         </>
       )}
-    </main>
+    </PageShell>
   );
 }
 

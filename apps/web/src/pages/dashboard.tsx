@@ -16,6 +16,7 @@ import { DataTable, type DataColumn } from '#components/data-table';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { PageShell } from '../components/page-shell';
 
 /** Hình dạng sự kiện lịch mà trang này cần (khớp EventView của trang lịch). */
 interface CalendarEventView {
@@ -524,7 +525,9 @@ export function DashboardPage() {
   const name = user ? `${user.firstName} ${user.lastName}`.trim() || user.username : '';
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+    // PageShell wide (1280px) theo §3.2; các khối bên trong tự giữ đệm
+    // ngang px-4/lg:px-6 của riêng chúng nên PageShell tắt đệm của mình.
+    <PageShell width="wide" className="px-0 lg:px-0">
       <h1 className="px-4 text-2xl font-semibold lg:px-6">{t('dashboard:welcome', { name })}</h1>
       {perms.canAdminister ? <AdminSection /> : null}
       {perms.teaching.length > 0 ? <TeacherSection /> : null}
@@ -542,6 +545,6 @@ export function DashboardPage() {
           </Card>
         </div>
       ) : null}
-    </main>
+    </PageShell>
   );
 }

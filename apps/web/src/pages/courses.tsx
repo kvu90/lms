@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
@@ -28,6 +40,7 @@ export function CoursesPage() {
   // vào được thì probe lỗi và không hiện gì.
   const [progressByCourse, setProgressByCourse] = useState<Record<string, number | null>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
@@ -41,8 +54,10 @@ export function CoursesPage() {
   }, []);
 
   useEffect(() => {
-    void reload().catch(() => setMessage(t('coursesLoadFailed')));
-  }, [reload]);
+    void reload()
+      .catch(() => setMessage(t('coursesLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
 
   // Nạp % tiến độ của từng khoá sau khi có danh sách: probe độc lập
   // từng khoá, lỗi (chưa ghi danh/không quyền) thì bỏ qua lặng lẽ.
@@ -173,20 +188,37 @@ export function CoursesPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="wide">
+      <PageHeader title={t('coursesHeading')} />
       <Card>
         <CardHeader>
           <CardTitle>{t('courseCategories')}</CardTitle>
           <CardDescription>{t('courseCategoriesDescription')}</CardDescription>
         </CardHeader>
-        <CardContent>{tree.length === 0 ? <p>{t('noCategories')}</p> : renderTree(tree)}</CardContent>
+        <CardContent>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-5 w-56" />
+              <Skeleton className="h-5 w-72" />
+              <Skeleton className="h-5 w-48" />
+            </div>
+          ) : tree.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('noCategories')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            renderTree(tree)
+          )}
+        </CardContent>
       </Card>
 
-      {message && (
-        <p role="status" className="text-sm">
-          {message}
-        </p>
-      )}
+      {message ? (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {canAdminister && (
         <>
@@ -200,14 +232,14 @@ export function CoursesPage() {
                 {flatCategories.map((cat) => (
                   <li key={cat.id} data-testid={`category-admin-${cat.id}`} className="space-y-2 rounded border p-3">
                     <p className="font-medium">{cat.name}</p>
-                    <div className="space-y-2">
-                      <Label htmlFor={`cat-rename-${cat.id}`}>{t('renameCategory')}</Label>
+                    <Field>
+                      <FieldLabel htmlFor={`cat-rename-${cat.id}`}>{t('renameCategory')}</FieldLabel>
                       <Input
                         id={`cat-rename-${cat.id}`}
                         value={catEdits[cat.id] ?? cat.name}
                         onChange={(e) => setCatEdits((prev) => ({ ...prev, [cat.id]: e.target.value }))}
                       />
-                    </div>
+                    </Field>
                     <div className="flex gap-2">
                       <Button type="button" variant="outline" onClick={() => void renameCategory(cat)}>
                         {t('saveCategory')}
@@ -227,28 +259,39 @@ export function CoursesPage() {
               <CardTitle>{t('createCategory')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={createCategory} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="cat-name">{t('categoryName')}</Label>
-                  <Input id="cat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cat-parent">{t('parentCategory')}</Label>
-                  <select
-                    id="cat-parent"
-                    value={catParent}
-                    onChange={(e) => setCatParent(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                  >
-                    <option value="0">{t('topLevel')}</option>
-                    {flatCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button type="submit">{t('createCategory')}</Button>
+              <form onSubmit={createCategory}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="cat-name">{t('categoryName')}</FieldLabel>
+                    <Input id="cat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
+                  </Field>
+                  <Field>
+                    <FieldLabel id="cat-parent-label">{t('parentCategory')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries([
+                        ['0', t('topLevel')],
+                        ...flatCategories.map((c) => [c.id, c.name] as [string, string]),
+                      ])}
+                      value={catParent}
+                      onValueChange={(v) => setCatParent(v ?? '0')}
+                    >
+                      <SelectTrigger aria-labelledby="cat-parent-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">{t('topLevel')}</SelectItem>
+                        {flatCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit">{t('createCategory')}</Button>
+                  </div>
+                </FieldGroup>
               </form>
             </CardContent>
           </Card>
@@ -264,7 +307,7 @@ export function CoursesPage() {
           </Card>
         </>
       )}
-    </main>
+    </PageShell>
   );
 }
 

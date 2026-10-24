@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { QuizAttemptSummary, QuizView } from '@lms/contracts';
+import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -103,24 +107,51 @@ export function QuizResultsPage() {
 
   if (error)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <p role="alert">{error}</p>
-      </main>
+      <PageShell width="medium">
+        <PageHeader title={t('quizResultsHeading')} />
+        <Alert variant="destructive">
+          <AlertTitle>{t('quizResultsHeading')}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              void reload().catch(() => setError(t('quizResultsLoadFailed')));
+            }}
+          >
+            {t('retry')}
+          </Button>
+        </div>
+      </PageShell>
     );
   if (!data)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('quizResultsLoading')}</main>
+      <PageShell width="medium">
+        <PageHeader title={t('quizResultsHeading')} />
+        <div className="space-y-2" aria-label={t('quizResultsLoading')}>
+          <Skeleton className="h-4 w-56" />
+          <Skeleton className="h-4 w-80" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+      </PageShell>
     );
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader
+        title={t('quizResultsTitle', { name: data.quiz.name })}
+        description={t('quizResultsDescription', { method: t(`quizGradeMethod_${data.quiz.gradeMethod}`) })}
+      />
       <Card>
-        <CardHeader>
-          <CardTitle>{t('quizResultsTitle', { name: data.quiz.name })}</CardTitle>
-          <CardDescription>{t('quizResultsDescription', { method: t(`quizGradeMethod_${data.quiz.gradeMethod}`) })}</CardDescription>
-        </CardHeader>
         <CardContent className="space-y-4">
-          {actionError ? <p role="alert">{actionError}</p> : null}
+          {actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : null}
           <div>
             <h3 className="text-sm font-medium">{t('quizResultsGradesHeading')}</h3>
             <ul className="text-sm">
@@ -185,7 +216,13 @@ export function QuizResultsPage() {
               </div>
             </div>
           ))}
-          {data.needsGrading.length === 0 ? <p className="text-sm text-muted-foreground">{t('quizGradingQueueEmpty')}</p> : null}
+          {data.needsGrading.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('quizGradingQueueEmpty')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -221,14 +258,20 @@ export function QuizResultsPage() {
               )}
             </div>
           ))}
-          {data.questionStats.length === 0 ? <p className="text-sm text-muted-foreground">{t('quizStatsEmpty')}</p> : null}
+          {data.questionStats.length === 0 ? (
+            <Empty className="p-6">
+              <EmptyHeader>
+                <EmptyTitle>{t('quizStatsEmpty')}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : null}
         </CardContent>
       </Card>
 
       <p className="text-sm">
         <Link to={`/courses/${courseId}/quizzes/${quizId}`}>{t('quizBackToQuiz')}</Link>
       </p>
-    </main>
+    </PageShell>
   );
 }
 

@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson } from '#lib/api';
 
@@ -131,6 +141,8 @@ export function TokensPage() {
   const [tokens, setTokens] = useState<TokenView[]>([]);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(async () => {
     const [s, t] = await Promise.all([
       apiJson<ServiceView[]>('/api/v1/webservice/services'),
@@ -140,8 +152,10 @@ export function TokensPage() {
     setTokens(t);
   }, []);
   useEffect(() => {
-    void reload().catch(() => undefined);
-  }, [reload]);
+    void reload()
+      .catch(() => setLoadError(tr('tokensLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, tr]);
   async function createService(event: FormEvent) {
     event.preventDefault();
     await apiJson('/api/v1/webservice/services', {
@@ -165,53 +179,95 @@ export function TokensPage() {
     await reload();
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={tr('tokensTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setLoadError(tr('tokensLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {tr('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{tr('tokensTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
-          <form onSubmit={(e) => void createService(e)} className="flex gap-2">
-            <Label htmlFor="svc-name" className="sr-only">
-              {tr('serviceName')}
-            </Label>
-            <Input
-              id="svc-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={tr('serviceName')}
-            />
+          <form onSubmit={(e) => void createService(e)} className="flex items-end gap-2">
+            <Field className="flex-1">
+              <FieldLabel htmlFor="svc-name" className="sr-only">
+                {tr('serviceName')}
+              </FieldLabel>
+              <Input
+                id="svc-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={tr('serviceName')}
+              />
+            </Field>
             <Button type="submit">{tr('createService')}</Button>
           </form>
-          {createdToken ? <p role="status">{tr('newToken', { token: createdToken })}</p> : null}
-          <ul aria-label={tr('services')} className="space-y-2">
-            {services.map((s) => (
-              <li key={s.id} className="flex items-center gap-3 rounded border p-2">
-                <span className="font-medium">{s.name}</span>
-                <span className="text-xs">{s.functions.join(', ')}</span>
-                <Button type="button" variant="outline" onClick={() => void createToken(s.id)}>
-                  {tr('createToken')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <ul aria-label={tr('tokens')} className="space-y-2">
-            {tokens.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 rounded border p-2">
-                <span>
-                  Token #{t.id} for user {t.userId} {t.revoked ? '(revoked)' : ''}
-                </span>
-                {!t.revoked ? (
-                  <Button type="button" variant="outline" onClick={() => void revoke(t.id)}>
-                    {tr('revoke')}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          {createdToken ? (
+            <Alert>
+              <AlertDescription>{tr('newToken', { token: createdToken })}</AlertDescription>
+            </Alert>
+          ) : null}
+          {loading ? (
+            <div className="space-y-2" aria-label={tr('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={tr('services')} className="space-y-2">
+                {services.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded border p-2">
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-xs">{s.functions.join(', ')}</span>
+                    <Button type="button" variant="outline" onClick={() => void createToken(s.id)}>
+                      {tr('createToken')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {services.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{tr('noServicesYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+              <ul aria-label={tr('tokens')} className="space-y-2">
+                {tokens.map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 rounded border p-2">
+                    <span>
+                      Token #{t.id} for user {t.userId} {t.revoked ? '(revoked)' : ''}
+                    </span>
+                    {!t.revoked ? (
+                      <Button type="button" variant="outline" onClick={() => void revoke(t.id)}>
+                        {tr('revoke')}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
@@ -221,12 +277,16 @@ export function BackupPage() {
   const [jobs, setJobs] = useState<BackupJob[]>([]);
   const [steps, setSteps] = useState<BackupStep[]>([]);
   const [courseId, setCourseId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(async () => {
     setJobs(await apiJson<BackupJob[]>('/api/v1/backup/jobs'));
   }, []);
   useEffect(() => {
-    void reload().catch(() => undefined);
-  }, [reload]);
+    void reload()
+      .catch(() => setLoadError(t('backupLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
   async function createBackup(event: FormEvent) {
     event.preventDefault();
     await apiJson('/api/v1/backup/jobs', { method: 'POST', body: JSON.stringify({ courseId }) });
@@ -240,52 +300,90 @@ export function BackupPage() {
     await reload();
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={t('backupTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setLoadError(t('backupLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('backupTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
-          <form onSubmit={(e) => void createBackup(e)} className="flex gap-2">
-            <Label htmlFor="backup-course" className="sr-only">
-              {t('courseId')}
-            </Label>
-            <Input
-              id="backup-course"
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              placeholder={t('courseId')}
-            />
+          <form onSubmit={(e) => void createBackup(e)} className="flex items-end gap-2">
+            <Field className="flex-1">
+              <FieldLabel htmlFor="backup-course" className="sr-only">
+                {t('courseId')}
+              </FieldLabel>
+              <Input
+                id="backup-course"
+                value={courseId}
+                onChange={(e) => setCourseId(e.target.value)}
+                placeholder={t('courseId')}
+              />
+            </Field>
             <Button type="submit">{t('createBackup')}</Button>
           </form>
-          <ul aria-label={t('backupJobs')} className="space-y-2">
-            {jobs.map((j) => (
-              <li key={j.id} className="flex items-center gap-3 rounded border p-2">
-                <span>
-                  {t('jobLine', { type: j.type, id: j.id, courseId: j.courseId, status: j.status })}
-                  {j.targetCourseId ? ` → ${j.targetCourseId}` : ''}
-                </span>
-                <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>
-                  {t('steps')}
-                </Button>
-                {j.type === 'backup' && j.status === 'completed' ? (
-                  <Button type="button" onClick={() => void restore(j.id)}>
-                    {t('restoreAsNew')}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <ul aria-label={t('jobSteps')} className="space-y-1">
-            {steps.map((s) => (
-              <li key={s.id}>
-                {s.name}: {s.status}
-              </li>
-            ))}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={t('backupJobs')} className="space-y-2">
+                {jobs.map((j) => (
+                  <li key={j.id} className="flex items-center gap-3 rounded border p-2">
+                    <span>
+                      {t('jobLine', { type: j.type, id: j.id, courseId: j.courseId, status: j.status })}
+                      {j.targetCourseId ? ` → ${j.targetCourseId}` : ''}
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>
+                      {t('steps')}
+                    </Button>
+                    {j.type === 'backup' && j.status === 'completed' ? (
+                      <Button type="button" onClick={() => void restore(j.id)}>
+                        {t('restoreAsNew')}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {jobs.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noBackupJobsYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+              <ul aria-label={t('jobSteps')} className="space-y-1">
+                {steps.map((s) => (
+                  <li key={s.id}>
+                    {s.name}: {s.status}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
@@ -293,32 +391,72 @@ export function BackupPage() {
 export function InsightsPage() {
   const { t: t } = useTranslation();
   const [insights, setInsights] = useState<InsightView[]>([]);
-  useEffect(() => {
-    void apiJson<InsightView[]>('/api/v1/analytics/insights/me')
-      .then(setInsights)
-      .catch(() => undefined);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    setInsights(await apiJson<InsightView[]>('/api/v1/analytics/insights/me'));
   }, []);
+  useEffect(() => {
+    void load()
+      .catch(() => setLoadError(t('insightsLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [load, t]);
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={t('insightsTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void load()
+                  .catch(() => setLoadError(t('insightsLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('insightsTitle')}</CardTitle>
-        </CardHeader>
         <CardContent>
-          <ul aria-label={t('insightsTitle')} className="space-y-2">
-            {insights.map((i) => (
-              <li key={i.id} className="rounded border p-2">
-                <p className="font-medium">{i.heading}</p>
-                <p className="text-sm">
-                  Student {i.userId} · course {i.courseId}
-                </p>
-              </li>
-            ))}
-            {insights.length === 0 ? <li>{t('noInsights')}</li> : null}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={t('insightsTitle')} className="space-y-2">
+                {insights.map((i) => (
+                  <li key={i.id} className="rounded border p-2">
+                    <p className="font-medium">{i.heading}</p>
+                    <p className="text-sm">
+                      Student {i.userId} · course {i.courseId}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              {insights.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noInsights')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
@@ -329,12 +467,16 @@ export function ReportsPage() {
   const [name, setName] = useState('');
   const [dataSource, setDatasource] = useState('enrolments');
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(async () => {
     setReports(await apiJson<ReportView[]>('/api/v1/reports'));
   }, []);
   useEffect(() => {
-    void reload().catch(() => undefined);
-  }, [reload]);
+    void reload()
+      .catch(() => setLoadError(t('reportsLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
   async function create(event: FormEvent) {
     event.preventDefault();
     await apiJson('/api/v1/reports', {
@@ -352,56 +494,105 @@ export function ReportsPage() {
     await apiJson(`/api/v1/reports/${id}/schedules`, { method: 'POST', body: JSON.stringify({ cron: 'daily' }) });
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="wide">
+      <PageHeader title={t('reportsTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setLoadError(t('reportsLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('reportsTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
-          <form onSubmit={(e) => void create(e)} className="flex gap-2">
-            <Label htmlFor="report-name" className="sr-only">
-              {t('reportName')}
-            </Label>
-            <Input
-              id="report-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('reportName')}
-            />
-            <Label htmlFor="report-datasource" className="sr-only">
-              {t('dataSource')}
-            </Label>
-            <select id="report-datasource" value={dataSource} onChange={(e) => setDatasource(e.target.value)}>
-              <option value="enrolments">{t('dsEnrolments')}</option>
-              <option value="grades">{t('dsGrades')}</option>
-              <option value="completion">{t('dsCompletion')}</option>
-            </select>
+          <form onSubmit={(e) => void create(e)} className="flex items-end gap-2">
+            <Field className="flex-1">
+              <FieldLabel htmlFor="report-name" className="sr-only">
+                {t('reportName')}
+              </FieldLabel>
+              <Input
+                id="report-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('reportName')}
+              />
+            </Field>
+            <Field>
+              <FieldLabel id="report-datasource-label" className="sr-only">
+                {t('dataSource')}
+              </FieldLabel>
+              <Select
+                items={{ enrolments: t('dsEnrolments'), grades: t('dsGrades'), completion: t('dsCompletion') }}
+                value={dataSource}
+                onValueChange={(v) => setDatasource(v ?? 'enrolments')}
+              >
+                <SelectTrigger aria-labelledby="report-datasource-label" className="w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="enrolments">{t('dsEnrolments')}</SelectItem>
+                  <SelectItem value="grades">{t('dsGrades')}</SelectItem>
+                  <SelectItem value="completion">{t('dsCompletion')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
             <Button type="submit">{t('createReport')}</Button>
           </form>
-          <ul aria-label={t('reports')} className="space-y-2">
-            {reports.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 rounded border p-2">
-                <span>
-                  {r.name} ({r.dataSource})
-                </span>
-                <Button type="button" variant="outline" onClick={() => void run(r.id)}>
-                  {t('run')}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void schedule(r.id)}>
-                  {t('scheduleDaily')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <p aria-label={t('reportRows', { count: rows.length })}>{t('reportRows', { count: rows.length })}</p>
-          <ul aria-label={t('reportResult')} className="space-y-1">
-            {rows.map((row, i) => (
-              <li key={i}>{JSON.stringify(row)}</li>
-            ))}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={t('reports')} className="space-y-2">
+                {reports.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 rounded border p-2">
+                    <span>
+                      {r.name} ({r.dataSource})
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => void run(r.id)}>
+                      {t('run')}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => void schedule(r.id)}>
+                      {t('scheduleDaily')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {reports.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noReportsYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+              <p aria-label={t('reportRows', { count: rows.length })}>{t('reportRows', { count: rows.length })}</p>
+              <ul aria-label={t('reportResult')} className="space-y-1">
+                {rows.map((row, i) => (
+                  <li key={i}>{JSON.stringify(row)}</li>
+                ))}
+              </ul>
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
@@ -411,13 +602,17 @@ export function ContentBankPage() {
   const [items, setItems] = useState<ContentView[]>([]);
   const [name, setName] = useState('');
   const [contextId, setContextId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(async () => {
     const path = contextId ? `/api/v1/contentbank?contextId=${contextId}` : '/api/v1/contentbank';
     setItems(await apiJson<ContentView[]>(path));
   }, [contextId]);
   useEffect(() => {
-    void reload().catch(() => undefined);
-  }, [reload]);
+    void reload()
+      .catch(() => setLoadError(t('contentBankLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
   async function create(event: FormEvent) {
     event.preventDefault();
     await apiJson('/api/v1/contentbank', {
@@ -439,43 +634,83 @@ export function ContentBankPage() {
     await reload();
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={t('contentBankTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setLoadError(t('contentBankLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('contentBankTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
-          <form onSubmit={(e) => void create(e)} className="flex gap-2">
-            <Label htmlFor="cb-name" className="sr-only">
-              {t('contentName')}
-            </Label>
-            <Input id="cb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contentName')} />
-            <Label htmlFor="cb-context" className="sr-only">
-              {t('contextId')}
-            </Label>
-            <Input
-              id="cb-context"
-              value={contextId}
-              onChange={(e) => setContextId(e.target.value)}
-              placeholder={t('contextId')}
-            />
+          <form onSubmit={(e) => void create(e)} className="flex items-end gap-2">
+            <Field className="flex-1">
+              <FieldLabel htmlFor="cb-name" className="sr-only">
+                {t('contentName')}
+              </FieldLabel>
+              <Input id="cb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contentName')} />
+            </Field>
+            <Field className="flex-1">
+              <FieldLabel htmlFor="cb-context" className="sr-only">
+                {t('contextId')}
+              </FieldLabel>
+              <Input
+                id="cb-context"
+                value={contextId}
+                onChange={(e) => setContextId(e.target.value)}
+                placeholder={t('contextId')}
+              />
+            </Field>
             <Button type="submit">{t('addContent')}</Button>
           </form>
-          <ul aria-label={t('contentItems')} className="space-y-2">
-            {items.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 rounded border p-2">
-                <span>
-                  {c.name} — {c.visibility}
-                </span>
-                <Button type="button" variant="outline" onClick={() => void upload(c.id)}>
-                  {t('uploadFile')}
-                </Button>
-              </li>
-            ))}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={t('contentItems')} className="space-y-2">
+                {items.map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 rounded border p-2">
+                    <span>
+                      {c.name} — {c.visibility}
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => void upload(c.id)}>
+                      {t('uploadFile')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {items.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noContentYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 
@@ -487,12 +722,16 @@ export function PrivacyPage() {
   const { t: t } = useTranslation();
   const [requests, setRequests] = useState<PrivacyRequestView[]>([]);
   const [sent, setSent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const reload = useCallback(async () => {
     setRequests(await apiJson<PrivacyRequestView[]>('/api/v1/privacy/requests'));
   }, []);
   useEffect(() => {
-    void reload().catch(() => undefined);
-  }, [reload]);
+    void reload()
+      .catch(() => setLoadError(t('privacyLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
   async function send(type: 'export' | 'delete') {
     const created = await apiJson<PrivacyRequestView>('/api/v1/privacy/requests', {
       method: 'POST',
@@ -506,11 +745,31 @@ export function PrivacyPage() {
     await reload();
   }
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <PageShell width="medium">
+      <PageHeader title={t('privacyTitle')} />
+      {loadError ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setLoadError(t('privacyLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('privacyTitle')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Button type="button" onClick={() => void send('export')}>
@@ -520,26 +779,46 @@ export function PrivacyPage() {
               {t('requestDelete')}
             </Button>
           </div>
-          {sent ? <p role="status">{sent}</p> : null}
-          <ul aria-label={t('privacyRequests')} className="space-y-2">
-            {requests.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 rounded border p-2">
-                <span>{t('requestLine', { id: r.id, userId: r.userId, type: r.type, status: r.status })}</span>
-                {r.status === 'pending' ? (
-                  <>
-                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'approved')}>
-                      {t('approve')}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => void decide(r.id, 'rejected')}>
-                      {t('reject')}
-                    </Button>
-                  </>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          {sent ? (
+            <Alert>
+              <AlertDescription>{sent}</AlertDescription>
+            </Alert>
+          ) : null}
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul aria-label={t('privacyRequests')} className="space-y-2">
+                {requests.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 rounded border p-2">
+                    <span>{t('requestLine', { id: r.id, userId: r.userId, type: r.type, status: r.status })}</span>
+                    {r.status === 'pending' ? (
+                      <>
+                        <Button type="button" variant="outline" onClick={() => void decide(r.id, 'approved')}>
+                          {t('approve')}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => void decide(r.id, 'rejected')}>
+                          {t('reject')}
+                        </Button>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {requests.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noPrivacyRequestsYet')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
