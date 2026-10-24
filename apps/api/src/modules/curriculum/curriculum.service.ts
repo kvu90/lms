@@ -348,11 +348,19 @@ export class CurriculumService {
   }
 
   /**
-   * Kiểm chứng truy vết nguồn của YCCĐ (mục A.3): `derived_from_id` chỉ
-   * dùng khi source_kind = 'derived', phải trỏ tới một YCCĐ có thật và
-   * không tự trỏ vào chính nó.
+   * Kiểm chứng truy vết nguồn của YCCĐ (mục A.3): `source_kind =
+   * 'derived'` bắt buộc có `derived_from_id` (F2); `derived_from_id`
+   * chỉ dùng khi source_kind = 'derived', phải trỏ tới một YCCĐ có
+   * thật và không tự trỏ vào chính nó. Kiểm chứng trên trạng thái gộp
+   * (bản ghi hiện tại + thay đổi) nên áp cho cả tạo mới lẫn PATCH.
    */
   private async assertOutcomeSource(state: { sourceKind: string; derivedFromId: string | null }, selfId?: string): Promise<void> {
+    if (state.sourceKind === 'derived' && state.derivedFromId === null) {
+      throw new BadRequestException({
+        message: 'derivedFromId is required when sourceKind is derived',
+        code: 'curriculum.outcome_derived_from_required',
+      });
+    }
     if (state.derivedFromId === null) return;
     if (selfId !== undefined && state.derivedFromId === selfId) {
       throw new BadRequestException({ message: 'A learning outcome cannot be derived from itself', code: 'curriculum.outcome_derived_from_self' });

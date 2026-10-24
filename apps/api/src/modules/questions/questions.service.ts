@@ -634,10 +634,12 @@ export class QuestionsService {
 
   /**
    * Gắn câu hỏi vào một YCCĐ kèm mức độ nhận thức của cặp (mức nằm trên
-   * dòng nối — mục A.2). Nhất quán môn: khi câu đã khai gắn môn tường
-   * minh (có ít nhất một dòng question_subjects) mà YCCĐ thuộc môn khác
-   * hẳn → 400; câu chưa khai môn nào thì môn của YCCĐ suy ngược được từ
-   * chính dòng nối, không cần khai trước.
+   * dòng nối — mục A.2). KHÔNG có quy tắc nhất quán môn ở cửa này (vòng
+   * sửa F1 của review độc lập Chặng 2): `question_subjects` chỉ là khai
+   * báo tường minh, và môn của câu khi lọc/đếm là hợp nhất khai báo
+   * tường minh với môn suy ngược từ các YCCĐ đã gắn (xem
+   * `filterQuestionsByCurriculumLinks`) — nên gắn YCCĐ thuộc bất kỳ môn
+   * nào cũng được, bất kể câu đã khai môn gì hay chưa.
    */
   async attachOutcome(actorId: string, questionId: string, outcomeId: string, cognitiveLevel: string): Promise<QuestionCurriculumLinksView> {
     await this.questionForEdit(actorId, questionId);
@@ -645,13 +647,6 @@ export class QuestionsService {
     if (!chain) throw new NotFoundException({ message: `Learning outcome ${outcomeId} not found`, code: 'curriculum.outcome_not_found' });
     if (await this.repo.getQuestionOutcomeLink(questionId, outcomeId)) {
       throw new ConflictException({ message: 'Question is already linked to this learning outcome', code: 'question.outcome_link_exists' });
-    }
-    const subjectLinks = await this.repo.listQuestionSubjectLinks(questionId);
-    if (subjectLinks.length > 0 && !subjectLinks.some((l) => l.subjectId === chain.subject.id)) {
-      throw new BadRequestException({
-        message: 'Learning outcome belongs to a subject the question is not linked to; link that subject first or unlink the current subjects',
-        code: 'question.outcome_subject_mismatch',
-      });
     }
     try {
       await this.repo.insertQuestionOutcomeLink({ questionId, learningOutcomeId: outcomeId, cognitiveLevel });
