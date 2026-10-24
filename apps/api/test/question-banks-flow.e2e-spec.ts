@@ -338,6 +338,37 @@ describe('Shared question bank (feat #70)', () => {
     expect((studentBanks.body as BankBody[]).some((b) => b.id === bank.id)).toBe(false);
   });
 
+  it('QB-4 (điểm chặn 4 phán quyết PR #83): khám phá thấy câu ở category khoá hiện hữu', async () => {
+    const { course, teacher, courseCtxId } = await mkCourseWithTeacherAndStudent();
+    // Category hiện hữu trong context khoá, không gắn bank_id.
+    const catRes = await http(app).post('/api/v1/questions/categories').set(bearer(teacher.token))
+      .send({ name: 'Chương 1', contextId: courseCtxId });
+    expect(catRes.status, JSON.stringify(catRes.body)).toBe(201);
+    const categoryId = (catRes.body as { id: string }).id;
+    const q = await createQuestion(teacher.token, categoryId, 'Câu trong category khoá', 'Thân câu trong category khoá?');
+    // Tạo bank khoá SAU — câu hiện hữu phải được suy về bank khoá.
+    const create = await http(app).post('/api/v1/question-banks').set(bearer(teacher.token))
+      .send({ name: 'Ngân hàng khoá', scope: 'course', scopeRefId: course.id });
+    expect(create.status, JSON.stringify(create.body)).toBe(201);
+    const bank = create.body as BankBody;
+    const disc = await http(app).get(`/api/v1/questions/discovery?bankId=${bank.id}`).set(bearer(teacher.token));
+    expect(disc.status).toBe(200);
+    expect((disc.body as { questionId: string }[]).some((d) => d.questionId === q.question.id)).toBe(true);
+    // Không lọc bank cũng thấy câu đó.
+    const all = await http(app).get('/api/v1/questions/discovery').set(bearer(teacher.token));
+    expect((all.body as { questionId: string }[]).some((d) => d.questionId === q.question.id)).toBe(true);
+  });
+
+  it('QB-2 (điểm chặn 2 phán quyết PR #83): học sinh không đọc được attribution', async () => {
+    const { teacher, student } = await mkCourseWithTeacherAndStudent();
+    const bank = await myPersonalBank(teacher.token);
+    const q = await createQuestion(teacher.token, bank.defaultCategoryId!, 'Câu có truy vết', 'Thân câu có truy vết?');
+    const asTeacher = await http(app).get(`/api/v1/questions/${q.question.id}/attribution`).set(bearer(teacher.token));
+    expect(asTeacher.status).toBe(200);
+    const asStudent = await http(app).get(`/api/v1/questions/${q.question.id}/attribution`).set(bearer(student.token));
+    expect(asStudent.status).toBe(404);
+  });
+
   // --- QB-3 -------------------------------------------------------------------
 
   it('QB-3: slot từ bank tổ mặc định pinned — attempt giữ bản ghim qua sửa + rút; nâng version ghi nhật ký; xoá bị chặn', async () => {

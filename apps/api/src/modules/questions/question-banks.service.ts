@@ -417,10 +417,20 @@ export class QuestionBanksService {
     return first;
   }
 
-  /** Kiểm chứng một category thuộc về một bank (theo bank_id hoặc theo context bank). */
+  /**
+   * Kiểm chứng một category thuộc về một bank — MỘT phép suy duy nhất
+   * cho mọi bề mặt (điểm chặn 4 phán quyết PR #83): bank_id tường minh
+   * trước; category sống trực tiếp trong context bank thì thuộc bank đó;
+   * còn lại suy theo context như findBankForCategory (category ở context
+   * khoá thuộc bank khoá, category ở context hệ thống/danh mục thuộc
+   * bank trường) — trước đây các bề mặt tự suy kiểu khác nhau nên
+   * category khoá hiện hữu bị sót khỏi khám phá và chống trùng.
+   */
   async categoryBelongsToBank(category: QCategoryRow, bank: QuestionBankRow): Promise<boolean> {
     if (category.bankId) return category.bankId === bank.id;
-    return category.contextId === bank.contextId;
+    if (category.contextId === bank.contextId) return true;
+    const inferred = await this.findBankForCategory(category);
+    return inferred?.id === bank.id;
   }
 
   // --- QB-2: copy có truy vết -------------------------------------------------------------
@@ -768,7 +778,14 @@ export class QuestionBanksService {
   /** Quét bank đích tìm câu trùng hoàn toàn (cùng hash) / gần trùng (cùng thân câu) với một version nguồn. */
   private async findDuplicatesInBank(bank: QuestionBankRow, qtype: string, sourceVersionId: string, sourceText: unknown): Promise<{ exactId: string | null; nearId: string | null }> {
     const source = await this.versionHashes(qtype, sourceVersionId, sourceText);
-    const categories = await this.repo.listCategoriesOfBank(bank.id);
+    // Quét MỌI category thuộc bank theo phép suy thống nhất (kể cả
+    // category khoá hiện hữu không gắn bank_id) — trước đây chỉ quét
+    // category gắn bank_id tường minh nên chống trùng sót câu khoá.
+    const allCategories = await this.questionsRepo.listCategories();
+    const categories: QCategoryRow[] = [];
+    for (const cat of allCategories) {
+      if (await this.categoryBelongsToBank(cat, bank)) categories.push(cat);
+    }
     const rows = await this.repo.listQuestionsWithEntryInCategories(categories.map((c) => c.id));
     let nearId: string | null = null;
     for (const { q, entry } of rows) {
@@ -1002,14 +1019,15 @@ export class QuestionBanksService {
     const moderatorByBank = new Map<string, boolean>();
     for (const b of activeBanks) moderatorByBank.set(b.id, b.capabilities.moderate);
 
-    // Category của các bank đang xét: bank_id tường minh, hoặc context
-    // của category chính là context của bank (category hiện hữu suy bank
-    // theo context như QB-1).
+    // Category của các bank đang xét theo phép suy thống nhất
+    // categoryBelongsToBank (kể cả category khoá hiện hữu không gắn
+    // bank_id — trước đây chỉ khớp bank_id tường minh hoặc context
+    // trùng context bank nên khám phá sót toàn bộ câu khoá).
     const allCategories = await this.questionsRepo.listCategories();
     const categoryBank = new Map<string, QuestionBankRow>();
     for (const cat of allCategories) {
       for (const bank of activeBanks) {
-        if (cat.bankId === bank.id || (!cat.bankId && cat.contextId === bank.contextId)) {
+        if (await this.categoryBelongsToBank(cat, bank)) {
           categoryBank.set(cat.id, bank);
           break;
         }
