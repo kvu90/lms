@@ -1,12 +1,54 @@
-import type { ReactNode } from 'react';
-import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useRouteError } from 'react-router';
+import { useState, type ReactNode } from 'react';
+import {
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  isRouteErrorResponse,
+  useLoaderData,
+  useRouteError,
+} from 'react-router';
+import type { UserProfile } from '@lms/contracts';
+import { userProfileSchema } from '@lms/contracts';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
 import { PermissionsProvider } from './lib/permissions';
-import { queryClient } from './lib/query-client';
+import { createQueryClient, queryClient } from './lib/query-client';
+import { fetchApiJson } from './lib/server-api';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
 import '@lms/ui/globals.css';
+
+/**
+ * Loader gốc (SSR, Giai đoạn 3–4 của issue #7): chỉ lấy DANH TÍNH TỐI
+ * THIỂU cho vỏ trang. Khi request mang cookie phiên `lms_session` (luồng
+ * phiên cookie sẵn có của API), loader chuyển nguyên Cookie sang API
+ * nội bộ gọi GET /auth/session/me; không có cookie thì mặc định ẩn danh
+ * và KHÔNG gọi API. Nhờ vậy HTML phía server và lần render đầu phía
+ * client dùng chung một trạng thái phiên khởi tạo (không lệch hydrate),
+ * và hai tài khoản khác nhau không bao giờ nhận HTML của nhau: HTML
+ * chứa dữ liệu riêng chỉ sinh khi request mang đúng cookie của chủ
+ * phiên. Token ở localStorage (luồng chính hiện tại) không đọc được
+ * phía server — người dùng luồng đó vẫn được client resolve như trước
+ * ngay sau hydrate; chuyển hẳn sang phiên cookie là Giai đoạn 2.
+ */
+export async function loader({ request }: { request: Request }): Promise<{ initialUser: UserProfile | null }> {
+  const cookie = request.headers.get('Cookie') ?? '';
+  if (!/(?:^|;\s*)lms_session=/.test(cookie)) return { initialUser: null };
+  const body = await fetchApiJson('/api/v1/auth/session/me', { Cookie: cookie });
+  const parsed = userProfileSchema.safeParse(body);
+  return { initialUser: parsed.success ? parsed.data : null };
+}
+
+/**
+ * Mọi tài liệu HTML và dữ liệu loader đều có thể chứa dữ liệu theo
+ * phiên → cấm cache công khai ở mọi tầng trung gian; chỉ asset có hash
+ * nội dung (phục vụ bởi tiến trình SSR) mới cache dài hạn.
+ */
+export function headers(): Record<string, string> {
+  return { 'Cache-Control': 'private, no-cache' };
+}
 
 /**
  * Vỏ tài liệu HTML của toàn app (React Router framework mode): root route
@@ -47,9 +89,20 @@ export function Layout({ children }: { children: ReactNode }) {
  * (chặn mount trang con cho tới khi phiên resolve) nằm ở layout Shell.
  */
 export default function App() {
+  // Cây render ngoài route gốc (test nhúng, bản nhúng từng phần) có
+  // thể không có dữ liệu loader: khi đó initialUser là undefined và
+  // AuthProvider giữ hành vi resolve phía client như trước SSR.
+  const loaderData = useLoaderData<typeof loader>() as { initialUser: UserProfile | null } | undefined;
+  const initialUser = loaderData?.initialUser;
+  // QueryClient phía server phải là instance THEO TỪNG REQUEST (cache
+  // dùng chung giữa các request trên cùng tiến trình SSR sẽ rò dữ liệu
+  // giữa người dùng); phía client giữ singleton như trước để tầng phiên
+  // xoá cache khi đổi danh tính. useState bảo đảm mỗi cây render — tức
+  // mỗi request phía server — có đúng một instance riêng.
+  const [requestQueryClient] = useState(() => (typeof window === 'undefined' ? createQueryClient() : null));
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+    <QueryClientProvider client={requestQueryClient ?? queryClient}>
+      <AuthProvider initialUser={initialUser}>
         <PermissionsProvider>
           <Outlet />
         </PermissionsProvider>
@@ -59,10 +112,11 @@ export default function App() {
 }
 
 /**
- * Khung hiển thị trong lúc chờ hydrate ở lần tải đầu (chế độ SPA): HTML
- * dựng sẵn lúc build chính là khung này, nên paint đầu tiên đã có đúng
- * hình học của khung đã đăng nhập thay vì trang trắng hay khung công
- * khai bị thay thế sau đó.
+ * Khung giữ chỗ khi lần tải đầu chưa có HTML phía server để hydrate
+ * (ví dụ điều hướng phía client trước khi loader gốc kịp trả): giữ
+ * khung giữ chỗ đúng hình học của khung đã đăng nhập thay vì trang
+ * trắng. Với SSR bật, request tài liệu thông thường đã có HTML thật
+ * từ server nên khung này ít khi xuất hiện.
  */
 export function HydrateFallback() {
   return <AppShellSkeleton />;

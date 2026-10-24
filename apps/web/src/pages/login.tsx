@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLoaderData, useNavigate, useSearchParams } from 'react-router';
+import type { OAuthProvidersResponse } from '@lms/contracts';
+import { fetchApiJson } from '#lib/server-api';
 import type { OAuthIssuer } from '@lms/contracts';
 import { oauthAuthorizeResponseSchema, oauthProvidersResponseSchema } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -32,7 +34,21 @@ const OAUTH_BUTTON_KEYS: Record<OAuthIssuer, string> = {
   facebook: 'signInWithFacebook',
 };
 
-export function LoginPage() {
+/**
+ * Loader phía server (SSR, Giai đoạn 3 của issue #7): danh sách nhà
+ * cung cấp OAuth đang bật là dữ liệu CÔNG KHAI (endpoint @Public) nên
+ * lấy ngay trong loader qua API nội bộ và đưa vào HTML + cache truy
+ * vấn khởi tạo — trang đăng nhập render đủ nút OAuth từ paint đầu
+ * thay vì chờ fetch phía client. Lỗi phía API → trả null, trang vẫn
+ * render và truy vấn phía client tự thử lại như trước.
+ */
+export async function loader(): Promise<{ providers: OAuthProvidersResponse | null }> {
+  const body = await fetchApiJson('/api/v1/auth/oauth/providers');
+  const parsed = oauthProvidersResponseSchema.safeParse(body);
+  return { providers: parsed.success ? parsed.data : null };
+}
+
+export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvidersResponse | null } = {}) {
   const { t } = useTranslation('app');
   const { login, completeMfaLogin } = useAuth();
   const navigate = useNavigate();
@@ -56,6 +72,10 @@ export function LoginPage() {
   const providersQuery = useQuery({
     queryKey: queryKeys.oauthProviders,
     queryFn: async () => oauthProvidersResponseSchema.parse(await apiJson('/api/v1/auth/oauth/providers')),
+    // Dữ liệu loader phía server là cùng một đáp án: dùng làm giá trị
+    // khởi tạo để lần render đầu (cả server lẫn client) đã có đủ nút
+    // OAuth; nền truy vấn vẫn làm mới theo staleTime như mọi query.
+    initialData: initialProviders ?? undefined,
   });
   const enabledIssuers = (providersQuery.data?.providers ?? []).filter((p) => p.enabled).map((p) => p.issuer);
 
@@ -229,5 +249,13 @@ export function LoginPage() {
   );
 }
 
-/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
-export default LoginPage;
+/**
+ * Export mặc định cho route module React Router framework mode (xem
+ * src/routes.ts): bọc mỏng đọc dữ liệu loader rồi truyền xuống
+ * LoginPage thuần — nhờ vậy test render trực tiếp LoginPage (không qua
+ * loader) vẫn chạy như trước.
+ */
+export default function LoginRoute() {
+  const loaderData = useLoaderData<typeof loader>();
+  return <LoginPage initialProviders={loaderData?.providers ?? null} />;
+}
