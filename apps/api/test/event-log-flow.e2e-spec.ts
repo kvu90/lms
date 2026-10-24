@@ -40,6 +40,10 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     return { status: res.status, body: res.body as LogPage };
   }
 
+  // Trần hook 120s (không phải 30s mặc định): vòng xả relay ở cuối
+  // beforeAll phải duyệt TUẦN TỰ toàn bộ outbox tồn đọng của cả suite
+  // trên cùng DB (relay API không tự chạy theo lịch), nên dưới tải CI
+  // nó vượt 30s dù mọi assertion đều đúng — xem bàn giao fix CI PR #76.
   beforeAll(async () => {
     app = await createTestApp();
     relay = app.get(OutboxRelayService);
