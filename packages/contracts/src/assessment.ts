@@ -520,7 +520,9 @@ export type QuestionAnswerInput = z.infer<typeof questionAnswerInputSchema>;
  * chọn, tầng nghiệp vụ chỉ lấy các trường thuộc về qtype của câu hỏi:
  * multichoice (`single`, `shuffleAnswers`, `answerNumbering`,
  * `showNumCorrect`, `showStandardInstruction`, ba feedback theo mức đúng),
- * truefalse (`showStandardInstruction`), shortanswer (`useCase`), essay
+ * truefalse (`showStandardInstruction`), shortanswer (`useCase` + cờ đáp
+ * án số `numericAnswer`/`numericMaxLength`/`numericAllowSign`/
+ * `numericAllowDecimal` — mặc định tắt, điểm 6.3.3 issue #30), essay
  * (`responseFormat`, `responseRequired`, `responseFieldLines`,
  * `minWordLimit`, `maxWordLimit`, `graderInfo`, `responseTemplate`).
  */
@@ -531,6 +533,10 @@ export const questionOptionsInputSchema = z.strictObject({
   showNumCorrect: z.boolean().optional(),
   showStandardInstruction: z.boolean().optional(),
   useCase: z.boolean().optional(),
+  numericAnswer: z.boolean().optional(),
+  numericMaxLength: z.number().int().positive().nullable().optional(),
+  numericAllowSign: z.boolean().optional(),
+  numericAllowDecimal: z.boolean().optional(),
   responseFormat: z.string().optional(),
   responseRequired: z.boolean().optional(),
   responseFieldLines: z.number().int().optional(),
@@ -704,6 +710,10 @@ export const quizViewSchema = z.object({
   reviewGeneralFeedback: z.number().int(),
   reviewRightAnswer: z.number().int(),
   reviewOverallFeedback: z.number().int(),
+  /** Ma trận nguồn khi đề sinh từ ma trận (Chặng 3); null với đề dựng tay. */
+  matrixId: uuidIdSchema.nullable(),
+  /** Thang Đ–S chùm hiệu lực của đề; null = mặc định QĐ 764 [0, 10, 25, 50, 100]. */
+  tfScale: tfScaleSchema.nullable(),
   slots: z.array(quizSlotViewSchema),
   sumGrades: z.number(),
 });
@@ -754,6 +764,8 @@ export const createQuizSchema = z.strictObject({
   gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
   grade: z.number().positive().optional(),
   shuffleAnswers: z.boolean().optional(),
+  /** Thang Đ–S chùm của đề (Chặng 3); `null` = dùng mặc định QĐ 764. */
+  tfScale: tfScaleSchema.nullable().optional(),
   ...quizAccessRuleFields,
 });
 export type CreateQuiz = z.infer<typeof createQuizSchema>;
@@ -769,6 +781,7 @@ export const updateQuizSchema = z.strictObject({
   gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
   grade: z.number().positive().optional(),
   shuffleAnswers: z.boolean().optional(),
+  tfScale: tfScaleSchema.nullable().optional(),
   ...quizAccessRuleFields,
 });
 export type UpdateQuiz = z.infer<typeof updateQuizSchema>;

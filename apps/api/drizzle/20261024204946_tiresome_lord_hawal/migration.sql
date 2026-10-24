@@ -729,7 +729,11 @@ CREATE TABLE "qtype_multichoice_options" (
 CREATE TABLE "qtype_shortanswer_options" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"question_version_id" uuid NOT NULL CONSTRAINT "qtype_shortanswer_options_version_unique" UNIQUE,
-	"use_case" boolean DEFAULT false NOT NULL
+	"use_case" boolean DEFAULT false NOT NULL,
+	"numeric_answer" boolean DEFAULT false NOT NULL,
+	"numeric_max_length" integer,
+	"numeric_allow_sign" boolean DEFAULT true NOT NULL,
+	"numeric_allow_decimal" boolean DEFAULT true NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "question" (

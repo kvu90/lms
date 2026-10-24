@@ -3,10 +3,14 @@
   "version": "9",
   "dialect": "postgres",
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
   "id": "79aa6f2c-c3f9-4051-889a-c41e10c2b126",
 ========
   "id": "634c9744-81eb-4f0f-84d8-9ee6ebbb0ec3",
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+========
+  "id": "e53edcde-7261-4495-9641-7fafda9ac832",
+>>>>>>>> d71ebb2 (feat(questions): Chặng 3 C0 — chế độ đáp án số cho shortanswer (cờ cấu hình, mặc định tắt)):apps/api/drizzle/20261024145314_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -20797,6 +20801,58 @@
       "notNull": true,
       "dimensions": 0,
       "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_answer",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_max_length",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_allow_sign",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "qtype_shortanswer_options",
+      "name": "numeric_allow_decimal",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
       "generated": null,
       "identity": null,
       "entityType": "columns"

@@ -294,11 +294,22 @@ export const questionTruefalse = pgTable('question_truefalse', {
   ]);
 
 
-/** Options của shortanswer (Moodle `qtype_shortanswer_options`): chỉ có use_case; đáp án nằm hết ở question_answers. */
+/**
+ * Options của shortanswer (Moodle `qtype_shortanswer_options`): use_case
+ * của Moodle; đáp án nằm hết ở question_answers. Bốn cột numeric_* là
+ * chế độ đáp án số kiểu thi tốt nghiệp (điểm 6.3.3 đã chốt trên issue
+ * #30): cờ cấu hình MẶC ĐỊNH TẮT — tắt thì ngữ nghĩa Moodle nguyên vẹn,
+ * bật thì engine ràng buộc đáp án là một số trong độ dài/bộ ký tự cấu
+ * hình trước khi so khớp mẫu.
+ */
 export const qtypeShortanswerOptions = pgTable('qtype_shortanswer_options', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
   useCase: boolean('use_case').notNull().default(false),
+  numericAnswer: boolean('numeric_answer').notNull().default(false),
+  numericMaxLength: integer('numeric_max_length'),
+  numericAllowSign: boolean('numeric_allow_sign').notNull().default(true),
+  numericAllowDecimal: boolean('numeric_allow_decimal').notNull().default(true),
 },
   (table) => [
       unique('qtype_shortanswer_options_version_unique').on(table.questionVersionId),

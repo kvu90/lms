@@ -85,7 +85,17 @@ export interface GradingData {
   answers: GradableAnswer[];
   multichoice?: { single: boolean };
   truefalse?: { trueanswerId: string; falseanswerId: string };
-  shortanswer?: { useCase: boolean };
+  shortanswer?: {
+    useCase: boolean;
+    /** Chế độ đáp án số kiểu thi tốt nghiệp (điểm 6.3.3 đã chốt trên issue #30): cờ CẤU HÌNH, mặc định TẮT = ngữ nghĩa Moodle nguyên vẹn. */
+    numericAnswer?: boolean;
+    /** Độ dài tối đa của đáp án số (ký tự); null = mặc định 4 như phiếu thi tốt nghiệp. */
+    numericMaxLength?: number | null;
+    /** Cho phép dấu +/− ở đầu đáp án số. */
+    numericAllowSign?: boolean;
+    /** Cho phép một dấu thập phân (`.` hoặc `,`) trong đáp án số. */
+    numericAllowDecimal?: boolean;
+  };
 }
 
 export interface GradeOutcome {
@@ -132,9 +142,42 @@ function gradeTruefalse(data: GradingData, response: string | null): GradeOutcom
   return { fraction, state: gradedStateForFraction(fraction), rightAnswer };
 }
 
+/** Độ dài tối đa mặc định của đáp án số khi chế độ bật mà không đặt riêng (theo phiếu thi tốt nghiệp: tối đa 4 ký tự). */
+export const NUMERIC_ANSWER_DEFAULT_MAX_LENGTH = 4;
+
+/**
+ * Kiểm tra một đáp án theo chế độ đáp án số: sau khi cắt khoảng trắng
+ * hai đầu, đáp án phải là MỘT số — dấu (nếu cho phép) + phần nguyên +
+ * phần thập phân tuỳ chọn (nếu cho phép) — và tổng số ký tự không vượt
+ * độ dài tối đa. Vi phạm bất kỳ ràng buộc nào → đáp án không hợp lệ.
+ */
+export function isValidNumericAnswer(response: string, opts: { maxLength?: number | null; allowSign?: boolean; allowDecimal?: boolean }): boolean {
+  const value = response.trim();
+  if (value === '') return false;
+  const maxLength = opts.maxLength ?? NUMERIC_ANSWER_DEFAULT_MAX_LENGTH;
+  if ([...value].length > maxLength) return false;
+  const sign = opts.allowSign === false ? '' : '[+-]?';
+  const decimal = opts.allowDecimal === false ? '' : '(?:[.,][0-9]+)?';
+  return new RegExp(`^${sign}[0-9]+${decimal}$`).test(value);
+}
+
 function gradeShortanswer(data: GradingData, response: string | null): GradeOutcome {
   const ignoreCase = !(data.shortanswer?.useCase ?? false);
   const given = response ?? '';
+  // Chế độ đáp án số bật: đáp án vi phạm ràng buộc độ dài/bộ ký tự bị 0
+  // điểm NGAY, không rơi xuống so khớp mẫu (điểm 6.3.3, issue #30).
+  if (data.shortanswer?.numericAnswer) {
+    const valid = isValidNumericAnswer(given, {
+      maxLength: data.shortanswer.numericMaxLength,
+      allowSign: data.shortanswer.numericAllowSign,
+      allowDecimal: data.shortanswer.numericAllowDecimal,
+    });
+    if (!valid) {
+      const best = data.answers.reduce<GradableAnswer | undefined>(
+        (acc, a) => (acc === undefined || a.fraction > acc.fraction ? a : acc), undefined);
+      return { fraction: 0, state: gradedStateForFraction(0), rightAnswer: best?.text ?? '' };
+    }
+  }
   let fraction = 0;
   for (const answer of data.answers) {
     if (given.trim() !== '' && compareStringWithWildcard(given, answer.text, ignoreCase)) {
