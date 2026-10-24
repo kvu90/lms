@@ -21,12 +21,41 @@ interface NeedsGradingItem {
   response: string | null;
 }
 
+/** Một học sinh làm chưa trọn vẹn một câu trong thống kê câu sai. */
+interface QuestionWrongStudent {
+  userId: string;
+  displayName: string;
+  quizAttemptId: string;
+  attemptNumber: number;
+  fraction: number;
+  mark: number;
+}
+
+/**
+ * Thống kê một slot trong đề (API gộp theo vị trí câu, chỉ tính lượt
+ * đã nộp): câu sai nhiều nhất được API xếp lên đầu. questionName null
+ * khi slot rút câu ngẫu nhiên (mỗi lượt một câu khác nhau).
+ */
+interface QuestionStat {
+  slot: number;
+  questionId: string | null;
+  questionName: string | null;
+  maxMark: number;
+  attemptsCount: number;
+  gradedCount: number;
+  pendingCount: number;
+  wrongCount: number;
+  fullyWrongCount: number;
+  wrongStudents: QuestionWrongStudent[];
+}
+
 /** Hình dạng trả về của GET /quizzes/:id/results. */
 interface QuizResults {
   quiz: QuizView;
   attempts: QuizAttemptSummary[];
   gradesByUser: { userId: string; grade: number | null }[];
   needsGrading: NeedsGradingItem[];
+  questionStats: QuestionStat[];
 }
 
 /**
@@ -157,6 +186,42 @@ export function QuizResultsPage() {
             </div>
           ))}
           {data.needsGrading.length === 0 ? <p className="text-sm text-muted-foreground">{t('quizGradingQueueEmpty')}</p> : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('quizStatsTitle')}</CardTitle>
+          <CardDescription>{t('quizStatsDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {data.questionStats.map((stat) => (
+            <div key={stat.slot} data-testid={`question-stat-${stat.slot}`} className="space-y-1">
+              <p className="text-sm font-medium">
+                {t('quizStatsSlotLine', { slot: stat.slot, max: stat.maxMark })}
+                {stat.questionName ? `: ${stat.questionName}` : ` (${t('quizStatsRandomSlot')})`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t('quizStatsWrongOf', { wrong: stat.wrongCount, graded: stat.gradedCount })}
+                {stat.fullyWrongCount > 0 && stat.fullyWrongCount !== stat.wrongCount
+                  ? ` · ${t('quizStatsFullyWrongPart', { count: stat.fullyWrongCount })}`
+                  : ''}
+                {stat.pendingCount > 0 ? ` · ${t('quizStatsPendingPart', { count: stat.pendingCount })}` : ''}
+              </p>
+              {stat.wrongStudents.length > 0 ? (
+                <ul className="text-sm">
+                  {stat.wrongStudents.map((w) => (
+                    <li key={`${w.quizAttemptId}`} data-testid={`question-stat-${stat.slot}-wrong-${w.userId}`}>
+                      {t('quizStatsStudentLine', { name: w.displayName, mark: w.mark, max: stat.maxMark })}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('quizStatsNoWrong')}</p>
+              )}
+            </div>
+          ))}
+          {data.questionStats.length === 0 ? <p className="text-sm text-muted-foreground">{t('quizStatsEmpty')}</p> : null}
         </CardContent>
       </Card>
 

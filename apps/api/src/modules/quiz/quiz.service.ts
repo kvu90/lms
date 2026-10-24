@@ -7,6 +7,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { GradesService } from '../grades/grades.service';
 import { QuestionsService, type UsageView } from '../questions/questions.service';
+import { UsersService } from '../users/users.service';
 import { QuizRepository, type QuizAttemptRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
@@ -49,6 +50,47 @@ export interface QuizAttemptView {
   closedDueToTimeLimit: boolean;
 }
 
+/** Một học sinh làm chưa trọn vẹn một câu trong thống kê câu sai của giáo viên. */
+export interface QuizQuestionWrongStudent {
+  userId: string;
+  /** Tên hiển thị: "firstName lastName", trống cả hai thì lùi về username (cùng quy ước với messaging). */
+  displayName: string;
+  quizAttemptId: string;
+  attemptNumber: number;
+  /** Hệ số điểm của câu trong lượt đó (0 ≤ fraction < 1). */
+  fraction: number;
+  /** Điểm câu đạt được = fraction × maxMark. */
+  mark: number;
+}
+
+/**
+ * Thống kê một vị trí câu (slot) trong kết quả quiz cho giáo viên: bao
+ * nhiêu học sinh làm chưa trọn vẹn câu này và đó là những ai. Đơn vị
+ * gộp là SLOT (vị trí trong đề) — với slot cố định questionId/questionName
+ * là của câu đã ghim; với slot ngẫu nhiên mỗi lượt rút một câu khác nhau
+ * nên hai trường đó là null và thống kê hiểu theo vị trí. "Sai" nghĩa là
+ * ĐÃ CHẤM mà fraction < 1 (sai hẳn hoặc đúng một phần); câu đang chờ
+ * chấm tay chỉ đếm vào pendingCount, chưa kết luận sai/đúng. Chỉ tính
+ * các lượt ĐÃ NỘP (finished/needsgrading), bỏ lượt preview của giáo viên.
+ */
+export interface QuizQuestionStat {
+  slot: number;
+  questionId: string | null;
+  questionName: string | null;
+  maxMark: number;
+  /** Số lượt đã nộp có chứa slot này. */
+  attemptsCount: number;
+  /** Số câu đã có fraction (đã chấm xong). */
+  gradedCount: number;
+  /** Số câu đang chờ chấm tay ở slot này. */
+  pendingCount: number;
+  /** Số câu đã chấm mà fraction < 1. */
+  wrongCount: number;
+  /** Số câu đã chấm mà fraction = 0. */
+  fullyWrongCount: number;
+  wrongStudents: QuizQuestionWrongStudent[];
+}
+
 /** Một câu đang chờ chấm tay trong hàng đợi của giáo viên. */
 export interface QuizNeedsGradingView {
   quizAttemptId: string;
@@ -87,6 +129,7 @@ export class QuizService {
     private readonly evaluator: PermissionEvaluator,
     private readonly questions: QuestionsService,
     private readonly grades: GradesService,
+    private readonly users: UsersService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -764,13 +807,15 @@ export class QuizService {
 
   /**
    * Trang kết quả của giáo viên (quiz:viewreports): mọi lượt làm,
-   * điểm bài hiện tại theo từng học sinh, và hàng đợi essay chờ chấm tay.
+   * điểm bài hiện tại theo từng học sinh, hàng đợi essay chờ chấm tay,
+   * và thống kê câu sai theo từng slot (câu sai nhiều nhất xếp trước).
    */
   async getResults(actorId: string, quizId: string): Promise<{
     quiz: QuizView;
     attempts: QuizAttemptSummary[];
     gradesByUser: { userId: string; grade: number | null }[];
     needsGrading: QuizNeedsGradingView[];
+    questionStats: QuizQuestionStat[];
   }> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
@@ -793,7 +838,92 @@ export class QuizService {
         });
       }
     }
-    return { quiz: await this.quizView(quiz), attempts, gradesByUser, needsGrading };
+    const questionStats = await this.questionStats(rows);
+    return { quiz: await this.quizView(quiz), attempts, gradesByUser, needsGrading, questionStats };
+  }
+
+  /**
+   * Gộp thống kê câu sai từ các lượt đã nộp (finished/needsgrading) của
+   * một quiz: duyệt usage của engine theo từng lượt, gộp theo slot. Tên
+   * học sinh sai được tra một lượt theo lô ở cuối; tên câu chỉ điền khi
+   * MỌI lượt ở slot dùng cùng một câu (slot cố định). Xếp wrongCount
+   * giảm dần để câu sai nhiều nhất lên đầu, hoà thì theo số slot.
+   */
+  private async questionStats(rows: QuizAttemptRow[]): Promise<QuizQuestionStat[]> {
+    const submitted = rows.filter((r) => r.state === 'finished' || r.state === 'needsgrading');
+    interface SlotAcc {
+      questionIds: Set<string>;
+      maxMark: number;
+      attemptsCount: number;
+      gradedCount: number;
+      pendingCount: number;
+      wrongCount: number;
+      fullyWrongCount: number;
+      wrong: { userId: string; quizAttemptId: string; attemptNumber: number; fraction: number; mark: number }[];
+    }
+    const bySlot = new Map<number, SlotAcc>();
+    for (const r of submitted) {
+      const usage = await this.questions.getUsage(r.usageId);
+      for (const a of usage.attempts) {
+        let acc = bySlot.get(a.slot);
+        if (!acc) {
+          acc = {
+            questionIds: new Set(), maxMark: a.maxMark, attemptsCount: 0,
+            gradedCount: 0, pendingCount: 0, wrongCount: 0, fullyWrongCount: 0, wrong: [],
+          };
+          bySlot.set(a.slot, acc);
+        }
+        acc.questionIds.add(a.questionId);
+        acc.attemptsCount += 1;
+        if (a.state === 'needsgrading') {
+          acc.pendingCount += 1;
+        } else if (a.fraction !== null && a.fraction !== undefined) {
+          acc.gradedCount += 1;
+          if (a.fraction < 1) {
+            acc.wrongCount += 1;
+            if (a.fraction === 0) acc.fullyWrongCount += 1;
+            acc.wrong.push({
+              userId: r.userId, quizAttemptId: r.id, attemptNumber: r.attemptNumber,
+              fraction: a.fraction, mark: a.fraction * a.maxMark,
+            });
+          }
+        }
+      }
+    }
+    const wrongUserIds = [...new Set([...bySlot.values()].flatMap((acc) => acc.wrong.map((w) => w.userId)))];
+    const nameById = new Map<string, string>();
+    if (wrongUserIds.length) {
+      for (const u of await this.users.getUsersByIds(wrongUserIds)) {
+        const full = `${u.firstName} ${u.lastName}`.trim();
+        nameById.set(u.id, full || u.username);
+      }
+    }
+    const questionNameById = new Map<string, string>();
+    const stats: QuizQuestionStat[] = [];
+    for (const [slot, acc] of bySlot) {
+      const questionId = acc.questionIds.size === 1 ? [...acc.questionIds][0]! : null;
+      let questionName: string | null = null;
+      if (questionId) {
+        if (!questionNameById.has(questionId)) {
+          const view = await this.questions.getQuestion(questionId).catch(() => undefined);
+          questionNameById.set(questionId, view?.question.name ?? '');
+        }
+        questionName = questionNameById.get(questionId) || null;
+      }
+      stats.push({
+        slot, questionId, questionName, maxMark: acc.maxMark,
+        attemptsCount: acc.attemptsCount, gradedCount: acc.gradedCount,
+        pendingCount: acc.pendingCount, wrongCount: acc.wrongCount,
+        fullyWrongCount: acc.fullyWrongCount,
+        wrongStudents: acc.wrong.map((w) => ({
+          userId: w.userId,
+          displayName: nameById.get(w.userId) ?? w.userId,
+          quizAttemptId: w.quizAttemptId, attemptNumber: w.attemptNumber,
+          fraction: w.fraction, mark: w.mark,
+        })),
+      });
+    }
+    return stats.sort((x, y) => y.wrongCount - x.wrongCount || x.slot - y.slot);
   }
 
   /**

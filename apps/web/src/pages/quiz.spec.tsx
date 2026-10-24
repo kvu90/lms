@@ -241,6 +241,7 @@ describe('Quiz results page — manual grading', () => {
         },
       ],
       gradesByUser: [{ userId: STUDENT_ID, grade: graded ? 6.67 : null }],
+      questionStats: [],
       needsGrading: graded
         ? []
         : [
@@ -289,5 +290,68 @@ describe('Quiz results page — manual grading', () => {
       }),
     );
     expect(await screen.findByText('Không có câu nào đang chờ chấm.')).toBeInTheDocument();
+  });
+
+  it('shows per-question wrong statistics with the students who missed each question', async () => {
+    const STUDENT2_ID = '01900000-0000-7000-8000-0000000000cc';
+    const results = {
+      quiz: { ...quizView([]), sumGrades: 6 },
+      attempts: [],
+      gradesByUser: [],
+      needsGrading: [],
+      questionStats: [
+        {
+          slot: 1,
+          questionId: QUESTION_ID,
+          questionName: 'Capital',
+          maxMark: 5,
+          attemptsCount: 2,
+          gradedCount: 2,
+          pendingCount: 0,
+          wrongCount: 2,
+          fullyWrongCount: 2,
+          wrongStudents: [
+            { userId: STUDENT_ID, displayName: 'Trần Minh Quân', quizAttemptId: ATTEMPT_ID, attemptNumber: 1, fraction: 0, mark: 0 },
+            { userId: STUDENT2_ID, displayName: 'Phạm Thu Hằng', quizAttemptId: '01900000-0000-7000-8000-0000000000cd', attemptNumber: 1, fraction: 0, mark: 0 },
+          ],
+        },
+        {
+          slot: 2,
+          questionId: null,
+          questionName: null,
+          maxMark: 1,
+          attemptsCount: 2,
+          gradedCount: 2,
+          pendingCount: 0,
+          wrongCount: 0,
+          fullyWrongCount: 0,
+          wrongStudents: [],
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/quizzes/${QUIZ_ID}/results`) return respond(results);
+        return respond({}, 404);
+      }),
+    );
+
+    const router = createMemoryRouter(
+      [{ path: '/courses/:id/quizzes/:quizId/results', element: <QuizResultsPage /> }],
+      { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/results`] },
+    );
+    render(<RouterProvider router={router} />);
+
+    // Câu sai nhiều nhất (API đã xếp slot 1 lên đầu) kèm tên học sinh sai.
+    const first = await screen.findByTestId('question-stat-1');
+    expect(first).toHaveTextContent('Capital');
+    expect(first).toHaveTextContent('2/2');
+    expect(await screen.findByTestId(`question-stat-1-wrong-${STUDENT_ID}`)).toHaveTextContent('Trần Minh Quân');
+    expect(await screen.findByTestId(`question-stat-1-wrong-${STUDENT2_ID}`)).toHaveTextContent('Phạm Thu Hằng');
+    // Slot ngẫu nhiên không có tên câu; không ai sai thì báo rõ.
+    const second = await screen.findByTestId('question-stat-2');
+    expect(second).toHaveTextContent('Câu ngẫu nhiên');
+    expect(second).toHaveTextContent('Chưa có học sinh nào làm sai câu này.');
   });
 });
