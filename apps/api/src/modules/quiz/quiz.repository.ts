@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { quizAttempts, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
+import { quizAttempts, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
 
 export type QuizRow = typeof quizzes.$inferSelect;
 export type QuizSlotRow = typeof quizSlots.$inferSelect;
 export type QuizAttemptRow = typeof quizAttempts.$inferSelect;
 export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
+export type QuizOverrideRow = typeof quizOverrides.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -129,5 +130,38 @@ export class QuizRepository {
    */
   async updateAttempt(id: string, patch: Partial<QuizAttemptRow>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(quizAttempts).set({ ...patch, updatedAt: new Date() }).where(eq(quizAttempts.id, id));
+  }
+
+  // --- overrides (Chặng 2) ------------------------------------------------------
+
+  /**
+   * Chèn một ghi đè cài đặt thi.
+   */
+  async insertOverride(v: typeof quizOverrides.$inferInsert, tx?: DbTx): Promise<QuizOverrideRow> {
+    const [row] = await (tx ?? this.db).insert(quizOverrides).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy một ghi đè.
+   */
+  async getOverride(id: string): Promise<QuizOverrideRow | undefined> {
+    const [row] = await this.db.select().from(quizOverrides).where(eq(quizOverrides.id, id)); return row;
+  }
+  /**
+   * Mọi ghi đè của một quiz (theo nhóm và theo người dùng).
+   */
+  async listOverrides(quizId: string): Promise<QuizOverrideRow[]> {
+    return this.db.select().from(quizOverrides).where(eq(quizOverrides.quizId, quizId)).orderBy(asc(quizOverrides.createdAt), asc(quizOverrides.id));
+  }
+  /**
+   * Cập nhật một ghi đè.
+   */
+  async updateOverride(id: string, patch: Partial<QuizOverrideRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(quizOverrides).set({ ...patch, updatedAt: new Date() }).where(eq(quizOverrides.id, id));
+  }
+  /**
+   * Xoá một ghi đè.
+   */
+  async deleteOverride(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(quizOverrides).where(eq(quizOverrides.id, id));
   }
 }

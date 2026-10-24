@@ -1,25 +1,63 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { QuizAttemptSummary, QuizView, RichTextDocument } from '@lms/contracts';
+import type { QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { GradesService } from '../grades/grades.service';
+import { GroupsService } from '../groups/groups.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
 import { QuestionsService, type UsageView } from '../questions/questions.service';
+import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import { QuizRepository, type QuizAttemptRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
+import type { CreateQuizOverrideDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
+import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
+import { QuizRepository, type QuizAttemptRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
   view: 'quiz:view',
   attempt: 'quiz:attempt',
   manage: 'quiz:manage',
+  manageOverrides: 'quiz:manageoverrides',
   grade: 'quiz:grade',
   viewReports: 'quiz:viewreports',
   preview: 'quiz:preview',
 } as const;
+
+/**
+ * Bốn cửa sổ xem lại của Moodle (mod/quiz display options): mỗi khía
+ * cạnh xem lại là một bitmask trên bốn cửa sổ này. Hằng số theo mã
+ * nguồn mod/quiz: DURING = 0x10000, IMMEDIATELY_AFTER = 0x01000,
+ * LATER_WHILE_OPEN = 0x00100, AFTER_CLOSE = 0x00010. Cửa sổ "ngay sau
+ * nộp" kéo dài 2 phút kể từ lúc lượt được chốt (khoảng ngắn theo
+ * Moodle).
+ */
+export const REVIEW_WINDOW = {
+  during: 0x10000,
+  immediatelyAfter: 0x01000,
+  laterWhileOpen: 0x00100,
+  afterClose: 0x00010,
+} as const;
+
+/** Khoảng cửa sổ "ngay sau nộp" tính bằng mili-giây. */
+export const REVIEW_IMMEDIATELY_AFTER_MS = 2 * 60 * 1000;
+
+/** Cài đặt thi HIỆU LỰC của một người dùng sau khi hợp nhất override (user > nhóm > quiz) — xem resolveEffectiveSettings. */
+export interface EffectiveQuizSettings {
+  timeOpen: Date | null;
+  timeClose: Date | null;
+  /** Giới hạn thời lượng (giây); null = không giới hạn. */
+  timeLimit: number | null;
+  /** Số lượt tối đa; 0 = không giới hạn. */
+  attemptsAllowed: number;
+  /** Các băm mật khẩu chấp nhận được (rỗng = đề không yêu cầu mật khẩu với người này). */
+  passwordHashes: string[];
+  passwordRequired: boolean;
+  /** Danh sách subnet của quiz (override không mang subnet như Moodle); null = không giới hạn. */
+  subnet: string | null;
+}
 
 /** Một câu trong lượt làm như client nhận: nội dung của version ĐÃ PIN, không lộ fraction đáp án khi đang làm. */
 export interface QuizAttemptQuestionView {
@@ -39,6 +77,10 @@ export interface QuizAttemptQuestionView {
   fraction: number | null;
   mark: number | null;
   rightAnswer: string | null;
+  /** Nhận xét riêng cho đáp án đã chọn (cổng review_specific_feedback của Moodle); null khi cửa sổ hiện tại không cho xem hoặc câu không có nhận xét riêng khớp lựa chọn. */
+  feedback: RichTextDocument | null;
+  /** Nhận xét chung của câu (cổng review_general_feedback). */
+  generalFeedback: RichTextDocument | null;
 }
 
 /** View đầy đủ của một lượt làm quiz: tóm tắt lượt + đề + từng câu (đã nhóm sẵn theo trang qua trường page). */
@@ -132,6 +174,8 @@ export class QuizService {
     private readonly banks: QuestionBanksService,
     private readonly grades: GradesService,
     private readonly users: UsersService,
+    private readonly passwords: PasswordService,
+    private readonly groups: GroupsService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -218,6 +262,17 @@ export class QuizService {
       gradeMethod: (['highest', 'average', 'first', 'last'].includes(quiz.gradeMethod) ? quiz.gradeMethod : 'highest') as QuizView['gradeMethod'],
       grade: quiz.grade,
       shuffleAnswers: quiz.shuffleAnswers,
+      hasPassword: quiz.passwordHash !== null,
+      subnet: quiz.subnet,
+      delay1Seconds: quiz.delay1,
+      delay2Seconds: quiz.delay2,
+      reviewAttempt: quiz.reviewAttempt,
+      reviewCorrectness: quiz.reviewCorrectness,
+      reviewMarks: quiz.reviewMarks,
+      reviewSpecificFeedback: quiz.reviewSpecificFeedback,
+      reviewGeneralFeedback: quiz.reviewGeneralFeedback,
+      reviewRightAnswer: quiz.reviewRightAnswer,
+      reviewOverallFeedback: quiz.reviewOverallFeedback,
       slots: slotViews,
       sumGrades: slots.reduce((sum, s) => sum + s.maxMark, 0),
     };
@@ -262,6 +317,19 @@ export class QuizService {
 
   // --- CRUD quiz ---------------------------------------------------------------
 
+  /** Kiểm tra định dạng danh sách subnet khi lưu cài đặt; sai định dạng là lỗi của người soạn, không để lọt xuống tầng kiểm tra lúc thi. */
+  private assertValidSubnet(subnet: string | null | undefined): void {
+    if (subnet !== undefined && subnet !== null && !isValidSubnetList(subnet)) {
+      throw new BadRequestException({ message: 'Subnet must be a comma-separated list of IPs or CIDR ranges', code: 'quiz.subnet_invalid' });
+    }
+  }
+
+  /** Băm mật khẩu vào thi (argon2 qua PasswordService dùng chung) — không bao giờ lưu dạng rõ. */
+  private async hashQuizPassword(password: string | null | undefined): Promise<string | null> {
+    if (password === undefined || password === null) return null;
+    return this.passwords.hash(password);
+  }
+
   /**
    * Tạo quiz: bản ghi quiz + course module (component mod_quiz, completion
    * tự động theo điểm) + grade item 'mod' mang thang điểm của bài. Quyền
@@ -272,6 +340,11 @@ export class QuizService {
     sectionId: string; name: string; intro?: string;
     timeOpen?: string | null; timeClose?: string | null; timeLimitSeconds?: number | null;
     attemptsAllowed?: number; gradeMethod?: string; grade?: number; shuffleAnswers?: boolean;
+    password?: string | null; subnet?: string | null;
+    delay1Seconds?: number | null; delay2Seconds?: number | null;
+    reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
+    reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
+    reviewRightAnswer?: number; reviewOverallFeedback?: number;
   }): Promise<QuizView> {
     await this.courses.getCourse(courseId);
     const timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
@@ -279,6 +352,7 @@ export class QuizService {
     if (timeOpen && timeClose && timeClose <= timeOpen) {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
+    this.assertValidSubnet(input.subnet);
     const quiz = await this.repo.insertQuiz({
       course: courseId, cmId: null, name: input.name, intro: input.intro ?? '',
       timeOpen, timeClose, timeLimit: input.timeLimitSeconds ?? null,
@@ -286,6 +360,17 @@ export class QuizService {
       gradeMethod: input.gradeMethod ?? 'highest',
       grade: input.grade ?? 10,
       shuffleAnswers: input.shuffleAnswers ?? false,
+      passwordHash: await this.hashQuizPassword(input.password),
+      subnet: input.subnet ?? null,
+      delay1: input.delay1Seconds ?? null,
+      delay2: input.delay2Seconds ?? null,
+      ...(input.reviewAttempt !== undefined ? { reviewAttempt: input.reviewAttempt } : {}),
+      ...(input.reviewCorrectness !== undefined ? { reviewCorrectness: input.reviewCorrectness } : {}),
+      ...(input.reviewMarks !== undefined ? { reviewMarks: input.reviewMarks } : {}),
+      ...(input.reviewSpecificFeedback !== undefined ? { reviewSpecificFeedback: input.reviewSpecificFeedback } : {}),
+      ...(input.reviewGeneralFeedback !== undefined ? { reviewGeneralFeedback: input.reviewGeneralFeedback } : {}),
+      ...(input.reviewRightAnswer !== undefined ? { reviewRightAnswer: input.reviewRightAnswer } : {}),
+      ...(input.reviewOverallFeedback !== undefined ? { reviewOverallFeedback: input.reviewOverallFeedback } : {}),
     });
     try {
       const cm = await this.courses.createCm(actorId, courseId, {
@@ -313,9 +398,15 @@ export class QuizService {
     name?: string; intro?: string;
     timeOpen?: string | null; timeClose?: string | null; timeLimitSeconds?: number | null;
     attemptsAllowed?: number; gradeMethod?: string; grade?: number; shuffleAnswers?: boolean;
+    password?: string | null; subnet?: string | null;
+    delay1Seconds?: number | null; delay2Seconds?: number | null;
+    reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
+    reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
+    reviewRightAnswer?: number; reviewOverallFeedback?: number;
   }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    this.assertValidSubnet(input.subnet);
     const patch: Partial<QuizRow> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.intro !== undefined) patch.intro = input.intro;
@@ -326,6 +417,17 @@ export class QuizService {
     if (input.gradeMethod !== undefined) patch.gradeMethod = input.gradeMethod;
     if (input.grade !== undefined) patch.grade = input.grade;
     if (input.shuffleAnswers !== undefined) patch.shuffleAnswers = input.shuffleAnswers;
+    if (input.password !== undefined) patch.passwordHash = await this.hashQuizPassword(input.password);
+    if (input.subnet !== undefined) patch.subnet = input.subnet;
+    if (input.delay1Seconds !== undefined) patch.delay1 = input.delay1Seconds;
+    if (input.delay2Seconds !== undefined) patch.delay2 = input.delay2Seconds;
+    if (input.reviewAttempt !== undefined) patch.reviewAttempt = input.reviewAttempt;
+    if (input.reviewCorrectness !== undefined) patch.reviewCorrectness = input.reviewCorrectness;
+    if (input.reviewMarks !== undefined) patch.reviewMarks = input.reviewMarks;
+    if (input.reviewSpecificFeedback !== undefined) patch.reviewSpecificFeedback = input.reviewSpecificFeedback;
+    if (input.reviewGeneralFeedback !== undefined) patch.reviewGeneralFeedback = input.reviewGeneralFeedback;
+    if (input.reviewRightAnswer !== undefined) patch.reviewRightAnswer = input.reviewRightAnswer;
+    if (input.reviewOverallFeedback !== undefined) patch.reviewOverallFeedback = input.reviewOverallFeedback;
     const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : quiz.timeOpen;
     const nextClose = patch.timeClose !== undefined ? patch.timeClose : quiz.timeClose;
     if (nextOpen && nextClose && nextClose <= nextOpen) {
@@ -533,6 +635,124 @@ export class QuizService {
     return this.quizView(quiz);
   }
 
+  // --- ghi đè cài đặt thi (overrides, Chặng 2) -----------------------------------
+
+  /** View của một override: tên đích được tra cứu để client hiển thị, mật khẩu chỉ lộ cờ hasPassword. */
+  private async overrideView(row: QuizOverrideRow): Promise<QuizOverrideView> {
+    let groupName: string | null = null;
+    let userName: string | null = null;
+    if (row.groupId) {
+      const group = await this.groups.getGroup(row.groupId).catch(() => undefined);
+      groupName = group?.name ?? null;
+    }
+    if (row.userId) {
+      const [user] = await this.users.getUsersByIds([row.userId]);
+      if (user) userName = `${user.firstName} ${user.lastName}`.trim() || user.username;
+    }
+    return {
+      id: row.id, quizId: row.quizId,
+      groupId: row.groupId, groupName,
+      userId: row.userId, userName,
+      timeOpen: row.timeOpen?.toISOString() ?? null,
+      timeClose: row.timeClose?.toISOString() ?? null,
+      timeLimitSeconds: row.timeLimit,
+      attempts: row.attempts,
+      hasPassword: row.passwordHash !== null,
+    };
+  }
+
+  private async getOverrideRow(quiz: QuizRow, overrideId: string): Promise<QuizOverrideRow> {
+    const row = await this.repo.getOverride(overrideId);
+    if (!row || row.quizId !== quiz.id) {
+      throw new NotFoundException({ message: `Quiz override ${overrideId} not found`, code: 'quiz.override_not_found' });
+    }
+    return row;
+  }
+
+  /** Danh sách ghi đè của quiz (quiz:manageoverrides). */
+  async listOverrides(actorId: string, quizId: string): Promise<QuizOverrideView[]> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
+    const rows = await this.repo.listOverrides(quiz.id);
+    const out: QuizOverrideView[] = [];
+    for (const r of rows) out.push(await this.overrideView(r));
+    return out;
+  }
+
+  /**
+   * Tạo ghi đè (quiz:manageoverrides): đích phải là đúng MỘT nhóm của
+   * khoá chứa quiz hoặc đúng MỘT người dùng có quyền vào khoá; mỗi đích
+   * tối đa một ghi đè cho một quiz (trùng đích bị từ chối thay vì đè
+   * lặng lẽ như Moodle upsert).
+   */
+  async createOverride(actorId: string, quizId: string, input: CreateQuizOverrideDto): Promise<QuizOverrideView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
+    if (!!input.groupId === !!input.userId) {
+      throw new BadRequestException({ message: 'An override needs exactly one target: groupId or userId', code: 'quiz.override_target' });
+    }
+    const timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
+    const timeClose = input.timeClose ? new Date(input.timeClose) : null;
+    if (timeOpen && timeClose && timeClose <= timeOpen) {
+      throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
+    }
+    if (input.groupId) {
+      const group = await this.groups.getGroup(input.groupId);
+      if (group.courseId !== quiz.course) {
+        throw new BadRequestException({ message: 'Group does not belong to the course of this quiz', code: 'quiz.override_group_mismatch' });
+      }
+    }
+    if (input.userId) {
+      await this.users.getUser(input.userId);
+      await this.courses.assertCourseAccess(input.userId, quiz.course);
+    }
+    const existing = await this.repo.listOverrides(quiz.id);
+    if (existing.some((o) => o.groupId === (input.groupId ?? null) && o.userId === (input.userId ?? null))) {
+      throw new BadRequestException({ message: 'An override already exists for this target', code: 'quiz.override_exists' });
+    }
+    const row = await this.repo.insertOverride({
+      quizId: quiz.id,
+      groupId: input.groupId ?? null,
+      userId: input.userId ?? null,
+      timeOpen, timeClose,
+      timeLimit: input.timeLimitSeconds ?? null,
+      attempts: input.attempts ?? null,
+      passwordHash: await this.hashQuizPassword(input.password),
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_created', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+    return this.overrideView(row);
+  }
+
+  /** Sửa một ghi đè (quiz:manageoverrides); trường không gửi giữ nguyên, `null` ở trường ghi đè = quay về kế thừa. */
+  async updateOverride(actorId: string, quizId: string, overrideId: string, input: UpdateQuizOverrideDto): Promise<QuizOverrideView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
+    const row = await this.getOverrideRow(quiz, overrideId);
+    const patch: Partial<QuizOverrideRow> = {};
+    if (input.timeOpen !== undefined) patch.timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
+    if (input.timeClose !== undefined) patch.timeClose = input.timeClose ? new Date(input.timeClose) : null;
+    if (input.timeLimitSeconds !== undefined) patch.timeLimit = input.timeLimitSeconds;
+    if (input.attempts !== undefined) patch.attempts = input.attempts;
+    if (input.password !== undefined) patch.passwordHash = await this.hashQuizPassword(input.password);
+    const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : row.timeOpen;
+    const nextClose = patch.timeClose !== undefined ? patch.timeClose : row.timeClose;
+    if (nextOpen && nextClose && nextClose <= nextOpen) {
+      throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
+    }
+    if (Object.keys(patch).length) await this.repo.updateOverride(row.id, patch);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_updated', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+    return this.overrideView(await this.getOverrideRow(quiz, overrideId));
+  }
+
+  /** Xoá một ghi đè (quiz:manageoverrides) — đích của ghi đè quay về cài đặt tầng dưới ngay. */
+  async deleteOverride(actorId: string, quizId: string, overrideId: string): Promise<void> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
+    const row = await this.getOverrideRow(quiz, overrideId);
+    await this.repo.deleteOverride(row.id);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_deleted', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+  }
+
   // --- thông tin cho người xem ---------------------------------------------------
 
   /**
@@ -548,17 +768,105 @@ export class QuizService {
     await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.view, ctx);
   }
 
-  /** Học sinh còn được bắt đầu lượt mới hay không, và vì sao không. */
-  private async attemptEligibility(quiz: QuizRow, userId: string, now: Date): Promise<{ canAttempt: boolean; reason: string | null; inProgressAttemptId: string | null }> {
+  /**
+   * Bộ phân giải cài đặt hiệu lực (Chặng 2, mục B.3 của hồ sơ thiết kế —
+   * đối chiếu cơ chế hợp nhất override của Moodle): hợp nhất THEO TỪNG
+   * TRƯỜNG theo thứ tự override người dùng > override nhóm > cài đặt
+   * của quiz. Nhiều override nhóm: lấy giá trị RỘNG NHẤT cho từng
+   * trường — time_open sớm nhất, time_close muộn nhất, time_limit dài
+   * nhất, attempts lớn nhất; một trường để null trong override nhóm
+   * nghĩa là nhóm đó không giới hạn ở trường đó nên thắng (không giới
+   * hạn là giá trị rộng nhất), 0 ở attempts cũng là không giới hạn.
+   * Mật khẩu KHÔNG hợp nhất từng trường: override người dùng có mật
+   * khẩu thì chỉ mật khẩu đó có hiệu lực; không thì TẬP mật khẩu của
+   * các nhóm áp dụng (nhập đúng một trong các mật khẩu là được); không
+   * nữa thì mật khẩu của quiz.
+   */
+  async resolveEffectiveSettings(quiz: QuizRow, userId: string): Promise<EffectiveQuizSettings> {
+    const overrides = await this.repo.listOverrides(quiz.id);
+    const userOverride = overrides.find((o) => o.userId === userId);
+    let groupOverrides: QuizOverrideRow[] = [];
+    if (overrides.some((o) => o.groupId !== null)) {
+      const myGroupIds = new Set((await this.groups.groupsOfUser(quiz.course, userId)).map((g) => g.id));
+      groupOverrides = overrides.filter((o) => o.groupId !== null && myGroupIds.has(o.groupId));
+    }
+    const hasGroups = groupOverrides.length > 0;
+    // Giá trị hợp nhất của nhóm cho một trường ngày giờ: undefined = không có override nhóm nào;
+    // null = có nhóm không giới hạn trường này (thắng); ngược lại lấy mốc rộng nhất.
+    const mergeDate = (pick: (o: QuizOverrideRow) => Date | null, widest: 'min' | 'max'): Date | null | undefined => {
+      if (!hasGroups) return undefined;
+      if (groupOverrides.some((o) => pick(o) === null)) return null;
+      const values = groupOverrides.map((o) => pick(o)!.getTime());
+      return new Date(widest === 'min' ? Math.min(...values) : Math.max(...values));
+    };
+    const mergeLimit = (): number | null | undefined => {
+      if (!hasGroups) return undefined;
+      if (groupOverrides.some((o) => o.timeLimit === null)) return null;
+      return Math.max(...groupOverrides.map((o) => o.timeLimit!));
+    };
+    const mergeAttempts = (): number | undefined => {
+      if (!hasGroups) return undefined;
+      if (groupOverrides.some((o) => o.attempts === null || o.attempts === 0)) return 0;
+      return Math.max(...groupOverrides.map((o) => o.attempts!));
+    };
+    const pickField = <T>(userValue: T | null | undefined, groupValue: T | null | undefined, quizValue: T): T => {
+      if (userValue !== undefined && userValue !== null) return userValue;
+      if (groupValue !== undefined) return groupValue as T;
+      return quizValue;
+    };
+    let passwordHashes: string[] = [];
+    if (userOverride?.passwordHash) {
+      passwordHashes = [userOverride.passwordHash];
+    } else {
+      const groupHashes = groupOverrides.map((o) => o.passwordHash).filter((h): h is string => h !== null);
+      if (groupHashes.length) passwordHashes = groupHashes;
+      else if (quiz.passwordHash) passwordHashes = [quiz.passwordHash];
+    }
+    return {
+      timeOpen: pickField(userOverride?.timeOpen, mergeDate((o) => o.timeOpen, 'min'), quiz.timeOpen),
+      timeClose: pickField(userOverride?.timeClose, mergeDate((o) => o.timeClose, 'max'), quiz.timeClose),
+      timeLimit: pickField(userOverride?.timeLimit, mergeLimit(), quiz.timeLimit),
+      attemptsAllowed: pickField(userOverride?.attempts, mergeAttempts(), quiz.attemptsAllowed),
+      passwordHashes,
+      passwordRequired: passwordHashes.length > 0,
+      subnet: quiz.subnet,
+    };
+  }
+
+  /**
+   * Mốc sớm nhất người dùng được bắt đầu lượt mới theo độ trễ bắt buộc
+   * (delay1/delay2 của quiz — KHÔNG nằm trong override như Moodle):
+   * sau lượt chốt thứ nhất tính delay1 từ time_finish của lượt đó; từ
+   * lượt thứ ba trở đi tính delay2 từ time_finish của lượt chốt gần
+   * nhất. null = không bị trễ (chưa có lượt chốt hoặc quiz không đặt).
+   */
+  private nextAttemptNotBefore(quiz: QuizRow, finishedAttempts: QuizAttemptRow[]): Date | null {
+    const finished = finishedAttempts
+      .filter((a) => !a.preview && a.state !== 'inprogress' && a.timeFinish !== null)
+      .sort((x, y) => x.timeFinish!.getTime() - y.timeFinish!.getTime());
+    if (!finished.length) return null;
+    const delaySeconds = finished.length === 1 ? quiz.delay1 : quiz.delay2;
+    if (delaySeconds === null || delaySeconds === undefined) return null;
+    return new Date(finished[finished.length - 1]!.timeFinish!.getTime() + delaySeconds * 1000);
+  }
+
+  /** Học sinh còn được bắt đầu lượt mới hay không, và vì sao không (mọi kiểm tra đều trên cài đặt HIỆU LỰC của chính học sinh). */
+  private async attemptEligibility(quiz: QuizRow, userId: string, now: Date): Promise<{
+    canAttempt: boolean; reason: string | null; inProgressAttemptId: string | null;
+    nextAttemptAt: string | null; passwordRequired: boolean;
+  }> {
     const mine = await this.repo.listAttemptsForUser(quiz.id, userId);
     const inProgress = mine.find((a) => a.state === 'inprogress');
-    if (inProgress) return { canAttempt: true, reason: null, inProgressAttemptId: inProgress.id };
-    if (quiz.timeOpen && now < quiz.timeOpen) return { canAttempt: false, reason: 'not_yet_open', inProgressAttemptId: null };
-    if (quiz.timeClose && now > quiz.timeClose) return { canAttempt: false, reason: 'closed', inProgressAttemptId: null };
-    if (quiz.attemptsAllowed > 0 && mine.length >= quiz.attemptsAllowed) return { canAttempt: false, reason: 'no_more_attempts', inProgressAttemptId: null };
+    const effective = await this.resolveEffectiveSettings(quiz, userId);
+    if (inProgress) return { canAttempt: true, reason: null, inProgressAttemptId: inProgress.id, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    if (effective.timeOpen && now < effective.timeOpen) return { canAttempt: false, reason: 'not_yet_open', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    if (effective.timeClose && now > effective.timeClose) return { canAttempt: false, reason: 'closed', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    if (effective.attemptsAllowed > 0 && mine.length >= effective.attemptsAllowed) return { canAttempt: false, reason: 'no_more_attempts', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    const notBefore = this.nextAttemptNotBefore(quiz, mine);
+    if (notBefore && now < notBefore) return { canAttempt: false, reason: 'delay_not_elapsed', inProgressAttemptId: null, nextAttemptAt: notBefore.toISOString(), passwordRequired: effective.passwordRequired };
     const slots = await this.repo.listSlots(quiz.id);
-    if (!slots.length) return { canAttempt: false, reason: 'no_questions', inProgressAttemptId: null };
-    return { canAttempt: true, reason: null, inProgressAttemptId: null };
+    if (!slots.length) return { canAttempt: false, reason: 'no_questions', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
+    return { canAttempt: true, reason: null, inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
   }
 
   /**
@@ -595,7 +903,13 @@ export class QuizService {
     canAttempt: boolean;
     attemptBlockedReason: string | null;
     inProgressAttemptId: string | null;
-    permissions: { manage: boolean; grade: boolean; viewReports: boolean; preview: boolean; attempt: boolean };
+    /** Cài đặt thi hiệu lực của chính người xem sau hợp nhất override — client hiển thị cửa sổ/giới hạn/mật khẩu theo các giá trị này, không theo cài đặt gốc của quiz. */
+    effective: {
+      timeOpen: string | null; timeClose: string | null;
+      timeLimitSeconds: number | null; attemptsAllowed: number;
+      passwordRequired: boolean; nextAttemptAt: string | null;
+    };
+    permissions: { manage: boolean; manageOverrides: boolean; grade: boolean; viewReports: boolean; preview: boolean; attempt: boolean };
   }> {
     const quiz = await this.getQuiz(quizId);
     await this.requireAnyViewCap(actorId, quiz);
@@ -604,8 +918,10 @@ export class QuizService {
     const summaries: QuizAttemptSummary[] = [];
     for (const a of mine) summaries.push(await this.attemptSummary(quiz, a));
     const eligibility = await this.attemptEligibility(quiz, actorId, new Date());
-    const [manage, grade, viewReports, preview, attempt] = await Promise.all([
+    const effective = await this.resolveEffectiveSettings(quiz, actorId);
+    const [manage, manageOverrides, grade, viewReports, preview, attempt] = await Promise.all([
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manage),
+      this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides),
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.grade),
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports),
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.preview),
@@ -618,7 +934,15 @@ export class QuizService {
       canAttempt: attempt && eligibility.canAttempt,
       attemptBlockedReason: eligibility.canAttempt ? null : eligibility.reason,
       inProgressAttemptId: eligibility.inProgressAttemptId,
-      permissions: { manage, grade, viewReports, preview, attempt },
+      effective: {
+        timeOpen: effective.timeOpen?.toISOString() ?? null,
+        timeClose: effective.timeClose?.toISOString() ?? null,
+        timeLimitSeconds: effective.timeLimit,
+        attemptsAllowed: effective.attemptsAllowed,
+        passwordRequired: effective.passwordRequired,
+        nextAttemptAt: eligibility.nextAttemptAt,
+      },
+      permissions: { manage, manageOverrides, grade, viewReports, preview, attempt },
     };
   }
 
@@ -642,7 +966,7 @@ export class QuizService {
    * bản câu ngay lúc bắt đầu. Preview của giáo viên (quiz:preview)
    * bỏ qua cửa sổ/giới hạn và không ghi điểm về sau.
    */
-  async startAttempt(actorId: string, quizId: string, opts: { preview?: boolean } = {}): Promise<QuizAttemptView> {
+  async startAttempt(actorId: string, quizId: string, opts: { preview?: boolean; password?: string; clientIp?: string } = {}): Promise<QuizAttemptView> {
     const quiz = await this.getQuiz(quizId);
     const preview = opts.preview === true;
     if (preview) {
@@ -656,35 +980,55 @@ export class QuizService {
     if (inProgress) {
       // Tiếp tục lượt dở cũng chịu mốc quá hạn: đã quá hạn thì chốt
       // lượt phía server ngay tại tương tác này thay vì trả lượt sống.
-      if (this.isOverdue(quiz, inProgress)) return this.finalizeAttempt(quiz, inProgress, true);
+      if (await this.isOverdue(quiz, inProgress)) return this.finalizeAttempt(quiz, inProgress, true);
       return this.buildAttemptView(quiz, inProgress, false);
     }
 
     const now = new Date();
     if (!preview) {
-      if (quiz.timeOpen && now < quiz.timeOpen) {
+      // Mọi cổng đều xét trên cài đặt HIỆU LỰC của người này (override
+      // đã hợp nhất) — preview của giáo viên bỏ qua tất cả.
+      const effective = await this.resolveEffectiveSettings(quiz, actorId);
+      if (effective.timeOpen && now < effective.timeOpen) {
         throw new ForbiddenException({ message: 'This quiz is not open yet', code: 'quiz.not_yet_open' });
       }
-      if (quiz.timeClose && now > quiz.timeClose) {
+      if (effective.timeClose && now > effective.timeClose) {
         throw new ForbiddenException({ message: 'This quiz is closed', code: 'quiz.closed' });
       }
       const mine = existing.filter((a) => !a.preview);
-      if (quiz.attemptsAllowed > 0 && mine.length >= quiz.attemptsAllowed) {
+      if (effective.attemptsAllowed > 0 && mine.length >= effective.attemptsAllowed) {
         throw new ForbiddenException({ message: 'No more attempts are allowed for this quiz', code: 'quiz.no_more_attempts' });
       }
+      const notBefore = this.nextAttemptNotBefore(quiz, mine);
+      if (notBefore && now < notBefore) {
+        throw new ForbiddenException({ message: 'You must wait before starting another attempt', code: 'quiz.delay_not_elapsed' });
+      }
+      if (effective.passwordRequired) {
+        if (opts.password === undefined || opts.password === '') {
+          throw new ForbiddenException({ message: 'A password is required to start this quiz', code: 'quiz.password_required' });
+        }
+        let matched = false;
+        for (const hash of effective.passwordHashes) {
+          if (await this.passwords.verify(hash, opts.password)) { matched = true; break; }
+        }
+        if (!matched) {
+          throw new ForbiddenException({ message: 'The quiz password is incorrect', code: 'quiz.password_incorrect' });
+        }
+      }
+      this.assertSubnetAllowed(quiz, opts.clientIp);
     }
     const slots = await this.repo.listSlots(quiz.id);
     if (!slots.length) throw new BadRequestException({ message: 'This quiz has no questions yet', code: 'quiz.no_questions' });
 
     const chosen = new Set<string>();
-    const effective: { quizSlot: QuizSlotRow; questionId: string }[] = [];
+    const resolvedSlots: { quizSlot: QuizSlotRow; questionId: string }[] = [];
     for (const s of slots) {
       let questionId = s.questionId;
       if (!questionId) {
         questionId = await this.pickRandomQuestion(s.categoryId!, chosen);
       }
       chosen.add(questionId);
-      effective.push({ quizSlot: s, questionId });
+      resolvedSlots.push({ quizSlot: s, questionId });
     }
     // Moodle dùng MỘT dãy số lượt cho mỗi (quiz, user) — preview chỉ là
     // cờ trên lượt, không phải dãy riêng: ràng buộc duy nhất của
@@ -694,7 +1038,7 @@ export class QuizService {
     const attemptNumber = existing.length + 1;
     const usage = await this.questions.createUsage(actorId, {
       component: QUIZ_COMPONENT, instanceId: quiz.id, contextId: await this.cmContextId(quiz),
-      slots: effective.map((e) => ({
+      slots: resolvedSlots.map((e) => ({
         questionId: e.questionId, maxMark: e.quizSlot.maxMark,
         // Slot ghim cứng (QB-3) truyền version đã ghim xuống engine;
         // slot follow_latest / ngẫu nhiên để engine tự phân giải bản
@@ -724,49 +1068,99 @@ export class QuizService {
     }
   }
 
+  /** Cổng subnet: quiz có đặt subnet thì IP khách thật phải khớp một mục trong danh sách (kiểm cả khi bắt đầu lượt và khi nộp từng đáp án). */
+  private assertSubnetAllowed(quiz: QuizRow, clientIp: string | undefined): void {
+    if (!quiz.subnet) return;
+    if (!clientIp || !ipMatchesSubnetList(clientIp, quiz.subnet)) {
+      throw new ForbiddenException({ message: 'Your network address is not allowed for this quiz', code: 'quiz.subnet_denied' });
+    }
+  }
+
   /**
    * Mốc quá hạn của một lượt (null khi không mốc nào áp dụng): mốc SỚM
    * NHẤT giữa hạn theo giới hạn thời lượng tính từ lúc bắt đầu và giờ
    * đóng của quiz. Chỉ xét giới hạn thời lượng là không đủ — một lượt
    * bắt đầu trước giờ đóng vẫn phải bị chốt khi quiz đã đóng, nếu không
-   * học sinh cứ trả lời tiếp và được tính điểm sau timeClose.
+   * học sinh cứ trả lời tiếp và được tính điểm sau timeClose. Cả hai
+   * mốc đều là giá trị HIỆU LỰC của CHỦ LƯỢT (override áp cho người đó),
+   * không phải giá trị gốc của quiz và không chụp tại lúc bắt đầu.
    */
-  private attemptDeadline(quiz: QuizRow, row: QuizAttemptRow): Date | null {
+  private async attemptDeadline(quiz: QuizRow, row: QuizAttemptRow): Promise<Date | null> {
+    const effective = await this.resolveEffectiveSettings(quiz, row.userId);
     let deadline: number | null = null;
-    if (quiz.timeLimit) deadline = row.timeStart.getTime() + quiz.timeLimit * 1000;
-    if (quiz.timeClose) {
-      const close = quiz.timeClose.getTime();
+    if (effective.timeLimit) deadline = row.timeStart.getTime() + effective.timeLimit * 1000;
+    if (effective.timeClose) {
+      const close = effective.timeClose.getTime();
       deadline = deadline === null ? close : Math.min(deadline, close);
     }
     return deadline === null ? null : new Date(deadline);
   }
-  private isOverdue(quiz: QuizRow, row: QuizAttemptRow): boolean {
-    const deadline = this.attemptDeadline(quiz, row);
+  private async isOverdue(quiz: QuizRow, row: QuizAttemptRow): Promise<boolean> {
+    const deadline = await this.attemptDeadline(quiz, row);
     return deadline !== null && new Date() > deadline;
   }
 
   /**
-   * Dựng view đầy đủ của một lượt: từng câu lấy nội dung của version ĐÃ
-   * PIN trong engine; đáp án chỉ lộ fraction/đáp án đúng sau khi lượt đã
-   * nộp (state khác inprogress).
+   * Cửa sổ xem lại hiện tại của một lượt ĐÃ NỘP xét cho chủ lượt:
+   * ngay sau nộp (2 phút từ time_finish) → sau đó khi đề (theo giờ đóng
+   * HIỆU LỰC của chủ lượt) còn mở → sau khi đóng. Đề không có giờ đóng
+   * thì không bao giờ sang cửa sổ sau-đóng (như Moodle).
    */
-  async buildAttemptView(quiz: QuizRow, row: QuizAttemptRow, closedDueToTimeLimit: boolean): Promise<QuizAttemptView> {
+  private async reviewWindowBit(quiz: QuizRow, row: QuizAttemptRow, now: Date): Promise<number> {
+    const finish = row.timeFinish?.getTime() ?? now.getTime();
+    if (now.getTime() < finish + REVIEW_IMMEDIATELY_AFTER_MS) return REVIEW_WINDOW.immediatelyAfter;
+    const effective = await this.resolveEffectiveSettings(quiz, row.userId);
+    if (!effective.timeClose || now <= effective.timeClose) return REVIEW_WINDOW.laterWhileOpen;
+    return REVIEW_WINDOW.afterClose;
+  }
+
+  /**
+   * Dựng view đầy đủ của một lượt: từng câu lấy nội dung của version ĐÃ
+   * PIN trong engine. Với CHỦ LƯỢT (không có quyền chấm/báo cáo), các
+   * khía cạnh sau nộp (đúng/sai, điểm câu, đáp án đúng, nhận xét) chỉ lộ
+   * khi bitmask review_* của quiz cho phép tại cửa sổ hiện tại — cổng
+   * nằm ở tầng server, client không nhận được dữ liệu bị tắt. Người có
+   * quiz:grade/viewreports/manage và lượt preview không bị giới hạn.
+   */
+  async buildAttemptView(quiz: QuizRow, row: QuizAttemptRow, closedDueToTimeLimit: boolean, viewerId?: string): Promise<QuizAttemptView> {
     const usage = await this.questions.getUsage(row.usageId);
     const slots = await this.repo.listSlots(quiz.id);
     const pageBySlot = new Map(slots.map((s) => [s.slot, s.page]));
     const submitted = row.state !== 'inprogress';
+    const viewer = viewerId ?? row.userId;
+    let privileged = row.preview || viewer !== row.userId;
+    if (!privileged) {
+      privileged = (await this.hasCap(viewer, quiz, QUIZ_CAPABILITIES.grade))
+        || (await this.hasCap(viewer, quiz, QUIZ_CAPABILITIES.viewReports))
+        || (await this.hasCap(viewer, quiz, QUIZ_CAPABILITIES.manage));
+    }
+    // Cổng review chỉ áp cho chủ lượt thường sau khi nộp; đang làm thì
+    // các khía cạnh vốn đã ẩn theo trạng thái inprogress như trước.
+    let windowBit = 0;
+    let hideContent = false;
+    if (submitted && !privileged) {
+      windowBit = await this.reviewWindowBit(quiz, row, new Date());
+      hideContent = (quiz.reviewAttempt & windowBit) === 0;
+    }
+    const showAspects = submitted && (privileged || !hideContent);
+    const aspectOn = (mask: number): boolean => privileged ? submitted : (showAspects && (mask & windowBit) !== 0);
     const questions: QuizAttemptQuestionView[] = [];
     for (const a of usage.attempts) {
+      if (hideContent && !privileged) break;
       const qv = await this.questions.getQuestion(a.questionId);
       let questionText = qv.latestVersion.questionText as RichTextDocument;
       let answers: { id: string; text: RichTextDocument }[] = qv.answers.map((x) => ({ id: x.id, text: x.answer as RichTextDocument }));
       let options = qv.options;
       let stimulus: QuizAttemptQuestionView['stimulus'] = qv.stimulus ? { id: qv.stimulus.id, content: qv.stimulus.content as RichTextDocument } : null;
+      let feedbackByAnswerId = new Map(qv.answers.map((x) => [x.id, (x.feedback ?? null) as RichTextDocument | null]));
+      let generalFeedback = (qv.latestVersion.generalFeedback ?? null) as RichTextDocument | null;
       if (a.questionVersionId) {
         const pinned = await this.questions.getVersionContent(a.questionId, a.questionVersionId);
         questionText = pinned.version.questionText as RichTextDocument;
         answers = pinned.answers.map((x) => ({ id: x.id, text: x.answer as RichTextDocument }));
         options = pinned.options;
+        feedbackByAnswerId = new Map(pinned.answers.map((x) => [x.id, (x.feedback ?? null) as RichTextDocument | null]));
+        generalFeedback = (pinned.version.generalFeedback ?? null) as RichTextDocument | null;
         if (pinned.version.stimulusId) {
           const st = await this.questions.getStimulus(pinned.version.stimulusId).catch(() => undefined);
           stimulus = st ? { id: st.id, content: st.content as RichTextDocument } : null;
@@ -789,9 +1183,13 @@ export class QuizService {
         maxMark: a.maxMark,
         state: a.state,
         response: lastResponse,
-        fraction: submitted ? a.fraction : null,
-        mark: submitted && a.fraction !== null ? a.fraction * a.maxMark : null,
-        rightAnswer: submitted ? a.rightAnswer : null,
+        fraction: submitted && aspectOn(quiz.reviewCorrectness) ? a.fraction : null,
+        mark: (submitted && aspectOn(quiz.reviewMarks) && a.fraction !== null) ? a.fraction * a.maxMark : null,
+        rightAnswer: aspectOn(quiz.reviewRightAnswer) ? a.rightAnswer : null,
+        feedback: aspectOn(quiz.reviewSpecificFeedback) && lastResponse !== null
+          ? (feedbackByAnswerId.get(lastResponse) ?? null)
+          : null,
+        generalFeedback: aspectOn(quiz.reviewGeneralFeedback) ? generalFeedback : null,
       });
     }
     const { pendingManual } = this.syncFromUsage(usage);
@@ -824,10 +1222,10 @@ export class QuizService {
     const row = await this.getAttemptRow(attemptId);
     const quiz = await this.getQuiz(row.quizId);
     await this.requireAttemptReadable(actorId, quiz, row);
-    if (row.state === 'inprogress' && row.userId === actorId && this.isOverdue(quiz, row)) {
+    if (row.state === 'inprogress' && row.userId === actorId && await this.isOverdue(quiz, row)) {
       return this.finalizeAttempt(quiz, await this.getAttemptRow(attemptId), true);
     }
-    return this.buildAttemptView(quiz, row, false);
+    return this.buildAttemptView(quiz, row, false, actorId);
   }
 
   /**
@@ -835,7 +1233,7 @@ export class QuizService {
    * step). Quá hạn làm bài: lượt bị chốt phía server ngay tại tương tác
    * này và view đã nộp được trả về thay vì ghi thêm đáp án.
    */
-  async submitResponse(actorId: string, attemptId: string, input: { questionAttemptId: string; response?: string | null }): Promise<QuizAttemptView> {
+  async submitResponse(actorId: string, attemptId: string, input: { questionAttemptId: string; response?: string | null }, clientIp?: string): Promise<QuizAttemptView> {
     const row = await this.getAttemptRow(attemptId);
     const quiz = await this.getQuiz(row.quizId);
     if (row.userId !== actorId) {
@@ -844,7 +1242,9 @@ export class QuizService {
     if (row.state !== 'inprogress') {
       throw new BadRequestException({ message: 'This attempt is already submitted', code: 'quiz.attempt_already_submitted' });
     }
-    if (this.isOverdue(quiz, row)) {
+    // Lượt preview của giáo viên không chịu subnet (như mọi cổng khác).
+    if (!row.preview) this.assertSubnetAllowed(quiz, clientIp);
+    if (await this.isOverdue(quiz, row)) {
       return this.finalizeAttempt(quiz, row, true);
     }
     const usage = await this.questions.getUsage(row.usageId);
@@ -889,7 +1289,7 @@ export class QuizService {
     if (row.userId !== actorId) {
       throw new ForbiddenException({ message: 'Only the attempt owner can submit', code: 'quiz.attempt_forbidden' });
     }
-    return this.finalizeAttempt(quiz, row, this.isOverdue(quiz, row));
+    return this.finalizeAttempt(quiz, row, await this.isOverdue(quiz, row));
   }
 
   /**
@@ -1070,7 +1470,7 @@ export class QuizService {
       },
     });
     if (updated.state === 'finished' && !row.preview) await this.pushGrade(quiz, row.userId);
-    return this.buildAttemptView(quiz, updated, false);
+    return this.buildAttemptView(quiz, updated, false, actorId);
   }
 
   /**

@@ -1,13 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
 import {
-  addQuizSlotSchema, createQuizSchema, manualGradeQuizSchema, startQuizAttemptSchema,
-  submitQuizResponseSchema, updateQuizSchema, updateQuizSlotSchema,
-  type AddQuizSlotDto, type CreateQuizDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
-  type SubmitQuizResponseDto, type UpdateQuizDto, type UpdateQuizSlotDto,
+  addQuizSlotSchema, createQuizOverrideSchema, createQuizSchema, manualGradeQuizSchema, startQuizAttemptSchema,
+  submitQuizResponseSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
+  type AddQuizSlotDto, type CreateQuizDto, type CreateQuizOverrideDto, type ManualGradeQuizDto, type StartQuizAttemptDto,
+  type SubmitQuizResponseDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
 } from './dto/quiz.dto';
 
 @ApiTags('quizzes')
@@ -102,13 +104,48 @@ export class QuizzesController {
   async listAttempts(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.listAttemptSummaries(actor.id, id);
   }
+  @Get(':id/overrides')
+  /**
+   * GET /quizzes/:id/overrides — danh sách ghi đè cài đặt thi theo
+   * nhóm/người dùng (quiz:manageoverrides).
+   */
+  async listOverrides(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listOverrides(actor.id, id);
+  }
+  @Post(':id/overrides')
+  /**
+   * POST /quizzes/:id/overrides — tạo ghi đè cho một nhóm hoặc một
+   * người dùng (quiz:manageoverrides).
+   */
+  async createOverride(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createQuizOverrideSchema }) dto: CreateQuizOverrideDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.createOverride(actor.id, id, dto);
+  }
+  @Patch(':id/overrides/:overrideId')
+  /**
+   * PATCH /quizzes/:id/overrides/:overrideId — sửa một ghi đè
+   * (quiz:manageoverrides).
+   */
+  async updateOverride(@Param('id', { schema: uuidIdSchema }) id: string, @Param('overrideId', { schema: uuidIdSchema }) overrideId: string, @Body({ schema: updateQuizOverrideSchema }) dto: UpdateQuizOverrideDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.updateOverride(actor.id, id, overrideId, dto);
+  }
+  @Delete(':id/overrides/:overrideId')
+  /**
+   * DELETE /quizzes/:id/overrides/:overrideId — xoá một ghi đè
+   * (quiz:manageoverrides).
+   */
+  async removeOverride(@Param('id', { schema: uuidIdSchema }) id: string, @Param('overrideId', { schema: uuidIdSchema }) overrideId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.quiz.deleteOverride(actor.id, id, overrideId);
+    return { deleted: true };
+  }
   @Post(':id/attempts')
   /**
    * POST /quizzes/:id/attempts — bắt đầu lượt làm mới (hoặc tiếp tục
    * lượt đang dở); `preview: true` dành cho giáo viên xem trước đề.
+   * Mật khẩu vào thi (khi đề/override yêu cầu) đi trong body; cổng
+   * subnet xét theo IP khách thật sau proxy.
    */
-  async startAttempt(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: startQuizAttemptSchema }) dto: StartQuizAttemptDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.quiz.startAttempt(actor.id, id, { preview: dto.preview });
+  async startAttempt(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: startQuizAttemptSchema }) dto: StartQuizAttemptDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    return this.quiz.startAttempt(actor.id, id, { preview: dto.preview, password: dto.password, clientIp: clientIpOf(req) });
   }
   @Get(':id/results')
   /**
@@ -139,10 +176,11 @@ export class QuizAttemptsController {
   }
   @Post(':id/responses')
   /**
-   * POST /quiz-attempts/:id/responses — lưu câu trả lời cho một câu.
+   * POST /quiz-attempts/:id/responses — lưu câu trả lời cho một câu
+   * (cổng subnet được kiểm lại tại đây theo IP khách thật).
    */
-  async respond(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: submitQuizResponseSchema }) dto: SubmitQuizResponseDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.quiz.submitResponse(actor.id, id, dto);
+  async respond(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: submitQuizResponseSchema }) dto: SubmitQuizResponseDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
+    return this.quiz.submitResponse(actor.id, id, dto, clientIpOf(req));
   }
   @Post(':id/submit')
   /**

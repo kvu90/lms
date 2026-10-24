@@ -3,6 +3,7 @@ import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
 import { GradesModule } from '../grades/grades.module';
+import { GroupsModule } from '../groups/groups.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { UsersModule } from '../users/users.module';
 import { CourseQuizzesController, QuizAttemptsController, QuizzesController } from './quiz.controller';
@@ -18,7 +19,7 @@ import { QuizService } from './quiz.service';
  * nào trong số đó phụ thuộc Quiz.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, EventsModule],
+  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, EventsModule],
   controllers: [CourseQuizzesController, QuizzesController, QuizAttemptsController],
   providers: [QuizRepository, QuizService],
   exports: [QuizService],
