@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { eq, sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { BlogService } from '../social/blog.service';
 import { SearchRepository, type SearchDocRow } from './search.repository';
 import { blogPosts, contentBankContent, course, users } from '../../db/schema';
 
@@ -13,6 +14,13 @@ export interface SearchArea {
   fetch(itemId: string): Promise<{ title: string; content: string; contextId: string; ownerId?: string } | null>;
   /** Liệt kê mọi itemId hiện có của area (dùng cho reindex toàn bộ). */
   listIds(): Promise<string[]>;
+  /**
+   * Cổng audience theo TỪNG NGƯỜI TÌM (tuỳ chọn): capability tại context
+   * của tài liệu không diễn đạt được audience riêng của item (ví dụ bài
+   * blog bị thu hẹp theo khoá) — area nào có audience riêng phải khai
+   * hàm này để search re-check theo viewer (issue #48).
+   */
+  audienceCheck?(itemId: string, userId: string): Promise<boolean>;
 }
 
 /** PORT của search engine — bản thật là PostgresSearchEngine bên dưới. */
@@ -43,6 +51,7 @@ export class SearchService {
     private readonly repo: SearchRepository,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
+    private readonly blog: BlogService,
   ) {
     this.registerBuiltinAreas();
   }
@@ -88,6 +97,9 @@ export class SearchService {
       listIds: async () => (await db.select().from(contentBankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
     });
     // Area: blog — bài public (site) thuộc user context của tác giả.
+    // Audience của bài (thu hẹp theo khoá liên kết) KHÔNG nằm trong
+    // capability tại context — search phải re-check bằng chính cổng
+    // BlogService.canView theo từng người tìm (issue #48).
     this.registerArea({
       name: 'blog',
       fetch: async (itemId) => {
@@ -98,6 +110,11 @@ export class SearchService {
         return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextId: sys.id, ownerId: p.userId };
       },
       listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.publishState === 'site').map((r) => r.id),
+      audienceCheck: async (itemId, userId) => {
+        const post = await this.blog.getPost(itemId).catch(() => null);
+        if (!post) return false;
+        return this.blog.canView(post, userId);
+      },
     });
   }
 
@@ -166,6 +183,10 @@ export class SearchService {
         const fresh = await provider.fetch(doc.itemId);
         if (!fresh) continue;
         if (fresh.contextId !== doc.contextId) continue;
+        // Lớp 3 (audience theo viewer): area có audience riêng theo từng
+        // item (blog thu hẹp theo khoá) thì phải qua cổng của chính area
+        // đó — capability tại context không thay thế được (issue #48).
+        if (provider.audienceCheck && !(await provider.audienceCheck(doc.itemId, userId))) continue;
       }
       out.push(doc);
     }

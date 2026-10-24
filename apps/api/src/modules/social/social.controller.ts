@@ -29,8 +29,8 @@ export class TagsController {
     return this.tags.addItemTag(actor.id, dto);
   }
   @Get('items')
-  async list(@Query('component') component: string, @Query('itemType') itemType: string, @Query('itemId') itemId: string) {
-    return this.tags.listItemTags(component, itemType, itemId);
+  async list(@Query('component') component: string, @Query('itemType') itemType: string, @Query('itemId') itemId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.tags.listItemTags(component, itemType, itemId, actor.id);
   }
   @Get(':tagId/correlated')
   async correlated(@Param('tagId', { schema: uuidIdSchema }) tagId: string) {
@@ -105,8 +105,10 @@ export class BlogController {
   }
   @Get('posts/:id')
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    const post = await this.blog.getPost(id);
-    return { ...post, visibleToMe: await this.blog.canView(post, actor.id) };
+    // Cổng audience (issue #48): không có quyền xem → 404, không trả nội
+    // dung kèm cờ như trước. Viewer hợp lệ luôn có visibleToMe = true.
+    const post = await this.blog.getPostForViewer(id, actor.id);
+    return { ...post, visibleToMe: true };
   }
   @Patch('posts/:id')
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateBlogPostSchema }) dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {

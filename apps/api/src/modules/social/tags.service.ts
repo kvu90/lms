@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
+import { BlogService } from './blog.service';
 import { SocialRepository, type TagRow } from './social.repository';
 
 export interface TagAreaDefinition {
@@ -48,7 +49,17 @@ export class TagsService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly courses: CoursesService,
+    private readonly blog: BlogService,
   ) {}
+
+  /**
+   * Vật chủ là bài blog (area core_blog/post) thì tag THỪA HƯỞNG audience
+   * của bài (issue #48): không xem được bài → 404. Area/component khác
+   * không đổi hành vi.
+   */
+  private async assertBlogAudience(component: string, itemType: string, itemId: string, viewerId: string): Promise<void> {
+    if (component === 'core_blog' && itemType === 'post') await this.blog.assertCanViewPost(itemId, viewerId);
+  }
 
   /**
    * The capability alone is not the whole law for course-scoped items: the
@@ -103,6 +114,7 @@ export class TagsService {
     component: string; itemType: string; itemId: string; contextId: string; tags: string[];
   }): Promise<{ tags: (TagRow & { ordering: number })[] }> {
     this.assertArea(input.component, input.itemType);
+    await this.assertBlogAudience(input.component, input.itemType, input.itemId, actorId);
     await this.evaluator.requireCapability(actorId, 'tag:edit', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     await this.repo.deleteInstancesForItem(input.component, input.itemType, input.itemId, input.contextId);
@@ -137,9 +149,14 @@ export class TagsService {
   }
 
   /**
-   * Tag của item.
+   * Tag của item. Khi có viewerId (đường API), item là bài blog thì áp
+   * cổng audience của bài (issue #48) — trước đây endpoint này không
+   * truyền actor nên ai đăng nhập cũng đọc được tag của mọi bài. Các
+   * caller nội bộ (add/remove) không truyền viewerId; đường ghi của
+   * chúng đi qua setItemTags vốn đã gác theo actor.
    */
-  async listItemTags(component: string, itemType: string, itemId: string): Promise<(TagRow & { ordering: number })[]> {
+  async listItemTags(component: string, itemType: string, itemId: string, viewerId?: string): Promise<(TagRow & { ordering: number })[]> {
+    if (viewerId) await this.assertBlogAudience(component, itemType, itemId, viewerId);
     const instances = await this.repo.listInstancesForItem(component, itemType, itemId);
     const out: (TagRow & { ordering: number })[] = [];
     for (const instance of instances) {
