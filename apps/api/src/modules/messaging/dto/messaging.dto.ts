@@ -4,25 +4,34 @@ import {
   createGroupConversationSchema,
   listMessagesQuerySchema,
   notifyUserSchema,
+  reportConversationSchema,
   sendMessageSchema,
   setMessagePreferenceSchema,
+  updateConversationSchema,
+  updateReportStatusSchema,
   type CreateConversation,
   type CreateGroupConversation,
   type NotifyUser,
+  type ReportConversation,
   type SendMessage,
   type SetMessagePreference,
+  type UpdateConversation,
+  type UpdateReportStatus,
 } from '@lms/contracts';
 
 /**
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema };
+export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
 export type SetPreferenceDto = SetMessagePreference;
 export type NotifyDto = NotifyUser;
+export type UpdateConversationDto = UpdateConversation;
+export type ReportConversationDto = ReportConversation;
+export type UpdateReportStatusDto = UpdateReportStatus;
 
 /**
  * Schema phía server cho query phân trang tin nhắn — EXTEND từ schema

@@ -4,6 +4,7 @@ import {
   type MessagingSyncRequest,
   type MessagingSyncResult,
   type RealtimeConversationUpdatedPayload,
+  type RealtimeMessageDeletedPayload,
   type RealtimeMessageReadPayload,
   type RealtimeNewMessagePayload,
   type RealtimePresencePayload,
@@ -31,6 +32,8 @@ export interface MessagingRealtimeHandlers {
   onNewMessage(payload: RealtimeNewMessagePayload): void;
   onConversationUpdated(payload: RealtimeConversationUpdatedPayload): void;
   onReadReceipt(payload: RealtimeMessageReadPayload): void;
+  /** Một tin bị xoá mềm (Lớp B): payload không kèm nội dung — trang gỡ/đánh dấu tin theo tầm nhìn của user. */
+  onMessageDeleted(payload: RealtimeMessageDeletedPayload): void;
   onTyping(payload: RealtimeTypingPayload): void;
   onPresence(payload: RealtimePresencePayload): void;
   /** Gọi mỗi lần nối lại thành công sau rớt mạng (không gọi ở lần nối đầu tiên). */
@@ -61,6 +64,7 @@ export function connectMessagingRealtime(handlers: MessagingRealtimeHandlers): M
   socket.on(MESSAGING_SOCKET_EVENTS.newMessage, (payload: RealtimeNewMessagePayload) => handlers.onNewMessage(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.conversationUpdated, (payload: RealtimeConversationUpdatedPayload) => handlers.onConversationUpdated(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.messageRead, (payload: RealtimeMessageReadPayload) => handlers.onReadReceipt(payload));
+  socket.on(MESSAGING_SOCKET_EVENTS.messageDeleted, (payload: RealtimeMessageDeletedPayload) => handlers.onMessageDeleted(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.typing, (payload: RealtimeTypingPayload) => handlers.onTyping(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.presenceChanged, (payload: RealtimePresencePayload) => handlers.onPresence(payload));
 

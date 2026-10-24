@@ -23,6 +23,14 @@ export const messageConversations = pgTable('message_conversations', {
   contextId: uuid('context_id'),
   enabled: boolean('enabled').notNull().default(true),
   /**
+   * Người tạo conversation (Lớp B, issue #33): căn cứ thẩm quyền quản
+   * lý cho nhóm tự do (người tạo tắt/bật chat của nhóm mình) và truy
+   * vết ai đã lập nhóm. Conversation sinh từ đồng bộ cấu trúc lớp/khoá
+   * ghi người đã khởi tạo bản ghi, nhưng thẩm quyền quản lý của chúng
+   * vẫn theo staff của khoá, không theo người tạo.
+   */
+  createdBy: uuid('created_by'),
+  /**
    * Bộ đếm seq của conversation: mỗi tin mới nhận `last_message_seq + 1`
    * trong cùng transaction gửi tin (khoá dòng bằng UPDATE ... RETURNING
    * nên các lần gửi đồng thời không va chạm seq). Client đồng bộ và
@@ -86,6 +94,16 @@ export const message = pgTable('message', {
   smallMessage: text('small_message').notNull().default(''),
   seq: integer('seq').notNull(),
   clientMessageId: text('client_message_id'),
+  /**
+   * Dấu vết XOÁ MỀM (Lớp B, issue #33 — chính sách đã chốt thay tính
+   * bất biến tuyệt đối): tin bị xoá chỉ được đánh dấu tại đây (ai xoá,
+   * khi nào), dòng tin và nội dung giữ nguyên. Mọi đường đọc thường
+   * của thành viên lọc bỏ tin có `deleted_at` (kể cả tác giả); chỉ các
+   * đường truy vết có thẩm quyền (giáo viên phụ trách/quản trị, xem lại
+   * conversation bị báo cáo) mới đọc được các tin này.
+   */
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedBy: uuid('deleted_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
@@ -97,9 +115,12 @@ export const message = pgTable('message', {
 
 
 /**
- * Contacts (Moodle `message_contacts`): user_id đã thêm contact_id vào danh
- * bạ của mình. Quan hệ có hướng — dòng (người nhận, người gửi) là một trong
- * hai điều kiện mở cổng liên lạc khi `core/messagingallusers` tắt.
+ * Contacts (Moodle `message_contacts`): quan hệ liên hệ ĐÃ ĐƯỢC DUYỆT
+ * (issue #33 Lớp B — thay danh bạ một chiều bằng luồng yêu cầu–chấp
+ * nhận như Moodle). Một quan hệ được duyệt luôn tồn tại ở CẢ HAI dòng
+ * (a→b và b→a): chấp nhận ghi cả hai, gỡ liên hệ xoá cả hai. Hàng chờ
+ * duyệt sống ở bảng `message_contact_requests`, KHÔNG nằm ở đây — cổng
+ * liên lạc chỉ đọc bảng này nên yêu cầu đang chờ không mở cổng.
  */
 export const messageContacts = pgTable(
   'message_contacts',
@@ -111,6 +132,50 @@ export const messageContacts = pgTable(
   (table) => [
       index('message_contacts_contact_id_idx').on(table.contactId),primaryKey({ columns: [table.userId, table.contactId] })],
 );
+
+/**
+ * Yêu cầu kết bạn đang chờ duyệt (Moodle `message_contact_requests`):
+ * user_id_from gửi yêu cầu tới user_id_to; phía nhận chấp nhận thì quan
+ * hệ chuyển thành hai dòng trong `message_contacts` và dòng yêu cầu bị
+ * xoá; từ chối thì chỉ xoá dòng yêu cầu. PK phức hợp (from, to) — cặp
+ * có hướng là định danh tự nhiên của một yêu cầu (bảng nối thuần tuý,
+ * không khoá thay thế theo ADR-013).
+ */
+export const messageContactRequests = pgTable(
+  'message_contact_requests',
+  {
+    userIdFrom: uuid('user_id_from').notNull(),
+    userIdTo: uuid('user_id_to').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+      index('message_contact_requests_user_id_to_idx').on(table.userIdTo),primaryKey({ columns: [table.userIdFrom, table.userIdTo] })],
+);
+
+/**
+ * Báo cáo conversation (Lớp B, issue #33 — chính sách báo cáo/kiểm
+ * duyệt đã chốt): một thành viên báo cáo một conversation; báo cáo vào
+ * hàng đợi của giáo viên phụ trách lớp/khoá liên quan + quản trị viên.
+ * Chỉ người có thẩm quyền theo phạm vi mới xem lại được nội dung của
+ * đúng conversation bị báo cáo (mọi lần xem ghi event_log qua outbox),
+ * và chỉ họ mới đổi được trạng thái xử lý (`open` → `resolved`/
+ * `dismissed`, kèm dấu người xử lý và thời điểm).
+ */
+export const messageConversationReports = pgTable('message_conversation_reports', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  conversationId: uuid('conversation_id').notNull().references(() => messageConversations.id, { onDelete: 'cascade' }),
+  reporterId: uuid('reporter_id').notNull(),
+  reason: text('reason').notNull().default(''),
+  status: text('status').notNull().default('open'),
+  resolvedBy: uuid('resolved_by'),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('message_conversation_reports_conversation_id_idx').on(table.conversationId),
+      index('message_conversation_reports_reporter_id_idx').on(table.reporterId),
+  ]);
+
 
 /** Blocked contacts (Moodle `message_users_blocked`): user_id blocks blocked_user_id from contacting them. */
 export const messageUsersBlocked = pgTable(

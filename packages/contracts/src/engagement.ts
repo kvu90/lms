@@ -16,6 +16,14 @@ export const messageSchema = z.object({
   seq: z.number().int(),
   /** Khoá chống trùng do client sinh khi gửi lạc quan; null với tin gửi không kèm khoá. */
   clientMessageId: z.string().nullable(),
+  /**
+   * Dấu vết xoá mềm (Lớp B, issue #33): null khi tin còn nguyên. Tin đã
+   * xoá chỉ xuất hiện trong các cửa sổ truy vết có thẩm quyền — phía
+   * học sinh không bao giờ nhận được tin có hai trường này khác null
+   * qua các đường đọc thường.
+   */
+  deletedAt: z.string().nullable(),
+  deletedBy: uuidIdSchema.nullable(),
 });
 export type LmsMessage = z.infer<typeof messageSchema>;
 
@@ -198,6 +206,29 @@ export const listMessagesQuerySchema = z.strictObject({
 });
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
 
+/**
+ * Bật/tắt chat của một conversation (Lớp B, issue #33): nhóm lớp mặc
+ * định chat hai chiều; giáo viên phụ trách (hoặc người tạo nhóm tự do,
+ * hoặc quản trị viên) tắt được — học sinh dừng gửi, người có thẩm quyền
+ * quản lý vẫn gửi được đường thông báo.
+ */
+export const updateConversationSchema = z.strictObject({
+  enabled: z.boolean(),
+});
+export type UpdateConversation = z.infer<typeof updateConversationSchema>;
+
+/** Báo cáo một conversation (Lớp B, issue #33): lý do là tuỳ chọn. */
+export const reportConversationSchema = z.strictObject({
+  reason: z.string().max(1000).optional(),
+});
+export type ReportConversation = z.infer<typeof reportConversationSchema>;
+
+/** Đổi trạng thái xử lý của một báo cáo conversation (Lớp B, issue #33). */
+export const updateReportStatusSchema = z.strictObject({
+  status: z.enum(['open', 'resolved', 'dismissed']),
+});
+export type UpdateReportStatus = z.infer<typeof updateReportStatusSchema>;
+
 /* ---- Sự kiện realtime của messaging (Socket.IO, namespace /messaging) ---- */
 
 /** Tên sự kiện trên kênh realtime — một nguồn sự thật cho cả api và web. */
@@ -208,6 +239,8 @@ export const MESSAGING_SOCKET_EVENTS = {
   conversationUpdated: 'conversation.updated',
   /** Server → client: một thành viên đã đọc tới mốc lastReadSeq. */
   messageRead: 'message.read',
+  /** Server → client: một tin đã bị xoá mềm — client gỡ tin khỏi khung (payload không kèm nội dung). */
+  messageDeleted: 'message.deleted',
   /** Hai chiều: một thành viên đang nhập trong conversation. */
   typing: 'typing',
   /** Server → client: trạng thái trực tuyến của một user thay đổi. */
@@ -237,6 +270,19 @@ export interface RealtimeMessageReadPayload {
   conversationId: string;
   userId: string;
   lastReadSeq: number;
+}
+
+/**
+ * Một tin bị xoá mềm (Lớp B, issue #33), phân phối qua consumer của
+ * outbox `message_deleted`. Payload CHỈ mang định danh + người xoá —
+ * không kèm nội dung: phía học sinh phải gỡ tin và không được nhận lại
+ * nội dung qua kênh realtime.
+ */
+export interface RealtimeMessageDeletedPayload {
+  conversationId: string;
+  messageId: string;
+  seq: number;
+  deletedBy: string;
 }
 
 export interface RealtimeTypingPayload {

@@ -118,10 +118,13 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     tokenB = (await login(app, userB.username, STRONG_PASSWORD)).accessToken;
     tokenC = (await login(app, userC.username, STRONG_PASSWORD)).accessToken;
     // Conversation nhóm 3 người — cổng liên lạc chỉ áp cho conversation
-    // 1-1 nên nhóm gửi tự do, đúng luật hiện hữu.
+    // 1-1 nên nhóm gửi tự do, đúng luật hiện hữu. Nhóm do ADMIN tạo:
+    // theo chính sách Lớp B của #33, học sinh không tự lập nhóm tự do —
+    // nhóm chỉ do giáo viên/staff tạo (admin ở đây) hoặc sinh từ cấu
+    // trúc lớp/khoá. Ba user A/B/C là thành viên thường của nhóm.
     const conv = await http(app).post('/api/v1/messages/conversations')
-      .set('Authorization', `Bearer ${tokenA}`)
-      .send({ type: 2, memberIds: [userB.id, userC.id], name: 'Nhóm kiểm thử #33' });
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ type: 2, memberIds: [userA.id, userB.id, userC.id], name: 'Nhóm kiểm thử #33' });
     expect(conv.status).toBe(201);
     convId = conv.body.id as string;
   });

@@ -17,6 +17,13 @@ interface MessageView {
   createdAt: string;
   seq: number;
   clientMessageId: string | null;
+  /**
+   * Dấu vết xoá mềm (Lớp B, issue #33): tin đã xoá chỉ còn xuất hiện
+   * trong cửa sổ của người có thẩm quyền kiểm duyệt; phía học sinh
+   * không bao giờ nhận được tin có hai trường này khác null.
+   */
+  deletedAt?: string | null;
+  deletedBy?: string | null;
   /** Trạng thái cục bộ của tin gửi lạc quan; tin từ server không có trường này. */
   localStatus?: 'sending' | 'failed';
 }
@@ -29,6 +36,12 @@ interface ConversationView {
   lastReadSeq?: number;
   lastMessageSeq?: number;
   lastMessage?: MessageView | null;
+  /** Chat đang bật hay không — giáo viên tắt được (Lớp B); vắng mặt coi như đang bật. */
+  enabled?: boolean;
+  createdBy?: string | null;
+  /** Thẩm quyền của CHÍNH user trên conversation (chỉ chi tiết conversation mới mang): kiểm duyệt / quản lý. */
+  canModerate?: boolean;
+  canManage?: boolean;
 }
 /** Chi tiết conversation theo API: conversation kèm một cửa sổ tin + mốc đã đọc của từng thành viên. */
 interface ConversationDetailView extends ConversationView {
@@ -83,6 +96,15 @@ export function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
+  // Lớp B (issue #33): danh bạ ĐÃ DUYỆT + hàng chờ kết bạn (đến/đi),
+  // thay danh bạ một chiều cũ.
+  const [contacts, setContacts] = useState<string[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<{ userId: string; createdAt: string }[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<{ userId: string; createdAt: string }[]>([]);
+  const [contactUserId, setContactUserId] = useState('');
+  const [contactMessage, setContactMessage] = useState<string | null>(null);
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   const activeRef = useRef<ConversationView | null>(null);
@@ -105,6 +127,22 @@ export function MessagesPage() {
     setConversations(list);
     recountUnread(list);
     setBlocked(blockedRes.blocked);
+    // Danh bạ + hàng chờ kết bạn (Lớp B): lỗi ở hai đường này không
+    // được phép làm hỏng danh sách cuộc trò chuyện ở trên.
+    try {
+      const [contactsRes, requestsRes] = await Promise.all([
+        apiJson<{ contacts: string[] }>('/api/v1/messages/contacts'),
+        apiJson<{
+          incoming: { userId: string; createdAt: string }[];
+          outgoing: { userId: string; createdAt: string }[];
+        }>('/api/v1/messages/contacts/requests'),
+      ]);
+      setContacts(contactsRes.contacts);
+      setIncomingRequests(requestsRes.incoming);
+      setOutgoingRequests(requestsRes.outgoing);
+    } catch {
+      // Giữ trạng thái danh bạ gần nhất.
+    }
     for (const c of list) {
       if (c.lastMessageSeq !== undefined) {
         const seen = lastSeqRef.current.get(c.id) ?? 0;
@@ -203,6 +241,16 @@ export function MessagesPage() {
           return next;
         });
       },
+      onMessageDeleted: ({ conversationId, messageId, deletedBy }) => {
+        if (activeRef.current?.id !== conversationId) return;
+        // Xoá mềm (Lớp B): đánh dấu ngay trong khung — phía học sinh
+        // không còn thấy tin (lọc ở bước render), phía có thẩm quyền
+        // kiểm duyệt thấy dấu vết ai đã xoá. Payload không kèm nội
+        // dung nên không có đường nào nội dung bị lộ lại qua realtime.
+        setMessages((prev) => prev.map((m) => (m.id === messageId
+          ? { ...m, deletedAt: new Date().toISOString(), deletedBy }
+          : m)));
+      },
       onReadReceipt: ({ conversationId, userId, lastReadSeq }) => {
         if (activeRef.current?.id === conversationId) {
           setReadMarkers((prev) => ({ ...prev, [userId]: Math.max(prev[userId] ?? 0, lastReadSeq) }));
@@ -254,7 +302,13 @@ export function MessagesPage() {
   async function open(conv: ConversationView) {
     setActive(conv);
     setTypingUsers({});
+    setReportMessage(null);
+    setActionMessage(null);
     const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conv.id}`);
+    // Chi tiết mang theo enabled + thẩm quyền của chính user (Lớp B):
+    // gộp vào conversation đang mở để header/khung soạn biết đường hiển thị.
+    const { messages: _detailMessages, ...detailView } = detail;
+    setActive({ ...conv, ...detailView });
     setMessages(detail.messages);
     setHasMoreBefore(detail.hasMoreBefore ?? false);
     const markers: Record<string, number> = {};
@@ -341,6 +395,84 @@ export function MessagesPage() {
     await open(conv);
   }
 
+  /** Gửi yêu cầu kết bạn (Lớp B: luồng yêu cầu–chấp nhận thay danh bạ một chiều). */
+  async function sendContactRequest(event: FormEvent) {
+    event.preventDefault();
+    setContactMessage(null);
+    try {
+      const res = await apiJson<{ status: 'pending' | 'accepted' }>(`/api/v1/messages/contacts/${contactUserId}`, {
+        method: 'POST',
+        body: '{}',
+      });
+      setContactMessage(res.status === 'accepted' ? t('contactRequestAccepted') : t('contactRequestSent'));
+      setContactUserId('');
+      await reload();
+    } catch {
+      setContactMessage(t('contactRequestFailed'));
+    }
+  }
+
+  /** Chấp nhận/từ chối một yêu cầu kết bạn đang chờ. */
+  async function respondContactRequest(userId: string, action: 'accept' | 'decline') {
+    setContactMessage(null);
+    try {
+      await apiJson(`/api/v1/messages/contacts/requests/${userId}/${action}`, { method: 'POST', body: '{}' });
+      await reload();
+    } catch {
+      setContactMessage(t('contactRequestFailed'));
+    }
+  }
+
+  /** Mở cuộc trò chuyện 1-1 với một liên hệ đã duyệt. */
+  async function messageContact(userId: string) {
+    const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ memberIds: [userId] }),
+    });
+    await reload();
+    await open(conv);
+  }
+
+  /** Báo cáo cuộc trò chuyện đang mở — về giáo viên phụ trách + quản trị viên (Lớp B). */
+  async function reportActiveConversation() {
+    if (!active) return;
+    setReportMessage(null);
+    try {
+      await apiJson(`/api/v1/messages/conversations/${active.id}/report`, { method: 'POST', body: '{}' });
+      setReportMessage(t('conversationReported'));
+    } catch {
+      setReportMessage(t('reportFailed'));
+    }
+  }
+
+  /** Bật/tắt chat của cuộc trò chuyện đang mở (chỉ hiện khi canManage). */
+  async function toggleActiveChat() {
+    if (!active) return;
+    const updated = await apiJson<ConversationView>(`/api/v1/messages/conversations/${active.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: !(active.enabled ?? true) }),
+    });
+    setActive((prev) => (prev ? { ...prev, enabled: updated.enabled } : prev));
+    setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, enabled: updated.enabled } : c)));
+  }
+
+  /**
+   * Xoá mềm một tin nhắn (tin của mình, hoặc mọi tin khi canModerate):
+   * server trả dòng tin kèm dấu vết — áp ngay vào khung; phía học sinh
+   * tin biến mất ở bước render, phía kiểm duyệt thấy dấu đã xoá.
+   */
+  async function deleteMessage(message: MessageView) {
+    setActionMessage(null);
+    try {
+      const deleted = await apiJson<MessageView>(`/api/v1/messages/messages/${message.id}`, { method: 'DELETE' });
+      setMessages((prev) => prev.map((m) => (m.id === message.id
+        ? { ...m, deletedAt: deleted.deletedAt ?? new Date().toISOString(), deletedBy: deleted.deletedBy ?? myId ?? null }
+        : m)));
+    } catch {
+      setActionMessage(t('deleteMessageFailed'));
+    }
+  }
+
   const lastOwnMessage = [...messages].reverse().find((m) => m.userIdFrom === myId && !m.localStatus);
   const seenByAllOthers = Boolean(
     active && lastOwnMessage
@@ -348,6 +480,9 @@ export function MessagesPage() {
         .every((memberId) => (readMarkers[memberId] ?? 0) >= lastOwnMessage.seq),
   );
   const typingNames = Object.keys(typingUsers).filter((userId) => typingUsers[userId]);
+  // Tầm nhìn xoá mềm ở phía client (server đã chốt theo vai trò):
+  // tin đã xoá chỉ còn hiện với người có thẩm quyền kiểm duyệt.
+  const visibleMessages = messages.filter((m) => !m.deletedAt || active?.canModerate);
 
   return (
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
@@ -381,6 +516,56 @@ export function MessagesPage() {
             <Input id="new-user" value={newUserId} onChange={(e) => setNewUserId(e.target.value)} />
             <Button type="submit">{t('start')}</Button>
           </form>
+          <div className="space-y-2">
+            <h3 className="font-medium">{t('contactsTitle')}</h3>
+            {contactMessage ? <p role="status">{contactMessage}</p> : null}
+            <ul className="space-y-1">
+              {contacts.map((userId) => (
+                <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
+                  <span className="text-sm">{userId}</span>
+                  <Button type="button" variant="outline" onClick={() => void messageContact(userId)}>
+                    {t('messageWithContact')}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {contacts.length === 0 ? <p className="text-sm text-muted-foreground">{t('noContacts')}</p> : null}
+            {incomingRequests.length > 0 ? (
+              <>
+                <h4 className="text-sm font-medium">{t('incomingRequestsTitle')}</h4>
+                <ul className="space-y-1">
+                  {incomingRequests.map((r) => (
+                    <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-2">
+                      <span className="text-sm">{r.userId}</span>
+                      <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
+                        {t('acceptContactRequest')}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'decline')}>
+                        {t('declineContactRequest')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {outgoingRequests.length > 0 ? (
+              <>
+                <h4 className="text-sm font-medium">{t('outgoingRequestsTitle')}</h4>
+                <ul className="space-y-1">
+                  {outgoingRequests.map((r) => (
+                    <li key={r.userId} className="text-sm">
+                      {r.userId} {t('contactRequestPendingSuffix')}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <form onSubmit={(e) => void sendContactRequest(e)} className="space-y-2">
+              <Label htmlFor="contact-user">{t('contactUserIdLabel')}</Label>
+              <Input id="contact-user" value={contactUserId} onChange={(e) => setContactUserId(e.target.value)} />
+              <Button type="submit">{t('sendContactRequest')}</Button>
+            </form>
+          </div>
           <div className="space-y-2">
             <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
             {blockMessage ? <p role="status">{blockMessage}</p> : null}
@@ -432,18 +617,35 @@ export function MessagesPage() {
                     </span>
                   ))}
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
+                  {t('reportConversation')}
+                </Button>
+                {active.canManage ? (
+                  <Button type="button" variant="outline" onClick={() => void toggleActiveChat()}>
+                    {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
+                  </Button>
+                ) : null}
+                {reportMessage ? <p role="status">{reportMessage}</p> : null}
+                {actionMessage ? <p role="alert">{actionMessage}</p> : null}
+              </div>
               {hasMoreBefore ? (
                 <Button type="button" variant="outline" onClick={() => void loadOlder()}>
                   {t('loadOlderMessages')}
                 </Button>
               ) : null}
               <ul className="space-y-2" aria-label={t('messagesListLabel')}>
-                {messages.map((m) => (
-                  <li key={m.id} className="rounded border p-2">
+                {visibleMessages.map((m) => (
+                  <li key={m.id} className={m.deletedAt ? 'rounded border p-2 opacity-70' : 'rounded border p-2'}>
                     <p className="text-xs text-muted-foreground">
                       {t('messageFromUser', { userId: m.userIdFrom, time: new Date(m.createdAt).toLocaleString() })}
                     </p>
                     <p>{m.fullMessage}</p>
+                    {m.deletedAt ? (
+                      <p className="text-xs italic text-muted-foreground">
+                        {t('messageDeletedBy', { userId: m.deletedBy ?? '' })}
+                      </p>
+                    ) : null}
                     {m.localStatus === 'sending' ? (
                       <p className="text-xs text-muted-foreground">{t('messageSending')}</p>
                     ) : null}
@@ -454,6 +656,11 @@ export function MessagesPage() {
                           {t('retrySend')}
                         </Button>
                       </p>
+                    ) : null}
+                    {!m.deletedAt && !m.localStatus && (m.userIdFrom === myId || active.canModerate) ? (
+                      <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
+                        {t('deleteMessage')}
+                      </Button>
                     ) : null}
                   </li>
                 ))}
@@ -466,17 +673,26 @@ export function MessagesPage() {
                   {t('typingIndicator', { userId })}
                 </p>
               ))}
-              <form onSubmit={(e) => void send(e)} className="flex gap-2">
-                <Input
-                  aria-label={t('messageText')}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    noteTyping();
-                  }}
-                />
-                <Button type="submit">{t('send')}</Button>
-              </form>
+              {active.enabled === false && !active.canManage ? (
+                <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledNotice')}</p>
+              ) : (
+                <>
+                  {active.enabled === false ? (
+                    <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
+                  ) : null}
+                  <form onSubmit={(e) => void send(e)} className="flex gap-2">
+                    <Input
+                      aria-label={t('messageText')}
+                      value={draft}
+                      onChange={(e) => {
+                        setDraft(e.target.value);
+                        noteTyping();
+                      }}
+                    />
+                    <Button type="submit">{t('send')}</Button>
+                  </form>
+                </>
+              )}
             </>
           ) : (
             <p>{t('pickConversation')}</p>

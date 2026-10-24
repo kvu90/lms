@@ -4,6 +4,7 @@ import {
   MESSAGING_SOCKET_EVENTS,
   type LmsMessage,
   type RealtimeConversationUpdatedPayload,
+  type RealtimeMessageDeletedPayload,
   type RealtimeMessageReadPayload,
   type RealtimeNewMessagePayload,
 } from '@lms/contracts';
@@ -34,6 +35,8 @@ export function toWireMessage(row: MessageRow): LmsMessage {
     createdAt: row.createdAt.toISOString(),
     seq: row.seq,
     clientMessageId: row.clientMessageId,
+    deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    deletedBy: row.deletedBy,
   };
 }
 
@@ -150,6 +153,38 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     // lúc bắt tay/join nên socket cũ nằm lại trong room vô hạn).
     await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
     this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.newMessage, newPayload);
+    await Promise.all(memberIds.map(async (memberId) => {
+      const unreadCount = await this.repo.countUnreadForConversation(messageRow.conversationId, memberId).catch(() => 0);
+      const payload: RealtimeConversationUpdatedPayload = {
+        conversationId: messageRow.conversationId, message: wire, unreadCount,
+      };
+      this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+    }));
+  }
+
+  /**
+   * Phân phối một lần xoá mềm (Lớp B): `message.deleted` vào room của
+   * conversation — payload chỉ mang id/seq/người xoá, KHÔNG kèm nội
+   * dung (phía học sinh phải gỡ tin khỏi khung và không được nhận lại
+   * nội dung qua kênh này) — kèm `conversation.updated` cho từng thành
+   * viên với tin cuối CÒN HIỂN THỊ được (tin đã xoá không bao giờ là
+   * tin cuối ở phía client) và số chưa đọc đã trừ tin đã xoá.
+   */
+  async distributeMessageDeleted(messageRow: MessageRow, memberIds: string[]): Promise<void> {
+    if (!this.server) return;
+    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
+    const deletedPayload: RealtimeMessageDeletedPayload = {
+      conversationId: messageRow.conversationId,
+      messageId: messageRow.id,
+      seq: messageRow.seq,
+      deletedBy: messageRow.deletedBy ?? '',
+    };
+    this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    // Tin cuối còn hiển thị: cửa sổ đọc mặc định của repository đã lọc
+    // tin đã xoá — lấy đúng 1 tin mới nhất còn sống làm xem trước mới.
+    const [lastVisible] = await this.repo.listMessages(messageRow.conversationId, { limit: 1 }).catch(() => []);
+    if (!lastVisible) return;
+    const wire = toWireMessage(lastVisible);
     await Promise.all(memberIds.map(async (memberId) => {
       const unreadCount = await this.repo.countUnreadForConversation(messageRow.conversationId, memberId).catch(() => 0);
       const payload: RealtimeConversationUpdatedPayload = {

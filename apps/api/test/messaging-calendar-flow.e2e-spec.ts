@@ -10,10 +10,12 @@ import { addGroupMember, createGroupViaApi, suspendUser } from './engagement-hel
  *  - public/message/tests/api_test.php: test_count_blocked_users,
  *    test_mark_all_read_for_user_touser(_with_fromuser), create_conversation
  *    individual/group types.
- *  - Report §2#12 invariants: message ≠ notification; a sent message is
- *    owned by core_message (sender cannot edit/delete); suspended or
- *    blocking users receive nothing; preferences gate dispatch per
- *    (provider × channel × loggedin/loggedoff).
+ *  - Report §2#12 invariants: message ≠ notification; a sent message
+ *    cannot be EDITED; suspended or blocking users receive nothing;
+ *    preferences gate dispatch per (provider × channel × loggedin/
+ *    loggedoff). DELETION follows the later Lớp B policy of issue #33
+ *    (soft delete with trace), which supersedes §2#12's absolute
+ *    immutability — see the edit/delete test below.
  *  - public/calendar/tests/lib_test.php: test_add_subscription (ICS import
  *    counts), test_get_legacy_events_with_overrides (group-scoped
  *    visibility), test_update_subscription; report §2#13 visibility law.
@@ -38,6 +40,21 @@ describe('Messaging & calendar', () => {
     const aLogin = await login(app, a.username, STRONG_PASSWORD);
     const bLogin = await login(app, b.username, STRONG_PASSWORD);
     return { a, b, aToken: aLogin.accessToken, bToken: bLogin.accessToken };
+  }
+
+  /**
+   * Hai user thành liên hệ ĐÃ ĐƯỢC DUYỆT của nhau qua luồng yêu cầu–chấp
+   * nhận (Lớp B của issue #33 thay danh bạ một chiều): requester gửi yêu
+   * cầu, accepter chấp nhận — chỉ khi đó quan hệ mới tồn tại và cổng
+   * liên lạc mới mở.
+   */
+  async function befriend(requester: { id: string; token: string }, accepter: { id: string; token: string }) {
+    const req = await http(app).post(`/api/v1/messages/contacts/${accepter.id}`).set('Authorization', `Bearer ${requester.token}`).send({});
+    expect(req.status).toBe(201);
+    expect(req.body.status).toBe('pending');
+    const acc = await http(app).post(`/api/v1/messages/contacts/requests/${requester.id}/accept`).set('Authorization', `Bearer ${accepter.token}`).send({});
+    expect(acc.status).toBe(201);
+    expect(acc.body.contacts).toContain(requester.id);
   }
 
   /**
@@ -74,8 +91,9 @@ describe('Messaging & calendar', () => {
 
   it('conversations: two users exchange messages; unread counts track conversations and reading clears them (api_test mark_all_read)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (messagingallusers off by default): the recipient adds the sender as a contact first.
-    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    // Contact gate (messagingallusers off by default): the two users are
+    // accepted contacts first (the recipient requested, the sender accepted).
+    await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(conv.status).toBe(201);
@@ -107,8 +125,8 @@ describe('Messaging & calendar', () => {
 
   it('conversations: the member named in memberIds at creation is a real member of the new conversation (not dropped)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (messagingallusers off by default): the recipient adds the sender as a contact first.
-    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    // Contact gate (messagingallusers off by default): the two users are accepted contacts first.
+    await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(conv.status).toBe(201);
@@ -125,28 +143,39 @@ describe('Messaging & calendar', () => {
     expect(mine!.members).toEqual(expect.arrayContaining([a.id, b.id]));
   });
 
-  it('a sent message is immutable: the sender cannot edit or delete it through the API (§2#12)', async () => {
+  it('a sent message cannot be EDITED; deletion is the soft-delete flow of Lớp B (supersedes the old §2#12 absolute immutability)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the recipient adds the sender as a contact so the send itself succeeds.
-    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    // Contact gate: the two users are accepted contacts so the send itself succeeds.
+    await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     const sent = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${aToken}`)
-      .send({ text: 'Permanent words' });
+      .send({ text: 'Words I regret' });
     const messageId = sent.body.id as string;
+    // Editing stays refused — the Lớp B policy only softens deletion.
     const patch = await http(app).patch(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Edited!' });
     expect(patch.status).toBe(403);
     expect(patch.body.code).toBe('messaging.message_immutable');
+    // The author soft-deletes their own message: the row is only MARKED
+    // (deletedAt/deletedBy carry the trace), never physically removed.
     const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`);
-    expect(del.status).toBe(403);
-    expect(del.body.code).toBe('messaging.message_immutable');
+    expect(del.status).toBe(200);
+    expect(del.body.id).toBe(messageId);
+    expect(del.body.deletedAt).toBeTruthy();
+    expect(del.body.deletedBy).toBe(a.id);
+    expect(del.body.fullMessage).toBe('Words I regret');
+    // Both students stop seeing it — the recipient AND the author.
+    const viewB = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
+    expect((viewB.body.messages as { id: string }[]).map((m) => m.id)).not.toContain(messageId);
+    const viewA = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${aToken}`);
+    expect((viewA.body.messages as { id: string }[]).map((m) => m.id)).not.toContain(messageId);
   });
 
   it('blocked contacts cannot send: the recipient block list stops delivery (api_test test_count_blocked_users)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the recipient adds the sender as a contact; the block list is a separate, stronger rule checked first at send time.
-    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    // Contact gate: the two users are accepted contacts; the block list is a separate, stronger rule checked first at send time.
+    await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const blocked = await http(app).post(`/api/v1/messages/contacts/${a.id}/block`).set('Authorization', `Bearer ${bToken}`).send({});
     expect(blocked.body.blocked).toContain(a.id);
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
@@ -164,8 +193,8 @@ describe('Messaging & calendar', () => {
 
   it('a suspended recipient receives neither messages nor notifications (§2#12 DoD)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the recipient adds the sender as a contact before being suspended, so the suspended rule is what stops delivery.
-    await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${bToken}`).send({});
+    // Contact gate: the two users become accepted contacts before the suspension, so the suspended rule is what stops delivery.
+    await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     await suspendUser(app, admin, b.id);
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
@@ -498,8 +527,8 @@ describe('Messaging & calendar', () => {
     expect(afterStatus.body.hasToken).toBe(false);
   });
 
-  it('contacts: add, list and remove; adding yourself is refused and unknown users are 404', async () => {
-    const { a, b, aToken } = await twoUsers();
+  it('contacts: request–accept flow replaces the one-way address book (Lớp B); requesting yourself is refused and unknown users are 404', async () => {
+    const { a, b, aToken, bToken } = await twoUsers();
     const self = await http(app).post(`/api/v1/messages/contacts/${a.id}`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(self.status).toBe(400);
     expect(self.body.code).toBe('messaging.contact_self');
@@ -507,19 +536,43 @@ describe('Messaging & calendar', () => {
     expect(unknown.status).toBe(404);
     expect(unknown.body.code).toBe('user.not_found');
 
-    const added = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
-    expect(added.status).toBe(201);
-    expect(added.body.contacts).toEqual([b.id]);
-    // Adding twice is idempotent: the pair stays unique.
+    // Sending a request does NOT create a contact yet — it only queues.
+    const requested = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
+    expect(requested.status).toBe(201);
+    expect(requested.body.status).toBe('pending');
+    expect(requested.body.contacts).toEqual([]);
+    const listBefore = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${aToken}`);
+    expect(listBefore.body.contacts).toEqual([]);
+    // The request is visible on both sides of the queue.
+    const bQueue = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
+    expect((bQueue.body.incoming as { userId: string }[]).map((r) => r.userId)).toEqual([a.id]);
+    expect(bQueue.body.outgoing).toEqual([]);
+    const aQueue = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${aToken}`);
+    expect((aQueue.body.outgoing as { userId: string }[]).map((r) => r.userId)).toEqual([b.id]);
+    // Requesting twice is idempotent: still one pending request.
     const again = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
-    expect(again.body.contacts).toEqual([b.id]);
-    const list = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${aToken}`);
-    expect(list.body.contacts).toEqual([b.id]);
+    expect(again.body.status).toBe('pending');
+    const bQueue2 = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
+    expect(bQueue2.body.incoming).toHaveLength(1);
 
+    // Accepting forms the relation on BOTH sides and drains the queue.
+    const accepted = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/accept`).set('Authorization', `Bearer ${bToken}`).send({});
+    expect(accepted.status).toBe(201);
+    expect(accepted.body.contacts).toEqual([a.id]);
+    const aList = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${aToken}`);
+    expect(aList.body.contacts).toEqual([b.id]);
+    const bQueueAfter = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
+    expect(bQueueAfter.body.incoming).toEqual([]);
+    // Requesting an existing contact is an idempotent no-op.
+    const noop = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
+    expect(noop.body.status).toBe('accepted');
+    expect(noop.body.contacts).toEqual([b.id]);
+
+    // Removing the contact tears the relation down on BOTH sides.
     const removed = await http(app).delete(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`);
     expect(removed.body.contacts).toEqual([]);
-    const after = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${aToken}`);
-    expect(after.body.contacts).toEqual([]);
+    const bList = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${bToken}`);
+    expect(bList.body.contacts).toEqual([]);
   });
 
   it('contact gate (behat "Disallow sending a message if you are neither a contact nor do you share a course with the user"): strangers blocked while messagingallusers is off; shared course or contact opens the gate; on lets strangers in, off blocks again', async () => {
@@ -546,16 +599,20 @@ describe('Messaging & calendar', () => {
       .send({ text: 'Hello coursemate' });
     expect(sent.status).toBe(201);
 
-    // 3. Contact: the SENDER adding the recipient is not enough — the gate
-    //    opens when the RECIPIENT has added the SENDER as a contact.
+    // 3. Contact (Lớp B request–accept): a PENDING request from the
+    //    sender is not enough — the gate opens only once the relation is
+    //    accepted. Here the recipient answers with a request of their
+    //    own, which accepts the pending one (mutual consent).
     const pair = await twoUsers();
-    const senderAdds = await http(app).post(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`).send({});
-    expect(senderAdds.status).toBe(201);
+    const senderRequests = await http(app).post(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`).send({});
+    expect(senderRequests.status).toBe(201);
+    expect(senderRequests.body.status).toBe('pending');
     const stillBlocked = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${pair.aToken}`)
       .send({ type: 1, memberIds: [pair.b.id] });
     expect(stillBlocked.status).toBe(403);
     expect(stillBlocked.body.code).toBe('messaging.not_a_contact_or_course_member');
-    await http(app).post(`/api/v1/messages/contacts/${pair.a.id}`).set('Authorization', `Bearer ${pair.bToken}`).send({});
+    const recipientAnswers = await http(app).post(`/api/v1/messages/contacts/${pair.a.id}`).set('Authorization', `Bearer ${pair.bToken}`).send({});
+    expect(recipientAnswers.body.status).toBe('accepted');
     const contactConv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${pair.aToken}`)
       .send({ type: 1, memberIds: [pair.b.id] });
     expect(contactConv.status).toBe(201);

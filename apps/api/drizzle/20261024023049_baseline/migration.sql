@@ -872,8 +872,17 @@ CREATE TABLE "message" (
 	"small_message" text DEFAULT '' NOT NULL,
 	"seq" integer NOT NULL,
 	"client_message_id" text,
+	"deleted_at" timestamp with time zone,
+	"deleted_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "message_conversation_client_id_unique" UNIQUE("conversation_id","user_id_from","client_message_id")
+);
+--> statement-breakpoint
+CREATE TABLE "message_contact_requests" (
+	"user_id_from" uuid,
+	"user_id_to" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "message_contact_requests_pkey" PRIMARY KEY("user_id_from","user_id_to")
 );
 --> statement-breakpoint
 CREATE TABLE "message_contacts" (
@@ -891,6 +900,17 @@ CREATE TABLE "message_conversation_members" (
 	CONSTRAINT "message_conversation_members_pkey" PRIMARY KEY("conversation_id","user_id")
 );
 --> statement-breakpoint
+CREATE TABLE "message_conversation_reports" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"conversation_id" uuid NOT NULL,
+	"reporter_id" uuid NOT NULL,
+	"reason" text DEFAULT '' NOT NULL,
+	"status" text DEFAULT 'open' NOT NULL,
+	"resolved_by" uuid,
+	"resolved_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "message_conversations" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"type" integer DEFAULT 1 NOT NULL,
@@ -900,6 +920,7 @@ CREATE TABLE "message_conversations" (
 	"item_id" uuid,
 	"context_id" uuid,
 	"enabled" boolean DEFAULT true NOT NULL,
+	"created_by" uuid,
 	"last_message_seq" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -1576,8 +1597,11 @@ CREATE INDEX "subjects_context_id_idx" ON "subjects" ("context_id");--> statemen
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
 CREATE INDEX "message_conversation_seq_idx" ON "message" ("conversation_id","seq");--> statement-breakpoint
+CREATE INDEX "message_contact_requests_user_id_to_idx" ON "message_contact_requests" ("user_id_to");--> statement-breakpoint
 CREATE INDEX "message_contacts_contact_id_idx" ON "message_contacts" ("contact_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_members_user_id_idx" ON "message_conversation_members" ("user_id");--> statement-breakpoint
+CREATE INDEX "message_conversation_reports_conversation_id_idx" ON "message_conversation_reports" ("conversation_id");--> statement-breakpoint
+CREATE INDEX "message_conversation_reports_reporter_id_idx" ON "message_conversation_reports" ("reporter_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_item_id_idx" ON "message_conversations" ("item_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_context_id_idx" ON "message_conversations" ("context_id");--> statement-breakpoint
 CREATE INDEX "message_users_blocked_blocked_user_id_idx" ON "message_users_blocked" ("blocked_user_id");--> statement-breakpoint
@@ -1754,6 +1778,7 @@ ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREI
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "message_conversation_reports" ADD CONSTRAINT "message_conversation_reports_Pp9sKN3GPtqe_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_issued" ADD CONSTRAINT "badge_issued_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_manual_award" ADD CONSTRAINT "badge_manual_award_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
