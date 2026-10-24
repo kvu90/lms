@@ -37,6 +37,7 @@ export interface LibraryFilters {
   spaceId?: string | null;
   subjectId?: string;
   grade?: number;
+  level?: string;
   resourceType?: string;
   reviewStatus?: string;
 }
@@ -51,6 +52,7 @@ export function fetchItems(filters: LibraryFilters = {}): Promise<LibraryItem[]>
   if (filters.spaceId) params.set('spaceId', filters.spaceId);
   if (filters.subjectId) params.set('subjectId', filters.subjectId);
   if (filters.grade) params.set('grade', String(filters.grade));
+  if (filters.level) params.set('level', filters.level);
   if (filters.resourceType) params.set('resourceType', filters.resourceType);
   if (filters.reviewStatus) params.set('reviewStatus', filters.reviewStatus);
   const qs = params.toString();

@@ -11,7 +11,7 @@ import '../i18n';
 import { apiJson, ApiError } from '#lib/api';
 import { fetchSubjects, fetchSystemContextId, type CurriculumSubject } from '#lib/curriculum';
 import {
-  RESOURCE_TYPES, REVIEW_STATUSES, deleteItem, fetchItemFileUrl, fetchItems, fetchSpaces, insertItem,
+  LEVELS, RESOURCE_TYPES, REVIEW_STATUSES, deleteItem, fetchItemFileUrl, fetchItems, fetchSpaces, insertItem,
   reviewItem, submitItem, type LibraryItem, type LibrarySpace, type ReviewChecklist,
 } from '#lib/content-bank';
 
@@ -48,6 +48,7 @@ export function ContentBankLibraryPage() {
   const [openSpaces, setOpenSpaces] = useState<Record<string, boolean>>({});
   const [subjectFilter, setSubjectFilter] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -101,10 +102,11 @@ export function ContentBankLibraryPage() {
         (i) =>
           (!subjectFilter || i.subjectId === subjectFilter) &&
           (!gradeFilter || i.grade === Number(gradeFilter)) &&
+          (!levelFilter || i.level === levelFilter) &&
           (!typeFilter || i.resourceType === typeFilter) &&
           (!statusFilter || i.reviewStatus === statusFilter),
       ),
-    [items, subjectFilter, gradeFilter, typeFilter, statusFilter],
+    [items, subjectFilter, gradeFilter, levelFilter, typeFilter, statusFilter],
   );
 
   async function runAction(id: string, action: () => Promise<unknown>, done?: string) {
@@ -211,6 +213,17 @@ export function ContentBankLibraryPage() {
               <option value="">{t('libraryFilterAll')}</option>
               {Array.from({ length: 12 }, (_, i) => i + 1).map((g) => (
                 <option key={g} value={g}>{t('libraryGradeOption', { grade: g })}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="lib-filter-level">{t('libraryFormLevel')}</Label>
+            <select id="lib-filter-level" className={SELECT_CLASS} value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
+              <option value="">{t('libraryFilterAll')}</option>
+              {LEVELS.map((lv) => (
+                <option key={lv} value={lv}>
+                  {t(lv === 'primary' ? 'libraryLevelPrimary' : lv === 'lower_secondary' ? 'libraryLevelLowerSecondary' : lv === 'upper_secondary' ? 'libraryLevelUpperSecondary' : 'libraryLevelMulti')}
+                </option>
               ))}
             </select>
           </div>
