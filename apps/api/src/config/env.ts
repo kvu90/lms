@@ -11,6 +11,13 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   REDIS_URL: z.string().min(1),
+  // Presence của messaging realtime (issue #33): TTL của khoá presence
+  // trong Redis và nhịp gia hạn cho các kết nối còn sống. TTL là lưới
+  // an toàn để tiến trình chết đột ngột không để lại trạng thái
+  // "online" kẹt mãi; nhịp gia hạn phải nhỏ hơn TTL để một kết nối
+  // còn sống không bao giờ bị coi là offline giữa chừng (F2).
+  MESSAGING_PRESENCE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  MESSAGING_PRESENCE_REFRESH_MS: z.coerce.number().int().positive().default(120_000),
   JWT_SECRET: z.string().min(16),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

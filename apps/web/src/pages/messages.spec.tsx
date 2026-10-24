@@ -303,6 +303,46 @@ describe('Messages page — optimistic send and realtime updates', () => {
     // Conversation khác nhận số chưa đọc theo sự kiện.
     expect(await screen.findByRole('button', { name: /Nhóm hai.*3 chưa đọc/ })).toBeInTheDocument();
   });
+
+  it('ignores a stale conversation.updated with an older seq than the applied one', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubRealtimeFetch(calls);
+    renderMessages();
+
+    await screen.findByRole('button', { name: /Nhóm một/ });
+    const updatedPayload = (seq: number, text: string, unreadCount: number) => ({
+      conversationId: CONV2_ID,
+      message: {
+        id: `01900000-0000-7000-8000-0000000000f${seq}`,
+        conversationId: CONV2_ID,
+        userIdFrom: OTHER_ID,
+        subject: '',
+        fullMessage: text,
+        createdAt: '2026-01-01T00:05:00.000Z',
+        seq,
+        clientMessageId: null,
+      },
+      unreadCount,
+    }) as never;
+
+    // Sự kiện mới (seq 2) áp bình thường: huy hiệu 5, xem trước là tin seq 2.
+    act(() => {
+      realtime.handlers?.onConversationUpdated(updatedPayload(2, 'tin mới nhất nhóm hai', 5));
+    });
+    expect(await screen.findByRole('button', { name: /Nhóm hai.*5 chưa đọc/ })).toBeInTheDocument();
+    expect(await screen.findByText('tin mới nhất nhóm hai')).toBeInTheDocument();
+
+    // Sự kiện cũ hơn (seq 1) đến muộn: bị bỏ qua — huy hiệu không nhảy
+    // lùi lên 9 theo số của thời điểm cũ, xem trước giữ nguyên tin seq 2.
+    act(() => {
+      realtime.handlers?.onConversationUpdated(updatedPayload(1, 'tin cũ nhóm hai', 9));
+    });
+    expect(screen.getByRole('button', { name: /Nhóm hai.*5 chưa đọc/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Nhóm hai.*9 chưa đọc/ })).not.toBeInTheDocument();
+    expect(screen.getByText('tin mới nhất nhóm hai')).toBeInTheDocument();
+    expect(screen.queryByText('tin cũ nhóm hai')).not.toBeInTheDocument();
+  });
 });
 
 describe('Messages page — create conversation contract', () => {

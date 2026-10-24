@@ -39,8 +39,9 @@ export function toWireMessage(row: MessageRow): LmsMessage {
 
 const PRESENCE_KEY_PREFIX = 'lms:messaging:presence:';
 const TYPING_KEY_PREFIX = 'lms:messaging:typing:';
-/** TTL an toàn cho presence: tiến trình chết đột ngột thì trạng thái tự hết hạn thay vì kẹt "online" mãi. */
-const PRESENCE_TTL_SECONDS = 600;
+/** Mặc định của hai knob presence trong env (xem config/env.ts): TTL 600s, gia hạn mỗi 120s. */
+const PRESENCE_TTL_SECONDS_DEFAULT = 600;
+const PRESENCE_REFRESH_MS_DEFAULT = 120_000;
 /** Cửa sổ typing: một lần phát hiệu lực 4 giây, trong cửa sổ không phát lại. */
 const TYPING_TTL_SECONDS = 4;
 
@@ -65,6 +66,16 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   private server: Server | null = null;
   private adapterClients: Redis[] = [];
   private stateClient: Redis | null = null;
+  private readonly presenceTtlSeconds: number;
+  private readonly presenceRefreshMs: number;
+  /**
+   * Sổ socket ĐANG nối tại chính tiến trình này (userId → socketId).
+   * Vòng gia hạn presence chỉ gia hạn cho user có mặt trong sổ này:
+   * tiến trình chết thì sổ biến mất theo, không ai gia hạn nữa và TTL
+   * trong Redis tự hết hạn — giữ đúng tính chất lưới an toàn của TTL.
+   */
+  private readonly localPresence = new Map<string, Set<string>>();
+  private presenceTimer: NodeJS.Timeout | null = null;
 
   constructor(
     @Inject(ConfigService) config: ConfigService,
@@ -72,6 +83,8 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   ) {
     this.redisUrl = config.getOrThrow<string>('REDIS_URL');
     this.redisOptions = { maxRetriesPerRequest: null, ...redisTlsFromUrl(this.redisUrl) };
+    this.presenceTtlSeconds = config.get<number>('MESSAGING_PRESENCE_TTL_SECONDS') ?? PRESENCE_TTL_SECONDS_DEFAULT;
+    this.presenceRefreshMs = config.get<number>('MESSAGING_PRESENCE_REFRESH_MS') ?? PRESENCE_REFRESH_MS_DEFAULT;
   }
 
   /**
@@ -95,6 +108,9 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    if (this.presenceTimer) clearInterval(this.presenceTimer);
+    this.presenceTimer = null;
+    this.localPresence.clear();
     await Promise.allSettled([
       ...this.adapterClients.map((c) => c.quit()),
       ...(this.stateClient ? [this.stateClient.quit()] : []),
@@ -127,6 +143,12 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     if (!this.server) return;
     const wire = toWireMessage(messageRow);
     const newPayload: RealtimeNewMessagePayload = { conversationId: messageRow.conversationId, message: wire };
+    // Rà soát room NGAY TRƯỚC khi phát: socket của thành viên đã bị gỡ
+    // khỏi conversation (membership chốt bởi consumer tại thời điểm
+    // phân phối) bị đẩy ra khỏi room, không nhận message.new này và
+    // mọi sự kiện room về sau (F1 — trước đây chỉ kiểm tra membership
+    // lúc bắt tay/join nên socket cũ nằm lại trong room vô hạn).
+    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
     this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.newMessage, newPayload);
     await Promise.all(memberIds.map(async (memberId) => {
       const unreadCount = await this.repo.countUnreadForConversation(messageRow.conversationId, memberId).catch(() => 0);
@@ -138,19 +160,66 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   /** Phân phối biên đã-đọc của một thành viên vào room của conversation. */
-  distributeReadReceipt(payload: RealtimeMessageReadPayload): void {
+  async distributeReadReceipt(payload: RealtimeMessageReadPayload): Promise<void> {
     if (!this.server) return;
+    // Cùng kỷ luật F1: rà soát room theo membership hiện tại trước
+    // khi phát — thành viên đã bị gỡ không nhận biên đã-đọc nữa. Đọc
+    // membership lỗi thì vẫn phát như cũ (realtime là đường phụ).
+    const memberIds = await this.repo.listMembers(payload.conversationId).catch(() => null);
+    if (memberIds) await this.evictNonMemberSockets(payload.conversationId, memberIds);
     this.server.to(conversationRoom(payload.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageRead, payload);
+  }
+
+  /**
+   * Đẩy khỏi room của conversation mọi socket mà user KHÔNG còn
+   * trong `memberIds`. Membership của room được Socket.IO giữ theo
+   * kết nối (vào room lúc bắt tay/join) nên tự nó không phản ánh việc
+   * bị gỡ khỏi conversation; đây là điểm chốt lại membership tại thời
+   * điểm phân phối cho mọi sự kiện phát vào room.
+   */
+  private async evictNonMemberSockets(conversationId: string, memberIds: string[]): Promise<void> {
+    if (!this.server) return;
+    try {
+      const memberSet = new Set(memberIds);
+      const room = conversationRoom(conversationId);
+      const sockets = await this.server.in(room).fetchSockets();
+      await Promise.all(sockets
+        .filter((socket) => {
+          const userId = (socket.data as { userId?: unknown } | undefined)?.userId;
+          return typeof userId !== 'string' || !memberSet.has(userId);
+        })
+        .map((socket) => socket.leave(room)));
+    } catch (error) {
+      this.logger.warn(`Không rà soát được room của conversation ${conversationId}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Đẩy MỌI socket của một user ra khỏi room của conversation — tầng
+   * dịch vụ gọi ngay khi gỡ thành viên (đồng bộ group), để socket của
+   * người bị gỡ thôi nhận mọi sự kiện của conversation (tin mới, đã
+   * đọc, typing, presence) chứ không chờ tới lần phân phối kế tiếp.
+   * Đi qua room riêng của user nên trúng mọi kết nối của họ trên mọi
+   * tiến trình (Redis adapter).
+   */
+  async evictUserFromConversation(userId: string, conversationId: string): Promise<void> {
+    if (!this.server) return;
+    try {
+      await this.server.in(userRoom(userId)).socketsLeave(conversationRoom(conversationId));
+    } catch (error) {
+      this.logger.warn(`Không đẩy được socket của user ${userId} khỏi conversation ${conversationId}: ${(error as Error).message}`);
+    }
   }
 
   // --- presence (A2): tập socket đang mở của từng user trong Redis -------
 
   /** Ghi nhận một socket vừa nối; là socket ĐẦU TIÊN của user thì phát trạng thái online. */
   async markConnected(userId: string, socketId: string): Promise<void> {
+    this.trackLocalSocket(userId, socketId);
     try {
       const redis = this.state();
       const size = await redis.sadd(`${PRESENCE_KEY_PREFIX}${userId}`, socketId);
-      await redis.expire(`${PRESENCE_KEY_PREFIX}${userId}`, PRESENCE_TTL_SECONDS);
+      await redis.expire(`${PRESENCE_KEY_PREFIX}${userId}`, this.presenceTtlSeconds);
       if (size === 1 && (await redis.scard(`${PRESENCE_KEY_PREFIX}${userId}`)) === 1) {
         await this.broadcastPresence(userId, true);
       }
@@ -161,6 +230,9 @@ export class MessagingRealtimeService implements OnModuleDestroy {
 
   /** Ghi nhận một socket vừa ngắt; là socket CUỐI CÙNG của user thì phát trạng thái offline. */
   async markDisconnected(userId: string, socketId: string): Promise<void> {
+    // Bỏ khỏi sổ local TRƯỚC: vòng gia hạn dừng ngay cho socket này,
+    // kể cả khi thao tác Redis dưới đây lỗi.
+    this.untrackLocalSocket(userId, socketId);
     try {
       const redis = this.state();
       await redis.srem(`${PRESENCE_KEY_PREFIX}${userId}`, socketId);
@@ -168,6 +240,47 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       if (remaining === 0) await this.broadcastPresence(userId, false);
     } catch (error) {
       this.logger.warn(`Không ghi được presence khi ngắt: ${(error as Error).message}`);
+    }
+  }
+
+  /** Ghi socket vào sổ local và bảo đảm vòng gia hạn đang chạy. */
+  private trackLocalSocket(userId: string, socketId: string): void {
+    let sockets = this.localPresence.get(userId);
+    if (!sockets) {
+      sockets = new Set();
+      this.localPresence.set(userId, sockets);
+    }
+    sockets.add(socketId);
+    if (!this.presenceTimer) {
+      this.presenceTimer = setInterval(() => { void this.refreshLocalPresence(); }, this.presenceRefreshMs);
+      this.presenceTimer.unref();
+    }
+  }
+
+  /** Bỏ socket khỏi sổ local; user hết socket tại tiến trình này thì vòng gia hạn không đụng tới nữa. */
+  private untrackLocalSocket(userId: string, socketId: string): void {
+    const sockets = this.localPresence.get(userId);
+    if (!sockets) return;
+    sockets.delete(socketId);
+    if (sockets.size === 0) this.localPresence.delete(userId);
+  }
+
+  /**
+   * Một nhịp gia hạn presence (F2): nới lại TTL cho mọi user còn ít
+   * nhất một socket đang nối tại tiến trình này. Thiếu nhịp này, TTL
+   * đặt lúc nối là hạn chót duy nhất — user online quá TTL (mặc định
+   * 600s) bị coi là offline dù kết nối vẫn sống. Lỗi Redis bị nuốt
+   * như mọi đường phụ của presence.
+   */
+  private async refreshLocalPresence(): Promise<void> {
+    if (this.localPresence.size === 0) return;
+    try {
+      const redis = this.state();
+      await Promise.all([...this.localPresence.keys()].map(async (userId) => {
+        await redis.expire(`${PRESENCE_KEY_PREFIX}${userId}`, this.presenceTtlSeconds);
+      }));
+    } catch (error) {
+      this.logger.warn(`Không gia hạn được presence: ${(error as Error).message}`);
     }
   }
 

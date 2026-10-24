@@ -125,12 +125,17 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
   private async distribute(type: string, payload: Record<string, unknown>): Promise<void> {
     if (type === 'message_sent') {
       const messageId = typeof payload.messageId === 'string' ? payload.messageId : null;
-      const memberIds = Array.isArray(payload.memberIds) ? payload.memberIds.filter((v): v is string => typeof v === 'string') : [];
       if (!messageId) return;
       const message = await this.repo.getMessage(messageId);
       // Tin đã biến mất (conversation bị xoá cascade sau khi sự kiện
       // ghi) thì không còn gì để phân phối.
       if (!message) return;
+      // Membership chốt TẠI THỜI ĐIỂM PHÂN PHỐI, đọc thẳng từ DB —
+      // không dùng ảnh chụp lúc gửi trong payload: thành viên bị gỡ
+      // khỏi conversation trong khoảng giữa hai thời điểm không còn
+      // nhận conversation.updated, và danh sách này là căn cứ rà soát
+      // room khi phát message.new (F1).
+      const memberIds = await this.repo.listMembers(message.conversationId);
       await this.realtime.distributeNewMessage(message, memberIds);
       return;
     }
@@ -139,7 +144,7 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
       const userId = typeof payload.userId === 'string' ? payload.userId : null;
       const lastReadSeq = typeof payload.lastReadSeq === 'number' ? payload.lastReadSeq : null;
       if (!conversationId || !userId || lastReadSeq === null) return;
-      this.realtime.distributeReadReceipt({ conversationId, userId, lastReadSeq });
+      await this.realtime.distributeReadReceipt({ conversationId, userId, lastReadSeq });
     }
   }
 }

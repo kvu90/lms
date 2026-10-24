@@ -9,6 +9,7 @@ import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow } from './messaging.repository';
+import { MessagingRealtimeService } from './messaging-realtime.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 export const NOTIFICATION_DISPATCH_QUEUE = 'notification-dispatch';
@@ -111,6 +112,7 @@ export class MessagingService {
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
     private readonly siteConfig: SiteConfigService,
+    private readonly realtime: MessagingRealtimeService,
     private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
   ) {}
@@ -441,7 +443,14 @@ export class MessagingService {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
     }
     for (const id of current) {
-      if (!groupMemberIds.includes(id)) await this.repo.removeMember(conversation.id, id);
+      if (!groupMemberIds.includes(id)) {
+        await this.repo.removeMember(conversation.id, id);
+        // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
+        // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
+        // vẫn nhận mọi sự kiện của conversation (F1). Tầng phân phối
+        // còn rà soát lại membership một lần nữa trước mỗi lần phát.
+        await this.realtime.evictUserFromConversation(id, conversation.id);
+      }
     }
     return groupMemberIds;
   }

@@ -182,6 +182,13 @@ export function MessagesPage() {
         }
       },
       onConversationUpdated: ({ conversationId, message, unreadCount }) => {
+        // Sự kiện mang seq CŨ hơn seq đã áp cho conversation này (một
+        // sự kiện outbox trước bị consumer phân phối muộn hơn sự kiện
+        // sau): bỏ qua để huy hiệu chưa đọc và tin cuối không nhảy lùi
+        // theo số của thời điểm cũ — số đúng luôn có qua REST (quan sát
+        // nhẹ của review Lớp A). Sự kiện trùng seq là phân phối lại của
+        // cùng một sự kiện, vẫn áp như thường và vô hại.
+        if (message.seq < (lastSeqRef.current.get(conversationId) ?? 0)) return;
         noteSeq(conversationId, message.seq);
         setConversations((prev) => {
           const next = prev.map((c) => (c.id === conversationId
