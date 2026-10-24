@@ -482,7 +482,7 @@ export class AssignmentsService {
     // Ghi sổ điểm trước: sổ từ chối (item bị khoá...) thì không lưu điểm ở tầng hoạt động.
     if (assignment.cmId) {
       const item = await this.grades.getItemForCm(assignment.course, assignment.cmId);
-      if (item) await this.grades.recordActivityGrade(item.id, userId, input.grade, ASSIGN_COMPONENT);
+      if (item) await this.grades.recordActivityGrade(item.id, userId, input.grade, 'mod/assign');
     }
     await this.repo.upsertGrade({
       assignmentId: assignment.id, userId, graderId: actorId,
