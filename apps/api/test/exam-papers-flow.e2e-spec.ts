@@ -234,7 +234,13 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
     const copy = copyRes.body as PaperBody;
     const myBank = await bankOfKind(owner.token, 'exam', 'personal');
-    expect(copy.paper.bankId).toBe(myBank.id);
+    // Chẩn đoán tạm (CI run trước cho bankId đích copy ≠ bank cá nhân theo list):
+    // in toàn bộ danh sách bank đề của owner + bank đích của bản copy khi lệch.
+    const rawBanks = await http(app).get('/api/v1/question-banks?kind=exam').set(bearer(owner.token));
+    expect(
+      copy.paper.bankId,
+      `copyBank=${copy.paper.bankId} myBank=${myBank.id} banks=${JSON.stringify(rawBanks.body)}`,
+    ).toBe(myBank.id);
     expect(copy.paper.id).not.toBe(source.paper.id);
     expect(copy.paper.derivedFromPaperId).toBe(source.paper.id);
     expect(copy.paper.originalAuthorId).toBe(source.paper.createdBy);

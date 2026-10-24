@@ -81,12 +81,19 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   // copy = copy đề về bank khác; share = đề xuất đóng góp; moderate =
   // duyệt đóng góp + quản trị đề của người khác trong bank; deploy =
   // triển khai đề vào quiz (cộng thêm quiz:manage tại context khoá đích).
-  { name: 'exam:view', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  { name: 'exam:edit', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  { name: 'exam:copy', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  { name: 'exam:share', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // LƯU Ý archetype: KHÔNG cấp cho 'teacher' — nếu cấp, mọi giáo viên
+  // staff đều kế thừa exam:* tại MỌI context bank qua dòng seed ở
+  // context hệ thống (kể cả bank cá nhân của người khác — đúng bẫy mà
+  // question:useall của QB tránh bằng cách chỉ manager/editingteacher).
+  // Giáo viên staff có quyền tại bank mình thuộc về qua assignment
+  // thật qbankmember/qbanklead + override exam:* tại context bank
+  // (ExamPapersService.ensureExamGrants).
+  { name: 'exam:view', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:edit', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:copy', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:share', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:moderate', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
-  { name: 'exam:deploy', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'exam:deploy', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   // Quiz activity (mod_quiz) — capability tại context của course module như db/access.php của Moodle.
   { name: 'quiz:view', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'quiz:attempt', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { student: CAP_ALLOW } },
