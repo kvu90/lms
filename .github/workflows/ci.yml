@@ -75,18 +75,33 @@ jobs:
       - name: Test api-3c1 unread-stream
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notification-unread-stream-flow.e2e-spec.ts
-      - name: Test api-3c2a center-v2 test1 gop-30
+      - name: Test micro P0 empty
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "30 thông báo điểm"
-      - name: Test api-3c2b center-v2 test2 loc-nhom
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P0 empty groups ok"
+      - name: Test micro P1 unread
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "lọc theo 3 nhóm"
-      - name: Test api-3c2c center-v2 test3 phan-trang
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P1 unread five"
+      - name: Test micro P2 groups4
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "phân trang con trỏ của danh sách gộp"
-      - name: Test api-3c2d center-v2 test4 xoa-muc
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P2 groups four"
+      - name: Test micro P3 bulk
         if: always()
-        run: pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts -t "xoá từng mục"
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P3 bulk latest"
+      - name: Test micro P4 items
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P4 items pages"
+      - name: Test micro P5 filters
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P5 group filters"
+      - name: Test micro P6 readgroup
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P6 read group"
+      - name: Test micro P7 paging
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P7 pagination five"
+      - name: Test micro P8 badcursor
+        if: always()
+        run: pnpm --filter @lms/api exec vitest run test/probe-n2-micro.e2e-spec.ts -t "P8 bad cursor"
       - name: Test api-3c3 providers
         if: always()
         run: pnpm --filter @lms/api exec vitest run test/notifications-providers-flow.e2e-spec.ts
@@ -96,22 +111,3 @@ jobs:
       - name: Test rest (worker/web/contracts/editor/config/ui)
         if: always()
         run: pnpm exec turbo run test --filter=@lms/worker --filter=@lms/web --filter=@lms/contracts --filter=@lms/editor --filter=@lms/config --filter=@lms/ui
-      # PROBE M (chẩn đoán): chạy lại riêng file center-v2, ghi toàn bộ
-      # output + dữ kiện môi trường vào file rồi đẩy lên branch
-      # probe-log-capture để đọc qua API nội dung repo.
-      - name: Capture center-v2 output
-        if: always()
-        run: |
-          pnpm --filter @lms/api exec vitest run test/notifications-center-v2-flow.e2e-spec.ts --reporter=verbose > probe-n2-output.txt 2>&1 || true
-          echo "=== date ===" >> probe-n2-output.txt
-          date >> probe-n2-output.txt 2>&1 || true
-          date -u >> probe-n2-output.txt 2>&1 || true
-          echo "=== pg timezone ===" >> probe-n2-output.txt
-          PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -t -c "show timezone" >> probe-n2-output.txt 2>&1 || true
-          PGPASSWORD=postgres psql -h localhost -U postgres -d lms_test_api -t -c "select now()" >> probe-n2-output.txt 2>&1 || true
-          git config user.email probe@ci.local || true
-          git config user.name probe || true
-          git checkout --orphan probe-log-capture || true
-          git add -f probe-n2-output.txt || true
-          git commit -m "probe: capture center-v2 output" || true
-          git push -f origin probe-log-capture || echo "PUSH FAILED"
