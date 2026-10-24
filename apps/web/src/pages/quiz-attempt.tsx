@@ -5,11 +5,14 @@ import {
   type QuizView,
   type RichTextDocument,
 } from '@lms/contracts';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { Spinner } from '@lms/ui/components/spinner';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -153,13 +156,20 @@ export function QuizAttemptPage() {
 
   if (error)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <p role="alert">{error}</p>
-      </main>
+      <PageShell width="narrow">
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </PageShell>
     );
   if (!view)
     return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{t('quizAttemptLoading')}</main>
+      <PageShell width="narrow">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          {t('quizAttemptLoading')}
+        </div>
+      </PageShell>
     );
 
   const { quiz, attempt } = view;
@@ -167,22 +177,28 @@ export function QuizAttemptPage() {
   const pageQuestions = view.questions.filter((q) => q.page === currentPage);
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{quiz.name}</CardTitle>
-          <CardDescription>
+    <PageShell width="narrow">
+      <PageHeader
+        title={quiz.name}
+        description={
+          <>
             {t('quizAttemptHeaderLine', { number: attempt.attemptNumber, state: t(`quizAttemptState_${attempt.state}`) })}
             {attempt.preview ? ` (${t('quizPreviewBadge')})` : ''}
-          </CardDescription>
-        </CardHeader>
+          </>
+        }
+      />
+      <Card>
         <CardContent className="space-y-3">
           {remainingSeconds !== null ? (
             <p className="text-sm font-medium" data-testid="quiz-countdown">
               {t('quizTimeRemaining', { minutes: Math.floor(remainingSeconds / 60), seconds: remainingSeconds % 60 })}
             </p>
           ) : null}
-          {view.closedDueToTimeLimit ? <p role="alert">{t('quizClosedByTimeLimit')}</p> : null}
+          {view.closedDueToTimeLimit ? (
+            <Alert variant="destructive">
+              <AlertDescription>{t('quizClosedByTimeLimit')}</AlertDescription>
+            </Alert>
+          ) : null}
           {submitted ? (
             <div className="text-sm">
               <p>
@@ -198,7 +214,11 @@ export function QuizAttemptPage() {
           ) : (
             <p className="text-sm text-muted-foreground">{t('quizAttemptInstructions')}</p>
           )}
-          {actionError ? <p role="alert">{actionError}</p> : null}
+          {actionError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{actionError}</AlertDescription>
+            </Alert>
+          ) : null}
           {pages.length > 1 ? (
             <div className="flex gap-2">
               {pages.map((p) => (
@@ -261,7 +281,7 @@ export function QuizAttemptPage() {
       <p className="text-sm">
         <Link to={`/courses/${quiz.courseId}/quizzes/${quiz.id}`}>{t('quizBackToQuiz')}</Link>
       </p>
-    </main>
+    </PageShell>
   );
 }
 

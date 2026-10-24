@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
@@ -135,8 +138,13 @@ export function BlogPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      {error ? <p role="alert">{error}</p> : null}
+    <PageShell width="narrow">
+      <PageHeader title={t('navBlog')} />
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{t('writePost')}</CardTitle>
@@ -208,7 +216,14 @@ export function BlogPage() {
           </CardContent>
         </Card>
       ))}
-    </main>
+      {posts.length === 0 && !error ? (
+        <Empty className="p-6">
+          <EmptyHeader>
+            <EmptyTitle>{t('noBlogPosts')}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      ) : null}
+    </PageShell>
   );
 }
 
