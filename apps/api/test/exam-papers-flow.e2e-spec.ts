@@ -321,9 +321,10 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     expect(del.status).toBe(200);
     const quizAfter = await http(app).get(`/api/v1/quizzes/${quiz3.id}`).set(bearer(owner.token));
     expect(quizAfter.status).toBe(200);
-    expect((quizAfter.body as QuizBody).paperId).toBeNull();
-    expect((quizAfter.body as QuizBody).paperVersionId).toBeNull();
-    expect((quizAfter.body as QuizBody).slots.map((s) => s.questionId)).toEqual([q1]);
+    const quizAfterView = (quizAfter.body as { quiz: QuizBody }).quiz;
+    expect(quizAfterView.paperId).toBeNull();
+    expect(quizAfterView.paperVersionId).toBeNull();
+    expect(quizAfterView.slots.map((s) => s.questionId)).toEqual([q1]);
   });
 
   it('TC6: quiz dựng tay phải xác nhận thay thế mới deploy đè được; cổng soạn đề chặn câu hidden và đề rỗng lên ready', async () => {
@@ -336,7 +337,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
 
     // Câu bị rút (hidden) không vào được đề.
     const withdraw = await http(app).post(`/api/v1/questions/${qHidden}/withdraw`).set(bearer(owner.token)).send({ reason: 'Sai đáp án' });
-    expect(withdraw.status).toBe(200);
+    expect(withdraw.status).toBe(201);
     const badPaper = await http(app).post(`/api/v1/exam-papers/banks/${eBank.id}/papers`).set(bearer(owner.token))
       .send({ name: 'Đề chứa câu rút', slots: [{ questionId: qHidden }] });
     expect(badPaper.status).toBe(400);
