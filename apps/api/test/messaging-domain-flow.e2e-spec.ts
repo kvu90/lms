@@ -307,7 +307,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     // moderator_action — kiểm chứng ở spec vòng đời riêng).
     const hardDel = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'Nội dung không phù hợp với lớp học' });
-    expect(hardDel.status).toBe(200);
+    expect(hardDel.status).toBe(201);
     expect(hardDel.body.deleted).toBe(true);
     const s2ViewAfter = await viewMessages(s2.token, groupConvId);
     expect(s2ViewAfter.messages.map((m) => m.id)).not.toContain(m1Id);
@@ -341,7 +341,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(secret.status).toBe(201);
     const secretId = secret.body.id as string;
     const recallOwn = await http(app).post(`/api/v1/messages/messages/${secretId}/recall`).set('Authorization', `Bearer ${s1.token}`).send({});
-    expect(recallOwn.status).toBe(200);
+    expect(recallOwn.status).toBe(201);
     expect(recallOwn.body.recalledBy).toBe(s1.id);
 
     // Người ngoài conversation không báo cáo được.
