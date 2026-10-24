@@ -10,7 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
@@ -218,18 +218,6 @@ export interface NotificationChannelPort {
 export function isWithinRecallWindow(createdAt: Date, now: Date, windowMinutes: number): boolean {
   if (windowMinutes <= 0) return false;
   return now.getTime() - createdAt.getTime() <= windowMinutes * 60_000;
-}
-
-/**
- * Vô hiệu hoá NỘI DUNG của một tin đã thu hồi cho đường đọc thường:
- * giữ nguyên mọi trường định danh/dấu vết (id, seq, recalledAt,
- * recalledBy...) để client hiện dòng "tin nhắn đã được thu hồi",
- * chỉ làm rỗng hai trường nội dung. Đường truy vết có thẩm quyền
- * KHÔNG đi qua hàm này.
- */
-export function blankRecalledContent(row: MessageRow): MessageRow {
-  if (!row.recalledAt) return row;
-  return { ...row, fullMessage: '', smallMessage: '' };
 }
 
 @Injectable()

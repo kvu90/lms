@@ -86,6 +86,20 @@ export interface NotificationItemsOptions {
 export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
 export type ContactRow = typeof messageContacts.$inferSelect;
 export type ModeratorActionRow = typeof messageModeratorActions.$inferSelect;
+
+/**
+ * Vô hiệu hoá NỘI DUNG của một tin đã thu hồi cho các đường đọc/phân
+ * phối thường (vòng đời tin nhắn theo vai): giữ nguyên mọi trường
+ * định danh và dấu vết (id, seq, recalledAt, recalledBy...) để phía
+ * nhận hiện dòng "tin nhắn đã được thu hồi", chỉ làm rỗng hai trường
+ * nội dung. Đường truy vết có thẩm quyền KHÔNG đi qua hàm này. Đặt ở
+ * repository để cả service lẫn tầng realtime dùng chung một luật
+ * (hai tầng này không được import lẫn nhau).
+ */
+export function blankRecalledContent(row: MessageRow): MessageRow {
+  if (!row.recalledAt) return row;
+  return { ...row, fullMessage: '', smallMessage: '' };
+}
 export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
 export type ReportRow = typeof messageConversationReports.$inferSelect;
 export type CourseGroupRow = typeof courseGroups.$inferSelect;

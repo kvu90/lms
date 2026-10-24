@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -122,13 +122,45 @@ export class MessagingController {
   async updateMessage() { return this.messaging.updateMessage(); }
   @Delete('messages/:id')
   /**
-   * DELETE /messages/messages/:id — xoá mềm một tin nhắn (Lớp B, issue
-   * #33): tác giả xoá tin của mình, người có thẩm quyền kiểm duyệt
-   * (giáo viên phụ trách/quản trị) xoá được mọi tin; tin chỉ bị đánh
-   * dấu truy vết, học sinh không còn thấy, giáo viên vẫn truy vết được.
+   * DELETE /messages/messages/:id — XOÁ-PHÍA-MÌNH (vòng đời tin nhắn
+   * theo vai, issue #33): chỉ tác giả, mọi lúc — tin chỉ ẩn khỏi tầm
+   * nhìn của chính người xoá (cờ cá nhân), phía kia không đổi. Gỡ cho
+   * mọi người đi hai đường riêng: thu hồi trong cửa sổ (tác giả) và
+   * xoá cứng (moderator có `moderation:manage`).
    */
   async deleteMessage(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.deleteMessage(actor.id, id);
+  }
+  @Post('messages/:id/recall')
+  /**
+   * POST /messages/messages/:id/recall — THU HỒI tin cho mọi người:
+   * chỉ tác giả, chỉ trong cửa sổ site-config
+   * `core/messagingrecallwindowminutes` (mặc định 15 phút từ lúc
+   * gửi); nội dung bị vô hiệu với mọi thành viên thường và một dòng
+   * moderator_action 'recall' được ghi làm dấu vết.
+   */
+  async recallMessage(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.recallMessage(actor.id, id);
+  }
+  @Post('messages/:id/hard-delete')
+  /**
+   * POST /messages/messages/:id/hard-delete — XOÁ CỨNG một tin: chỉ
+   * người có capability `moderation:manage` trong phạm vi của
+   * conversation, lý do bắt buộc trong body; dòng tin bị xoá vật lý
+   * và một moderator_action 'hard_delete' kèm lý do được ghi trước.
+   */
+  async hardDeleteMessage(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: hardDeleteMessageSchema }) dto: HardDeleteMessageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.hardDeleteMessage(actor.id, id, dto);
+  }
+  @Post('messages/bulk-remove')
+  /**
+   * POST /messages/messages/bulk-remove — GỠ HÀNG LOẠT nhiều tin:
+   * cùng cổng thẩm quyền `moderation:manage` và lý do bắt buộc như
+   * xoá cứng một tin; toàn bộ danh sách được kiểm tra thẩm quyền
+   * trước — một tin ngoài phạm vi là cả yêu cầu bị từ chối.
+   */
+  async bulkRemoveMessages(@Body({ schema: bulkRemoveMessagesSchema }) dto: BulkRemoveMessagesDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.bulkRemoveMessages(actor.id, dto);
   }
 
   @Get('unread-count')

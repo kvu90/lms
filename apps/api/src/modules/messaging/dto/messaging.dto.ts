@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import {
+  bulkRemoveMessagesSchema,
   createConversationSchema,
   createGroupConversationSchema,
+  hardDeleteMessageSchema,
   listCourseRosterQuerySchema,
   listMessagesQuerySchema,
   listNotificationGroupsQuerySchema,
@@ -13,8 +15,10 @@ import {
   setMessagePreferenceSchema,
   updateConversationSchema,
   updateReportStatusSchema,
+  type BulkRemoveMessages,
   type CreateConversation,
   type CreateGroupConversation,
+  type HardDeleteMessage,
   type ListCourseRosterQuery,
   type NotifyUser,
   type ReadNotificationGroup,
@@ -29,7 +33,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -38,6 +42,8 @@ export type NotifyDto = NotifyUser;
 export type UpdateConversationDto = UpdateConversation;
 export type ReportConversationDto = ReportConversation;
 export type UpdateReportStatusDto = UpdateReportStatus;
+export type HardDeleteMessageDto = HardDeleteMessage;
+export type BulkRemoveMessagesDto = BulkRemoveMessages;
 
 /**
  * Schema phía server cho query phân trang tin nhắn — EXTEND từ schema
