@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261024192918_baseline/snapshot.json
-  "id": "732f6578-0df4-478e-9456-dcc09e7746e9",
-========
-  "id": "99caeedb-7586-4037-89df-6bc6e26f92de",
->>>>>>>> 6a9b857 (BL1 (issue #87): mô hình space/status/loại bài cho blog — schema + state machine + feed theo space + di trú không mở rộng audience):apps/api/drizzle/20261024145724_baseline/snapshot.json
+  "id": "c784b634-0d1a-4b6c-8241-7d52216d25a7",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
