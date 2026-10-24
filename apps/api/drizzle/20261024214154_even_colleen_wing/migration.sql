@@ -980,19 +980,6 @@ CREATE TABLE "quiz_attempts" (
 	CONSTRAINT "quiz_attempts_quiz_user_number_unique" UNIQUE("quiz_id","user_id","attempt_number")
 );
 --> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
-CREATE TABLE "quiz_slot_version_events" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
-	"slot_id" uuid NOT NULL,
-	"question_id" uuid NOT NULL,
-	"from_version" integer,
-	"to_version" integer NOT NULL,
-	"actor_id" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-========
-========
 CREATE TABLE "quiz_feedbacks" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -1004,7 +991,6 @@ CREATE TABLE "quiz_feedbacks" (
 	CONSTRAINT "quiz_feedbacks_range_check" CHECK ("min_percent" >= 0 and "max_percent" <= 100 and "min_percent" < "max_percent")
 );
 --> statement-breakpoint
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 CREATE TABLE "quiz_overrides" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"quiz_id" uuid NOT NULL,
@@ -1021,7 +1007,17 @@ CREATE TABLE "quiz_overrides" (
 	CONSTRAINT "quiz_overrides_quiz_group_unique" UNIQUE("quiz_id","group_id"),
 	CONSTRAINT "quiz_overrides_quiz_user_unique" UNIQUE("quiz_id","user_id"),
 	CONSTRAINT "quiz_overrides_exactly_one_target" CHECK (("group_id" is null) <> ("user_id" is null))
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
+);
+--> statement-breakpoint
+CREATE TABLE "quiz_slot_version_events" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"slot_id" uuid NOT NULL,
+	"question_id" uuid NOT NULL,
+	"from_version" integer,
+	"to_version" integer NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "quiz_slots" (
@@ -2252,27 +2248,18 @@ CREATE INDEX "exam_matrix_cells_learning_outcome_idx" ON "exam_matrix_cells" ("l
 CREATE INDEX "quiz_attempt_events_attempt_idx" ON "quiz_attempt_events" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
+CREATE INDEX "quiz_feedbacks_quiz_idx" ON "quiz_feedbacks" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_overrides_group_idx" ON "quiz_overrides" ("group_id");--> statement-breakpoint
 CREATE INDEX "quiz_slot_version_events_slot_idx" ON "quiz_slot_version_events" ("slot_id");--> statement-breakpoint
 CREATE INDEX "quiz_slot_version_events_quiz_idx" ON "quiz_slot_version_events" ("quiz_id");--> statement-breakpoint
-========
-========
-CREATE INDEX "quiz_feedbacks_quiz_idx" ON "quiz_feedbacks" ("quiz_id");--> statement-breakpoint
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
-CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
-========
-CREATE INDEX "quiz_overrides_group_idx" ON "quiz_overrides" ("group_id");--> statement-breakpoint
->>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/migration.sql
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_matrix_cell_id_idx" ON "quiz_slots" ("matrix_cell_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_cluster_id_idx" ON "quiz_slots" ("cluster_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
+CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
@@ -2301,9 +2288,6 @@ CREATE INDEX "pages_cm_id_idx" ON "pages" ("cm_id");--> statement-breakpoint
 CREATE INDEX "resources_course_idx" ON "resources" ("course");--> statement-breakpoint
 CREATE INDEX "resources_cm_id_idx" ON "resources" ("cm_id");--> statement-breakpoint
 CREATE INDEX "resources_file_id_idx" ON "resources" ("file_id");--> statement-breakpoint
-========
-CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
->>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/migration.sql
 CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_subject_id_idx" ON "curriculum_program_records" ("subject_id");--> statement-breakpoint
@@ -2538,23 +2522,17 @@ ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outco
 ALTER TABLE "quiz_attempt_events" ADD CONSTRAINT "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
-ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_slot_id_quiz_slots_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "quiz_slots"("id") ON DELETE CASCADE;--> statement-breakpoint
-========
-========
 ALTER TABLE "quiz_feedbacks" ADD CONSTRAINT "quiz_feedbacks_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
+ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_slot_id_quiz_slots_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "quiz_slots"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey" FOREIGN KEY ("matrix_cell_id") REFERENCES "exam_matrix_cells"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
+ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2577,9 +2555,6 @@ ALTER TABLE "course_module_progress" ADD CONSTRAINT "course_module_progress_cm_i
 ALTER TABLE "pages" ADD CONSTRAINT "pages_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "resources" ADD CONSTRAINT "resources_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "resources" ADD CONSTRAINT "resources_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE SET NULL;--> statement-breakpoint
-========
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/migration.sql
 ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint

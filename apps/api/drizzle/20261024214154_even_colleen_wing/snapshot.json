@@ -2,27 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-  "id": "79aa6f2c-c3f9-4051-889a-c41e10c2b126",
-========
-  "id": "634c9744-81eb-4f0f-84d8-9ee6ebbb0ec3",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
-========
-  "id": "e53edcde-7261-4495-9641-7fafda9ac832",
->>>>>>>> d71ebb2 (feat(questions): Chặng 3 C0 — chế độ đáp án số cho shortanswer (cờ cấu hình, mặc định tắt)):apps/api/drizzle/20261024145314_baseline/snapshot.json
-========
-  "id": "f703d846-e5c1-46b8-9905-97ed3d84b550",
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
-========
-  "id": "89f672c3-eeff-4cc6-bb4f-8e303bc00841",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
-========
-  "id": "acbe91b9-7487-4194-b85a-7b0b44f143bf",
->>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
+  "id": "e69c3779-ed76-4483-8624-f02d7c407584",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1563,19 +1543,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-        "quiz_slot_version_events"
-      ],
-      "writes": [
-        "s|tbl|public.quiz_slot_version_events",
-        "n|tbl|public.quiz_slot_version_events",
-        "e|tbl|public.quiz_slot_version_events",
-        "n|rel|public.quiz_slot_version_events",
-        "n|type|public.quiz_slot_version_events",
-        "n|rel|public.quiz_slot_version_events_pkey"
-========
-========
         "quiz_feedbacks"
       ],
       "writes": [
@@ -1595,7 +1562,6 @@
       "statementTarget": [
         "table",
         "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
         "quiz_overrides"
       ],
       "writes": [
@@ -1607,7 +1573,25 @@
         "n|rel|public.quiz_overrides_pkey",
         "n|rel|public.quiz_overrides_quiz_group_unique",
         "n|rel|public.quiz_overrides_quiz_user_unique"
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slot_version_events"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_slot_version_events",
+        "n|tbl|public.quiz_slot_version_events",
+        "e|tbl|public.quiz_slot_version_events",
+        "n|rel|public.quiz_slot_version_events",
+        "n|type|public.quiz_slot_version_events",
+        "n|rel|public.quiz_slot_version_events_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -5722,22 +5706,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-        "quiz_slot_version_events",
-        "quiz_slot_version_events_slot_idx"
-      ],
-      "writes": [
-        "s|idx|public.quiz_slot_version_events_slot_idx",
-        "n|idx|public.quiz_slot_version_events_slot_idx",
-        "e|idx|public.quiz_slot_version_events_slot_idx",
-        "n|rel|public.quiz_slot_version_events_slot_idx"
-      ],
-      "reads": [
-        "n|tbl|public.quiz_slot_version_events",
-        "n|sch|public",
-        "n|col|public.quiz_slot_version_events.slot_id"
-========
         "quiz_feedbacks",
         "quiz_feedbacks_quiz_idx"
       ],
@@ -5751,7 +5719,6 @@
         "n|tbl|public.quiz_feedbacks",
         "n|sch|public",
         "n|col|public.quiz_feedbacks.quiz_id"
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       ]
     },
     {
@@ -5759,23 +5726,6 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-        "quiz_slot_version_events",
-        "quiz_slot_version_events_quiz_idx"
-      ],
-      "writes": [
-        "s|idx|public.quiz_slot_version_events_quiz_idx",
-        "n|idx|public.quiz_slot_version_events_quiz_idx",
-        "e|idx|public.quiz_slot_version_events_quiz_idx",
-        "n|rel|public.quiz_slot_version_events_quiz_idx"
-      ],
-      "reads": [
-        "n|tbl|public.quiz_slot_version_events",
-        "n|sch|public",
-        "n|col|public.quiz_slot_version_events.quiz_id"
-========
-========
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
         "quiz_overrides",
         "quiz_overrides_quiz_idx"
       ],
@@ -5789,7 +5739,6 @@
         "n|tbl|public.quiz_overrides",
         "n|sch|public",
         "n|col|public.quiz_overrides.quiz_id"
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       ]
     },
     {
@@ -5810,6 +5759,46 @@
         "n|tbl|public.quiz_overrides",
         "n|sch|public",
         "n|col|public.quiz_overrides.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slot_version_events",
+        "quiz_slot_version_events_slot_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slot_version_events_slot_idx",
+        "n|idx|public.quiz_slot_version_events_slot_idx",
+        "e|idx|public.quiz_slot_version_events_slot_idx",
+        "n|rel|public.quiz_slot_version_events_slot_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slot_version_events",
+        "n|sch|public",
+        "n|col|public.quiz_slot_version_events.slot_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_slot_version_events",
+        "quiz_slot_version_events_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_slot_version_events_quiz_idx",
+        "n|idx|public.quiz_slot_version_events_quiz_idx",
+        "e|idx|public.quiz_slot_version_events_quiz_idx",
+        "n|rel|public.quiz_slot_version_events_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slot_version_events",
+        "n|sch|public",
+        "n|col|public.quiz_slot_version_events.quiz_id"
       ]
     },
     {
@@ -5937,7 +5926,26 @@
       "statementTarget": [
         "index",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+        "quizzes",
+        "quizzes_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_matrix_idx",
+        "n|idx|public.quizzes_matrix_idx",
+        "e|idx|public.quizzes_matrix_idx",
+        "n|rel|public.quizzes_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "assign_annotations",
         "assign_annotations_submission_id_idx"
       ],
@@ -6491,21 +6499,6 @@
         "n|tbl|public.resources",
         "n|sch|public",
         "n|col|public.resources.file_id"
-========
-        "quizzes",
-        "quizzes_matrix_idx"
-      ],
-      "writes": [
-        "s|idx|public.quizzes_matrix_idx",
-        "n|idx|public.quizzes_matrix_idx",
-        "e|idx|public.quizzes_matrix_idx",
-        "n|rel|public.quizzes_matrix_idx"
-      ],
-      "reads": [
-        "n|tbl|public.quizzes",
-        "n|sch|public",
-        "n|col|public.quizzes.matrix_id"
->>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
       ]
     },
     {
@@ -11472,24 +11465,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-        "quiz_slot_version_events"
-      ],
-      "writes": [
-        "s|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
-        "n|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
-        "e|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
-        "n|con|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.quiz_slot_version_events",
-        "n|sch|public",
-        "n|tbl|public.quizzes",
-        "n|sch|public",
-        "n|col|public.quiz_slot_version_events.quiz_id",
-========
-========
         "quiz_feedbacks"
       ],
       "writes": [
@@ -11513,7 +11488,6 @@
       "statementTarget": [
         "table",
         "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
         "quiz_overrides"
       ],
       "writes": [
@@ -11528,7 +11502,6 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quiz_overrides.quiz_id",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
         "n|col|public.quizzes.id",
         "e|uniqueness|public.quizzes.id"
       ]
@@ -11538,24 +11511,6 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-        "quiz_slot_version_events"
-      ],
-      "writes": [
-        "s|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
-        "n|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
-        "e|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
-        "n|con|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.quiz_slot_version_events",
-        "n|sch|public",
-        "n|tbl|public.quiz_slots",
-        "n|sch|public",
-        "n|col|public.quiz_slot_version_events.slot_id",
-        "n|col|public.quiz_slots.id",
-        "e|uniqueness|public.quiz_slots.id"
-========
         "quiz_overrides"
       ],
       "writes": [
@@ -11572,7 +11527,52 @@
         "n|col|public.quiz_overrides.group_id",
         "n|col|public.course_groups.id",
         "e|uniqueness|public.course_groups.id"
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slot_version_events"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_slot_version_events.quiz_slot_version_events_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slot_version_events",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_slot_version_events.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_slot_version_events"
+      ],
+      "writes": [
+        "s|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
+        "n|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
+        "e|fk|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
+        "n|con|public.quiz_slot_version_events.quiz_slot_version_events_slot_id_quiz_slots_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_slot_version_events",
+        "n|sch|public",
+        "n|tbl|public.quiz_slots",
+        "n|sch|public",
+        "n|col|public.quiz_slot_version_events.slot_id",
+        "n|col|public.quiz_slots.id",
+        "e|uniqueness|public.quiz_slots.id"
       ]
     },
     {
@@ -11695,7 +11695,29 @@
       "statementTarget": [
         "table",
         "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "assign_annotations"
       ],
       "writes": [
@@ -12195,24 +12217,6 @@
         "n|col|public.resources.file_id",
         "n|col|public.files.id",
         "e|uniqueness|public.files.id"
-========
-        "quizzes"
-      ],
-      "writes": [
-        "s|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
-        "n|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
-        "e|fk|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey",
-        "n|con|public.quizzes.quizzes_matrix_id_exam_matrices_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.quizzes",
-        "n|sch|public",
-        "n|tbl|public.exam_matrices",
-        "n|sch|public",
-        "n|col|public.quizzes.matrix_id",
-        "n|col|public.exam_matrices.id",
-        "e|uniqueness|public.exam_matrices.id"
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       ]
     },
     {
@@ -13979,20 +13983,19 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "name": "quiz_slot_version_events",
-========
-========
       "name": "quiz_feedbacks",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
     {
       "schema": "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "name": "quiz_overrides",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_slot_version_events",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -23716,11 +23719,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-========
-========
       "table": "quiz_feedbacks",
       "name": "id",
       "type": "uuid",
@@ -23812,9 +23810,7 @@
     },
     {
       "schema": "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "table": "quiz_overrides",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "name": "id",
       "type": "uuid",
       "typeSchema": null,
@@ -23827,11 +23823,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-========
       "table": "quiz_overrides",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "name": "quiz_id",
       "type": "uuid",
       "typeSchema": null,
@@ -23844,19 +23836,11 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "slot_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-========
       "table": "quiz_overrides",
       "name": "group_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": false,
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -23865,19 +23849,11 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "question_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-========
       "table": "quiz_overrides",
       "name": "user_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": false,
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -23886,10 +23862,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "from_version",
-========
       "table": "quiz_overrides",
       "name": "time_open",
       "type": "timestamp with time zone",
@@ -23918,7 +23890,6 @@
       "schema": "public",
       "table": "quiz_overrides",
       "name": "time_limit",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "type": "integer",
       "typeSchema": null,
       "notNull": false,
@@ -23930,19 +23901,11 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "to_version",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-========
       "table": "quiz_overrides",
       "name": "attempts",
       "type": "integer",
       "typeSchema": null,
       "notNull": false,
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -23951,19 +23914,11 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "actor_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-========
       "table": "quiz_overrides",
       "name": "password_hash",
       "type": "text",
       "typeSchema": null,
       "notNull": false,
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -23972,13 +23927,7 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-========
       "table": "quiz_overrides",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
-========
       "name": "reason",
       "type": "text",
       "typeSchema": null,
@@ -23992,7 +23941,6 @@
     {
       "schema": "public",
       "table": "quiz_overrides",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -24005,8 +23953,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-========
       "table": "quiz_overrides",
       "name": "updated_at",
       "type": "timestamp with time zone",
@@ -24020,7 +23966,110 @@
     },
     {
       "schema": "public",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      "table": "quiz_slot_version_events",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "slot_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "from_version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "to_version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "quiz_slots",
       "name": "id",
       "type": "uuid",
@@ -36854,22 +36903,12 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "quiz_slot_version_events_slot_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "slot_id",
-========
       "table": "quiz_feedbacks",
       "name": "quiz_feedbacks_quiz_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "quiz_id",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -36885,15 +36924,8 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "quiz_slot_version_events_quiz_idx",
-========
-========
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "table": "quiz_overrides",
       "name": "quiz_overrides_quiz_idx",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "nameExplicit": true,
       "columns": [
         {
@@ -36919,6 +36951,48 @@
       "columns": [
         {
           "value": "group_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_slot_version_events_slot_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "slot_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_slot_version_events_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -37060,7 +37134,27 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+      "table": "quizzes",
+      "name": "quizzes_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_idx",
       "nameExplicit": true,
@@ -37634,14 +37728,6 @@
       "columns": [
         {
           "value": "file_id",
-========
-      "table": "quizzes",
-      "name": "quizzes_matrix_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "matrix_id",
->>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -42299,12 +42385,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "quiz_slot_version_events_quiz_id_quizzes_id_fkey",
-========
-========
       "table": "quiz_feedbacks",
       "name": "quiz_feedbacks_quiz_id_quizzes_id_fkey",
       "nameExplicit": false,
@@ -42322,10 +42402,8 @@
     },
     {
       "schema": "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "table": "quiz_overrides",
       "name": "quiz_overrides_quiz_id_quizzes_id_fkey",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "nameExplicit": false,
       "columns": [
         "quiz_id"
@@ -42341,16 +42419,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "slot_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "quiz_slots",
-========
       "table": "quiz_overrides",
       "name": "quiz_overrides_group_id_course_groups_id_fkey",
       "nameExplicit": false,
@@ -42359,7 +42427,40 @@
       ],
       "schemaTo": "public",
       "tableTo": "course_groups",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_slot_version_events_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_slot_version_events_slot_id_quiz_slots_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "slot_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quiz_slots",
       "columnsTo": [
         "id"
       ],
@@ -42454,7 +42555,23 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+      "table": "quizzes",
+      "name": "quizzes_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_assign_submissions_id_fkey",
       "nameExplicit": false,
@@ -42820,16 +42937,6 @@
       ],
       "schemaTo": "public",
       "tableTo": "files",
-========
-      "table": "quizzes",
-      "name": "quizzes_matrix_id_exam_matrices_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "matrix_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "exam_matrices",
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       "columnsTo": [
         "id"
       ],
@@ -44621,12 +44728,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "quiz_slot_version_events",
-      "name": "quiz_slot_version_events_pkey",
-========
-========
       "table": "quiz_feedbacks",
       "name": "quiz_feedbacks_pkey",
       "columns": [
@@ -44637,10 +44738,18 @@
     },
     {
       "schema": "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "table": "quiz_overrides",
       "name": "quiz_overrides_pkey",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_slot_version_events",
+      "name": "quiz_slot_version_events_pkey",
       "columns": [
         "id"
       ],
@@ -46619,12 +46728,20 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
       "table": "course_section_book_item_outcomes",
       "name": "course_section_book_item_outcomes_position_check",
       "value": "\"position\" > 0",
-========
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "course_section_book_items",
+      "name": "course_section_book_items_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_preset_kind_check",
       "value": "\"preset_kind\" in ('cv7991_periodic', 'qd764_graduation', 'custom')",
@@ -46670,20 +46787,10 @@
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_score_check",
       "value": "\"cell_score\" > 0",
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
       "entityType": "checks"
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
-      "table": "course_section_book_items",
-      "name": "course_section_book_items_position_check",
-      "value": "\"position\" > 0",
-========
-========
->>>>>>>> 182f9f7 (feat(quiz): Chặng 3 C1 — ma trận đề: schema, CRUD, cảnh báo tỉ lệ, availability):apps/api/drizzle/20261024150507_baseline/snapshot.json
-========
       "table": "quiz_feedbacks",
       "name": "quiz_feedbacks_range_check",
       "value": "\"min_percent\" >= 0 and \"max_percent\" <= 100 and \"min_percent\" < \"max_percent\"",
@@ -46691,11 +46798,9 @@
     },
     {
       "schema": "public",
->>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
       "table": "quiz_overrides",
       "name": "quiz_overrides_exactly_one_target",
       "value": "(\"group_id\" is null) <> (\"user_id\" is null)",
->>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/snapshot.json
       "entityType": "checks"
     },
     {
