@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, sendMessageSchema, setMessagePreferenceSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type SendMessageDto, type SetPreferenceDto } from './dto/messaging.dto';
+import { createConversationSchema, createGroupConversationSchema, listMessagesQueryServerSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema, type CreateConversationDto, type CreateGroupConversationDto, type ListMessagesQueryDto, type NotifyDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -65,7 +65,56 @@ export class MessagingController {
   async markRead(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markConversationRead(actor.id, id);
   }
-  /** Sent messages are immutable: both verbs exist only to refuse (report §2#12). */
+  @Patch('conversations/:id')
+  /**
+   * PATCH /messages/conversations/:id — bật/tắt chat của conversation
+   * (Lớp B, issue #33): chỉ người có thẩm quyền quản lý theo phạm vi
+   * khoá (giáo viên phụ trách/staff, quản trị viên, hoặc người tạo
+   * nhóm tự do) mới đổi được.
+   */
+  async updateConversation(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateConversationSchema }) dto: UpdateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.updateConversation(actor.id, id, dto);
+  }
+  @Post('conversations/:id/report')
+  /**
+   * POST /messages/conversations/:id/report — báo cáo một conversation
+   * (Lớp B, issue #33): chỉ thành viên báo cáo được; báo cáo về hàng
+   * đợi của giáo viên phụ trách + quản trị viên.
+   */
+  async reportConversation(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: reportConversationSchema }) dto: ReportConversationDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.reportConversation(actor.id, id, dto.reason);
+  }
+  @Get('reports')
+  /**
+   * GET /messages/reports — hàng đợi báo cáo TRONG THẨM QUYỀN của tôi:
+   * quản trị viên thấy tất cả, giáo viên chỉ thấy báo cáo thuộc khoá
+   * mình phụ trách, người khác thấy danh sách rỗng.
+   */
+  async listReports(@CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listReports(actor.id);
+  }
+  @Get('reports/:reportId/conversation')
+  /**
+   * GET /messages/reports/:reportId/conversation — xem lại nội dung
+   * của ĐÚNG conversation bị báo cáo (gồm tin đã xoá mềm), chỉ dành
+   * cho người có thẩm quyền theo phạm vi; mọi lần xem ghi event_log.
+   */
+  async getReportConversation(@Param('reportId', { schema: uuidIdSchema }) reportId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.getReportConversation(actor.id, reportId);
+  }
+  @Patch('reports/:reportId')
+  /**
+   * PATCH /messages/reports/:reportId — đổi trạng thái xử lý của một
+   * báo cáo (open/resolved/dismissed), cùng phạm vi thẩm quyền với
+   * đường xem lại nội dung.
+   */
+  async updateReportStatus(@Param('reportId', { schema: uuidIdSchema }) reportId: string, @Body({ schema: updateReportStatusSchema }) dto: UpdateReportStatusDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.updateReportStatus(actor.id, reportId, dto.status);
+  }
+  /**
+   * Sửa tin đã gửi vẫn bị từ chối (chính sách Lớp B của issue #33 chỉ
+   * nới XOÁ theo mô hình xoá mềm có truy vết, không nới sửa nội dung).
+   */
   @Patch('messages/:id')
   /**
    * PATCH /messages/messages/:id — sửa tin nhắn.
@@ -73,9 +122,14 @@ export class MessagingController {
   async updateMessage() { return this.messaging.updateMessage(); }
   @Delete('messages/:id')
   /**
-   * DELETE /messages/messages/:id — xoá tin nhắn.
+   * DELETE /messages/messages/:id — xoá mềm một tin nhắn (Lớp B, issue
+   * #33): tác giả xoá tin của mình, người có thẩm quyền kiểm duyệt
+   * (giáo viên phụ trách/quản trị) xoá được mọi tin; tin chỉ bị đánh
+   * dấu truy vết, học sinh không còn thấy, giáo viên vẫn truy vết được.
    */
-  async deleteMessage() { return this.messaging.deleteMessage(); }
+  async deleteMessage(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.deleteMessage(actor.id, id);
+  }
 
   @Get('unread-count')
   /**
@@ -100,17 +154,44 @@ export class MessagingController {
   }
   @Get('contacts')
   /**
-   * GET /messages/contacts — danh bạ của tôi.
+   * GET /messages/contacts — danh bạ của tôi (chỉ liên hệ đã được duyệt).
    */
   async contacts(@CurrentUser() actor: AuthenticatedUser) {
     return { contacts: await this.messaging.listContacts(actor.id) };
   }
+  @Get('contacts/requests')
+  /**
+   * GET /messages/contacts/requests — yêu cầu kết bạn đến (chờ tôi
+   * duyệt) và yêu cầu tôi đã gửi (đang chờ phía kia duyệt).
+   */
+  async contactRequests(@CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listContactRequests(actor.id);
+  }
+  @Post('contacts/requests/:userId/accept')
+  /**
+   * POST /messages/contacts/requests/:userId/accept — chấp nhận yêu
+   * cầu kết bạn từ :userId; quan hệ hình thành ở cả hai phía.
+   */
+  async acceptContactRequest(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.acceptContactRequest(actor.id, userId);
+  }
+  @Post('contacts/requests/:userId/decline')
+  /**
+   * POST /messages/contacts/requests/:userId/decline — từ chối yêu
+   * cầu kết bạn từ :userId.
+   */
+  async declineContactRequest(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.declineContactRequest(actor.id, userId);
+  }
   @Post('contacts/:userId')
   /**
-   * POST /messages/contacts/:userId — thêm một user vào danh bạ của tôi.
+   * POST /messages/contacts/:userId — GỬI YÊU CẦU kết bạn tới một user
+   * (luồng yêu cầu–chấp nhận thay danh bạ một chiều: quan hệ chỉ hình
+   * thành khi phía kia chấp nhận; phía kia đã xin trước thì yêu cầu
+   * này chấp nhận luôn yêu cầu của họ).
    */
-  async addContact(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.messaging.addContact(actor.id, userId);
+  async requestContact(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.requestContact(actor.id, userId);
   }
   @Delete('contacts/:userId')
   /**

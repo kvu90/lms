@@ -14,7 +14,7 @@ const POLL_INTERVAL_MS = 500;
 /** Số sự kiện tối đa xử lý trong một nhịp quét. */
 const BATCH_SIZE = 100;
 /** Các loại sự kiện messaging được phân phối qua realtime. */
-const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read'] as const;
+const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read', 'message_deleted'] as const;
 
 /**
  * Consumer phân phối realtime cho messaging (issue #33, chặng A1) —
@@ -145,6 +145,18 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
       const lastReadSeq = typeof payload.lastReadSeq === 'number' ? payload.lastReadSeq : null;
       if (!conversationId || !userId || lastReadSeq === null) return;
       await this.realtime.distributeReadReceipt({ conversationId, userId, lastReadSeq });
+      return;
+    }
+    if (type === 'message_deleted') {
+      const messageId = typeof payload.messageId === 'string' ? payload.messageId : null;
+      if (!messageId) return;
+      // Tin xoá mềm vẫn còn dòng trong DB (chỉ bị đánh dấu) — đọc lại
+      // để lấy dấu vết mới nhất, rồi phân phối theo membership HIỆN TẠI
+      // như mọi sự kiện khác (kỷ luật F1).
+      const message = await this.repo.getMessage(messageId);
+      if (!message || !message.deletedAt) return;
+      const memberIds = await this.repo.listMembers(message.conversationId);
+      await this.realtime.distributeMessageDeleted(message, memberIds);
     }
   }
 }

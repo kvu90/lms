@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "26e36297-db22-4199-a0a9-33940dfcc6a5",
+  "id": "11d744b9-dc12-441a-95d2-bc28826828ca",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1448,6 +1448,25 @@
       "statementTarget": [
         "table",
         "public",
+        "message_contact_requests"
+      ],
+      "writes": [
+        "s|tbl|public.message_contact_requests",
+        "n|tbl|public.message_contact_requests",
+        "e|tbl|public.message_contact_requests",
+        "n|rel|public.message_contact_requests",
+        "n|type|public.message_contact_requests",
+        "n|rel|public.message_contact_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "message_contacts"
       ],
       "writes": [
@@ -1476,6 +1495,25 @@
         "n|rel|public.message_conversation_members",
         "n|type|public.message_conversation_members",
         "n|rel|public.message_conversation_members_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "message_conversation_reports"
+      ],
+      "writes": [
+        "s|tbl|public.message_conversation_reports",
+        "n|tbl|public.message_conversation_reports",
+        "e|tbl|public.message_conversation_reports",
+        "n|rel|public.message_conversation_reports",
+        "n|type|public.message_conversation_reports",
+        "n|rel|public.message_conversation_reports_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -4343,6 +4381,26 @@
       "statementTarget": [
         "index",
         "public",
+        "message_contact_requests",
+        "message_contact_requests_user_id_to_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_contact_requests_user_id_to_idx",
+        "n|idx|public.message_contact_requests_user_id_to_idx",
+        "e|idx|public.message_contact_requests_user_id_to_idx",
+        "n|rel|public.message_contact_requests_user_id_to_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_contact_requests",
+        "n|sch|public",
+        "n|col|public.message_contact_requests.user_id_to"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "message_contacts",
         "message_contacts_contact_id_idx"
       ],
@@ -4376,6 +4434,46 @@
         "n|tbl|public.message_conversation_members",
         "n|sch|public",
         "n|col|public.message_conversation_members.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_conversation_reports",
+        "message_conversation_reports_conversation_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_conversation_reports_conversation_id_idx",
+        "n|idx|public.message_conversation_reports_conversation_id_idx",
+        "e|idx|public.message_conversation_reports_conversation_id_idx",
+        "n|rel|public.message_conversation_reports_conversation_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_reports",
+        "n|sch|public",
+        "n|col|public.message_conversation_reports.conversation_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_conversation_reports",
+        "message_conversation_reports_reporter_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_conversation_reports_reporter_id_idx",
+        "n|idx|public.message_conversation_reports_reporter_id_idx",
+        "e|idx|public.message_conversation_reports_reporter_id_idx",
+        "n|rel|public.message_conversation_reports_reporter_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_reports",
+        "n|sch|public",
+        "n|col|public.message_conversation_reports.reporter_id"
       ]
     },
     {
@@ -8124,6 +8222,29 @@
       "statementTarget": [
         "table",
         "public",
+        "message_conversation_reports"
+      ],
+      "writes": [
+        "s|fk|public.message_conversation_reports.message_conversation_reports_Pp9sKN3GPtqe_fkey",
+        "n|fk|public.message_conversation_reports.message_conversation_reports_Pp9sKN3GPtqe_fkey",
+        "e|fk|public.message_conversation_reports.message_conversation_reports_Pp9sKN3GPtqe_fkey",
+        "n|con|public.message_conversation_reports.message_conversation_reports_Pp9sKN3GPtqe_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_reports",
+        "n|sch|public",
+        "n|tbl|public.message_conversations",
+        "n|sch|public",
+        "n|col|public.message_conversation_reports.conversation_id",
+        "n|col|public.message_conversations.id",
+        "e|uniqueness|public.message_conversations.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "badge_criteria"
       ],
       "writes": [
@@ -9182,6 +9303,12 @@
     },
     {
       "schema": "public",
+      "name": "message_contact_requests",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "message_contacts",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -9189,6 +9316,12 @@
     {
       "schema": "public",
       "name": "message_conversation_members",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "message_conversation_reports",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -17547,6 +17680,71 @@
     {
       "schema": "public",
       "table": "message",
+      "name": "deleted_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "deleted_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_contact_requests",
+      "name": "user_id_from",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_contact_requests",
+      "name": "user_id_to",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_contact_requests",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -17638,6 +17836,110 @@
     {
       "schema": "public",
       "table": "message_conversation_members",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "conversation_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "reporter_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'open'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "resolved_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "resolved_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -17748,6 +18050,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversations",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -25177,6 +25492,27 @@
     },
     {
       "schema": "public",
+      "table": "message_contact_requests",
+      "name": "message_contact_requests_user_id_to_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id_to",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message_contacts",
       "name": "message_contacts_contact_id_idx",
       "nameExplicit": true,
@@ -25204,6 +25540,48 @@
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "message_conversation_reports_conversation_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "conversation_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "message_conversation_reports_reporter_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "reporter_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -28625,6 +29003,23 @@
     },
     {
       "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "message_conversation_reports_Pp9sKN3GPtqe_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "conversation_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "message_conversations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "badge_criteria",
       "name": "badge_criteria_badge_id_badge_id_fkey",
       "nameExplicit": false,
@@ -29100,6 +29495,17 @@
       "columns": [
         "grouping_id",
         "group_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "message_contact_requests",
+      "name": "message_contact_requests_pkey",
+      "columns": [
+        "user_id_from",
+        "user_id_to"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -29841,6 +30247,16 @@
       "schema": "public",
       "table": "message",
       "name": "message_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_reports",
+      "name": "message_conversation_reports_pkey",
       "columns": [
         "id"
       ],

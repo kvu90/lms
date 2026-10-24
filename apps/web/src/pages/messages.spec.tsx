@@ -345,6 +345,157 @@ describe('Messages page — optimistic send and realtime updates', () => {
   });
 });
 
+const THIRD_ID = '01900000-0000-7000-8000-0000000000c9';
+
+/**
+ * Stub fetch cho các test Lớp B (issue #33): danh bạ chuyển sang luồng
+ * yêu cầu–chấp nhận (hàng chờ có trạng thái), xoá mềm trả dòng tin kèm
+ * dấu vết, báo cáo trả 201.
+ */
+function stubDomainFetch(calls: RecordedCall[]) {
+  const state = {
+    contacts: [] as string[],
+    incoming: [{ userId: OTHER_ID, createdAt: '2026-01-01T00:00:00.000Z' }] as { userId: string; createdAt: string }[],
+    outgoing: [] as { userId: string; createdAt: string }[],
+  };
+  const ownMessage = {
+    id: '01900000-0000-7000-8000-0000000000d5',
+    conversationId: CONV_ID,
+    userIdFrom: ME_ID,
+    fullMessage: 'tin của tôi sẽ xoá',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    seq: 1,
+    clientMessageId: null,
+    deletedAt: null as string | null,
+    deletedBy: null as string | null,
+  };
+  const peerMessage = {
+    id: '01900000-0000-7000-8000-0000000000e6',
+    conversationId: CONV_ID,
+    userIdFrom: OTHER_ID,
+    fullMessage: 'tin của bạn học',
+    createdAt: '2026-01-01T00:01:00.000Z',
+    seq: 2,
+    clientMessageId: null,
+    deletedAt: null,
+    deletedBy: null,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond([{ id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID], unread: 0, lastMessageSeq: 2, lastMessage: null }]);
+      if (url === '/api/v1/messages/contacts') return respond({ contacts: state.contacts });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: state.incoming, outgoing: state.outgoing });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && method === 'POST') {
+        state.contacts = [OTHER_ID];
+        state.incoming = [];
+        return respond({ contacts: state.contacts });
+      }
+      if (url === `/api/v1/messages/contacts/${THIRD_ID}` && method === 'POST') {
+        state.outgoing = [{ userId: THIRD_ID, createdAt: '2026-01-01T00:02:00.000Z' }];
+        return respond({ status: 'pending', contacts: state.contacts });
+      }
+      if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+        return respond({
+          id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID],
+          enabled: true, canModerate: false, canManage: false,
+          messages: [ownMessage, peerMessage], hasMoreBefore: false, memberReadMarkers: [],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 2, lastReadSeq: 2 });
+      if (url === `/api/v1/messages/messages/${ownMessage.id}` && method === 'DELETE') {
+        ownMessage.deletedAt = '2026-01-01T00:03:00.000Z';
+        ownMessage.deletedBy = ME_ID;
+        return respond(ownMessage);
+      }
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/report` && method === 'POST')
+        return respond({ id: '01900000-0000-7000-8000-0000000000f9', status: 'open', reporterId: ME_ID });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — Lớp B contacts (request–accept)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('accepts an incoming contact request and sends a new request from the contacts panel', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubDomainFetch(calls);
+    renderMessages();
+
+    // Yêu cầu đang chờ hiện trong panel danh bạ; chấp nhận qua đúng endpoint.
+    const incomingRow = await screen.findByTestId(`incoming-request-${OTHER_ID}`);
+    await userEvent.click(within(incomingRow).getByRole('button', { name: 'Chấp nhận' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && c.method === 'POST')).toBe(true),
+    );
+    // Quan hệ hình thành: liên hệ xuất hiện trong danh bạ đã duyệt, hàng chờ sạch.
+    expect(await screen.findByTestId(`contact-${OTHER_ID}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`incoming-request-${OTHER_ID}`)).not.toBeInTheDocument();
+
+    // Gửi yêu cầu mới từ form danh bạ: POST contacts/:userId, trạng thái chờ duyệt hiện ra.
+    const input = screen.getByLabelText('ID người dùng muốn kết bạn');
+    await userEvent.type(input, THIRD_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi yêu cầu kết bạn' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/messages/contacts/${THIRD_ID}` && c.method === 'POST')).toBe(true),
+    );
+    expect(await screen.findByText('Đã gửi yêu cầu kết bạn — chờ phía kia chấp nhận.')).toBeInTheDocument();
+    expect(await screen.findByText(new RegExp(THIRD_ID))).toBeInTheDocument();
+  });
+});
+
+describe('Messages page — Lớp B conversation actions (soft delete + report)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('soft-deletes my own message (peer message has no delete button) and reports the conversation', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubDomainFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm lớp/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
+    expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
+
+    // Chỉ tin của mình có nút xoá (không canModerate): đúng một nút.
+    const deleteButtons = screen.getAllByRole('button', { name: 'Xoá tin nhắn' });
+    expect(deleteButtons).toHaveLength(1);
+    await userEvent.click(deleteButtons[0]!);
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.startsWith('/api/v1/messages/messages/') && c.method === 'DELETE')).toBe(true),
+    );
+    // Phía học sinh: tin đã xoá biến mất khỏi khung, tin của bạn học còn nguyên.
+    await waitFor(() => expect(within(thread).queryByText('tin của tôi sẽ xoá')).not.toBeInTheDocument());
+    expect(within(thread).getByText('tin của bạn học')).toBeInTheDocument();
+
+    // Báo cáo cuộc trò chuyện qua đúng endpoint và có xác nhận hiển thị.
+    await userEvent.click(screen.getByRole('button', { name: 'Báo cáo cuộc trò chuyện' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/report` && c.method === 'POST')).toBe(true),
+    );
+    expect(await screen.findByText(/Đã gửi báo cáo/)).toBeInTheDocument();
+  });
+});
+
 describe('Messages page — create conversation contract', () => {
   afterEach(() => {
     cleanup();

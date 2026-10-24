@@ -3,9 +3,9 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  courseGroups, enrol, groupsMembers,
-  message, messageContacts, messageConversationMembers, messageConversations, messageUsersBlocked,
-  notificationDispatchLog, notifications, userEnrolments,
+  context, courseGroups, enrol, groupsMembers,
+  message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageUsersBlocked,
+  notificationDispatchLog, notifications, role, roleAssignments, userEnrolments,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -33,11 +33,27 @@ export interface MessageWindowOptions {
   afterSeq?: number;
   /** Số tin tối đa trong cửa sổ (mặc định 50, trần 100). */
   limit?: number;
+  /**
+   * Kèm cả tin đã xoá mềm (mặc định KHÔNG): chỉ các cửa sổ truy vết của
+   * người có thẩm quyền (giáo viên phụ trách/quản trị) mới bật — mọi
+   * đường đọc thường của thành viên luôn lọc bỏ tin đã xoá.
+   */
+  includeDeleted?: boolean;
 }
 export type NotificationRow = typeof notifications.$inferSelect;
 export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
 export type ContactRow = typeof messageContacts.$inferSelect;
+export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
+export type ReportRow = typeof messageConversationReports.$inferSelect;
 export type CourseGroupRow = typeof courseGroups.$inferSelect;
+
+/**
+ * Các archetype vai trò được coi là "staff" cho các cổng nghiệp vụ của
+ * Lớp B (tạo nhóm tự do, quản lý conversation): quản lý, người tạo
+ * khoá, giáo viên có/không quyền sửa. Học sinh (archetype student) và
+ * các vai trò mặc định (user/guest) KHÔNG nằm trong tập này.
+ */
+export const STAFF_ARCHETYPES = ['manager', 'coursecreator', 'editingteacher', 'teacher'] as const;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -110,7 +126,8 @@ export class MessagingRepository {
       SELECT c.id AS conversation_id, c.type AS conversation_type, c.name AS conversation_name,
         c.component AS conversation_component, c.item_type AS conversation_item_type,
         c.item_id AS conversation_item_id, c.context_id AS conversation_context_id,
-        c.enabled AS conversation_enabled, c.last_message_seq AS conversation_last_seq,
+        c.enabled AS conversation_enabled, c.created_by AS conversation_created_by,
+        c.last_message_seq AS conversation_last_seq,
         c.created_at AS conversation_created_at, c.updated_at AS conversation_updated_at,
         mine.last_read_seq AS last_read_seq,
         COALESCE(mem.members, ARRAY[]::uuid[]) AS members,
@@ -125,10 +142,11 @@ export class MessagingRepository {
       LEFT JOIN LATERAL (
         SELECT count(*) AS unread FROM message msg
         WHERE msg.conversation_id = c.id AND msg.seq > mine.last_read_seq AND msg.user_id_from <> mine.user_id
+          AND msg.deleted_at IS NULL
       ) u ON true
       LEFT JOIN LATERAL (
         SELECT to_jsonb(msg) AS last_message FROM message msg
-        WHERE msg.conversation_id = c.id ORDER BY msg.seq DESC LIMIT 1
+        WHERE msg.conversation_id = c.id AND msg.deleted_at IS NULL ORDER BY msg.seq DESC LIMIT 1
       ) lm ON true
       WHERE mine.user_id = ${userId}
       ORDER BY c.updated_at DESC
@@ -148,6 +166,7 @@ export class MessagingRepository {
           itemId: raw.conversation_item_id as string | null,
           contextId: raw.conversation_context_id as string | null,
           enabled: raw.conversation_enabled as boolean,
+          createdBy: (raw.conversation_created_by as string | null) ?? null,
           lastMessageSeq: raw.conversation_last_seq as number,
           createdAt: new Date(raw.conversation_created_at as string),
           updatedAt: new Date(raw.conversation_updated_at as string),
@@ -165,6 +184,8 @@ export class MessagingRepository {
               smallMessage: lastMessageRaw.small_message as string,
               seq: lastMessageRaw.seq as number,
               clientMessageId: (lastMessageRaw.client_message_id as string | null) ?? null,
+              deletedAt: lastMessageRaw.deleted_at ? new Date(lastMessageRaw.deleted_at as string) : null,
+              deletedBy: (lastMessageRaw.deleted_by as string | null) ?? null,
               createdAt: new Date(lastMessageRaw.created_at as string),
             }
           : null,
@@ -231,6 +252,9 @@ export class MessagingRepository {
   async listMessages(conversationId: string, opts: MessageWindowOptions = {}): Promise<MessageRow[]> {
     const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
     const where = [eq(message.conversationId, conversationId)];
+    // Mặc định: tin đã xoá mềm bị lọc khỏi MỌI cửa sổ đọc — chỉ cửa sổ
+    // truy vết của người có thẩm quyền mới truyền includeDeleted.
+    if (!opts.includeDeleted) where.push(isNull(message.deletedAt));
     if (opts.afterSeq !== undefined) {
       where.push(gt(message.seq, opts.afterSeq));
       return this.db.select().from(message).where(and(...where)).orderBy(asc(message.seq)).limit(limit);
@@ -240,10 +264,33 @@ export class MessagingRepository {
     return rows.reverse();
   }
   /** Còn tin cũ hơn seq này trong conversation hay không (cho nút tải thêm). */
-  async hasMessagesBefore(conversationId: string, seq: number): Promise<boolean> {
+  async hasMessagesBefore(conversationId: string, seq: number, includeDeleted = false): Promise<boolean> {
+    const conditions = [eq(message.conversationId, conversationId), lt(message.seq, seq)];
+    if (!includeDeleted) conditions.push(isNull(message.deletedAt));
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(eq(message.conversationId, conversationId), lt(message.seq, seq)));
+      .where(and(...conditions));
     return (row?.value ?? 0) > 0;
+  }
+  /**
+   * Xoá mềm một tin: chỉ đánh dấu `deleted_at`/`deleted_by`, dòng tin
+   * giữ nguyên nội dung phục vụ truy vết của người có thẩm quyền.
+   * Tin đã xoá rồi thì giữ nguyên dấu vết lần xoá đầu (idempotent ở
+   * tầng service).
+   */
+  async softDeleteMessage(id: string, deletedBy: string): Promise<MessageRow | undefined> {
+    const [row] = await this.db.update(message)
+      .set({ deletedAt: new Date(), deletedBy })
+      .where(eq(message.id, id))
+      .returning();
+    return row;
+  }
+  /** Bật/tắt chat của một conversation (giáo viên phụ trách tắt chat nhóm lớp). */
+  async setConversationEnabled(id: string, enabled: boolean): Promise<ConversationRow | undefined> {
+    const [row] = await this.db.update(messageConversations)
+      .set({ enabled, updatedAt: new Date() })
+      .where(eq(messageConversations.id, id))
+      .returning();
+    return row;
   }
   /**
    * Mốc đã đọc của một thành viên (undefined nếu không phải thành viên).
@@ -281,6 +328,7 @@ export class MessagingRepository {
         gt(message.seq, member.lastReadSeq),
         lte(message.seq, target),
         ne(message.userIdFrom, readerId),
+        isNull(message.deletedAt),
       ));
     if (target > member.lastReadSeq) {
       await this.db.update(messageConversationMembers)
@@ -298,7 +346,7 @@ export class MessagingRepository {
     const lastReadSeq = await this.getMemberLastReadSeq(conversationId, userId);
     if (lastReadSeq === undefined) return 0;
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(eq(message.conversationId, conversationId), gt(message.seq, lastReadSeq), ne(message.userIdFrom, userId)));
+      .where(and(eq(message.conversationId, conversationId), gt(message.seq, lastReadSeq), ne(message.userIdFrom, userId), isNull(message.deletedAt)));
     return row?.value ?? 0;
   }
   /** Unread conversations for a user (Moodle count_unread_conversations): conversations with ≥1 unread message from others. */
@@ -316,6 +364,7 @@ export class MessagingRepository {
           where msg.conversation_id = ${messageConversationMembers.conversationId}
             and msg.seq > ${messageConversationMembers.lastReadSeq}
             and msg.user_id_from <> ${userId}
+            and msg.deleted_at is null
         )`,
       ));
     return row?.value ?? 0;
@@ -350,36 +399,156 @@ export class MessagingRepository {
     return rows.map((r) => r.blockedUserId);
   }
 
-  // --- contacts -------------------------------------------------------------
+  // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------
 
   /**
-   * Thêm một liên hệ vào danh bạ của user (trùng cặp thì bỏ qua).
+   * Ghi quan hệ liên hệ ĐÃ DUYỆT ở cả hai chiều (a→b và b→a) — một
+   * quan hệ được chấp nhận là hai phía theo đúng mô hình Moodle.
    */
-  async addContact(userId: string, contactId: string): Promise<void> {
-    await this.db.insert(messageContacts).values({ userId, contactId }).onConflictDoNothing();
+  async addContactPair(a: string, b: string): Promise<void> {
+    await this.db.insert(messageContacts).values([
+      { userId: a, contactId: b },
+      { userId: b, contactId: a },
+    ]).onConflictDoNothing();
   }
   /**
-   * Gỡ một liên hệ khỏi danh bạ của user.
+   * Gỡ quan hệ liên hệ ở cả hai chiều, đồng thời dọn mọi yêu cầu đang
+   * chờ giữa hai người (quan hệ đã chấm dứt thì hàng chờ cũng hết nghĩa).
    */
-  async removeContact(userId: string, contactId: string): Promise<void> {
-    await this.db.delete(messageContacts)
-      .where(and(eq(messageContacts.userId, userId), eq(messageContacts.contactId, contactId)));
+  async removeContactPair(a: string, b: string): Promise<void> {
+    await this.db.delete(messageContacts).where(or(
+      and(eq(messageContacts.userId, a), eq(messageContacts.contactId, b)),
+      and(eq(messageContacts.userId, b), eq(messageContacts.contactId, a)),
+    ));
+    await this.deleteContactRequestsBetween(a, b);
   }
   /**
-   * Danh bạ của user (các contactId user đã thêm).
+   * Danh bạ của user (các liên hệ đã được duyệt — quan hệ hai chiều nên
+   * một hướng truy vấn là đủ).
    */
   async listContacts(userId: string): Promise<string[]> {
     const rows = await this.db.select().from(messageContacts).where(eq(messageContacts.userId, userId));
     return rows.map((r) => r.contactId);
   }
   /**
-   * Owner có contactId trong danh bạ hay không. Cổng liên lạc dùng hướng
-   * (người nhận, người gửi): người nhận đã thêm người gửi làm liên hệ.
+   * Owner có contactId trong danh bạ đã duyệt hay không. Cổng liên lạc
+   * dùng hướng (người nhận, người gửi) — vì quan hệ được duyệt tồn tại
+   * ở cả hai chiều nên hướng này đúng khi và chỉ khi hai người là liên
+   * hệ đã chấp nhận của nhau. Yêu cầu đang chờ KHÔNG nằm ở bảng này.
    */
   async isContact(ownerId: string, contactId: string): Promise<boolean> {
     const rows = await this.db.select().from(messageContacts)
       .where(and(eq(messageContacts.userId, ownerId), eq(messageContacts.contactId, contactId)));
     return rows.length > 0;
+  }
+  /** Tạo một yêu cầu kết bạn (trùng cặp thì bỏ qua). */
+  async createContactRequest(fromId: string, toId: string): Promise<void> {
+    await this.db.insert(messageContactRequests).values({ userIdFrom: fromId, userIdTo: toId }).onConflictDoNothing();
+  }
+  /** Một yêu cầu kết bạn theo đúng hướng (from → to), nếu đang chờ. */
+  async getContactRequest(fromId: string, toId: string): Promise<ContactRequestRow | undefined> {
+    const [row] = await this.db.select().from(messageContactRequests)
+      .where(and(eq(messageContactRequests.userIdFrom, fromId), eq(messageContactRequests.userIdTo, toId)));
+    return row;
+  }
+  /** Xoá một yêu cầu theo hướng (from → to): chấp nhận/từ chối đều qua đây. */
+  async deleteContactRequest(fromId: string, toId: string): Promise<void> {
+    await this.db.delete(messageContactRequests)
+      .where(and(eq(messageContactRequests.userIdFrom, fromId), eq(messageContactRequests.userIdTo, toId)));
+  }
+  /** Xoá mọi yêu cầu đang chờ giữa hai người (cả hai hướng). */
+  async deleteContactRequestsBetween(a: string, b: string): Promise<void> {
+    await this.db.delete(messageContactRequests).where(or(
+      and(eq(messageContactRequests.userIdFrom, a), eq(messageContactRequests.userIdTo, b)),
+      and(eq(messageContactRequests.userIdFrom, b), eq(messageContactRequests.userIdTo, a)),
+    ));
+  }
+  /** Các yêu cầu ĐẾN user này đang chờ (người gửi → chờ user duyệt). */
+  async listIncomingContactRequests(userId: string): Promise<ContactRequestRow[]> {
+    return this.db.select().from(messageContactRequests)
+      .where(eq(messageContactRequests.userIdTo, userId))
+      .orderBy(asc(messageContactRequests.createdAt));
+  }
+  /** Các yêu cầu user này ĐÃ GỬI đang chờ phía kia duyệt. */
+  async listOutgoingContactRequests(userId: string): Promise<ContactRequestRow[]> {
+    return this.db.select().from(messageContactRequests)
+      .where(eq(messageContactRequests.userIdFrom, userId))
+      .orderBy(asc(messageContactRequests.createdAt));
+  }
+
+  // --- staff (cho các cổng nghiệp vụ Lớp B) -----------------------------------
+  // Đọc thẳng bảng role_assignments + role (barrel schema), cùng kỷ luật
+  // "đọc bảng dùng chung, không import module khác" như phần enrol/groups.
+
+  /**
+   * User có ÍT NHẤT một gán vai trò staff (theo archetype) ở bất kỳ
+   * context nào hay không — căn cứ của cổng "chỉ giáo viên/staff được
+   * tạo nhóm tự do": người chỉ mang vai trò học sinh ở mọi nơi bị chặn,
+   * giáo viên của bất kỳ khoá nào cũng qua được.
+   */
+  async hasStaffRoleAssignment(userId: string): Promise<boolean> {
+    const rows = await this.db.select({ id: roleAssignments.id })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .where(and(eq(roleAssignments.userId, userId), inArray(role.archetype, [...STAFF_ARCHETYPES])))
+      .limit(1);
+    return rows.length > 0;
+  }
+  /**
+   * Mọi user mang vai trò staff tại context của khoá hoặc một context
+   * tổ tiên của nó (kế thừa theo đường path của context, khớp ngữ
+   * nghĩa evaluator) — tập "giáo viên phụ trách" nhận báo cáo và thông
+   * báo về conversation của khoá.
+   */
+  async listCourseStaffUserIds(courseId: string): Promise<string[]> {
+    const [courseCtx] = await this.db.select().from(context)
+      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    if (!courseCtx) return [];
+    // path của context là chuỗi id các context từ gốc tới chính nó
+    // (định dạng '/<id>/.../<id>'): các id trong path là đúng tập
+    // context mà gán vai trò tại đó kế thừa xuống khoá này.
+    const pathIds = courseCtx.path.split('/').filter((part) => part.length > 0);
+    if (!pathIds.length) return [];
+    const rows = await this.db.selectDistinct({ userId: roleAssignments.userId })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .where(and(
+        inArray(role.archetype, [...STAFF_ARCHETYPES]),
+        inArray(roleAssignments.contextId, pathIds),
+      ));
+    return rows.map((r) => r.userId);
+  }
+
+  // --- báo cáo conversation ---------------------------------------------------
+
+  /** Ghi một báo cáo conversation mới (trạng thái open). */
+  async insertReport(v: typeof messageConversationReports.$inferInsert): Promise<ReportRow> {
+    const [row] = await this.db.insert(messageConversationReports).values(v).returning();
+    return row!;
+  }
+  /** Một báo cáo theo id. */
+  async getReport(id: string): Promise<ReportRow | undefined> {
+    const [row] = await this.db.select().from(messageConversationReports).where(eq(messageConversationReports.id, id));
+    return row;
+  }
+  /** Các báo cáo mới nhất trước (hàng đợi xử lý lọc theo thẩm quyền ở tầng service). */
+  async listReports(limit = 200): Promise<ReportRow[]> {
+    return this.db.select().from(messageConversationReports)
+      .orderBy(desc(messageConversationReports.createdAt))
+      .limit(limit);
+  }
+  /** Đổi trạng thái xử lý của báo cáo; resolved/dismissed ghi người xử lý + mốc, mở lại thì xoá hai dấu đó. */
+  async updateReportStatus(id: string, status: string, resolvedBy: string | null): Promise<ReportRow | undefined> {
+    const closing = status !== 'open';
+    const [row] = await this.db.update(messageConversationReports)
+      .set({
+        status,
+        resolvedBy: closing ? resolvedBy : null,
+        resolvedAt: closing ? new Date() : null,
+      })
+      .where(eq(messageConversationReports.id, id))
+      .returning();
+    return row;
   }
 
   // --- cổng liên lạc: khoá học chung -----------------------------------------

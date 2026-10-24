@@ -8,7 +8,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow } from './messaging.repository';
+import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
@@ -39,6 +39,10 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'] },
   { name: 'course_completed', component: 'core_completion', channels: ['popup'] },
   { name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'] },
+  // Lớp B (issue #33): yêu cầu kết bạn mới — phía nhận được thông báo qua pipeline sẵn có.
+  { name: 'contact_request', component: 'core_message', channels: ['popup', 'email'] },
+  // Lớp B (issue #33): một conversation bị báo cáo — giáo viên phụ trách + quản trị viên nhận được.
+  { name: 'conversation_reported', component: 'core_message', channels: ['popup', 'email'] },
 ];
 
 export function providerByName(name: string): MessageProviderDefinition | undefined {
@@ -81,7 +85,8 @@ export interface NotificationChannelPort {
 /**
  * MessagingModule facade (Moodle core_message):
  *  - CONVERSATIONS + MESSAGES are user-to-user. After sending, ownership of
- *    a message passes to core_message: NO endpoint edits or deletes it.
+ *    a message passes to core_message: NO endpoint edits or deletes it
+ *    (xoá mềm có truy vết là chặng sau của Lớp B, issue #33).
  *  - NOTIFICATIONS are system messages produced by registered providers and
  *    dispatched per (provider × channel × loggedin/loggedoff) preferences
  *    stored in user_preferences.
@@ -99,10 +104,12 @@ export interface NotificationChannelPort {
  * Quy tắc: người bị chặn không gửi được tin; notification được tạo theo provider và phân phối theo
  * tuỳ chọn kênh của người nhận (logged-in/logged-off), mọi lần phân phối đều ghi dispatch log;
  * chuỗi hiển thị của notification do tầng tạo nội dung lấy từ catalog i18n.
- * Cổng liên lạc: khi setting `core/messagingallusers` tắt, chỉ contact (theo hướng người nhận
- * đã thêm người gửi) hoặc bạn cùng khoá đang ghi danh mới mở được liên lạc 1-1 — notification
- * hệ thống không qua cổng này. Conversation gắn course group (component core_group) đồng bộ
- * thành viên theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
+ * Cổng liên lạc: khi setting `core/messagingallusers` tắt, chỉ liên hệ ĐÃ ĐƯỢC DUYỆT
+ * (luồng yêu cầu–chấp nhận) hoặc bạn cùng khoá đang ghi danh mới mở được liên lạc 1-1 — notification
+ * hệ thống không qua cổng này. Setting site là TRẦN cấp site duy nhất của cổng
+ * (chính sách Lớp B đã chốt không có tuỳ chọn siết thêm theo từng user).
+ * Conversation gắn course group (component core_group) đồng bộ thành viên
+ * theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
  */
 export class MessagingService {
   constructor(
@@ -302,28 +309,95 @@ export class MessagingService {
     return this.repo.listDispatchLog(userId);
   }
 
-  // --- contacts -------------------------------------------------------------
+  // --- contacts: luồng yêu cầu – chấp nhận (Lớp B) ---------------------------
+  // Thay danh bạ MỘT CHIỀU cũ bằng quan hệ có duyệt như Moodle: gửi yêu
+  // cầu → phía kia chấp nhận thì quan hệ mới tồn tại (ở cả hai chiều)
+  // và mới mở cổng liên lạc; từ chối thì yêu cầu biến mất, quan hệ
+  // không hình thành. Gửi yêu cầu cho người ĐÃ gửi yêu cầu cho mình =
+  // chấp nhận ngầm (hai phía cùng muốn kết nối thì không cần thêm một
+  // lượt duyệt nữa).
 
   /**
-   * Thêm một user vào danh bạ của tôi. Không tự thêm chính mình; user đích
-   * không tồn tại thì 404 như các flow liên hệ hiện hữu.
+   * Gửi yêu cầu kết bạn tới một user. Đã là liên hệ thì trả trạng thái
+   * accepted (idempotent); đã có yêu cầu chiều ngược đang chờ thì chấp
+   * nhận luôn yêu cầu đó. Người bị phía kia chặn (hoặc đã chặn phía
+   * kia) không gửi được yêu cầu.
    */
-  async addContact(userId: string, contactId: string): Promise<{ contacts: string[] }> {
+  async requestContact(userId: string, contactId: string): Promise<{ status: 'pending' | 'accepted'; contacts: string[] }> {
     if (contactId === userId) throw new BadRequestException({ message: 'You cannot add yourself as a contact', code: 'messaging.contact_self' });
     await this.users.getUser(contactId);
-    await this.repo.addContact(userId, contactId);
+    if (await this.repo.isContact(userId, contactId)) {
+      return { status: 'accepted', contacts: await this.repo.listContacts(userId) };
+    }
+    if (await this.repo.isBlocked(contactId, userId) || await this.repo.isBlocked(userId, contactId)) {
+      throw new ForbiddenException({ message: 'A block between you and this user prevents contact requests', code: 'messaging.contact_blocked' });
+    }
+    if (await this.repo.getContactRequest(contactId, userId)) {
+      // Phía kia đã xin kết bạn với mình trước: gửi ngược lại = đồng ý.
+      await this.repo.deleteContactRequest(contactId, userId);
+      await this.repo.addContactPair(userId, contactId);
+      return { status: 'accepted', contacts: await this.repo.listContacts(userId) };
+    }
+    const existing = await this.repo.getContactRequest(userId, contactId);
+    if (!existing) {
+      await this.repo.createContactRequest(userId, contactId);
+      await this.notify(contactId, 'contact_request', {
+        subject: 'New contact request',
+        body: 'You have a new contact request. Open your messages to accept or decline it.',
+        fromUserId: userId,
+      });
+    }
+    return { status: 'pending', contacts: await this.repo.listContacts(userId) };
+  }
+  /**
+   * Các yêu cầu kết bạn của tôi: `incoming` là yêu cầu người khác gửi
+   * tới chờ tôi duyệt, `outgoing` là yêu cầu tôi đã gửi đang chờ.
+   */
+  async listContactRequests(userId: string): Promise<{
+    incoming: { userId: string; createdAt: Date }[];
+    outgoing: { userId: string; createdAt: Date }[];
+  }> {
+    const incoming = await this.repo.listIncomingContactRequests(userId);
+    const outgoing = await this.repo.listOutgoingContactRequests(userId);
+    return {
+      incoming: incoming.map((r) => ({ userId: r.userIdFrom, createdAt: r.createdAt })),
+      outgoing: outgoing.map((r) => ({ userId: r.userIdTo, createdAt: r.createdAt })),
+    };
+  }
+  /**
+   * Chấp nhận yêu cầu kết bạn TỪ requesterId: quan hệ hình thành ở cả
+   * hai chiều, yêu cầu rời hàng chờ. Không có yêu cầu như vậy thì 404.
+   */
+  async acceptContactRequest(userId: string, requesterId: string): Promise<{ contacts: string[] }> {
+    await this.users.getUser(requesterId);
+    const request = await this.repo.getContactRequest(requesterId, userId);
+    if (!request) throw new NotFoundException({ message: `No pending contact request from ${requesterId}`, code: 'messaging.contact_request_not_found' });
+    await this.repo.deleteContactRequest(requesterId, userId);
+    await this.repo.addContactPair(userId, requesterId);
     return { contacts: await this.repo.listContacts(userId) };
   }
   /**
-   * Gỡ một user khỏi danh bạ của tôi.
+   * Từ chối yêu cầu kết bạn TỪ requesterId: yêu cầu biến mất, quan hệ
+   * không hình thành. Không có yêu cầu như vậy thì 404.
+   */
+  async declineContactRequest(userId: string, requesterId: string): Promise<{ declined: boolean }> {
+    await this.users.getUser(requesterId);
+    const request = await this.repo.getContactRequest(requesterId, userId);
+    if (!request) throw new NotFoundException({ message: `No pending contact request from ${requesterId}`, code: 'messaging.contact_request_not_found' });
+    await this.repo.deleteContactRequest(requesterId, userId);
+    return { declined: true };
+  }
+  /**
+   * Gỡ một liên hệ đã duyệt: quan hệ mất ở CẢ hai phía (cổng liên lạc
+   * đóng lại cho cả hai chiều), yêu cầu chờ giữa hai người cũng dọn.
    */
   async removeContact(userId: string, contactId: string): Promise<{ contacts: string[] }> {
     await this.users.getUser(contactId);
-    await this.repo.removeContact(userId, contactId);
+    await this.repo.removeContactPair(userId, contactId);
     return { contacts: await this.repo.listContacts(userId) };
   }
   /**
-   * Danh bạ của tôi.
+   * Danh bạ của tôi (chỉ các liên hệ ĐÃ ĐƯỢC DUYỆT).
    */
   async listContacts(userId: string): Promise<string[]> {
     return this.repo.listContacts(userId);
@@ -336,11 +410,14 @@ export class MessagingService {
    * Behat "Disallow sending a message if you are neither a contact nor do you
    * share a course with the user"). Khi setting `core/messagingallusers` =
    * false, người gửi chỉ liên lạc được với người nhận khi ÍT NHẤT một điều
-   * kiện đúng: (a) người nhận đã thêm người gửi vào danh bạ của người nhận,
-   * hoặc (b) hai người có ít nhất một khoá học cùng ghi danh đang active.
-   * Setting được đọc tươi qua SiteConfigService ở mỗi lần kiểm (không cache)
-   * nên admin đổi là có hiệu lực ngay. Notification hệ thống (`notify`)
-   * KHÔNG đi qua cổng này.
+   * kiện đúng: (a) hai người là liên hệ ĐÃ ĐƯỢC DUYỆT của nhau (luồng
+   * yêu cầu–chấp nhận của Lớp B — yêu cầu đang chờ không mở cổng), hoặc
+   * (b) hai người có ít nhất một khoá học cùng ghi danh đang active.
+   * Setting cấp site là trần duy nhất của cổng (chính sách đã chốt
+   * không có lớp tuỳ chọn theo từng user). Setting được đọc tươi qua
+   * SiteConfigService ở mỗi lần kiểm (không cache) nên admin đổi là
+   * có hiệu lực ngay. Notification hệ thống (`notify`) KHÔNG đi qua
+   * cổng này.
    */
   private async assertCanContact(senderId: string, recipientId: string): Promise<void> {
     const allUsers = await this.siteConfig.getValue<boolean>('core', 'messagingallusers');
@@ -411,8 +488,23 @@ export class MessagingService {
       const other = memberIds.find((id) => id !== actorId)!;
       await this.assertCanContact(actorId, other);
     }
+    if (type === 2) {
+      // Cổng lập nhóm tự do (Lớp B, chính sách đã chốt): học sinh KHÔNG
+      // tự lập nhóm trong hệ thống — nhóm tự do chỉ do giáo viên/staff
+      // (có ít nhất một gán vai trò staff ở bất kỳ context nào) hoặc
+      // quản trị viên tạo; nhóm của lớp/khoá đi đường cấu trúc riêng
+      // (createGroupConversation). Chặn TẠI TẦNG SERVICE này để mọi
+      // client đều bị chặn như nhau, không chỉ ẩn ở giao diện.
+      const isAdmin = await this.evaluator.isSiteAdmin(actorId);
+      if (!isAdmin && !(await this.repo.hasStaffRoleAssignment(actorId))) {
+        throw new ForbiddenException({
+          message: 'Only teachers or staff can create group conversations; students cannot create their own groups',
+          code: 'messaging.group_creation_forbidden',
+        });
+      }
+    }
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
-      const created = await this.repo.insertConversation({ type, name: input.name ?? null }, tx as never);
+      const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId }, tx as never);
       for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
       return created;
     });
@@ -491,12 +583,98 @@ export class MessagingService {
       const created = await this.repo.insertConversation({
         type: 2, name: input.name ?? group.name,
         component: 'core_group', itemType: 'groups', itemId: group.id,
-        contextId: courseCtx?.id ?? null,
+        contextId: courseCtx?.id ?? null, createdBy: actorId,
       }, tx as never);
       for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx as never);
       return created;
     });
     return { ...conversation, members: groupMemberIds };
+  }
+
+  // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
+  // Ba câu hỏi khác nhau, không gộp làm một:
+  //  - "phụ trách khoá của conversation này" (staff tại context khoá
+  //    hoặc tổ tiên của nó, hoặc quản trị viên) → quyền KIỂM DUYỆT:
+  //    xoá tin của người khác, xem lại báo cáo, xem tin đã xoá mềm.
+  //  - "quản lý conversation" = phụ trách khoá, cộng thêm NGƯỜI TẠO
+  //    đối với conversation KHÔNG gắn cấu trúc lớp/khoá → quyền bật/tắt
+  //    chat và gửi tin khi chat đang tắt. Conversation gắn group của
+  //    khoá thì người tạo bản ghi (có thể là một học sinh bấm mở nhóm
+  //    lớp) KHÔNG thành người quản lý — quản lý chỉ theo staff khoá.
+
+  /**
+   * Khoá học mà một conversation "thuộc về" — căn cứ phân phạm vi
+   * thẩm quyền của Lớp B. Thứ tự: conversation gắn course group thì là
+   * khoá của group; conversation có context là context khoá thì là
+   * khoá đó; còn lại (chat tự do/1-1) suy ra từ GIAO của các khoá mà
+   * mọi thành viên đang cùng ghi danh active (không có khoá chung thì
+   * conversation không thuộc khoá nào — chỉ quản trị viên có thẩm
+   * quyền kiểm duyệt trên nó).
+   */
+  private async resolveConversationCourseId(conversation: ConversationRow): Promise<string | null> {
+    if (this.isGroupLinked(conversation)) {
+      const group = await this.repo.getCourseGroup(conversation.itemId!);
+      if (group) return group.courseId;
+    }
+    if (conversation.contextId) {
+      const ctx = await this.contexts.getContext(conversation.contextId).catch(() => undefined);
+      if (ctx && ctx.contextLevel === 50) return ctx.instanceId;
+    }
+    const members = await this.repo.listMembers(conversation.id);
+    if (!members.length) return null;
+    let common: string[] | null = null;
+    for (const memberId of members) {
+      const courses = await this.repo.activeCourseIds(memberId);
+      common = common === null ? [...courses] : common.filter((id) => courses.includes(id));
+      if (!common.length) return null;
+    }
+    return common?.sort()[0] ?? null;
+  }
+
+  /**
+   * Người có thẩm quyền KIỂM DUYỆT trên conversation: quản trị viên,
+   * hoặc staff của khoá mà conversation thuộc về (gán vai trò staff
+   * tại context khoá hoặc tổ tiên — đúng tập
+   * {@link MessagingRepository.listCourseStaffUserIds}).
+   */
+  private async canModerateConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(userId)) return true;
+    const courseId = await this.resolveConversationCourseId(conversation);
+    if (!courseId) return false;
+    const staff = await this.repo.listCourseStaffUserIds(courseId);
+    return staff.includes(userId);
+  }
+
+  /**
+   * Người có thẩm quyền QUẢN LÝ conversation (bật/tắt chat, gửi khi
+   * chat tắt): mọi người có thẩm quyền kiểm duyệt, cộng người tạo —
+   * nhưng chỉ với conversation không gắn cấu trúc lớp/khoá.
+   */
+  private async canManageConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
+    if (await this.canModerateConversation(userId, conversation)) return true;
+    if (!this.isGroupLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
+    return false;
+  }
+
+  /**
+   * Bật/tắt chat của một conversation (Lớp B — chốt "nhóm lớp mặc
+   * định chat hai chiều, giáo viên tắt được"): chỉ người có thẩm
+   * quyền quản lý theo phạm vi khoá. Khi tắt, đường gửi chặn thành
+   * viên thường nhưng người quản lý vẫn gửi được (đường thông báo
+   * một chiều của giáo viên).
+   */
+  async updateConversation(actorId: string, conversationId: string, input: { enabled: boolean }): Promise<ConversationRow & { members: string[] }> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    if (!(await this.canManageConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Only the teacher in charge, course staff, an administrator, or the group creator can change this conversation',
+        code: 'messaging.conversation_manage_forbidden',
+      });
+    }
+    const updated = await this.repo.setConversationEnabled(conversationId, input.enabled);
+    return { ...updated!, members: await this.repo.listMembers(conversationId) };
   }
 
   /**
@@ -546,6 +724,7 @@ export class MessagingService {
   async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
     members: string[]; messages: MessageRow[]; hasMoreBefore: boolean;
     lastReadSeq: number; memberReadMarkers: { userId: string; lastReadSeq: number }[];
+    canModerate: boolean; canManage: boolean;
   }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
@@ -553,15 +732,23 @@ export class MessagingService {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50 });
+    // Tầm nhìn theo vai trò (Lớp B): thành viên thường KHÔNG BAO GIỜ
+    // thấy tin đã xoá mềm; người có thẩm quyền kiểm duyệt trên
+    // conversation (giáo viên phụ trách/quản trị) thấy cả tin đã xoá
+    // kèm dấu vết — đó là đường truy vết của chính sách xoá mềm.
+    const canModerate = await this.canModerateConversation(userId, conversation);
+    const canManage = canModerate || await this.canManageConversation(userId, conversation);
+    const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50, includeDeleted: canModerate });
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     return {
       ...conversation,
       members: await this.repo.listMembers(conversationId),
       messages,
-      hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq) : false,
+      hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate) : false,
       lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
       memberReadMarkers: markers,
+      canModerate,
+      canManage,
     };
   }
 
@@ -579,11 +766,14 @@ export class MessagingService {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    const messages = await this.repo.listMessages(conversationId, query);
+    // Cùng luật tầm nhìn với getConversation: chỉ người có thẩm quyền
+    // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ.
+    const canModerate = await this.canModerateConversation(userId, conversation);
+    const messages = await this.repo.listMessages(conversationId, { ...query, includeDeleted: canModerate });
     return {
       messages,
       hasMoreBefore: messages.length > 0 && query.afterSeq === undefined
-        ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq)
+        ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate)
         : false,
     };
   }
@@ -613,6 +803,16 @@ export class MessagingService {
     await this.syncGroupConversationIfLinked(conversation);
     if (!(await this.repo.isMember(conversationId, actorId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
+    }
+    // Cột `enabled` phải được tôn trọng THẬT ở đường gửi (Lớp B):
+    // giáo viên tắt chat của nhóm lớp thì thành viên thường dừng gửi
+    // tại đây; người có thẩm quyền quản lý vẫn gửi được — đó là đường
+    // thông báo một chiều của giáo viên khi lớp đã tắt chat.
+    if (!conversation.enabled && !(await this.canManageConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Chat is disabled for this conversation',
+        code: 'messaging.conversation_disabled',
+      });
     }
     const members = await this.repo.listMembers(conversationId);
     for (const memberId of members) {
@@ -668,10 +868,9 @@ export class MessagingService {
   }
 
   /**
-   * Sửa tin nhắn vẫn bị từ chối. Xoá tin: chính sách đã chốt (issue
-   * #33) là XOÁ MỀM có truy vết ở đợt Lớp B — đợt nền này CHƯA triển
-   * khai nên cả hai đường vẫn từ chối như cũ; khi Lớp B làm, xoá sẽ
-   * ghi trạng thái/người xoá/thời điểm chứ không xoá vật lý dòng tin.
+   * Sửa tin nhắn vẫn bị từ chối (chính sách đã chốt chỉ nới XOÁ, theo
+   * mô hình xoá mềm có truy vết — sửa nội dung tin đã gửi không nằm
+   * trong chính sách).
    */
   /**
    * Sửa tin nhắn của chính mình.
@@ -683,13 +882,165 @@ export class MessagingService {
     });
   }
   /**
-   * Xoá tin nhắn của chính mình.
+   * Xoá mềm một tin nhắn (Lớp B — thay tính bất biến tuyệt đối cũ):
+   *   - NGƯỜI GỬI xoá tin của chính mình: tin biến mất khỏi tầm nhìn
+   *     của mọi học sinh (kể cả chính người gửi), nhưng giáo viên phụ
+   *     trách/quản trị vẫn truy vết được nội dung.
+   *   - NGƯỜI CÓ THẨM QUYỀN KIỂM DUYỆT trên conversation (giáo viên
+   *     phụ trách khoá / quản trị viên) xoá tin của bất kỳ ai: học
+   *     sinh không còn thấy, phía có thẩm quyền vẫn thấy dấu vết.
+   * Người khác (thành viên thường không phải tác giả) → 403. Dòng tin
+   * KHÔNG bị xoá vật lý: chỉ ghi `deleted_at`/`deleted_by`, kèm sự
+   * kiện outbox `message_deleted` cho realtime (client gỡ tin khỏi
+   * khung) và cho event_log (truy vết ai đã xoá tin nào). Xoá lại tin
+   * đã xoá là idempotent — dấu vết lần xoá đầu được giữ nguyên.
    */
-  async deleteMessage(): Promise<never> {
-    throw new ForbiddenException({
-      message: 'A sent message cannot be deleted by its sender: ownership passed to core_message when it was sent',
-      code: 'messaging.message_immutable',
+  async deleteMessage(actorId: string, messageId: string): Promise<MessageRow> {
+    const existing = await this.repo.getMessage(messageId);
+    if (!existing) throw new NotFoundException({ message: `Message ${messageId} not found`, code: 'messaging.message_not_found' });
+    const conversation = await this.repo.getConversation(existing.conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    const isAuthor = existing.userIdFrom === actorId;
+    if (!isAuthor && !(await this.canModerateConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Only the author, the teacher in charge, or an administrator can delete this message',
+        code: 'messaging.message_delete_forbidden',
+      });
+    }
+    if (existing.deletedAt) return existing;
+    const deleted = await this.repo.softDeleteMessage(messageId, actorId);
+    const courseId = await this.resolveConversationCourseId(conversation);
+    await this.outbox.enqueueStandalone({
+      aggregate: 'messaging', type: 'message_deleted',
+      payload: {
+        actorId, conversationId: conversation.id, messageId, seq: existing.seq,
+        deletedBy: actorId, authorId: existing.userIdFrom, courseId: courseId ?? undefined,
+      },
     });
+    return deleted!;
+  }
+
+  // --- báo cáo conversation (Lớp B) -------------------------------------------
+
+  /**
+   * Báo cáo một conversation: chỉ THÀNH VIÊN của conversation báo cáo
+   * được. Báo cáo vào hàng đợi của giáo viên phụ trách lớp/khoá liên
+   * quan + quản trị viên toàn site — hai tập này nhận notification
+   * trong ứng dụng ngay khi báo cáo được tạo (trừ chính người báo cáo
+   * nếu họ thuộc hai tập đó). Việc XEM lại nội dung đi đường riêng có
+   * ghi vết ({@link getReportConversation}).
+   */
+  async reportConversation(actorId: string, conversationId: string, reason?: string): Promise<ReportRow> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    if (!(await this.repo.isMember(conversationId, actorId))) {
+      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
+    }
+    const report = await this.repo.insertReport({
+      conversationId, reporterId: actorId, reason: (reason ?? '').trim(),
+    });
+    const courseId = await this.resolveConversationCourseId(conversation);
+    await this.outbox.enqueueStandalone({
+      aggregate: 'messaging', type: 'message_conversation_reported',
+      payload: { actorId, conversationId, reportId: report.id, courseId: courseId ?? undefined },
+    });
+    const recipients = new Set<string>(await this.evaluator.listSiteAdmins());
+    if (courseId) {
+      for (const staffId of await this.repo.listCourseStaffUserIds(courseId)) recipients.add(staffId);
+    }
+    recipients.delete(actorId);
+    for (const recipientId of recipients) {
+      await this.notify(recipientId, 'conversation_reported', {
+        subject: 'A conversation was reported',
+        body: 'A conversation was reported and is waiting in the moderation queue. Open the reports list in Messages to review it.',
+        fromUserId: actorId,
+      }).catch(() => undefined);
+    }
+    return report;
+  }
+
+  /**
+   * Hàng đợi báo cáo TRONG THẨM QUYỀN của người gọi: quản trị viên
+   * thấy tất cả; giáo viên chỉ thấy báo cáo của các conversation thuộc
+   * khoá mình phụ trách; người khác thấy danh sách rỗng. Quyền xem
+   * theo từng conversation được chốt tại đây (không tin client).
+   */
+  async listReports(actorId: string): Promise<ReportRow[]> {
+    const reports = await this.repo.listReports();
+    const admin = await this.evaluator.isSiteAdmin(actorId);
+    if (admin) return reports;
+    const cache = new Map<string, boolean>();
+    const out: ReportRow[] = [];
+    for (const report of reports) {
+      let allowed = cache.get(report.conversationId);
+      if (allowed === undefined) {
+        const conversation = await this.repo.getConversation(report.conversationId);
+        allowed = conversation ? await this.canModerateConversation(actorId, conversation) : false;
+        cache.set(report.conversationId, allowed);
+      }
+      if (allowed) out.push(report);
+    }
+    return out;
+  }
+
+  /**
+   * Xem lại nội dung của ĐÚNG conversation bị báo cáo — đường truy vết
+   * có thẩm quyền của Lớp B: chỉ quản trị viên hoặc giáo viên phụ trách
+   * khoá của conversation đó. Nội dung trả về GỒM cả tin đã xoá mềm
+   * (mục đích của việc xem lại là truy vết). MỌI lần xem đều ghi một
+   * sự kiện outbox `message_conversation_report_viewed` — relay của
+   * logstore (issue #22) phản chiếu nó vào event_log với actor là
+   * người xem, object là conversation, kèm id báo cáo làm căn cứ.
+   */
+  async getReportConversation(actorId: string, reportId: string): Promise<{
+    report: ReportRow;
+    conversation: ConversationRow & { members: string[]; messages: MessageRow[] };
+  }> {
+    const report = await this.repo.getReport(reportId);
+    if (!report) throw new NotFoundException({ message: `Report ${reportId} not found`, code: 'messaging.report_not_found' });
+    const conversation = await this.repo.getConversation(report.conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${report.conversationId} not found`, code: 'messaging.conversation_not_found' });
+    if (!(await this.canModerateConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Only an administrator or the teacher in charge of this conversation\'s course can review a reported conversation',
+        code: 'messaging.report_review_forbidden',
+      });
+    }
+    const courseId = await this.resolveConversationCourseId(conversation);
+    await this.outbox.enqueueStandalone({
+      aggregate: 'messaging', type: 'message_conversation_report_viewed',
+      payload: { actorId, conversationId: conversation.id, reportId: report.id, courseId: courseId ?? undefined },
+    });
+    const messages = await this.repo.listMessages(conversation.id, { limit: 100, includeDeleted: true });
+    return {
+      report,
+      conversation: {
+        ...conversation,
+        members: await this.repo.listMembers(conversation.id),
+        messages,
+      },
+    };
+  }
+
+  /**
+   * Đổi trạng thái xử lý của một báo cáo (open/resolved/dismissed) —
+   * cùng phạm vi thẩm quyền với đường xem lại nội dung.
+   */
+  async updateReportStatus(actorId: string, reportId: string, status: string): Promise<ReportRow> {
+    const report = await this.repo.getReport(reportId);
+    if (!report) throw new NotFoundException({ message: `Report ${reportId} not found`, code: 'messaging.report_not_found' });
+    const conversation = await this.repo.getConversation(report.conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${report.conversationId} not found`, code: 'messaging.conversation_not_found' });
+    if (!(await this.canModerateConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Only an administrator or the teacher in charge of this conversation\'s course can handle its reports',
+        code: 'messaging.report_review_forbidden',
+      });
+    }
+    const updated = await this.repo.updateReportStatus(reportId, status, actorId);
+    return updated!;
   }
 
   /**
