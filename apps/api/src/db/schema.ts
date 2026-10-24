@@ -17,6 +17,7 @@ export * from '../modules/completion/schema';
 export * from '../modules/grades/schema';
 export * from '../modules/questions/schema';
 export * from '../modules/quiz/schema';
+export * from '../modules/assignments/schema';
 export * from '../modules/curriculum/schema';
 export * from '../modules/books/schema';
 export * from '../modules/messaging/schema';

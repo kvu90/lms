@@ -724,3 +724,126 @@ export const manualGradeQuizSchema = z.strictObject({
   comment: z.string().optional(),
 });
 export type ManualGradeQuiz = z.infer<typeof manualGradeQuizSchema>;
+
+/** Trạng thái bài nộp của một học sinh trong hoạt động Bài tập nộp tệp/ảnh (mod_assign). */
+export const ASSIGN_SUBMISSION_STATUSES = ['none', 'draft', 'submitted', 'graded'] as const;
+export type AssignSubmissionStatus = (typeof ASSIGN_SUBMISSION_STATUSES)[number];
+
+/** View một hoạt động Bài tập nộp tệp/ảnh (mod_assign): cấu hình bài + hạn nộp + quy tắc tệp. */
+export const assignmentViewSchema = z.object({
+  id: uuidIdSchema,
+  courseId: uuidIdSchema,
+  cmId: uuidIdSchema.nullable(),
+  name: z.string(),
+  intro: z.string(),
+  /** Hạn nộp (ISO); null = không đặt hạn. Nộp sau hạn vẫn nhận nhưng bị đánh dấu trễ. */
+  dueDate: z.string().nullable(),
+  /** Số tệp tối đa trong một bài nộp. */
+  maxFiles: z.number().int(),
+  /** Danh sách đuôi tệp cho phép, cách nhau bằng dấu phẩy (vd "jpg,png,pdf"); null = mọi loại tệp. */
+  acceptedFileTypes: z.string().nullable(),
+  /** Thang điểm của bài (điểm giáo viên nhập nằm trong [0, grade]). */
+  grade: z.number(),
+});
+export type AssignmentView = z.infer<typeof assignmentViewSchema>;
+
+/** Một tệp trong bài nộp: metadata + URL tải đã ký tạm thời để xem toàn màn. */
+export const assignSubmissionFileViewSchema = z.object({
+  fileId: uuidIdSchema,
+  fileName: z.string(),
+  fileSize: z.number().int(),
+  mimeType: z.string().nullable(),
+  contentHash: z.string(),
+  signedUrl: z.string(),
+  signedUrlExpiresAt: z.number().int(),
+});
+export type AssignSubmissionFileView = z.infer<typeof assignSubmissionFileViewSchema>;
+
+/** Điểm + lời phê của giáo viên cho bài nộp hiện tại của học sinh. */
+export const assignGradeViewSchema = z.object({
+  grade: z.number().nullable(),
+  feedback: z.string().nullable(),
+  graderId: uuidIdSchema,
+  gradedAt: z.string(),
+  attemptNumber: z.number().int(),
+});
+export type AssignGradeView = z.infer<typeof assignGradeViewSchema>;
+
+/** Bài nộp của chính người xem: trạng thái theo hạn, các tệp và điểm/lời phê khi đã chấm. */
+export const assignOwnSubmissionViewSchema = z.object({
+  submissionId: uuidIdSchema.nullable(),
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  /** Đã nộp nhưng sau hạn nộp. */
+  late: z.boolean(),
+  files: z.array(assignSubmissionFileViewSchema),
+  grade: assignGradeViewSchema.nullable(),
+});
+export type AssignOwnSubmissionView = z.infer<typeof assignOwnSubmissionViewSchema>;
+
+/** View bài tập cho một người xem: cấu hình + bài nộp của chính mình + các cờ quyền đã phân giải tại context của module. */
+export const assignmentForUserViewSchema = z.object({
+  assignment: assignmentViewSchema,
+  mySubmission: assignOwnSubmissionViewSchema,
+  canSubmit: z.boolean(),
+  canManage: z.boolean(),
+  canGrade: z.boolean(),
+  canViewAllSubmissions: z.boolean(),
+});
+export type AssignmentForUserView = z.infer<typeof assignmentForUserViewSchema>;
+
+/** Một dòng trong danh sách bài nộp của giáo viên: mọi học sinh đã ghi danh, kể cả người chưa nộp. */
+export const assignSubmissionSummarySchema = z.object({
+  userId: uuidIdSchema,
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  late: z.boolean(),
+  fileCount: z.number().int(),
+  grade: z.number().nullable(),
+  feedback: z.string().nullable(),
+});
+export type AssignSubmissionSummary = z.infer<typeof assignSubmissionSummarySchema>;
+
+/** Chi tiết một bài nộp cho giáo viên chấm: các tệp kèm URL đã ký + điểm/lời phê hiện tại. */
+export const assignSubmissionDetailSchema = z.object({
+  userId: uuidIdSchema,
+  status: z.enum(ASSIGN_SUBMISSION_STATUSES),
+  attemptNumber: z.number().int(),
+  submittedAt: z.string().nullable(),
+  late: z.boolean(),
+  files: z.array(assignSubmissionFileViewSchema),
+  grade: assignGradeViewSchema.nullable(),
+});
+export type AssignSubmissionDetail = z.infer<typeof assignSubmissionDetailSchema>;
+
+/** Payload tạo bài tập nộp tệp/ảnh trong một section (kèm course module + grade item ở tầng nghiệp vụ). */
+export const createAssignmentSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  name: z.string().min(1),
+  intro: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+  maxFiles: z.number().int().min(1).max(50).optional(),
+  acceptedFileTypes: z.string().nullable().optional(),
+  grade: z.number().positive().optional(),
+});
+export type CreateAssignment = z.infer<typeof createAssignmentSchema>;
+
+/** Payload sửa cài đặt bài tập (mọi trường tuỳ chọn; `dueDate`/`acceptedFileTypes` nhận `null` để gỡ). */
+export const updateAssignmentSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+  maxFiles: z.number().int().min(1).max(50).optional(),
+  acceptedFileTypes: z.string().nullable().optional(),
+  grade: z.number().positive().optional(),
+});
+export type UpdateAssignment = z.infer<typeof updateAssignmentSchema>;
+
+/** Payload chấm một bài nộp: điểm trong thang của bài + lời phê tuỳ chọn. */
+export const gradeAssignmentSubmissionSchema = z.strictObject({
+  grade: z.number().min(0),
+  feedback: z.string().optional(),
+});
+export type GradeAssignmentSubmission = z.infer<typeof gradeAssignmentSubmissionSchema>;

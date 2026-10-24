@@ -1,0 +1,1260 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c1ab9e6a-b3ff-413f-91eb-d8e38e8a69c2",
+  "prevIds": [
+    "27b2e315-17a8-4da5-823b-b51908135d6a"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_grades"
+      ],
+      "writes": [
+        "s|tbl|public.assign_grades",
+        "n|tbl|public.assign_grades",
+        "e|tbl|public.assign_grades",
+        "n|rel|public.assign_grades",
+        "n|type|public.assign_grades",
+        "n|rel|public.assign_grades_pkey",
+        "n|rel|public.assign_grades_assignment_user_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_submission_files"
+      ],
+      "writes": [
+        "s|tbl|public.assign_submission_files",
+        "n|tbl|public.assign_submission_files",
+        "e|tbl|public.assign_submission_files",
+        "n|rel|public.assign_submission_files",
+        "n|type|public.assign_submission_files",
+        "n|rel|public.assign_submission_files_pkey",
+        "n|rel|public.assign_submission_files_submission_file_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_submissions"
+      ],
+      "writes": [
+        "s|tbl|public.assign_submissions",
+        "n|tbl|public.assign_submissions",
+        "e|tbl|public.assign_submissions",
+        "n|rel|public.assign_submissions",
+        "n|type|public.assign_submissions",
+        "n|rel|public.assign_submissions_pkey",
+        "n|rel|public.assign_submissions_assignment_user_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "assignments"
+      ],
+      "writes": [
+        "s|tbl|public.assignments",
+        "n|tbl|public.assignments",
+        "e|tbl|public.assignments",
+        "n|rel|public.assignments",
+        "n|type|public.assignments",
+        "n|rel|public.assignments_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_grades",
+        "assign_grades_assignment_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_grades_assignment_id_idx",
+        "n|idx|public.assign_grades_assignment_id_idx",
+        "e|idx|public.assign_grades_assignment_id_idx",
+        "n|rel|public.assign_grades_assignment_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|col|public.assign_grades.assignment_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_grades",
+        "assign_grades_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_grades_user_id_idx",
+        "n|idx|public.assign_grades_user_id_idx",
+        "e|idx|public.assign_grades_user_id_idx",
+        "n|rel|public.assign_grades_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|col|public.assign_grades.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_submission_files",
+        "assign_submission_files_submission_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_submission_files_submission_id_idx",
+        "n|idx|public.assign_submission_files_submission_id_idx",
+        "e|idx|public.assign_submission_files_submission_id_idx",
+        "n|rel|public.assign_submission_files_submission_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submission_files",
+        "n|sch|public",
+        "n|col|public.assign_submission_files.submission_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_submissions",
+        "assign_submissions_assignment_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_submissions_assignment_id_idx",
+        "n|idx|public.assign_submissions_assignment_id_idx",
+        "e|idx|public.assign_submissions_assignment_id_idx",
+        "n|rel|public.assign_submissions_assignment_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submissions",
+        "n|sch|public",
+        "n|col|public.assign_submissions.assignment_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assign_submissions",
+        "assign_submissions_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assign_submissions_user_id_idx",
+        "n|idx|public.assign_submissions_user_id_idx",
+        "e|idx|public.assign_submissions_user_id_idx",
+        "n|rel|public.assign_submissions_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submissions",
+        "n|sch|public",
+        "n|col|public.assign_submissions.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assignments",
+        "assignments_course_idx"
+      ],
+      "writes": [
+        "s|idx|public.assignments_course_idx",
+        "n|idx|public.assignments_course_idx",
+        "e|idx|public.assignments_course_idx",
+        "n|rel|public.assignments_course_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|col|public.assignments.course"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "assignments",
+        "assignments_cm_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.assignments_cm_id_idx",
+        "n|idx|public.assignments_cm_id_idx",
+        "e|idx|public.assignments_cm_id_idx",
+        "n|rel|public.assignments_cm_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|col|public.assignments.cm_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_grades"
+      ],
+      "writes": [
+        "s|fk|public.assign_grades.assign_grades_assignment_id_assignments_id_fkey",
+        "n|fk|public.assign_grades.assign_grades_assignment_id_assignments_id_fkey",
+        "e|fk|public.assign_grades.assign_grades_assignment_id_assignments_id_fkey",
+        "n|con|public.assign_grades.assign_grades_assignment_id_assignments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_grades",
+        "n|sch|public",
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|col|public.assign_grades.assignment_id",
+        "n|col|public.assignments.id",
+        "e|uniqueness|public.assignments.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_submission_files"
+      ],
+      "writes": [
+        "s|fk|public.assign_submission_files.assign_submission_files_2yBSlJM0A5zz_fkey",
+        "n|fk|public.assign_submission_files.assign_submission_files_2yBSlJM0A5zz_fkey",
+        "e|fk|public.assign_submission_files.assign_submission_files_2yBSlJM0A5zz_fkey",
+        "n|con|public.assign_submission_files.assign_submission_files_2yBSlJM0A5zz_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submission_files",
+        "n|sch|public",
+        "n|tbl|public.assign_submissions",
+        "n|sch|public",
+        "n|col|public.assign_submission_files.submission_id",
+        "n|col|public.assign_submissions.id",
+        "e|uniqueness|public.assign_submissions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_submission_files"
+      ],
+      "writes": [
+        "s|fk|public.assign_submission_files.assign_submission_files_file_id_files_id_fkey",
+        "n|fk|public.assign_submission_files.assign_submission_files_file_id_files_id_fkey",
+        "e|fk|public.assign_submission_files.assign_submission_files_file_id_files_id_fkey",
+        "n|con|public.assign_submission_files.assign_submission_files_file_id_files_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submission_files",
+        "n|sch|public",
+        "n|tbl|public.files",
+        "n|sch|public",
+        "n|col|public.assign_submission_files.file_id",
+        "n|col|public.files.id",
+        "e|uniqueness|public.files.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assign_submissions"
+      ],
+      "writes": [
+        "s|fk|public.assign_submissions.assign_submissions_assignment_id_assignments_id_fkey",
+        "n|fk|public.assign_submissions.assign_submissions_assignment_id_assignments_id_fkey",
+        "e|fk|public.assign_submissions.assign_submissions_assignment_id_assignments_id_fkey",
+        "n|con|public.assign_submissions.assign_submissions_assignment_id_assignments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assign_submissions",
+        "n|sch|public",
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|col|public.assign_submissions.assignment_id",
+        "n|col|public.assignments.id",
+        "e|uniqueness|public.assignments.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "assignments"
+      ],
+      "writes": [
+        "s|fk|public.assignments.assignments_course_course_id_fkey",
+        "n|fk|public.assignments.assignments_course_course_id_fkey",
+        "e|fk|public.assignments.assignments_course_course_id_fkey",
+        "n|con|public.assignments.assignments_course_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.assignments",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.assignments.course",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_grades",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_submission_files",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assign_submissions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "assignments",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assignment_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "grader_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "attempt_number",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "grade",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "feedback",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "submission_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "file_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assignment_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'draft'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "attempt_number",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "submitted_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "uuidv7()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "course",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "cm_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "intro",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "''",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "due_date",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "max_files",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "10",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "accepted_file_types",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "grade",
+        "type": "double precision",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "10",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assign_grades_assignment_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "assignment_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assign_grades_user_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "assign_submission_files_submission_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "submission_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assign_submissions_assignment_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "assignment_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assign_submissions_user_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "assignments_course_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "course",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "assignments_cm_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "cm_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assign_grades_assignment_id_assignments_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "assignment_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assignments",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "assign_submission_files_2yBSlJM0A5zz_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "submission_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assign_submissions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "assign_submission_files_file_id_files_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "file_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "files",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assign_submissions_assignment_id_assignments_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "assignment_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "assignments",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "assignments_course_course_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "course"
+        ],
+        "schemaTo": "public",
+        "tableTo": "course",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assign_grades_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "assign_submission_files_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assign_submissions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assignments",
+        "name": "assignments_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_grades",
+        "name": "assign_grades_assignment_user_unique",
+        "nameExplicit": true,
+        "columns": [
+          "assignment_id",
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submission_files",
+        "name": "assign_submission_files_submission_file_unique",
+        "nameExplicit": true,
+        "columns": [
+          "submission_id",
+          "file_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "assign_submissions",
+        "name": "assign_submissions_assignment_user_unique",
+        "nameExplicit": true,
+        "columns": [
+          "assignment_id",
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}
