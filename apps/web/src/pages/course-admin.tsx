@@ -1252,9 +1252,10 @@ export default CourseAdminPage;
  * khoá (PATCH /courses/:id) rồi nạp các đơn vị khung đã chọn thành
  * section mới kèm YCCĐ chụp tại lúc nạp (POST curriculum-frame), chèn
  * tại vị trí chọn trong outline hoặc cuối outline. Nạp xong gọi
- * `onApplied` để trang nạp lại cấu trúc khoá. Người không đọc được cây
- * chương trình (thiếu curriculum:view) chỉ thấy thông báo nhẹ — API vẫn
- * là nơi thực thi quyền.
+ * `onApplied` để trang nạp lại cấu trúc khoá. Đường đọc cây của panel
+ * đi kèm forCourseId = khoá này nên giáo viên có course:update tại khoá
+ * đọc được dù không có curriculum:view hệ thống; người không có cả hai
+ * chỉ thấy thông báo nhẹ — API vẫn là nơi thực thi quyền.
  */
 function CurriculumFramePanel({
   courseId,
@@ -1289,12 +1290,14 @@ function CurriculumFramePanel({
     void (async () => {
       try {
         const contextId = await fetchSystemContextId();
-        if (contextId) setSubjects(await fetchSubjects(contextId));
+        // forCourseId = chính khoá này: giáo viên cấp khoá đọc được danh
+        // sách môn qua nhánh course:update tại khoá mình dạy (issue #66).
+        if (contextId) setSubjects(await fetchSubjects(contextId, courseId));
       } catch {
         setLoadFailed(true);
       }
     })();
-  }, []);
+  }, [courseId]);
 
   useEffect(() => {
     setSelected([]);
@@ -1303,7 +1306,7 @@ function CurriculumFramePanel({
       setCurriculumId(null);
       return;
     }
-    void fetchFrameUnitsFor(subjectId, Number(grade))
+    void fetchFrameUnitsFor(subjectId, Number(grade), courseId)
       .then(({ curriculumId: found, units: foundUnits }) => {
         setCurriculumId(found);
         setUnits(foundUnits);
@@ -1312,7 +1315,7 @@ function CurriculumFramePanel({
         setCurriculumId(null);
         setUnits([]);
       });
-  }, [subjectId, grade]);
+  }, [subjectId, grade, courseId]);
 
   /** Lưu môn/khối của khoá qua PATCH /courses/:id. */
   async function saveCourseInfo() {

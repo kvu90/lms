@@ -7,6 +7,7 @@ import {
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
 import { createCategory } from './course-enrolment-helpers';
+import { contextIdByLevelInstance } from './engagement-helpers';
 
 /**
  * K0a (issue #66) — nạp khung chương trình vào khoá (bản sao có neo).
@@ -17,6 +18,10 @@ import { createCategory } from './course-enrolment-helpers';
  * mang đúng YCCĐ của chủ đề; sửa cây chương trình sau đó KHÔNG đổi cấu
  * trúc khoá đã nạp — spec kiểm cả hai, và khôi phục nguyên trạng cây
  * sau khi sửa thử để không làm bẩn dữ liệu cho spec khác.
+ * Mô hình gán vai của người dùng thử: `coursecreator` tại CONTEXT DANH
+ * MỤC (đúng cách gán thật — không gán tại context hệ thống, vì gán ở hệ
+ * thống còn kéo theo curriculum:view tại hệ thống và đã che điểm chặn
+ * review #66: giáo viên cấp khoá bị 403 khi nạp khung).
  */
 
 interface ProgramRecord {
@@ -68,6 +73,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
   let subjectId: string;
   let curriculum5Id: string;
   let tree5: TreeNode[];
+  let categoryId: string;
   let courseId: string;
 
   beforeAll(async () => {
@@ -78,26 +84,32 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     const imp = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'toan' });
     expect(imp.status).toBe(201);
 
+    // Danh mục riêng của spec + giáo viên coursecreator TẠI CONTEXT DANH
+    // MỤC (không tại hệ thống — xem ghi chú đầu file). Id môn/chương
+    // trình/cây lấy bằng admin: đó là dữ liệu mồi, không phải hành vi
+    // cần kiểm; hành vi của giáo viên được kiểm ở các test dưới.
+    const category = await createCategory(app, admin);
+    categoryId = category.id;
+    const categoryCtxId = await contextIdByLevelInstance(app, admin, 40, categoryId);
     const teacher = await createUserViaApi(app, admin);
-    await assignRole(app, admin, teacher.id, await roleIdByShortname(app, admin, 'coursecreator'), systemCtxId);
+    await assignRole(app, admin, teacher.id, await roleIdByShortname(app, admin, 'coursecreator'), categoryCtxId);
     teacherToken = (await login(app, teacher.username, STRONG_PASSWORD)).accessToken;
     const plain = await createUserViaApi(app, admin);
     plainToken = (await login(app, plain.username, STRONG_PASSWORD)).accessToken;
 
-    const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(teacherToken));
+    const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(admin));
     subjectId = (subjects.body as { id: string; slug: string }[]).find((s) => s.slug === 'toan')!.id;
-    const curricula = await http(app).get(`/api/v1/curriculum/curricula?subjectId=${subjectId}`).set(bearer(teacherToken));
+    const curricula = await http(app).get(`/api/v1/curriculum/curricula?subjectId=${subjectId}`).set(bearer(admin));
     curriculum5Id = (curricula.body as { id: string; grade: number }[]).find((c) => c.grade === 5)!.id;
-    const tree = await http(app).get(`/api/v1/curriculum/curricula/${curriculum5Id}/tree`).set(bearer(teacherToken));
+    const tree = await http(app).get(`/api/v1/curriculum/curricula/${curriculum5Id}/tree`).set(bearer(admin));
     expect(tree.status).toBe(200);
     tree5 = (tree.body as { nodes: TreeNode[] }).nodes;
   }, 180_000);
   afterAll(async () => { await app.close(); });
 
   it('teacher creates a grade-5 Toán course carrying subject × grade', async () => {
-    const category = await createCategory(app, admin);
     const res = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
-      fullName: 'Toán 5 — khung K0a', shortName: uniqueName('toan5'), category: category.id,
+      fullName: 'Toán 5 — khung K0a', shortName: uniqueName('toan5'), category: categoryId,
       subjectId, grade: 5,
     });
     expect(res.status).toBe(201);
@@ -106,11 +118,25 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     courseId = res.body.id as string;
 
     const bogus = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
-      fullName: 'Khoá neo môn ma', shortName: uniqueName('ghost'), category: category.id,
+      fullName: 'Khoá neo môn ma', shortName: uniqueName('ghost'), category: categoryId,
       subjectId: '01961e2a-7b3c-7def-8abc-0123456789ab', grade: 5,
     });
     expect(bogus.status).toBe(400);
     expect(bogus.body.code).toBe('course.subject_not_found');
+  });
+
+  it('teacher reads the frame picker for their own course via forCourseId, but not the plain tree', async () => {
+    // Bề mặt chọn khung trong quản trị khoá: kèm forCourseId = khoá mình
+    // có course:update thì đọc được cả 3 GET; không kèm thì vẫn 403 vì
+    // giáo viên này không có curriculum:view tại context hệ thống.
+    const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}&forCourseId=${courseId}`).set(bearer(teacherToken));
+    expect(subjects.status).toBe(200);
+    const curricula = await http(app).get(`/api/v1/curriculum/curricula?subjectId=${subjectId}&forCourseId=${courseId}`).set(bearer(teacherToken));
+    expect(curricula.status).toBe(200);
+    const tree = await http(app).get(`/api/v1/curriculum/curricula/${curriculum5Id}/tree?forCourseId=${courseId}`).set(bearer(teacherToken));
+    expect(tree.status).toBe(200);
+    const plainTree = await http(app).get(`/api/v1/curriculum/curricula/${curriculum5Id}/tree`).set(bearer(teacherToken));
+    expect(plainTree.status).toBe(403);
   });
 
   it('applies a topic frame: one section carrying exactly the topic outcomes from the dataset', async () => {

@@ -10,6 +10,8 @@ import {
 export const CURRICULUM_VIEW = 'curriculum:view';
 /** Capability quản trị (tạo/sửa/xoá) cây curriculum tại context của môn học. */
 export const CURRICULUM_MANAGE = 'curriculum:manage';
+/** Capability sửa khoá — nhánh quyền phụ cho đường đọc cây phục vụ nạp khung vào chính khoá đó. */
+const COURSE_UPDATE = 'course:update';
 
 /** Một node của cây nội dung kèm outcomes của chính nó và các node con (đệ quy). */
 export interface CurriculumNodeView extends CurriculumNodeRow {
@@ -42,6 +44,13 @@ function isUniqueViolation(err: unknown): boolean {
  * context; mọi thao tác đọc cần `curriculum:view`, thao tác ghi cần
  * `curriculum:manage` tại context đó qua PermissionEvaluator — không
  * theo sở hữu cá nhân. Site admin bỏ qua kiểm tra như mọi bounded context.
+ * Ngoại lệ duy nhất (K0a, điểm chặn review #66): đường đọc phục vụ CHỌN
+ * khung cho một khoá cụ thể (danh sách môn/chương trình/cây kèm tham số
+ * `forCourseId`) còn mở theo nhánh `course:update` tại chính khoá đích —
+ * giáo viên được gán vai tại context khoá không có vai ở context hệ
+ * thống, nhưng chương trình là dữ liệu quốc gia công khai trong trường
+ * và việc nạp khung vào khoá đó vốn đã đòi `course:update` tại khoá.
+ * Nhánh này không áp cho bề mặt quản trị cây (vẫn `curriculum:manage`).
  */
 export class CurriculumService implements OnModuleInit {
   constructor(
@@ -83,10 +92,14 @@ export class CurriculumService implements OnModuleInit {
       throw err;
     }
   }
-  /** Liệt kê môn học trong một context (cần quyền xem tại context đó). */
-  async listSubjects(actorId: string, contextId: string): Promise<SubjectRow[]> {
+  /**
+   * Liệt kê môn học trong một context (cần quyền xem tại context đó;
+   * kèm `forCourseId` thì nhánh `course:update` tại khoá đích cũng đủ —
+   * bề mặt chọn khung trong quản trị khoá).
+   */
+  async listSubjects(actorId: string, contextId: string, forCourseId?: string): Promise<SubjectRow[]> {
     const ctx = await this.contextOrSystem(contextId);
-    await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, ctx.id);
+    await this.assertCanRead(actorId, ctx.id, forCourseId);
     return this.repo.listSubjects(ctx.id);
   }
   /** Lấy môn học; ném curriculum.subject_not_found khi vắng. */
@@ -131,10 +144,10 @@ export class CurriculumService implements OnModuleInit {
       throw err;
     }
   }
-  /** Liệt kê chương trình của một môn. */
-  async listCurricula(actorId: string, subjectId: string): Promise<CurriculumRow[]> {
+  /** Liệt kê chương trình của một môn (nhánh `forCourseId` như listSubjects). */
+  async listCurricula(actorId: string, subjectId: string, forCourseId?: string): Promise<CurriculumRow[]> {
     const subject = await this.subjectOr404(subjectId);
-    await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
+    await this.assertCanRead(actorId, subject.contextId, forCourseId);
     return this.repo.listCurricula(subject.id);
   }
   /** Lấy chương trình theo id. */
@@ -224,12 +237,36 @@ export class CurriculumService implements OnModuleInit {
   }
 
   /**
+   * Cổng đọc cây/môn/chương trình: đạt khi có `curriculum:view` tại
+   * context của môn, HOẶC — chỉ khi lời gọi phục vụ nạp khung cho một
+   * khoá cụ thể (`forCourseId`) — có `course:update` tại context của
+   * chính khoá đó. Ngoài hai nhánh này vẫn 403 như cũ: giáo viên của
+   * khoá khác và người không liên quan không đọc được cây qua nhánh mới.
+   */
+  private async assertCanRead(actorId: string, subjectContextId: string, forCourseId?: string): Promise<void> {
+    if (await this.evaluator.hasCapability(actorId, CURRICULUM_VIEW, subjectContextId)) return;
+    if (forCourseId) {
+      const courseCtxId = await this.courses.courseContextId(forCourseId).catch(() => undefined);
+      if (courseCtxId && (await this.evaluator.hasCapability(actorId, COURSE_UPDATE, courseCtxId))) return;
+    }
+    await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subjectContextId);
+  }
+
+  /**
    * Cây nội dung trọn vẹn của một chương trình: node lồng nhau theo
    * parent_id, mỗi node kèm outcomes của chính nó; thứ tự theo position.
+   * Kèm `forCourseId` (bề mặt chọn khung) thì nhánh `course:update` tại
+   * khoá đích cũng được đọc — xem assertCanRead.
    */
-  async getTree(actorId: string, curriculumId: string): Promise<CurriculumTreeView> {
+  async getTree(actorId: string, curriculumId: string, forCourseId?: string): Promise<CurriculumTreeView> {
     const { curriculum, subject } = await this.curriculumChainOr404(curriculumId);
-    await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
+    await this.assertCanRead(actorId, subject.contextId, forCourseId);
+    return this.buildTree(curriculum, subject);
+  }
+
+  /** Dựng cây từ dữ liệu đã phân giải — KHÔNG tự kiểm quyền; mọi caller phải qua cổng trước. */
+  private async buildTree(curriculum: CurriculumRow, subject: SubjectRow): Promise<CurriculumTreeView> {
+    const curriculumId = curriculum.id;
     const nodes = await this.repo.listNodes(curriculumId);
     const outcomes = await this.repo.listOutcomesForNodes(nodes.map((n) => n.id));
     const byId = new Map<string, CurriculumNodeView>();
@@ -249,13 +286,18 @@ export class CurriculumService implements OnModuleInit {
    * phải `lesson` của cây, kèm toàn bộ YCCĐ trong subtree của nó theo
    * đúng thứ tự cây (node cha trước, node con theo position, YCCĐ theo
    * position). Đây là hình dạng Courses dùng để dựng section bản sao có
-   * neo; quyền đọc cây được kiểm ngay tại đây (curriculum:view).
+   * neo. Hàm này là đường NỘI BỘ của provider khung (không có route HTTP
+   * riêng): cổng quyền là `course:update` tại khoá đích do
+   * Courses.applyCurriculumFrame kiểm TRƯỚC khi gọi — không đòi thêm
+   * `curriculum:view` tại context hệ thống, vì giáo viên thật chỉ được
+   * gán vai tại context khoá (điểm chặn review #66 trên head be194dc).
    */
-  async getFrameUnits(actorId: string, curriculumId: string): Promise<{
+  async getFrameUnits(_actorId: string, curriculumId: string): Promise<{
     nodeId: string; title: string; kind: string;
     outcomes: { outcomeId: string; content: string }[];
   }[]> {
-    const tree = await this.getTree(actorId, curriculumId);
+    const { curriculum, subject } = await this.curriculumChainOr404(curriculumId);
+    const tree = await this.buildTree(curriculum, subject);
     const units: { nodeId: string; title: string; kind: string; outcomes: { outcomeId: string; content: string }[] }[] = [];
     const collectOutcomes = (node: CurriculumNodeView, acc: { outcomeId: string; content: string }[]): void => {
       for (const o of node.outcomes) acc.push({ outcomeId: o.id, content: o.content });

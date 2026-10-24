@@ -35,8 +35,10 @@ export interface CurriculumFrameUnit {
 /**
  * Nguồn đơn vị khung chương trình — CurriculumModule đăng ký lúc khởi
  * tạo (dependency inversion như EnrolChecker/grade provider: Courses
- * không import ngược Curriculum). Việc kiểm quyền đọc cây
- * (curriculum:view tại context của môn) nằm ở phía provider.
+ * không import ngược Curriculum). Cổng quyền của đường này là
+ * `course:update` tại khoá đích do applyCurriculumFrame kiểm TRƯỚC khi
+ * gọi provider — provider không đòi thêm `curriculum:view` tại context
+ * hệ thống (giáo viên thật chỉ có vai tại context khoá, issue #66).
  */
 export interface CurriculumFrameProvider {
   getFrameUnits(actorId: string, curriculumId: string): Promise<CurriculumFrameUnit[]>;
@@ -678,8 +680,9 @@ export class CoursesService {
    * chèn trước section mang số đó (đẩy các section từ đó xuống cuối
    * đoạn chèn), bỏ trống thì nối cuối outline. Sửa cây chương trình sau
    * đó không đổi các section đã nạp vì chúng đọc từ bản chụp.
-   * Quyền: course:update tại context khoá; quyền đọc cây do provider
-   * khung kiểm (curriculum:view tại context của môn).
+   * Quyền: course:update tại context khoá đích là cổng duy nhất của
+   * đường nạp khung (provider khung tin cậy cổng này — xem
+   * CurriculumFrameProvider).
    */
   async applyCurriculumFrame(actorId: string, courseId: string, input: {
     curriculumId: string; nodeIds: string[]; insertAtSection?: number;

@@ -56,19 +56,26 @@ export async function fetchSystemContextId(): Promise<string | null> {
   return contexts.find((c) => c.contextLevel === 10)?.id ?? null;
 }
 
-/** Môn học trong context hệ thống. */
-export async function fetchSubjects(contextId: string): Promise<CurriculumSubject[]> {
-  return apiJson<CurriculumSubject[]>(`/api/v1/curriculum/subjects?contextId=${contextId}`);
+/**
+ * Môn học trong context hệ thống. Kèm `forCourseId` (bề mặt chọn khung
+ * trong quản trị khoá): API còn chấp nhận nhánh course:update tại chính
+ * khoá đó cho giáo viên cấp khoá không có curriculum:view hệ thống.
+ */
+export async function fetchSubjects(contextId: string, forCourseId?: string): Promise<CurriculumSubject[]> {
+  const frame = forCourseId ? `&forCourseId=${forCourseId}` : '';
+  return apiJson<CurriculumSubject[]>(`/api/v1/curriculum/subjects?contextId=${contextId}${frame}`);
 }
 
 /** Các chương trình (theo khối) của một môn. */
-export async function fetchCurricula(subjectId: string): Promise<Curriculum[]> {
-  return apiJson<Curriculum[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}`);
+export async function fetchCurricula(subjectId: string, forCourseId?: string): Promise<Curriculum[]> {
+  const frame = forCourseId ? `&forCourseId=${forCourseId}` : '';
+  return apiJson<Curriculum[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}${frame}`);
 }
 
 /** Cây nội dung trọn vẹn của một chương trình. */
-export async function fetchTree(curriculumId: string): Promise<CurriculumTree> {
-  return apiJson<CurriculumTree>(`/api/v1/curriculum/curricula/${curriculumId}/tree`);
+export async function fetchTree(curriculumId: string, forCourseId?: string): Promise<CurriculumTree> {
+  const frame = forCourseId ? `?forCourseId=${forCourseId}` : '';
+  return apiJson<CurriculumTree>(`/api/v1/curriculum/curricula/${curriculumId}/tree${frame}`);
 }
 
 /** Một đơn vị khung chọn được khi nạp khung vào khoá: node không phải `lesson` + số YCCĐ trong subtree. */
@@ -103,10 +110,11 @@ export function flattenFrameUnits(nodes: CurriculumTreeNode[], depth = 0, out: F
 export async function fetchFrameUnitsFor(
   subjectId: string,
   grade: number,
+  forCourseId?: string,
 ): Promise<{ curriculumId: string | null; units: FrameUnit[] }> {
-  const curricula = await fetchCurricula(subjectId);
+  const curricula = await fetchCurricula(subjectId, forCourseId);
   const curriculum = curricula.find((c) => c.grade === grade);
   if (!curriculum) return { curriculumId: null, units: [] };
-  const tree = await fetchTree(curriculum.id);
+  const tree = await fetchTree(curriculum.id, forCourseId);
   return { curriculumId: curriculum.id, units: flattenFrameUnits(tree.nodes) };
 }
