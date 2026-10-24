@@ -773,6 +773,9 @@ export class MessagingService {
    */
   async unblockContact(userId: string, blockedUserId: string): Promise<{ blocked: string[] }> {
     await this.repo.unblock(userId, blockedUserId);
+    // Nối lại room 1–1 (tiếp quản PR #94): bỏ chặn phải khôi phục
+    // nguyên trạng cho socket đang nối — xem rejoinDirectConversationAfterUnblock.
+    await this.realtime.rejoinDirectConversationAfterUnblock(userId, blockedUserId);
     return { blocked: await this.repo.listBlocked(userId) };
   }
   /**
@@ -1052,10 +1055,34 @@ export class MessagingService {
   }
 
   /**
+   * Cổng tầm nhìn hội thoại 1–1 khi đang chặn (việc nối tiếp của
+   * issue #33, siết sau PR #89): danh sách hội thoại đã ẩn hội thoại
+   * 1–1 có quan hệ chặn ở bất kỳ chiều nào, nhưng đường MỞ THẲNG
+   * theo id (deep-link từ thông báo) trước đây chỉ kiểm tra tư cách
+   * thành viên nên vẫn đọc được. Từ nay mọi đường đọc theo id của
+   * hội thoại 1–1 đang bị chặn — chi tiết, cửa sổ lịch sử, đánh dấu
+   * đã đọc — hành xử như hội thoại KHÔNG TỒN TẠI đối với cả hai
+   * phía (404, cùng mã `messaging.conversation_not_found`); dữ liệu
+   * giữ nguyên, bỏ chặn là mở lại. Hội thoại nhóm không bị chạm:
+   * cổng chỉ chạy khi `type === 1`.
+   */
+  private async assertDirectConversationVisible(userId: string, conversation: ConversationRow): Promise<void> {
+    if (conversation.type !== 1) return;
+    const members = await this.repo.listMembers(conversation.id);
+    const other = members.find((id) => id !== userId);
+    if (!other) return;
+    if ((await this.repo.listBlockedCounterpartIds(userId)).includes(other)) {
+      throw new NotFoundException({ message: `Conversation ${conversation.id} not found`, code: 'messaging.conversation_not_found' });
+    }
+  }
+
+  /**
    * Chi tiết conversation + một cửa sổ tin nhắn mới nhất theo cursor
    * seq (chỉ thành viên mới xem được; conversation gắn group được đồng
    * bộ thành viên trước khi kiểm tra). `memberReadMarkers` cho client
    * hiển thị biên "đã xem" theo mốc đã đọc của từng thành viên.
+   * Hội thoại 1–1 đang có quan hệ chặn thì 404 như không tồn tại
+   * (xem {@link assertDirectConversationVisible}).
    */
   async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
     members: string[]; messages: MessageRow[]; hasMoreBefore: boolean;
@@ -1069,6 +1096,7 @@ export class MessagingService {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
+    await this.assertDirectConversationVisible(userId, conversation);
     // Tầm nhìn theo vai trò (Lớp B): thành viên thường KHÔNG BAO GIỜ
     // thấy tin đã xoá mềm; người có thẩm quyền kiểm duyệt trên
     // conversation (giáo viên phụ trách/quản trị) thấy cả tin đã xoá
@@ -1078,23 +1106,13 @@ export class MessagingService {
     const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50, includeDeleted: canModerate });
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     const members = await this.repo.listMembers(conversationId);
-    // Chuẩn app nhắn tin: đang có quan hệ chặn thì trạng thái đã đọc
-    // của phía bên kia KHÔNG lộ ở bề mặt 1–1 — chỉ giữ mốc của chính
-    // người gọi (lịch sử tin vẫn đọc được như luật hội thoại cũ).
-    let visibleMarkers = markers;
-    if (conversation.type === 1) {
-      const other = members.find((id) => id !== userId);
-      if (other && (await this.repo.listBlockedCounterpartIds(userId)).includes(other)) {
-        visibleMarkers = markers.filter((m) => m.userId === userId);
-      }
-    }
     return {
       ...conversation,
       members,
       messages,
       hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate) : false,
       lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
-      memberReadMarkers: visibleMarkers,
+      memberReadMarkers: markers,
       // Tên hiển thị của thành viên: client dùng cho nhãn người gửi,
       // chỉ báo đang gõ và danh sách thành viên (thay UUID thô).
       memberProfiles: await this.profilesFor(members),
@@ -1117,6 +1135,7 @@ export class MessagingService {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
+    await this.assertDirectConversationVisible(userId, conversation);
     // Cùng luật tầm nhìn với getConversation: chỉ người có thẩm quyền
     // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ.
     const canModerate = await this.canModerateConversation(userId, conversation);
@@ -1261,6 +1280,14 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(existing.conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
+    // Cổng hiển thị khi chặn (việc nối tiếp #33, siết sau PR #94 vòng 1):
+    // hội thoại 1–1 đang chặn hành xử như KHÔNG TỒN TẠI với cả hai
+    // phía ở mọi đường theo id — kể cả xoá tin. Đặt TRƯỚC kiểm tra
+    // tác giả/kiểm duyệt để phía bị chặn cũng nhận 404 thay vì 403
+    // (403 sẽ lộ là tin/hội thoại có tồn tại), và để không ghi sự
+    // kiện outbox `message_deleted` nào trong lúc chặn. Hội thoại
+    // nhóm không bị cổng này chạm (type !== 1 trả ngay).
+    await this.assertDirectConversationVisible(actorId, conversation);
     const isAuthor = existing.userIdFrom === actorId;
     if (!isAuthor && !(await this.canModerateConversation(actorId, conversation))) {
       throw new ForbiddenException({
@@ -1413,6 +1440,11 @@ export class MessagingService {
     if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
+    // Cùng cổng với đường đọc: hội thoại 1–1 đang chặn thì đánh dấu
+    // đã đọc cũng 404 như không tồn tại — không phát biên đã-đọc cho
+    // phía bên kia qua outbox.
+    const conversation = await this.repo.getConversation(conversationId);
+    if (conversation) await this.assertDirectConversationVisible(userId, conversation);
     const before = (await this.repo.getMemberLastReadSeq(conversationId, userId)) ?? 0;
     const result = await this.repo.markConversationRead(conversationId, userId);
     if (result.lastReadSeq > before) {

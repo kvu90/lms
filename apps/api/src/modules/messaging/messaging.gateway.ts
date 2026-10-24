@@ -81,6 +81,15 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       await client.join(userRoom(identity.userId));
       const conversations = await this.repo.listConversationsForUser(identity.userId);
       for (const conversation of conversations) {
+        // Lớp phòng thủ thứ hai (việc nối tiếp #33, siết sau PR #94
+        // vòng 1): socket mới nối KHÔNG vào room của hội thoại 1–1
+        // đang chặn — cùng luật với isBlockedDirectConversation của
+        // join/sync/typing. Socket nối từ TRƯỚC khi chặn vẫn nằm
+        // trong room cũ, nhưng mọi điểm sinh sự kiện trong lúc chặn
+        // đã bị cổng (gửi 403, xoá/đọc 404) nên không còn sự kiện
+        // nào của hội thoại đó để lộ; tầng phân phối xoá tin còn
+        // chặn nốt trường hợp outbox tới muộn (xem distributeMessageDeleted).
+        if (await this.isBlockedDirectConversation(conversation.id, identity.userId)) continue;
         await client.join(conversationRoom(conversation.id));
       }
       await this.realtime.markConnected(identity.userId, client.id);
@@ -95,6 +104,22 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
   async handleDisconnect(client: Socket): Promise<void> {
     const userId = client.data.userId as string | undefined;
     if (userId) await this.realtime.markDisconnected(userId, client.id);
+  }
+
+  /**
+   * Hội thoại 1–1 đang có quan hệ chặn (bất kỳ chiều nào) thì đối
+   * với user này nó KHÔNG TỒN TẠI ở mọi bề mặt realtime theo id —
+   * cùng luật với cổng đọc REST ở tầng service (việc nối tiếp của
+   * issue #33): `sync` không trả lịch sử, `join` room bị từ chối,
+   * `typing` không chuyển tiếp. Hội thoại nhóm không bị chạm.
+   */
+  private async isBlockedDirectConversation(conversationId: string, userId: string): Promise<boolean> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation || conversation.type !== 1) return false;
+    const members = await this.repo.listMembers(conversationId);
+    const other = members.find((id) => id !== userId);
+    if (!other) return false;
+    return (await this.repo.listBlockedCounterpartIds(userId)).includes(other);
   }
 
   /**
@@ -114,6 +139,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!userId || !conversationId) return { joined: false };
     if (!(await this.repo.isMember(conversationId, userId))) return { joined: false };
+    if (await this.isBlockedDirectConversation(conversationId, userId)) return { joined: false };
     await client.join(conversationRoom(conversationId));
     return { joined: true };
   }
@@ -151,6 +177,9 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     for (const [conversationId, lastSeq] of entries) {
       if (typeof lastSeq !== 'number' || !Number.isFinite(lastSeq) || lastSeq < 0) continue;
       if (!(await this.repo.isMember(conversationId, userId))) continue;
+      // Hội thoại 1–1 đang chặn: bỏ qua êm như không phải thành viên
+      // — không trả lịch sử, không join room (xem isBlockedDirectConversation).
+      if (await this.isBlockedDirectConversation(conversationId, userId)) continue;
       // Nối vào room luôn thể: conversation tạo sau khi socket nối
       // (hoặc membership mới đồng bộ) thì từ nay nhận realtime trực tiếp.
       await client.join(conversationRoom(conversationId));
@@ -170,6 +199,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!userId || !conversationId) return { ok: false };
     if (!(await this.repo.isMember(conversationId, userId))) return { ok: false };
+    if (await this.isBlockedDirectConversation(conversationId, userId)) return { ok: false };
     await this.realtime.noteTyping(conversationId, userId);
     return { ok: true };
   }
