@@ -3,6 +3,7 @@ import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { GradesService } from '../grades/grades.service';
+import { BlogService } from './blog.service';
 import { SocialRepository, type RatingRow } from './social.repository';
 
 export interface RatingAggregate {
@@ -37,7 +38,17 @@ export class RatingsService {
     private readonly grades: GradesService,
     private readonly contexts: ContextsService,
     private readonly courses: CoursesService,
+    private readonly blog: BlogService,
   ) {}
+
+  /**
+   * Vật chủ là bài blog (component 'core_blog') thì rating THỪA HƯỞNG
+   * audience của bài (issue #48): không xem được bài → 404 cho cả chấm,
+   * tổng hợp và danh sách. Component khác không đổi.
+   */
+  private async assertBlogAudience(component: string, itemId: string, viewerId: string): Promise<void> {
+    if (component === 'core_blog') await this.blog.assertCanViewPost(itemId, viewerId);
+  }
 
   /** Course/module contexts additionally require real course access (enrolled or staff). */
   private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
@@ -64,6 +75,7 @@ export class RatingsService {
   async rate(actorId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string; scaleId: number; rating: number;
   }): Promise<RatingRow> {
+    await this.assertBlogAudience(input.component, input.itemId, actorId);
     await this.evaluator.requireCapability(actorId, 'rating:rate', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     const max = await this.scaleMax(input.scaleId);
@@ -85,6 +97,7 @@ export class RatingsService {
   async aggregate(viewerId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string;
   }): Promise<RatingAggregate> {
+    await this.assertBlogAudience(input.component, input.itemId, viewerId);
     await this.evaluator.requireCapability(viewerId, 'rating:view', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     const rows = await this.repo.listRatings(input.component, input.ratingArea, input.itemId, input.contextId);
@@ -106,6 +119,7 @@ export class RatingsService {
   async listRatings(viewerId: string, input: {
     contextId: string; component: string; ratingArea: string; itemId: string;
   }): Promise<RatingRow[]> {
+    await this.assertBlogAudience(input.component, input.itemId, viewerId);
     await this.evaluator.requireCapability(viewerId, 'rating:viewall', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     return this.repo.listRatings(input.component, input.ratingArea, input.itemId, input.contextId);

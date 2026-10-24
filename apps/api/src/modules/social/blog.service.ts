@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { SocialRepository, type BlogPostRow } from './social.repository';
@@ -24,6 +25,7 @@ export class BlogService {
     private readonly repo: SocialRepository,
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
+    private readonly roles: RolesService,
     private readonly courses: CoursesService,
     private readonly enrol: EnrolService,
   ) {}
@@ -77,6 +79,22 @@ export class BlogService {
   }
 
   /**
+   * "Thuộc khoá" theo đúng định nghĩa đã chốt ở issue #33/#44: ghi danh
+   * đang hiệu lực HOẶC được gán vai tại context khoá. Nhánh gán vai là
+   * bắt buộc: giáo viên phụ trách khoá thường chỉ được gán vai
+   * (editingteacher) chứ không có ghi danh — chỉ tính ghi danh sẽ chặn
+   * nhầm người hợp lệ (điểm ngược ghi trong research blog).
+   */
+  private async isCourseMember(courseId: string, viewerId: string): Promise<boolean> {
+    if (await this.enrol.isEnrolled(courseId, viewerId, { onlyActive: true })) return true;
+    const assignments = await this.roles.listAssignments({
+      userId: viewerId,
+      contextId: await this.courses.courseContextId(courseId),
+    });
+    return assignments.length > 0;
+  }
+
+  /**
    * User có được xem bài này hay không.
    */
   async canView(post: BlogPostRow, viewerId: string): Promise<boolean> {
@@ -90,9 +108,31 @@ export class BlogService {
     if (!courseAssociations.length) return true;
     // Course-associated public posts narrow the audience to course members.
     for (const assoc of courseAssociations) {
-      if (await this.enrol.isEnrolled(assoc.assocId, viewerId, { onlyActive: true })) return true;
+      if (await this.isCourseMember(assoc.assocId, viewerId)) return true;
     }
     return false;
+  }
+
+  /**
+   * Cổng audience DÙNG CHUNG cho mọi đường đọc nội dung blog (issue #48):
+   * chi tiết bài, lớp phụ trợ comment/tag/rating và global search đều đi
+   * qua đây. Bài không tồn tại hoặc viewer không có quyền xem → 404 với
+   * đúng mã/thông điệp như bài không tồn tại (`blog.not_found`), không
+   * lộ sự tồn tại của bài và tuyệt đối không trả nội dung.
+   */
+  async assertCanViewPost(postId: string, viewerId: string): Promise<BlogPostRow> {
+    const post = await this.repo.getPost(postId);
+    if (!post || !(await this.canView(post, viewerId))) {
+      throw new NotFoundException({ message: `Blog post ${postId} not found`, code: 'blog.not_found' });
+    }
+    return post;
+  }
+
+  /**
+   * Đọc chi tiết một bài cho một viewer cụ thể (đã qua cổng audience).
+   */
+  async getPostForViewer(id: string, viewerId: string): Promise<BlogPostRow> {
+    return this.assertCanViewPost(id, viewerId);
   }
 
   /**
