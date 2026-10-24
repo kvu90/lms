@@ -69,10 +69,15 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     return u;
   }
 
-  async function bankOfKind(token: string, kind: 'question' | 'exam', scope: string): Promise<BankBody> {
+  async function bankOfKind(token: string, kind: 'question' | 'exam', scope: string, ownerId?: string): Promise<BankBody> {
     const res = await http(app).get(`/api/v1/question-banks?kind=${kind}`).set(bearer(token));
     expect(res.status).toBe(200);
-    const bank = (res.body as BankBody[]).find((b) => b.scope === scope && b.bankKind === kind);
+    // Bank cá nhân phải lọc thêm theo ownerId: listBanks của QB liệt kê cả bank
+    // cá nhân của GV staff khác (chúng có question:useall qua thừa kế) — lấy
+    // bank đầu tiên theo scope là lấy nhầm bank người khác (bài học CI EB-1).
+    const bank = (res.body as BankBody[]).find(
+      (b) => b.scope === scope && b.bankKind === kind && (scope !== 'personal' || b.ownerId === ownerId),
+    );
     expect(bank).toBeTruthy();
     return bank!;
   }
@@ -129,8 +134,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
   it('TC1: soạn đề tự do → ready → deploy vào quiz → học sinh làm đúng bộ câu đã ghim', async () => {
     const owner = await mkStaffUser();
     const student = await mkUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB câu 1');
     const q2 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB câu 2');
 
@@ -170,8 +175,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
   it('TC2: sửa đề tạo paper version mới; attempt cũ giữ bộ câu cũ; quiz đã có lượt thật thì không deploy lại được', async () => {
     const owner = await mkStaffUser();
     const student = await mkUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB2 câu 1');
     const q2 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB2 câu 2');
     const q3 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB2 câu 3');
@@ -220,7 +225,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
       .send({ name: 'Ngân hàng đề trường EB', scope: 'school', bankKind: 'exam' });
     expect(bankRes.status, JSON.stringify(bankRes.body)).toBe(201);
     const schoolBank = bankRes.body as BankBody;
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB3 câu nguồn');
     const source = await createPaper(admin, schoolBank.id, 'Đề thi thử trường', [{ questionId: q1, maxMark: 4 }]);
     await setStatus(admin, source.paper.id, 'ready');
@@ -233,14 +238,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const copyRes = await http(app).post(`/api/v1/exam-papers/${source.paper.id}/copy`).set(bearer(owner.token)).send({});
     expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
     const copy = copyRes.body as PaperBody;
-    const myBank = await bankOfKind(owner.token, 'exam', 'personal');
-    // Chẩn đoán tạm (CI run trước cho bankId đích copy ≠ bank cá nhân theo list):
-    // in toàn bộ danh sách bank đề của owner + bank đích của bản copy khi lệch.
-    const rawBanks = await http(app).get('/api/v1/question-banks?kind=exam').set(bearer(owner.token));
-    expect(
-      copy.paper.bankId,
-      `copyBank=${copy.paper.bankId} myBank=${myBank.id} banks=${JSON.stringify(rawBanks.body)}`,
-    ).toBe(myBank.id);
+    const myBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
+    expect(copy.paper.bankId).toBe(myBank.id);
     expect(copy.paper.id).not.toBe(source.paper.id);
     expect(copy.paper.derivedFromPaperId).toBe(source.paper.id);
     expect(copy.paper.originalAuthorId).toBe(source.paper.createdBy);
@@ -264,8 +263,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const owner = await mkStaffUser();
     const other = await mkStaffUser();
     const student = await mkUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB4 câu 1');
     const paper = await createPaper(owner.token, eBank.id, 'Đề riêng của chủ', [{ questionId: q1 }]);
     await setStatus(owner.token, paper.paper.id, 'ready');
@@ -295,8 +294,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
   it('TC5: đề hidden không vỡ quiz đã triển khai; xoá đề thì paper_id về null và slots đã chụp vẫn còn', async () => {
     const owner = await mkStaffUser();
     const student = await mkUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB5 câu 1');
     const { course, sectionId } = await mkCourse(owner, student);
 
@@ -335,8 +334,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
 
   it('TC6: quiz dựng tay phải xác nhận thay thế mới deploy đè được; cổng soạn đề chặn câu hidden và đề rỗng lên ready', async () => {
     const owner = await mkStaffUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB6 câu 1');
     const qHidden = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB6 câu rút');
     const { course, sectionId } = await mkCourse(owner, await mkUser());
@@ -373,8 +372,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
 
   it('TC7: đóng góp đề vào bank trường theo khuôn QB-4 — duyệt thì copy vào bank đích, trùng hoàn toàn bị 409, từ chối có lý do', async () => {
     const owner = await mkStaffUser();
-    const qBank = await bankOfKind(owner.token, 'question', 'personal');
-    const eBank = await bankOfKind(owner.token, 'exam', 'personal');
+    const qBank = await bankOfKind(owner.token, 'question', 'personal', owner.id);
+    const eBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     const q1 = await createQuestion(owner.token, qBank.defaultCategoryId!, 'EB7 câu 1');
     const bankRes = await http(app).post('/api/v1/question-banks').set(bearer(admin))
       .send({ name: 'Ngân hàng đề trường EB7', scope: 'school', bankKind: 'exam' });
