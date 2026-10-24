@@ -1,9 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
-import { courseContextId, setCourseCompletionCriteria } from './engagement-helpers';
+import { contextIdByLevelInstance, courseContextId, setCourseCompletionCriteria } from './engagement-helpers';
 
 /**
  * Course completion criteria — the full set of 8 Moodle types (issue #23).
@@ -186,6 +186,53 @@ describe('Completion criteria — full 8 Moodle types', () => {
       .set('Authorization', `Bearer ${approverToken}`).send({ userId: student.id, complete: false });
     expect(unmarked.status).toBeLessThan(300);
     expect(await myStatus(token, course.id)).not.toBe('complete');
+  });
+
+  it('role: assignments at ancestor contexts (system, category) also authorise marking; unrelated branches do not (issue #23 F1)', async () => {
+    const { cat, course, instance } = await setupCourse();
+    const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
+    await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'role', roleId: teacherRoleId }]);
+    const criteriaRes = await http(app).get(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`);
+    const criteriaId = (criteriaRes.body.criteria as { id: string }[])[0]!.id;
+    const { student, token } = await setupStudent(course.id, instance.id);
+    const mark = (bearer: string, complete: boolean) => http(app)
+      .post(`/api/v1/courses/${course.id}/completion/criteria/${criteriaId}/mark`)
+      .set('Authorization', `Bearer ${bearer}`).send({ userId: student.id, complete });
+
+    // A marker holding the teacher role at the SYSTEM context (root of the
+    // course context's ancestor path) may mark — Moodle role_assign inherits
+    // down the tree, exactly like PermissionEvaluator resolves capabilities.
+    const sysMarker = await createUserViaApi(app, admin);
+    await assignRole(app, admin, sysMarker.id, teacherRoleId, await systemContextId(app, admin));
+    const sysToken = (await login(app, sysMarker.username, STRONG_PASSWORD)).accessToken;
+    const bySystem = await mark(sysToken, true);
+    expect(bySystem.status).toBeLessThan(300);
+    expect(bySystem.body.status).toBe('complete');
+    expect(await myStatus(token, course.id)).toBe('complete');
+    const unBySystem = await mark(sysToken, false);
+    expect(unBySystem.status).toBeLessThan(300);
+    expect(await myStatus(token, course.id)).not.toBe('complete');
+
+    // Same for an assignment at the course's CATEGORY context (the middle
+    // of the path): it covers every course in the category.
+    const catMarker = await createUserViaApi(app, admin);
+    await assignRole(app, admin, catMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 40, cat.id));
+    const catToken = (await login(app, catMarker.username, STRONG_PASSWORD)).accessToken;
+    const byCategory = await mark(catToken, true);
+    expect(byCategory.status).toBeLessThan(300);
+    expect(byCategory.body.status).toBe('complete');
+    expect(await myStatus(token, course.id)).toBe('complete');
+
+    // But an assignment in an UNRELATED branch (a different category) is
+    // not on this course's path: still forbidden.
+    const otherCat = await createCategory(app, admin);
+    const strayMarker = await createUserViaApi(app, admin);
+    await assignRole(app, admin, strayMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 40, otherCat.id));
+    const strayToken = (await login(app, strayMarker.username, STRONG_PASSWORD)).accessToken;
+    const byStray = await mark(strayToken, false);
+    expect(byStray.status).toBe(403);
+    expect(byStray.body.code).toBe('completion.role_marker_forbidden');
+    expect(await myStatus(token, course.id)).toBe('complete');
   });
 
   it('unenrol: enrolled learners are not complete; leaving the course completes it', async () => {

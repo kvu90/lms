@@ -122,6 +122,22 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
+    // role: shares the markedKeys evidence path with self, but the
+    // crit_compl row is written by a MARKER (markedBy ≠ the learner) —
+    // "manual completion by others". The worker only reads the evidence;
+    // who may write these rows is the API-side role check (issue #23 F1).
+    // A real role row is required: criteria.role_id has an FK to role.id.
+    const roleRows = await db.execute(sql`insert into role (name, short_name) values ('Worker marker role', ${`wkmarker${suffix}`}) returning id`);
+    const markerRoleId = (roleRows.rows[0] as { id: string }).id;
+    await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
+    const [roleCritRow] = await db.insert(courseCompletionCriteria)
+      .values({ course: courseId, criteriaType: 'role', roleId: markerRoleId, sortOrder: 0 }).returning();
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).not.toBe('complete');
+    await db.insert(courseCompletionCritCompl).values({ criteriaId: roleCritRow.id, userId: userId, markedBy: userIdB });
+    await processor.process({ data: { courseId } } as never);
+    expect(await statusOf(userId)).toBe('complete');
+
     // duration: anchored on the enrolment timeStart (10 days ago here).
     const userIdC = `01900000-0000-7000-8000-${String(900200 + (suffix % 10000)).padStart(12, '0')}`;
     await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdC, status: 0, timeStart: new Date(Date.now() - 10 * 86_400_000) });

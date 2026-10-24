@@ -4,6 +4,7 @@ import { I18nService } from '@nestjs/i18n';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { Queue } from 'bullmq';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { AvailabilityService } from '../availability/availability.service';
@@ -100,6 +101,7 @@ export class CompletionService implements OnModuleInit {
     private readonly courses: CoursesService,
     private readonly enrol: EnrolService,
     private readonly roles: RolesService,
+    private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly availability: AvailabilityService,
     private readonly outbox: OutboxService,
@@ -502,14 +504,17 @@ export class CompletionService implements OnModuleInit {
 
   /**
    * Manual completion by others (Moodle completion_criteria_role): a user
-   * holding the criterion's role at the course context marks a learner
-   * complete (or removes the mark). The mark is a crit_compl row recording
-   * who marked whom, and when. Anyone not holding that exact role at the
-   * course context is rejected — role assignment is the permission, per
-   * Moodle.
+   * holding the criterion's role marks a learner complete (or removes the
+   * mark). The mark is a crit_compl row recording who marked whom, and
+   * when. Role assignments inherit down the context tree (Moodle
+   * role_assign semantics), so holding the role at the course context OR
+   * at any ancestor context (category, system) authorises the mark — the
+   * same ancestor-path lookup PermissionEvaluator performs; assignments
+   * in unrelated branches do not count. Role assignment is the
+   * permission, per Moodle.
    */
   /**
-   * Người giữ vai trò trong tiêu chí role đánh dấu hoàn thành cho học viên.
+   * Người giữ vai trò trong tiêu chí role (tại context khoá học hoặc bất kỳ context tổ tiên nào) đánh dấu hoàn thành cho học viên.
    */
   async markCriterionByRole(actorId: string, courseId: string, criteriaId: string, targetUserId: string, complete: boolean): Promise<{ courseId: string; criteriaId: string; userId: string; complete: boolean; status: string }> {
     await this.courses.getCourse(courseId);
@@ -518,7 +523,9 @@ export class CompletionService implements OnModuleInit {
       throw new BadRequestException({ message: 'Criterion is not a role criterion of this course', code: 'completion.criteria_not_role' });
     }
     const contextId = await this.courses.courseContextId(courseId);
-    const assignments = await this.roles.listAssignments({ userId: actorId, contextId }) as { roleId: string }[];
+    const courseContext = await this.contexts.getContext(contextId);
+    const pathIds = (await this.contexts.getPathContexts(courseContext)).map((c) => c.id);
+    const assignments = await this.roles.listAssignmentsInContexts(actorId, pathIds);
     if (!assignments.some((a) => a.roleId === criterion.roleId)) {
       throw new ForbiddenException({ message: 'Only holders of the role named by this criterion may mark completion', code: 'completion.role_marker_forbidden' });
     }
