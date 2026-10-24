@@ -81,7 +81,34 @@ export const reportSchema = z.object({
 });
 export type Report = z.infer<typeof reportSchema>;
 
-/* ---- Content Bank ---- */
+/* ---- Content Bank / Kho học liệu (CB-1) ---- */
+/** Loại học liệu: đúng 5 nhóm của Điều 7 TT 09/2021 (bài giảng đa phương tiện gồm cả video). */
+export const contentBankResourceTypeSchema = z.enum(['multimedia_lecture', 'lab_guide', 'simulation', 'question_set', 'reference']);
+export type ContentBankResourceType = z.infer<typeof contentBankResourceTypeSchema>;
+export const contentBankScopeSchema = z.enum(['personal', 'org', 'school']);
+export type ContentBankScope = z.infer<typeof contentBankScopeSchema>;
+export const contentBankReviewStatusSchema = z.enum(['draft', 'pending', 'approved', 'rejected']);
+export type ContentBankReviewStatus = z.infer<typeof contentBankReviewStatusSchema>;
+/** Cấp học độc lập với khối lớp (liên thông trục môn × cấp của kho quốc gia). */
+export const contentBankLevelSchema = z.enum(['primary', 'lower_secondary', 'upper_secondary', 'multi']);
+export type ContentBankLevel = z.infer<typeof contentBankLevelSchema>;
+/** Nguồn gốc học liệu (CB1-B1): tự soạn | sưu tầm/trích dẫn | dẫn xuất từ học liệu trong kho. */
+export const contentBankSourceKindSchema = z.enum(['self', 'cited', 'derived']);
+export type ContentBankSourceKind = z.infer<typeof contentBankSourceKindSchema>;
+export const contentBankTargetAudienceSchema = z.enum(['students', 'teachers', 'both']);
+export type ContentBankTargetAudience = z.infer<typeof contentBankTargetAudienceSchema>;
+/** Vị trí dùng trong bài theo khung kế hoạch bài dạy CV 5512. */
+export const contentBankLessonPositionSchema = z.enum(['opening', 'new_knowledge', 'practice', 'application']);
+export type ContentBankLessonPosition = z.infer<typeof contentBankLessonPositionSchema>;
+/** Checklist duyệt theo tiêu chí thể lệ bài giảng điện tử của Bộ (CB1-B3). */
+export const contentBankReviewChecklistSchema = z.object({
+  contentAccurate: z.boolean(),
+  sourceClear: z.boolean(),
+  pedagogyAesthetics: z.boolean(),
+  mobileReady: z.boolean(),
+});
+export type ContentBankReviewChecklist = z.infer<typeof contentBankReviewChecklistSchema>;
+
 export const contentBankContentSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
@@ -90,8 +117,44 @@ export const contentBankContentSchema = z.object({
   creatorId: uuidIdSchema,
   visibility: z.enum(['draft', 'public']),
   fileId: uuidIdSchema.nullable(),
+  resourceType: contentBankResourceTypeSchema,
+  scope: contentBankScopeSchema,
+  spaceId: uuidIdSchema.nullable(),
+  subjectId: uuidIdSchema.nullable(),
+  grade: z.number().int().min(1).max(12).nullable(),
+  level: contentBankLevelSchema.nullable(),
+  curriculumNodeId: uuidIdSchema.nullable(),
+  outcomeIds: z.array(uuidIdSchema).nullable(),
+  questionCategoryId: uuidIdSchema.nullable(),
+  externalUrl: z.string().nullable(),
+  description: z.string().nullable(),
+  keywords: z.array(z.string()).nullable(),
+  targetAudience: contentBankTargetAudienceSchema.nullable(),
+  lessonPosition: contentBankLessonPositionSchema.nullable(),
+  techFormat: z.string().nullable(),
+  sizeBytes: z.number().int().nonnegative().nullable(),
+  durationSeconds: z.number().int().nonnegative().nullable(),
+  language: z.string(),
+  originalAuthor: z.string().nullable(),
+  sourceKind: contentBankSourceKindSchema.nullable(),
+  sourceCitation: z.string().nullable(),
+  license: z.string().nullable(),
+  derivedFromId: uuidIdSchema.nullable(),
+  reviewStatus: contentBankReviewStatusSchema,
+  reviewedBy: uuidIdSchema.nullable(),
+  reviewNote: z.string().nullable(),
+  reviewChecklist: contentBankReviewChecklistSchema.nullable(),
 });
 export type ContentBankContent = z.infer<typeof contentBankContentSchema>;
+
+/** Một không gian của Kho học liệu: cá nhân, một tổ chuyên môn (cohort), hoặc toàn trường. */
+export const contentBankSpaceSchema = z.object({
+  scope: contentBankScopeSchema,
+  spaceId: uuidIdSchema.nullable(),
+  name: z.string(),
+  canReview: z.boolean(),
+});
+export type ContentBankSpace = z.infer<typeof contentBankSpaceSchema>;
 
 /* ---- Payments ---- */
 export const paymentSchema = z.object({
@@ -224,22 +287,70 @@ export const listEventLogsQuerySchema = z.strictObject({
 });
 export type ListEventLogsQuery = z.infer<typeof listEventLogsQuerySchema>;
 
-/** Payload tạo nội dung Content Bank (loại nội dung là extension point, mặc định file-based). */
+/**
+ * Payload tạo học liệu Kho học liệu (CB-1). `contextId` không còn bắt buộc:
+ * server tự suy theo `scope` (personal → context của tác giả, org/school →
+ * context hệ thống); chỉ truyền khi cần bám hành vi cũ. Metadata chương
+ * trình (môn/khối/node/YCCĐ) bắt buộc khi gửi duyệt scope org/school —
+ * server kiểm ở bước submit.
+ */
 export const createContentBankContentSchema = z.strictObject({
   name: z.string().min(1),
-  contextId: uuidIdSchema,
+  contextId: uuidIdSchema.optional(),
   contentType: z.string().optional(),
   visibility: z.enum(['draft', 'public']).optional(),
   fileId: uuidIdSchema.optional(),
+  resourceType: contentBankResourceTypeSchema.optional(),
+  scope: contentBankScopeSchema.optional(),
+  spaceId: uuidIdSchema.optional(),
+  subjectId: uuidIdSchema.optional(),
+  grade: z.number().int().min(1).max(12).optional(),
+  level: contentBankLevelSchema.optional(),
+  curriculumNodeId: uuidIdSchema.optional(),
+  outcomeIds: z.array(uuidIdSchema).optional(),
+  questionCategoryId: uuidIdSchema.optional(),
+  externalUrl: z.string().url().optional(),
+  description: z.string().max(5000).optional(),
+  keywords: z.array(z.string().min(1).max(100)).max(20).optional(),
+  targetAudience: contentBankTargetAudienceSchema.optional(),
+  lessonPosition: contentBankLessonPositionSchema.optional(),
+  techFormat: z.string().max(50).optional(),
+  sizeBytes: z.number().int().nonnegative().optional(),
+  durationSeconds: z.number().int().nonnegative().optional(),
+  language: z.string().max(10).optional(),
+  originalAuthor: z.string().max(300).optional(),
+  sourceKind: contentBankSourceKindSchema.optional(),
+  sourceCitation: z.string().max(2000).optional(),
+  license: z.string().max(300).optional(),
+  derivedFromId: uuidIdSchema.optional(),
 });
 export type CreateContentBankContent = z.infer<typeof createContentBankContentSchema>;
 
-/** Payload sửa nội dung Content Bank. */
+/** Payload sửa học liệu Content Bank. */
 export const updateContentBankContentSchema = createContentBankContentSchema
   .omit({ contextId: true })
   .partial()
   .extend({ fileId: uuidIdSchema.optional() });
 export type UpdateContentBankContent = z.infer<typeof updateContentBankContentSchema>;
+
+/**
+ * Payload duyệt học liệu (tổ trưởng/quản trị): quyết định + ghi chú +
+ * checklist tiêu chí Bộ (CB1-B3). Service ép: từ chối thì ghi chú (lý do)
+ * là BẮT BUỘC; phê duyệt thì checklist phải đủ 4 tiêu chí đạt.
+ */
+export const reviewContentBankContentSchema = z.strictObject({
+  decision: z.enum(['approved', 'rejected']),
+  note: z.string().max(1000).optional(),
+  checklist: contentBankReviewChecklistSchema.optional(),
+});
+export type ReviewContentBankContent = z.infer<typeof reviewContentBankContentSchema>;
+
+/** Payload cắm học liệu vào khoá ("Thêm từ kho"): tạo module tài nguyên bằng bản sao file. */
+export const insertContentBankContentSchema = z.strictObject({
+  courseId: uuidIdSchema,
+  sectionId: uuidIdSchema,
+});
+export type InsertContentBankContent = z.infer<typeof insertContentBankContentSchema>;
 
 /** Payload upload file cho một nội dung (nội dung file dạng base64 qua JSON để giữ envelope thống nhất). */
 export const uploadContentBankFileSchema = z.strictObject({

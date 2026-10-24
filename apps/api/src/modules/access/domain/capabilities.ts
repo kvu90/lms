@@ -108,6 +108,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'contentbank:viewcontent', capType: 'read', contextLevel: 50, component: 'core_contentbank', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'contentbank:upload', capType: 'write', contextLevel: 50, component: 'core_contentbank', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'contentbank:editcontent', capType: 'write', contextLevel: 50, component: 'core_contentbank', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'contentbank:reviewcontent', capType: 'write', contextLevel: 10, component: 'core_contentbank', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'payment:manageaccounts', capType: 'write', contextLevel: 10, component: 'core_payment', archetypes: { manager: CAP_ALLOW } },
   { name: 'payment:pay', capType: 'write', contextLevel: 10, component: 'core_payment', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   { name: 'privacy:request', capType: 'write', contextLevel: 30, component: 'core_privacy', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },

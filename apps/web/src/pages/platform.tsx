@@ -64,13 +64,6 @@ interface ReportView {
   dataSource: string;
   columns: string[];
 }
-interface ContentView {
-  id: string;
-  name: string;
-  visibility: string;
-  contextId: string;
-  fileId: string | null;
-}
 interface PrivacyRequestView {
   id: string;
   userId: string;
@@ -588,124 +581,6 @@ export function ReportsPage() {
                   <li key={i}>{JSON.stringify(row)}</li>
                 ))}
               </ul>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </PageShell>
-  );
-}
-
-/** Content bank (platform services): list theo context và upload file dạng base64 qua envelope JSON. */
-export function ContentBankPage() {
-  const { t: t } = useTranslation();
-  const [items, setItems] = useState<ContentView[]>([]);
-  const [name, setName] = useState('');
-  const [contextId, setContextId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    const path = contextId ? `/api/v1/contentbank?contextId=${contextId}` : '/api/v1/contentbank';
-    setItems(await apiJson<ContentView[]>(path));
-  }, [contextId]);
-  useEffect(() => {
-    void reload()
-      .catch(() => setLoadError(t('contentBankLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
-  async function create(event: FormEvent) {
-    event.preventDefault();
-    await apiJson('/api/v1/contentbank', {
-      method: 'POST',
-      body: JSON.stringify({ name, contextId: contextId, visibility: 'public' }),
-    });
-    setName('');
-    await reload();
-  }
-  async function upload(id: string) {
-    await apiJson(`/api/v1/contentbank/${id}/file`, {
-      method: 'POST',
-      body: JSON.stringify({
-        fileName: 'file.txt',
-        contentBase64: btoa('content bank upload'),
-        mimeType: 'text/plain',
-      }),
-    });
-    await reload();
-  }
-  return (
-    <PageShell width="medium">
-      <PageHeader title={t('contentBankTitle')} />
-      {loadError ? (
-        <>
-          <Alert variant="destructive">
-            <AlertDescription>{loadError}</AlertDescription>
-          </Alert>
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setLoadError(t('contentBankLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
-              {t('retry')}
-            </Button>
-          </div>
-        </>
-      ) : null}
-      <Card>
-        <CardContent className="space-y-3">
-          <form onSubmit={(e) => void create(e)} className="flex items-end gap-2">
-            <Field className="flex-1">
-              <FieldLabel htmlFor="cb-name" className="sr-only">
-                {t('contentName')}
-              </FieldLabel>
-              <Input id="cb-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('contentName')} />
-            </Field>
-            <Field className="flex-1">
-              <FieldLabel htmlFor="cb-context" className="sr-only">
-                {t('contextId')}
-              </FieldLabel>
-              <Input
-                id="cb-context"
-                value={contextId}
-                onChange={(e) => setContextId(e.target.value)}
-                placeholder={t('contextId')}
-              />
-            </Field>
-            <Button type="submit">{t('addContent')}</Button>
-          </form>
-          {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : (
-            <>
-              <ul aria-label={t('contentItems')} className="space-y-2">
-                {items.map((c) => (
-                  <li key={c.id} className="flex items-center gap-3 rounded border p-2">
-                    <span>
-                      {c.name} — {c.visibility}
-                    </span>
-                    <Button type="button" variant="outline" onClick={() => void upload(c.id)}>
-                      {t('uploadFile')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              {items.length === 0 ? (
-                <Empty className="p-6">
-                  <EmptyHeader>
-                    <EmptyTitle>{t('noContentYet')}</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ) : null}
             </>
           )}
         </CardContent>

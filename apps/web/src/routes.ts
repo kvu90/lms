@@ -58,6 +58,8 @@ export default [
     route('insights', 'routes/insights.tsx'),
     route('reports', 'routes/reports.tsx'),
     route('contentbank', 'routes/contentbank.tsx'),
+    route('contentbank/new', 'routes/contentbank-new.tsx'),
+    route('contentbank/:id/edit', 'routes/contentbank-edit.tsx'),
     route('privacy', 'routes/privacy.tsx'),
   ]),
 ] satisfies RouteConfig;
