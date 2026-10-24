@@ -20,6 +20,7 @@ import {
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
+import { Label } from '@lms/ui/components/label';
 import {
   Select,
   SelectContent,
