@@ -153,8 +153,8 @@ export class CohortsController {
     return { deleted: true };
   }
   @Get(':id/members')
-  /** GET /cohorts/:id/members — thành viên của cohort. */
-  async members(@Param('id', { schema: uuidIdSchema }) id: string) { return this.groups.listCohortMembers(id); }
+  /** GET /cohorts/:id/members — thành viên của cohort (chỉ người có quyền xem/quản lý cohort; người ngoài nhận 404 như cohort không tồn tại). */
+  async members(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.groups.listCohortMembers(id, actor.id); }
   @Post(':id/members')
   /** POST /cohorts/:id/members — thêm thành viên cohort (kích hoạt cohort sync). */
   async addMember(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: groupMemberSchema }) dto: MemberDto, @CurrentUser() actor: AuthenticatedUser) {
