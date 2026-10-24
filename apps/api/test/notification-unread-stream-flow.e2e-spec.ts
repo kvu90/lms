@@ -149,10 +149,10 @@ describe('Notification unread count SSE stream', () => {
   });
 
   it('đánh dấu đã đọc: stream đẩy số giảm về 0', async () => {
-    const list = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${tokenA}`);
-    expect(list.body).toHaveLength(1);
+    const list = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${tokenA}`);
+    expect(list.body.items).toHaveLength(1);
     const before = streamA.unreadEvents().length;
-    const read = await http(app).post(`/api/v1/notifications/${list.body[0].id}/read`).set('Authorization', `Bearer ${tokenA}`);
+    const read = await http(app).post(`/api/v1/notifications/${list.body.items[0].id}/read`).set('Authorization', `Bearer ${tokenA}`);
     expect(read.status).toBe(201);
     await streamA.waitForUnreadAfter(before, 0);
     expect(streamA.unreadEvents().at(-1)).toBe(0);

@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OutboxRelayService } from '../src/infra/events/outbox-relay.service';
 import {
@@ -65,6 +66,18 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
   }
 
   beforeAll(async () => {
+    // Dọn tồn đọng outbox của các spec đã chạy trước trên cùng DB:
+    // relay ở app test chỉ chạy khi gọi tay, nên row chưa publish khi
+    // app trước đóng là row chết — không test nào còn tiêu thụ.
+    // Không dọn thì vòng xả ở test 5 phải duyệt toàn bộ tồn đọng của
+    // cả suite (O(backlog)) và vượt trần timeout dưới tải CI dù mọi
+    // assertion đều đúng (CI run 40097046131 trên commit chỉ nới trần
+    // 120s vẫn đỏ, chênh đúng ~2×90s so với run cũ). Dọn xong, vòng xả
+    // chỉ còn duyệt event của chính spec này.
+    const stale = new Client({ connectionString: process.env.DATABASE_URL });
+    await stale.connect();
+    await stale.query('DELETE FROM outbox_events WHERE published_at IS NULL');
+    await stale.end();
     app = await createTestApp();
     admin = await adminToken(app);
     adminId = (await login(app, 'admin', 'Admin123!')).userId;
@@ -108,8 +121,8 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const req = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${a.token}`).send({});
     expect(req.status).toBe(201);
     expect(req.body.status).toBe('pending');
-    const bNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${b.token}`);
-    expect((bNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'contact_request')).toBe(true);
+    const bNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${b.token}`);
+    expect((bNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'contact_request')).toBe(true);
 
     // B TỪ CHỐI: hàng chờ sạch cả hai phía, quan hệ không hình thành,
     // cổng liên lạc vẫn đóng (A tạo conversation 1-1 bị 403).
@@ -284,6 +297,11 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(again.body.deletedBy).toBe(teacher.id);
   });
 
+  // Trần 120s (không phải 30s mặc định): vòng xả relay ở cuối test phải
+  // duyệt TUẦN TỰ toàn bộ outbox tồn đọng của cả suite trên cùng DB
+  // (relay API không tự chạy theo lịch), nên dưới tải CI nó vượt 30s
+  // dù mọi assertion đều đúng — xem bàn giao fix CI PR #76. Không bỏ
+  // assertion nào, chỉ nới trần cho thao tác xả tồn đọng này.
   it('5. reports reach the teacher in charge and admins only; reviewing is scope-checked and every view is written to event_log', async () => {
     // Một tin riêng 1-1 (s1–s2 kết bạn trước vì cổng nhắn riêng nay
     // chỉ mở cho liên hệ đã duyệt) bị chính tác giả xoá — nội dung
@@ -322,10 +340,10 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const reportId = report.body.id as string;
 
     // Thông báo về đúng nơi: giáo viên phụ trách + admin nhận được.
-    const teacherNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${teacher.token}`);
-    expect((teacherNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
-    const adminNotifications = await http(app).get('/api/v1/notifications').set('Authorization', `Bearer ${admin}`);
-    expect((adminNotifications.body as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
+    const teacherNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${teacher.token}`);
+    expect((teacherNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
+    const adminNotifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${admin}`);
+    expect((adminNotifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'conversation_reported')).toBe(true);
 
     // Hàng đợi theo phạm vi: admin thấy, giáo viên phụ trách thấy,
     // giáo viên khoá khác KHÔNG, học sinh KHÔNG.
@@ -383,8 +401,9 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(resolved.body.status).toBe('resolved');
     expect(resolved.body.resolvedBy).toBe(teacher.id);
     expect(resolved.body.resolvedAt).toBeTruthy();
-    // Trần 60s thay vì 30s mặc định: test này chạy ~25 gọi HTTP + tạo
-    // user (argon2) + nhiều lượt relay, từng chạm trần 30s khi máy tải
-    // nặng (tái hiện ở lượt chạy full suite ngày 24/10/2026).
-  }, 60000);
+    // Trần 120s: main đã nới 30s → 60s vì test này chạy ~25 gọi HTTP +
+    // tạo user (argon2) + nhiều lượt relay, từng chạm trần 30s khi máy
+    // tải nặng; PR #76 giữ 120s (vòng xả tồn đọng) — lấy max hai phía,
+    // không bỏ assertion nào.
+  }, 120000);
 });

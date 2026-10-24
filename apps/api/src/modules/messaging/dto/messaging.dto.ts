@@ -4,7 +4,10 @@ import {
   createGroupConversationSchema,
   listCourseRosterQuerySchema,
   listMessagesQuerySchema,
+  listNotificationGroupsQuerySchema,
+  listNotificationItemsQuerySchema,
   notifyUserSchema,
+  readNotificationGroupSchema,
   reportConversationSchema,
   sendMessageSchema,
   setMessagePreferenceSchema,
@@ -14,6 +17,7 @@ import {
   type CreateGroupConversation,
   type ListCourseRosterQuery,
   type NotifyUser,
+  type ReadNotificationGroup,
   type ReportConversation,
   type SendMessage,
   type SetMessagePreference,
@@ -25,7 +29,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { createConversationSchema, createGroupConversationSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -60,3 +64,28 @@ export const listCourseRosterQueryServerSchema = listCourseRosterQuerySchema.ext
   cursor: z.string().min(1).max(512).optional(),
 });
 export type ListCourseRosterQueryDto = ListCourseRosterQuery;
+
+/**
+ * Cờ boolean trên query string: chỉ đúng chuỗi 'true' mới là true
+ * (`z.coerce.boolean` biến 'false' thành true nên không dùng được).
+ */
+const queryBooleanSchema = z.string().optional().transform((v) => v === 'true');
+
+/**
+ * Schema phía server cho query trung tâm thông báo v2 (issue #51):
+ * `limit` đến từ query string nên ép kiểu ở tầng server như tiền lệ
+ * listMessages; `cursor` giữ nguyên là chuỗi mờ.
+ */
+export const listNotificationGroupsQueryServerSchema = listNotificationGroupsQuerySchema.extend({
+  unreadOnly: queryBooleanSchema,
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+export type ListNotificationGroupsQueryDto = z.infer<typeof listNotificationGroupsQueryServerSchema>;
+
+export const listNotificationItemsQueryServerSchema = listNotificationItemsQuerySchema.extend({
+  unreadOnly: queryBooleanSchema,
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+export type ListNotificationItemsQueryDto = z.infer<typeof listNotificationItemsQueryServerSchema>;
+
+export type ReadNotificationGroupDto = ReadNotificationGroup;

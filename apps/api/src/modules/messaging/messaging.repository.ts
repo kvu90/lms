@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   context, course, courseGroups, enrol, gradeGrades, gradeItems, groupsMembers,
@@ -41,6 +41,40 @@ export interface MessageWindowOptions {
   includeDeleted?: boolean;
 }
 export type NotificationRow = typeof notifications.$inferSelect;
+
+/**
+ * Một dòng GỘP thô của trung tâm thông báo v2 (issue #51) từ truy vấn
+ * tổng hợp: khoá gộp (loại × nguồn × ngày) + đếm + mốc của mục mới
+ * nhất làm neo phân trang keyset. `sourceKey` là `contextUrl` đã
+ * chuẩn hoá ('' khi thông báo không có ngữ cảnh đích); `day` là ngày
+ * lịch Asia/Saigon dạng YYYY-MM-DD.
+ */
+export interface NotificationGroupAggregateRow {
+  eventType: string;
+  component: string;
+  sourceKey: string;
+  day: string;
+  count: number;
+  unreadCount: number;
+  latestAt: Date;
+  latestId: string;
+}
+
+/** Bộ lọc của danh sách thông báo phẳng v2 (mở chi tiết một dòng gộp hoặc lọc theo nhóm). */
+export interface NotificationItemsOptions {
+  /** Lọc đúng một loại sự kiện. */
+  eventType?: string;
+  /** Lọc theo tập loại của một nhóm (học tập / lớp & mọi người / hệ thống). */
+  eventTypes?: string[];
+  /** Nguồn: undefined = không lọc, null = chỉ mục không có contextUrl, chuỗi = contextUrl cụ thể. */
+  source?: string | null;
+  /** Ngày lịch Asia/Saigon dạng YYYY-MM-DD. */
+  day?: string;
+  unreadOnly?: boolean;
+  /** Neo keyset: chỉ lấy mục "cũ hơn" mốc (createdAt, id) này. */
+  cursor?: { createdAt: Date; id: string };
+  limit: number;
+}
 export type DispatchLogRow = typeof notificationDispatchLog.$inferSelect;
 export type ContactRow = typeof messageContacts.$inferSelect;
 export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
@@ -798,12 +832,6 @@ export class MessagingRepository {
     const [row] = await (tx ?? this.db).insert(notifications).values(v).returning(); return row!;
   }
   /**
-   * Notification của user.
-   */
-  async listNotifications(userIdTo: string): Promise<NotificationRow[]> {
-    return this.db.select().from(notifications).where(eq(notifications.userIdTo, userIdTo)).orderBy(desc(notifications.id));
-  }
-  /**
    * Số notification chưa đọc (đếm bằng count(*) ở DB).
    */
   async countUnreadNotifications(userIdTo: string): Promise<number> {
@@ -825,6 +853,118 @@ export class MessagingRepository {
   async markAllNotificationsRead(userIdTo: string): Promise<number> {
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
       .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead))).returning();
+    return rows.length;
+  }
+
+  /**
+   * Danh sách GỘP của trung tâm thông báo v2 (issue #51): tổng hợp
+   * theo (loại × nguồn × ngày) ngay trong SQL — nguồn là `contextUrl`
+   * chuẩn hoá ('' khi không có), ngày là ngày lịch Asia/Saigon. Sắp
+   * xếp theo hoạt động mới nhất; phân trang keyset trên cặp
+   * (max(created_at), max(id)) của dòng gộp qua mệnh đề HAVING, nên
+   * không trang nào phải tải toàn bộ lịch sử về mới gộp được.
+   */
+  async listNotificationGroups(userIdTo: string, opts: {
+    eventTypes?: string[];
+    unreadOnly?: boolean;
+    cursor?: { latestAt: Date; latestId: string };
+    limit: number;
+  }): Promise<NotificationGroupAggregateRow[]> {
+    const where = [sql`user_id_to = ${userIdTo}`];
+    if (opts.eventTypes && opts.eventTypes.length > 0) {
+      where.push(sql`event_type in (${sql.join(opts.eventTypes.map((t) => sql`${t}`), sql`, `)})`);
+    }
+    // Postgres không có max(uuid): id của mục mới nhất lấy bằng
+    // array_agg sắp xếp theo (created_at, id) giảm dần — cùng thứ tự
+    // với neo keyset (max(created_at), id mới nhất).
+    const latestIdExpr = sql`(array_agg(id order by created_at desc, id desc))[1]`;
+    const having: ReturnType<typeof sql>[] = [];
+    if (opts.unreadOnly) having.push(sql`count(*) filter (where time_read is null) > 0`);
+    if (opts.cursor) {
+      having.push(sql`(max(created_at), ${latestIdExpr}) < (${opts.cursor.latestAt}::timestamptz, ${opts.cursor.latestId}::uuid)`);
+    }
+    const query = sql`
+      select
+        event_type as "eventType",
+        component as "component",
+        coalesce(nullif(context_url, ''), '') as "sourceKey",
+        to_char((created_at at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') as "day",
+        count(*)::int as "count",
+        (count(*) filter (where time_read is null))::int as "unreadCount",
+        max(created_at) as "latestAt",
+        ${latestIdExpr}::text as "latestId"
+      from notifications
+      where ${sql.join(where, sql` and `)}
+      group by event_type, component, coalesce(nullif(context_url, ''), ''), (created_at at time zone 'Asia/Ho_Chi_Minh')::date
+      ${having.length > 0 ? sql`having ${sql.join(having, sql` and `)}` : sql``}
+      order by max(created_at) desc, ${latestIdExpr} desc
+      limit ${opts.limit}
+    `;
+    const res = (await this.db.execute(query)) as unknown as { rows: NotificationGroupAggregateRow[] };
+    return res.rows;
+  }
+
+  /** Lấy các notification theo đúng tập id (điểm neo `latest` của các dòng gộp). */
+  async listNotificationsByIds(ids: string[]): Promise<NotificationRow[]> {
+    if (ids.length === 0) return [];
+    return this.db.select().from(notifications).where(inArray(notifications.id, ids));
+  }
+
+  /**
+   * Danh sách PHẲNG của trung tâm v2: phân trang keyset theo
+   * (createdAt, id) giảm dần; bộ lọc (loại × nguồn × ngày) mở chi
+   * tiết đúng một dòng gộp, `day` so theo ngày lịch Asia/Saigon như
+   * khoá gộp để hai đường không bao giờ lệch nhau.
+   */
+  async listNotificationItems(userIdTo: string, opts: NotificationItemsOptions): Promise<NotificationRow[]> {
+    const conditions = [eq(notifications.userIdTo, userIdTo)];
+    if (opts.eventType) conditions.push(eq(notifications.eventType, opts.eventType));
+    if (opts.eventTypes && opts.eventTypes.length > 0) conditions.push(inArray(notifications.eventType, opts.eventTypes));
+    if (opts.source === null) {
+      conditions.push(sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ''`);
+    } else if (typeof opts.source === 'string') {
+      conditions.push(eq(notifications.contextUrl, opts.source));
+    }
+    if (opts.day) {
+      conditions.push(sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${opts.day}`);
+    }
+    if (opts.unreadOnly) conditions.push(isNull(notifications.timeRead));
+    if (opts.cursor) {
+      conditions.push(sql`(${notifications.createdAt}, ${notifications.id}) < (${opts.cursor.createdAt}::timestamptz, ${opts.cursor.id}::uuid)`);
+    }
+    return this.db.select().from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt), desc(notifications.id))
+      .limit(opts.limit);
+  }
+
+  /**
+   * Đánh dấu đã đọc HÀNG LOẠT theo khoá gộp (loại × nguồn × ngày)
+   * của trung tâm v2: chỉ các mục chưa đọc thuộc đúng khoá mới đổi.
+   */
+  async markNotificationGroupRead(userIdTo: string, key: { eventType: string; sourceKey: string; day: string }): Promise<number> {
+    const rows = await this.db.update(notifications).set({ timeRead: new Date() })
+      .where(and(
+        eq(notifications.userIdTo, userIdTo),
+        eq(notifications.eventType, key.eventType),
+        isNull(notifications.timeRead),
+        sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ${key.sourceKey}`,
+        sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
+      )).returning();
+    return rows.length;
+  }
+
+  /** Xoá MỘT notification của đúng chủ sở hữu; false khi không tồn tại hoặc không phải của họ. */
+  async deleteNotification(id: string, userIdTo: string): Promise<boolean> {
+    const rows = await this.db.delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
+    return rows.length > 0;
+  }
+
+  /** Dọn mọi notification ĐÃ ĐỌC của user (trung tâm v2); trả số mục đã xoá. */
+  async deleteReadNotifications(userIdTo: string): Promise<number> {
+    const rows = await this.db.delete(notifications)
+      .where(and(eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead))).returning();
     return rows.length;
   }
 
