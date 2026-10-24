@@ -1128,6 +1128,14 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(existing.conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
+    // Cổng hiển thị khi chặn (việc nối tiếp #33, siết sau PR #94 vòng 1):
+    // hội thoại 1–1 đang chặn hành xử như KHÔNG TỒN TẠI với cả hai
+    // phía ở mọi đường theo id — kể cả xoá tin. Đặt TRƯỚC kiểm tra
+    // tác giả/kiểm duyệt để phía bị chặn cũng nhận 404 thay vì 403
+    // (403 sẽ lộ là tin/hội thoại có tồn tại), và để không ghi sự
+    // kiện outbox `message_deleted` nào trong lúc chặn. Hội thoại
+    // nhóm không bị cổng này chạm (type !== 1 trả ngay).
+    await this.assertDirectConversationVisible(actorId, conversation);
     const isAuthor = existing.userIdFrom === actorId;
     if (!isAuthor && !(await this.canModerateConversation(actorId, conversation))) {
       throw new ForbiddenException({

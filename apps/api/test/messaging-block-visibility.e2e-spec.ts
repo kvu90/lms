@@ -20,6 +20,10 @@ import {
  *    1–1 đang chặn đều 404 như không tồn tại ở CẢ HAI phía; `sync`
  *    realtime cũng không trả lịch sử của conversation đang chặn.
  *    Hội thoại nhóm chứa cả hai người không bị cổng này chạm.
+ *  - Xoá tin theo id (siết sau PR #94 vòng 1): xoá tin của hội thoại
+ *    1–1 đang chặn cũng 404 ở cả hai phía, không ghi outbox, phía
+ *    còn lại không nhận bất kỳ sự kiện nào của hội thoại đó; socket
+ *    mới nối không vào room của hội thoại 1–1 đang chặn.
  *  - Presence (online) không phát tới phía bị chặn.
  *  - Bỏ chặn thì mọi bề mặt hiện lại nguyên trạng.
  */
@@ -246,6 +250,62 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       expect(syncAfter[conversationId]?.some((m) => m.fullMessage === 'tin trước khi chặn')).toBe(true);
     } finally {
       bSocket2.disconnect();
+    }
+  });
+
+  it('deleting a message of a blocked 1-1 conversation returns 404 and emits nothing to the other side', async () => {
+    // Tin mới của A làm mốc xoá — lấy id từ chính phản hồi tạo tin.
+    const createdMsg = await send(a.token, 'tin sẽ xoá khi đang chặn');
+    expect(createdMsg.status).toBe(201);
+    const messageId = (createdMsg.body as { id: string }).id;
+    // B nối socket TRƯỚC khi chặn (đúng ca tái hiện của đội đánh giá:
+    // socket cũ đã nằm trong room) và nghe cả hai sự kiện mà một lần
+    // xoá từng phát ra: message.deleted + conversation.updated.
+    const bSocket = await connectSocket(b.token);
+    const seen: { event: string; conversationId: string }[] = [];
+    const record = (event: string) => (payload: { conversationId: string }) => {
+      seen.push({ event, conversationId: payload.conversationId });
+    };
+    bSocket.on('message.deleted', record('message.deleted'));
+    bSocket.on('conversation.updated', record('conversation.updated'));
+    try {
+      const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
+        .set('Authorization', `Bearer ${a.token}`).send({});
+      expect(block.status).toBe(201);
+      try {
+        // A xoá tin của chính A trong lúc chặn: 404 như không tồn
+        // tại (không phải 200, không phải 403), ở cả phía người chặn.
+        const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+          .set('Authorization', `Bearer ${a.token}`);
+        expect(del.status).toBe(404);
+        expect(del.body.code).toBe('messaging.conversation_not_found');
+        // Phía bị chặn cũng 404 (không lộ tin tồn tại qua 403).
+        const delByBlocked = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+          .set('Authorization', `Bearer ${b.token}`);
+        expect(delByBlocked.status).toBe(404);
+        expect(delByBlocked.body.code).toBe('messaging.conversation_not_found');
+        // Chờ quá chu kỳ tiêu thụ outbox: B không nhận bất kỳ sự
+        // kiện nào của hội thoại này (kể cả conversation.updated
+        // kèm nội dung tin cuối — điểm lộ của vòng 1).
+        await sleep(1500);
+        expect(seen.filter((e) => e.conversationId === conversationId)).toEqual([]);
+      } finally {
+        const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
+          .set('Authorization', `Bearer ${a.token}`);
+        expect(unblock.status).toBe(200);
+      }
+      // Sau bỏ chặn, tin vẫn còn nguyên (lần xoá 404 không xoá mềm
+      // gì, không ghi outbox) và A xoá được bình thường.
+      const detailAfter = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
+        .set('Authorization', `Bearer ${a.token}`);
+      expect(detailAfter.status).toBe(200);
+      expect((detailAfter.body as { messages: { id: string }[] }).messages
+        .some((m) => m.id === messageId)).toBe(true);
+      const delAfter = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+        .set('Authorization', `Bearer ${a.token}`);
+      expect(delAfter.status).toBe(200);
+    } finally {
+      bSocket.disconnect();
     }
   });
 

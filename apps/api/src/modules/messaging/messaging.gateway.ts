@@ -81,6 +81,15 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       await client.join(userRoom(identity.userId));
       const conversations = await this.repo.listConversationsForUser(identity.userId);
       for (const conversation of conversations) {
+        // Lớp phòng thủ thứ hai (việc nối tiếp #33, siết sau PR #94
+        // vòng 1): socket mới nối KHÔNG vào room của hội thoại 1–1
+        // đang chặn — cùng luật với isBlockedDirectConversation của
+        // join/sync/typing. Socket nối từ TRƯỚC khi chặn vẫn nằm
+        // trong room cũ, nhưng mọi điểm sinh sự kiện trong lúc chặn
+        // đã bị cổng (gửi 403, xoá/đọc 404) nên không còn sự kiện
+        // nào của hội thoại đó để lộ; tầng phân phối xoá tin còn
+        // chặn nốt trường hợp outbox tới muộn (xem distributeMessageDeleted).
+        if (await this.isBlockedDirectConversation(conversation.id, identity.userId)) continue;
         await client.join(conversationRoom(conversation.id));
       }
       await this.realtime.markConnected(identity.userId, client.id);

@@ -172,6 +172,26 @@ export class MessagingRealtimeService implements OnModuleDestroy {
    */
   async distributeMessageDeleted(messageRow: MessageRow, memberIds: string[]): Promise<void> {
     if (!this.server) return;
+    // Lớp phòng thủ thứ hai (việc nối tiếp #33, siết sau PR #94
+    // vòng 1): đường xoá chính đã 404 trong lúc chặn nên outbox
+    // `message_deleted` không sinh mới, nhưng một sự kiện tới muộn
+    // (xoá trước khi chặn, outbox tiêu thụ sau khi chặn — hoặc xoá
+    // bởi người kiểm duyệt ngoài cặp chặn) vẫn không được lộ tới
+    // cặp đang chặn: không phát gì cả, đồng thời đẩy socket của cả
+    // hai ra khỏi room để các sự kiện room về sau cũng không tới.
+    // Hội thoại nhóm không bị chạm.
+    const conversation = await this.repo.getConversation(messageRow.conversationId).catch(() => undefined);
+    if (conversation?.type === 1 && memberIds.length === 2) {
+      const first = memberIds[0];
+      const second = memberIds[1];
+      if (first === undefined || second === undefined) return;
+      const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
+      if (blocked.includes(second)) {
+        await this.evictUserFromConversation(first, messageRow.conversationId);
+        await this.evictUserFromConversation(second, messageRow.conversationId);
+        return;
+      }
+    }
     await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
     const deletedPayload: RealtimeMessageDeletedPayload = {
       conversationId: messageRow.conversationId,
