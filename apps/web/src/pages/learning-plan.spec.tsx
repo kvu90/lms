@@ -207,7 +207,8 @@ describe('Learning plan page — competency administration', () => {
     );
     expect(createObjectURL).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã xuất framework "FW1"');
+    // Thông báo thao tác nay là Alert của @lms/ui (role="alert").
+    expect(await screen.findByRole('alert')).toHaveTextContent('Đã xuất framework "FW1"');
   });
 
   it('imports a framework by posting the parsed file JSON to /frameworks/import', async () => {
@@ -229,7 +230,7 @@ describe('Learning plan page — competency administration', () => {
     );
     const post = calls.find((c) => c.url === '/api/v1/competencies/frameworks/import' && c.method === 'POST');
     expect(post?.body).toEqual(doc);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã nhập thành framework mới "FW-NEW"');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Đã nhập thành framework mới "FW-NEW"');
   });
 
   it('shows the API integrity error verbatim when the import document is rejected', async () => {

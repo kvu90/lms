@@ -1,13 +1,26 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Checkbox } from '@lms/ui/components/checkbox';
+import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@lms/ui/components/select';
+import { Skeleton } from '@lms/ui/components/skeleton';
 import { useAuth } from '#lib/auth';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
+import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson, ApiError } from '#lib/api';
 
@@ -410,8 +423,16 @@ function CompetencyAdmin() {
           <CardDescription>{t('compAdminDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {adminError ? <p role="alert">{adminError}</p> : null}
-          {adminMessage ? <p role="status">{adminMessage}</p> : null}
+          {adminError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{adminError}</AlertDescription>
+            </Alert>
+          ) : null}
+          {adminMessage ? (
+            <Alert>
+              <AlertDescription>{adminMessage}</AlertDescription>
+            </Alert>
+          ) : null}
           <div className="space-y-3">
             <h3 className="font-medium">{t('compFrameworksTitle')}</h3>
             <ul className="space-y-1" aria-label={t('compFrameworksTitle')}>
@@ -438,75 +459,87 @@ function CompetencyAdmin() {
               ))}
               {frameworks.length === 0 ? <li className="text-sm">{t('compNoFrameworks')}</li> : null}
             </ul>
-            <form onSubmit={(e) => void createFramework(e)} className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="fw-shortname">{t('compFrameworkShortname')}</Label>
-                <Input
-                  id="fw-shortname"
-                  value={fwDraft.shortName}
-                  onChange={(e) => setFwDraft({ ...fwDraft, shortName: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fw-idnumber">{t('compFrameworkIdnumber')}</Label>
-                <Input
-                  id="fw-idnumber"
-                  value={fwDraft.idNumber}
-                  onChange={(e) => setFwDraft({ ...fwDraft, idNumber: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fw-description">{t('compFrameworkDescription')}</Label>
-                <Input
-                  id="fw-description"
-                  value={fwDraft.description}
-                  onChange={(e) => setFwDraft({ ...fwDraft, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fw-scale-values">{t('compScaleValues')}</Label>
-                <Input
-                  id="fw-scale-values"
-                  value={fwDraft.scaleValues}
-                  onChange={(e) => setFwDraft({ ...fwDraft, scaleValues: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="fw-scale-proficient">{t('compScaleProficient')}</Label>
-                <Input
-                  id="fw-scale-proficient"
-                  value={fwDraft.scaleProficient}
-                  onChange={(e) => setFwDraft({ ...fwDraft, scaleProficient: e.target.value })}
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={fwDraft.visible}
-                  onChange={(e) => setFwDraft({ ...fwDraft, visible: e.target.checked })}
-                />
-                {t('compFrameworkVisible')}
-              </label>
-              <Button type="submit">{t('compCreateFramework')}</Button>
+            <form onSubmit={(e) => void createFramework(e)}>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="fw-shortname">{t('compFrameworkShortname')}</FieldLabel>
+                  <Input
+                    id="fw-shortname"
+                    value={fwDraft.shortName}
+                    onChange={(e) => setFwDraft({ ...fwDraft, shortName: e.target.value })}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="fw-idnumber">{t('compFrameworkIdnumber')}</FieldLabel>
+                  <Input
+                    id="fw-idnumber"
+                    value={fwDraft.idNumber}
+                    onChange={(e) => setFwDraft({ ...fwDraft, idNumber: e.target.value })}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="fw-description">{t('compFrameworkDescription')}</FieldLabel>
+                  <Input
+                    id="fw-description"
+                    value={fwDraft.description}
+                    onChange={(e) => setFwDraft({ ...fwDraft, description: e.target.value })}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="fw-scale-values">{t('compScaleValues')}</FieldLabel>
+                  <Input
+                    id="fw-scale-values"
+                    value={fwDraft.scaleValues}
+                    onChange={(e) => setFwDraft({ ...fwDraft, scaleValues: e.target.value })}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="fw-scale-proficient">{t('compScaleProficient')}</FieldLabel>
+                  <Input
+                    id="fw-scale-proficient"
+                    value={fwDraft.scaleProficient}
+                    onChange={(e) => setFwDraft({ ...fwDraft, scaleProficient: e.target.value })}
+                  />
+                </Field>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="fw-visible"
+                    checked={fwDraft.visible}
+                    onCheckedChange={(checked) => setFwDraft({ ...fwDraft, visible: checked === true })}
+                  />
+                  <Label htmlFor="fw-visible">{t('compFrameworkVisible')}</Label>
+                </div>
+                <div className="flex justify-end">
+                  <Button type="submit">{t('compCreateFramework')}</Button>
+                </div>
+              </FieldGroup>
             </form>
-            <form onSubmit={(e) => void importFramework(e)} className="space-y-3">
-              <h4 className="font-medium">{t('compImportTitle')}</h4>
-              <div className="space-y-1">
-                <Label htmlFor="fw-import-file">{t('compImportFile')}</Label>
-                <Input
-                  key={importInputKey}
-                  id="fw-import-file"
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              {importError ? <p role="alert">{importError}</p> : null}
-              <Button type="submit" variant="outline" disabled={!importFile}>
-                {t('compImportAction')}
-              </Button>
+            <form onSubmit={(e) => void importFramework(e)}>
+              <FieldGroup>
+                <h4 className="font-medium">{t('compImportTitle')}</h4>
+                <Field>
+                  <FieldLabel htmlFor="fw-import-file">{t('compImportFile')}</FieldLabel>
+                  <Input
+                    key={importInputKey}
+                    id="fw-import-file"
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                  />
+                </Field>
+                {importError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{importError}</AlertDescription>
+                  </Alert>
+                ) : null}
+                <div className="flex justify-end">
+                  <Button type="submit" variant="outline" disabled={!importFile}>
+                    {t('compImportAction')}
+                  </Button>
+                </div>
+              </FieldGroup>
             </form>
           </div>
 
@@ -526,49 +559,58 @@ function CompetencyAdmin() {
                   ))}
                   {competencies.length === 0 ? <li className="text-sm">{t('compNoCompetencies')}</li> : null}
                 </ul>
-                <form onSubmit={(e) => void createCompetency(e)} className="space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="comp-shortname">{t('compCompetencyShortname')}</Label>
-                    <Input
-                      id="comp-shortname"
-                      value={compDraft.shortName}
-                      onChange={(e) => setCompDraft({ ...compDraft, shortName: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="comp-idnumber">{t('compCompetencyIdnumber')}</Label>
-                    <Input
-                      id="comp-idnumber"
-                      value={compDraft.idNumber}
-                      onChange={(e) => setCompDraft({ ...compDraft, idNumber: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="comp-description">{t('compCompetencyDescription')}</Label>
-                    <Input
-                      id="comp-description"
-                      value={compDraft.description}
-                      onChange={(e) => setCompDraft({ ...compDraft, description: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="comp-parent">{t('compCompetencyParent')}</Label>
-                    <select
-                      id="comp-parent"
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                      value={compDraft.parentId}
-                      onChange={(e) => setCompDraft({ ...compDraft, parentId: e.target.value })}
-                    >
-                      <option value="">{t('compNoParent')}</option>
-                      {competencies.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.shortName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button type="submit">{t('compAddCompetency')}</Button>
+                <form onSubmit={(e) => void createCompetency(e)}>
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="comp-shortname">{t('compCompetencyShortname')}</FieldLabel>
+                      <Input
+                        id="comp-shortname"
+                        value={compDraft.shortName}
+                        onChange={(e) => setCompDraft({ ...compDraft, shortName: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="comp-idnumber">{t('compCompetencyIdnumber')}</FieldLabel>
+                      <Input
+                        id="comp-idnumber"
+                        value={compDraft.idNumber}
+                        onChange={(e) => setCompDraft({ ...compDraft, idNumber: e.target.value })}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="comp-description">{t('compCompetencyDescription')}</FieldLabel>
+                      <Input
+                        id="comp-description"
+                        value={compDraft.description}
+                        onChange={(e) => setCompDraft({ ...compDraft, description: e.target.value })}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel id="comp-parent-label">{t('compCompetencyParent')}</FieldLabel>
+                      <Select
+                        value={compDraft.parentId === '' ? 'none' : compDraft.parentId}
+                        onValueChange={(v) =>
+                          setCompDraft({ ...compDraft, parentId: v === 'none' || v === null ? '' : v })
+                        }
+                      >
+                        <SelectTrigger aria-labelledby="comp-parent-label" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">{t('compNoParent')}</SelectItem>
+                          {competencies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.shortName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <div className="flex justify-end">
+                      <Button type="submit">{t('compAddCompetency')}</Button>
+                    </div>
+                  </FieldGroup>
                 </form>
               </>
             ) : (
@@ -598,60 +640,76 @@ function CompetencyAdmin() {
             ))}
             {templates.length === 0 ? <li className="text-sm">{t('compNoTemplates')}</li> : null}
           </ul>
-          <form onSubmit={(e) => void createTemplate(e)} className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="tpl-shortname">{t('compTemplateShortname')}</Label>
-              <Input
-                id="tpl-shortname"
-                value={tplDraft.shortName}
-                onChange={(e) => setTplDraft({ ...tplDraft, shortName: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tpl-description">{t('compTemplateDescription')}</Label>
-              <Input
-                id="tpl-description"
-                value={tplDraft.description}
-                onChange={(e) => setTplDraft({ ...tplDraft, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="tpl-duedate">{t('compTemplateDuedate')}</Label>
-              <Input
-                id="tpl-duedate"
-                type="date"
-                value={tplDraft.dueDate}
-                onChange={(e) => setTplDraft({ ...tplDraft, dueDate: e.target.value })}
-              />
-            </div>
-            <Button type="submit">{t('compCreateTemplate')}</Button>
+          <form onSubmit={(e) => void createTemplate(e)}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="tpl-shortname">{t('compTemplateShortname')}</FieldLabel>
+                <Input
+                  id="tpl-shortname"
+                  value={tplDraft.shortName}
+                  onChange={(e) => setTplDraft({ ...tplDraft, shortName: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="tpl-description">{t('compTemplateDescription')}</FieldLabel>
+                <Input
+                  id="tpl-description"
+                  value={tplDraft.description}
+                  onChange={(e) => setTplDraft({ ...tplDraft, description: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="tpl-duedate">{t('compTemplateDuedate')}</FieldLabel>
+                <Input
+                  id="tpl-duedate"
+                  type="date"
+                  value={tplDraft.dueDate}
+                  onChange={(e) => setTplDraft({ ...tplDraft, dueDate: e.target.value })}
+                />
+              </Field>
+              <div className="flex justify-end">
+                <Button type="submit">{t('compCreateTemplate')}</Button>
+              </div>
+            </FieldGroup>
           </form>
           {selectedTemplateId ? (
             <div className="space-y-3">
-              <form onSubmit={(e) => void addTemplateCompetency(e)} className="space-y-2">
-                <Label htmlFor="tpl-competency-id">{t('compTemplateCompetencyId')}</Label>
-                <Input
-                  id="tpl-competency-id"
-                  value={tplCompetencyId}
-                  onChange={(e) => setTplCompetencyId(e.target.value)}
-                  required
-                />
-                <Button type="submit" variant="outline">
-                  {t('compAddTemplateCompetency')}
-                </Button>
+              <form onSubmit={(e) => void addTemplateCompetency(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="tpl-competency-id">{t('compTemplateCompetencyId')}</FieldLabel>
+                    <Input
+                      id="tpl-competency-id"
+                      value={tplCompetencyId}
+                      onChange={(e) => setTplCompetencyId(e.target.value)}
+                      required
+                    />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit" variant="outline">
+                      {t('compAddTemplateCompetency')}
+                    </Button>
+                  </div>
+                </FieldGroup>
               </form>
-              <form onSubmit={(e) => void addTemplateCohort(e)} className="space-y-2">
-                <Label htmlFor="tpl-cohort-id">{t('compTemplateCohortId')}</Label>
-                <Input
-                  id="tpl-cohort-id"
-                  value={tplCohortId}
-                  onChange={(e) => setTplCohortId(e.target.value)}
-                  required
-                />
-                <Button type="submit" variant="outline">
-                  {t('compAddTemplateCohort')}
-                </Button>
+              <form onSubmit={(e) => void addTemplateCohort(e)}>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="tpl-cohort-id">{t('compTemplateCohortId')}</FieldLabel>
+                    <Input
+                      id="tpl-cohort-id"
+                      value={tplCohortId}
+                      onChange={(e) => setTplCohortId(e.target.value)}
+                      required
+                    />
+                  </Field>
+                  <div className="flex justify-end">
+                    <Button type="submit" variant="outline">
+                      {t('compAddTemplateCohort')}
+                    </Button>
+                  </div>
+                </FieldGroup>
               </form>
               <Button type="button" onClick={() => void createPlansFromTemplate()}>
                 {t('compCreatePlansFromTemplate')}
@@ -669,27 +727,30 @@ function CompetencyAdmin() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-2">
             {users.length > 0 ? (
-              <div className="space-y-1">
-                <Label htmlFor="review-user-select">{t('compReviewUser')}</Label>
-                <select
-                  id="review-user-select"
-                  className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-                  value={reviewUserId}
-                  onChange={(e) => setReviewUserId(e.target.value)}
+              <Field>
+                <FieldLabel id="review-user-select-label">{t('compReviewUser')}</FieldLabel>
+                <Select
+                  value={reviewUserId === '' ? 'none' : reviewUserId}
+                  onValueChange={(v) => setReviewUserId(v === 'none' || v === null ? '' : v)}
                 >
-                  <option value="">—</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} ({u.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <SelectTrigger aria-labelledby="review-user-select-label" className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">—</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.username} ({u.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
             ) : null}
-            <div className="space-y-1">
-              <Label htmlFor="review-user-id">{t('compReviewUserId')}</Label>
+            <Field>
+              <FieldLabel htmlFor="review-user-id">{t('compReviewUserId')}</FieldLabel>
               <Input id="review-user-id" value={reviewUserId} onChange={(e) => setReviewUserId(e.target.value)} />
-            </div>
+            </Field>
             <Button
               type="button"
               onClick={() =>
@@ -854,6 +915,7 @@ export function LearningPlanPage() {
   ];
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     if (!user) return;
@@ -862,8 +924,10 @@ export function LearningPlanPage() {
   }, [user]);
 
   useEffect(() => {
-    void reload().catch(() => setError(t('plansLoadFailed')));
-  }, [reload]);
+    void reload()
+      .catch(() => setError(t('plansLoadFailed')))
+      .finally(() => setLoading(false));
+  }, [reload, t]);
 
   async function open(plan: PlanView) {
     const d = await apiJson<PlanDetail>(`/api/v1/competencies/plans/${plan.id}`);
@@ -886,31 +950,69 @@ export function LearningPlanPage() {
   }
 
   return (
-    <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      {error ? <p role="alert">{error}</p> : null}
-      {message ? <p>{message}</p> : null}
+    <PageShell width="wide">
+      <PageHeader title={t('myLearningPlans')} />
+      {error ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                void reload()
+                  .catch(() => setError(t('plansLoadFailed')))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </div>
+        </>
+      ) : null}
+      {message ? (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : null}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('myLearningPlans')}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-2">
-          <ul className="space-y-1" aria-label={t('learningPlansLabel')}>
-            {plans.map((p) => (
-              <li key={p.id} className="flex items-center gap-3 text-sm">
-                <span className="font-medium">{p.name}</span>
-                <span>{PLAN_STATUS[p.status] ?? p.status}</span>
-                <Button type="button" variant="outline" onClick={() => void open(p)}>
-                  {t('view')}
-                </Button>
-                {p.status === 1 ? (
-                  <Button type="button" variant="outline" onClick={() => void requestReview(p.id)}>
-                    {t('requestPlanReview')}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-            {plans.length === 0 ? <li>{t('noLearningPlans')}</li> : null}
-          </ul>
+          {loading ? (
+            <div className="space-y-2" aria-label={t('loading')}>
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : (
+            <>
+              <ul className="space-y-1" aria-label={t('learningPlansLabel')}>
+                {plans.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 text-sm">
+                    <span className="font-medium">{p.name}</span>
+                    <span>{PLAN_STATUS[p.status] ?? p.status}</span>
+                    <Button type="button" variant="outline" onClick={() => void open(p)}>
+                      {t('view')}
+                    </Button>
+                    {p.status === 1 ? (
+                      <Button type="button" variant="outline" onClick={() => void requestReview(p.id)}>
+                        {t('requestPlanReview')}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {plans.length === 0 ? (
+                <Empty className="p-6">
+                  <EmptyHeader>
+                    <EmptyTitle>{t('noLearningPlans')}</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
       {detail ? (
@@ -934,7 +1036,7 @@ export function LearningPlanPage() {
         </Card>
       ) : null}
       {perms.canAdminister ? <CompetencyAdmin /> : null}
-    </main>
+    </PageShell>
   );
 }
 
