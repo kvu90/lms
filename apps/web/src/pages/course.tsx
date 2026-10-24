@@ -56,7 +56,10 @@ interface MyProgressView {
   percent: number | null;
   completed: number;
   total: number;
-  sections: { sectionId: string; percent: number | null; completed: number; total: number }[];
+  sections: {
+    sectionId: string; percent: number | null; completed: number; total: number;
+    items: { cmId: string; completion: number; done: boolean }[];
+  }[];
   resume: { cmId: string; reason: string } | null;
 }
 
@@ -253,6 +256,22 @@ export function CoursePage() {
                   <Button type="button" size="sm">{t('learnContinue')}</Button>
                 </Link>
               ) : null}
+              {(() => {
+                // Ôn lại (K2-B6): lối vào riêng tới mục chưa xong đầu
+                // tiên của section yếu nhất — khác lối "Học tiếp".
+                const weakest = [...progress.sections]
+                  .filter((s) => s.percent !== null && s.percent < 100)
+                  .sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];
+                const target = weakest?.items.find((i) => i.completion !== 0 && !i.done);
+                return target && target.cmId !== progress.resume?.cmId ? (
+                  <Link to={`/courses/${id}/learn/${target.cmId}`} className="text-sm underline">
+                    {t('reviewWeakest')}
+                  </Link>
+                ) : null;
+              })()}
+              <Link to={`/courses/${id}/progress`} className="text-sm underline">
+                {t('progressReportLink')}
+              </Link>
             </CardContent>
           ) : null}
         </Card>

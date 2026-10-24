@@ -25,12 +25,13 @@ interface PlayerView {
     | { type: 'page'; page: { id: string; name: string; content: string } }
     | {
         type: 'resource';
-        resource: { id: string; name: string; kind: string; url: string | null };
+        resource: { id: string; name: string; kind: string; url: string | null; transcript: string | null };
         file: { id: string; fileName: string; mimeType: string | null; fileSize: number; signedUrl: string } | null;
         embedUrl: string | null;
       }
     | { type: 'other'; component: string };
-  completion: { state: number; viewed: boolean; mode: 'view' | 'manual' | 'none' };
+  completion: { state: number; viewed: boolean; mode: 'view' | 'manual' | 'progress' | 'none' };
+  itemProgress: { percent: number; positionSeconds: number | null; page: number | null } | null;
   progress: {
     percent: number | null;
     completed: number;
@@ -54,12 +55,72 @@ function isInlineMime(mime: string | null): boolean {
   return mime === 'application/pdf' || (mime?.startsWith('image/') ?? false) || (mime?.startsWith('video/') ?? false);
 }
 
+function isHls(fileName: string, mime: string | null): boolean {
+  return fileName.toLowerCase().endsWith('.m3u8') || mime === 'application/vnd.apple.mpegurl' || mime === 'application/x-mpegurl';
+}
+
+/**
+ * Hàng đợi gửi bù sự kiện học (K2-B2): view/progress là hồ sơ quá
+ * trình học — khi mạng rớt, sự kiện được giữ trong localStorage và
+ * gửi lại khi có mạng hoặc lần mở player sau, học sinh mạng yếu
+ * không bị mất tiến độ đã học thật.
+ */
+const QUEUE_KEY = 'lms-learn-event-queue';
+interface QueuedEvent { path: string; body: string }
+
+function enqueueEvent(event: QueuedEvent): void {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    const queue: QueuedEvent[] = raw ? (JSON.parse(raw) as QueuedEvent[]) : [];
+    queue.push(event);
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-100)));
+  } catch {
+    // localStorage không dùng được (chế độ riêng tư…) — bỏ qua lặng lẽ.
+  }
+}
+
+async function flushEventQueue(): Promise<void> {
+  let queue: QueuedEvent[] = [];
+  try {
+    queue = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? '[]') as QueuedEvent[];
+  } catch {
+    return;
+  }
+  if (!queue.length) return;
+  const remaining: QueuedEvent[] = [];
+  for (const event of queue) {
+    try {
+      await apiJson(event.path, { method: 'POST', body: event.body });
+    } catch {
+      remaining.push(event);
+    }
+  }
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+  } catch {
+    // Bỏ qua như trên.
+  }
+}
+
+/** Gửi một sự kiện học; thất bại (rớt mạng) thì vào hàng đợi gửi bù. */
+async function postLearningEvent(path: string, body: unknown): Promise<boolean> {
+  try {
+    await apiJson(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
+    return true;
+  } catch {
+    enqueueEvent({ path, body: JSON.stringify(body ?? {}) });
+    return false;
+  }
+}
+
+const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
+
 /**
  * Trang học (player) của K2: nội dung của một mục khoá học kèm outline
  * kề bên (dấu ✓ theo completion của chính học sinh), nút Trước/Tiếp, tự
- * ghi nhận đã xem qua endpoint /view sẵn có cho mục hoàn thành theo
- * lượt xem, và nút "Đánh dấu đã học" cho mục hoàn thành thủ công (nội
- * dung không tự đo được như liên kết ngoài).
+ * ghi nhận đã xem qua endpoint /view sẵn có, báo tiến độ xem cho video
+ * (lưu bền + gửi bù khi rớt mạng, phát tiếp đúng vị trí dở, đổi tốc độ
+ * phát), và nút "Đánh dấu đã học" cho mục hoàn thành thủ công.
  */
 export function PlayerPage() {
   const { t } = useTranslation('app');
@@ -68,10 +129,14 @@ export function PlayerPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [rate, setRate] = useState(1);
   const viewedPostedFor = useRef<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastProgressSentAt = useRef(0);
 
   const load = useCallback(async () => {
     if (!id || !cmId) return;
+    await flushEventQueue();
     const view = await probe<PlayerView>(`/api/v1/courses/${id}/player/${cmId}`);
     if (!view) {
       setError(t('playerLoadFailed'));
@@ -82,12 +147,10 @@ export function PlayerPage() {
     // Tự ghi nhận đã xem qua endpoint /view sẵn có — một lần cho mỗi mục.
     if (view.completion.mode === 'view' && !view.completion.viewed && viewedPostedFor.current !== cmId) {
       viewedPostedFor.current = cmId;
-      try {
-        await apiJson(`/api/v1/courses/${id}/modules/${cmId}/view`, { method: 'POST' });
+      const sent = await postLearningEvent(`/api/v1/courses/${id}/modules/${cmId}/view`, {});
+      if (sent) {
         const refreshed = await probe<PlayerView>(`/api/v1/courses/${id}/player/${cmId}`);
         if (refreshed) setData(refreshed);
-      } catch {
-        // Ghi nhận xem thất bại không chặn việc học; tiến độ cập nhật ở lần tải sau.
       }
     }
   }, [id, cmId, t]);
@@ -96,12 +159,21 @@ export function PlayerPage() {
     void load();
   }, [load]);
 
-  // Tệp xem trực tuyến: tải nội dung qua endpoint có kiểm quyền rồi phát
-  // bằng blob URL (PDF/ảnh/video); dọn URL khi đổi mục.
-  const fileId = data?.content.type === 'resource' ? data.content.file?.id : undefined;
-  const fileMime = data?.content.type === 'resource' ? data.content.file?.mimeType : undefined;
+  // Có mạng trở lại thì gửi bù hàng đợi sự kiện học.
   useEffect(() => {
-    if (!fileId || !isInlineMime(fileMime ?? null)) {
+    const onOnline = () => void flushEventQueue();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
+
+  // Tệp xem trực tuyến: tải nội dung qua endpoint có kiểm quyền rồi phát
+  // bằng blob URL (PDF/ảnh/video thường); HLS (.m3u8) phát thẳng bằng
+  // URL đã ký để trình duyệt tự chọn mốc bitrate theo mạng. Dọn URL khi
+  // đổi mục.
+  const file = data?.content.type === 'resource' ? data.content.file : undefined;
+  const hls = file ? isHls(file.fileName, file.mimeType) : false;
+  useEffect(() => {
+    if (!file || hls || !isInlineMime(file.mimeType)) {
       setFileUrl(null);
       return;
     }
@@ -109,7 +181,7 @@ export function PlayerPage() {
     let objectUrl: string | null = null;
     void (async () => {
       try {
-        const res = await apiFetch(`/api/v1/files/${fileId}/content`);
+        const res = await apiFetch(`/api/v1/files/${file.id}/content`);
         if (!res.ok) return;
         const blob = await res.blob();
         objectUrl = URL.createObjectURL(blob);
@@ -122,7 +194,34 @@ export function PlayerPage() {
       alive = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [fileId, fileMime]);
+  }, [file, hls]);
+
+  /** Báo tiến độ xem video: % đã xem + vị trí hiện tại (gửi bù khi rớt mạng). */
+  const reportVideoProgress = useCallback(
+    (force = false) => {
+      const video = videoRef.current;
+      if (!video || !id || !cmId || !video.duration) return;
+      const now = Date.now();
+      if (!force && now - lastProgressSentAt.current < 5000) return;
+      lastProgressSentAt.current = now;
+      void postLearningEvent(`/api/v1/courses/${id}/modules/${cmId}/progress`, {
+        percent: Math.min(100, Math.round((video.currentTime / video.duration) * 100)),
+        positionSeconds: Math.floor(video.currentTime),
+      });
+    },
+    [id, cmId],
+  );
+
+  // Phát tiếp đúng vị trí dở + áp tốc độ phát đã chọn khi video sẵn sàng.
+  const resumeAt = data?.itemProgress?.positionSeconds ?? null;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = rate;
+    if (resumeAt && video.currentTime < 1 && Math.abs(video.currentTime - resumeAt) > 2) {
+      video.currentTime = resumeAt;
+    }
+  }, [data, rate, resumeAt]);
 
   /** "Đánh dấu đã học" cho mục hoàn thành thủ công: gọi endpoint manual sẵn có với chính mình. */
   async function markLearned() {
@@ -158,6 +257,9 @@ export function PlayerPage() {
   }
 
   const { content } = data;
+  const videoSrc = content.type === 'resource' && content.file
+    ? (hls ? content.file.signedUrl : fileUrl)
+    : null;
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -183,12 +285,36 @@ export function PlayerPage() {
             ) : null}
             {content.type === 'resource' && content.file ? (
               <div className="space-y-3">
-                {fileUrl && content.file.mimeType === 'application/pdf' ? (
+                {content.file.mimeType === 'application/pdf' && fileUrl ? (
                   <iframe title={content.file.fileName} src={fileUrl} className="h-[70vh] w-full rounded border" />
-                ) : fileUrl && content.file.mimeType?.startsWith('image/') ? (
+                ) : content.file.mimeType?.startsWith('image/') && fileUrl ? (
                   <img src={fileUrl} alt={content.file.fileName} className="max-w-full rounded border" />
-                ) : fileUrl && content.file.mimeType?.startsWith('video/') ? (
-                  <video src={fileUrl} controls className="w-full rounded border" />
+                ) : content.file.mimeType?.startsWith('video/') || hls ? (
+                  <div className="space-y-2">
+                    {videoSrc ? (
+                      <video
+                        ref={videoRef}
+                        src={videoSrc}
+                        controls
+                        className="w-full rounded border"
+                        onTimeUpdate={() => reportVideoProgress()}
+                        onPause={() => reportVideoProgress(true)}
+                        onEnded={() => reportVideoProgress(true)}
+                      />
+                    ) : null}
+                    <label className="flex items-center gap-2 text-sm">
+                      {t('playerSpeed')}
+                      <select
+                        className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                        value={rate}
+                        onChange={(e) => setRate(Number(e.target.value))}
+                      >
+                        {PLAYBACK_RATES.map((r) => (
+                          <option key={r} value={r}>{r}x</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 ) : null}
                 <p className="text-sm text-muted-foreground">
                   {content.file.fileName} ({Math.ceil(content.file.fileSize / 1024)} KB)
@@ -196,6 +322,12 @@ export function PlayerPage() {
                 <a href={content.file.signedUrl} className="underline">
                   {t('playerDownload')}
                 </a>
+                {content.resource.transcript ? (
+                  <details>
+                    <summary className="cursor-pointer text-sm font-medium">{t('playerTranscript')}</summary>
+                    <div className="mt-2 whitespace-pre-wrap text-sm">{content.resource.transcript}</div>
+                  </details>
+                ) : null}
               </div>
             ) : null}
             {content.type === 'resource' && !content.file ? (
@@ -213,6 +345,12 @@ export function PlayerPage() {
                   <a href={content.resource.url} target="_blank" rel="noreferrer" className="underline">
                     {t('playerOpenLink')}
                   </a>
+                ) : null}
+                {content.resource.transcript ? (
+                  <details>
+                    <summary className="cursor-pointer text-sm font-medium">{t('playerTranscript')}</summary>
+                    <div className="mt-2 whitespace-pre-wrap text-sm">{content.resource.transcript}</div>
+                  </details>
                 ) : null}
               </div>
             ) : null}
