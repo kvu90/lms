@@ -326,6 +326,61 @@ describe('Content bank library (CB-1, issue #69)', () => {
     expect(bogus.body.code).toBe('contentbank.derived_from_not_found');
   });
 
+  it('derived_from cannot point to itself or form a cycle, and self-derived school items fail the submit gate (CB1-B1)', async () => {
+    const mkPersonal = async (extra: Record<string, unknown> = {}) => {
+      const res = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+        name: uniqueName('Hoc lieu vong dan xuat'), resourceType: 'reference', scope: 'personal', ...extra,
+      });
+      expect(res.status).toBe(201);
+      return res.body.id as string;
+    };
+    const aId = await mkPersonal();
+    const bId = await mkPersonal();
+
+    // Tự tham chiếu qua update → bị chặn, bản ghi giữ derivedFromId null.
+    const selfRef = await http(app).patch(`/api/v1/contentbank/${aId}`).set(bearer(authorToken))
+      .send({ sourceKind: 'derived', derivedFromId: aId });
+    expect(selfRef.status).toBe(400);
+    expect(selfRef.body.code).toBe('contentbank.derived_from_self_reference');
+    const afterSelf = await http(app).get(`/api/v1/contentbank/${aId}`).set(bearer(authorToken));
+    expect(afterSelf.body.derivedFromId).toBeNull();
+
+    // Chuỗi hợp lệ A → B vẫn qua (derived hợp lệ không bị chặn oan).
+    const linkA = await http(app).patch(`/api/v1/contentbank/${aId}`).set(bearer(authorToken))
+      .send({ sourceKind: 'derived', derivedFromId: bId });
+    expect(linkA.status).toBe(200);
+    expect(linkA.body.derivedFromId).toBe(bId);
+
+    // Vòng 2 nút B → A (trong khi A → B) → bị chặn ở cả update lẫn create-kèm-chuỗi:
+    // update B trỏ về A tạo vòng A→B→A.
+    const cycle = await http(app).patch(`/api/v1/contentbank/${bId}`).set(bearer(authorToken))
+      .send({ sourceKind: 'derived', derivedFromId: aId });
+    expect(cycle.status).toBe(400);
+    expect(cycle.body.code).toBe('contentbank.derived_from_cycle');
+    const afterCycle = await http(app).get(`/api/v1/contentbank/${bId}`).set(bearer(authorToken));
+    expect(afterCycle.body.derivedFromId).toBeNull();
+
+    // Cổng submit B1 không bị phá: học liệu trường khai derived trỏ về
+    // chính mình bị chặn ngay ở update nên derivedFromId vẫn trống →
+    // gửi duyệt vẫn 400 metadata_incomplete (thiếu derivedFromId thật).
+    const school = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
+      name: uniqueName('Tai lieu truong tu dan xuat'), resourceType: 'multimedia_lecture', scope: 'school',
+      subjectId, grade: 10, level: 'upper_secondary', curriculumNodeId: nodeId, ...pedagogicalMeta,
+      originalAuthor: 'Nguyễn Văn A', sourceKind: 'derived', license: 'Chỉ dùng nội bộ trường',
+    });
+    expect(school.status).toBe(201);
+    const schoolId = school.body.id as string;
+    await http(app).post(`/api/v1/contentbank/${schoolId}/file`).set(bearer(authorToken)).send(fileBody);
+    const cheat = await http(app).patch(`/api/v1/contentbank/${schoolId}`).set(bearer(authorToken))
+      .send({ derivedFromId: schoolId });
+    expect(cheat.status).toBe(400);
+    expect(cheat.body.code).toBe('contentbank.derived_from_self_reference');
+    const submit = await http(app).post(`/api/v1/contentbank/${schoolId}/submit`).set(bearer(authorToken)).send({});
+    expect(submit.status).toBe(400);
+    expect(submit.body.code).toBe('contentbank.metadata_incomplete');
+    expect(String(submit.body.detail ?? submit.body.message ?? '')).toContain('derivedFromId');
+  });
+
   it('question_set items only reference the question bank and cannot be inserted as course resources', async () => {
     const created = await http(app).post('/api/v1/contentbank').set(bearer(authorToken)).send({
       name: uniqueName('Bo cau hoi tham chieu'), resourceType: 'question_set', scope: 'personal',

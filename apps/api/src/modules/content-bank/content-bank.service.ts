@@ -230,6 +230,37 @@ export class ContentBankService {
     }
   }
 
+  /** Giới hạn độ sâu duyệt chuỗi dẫn xuất khi chống vòng (CB1-B1). */
+  private static readonly DERIVED_CHAIN_MAX_DEPTH = 32;
+
+  /**
+   * Kiểm tra `derivedFromId` (CB1-B1): đích phải tồn tại, không được là
+   * chính bản ghi đang ghi, và chuỗi dẫn xuất của đích không được có vòng
+   * (kể cả vòng quay về chính bản ghi). Không có các chặn này, học liệu
+   * trường khai sourceKind='derived' có thể trỏ về chính mình để đạt yêu
+   * cầu "phải có derivedFromId" khi gửi duyệt — làm rỗng cổng B1.
+   */
+  private async assertDerivedFromValid(selfId: string | null, derivedFromId: string): Promise<void> {
+    if (selfId && derivedFromId === selfId) {
+      throw new BadRequestException({ message: 'An item cannot be derived from itself', code: 'contentbank.derived_from_self_reference' });
+    }
+    let current = await this.repo.get(derivedFromId);
+    if (!current) {
+      throw new BadRequestException({ message: `Derived-from item ${derivedFromId} not found`, code: 'contentbank.derived_from_not_found' });
+    }
+    const visited = new Set<string>(selfId ? [selfId, derivedFromId] : [derivedFromId]);
+    for (let depth = 0; current.derivedFromId; depth++) {
+      const nextId = current.derivedFromId;
+      if (visited.has(nextId) || depth >= ContentBankService.DERIVED_CHAIN_MAX_DEPTH) {
+        throw new BadRequestException({ message: `Derived-from chain is cyclic or too deep at item ${nextId}`, code: 'contentbank.derived_from_cycle' });
+      }
+      visited.add(nextId);
+      const next = await this.repo.get(nextId);
+      if (!next) break; // Đích của một mắt xích đã bị xoá (FK set null chưa kịp áp) — chuỗi đứt là hợp lệ.
+      current = next;
+    }
+  }
+
   async create(actorId: string, input: LibraryItemInput): Promise<ContentRow> {
     const scope = input.scope ?? 'personal';
     if (!SCOPES.includes(scope as never)) throw new BadRequestException({ message: `Unknown scope ${scope}`, code: 'contentbank.bad_scope' });
@@ -237,9 +268,7 @@ export class ContentBankService {
       throw new BadRequestException({ message: `Unknown resourceType ${input.resourceType}`, code: 'contentbank.bad_resource_type' });
     }
     this.assertEnumFields(input);
-    if (input.derivedFromId && !(await this.repo.get(input.derivedFromId))) {
-      throw new BadRequestException({ message: `Derived-from item ${input.derivedFromId} not found`, code: 'contentbank.derived_from_not_found' });
-    }
+    if (input.derivedFromId) await this.assertDerivedFromValid(null, input.derivedFromId);
     if (scope === 'org' && input.spaceId) await this.assertOrgMembership(actorId, input.spaceId);
     const contextId = input.contextId ?? (await this.resolveContext(actorId, scope, input.spaceId));
     await this.evaluator.requireCapability(actorId, 'contentbank:upload', contextId);
@@ -297,9 +326,9 @@ export class ContentBankService {
     if (input.resourceType && !RESOURCE_TYPES.includes(input.resourceType as never)) {
       throw new BadRequestException({ message: `Unknown resourceType ${input.resourceType}`, code: 'contentbank.bad_resource_type' });
     }
-    if (input.derivedFromId && input.derivedFromId !== row.derivedFromId && !(await this.repo.get(input.derivedFromId))) {
-      throw new BadRequestException({ message: `Derived-from item ${input.derivedFromId} not found`, code: 'contentbank.derived_from_not_found' });
-    }
+    // Kiểm kể cả khi derivedFromId không đổi so với bản ghi hiện tại: dữ
+    // liệu cũ (trước khi có chặn) có thể đã chứa tự tham chiếu/vòng.
+    if (input.derivedFromId) await this.assertDerivedFromValid(id, input.derivedFromId);
     const changes: Partial<typeof row> = {
       name: input.name ?? row.name,
       visibility: input.visibility ?? row.visibility,
