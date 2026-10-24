@@ -525,8 +525,12 @@ export class GradesService implements OnModuleInit {
 
   /**
    * Đặt điểm cho user tại item: kiểm capability grade:edit, ghi lịch sử, kích hoạt regrade.
+   * `options` (GB-VN-2) cho luồng nghiệp vụ phía trên ghi đúng nguồn truy vết
+   * vào history (`source`) và đặt cờ overridden khi giá trị vào sổ là quyết
+   * định sửa tay của giáo viên (sửa-chốt ứng viên); không truyền options thì
+   * hành vi giữ nguyên hệt bản gốc (source 'manual', overridden=false).
    */
-  async setGrade(actorId: string, itemId: string, userId: string, input: { rawGrade?: number | null; feedback?: string }): Promise<GradeRow> {
+  async setGrade(actorId: string, itemId: string, userId: string, input: { rawGrade?: number | null; feedback?: string }, options?: { source?: string; overridden?: boolean }): Promise<GradeRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'grade:edit', item.courseId);
     if (item.itemType === 'course' || item.itemType === 'category' || item.itemType === 'calculated') {
@@ -543,7 +547,7 @@ export class GradesService implements OnModuleInit {
     }
     const existing = await this.repo.getGrade(itemId, userId);
     if (existing?.locked) throw new ForbiddenException({ message: 'This grade is locked', code: 'grades.grade_locked' });
-    if (existing?.overridden) throw new ForbiddenException({ message: 'This grade is overridden; clear the override before entering a grade', code: 'grades.grade_overridden' });
+    if (existing?.overridden && options?.overridden !== true) throw new ForbiddenException({ message: 'This grade is overridden; clear the override before entering a grade', code: 'grades.grade_overridden' });
     const raw = input.rawGrade ?? null;
     if (raw !== null && (raw < item.gradeMin - 1e-9 || raw > item.gradeMax + 1e-9)) {
       // Moodle clamps out-of-range raw grades into the item range on entry.
@@ -556,13 +560,13 @@ export class GradesService implements OnModuleInit {
         itemId: itemId, userId: userId, rawGrade: clampedRaw, rawGradeMin: item.gradeMin, rawGradeMax: item.gradeMax,
         finalGrade, feedback: input.feedback ?? existing?.feedback ?? null,
         hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
-        overridden: false, excluded: existing?.excluded ?? false, frozen,
+        overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false, frozen,
         aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
       }, tx as never);
       await this.repo.insertHistory({
         action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
-        rawGrade: clampedRaw, finalGrade, overridden: false, excluded: existing?.excluded ?? false,
-        frozen, source: 'manual', loggedUser: actorId,
+        rawGrade: clampedRaw, finalGrade, overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false,
+        frozen, source: options?.source ?? 'manual', loggedUser: actorId,
       }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'grades', type: 'grade_updated',

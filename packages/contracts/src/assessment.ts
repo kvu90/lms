@@ -455,6 +455,44 @@ export const finalizeVnYearResultSchema = z.strictObject({
 });
 export type FinalizeVnYearResult = z.infer<typeof finalizeVnYearResultSchema>;
 
+/**
+ * Payload khai vai trò điểm cho một hoạt động vào sổ VN (GB-VN-2, issue #104):
+ * gắn course module `cmId` (quiz/assignment — hoạt động đã có grade item loại
+ * `mod`) vào cột đích của sổ. Vai `dgtx` bắt buộc kèm `ordinal` (thứ tự cột
+ * ĐĐGtx 1..quota của sổ); `dggk`/`dgck` là cột đơn, không kèm ordinal.
+ */
+export const createVnActivityMappingSchema = z.strictObject({
+  cmId: uuidIdSchema,
+  role: z.enum(['dgtx', 'dggk', 'dgck']),
+  ordinal: z.number().int().min(1).max(99).optional(),
+});
+export type CreateVnActivityMapping = z.infer<typeof createVnActivityMappingSchema>;
+
+/**
+ * Payload chốt một ứng viên điểm vào cột (GB-VN-2): bỏ trống `value` thì chốt
+ * đúng giá trị đã quy đổi thang 10 từ điểm hoạt động; truyền `value` là GV sửa
+ * trước khi chốt — giá trị vào cột mang cờ overridden của engine.
+ */
+export const commitVnCandidateSchema = z.strictObject({
+  value: z.number().min(0).max(10).optional(),
+});
+export type CommitVnCandidate = z.infer<typeof commitVnCandidateSchema>;
+
+/** Payload bỏ qua một ứng viên điểm (GB-VN-2): không có tham số — ứng viên chỉ hiện lại khi điểm hoạt động thay đổi. */
+export const dismissVnCandidateSchema = z.strictObject({});
+export type DismissVnCandidate = z.infer<typeof dismissVnCandidateSchema>;
+
+/**
+ * Payload đặt trạng thái kiểm tra bù cho một cột định kì (ĐĐGgk/ĐĐGck) của một
+ * học sinh (GB-VN-2, Điều 7.4–7.5 TT 22): `awaiting_makeup` = chờ kiểm tra bù
+ * (chặn chốt sổ bằng mã riêng); `zero` = ghi hẳn 0 điểm theo Điều 7.5;
+ * `clear` = gỡ đánh dấu chờ bù.
+ */
+export const setVnMakeupStatusSchema = z.strictObject({
+  state: z.enum(['awaiting_makeup', 'zero', 'clear']),
+});
+export type SetVnMakeupStatus = z.infer<typeof setVnMakeupStatusSchema>;
+
 /** Một mốc chữ cái trong thang điểm chữ (grade letter). */
 export const gradeLetterBoundarySchema = z.strictObject({
   letter: z.string().min(1),

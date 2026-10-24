@@ -667,6 +667,37 @@ CREATE TABLE "scales" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "vn_activity_mappings" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course_id" uuid NOT NULL,
+	"book_id" uuid NOT NULL,
+	"cm_id" uuid NOT NULL CONSTRAINT "vn_activity_mappings_cm_unique" UNIQUE,
+	"item_id" uuid NOT NULL,
+	"target_item_id" uuid NOT NULL,
+	"role" text NOT NULL,
+	"ordinal" integer,
+	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "vn_candidate_actions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"course_id" uuid NOT NULL,
+	"book_id" uuid NOT NULL,
+	"mapping_id" uuid,
+	"target_item_id" uuid NOT NULL,
+	"source_item_id" uuid,
+	"user_id" uuid NOT NULL,
+	"action" text NOT NULL,
+	"source_grade_value" double precision,
+	"source_grade_updated_at" timestamp with time zone,
+	"converted_grade" double precision,
+	"committed_value" double precision,
+	"actor_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "vn_gradebooks" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"course_id" uuid NOT NULL,
@@ -2202,6 +2233,17 @@ CREATE INDEX "grade_items_outcome_id_idx" ON "grade_items" ("outcome_id");--> st
 CREATE INDEX "grade_outcomes_course_id_idx" ON "grade_outcomes" ("course_id");--> statement-breakpoint
 CREATE INDEX "grade_outcomes_scale_id_idx" ON "grade_outcomes" ("scale_id");--> statement-breakpoint
 CREATE INDEX "scales_course_id_idx" ON "scales" ("course_id");--> statement-breakpoint
+CREATE INDEX "vn_activity_mappings_course_id_idx" ON "vn_activity_mappings" ("course_id");--> statement-breakpoint
+CREATE INDEX "vn_activity_mappings_book_id_idx" ON "vn_activity_mappings" ("book_id");--> statement-breakpoint
+CREATE INDEX "vn_activity_mappings_cm_id_idx" ON "vn_activity_mappings" ("cm_id");--> statement-breakpoint
+CREATE INDEX "vn_activity_mappings_item_id_idx" ON "vn_activity_mappings" ("item_id");--> statement-breakpoint
+CREATE INDEX "vn_activity_mappings_target_item_id_idx" ON "vn_activity_mappings" ("target_item_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_course_id_idx" ON "vn_candidate_actions" ("course_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_book_id_idx" ON "vn_candidate_actions" ("book_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_mapping_id_idx" ON "vn_candidate_actions" ("mapping_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_target_item_id_idx" ON "vn_candidate_actions" ("target_item_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_source_item_id_idx" ON "vn_candidate_actions" ("source_item_id");--> statement-breakpoint
+CREATE INDEX "vn_candidate_actions_user_id_idx" ON "vn_candidate_actions" ("user_id");--> statement-breakpoint
 CREATE INDEX "vn_gradebooks_course_id_idx" ON "vn_gradebooks" ("course_id");--> statement-breakpoint
 CREATE INDEX "vn_gradebooks_category_id_idx" ON "vn_gradebooks" ("category_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_book_id_idx" ON "vn_term_results" ("book_id");--> statement-breakpoint
@@ -2489,6 +2531,16 @@ ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_outcome_id_grade_outcomes_
 ALTER TABLE "grade_items" ADD CONSTRAINT "grade_items_vn_book_id_vn_gradebooks_id_fkey" FOREIGN KEY ("vn_book_id") REFERENCES "vn_gradebooks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "grade_outcomes" ADD CONSTRAINT "grade_outcomes_scale_id_scales_id_fkey" FOREIGN KEY ("scale_id") REFERENCES "scales"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "vn_activity_mappings" ADD CONSTRAINT "vn_activity_mappings_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_activity_mappings" ADD CONSTRAINT "vn_activity_mappings_book_id_vn_gradebooks_id_fkey" FOREIGN KEY ("book_id") REFERENCES "vn_gradebooks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_activity_mappings" ADD CONSTRAINT "vn_activity_mappings_cm_id_course_modules_id_fkey" FOREIGN KEY ("cm_id") REFERENCES "course_modules"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_activity_mappings" ADD CONSTRAINT "vn_activity_mappings_item_id_grade_items_id_fkey" FOREIGN KEY ("item_id") REFERENCES "grade_items"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_activity_mappings" ADD CONSTRAINT "vn_activity_mappings_target_item_id_grade_items_id_fkey" FOREIGN KEY ("target_item_id") REFERENCES "grade_items"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_candidate_actions" ADD CONSTRAINT "vn_candidate_actions_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_candidate_actions" ADD CONSTRAINT "vn_candidate_actions_book_id_vn_gradebooks_id_fkey" FOREIGN KEY ("book_id") REFERENCES "vn_gradebooks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_candidate_actions" ADD CONSTRAINT "vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey" FOREIGN KEY ("mapping_id") REFERENCES "vn_activity_mappings"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "vn_candidate_actions" ADD CONSTRAINT "vn_candidate_actions_target_item_id_grade_items_id_fkey" FOREIGN KEY ("target_item_id") REFERENCES "grade_items"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "vn_candidate_actions" ADD CONSTRAINT "vn_candidate_actions_source_item_id_grade_items_id_fkey" FOREIGN KEY ("source_item_id") REFERENCES "grade_items"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "vn_gradebooks" ADD CONSTRAINT "vn_gradebooks_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "vn_gradebooks" ADD CONSTRAINT "vn_gradebooks_category_id_grade_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "grade_categories"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_book_id_vn_gradebooks_id_fkey" FOREIGN KEY ("book_id") REFERENCES "vn_gradebooks"("id") ON DELETE CASCADE;--> statement-breakpoint

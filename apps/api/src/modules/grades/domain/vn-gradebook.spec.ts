@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  classifyLearningLevel, computeDtbCn, computeDtbHk, dgtxQuotaForPeriods,
+  classifyLearningLevel, computeDtbCn, computeDtbHk, convertGradeToScale10, dgtxQuotaForPeriods,
   isCommentOnlySubjectName, round1, type VnSubjectLevelInput,
 } from './vn-gradebook';
 
@@ -121,5 +121,26 @@ describe('quy tắc điều chỉnh Điều 9.3 — nâng 1 mức khi bị hạ 
     expect(result.adjusted).toBe(true);
     expect(result.adjustedDueToSubjectKey).toBe('tc');
     expect(result.level).toBe('Khá');
+  });
+});
+
+describe('quy đổi điểm hoạt động về thang 10 (Điều 5.3b, GB-VN-2)', () => {
+  it('quy đổi tuyến tính theo thang của hoạt động và làm tròn 1 chữ số thập phân', () => {
+    // Số tính tay: 30/40 = 0,75 → 7,5; 18/20 = 0,9 → 9,0; 13/15 = 0,8666… → 8,7.
+    expect(convertGradeToScale10(30, 0, 40)).toBe(7.5);
+    expect(convertGradeToScale10(18, 0, 20)).toBe(9);
+    expect(convertGradeToScale10(13, 0, 15)).toBe(8.7);
+    expect(convertGradeToScale10(7.55, 0, 10)).toBe(7.6);
+  });
+  it('tôn trọng gradeMin khác 0 và kẹp về [0, 10]', () => {
+    // Thang [5, 25]: (15 − 5)/(25 − 5) = 0,5 → 5,0; dưới min → 0; trên max → 10.
+    expect(convertGradeToScale10(15, 5, 25)).toBe(5);
+    expect(convertGradeToScale10(2, 5, 25)).toBe(0);
+    expect(convertGradeToScale10(30, 5, 25)).toBe(10);
+  });
+  it('thang không hợp lệ thì ném lỗi', () => {
+    expect(() => convertGradeToScale10(5, 10, 10)).toThrow();
+    expect(() => convertGradeToScale10(5, 10, 5)).toThrow();
+    expect(() => convertGradeToScale10(Number.NaN, 0, 10)).toThrow();
   });
 });

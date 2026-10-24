@@ -3,13 +3,17 @@ import {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  commitVnCandidateSchema,
+  createVnActivityMappingSchema,
   createVnGradebookSchema,
+  dismissVnCandidateSchema,
   exportGradesVneduSchema,
   finalizeVnTermResultSchema,
   finalizeVnYearResultSchema,
   setGradeLettersSchema,
   setGradeSchema,
   setVnCommentResultSchema,
+  setVnMakeupStatusSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
   updateGradeOutcomeSchema,
@@ -18,13 +22,17 @@ import {
   type CreateGradeItem,
   type CreateGradeOutcome,
   type CreateGradeScale,
+  type CommitVnCandidate,
+  type CreateVnActivityMapping,
   type CreateVnGradebook,
+  type DismissVnCandidate,
   type ExportGradesVnedu,
   type FinalizeVnTermResult,
   type FinalizeVnYearResult,
   type SetGrade,
   type SetGradeLetters,
   type SetVnCommentResult,
+  type SetVnMakeupStatus,
   type UpdateGrade,
   type UpdateGradeCategory,
   type UpdateGradeItem,
@@ -40,13 +48,17 @@ export {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  commitVnCandidateSchema,
+  createVnActivityMappingSchema,
   createVnGradebookSchema,
+  dismissVnCandidateSchema,
   exportGradesVneduSchema,
   finalizeVnTermResultSchema,
   finalizeVnYearResultSchema,
   setGradeLettersSchema,
   setGradeSchema,
   setVnCommentResultSchema,
+  setVnMakeupStatusSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
   updateGradeOutcomeSchema,
@@ -61,6 +73,10 @@ export type UpdateGradeDto = UpdateGrade;
 export type SetLettersDto = SetGradeLetters;
 export type ExportGradesVneduDto = ExportGradesVnedu;
 export type CreateVnGradebookDto = CreateVnGradebook;
+export type CreateVnActivityMappingDto = CreateVnActivityMapping;
+export type CommitVnCandidateDto = CommitVnCandidate;
+export type DismissVnCandidateDto = DismissVnCandidate;
+export type SetVnMakeupStatusDto = SetVnMakeupStatus;
 export type FinalizeVnTermResultDto = FinalizeVnTermResult;
 export type SetVnCommentResultDto = SetVnCommentResult;
 export type FinalizeVnYearResultDto = FinalizeVnYearResult;

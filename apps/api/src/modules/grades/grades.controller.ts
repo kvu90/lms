@@ -6,7 +6,7 @@ import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
 import { VnGradebooksService } from './vn-gradebooks.service';
-import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnGradebookSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, setGradeLettersSchema, setGradeSchema, setVnCommentResultSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnGradebookDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type SetGradeDto, type SetLettersDto, type SetVnCommentResultDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
+import { commitVnCandidateSchema, createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnActivityMappingSchema, createVnGradebookSchema, dismissVnCandidateSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, setGradeLettersSchema, setGradeSchema, setVnCommentResultSchema, setVnMakeupStatusSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CommitVnCandidateDto, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnActivityMappingDto, type CreateVnGradebookDto, type DismissVnCandidateDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type SetGradeDto, type SetLettersDto, type SetVnCommentResultDto, type SetVnMakeupStatusDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -300,6 +300,62 @@ export class VnGradebooksController {
   async setCommentResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: setVnCommentResultSchema }) dto: SetVnCommentResultDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
     return this.vn.setCommentResult(actor.id, bookId, userId, dto);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/activity-mappings')
+  /**
+   * POST .../vn-books/:bookId/activity-mappings — khai vai trò điểm cho một hoạt động vào một cột của sổ (GB-VN-2).
+   */
+  async createActivityMapping(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Body({ schema: createVnActivityMappingSchema }) dto: CreateVnActivityMappingDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.createActivityMapping(actor.id, bookId, dto);
+  }
+  @Get(':courseId/grades/vn-books/:bookId/activity-mappings')
+  /**
+   * GET .../vn-books/:bookId/activity-mappings — các khai vai trò điểm của sổ, kèm truy vết nguồn/đích.
+   */
+  async listActivityMappings(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.listActivityMappings(bookId);
+  }
+  @Delete(':courseId/grades/vn-books/:bookId/activity-mappings/:mappingId')
+  /**
+   * DELETE .../vn-books/:bookId/activity-mappings/:mappingId — gỡ khai vai trò của một hoạt động khỏi sổ.
+   */
+  async deleteActivityMapping(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('mappingId', { schema: uuidIdSchema }) mappingId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.deleteActivityMapping(actor.id, bookId, mappingId);
+  }
+  @Get(':courseId/grades/vn-books/:bookId/candidates')
+  /**
+   * GET .../vn-books/:bookId/candidates — hộp ứng viên điểm của sổ: điểm hoạt động + quy đổi thang 10 + trạng thái quyết định (GB-VN-2).
+   */
+  async listCandidates(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.listCandidates(actor.id, bookId);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/candidates/:mappingId/students/:userId/commit')
+  /**
+   * POST .../candidates/:mappingId/students/:userId/commit — GV chốt ứng viên vào cột (truyền value là sửa-chốt, điểm mang cờ overridden).
+   */
+  async commitCandidate(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('mappingId', { schema: uuidIdSchema }) mappingId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: commitVnCandidateSchema }) dto: CommitVnCandidateDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.commitCandidate(actor.id, bookId, mappingId, userId, dto);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/candidates/:mappingId/students/:userId/dismiss')
+  /**
+   * POST .../candidates/:mappingId/students/:userId/dismiss — GV bỏ qua ứng viên (hiện lại khi điểm hoạt động thay đổi).
+   */
+  async dismissCandidate(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('mappingId', { schema: uuidIdSchema }) mappingId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: dismissVnCandidateSchema }) dto: DismissVnCandidateDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.dismissCandidate(actor.id, bookId, mappingId, userId);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/columns/:itemId/students/:userId/makeup-status')
+  /**
+   * POST .../columns/:itemId/students/:userId/makeup-status — đặt trạng thái kiểm tra bù cho cột định kì: chờ bù / ghi 0 điểm (Điều 7.5) / gỡ đánh dấu (GB-VN-2).
+   */
+  async setMakeupStatus(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('itemId', { schema: uuidIdSchema }) itemId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: setVnMakeupStatusSchema }) dto: SetVnMakeupStatusDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.setMakeupStatus(actor.id, bookId, itemId, userId, dto);
   }
   @Post(':courseId/grades/vn-year-results/:userId/finalize')
   /**

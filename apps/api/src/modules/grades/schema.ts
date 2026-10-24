@@ -11,7 +11,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { course } from '../courses/schema';
+import { course, courseModules } from '../courses/schema';
 
 /**
  * Grade outcomes (Moodle `grade_outcomes`): thang định tính ở mức site (course_id = null)
@@ -264,4 +264,87 @@ export const vnTermResults = pgTable('vn_term_results', {
       index('vn_term_results_book_id_idx').on(table.bookId),
       index('vn_term_results_course_id_idx').on(table.courseId),
       index('vn_term_results_user_id_idx').on(table.userId),
+  ]);
+
+
+/**
+ * Khai vai trò điểm của hoạt động vào sổ VN (GB-VN-2, issue #104): một course
+ * module (quiz/assignment — bất kỳ hoạt động nào có grade item loại 'mod') được
+ * gắn vào đúng MỘT cột đích của một sổ (item cột mang vn_book_id/vn_role/
+ * vn_ordinal của GB-VN-1). Nhiều hoạt động được gắn vào cùng một cột (vd bài
+ * kiểm tra bù là ứng viên thứ hai cho cột ĐĐGgk). Điểm của hoạt động KHÔNG tự
+ * chảy vào cột — hàng này chỉ khai "hoạt động này là ứng viên cho cột nào";
+ * quyết định chốt của giáo viên nằm ở vn_candidate_actions.
+ */
+export const vnActivityMappings = pgTable('vn_activity_mappings', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  bookId: uuid('book_id').notNull().references(() => vnGradebooks.id, { onDelete: 'cascade' }),
+  /** Course module được khai vai trò (course_modules.id). */
+  cmId: uuid('cm_id').notNull().references(() => courseModules.id, { onDelete: 'cascade' }),
+  /** Grade item loại 'mod' của chính hoạt động đó (nguồn điểm ứng viên). */
+  itemId: uuid('item_id').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
+  /** Grade item cột đích trong sổ VN (điểm chốt sẽ ghi vào đây). */
+  targetItemId: uuid('target_item_id').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
+  /** Vai trò cột đích: dgtx | dggk | dgck (khớp vn_role của item đích). */
+  role: text('role').notNull(),
+  /** Thứ tự cột đích khi role = 'dgtx'; null ở dggk/dgck. */
+  ordinal: integer('ordinal'),
+  createdBy: uuid('created_by'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('vn_activity_mappings_course_id_idx').on(table.courseId),
+      index('vn_activity_mappings_book_id_idx').on(table.bookId),
+      index('vn_activity_mappings_cm_id_idx').on(table.cmId),
+      index('vn_activity_mappings_item_id_idx').on(table.itemId),
+      index('vn_activity_mappings_target_item_id_idx').on(table.targetItemId),
+      unique('vn_activity_mappings_cm_unique').on(table.cmId),
+  ]);
+
+
+/**
+ * Vết quyết định của giáo viên trên luồng ứng viên → cột (GB-VN-2, issue #104):
+ * mỗi hàng là một quyết định tại một thời điểm, không sửa đè hàng cũ.
+ * - `commit`: chốt điểm hoạt động vào cột (kèm giá trị nguồn tại lúc chốt để
+ *   đối chiếu vân tay — điểm hoạt động đổi sau đó thì ứng viên hiện lại).
+ * - `dismiss`: bỏ qua ứng viên với vân tay điểm nguồn tại lúc bỏ qua.
+ * - `awaiting_makeup` / `clear_makeup`: đánh dấu / gỡ đánh dấu "chờ kiểm tra
+ *   bù" cho một cột định kì của một học sinh (Điều 7.4); hai action này không
+ *   gắn mapping (mapping_id null) mà gắn thẳng item cột.
+ * - `zero`: ghi hẳn 0 điểm cho cột theo Điều 7.5 (điểm 0 thật nằm ở
+ *   grade_grades; hàng này là vết quyết định).
+ */
+export const vnCandidateActions = pgTable('vn_candidate_actions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  bookId: uuid('book_id').notNull().references(() => vnGradebooks.id, { onDelete: 'cascade' }),
+  /** Khai vai trò liên quan; null ở các action trạng thái cột (chờ bù / 0 điểm). */
+  mappingId: uuid('mapping_id').references(() => vnActivityMappings.id, { onDelete: 'set null' }),
+  /** Item cột đích của quyết định. */
+  targetItemId: uuid('target_item_id').notNull().references(() => gradeItems.id, { onDelete: 'cascade' }),
+  /** Item 'mod' nguồn điểm (chỉ ở commit/dismiss). */
+  sourceItemId: uuid('source_item_id').references(() => gradeItems.id, { onDelete: 'set null' }),
+  userId: uuid('user_id').notNull(),
+  /** commit | dismiss | awaiting_makeup | clear_makeup | zero. */
+  action: text('action').notNull(),
+  /** Vân tay điểm hoạt động tại lúc quyết: giá trị hiệu lực (final ?? raw) trên thang của item nguồn. */
+  sourceGradeValue: doublePrecision('source_grade_value'),
+  /** Thời điểm cập nhật của bản ghi điểm nguồn tại lúc quyết (vân tay thứ hai). */
+  sourceGradeUpdatedAt: timestamp('source_grade_updated_at', { withTimezone: true }),
+  /** Giá trị đã quy đổi thang 10 từ điểm nguồn (ở commit/dismiss). */
+  convertedGrade: doublePrecision('converted_grade'),
+  /** Giá trị thật đã ghi vào cột (ở commit — khác convertedGrade khi GV sửa-chốt; ở zero luôn là 0). */
+  committedValue: doublePrecision('committed_value'),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('vn_candidate_actions_course_id_idx').on(table.courseId),
+      index('vn_candidate_actions_book_id_idx').on(table.bookId),
+      index('vn_candidate_actions_mapping_id_idx').on(table.mappingId),
+      index('vn_candidate_actions_target_item_id_idx').on(table.targetItemId),
+      index('vn_candidate_actions_source_item_id_idx').on(table.sourceItemId),
+      index('vn_candidate_actions_user_id_idx').on(table.userId),
   ]);

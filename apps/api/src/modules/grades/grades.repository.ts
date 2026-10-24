@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, gradeLetters, gradeOutcomes, scales,
-  vnGradebooks, vnTermResults,
+  vnActivityMappings, vnCandidateActions, vnGradebooks, vnTermResults,
 } from '../../db/schema';
 
 export type CategoryRow = typeof gradeCategories.$inferSelect;
@@ -15,6 +15,8 @@ export type ScaleRow = typeof scales.$inferSelect;
 export type OutcomeRow = typeof gradeOutcomes.$inferSelect;
 export type VnBookRow = typeof vnGradebooks.$inferSelect;
 export type VnTermResultRow = typeof vnTermResults.$inferSelect;
+export type VnActivityMappingRow = typeof vnActivityMappings.$inferSelect;
+export type VnCandidateActionRow = typeof vnCandidateActions.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -334,5 +336,49 @@ export class GradesRepository {
    */
   async listVnResultsForUser(userId: string): Promise<VnTermResultRow[]> {
     return this.db.select().from(vnTermResults).where(eq(vnTermResults.userId, userId)).orderBy(asc(vnTermResults.id));
+  }
+
+  // vn activity mappings + candidate actions (GB-VN-2)
+  /**
+   * Chèn khai vai trò điểm của hoạt động vào sổ VN.
+   */
+  async insertVnActivityMapping(v: typeof vnActivityMappings.$inferInsert): Promise<VnActivityMappingRow> {
+    const [row] = await this.db.insert(vnActivityMappings).values(v).returning(); return row!;
+  }
+  /**
+   * Lấy khai vai trò theo id.
+   */
+  async getVnActivityMapping(id: string): Promise<VnActivityMappingRow | undefined> {
+    const [row] = await this.db.select().from(vnActivityMappings).where(eq(vnActivityMappings.id, id)); return row;
+  }
+  /**
+   * Khai vai trò của một course module (duy nhất theo cm — một hoạt động chỉ vào một cột đích).
+   */
+  async findVnActivityMappingByCm(cmId: string): Promise<VnActivityMappingRow | undefined> {
+    const [row] = await this.db.select().from(vnActivityMappings).where(eq(vnActivityMappings.cmId, cmId)); return row;
+  }
+  /**
+   * Các khai vai trò của một sổ VN.
+   */
+  async listVnActivityMappings(bookId: string): Promise<VnActivityMappingRow[]> {
+    return this.db.select().from(vnActivityMappings).where(eq(vnActivityMappings.bookId, bookId)).orderBy(asc(vnActivityMappings.createdAt), asc(vnActivityMappings.id));
+  }
+  /**
+   * Xoá khai vai trò (vết quyết định cũ giữ nguyên — mapping_id trong vn_candidate_actions chuyển null).
+   */
+  async deleteVnActivityMapping(id: string): Promise<void> {
+    await this.db.delete(vnActivityMappings).where(eq(vnActivityMappings.id, id));
+  }
+  /**
+   * Ghi một quyết định của giáo viên trên luồng ứng viên → cột (chỉ thêm, không sửa hàng cũ).
+   */
+  async insertVnCandidateAction(v: typeof vnCandidateActions.$inferInsert): Promise<VnCandidateActionRow> {
+    const [row] = await this.db.insert(vnCandidateActions).values(v).returning(); return row!;
+  }
+  /**
+   * Mọi quyết định đã ghi trong một sổ VN, theo thứ tự thời gian tăng dần.
+   */
+  async listVnCandidateActions(bookId: string): Promise<VnCandidateActionRow[]> {
+    return this.db.select().from(vnCandidateActions).where(eq(vnCandidateActions.bookId, bookId)).orderBy(asc(vnCandidateActions.createdAt), asc(vnCandidateActions.id));
   }
 }

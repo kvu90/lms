@@ -4,12 +4,15 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import {
-  classifyLearningLevel, computeDtbCn, computeDtbHk, dgtxQuotaForPeriods, isCommentOnlySubjectName,
-  VN_COMMENT_EVALUATIONS_PER_TERM, type VnAssessmentMode, type VnClassification, type VnCommentResult,
+  classifyLearningLevel, computeDtbCn, computeDtbHk, convertGradeToScale10, dgtxQuotaForPeriods, isCommentOnlySubjectName,
+  round1, VN_COMMENT_EVALUATIONS_PER_TERM, type VnAssessmentMode, type VnClassification, type VnCommentResult,
   type VnSubjectLevelInput, type VnTerm,
 } from './domain/vn-gradebook';
 import { GradesService } from './grades.service';
-import { GradesRepository, type ItemRow, type VnBookRow, type VnTermResultRow } from './grades.repository';
+import {
+  GradesRepository, type GradeRow, type ItemRow, type VnActivityMappingRow, type VnBookRow,
+  type VnCandidateActionRow, type VnTermResultRow,
+} from './grades.repository';
 
 /** Sổ VN kèm các cột điểm của nó (môn nhận xét không có cột điểm). */
 export interface VnBookView {
@@ -17,12 +20,16 @@ export interface VnBookView {
   items: ItemRow[];
 }
 
-/** Một cột điểm trong lần tính kết quả: vai trò + thứ tự + điểm hiện có (null = chưa có điểm). */
+/** Trạng thái một cột của một học sinh: đã có điểm / GV đánh dấu chờ kiểm tra bù (Điều 7.4) / chưa có điểm. */
+export type VnColumnStatus = 'graded' | 'awaiting_makeup' | 'missing';
+
+/** Một cột điểm trong lần tính kết quả: vai trò + thứ tự + điểm hiện có (null = chưa có điểm) + trạng thái kiểm tra bù. */
 export interface VnColumnScore {
   itemId: string;
   role: string;
   ordinal: number | null;
   grade: number | null;
+  status: VnColumnStatus;
 }
 
 /** Kết quả học kì tính trực tiếp từ điểm cột hiện tại (chưa chốt): đủ cột mới có ĐTBmhk. */
@@ -31,8 +38,63 @@ export interface VnTermComputation {
   userId: string;
   complete: boolean;
   missingRoles: string[];
+  /** Các vai trò cột đang ở trạng thái chờ kiểm tra bù (GB-VN-2) — chốt sổ bị chặn riêng khi danh sách này không rỗng. */
+  awaitingMakeupRoles: string[];
   columns: VnColumnScore[];
   dtbHk: number | null;
+}
+
+/** Khai vai trò điểm của hoạt động vào sổ, kèm mô tả hoạt động nguồn và cột đích để truy vết về bài làm. */
+export interface VnActivityMappingView {
+  id: string;
+  courseId: string;
+  bookId: string;
+  cmId: string;
+  itemId: string;
+  targetItemId: string;
+  role: string;
+  ordinal: number | null;
+  activityName: string;
+  component: string | null;
+  targetRole: string | null;
+  targetOrdinal: number | null;
+  createdBy: string | null;
+  createdAt: Date;
+}
+
+/** Trạng thái quyết định của giáo viên trên một ứng viên điểm. */
+export type VnCandidateState = 'pending' | 'committed' | 'dismissed';
+
+/** Một ứng viên điểm trong hộp ứng viên của sổ (GB-VN-2): điểm hoạt động + giá trị quy đổi thang 10 + quyết định đã ghi. */
+export interface VnCandidateView {
+  mappingId: string;
+  userId: string;
+  cmId: string;
+  component: string | null;
+  activityName: string;
+  sourceItemId: string;
+  targetItemId: string;
+  targetRole: string | null;
+  targetOrdinal: number | null;
+  activityGrade: number;
+  activityGradeMin: number;
+  activityGradeMax: number;
+  convertedGrade: number;
+  state: VnCandidateState;
+  /** Đã từng có quyết định nhưng điểm hoạt động đã đổi sau đó — ứng viên chờ quyết lại. */
+  activityGradeChanged: boolean;
+  committedValue: number | null;
+  decidedBy: string | null;
+  decidedAt: Date | null;
+}
+
+/** Trạng thái một cột của một học sinh sau thao tác kiểm tra bù / ghi 0 điểm (GB-VN-2). */
+export interface VnColumnStatusView {
+  itemId: string;
+  userId: string;
+  role: string | null;
+  grade: number | null;
+  status: VnColumnStatus;
 }
 
 /** Xếp mức chung của một học sinh trong một kì (hoặc cả năm) theo Điều 9, kèm các môn đầu vào để truy vết. */
@@ -47,9 +109,10 @@ export interface VnStudentClassification extends VnClassification {
  * engine: sổ tự sinh cột theo quota số tiết vào một category weightedmean
  * (hệ số 1/2/3), ĐTB tính ở tầng service theo đúng Điều 9 (dùng ĐTBmhk đã làm
  * tròn để tính ĐTBmcn) và chốt thành bản snapshot trong vn_term_results.
- * Điểm từ hoạt động online KHÔNG tự chảy vào cột ở lát này (chúng chỉ là ứng
- * viên — luồng chốt của giáo viên là GB-VN-2); chuyên cần/tiến độ không bao
- * giờ cộng vào ĐTB (kết luận kiểm chứng âm từ TT 22/TT 27).
+ * Điểm từ hoạt động online KHÔNG tự chảy vào cột: chúng chỉ là ứng viên và
+ * giáo viên là người chốt (GB-VN-2 — khai vai trò, hộp ứng viên, quyết định
+ * lưu vết, trạng thái kiểm tra bù Điều 7.4–7.5); chuyên cần/tiến độ không
+ * bao giờ cộng vào ĐTB (kết luận kiểm chứng âm từ TT 22/TT 27).
  */
 @Injectable()
 export class VnGradebooksService {
@@ -191,10 +254,28 @@ export class VnGradebooksService {
     return { book, items: await this.repo.listItemsByVnBook(book.id) };
   }
 
+  /** Hành động trạng thái cột (chờ bù / gỡ chờ bù / ghi 0) mới nhất cho một (cột, học sinh), nếu có. */
+  private latestMakeupAction(actions: VnCandidateActionRow[], itemId: string, userId: string): VnCandidateActionRow | undefined {
+    let found: VnCandidateActionRow | undefined;
+    for (const a of actions) {
+      if (a.targetItemId === itemId && a.userId === userId && a.mappingId === null
+        && (a.action === 'awaiting_makeup' || a.action === 'clear_makeup' || a.action === 'zero')) found = a;
+    }
+    return found;
+  }
+
+  /** Trạng thái một cột của một học sinh: có điểm → graded; chưa điểm nhưng GV đánh dấu chờ bù → awaiting_makeup; còn lại missing. */
+  private columnStatus(actions: VnCandidateActionRow[], itemId: string, userId: string, value: number | null): VnColumnStatus {
+    if (value !== null) return 'graded';
+    return this.latestMakeupAction(actions, itemId, userId)?.action === 'awaiting_makeup' ? 'awaiting_makeup' : 'missing';
+  }
+
   /**
    * Tính kết quả học kì TRỰC TIẾP từ điểm cột hiện tại của học sinh: thiếu bất
-   * kỳ cột bắt buộc nào thì complete=false và dtbHk=null (không tự điền 0 —
-   * phân biệt "chờ kiểm tra bù" với "0 điểm" là GB-VN-2, Điều 7.4–7.5).
+   * kỳ cột bắt buộc nào thì complete=false và dtbHk=null (không tự điền 0).
+   * Cột chưa có điểm nhưng được GV đánh dấu chờ kiểm tra bù (Điều 7.4, GB-VN-2)
+   * mang trạng thái riêng `awaiting_makeup` để phân biệt với thiếu thường và
+   * với 0 điểm thật (Điều 7.5 — 0 điểm là một grade có giá trị 0).
    */
   async computeTermResult(actorId: string, bookId: string, userId: string): Promise<VnTermComputation> {
     const book = await this.getBook(bookId);
@@ -209,15 +290,19 @@ export class VnGradebooksService {
       throw new BadRequestException({ message: 'Comment-only subjects have no score columns to compute (Điều 5.3a)', code: 'grades.vn_comment_book' });
     }
     const items = await this.repo.listItemsByVnBook(bookId);
+    const actions = await this.repo.listVnCandidateActions(bookId);
     const columns: VnColumnScore[] = [];
     const missingRoles: string[] = [];
+    const awaitingMakeupRoles: string[] = [];
     const dgtx: number[] = [];
     let dggk: number | null = null;
     let dgck: number | null = null;
     for (const item of items) {
       const grade = await this.repo.getGrade(item.id, userId);
       const value = grade?.finalGrade ?? grade?.rawGrade ?? null;
-      columns.push({ itemId: item.id, role: item.vnRole ?? '', ordinal: item.vnOrdinal, grade: value });
+      const status = this.columnStatus(actions, item.id, userId, value);
+      columns.push({ itemId: item.id, role: item.vnRole ?? '', ordinal: item.vnOrdinal, grade: value, status });
+      if (status === 'awaiting_makeup') awaitingMakeupRoles.push(item.vnRole ?? item.itemName);
       if (value === null) { missingRoles.push(item.vnRole ?? item.itemName); continue; }
       if (item.vnRole === 'dgtx') dgtx.push(value);
       else if (item.vnRole === 'dggk') dggk = value;
@@ -225,7 +310,7 @@ export class VnGradebooksService {
     }
     const complete = missingRoles.length === 0 && dgtx.length === book.dgtxQuota && dggk !== null && dgck !== null;
     return {
-      bookId, userId, complete, missingRoles, columns,
+      bookId, userId, complete, missingRoles, awaitingMakeupRoles, columns,
       dtbHk: complete ? computeDtbHk({ dgtx, dggk: dggk!, dgck: dgck! }) : null,
     };
   }
@@ -245,6 +330,12 @@ export class VnGradebooksService {
     const book = await this.getBook(bookId);
     await this.requireCap(actorId, 'grade:edit', book.courseId);
     const computation = await this.computeTermResultUnchecked(book, userId);
+    if (computation.awaitingMakeupRoles.length > 0) {
+      throw new BadRequestException({
+        message: `Cannot finalize: columns awaiting makeup assessment (Điều 7.4) ${computation.awaitingMakeupRoles.join(', ')}`,
+        code: 'grades.vn_result_awaiting_makeup',
+      });
+    }
     if (!computation.complete || computation.dtbHk === null) {
       throw new BadRequestException({
         message: `Cannot finalize: missing grade columns ${computation.missingRoles.join(', ')}`,
@@ -375,5 +466,255 @@ export class VnGradebooksService {
       }
     }
     return { userId, period, subjects, ...classifyLearningLevel(subjects) };
+  }
+
+  // --- GB-VN-2: luồng hoạt động → cột --------------------------------------
+
+  /** Gắn mô tả truy vết (tên/loại hoạt động nguồn + vai trò cột đích) vào một khai vai trò. */
+  private async mappingView(row: VnActivityMappingRow): Promise<VnActivityMappingView> {
+    const source = await this.repo.getItem(row.itemId);
+    const target = await this.repo.getItem(row.targetItemId);
+    return {
+      id: row.id, courseId: row.courseId, bookId: row.bookId, cmId: row.cmId,
+      itemId: row.itemId, targetItemId: row.targetItemId, role: row.role, ordinal: row.ordinal,
+      activityName: source?.itemName ?? '', component: source?.itemModule ?? null,
+      targetRole: target?.vnRole ?? null, targetOrdinal: target?.vnOrdinal ?? null,
+      createdBy: row.createdBy, createdAt: row.createdAt,
+    };
+  }
+
+  /**
+   * Khai vai trò điểm cho một hoạt động vào một cột của sổ (Điều 6.2 — hoạt
+   * động là ỨNG VIÊN của cột, không tự ghi điểm): hoạt động phải đã có grade
+   * item loại 'mod' trong khoá (quiz/assignment đều có khi tạo); một hoạt
+   * động chỉ khai vào đúng một cột; vai dgtx bắt buộc ordinal trong quota,
+   * dggk/dgck là cột đơn. Sổ môn chỉ-nhận-xét không có cột điểm để khai.
+   */
+  async createActivityMapping(actorId: string, bookId: string, input: {
+    cmId: string; role: string; ordinal?: number;
+  }): Promise<VnActivityMappingView> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:manage', book.courseId);
+    if (book.assessmentMode !== 'score') {
+      throw new BadRequestException({ message: 'Comment-only subjects have no score columns to map activities into (Điều 5.3a)', code: 'grades.vn_comment_book' });
+    }
+    if (input.role === 'dgtx') {
+      if (input.ordinal === undefined) {
+        throw new BadRequestException({ message: 'Mapping an activity to a ĐĐGtx column requires its ordinal', code: 'grades.vn_mapping_ordinal_required' });
+      }
+      if (input.ordinal < 1 || input.ordinal > book.dgtxQuota) {
+        throw new BadRequestException({ message: `ĐĐGtx ordinal ${input.ordinal} is outside this book quota 1..${book.dgtxQuota}`, code: 'grades.vn_mapping_ordinal_out_of_range' });
+      }
+    } else if (input.ordinal !== undefined) {
+      throw new BadRequestException({ message: `Role ${input.role} is a single column and takes no ordinal`, code: 'grades.vn_mapping_ordinal_forbidden' });
+    }
+    const sourceItem = await this.grades.getItemForCm(book.courseId, input.cmId);
+    if (!sourceItem) {
+      throw new BadRequestException({ message: 'Activity has no grade item in this course (only graded activities can feed a VN column)', code: 'grades.vn_activity_not_gradable' });
+    }
+    if (await this.repo.findVnActivityMappingByCm(input.cmId)) {
+      throw new BadRequestException({ message: 'This activity is already mapped to a VN gradebook column', code: 'grades.vn_mapping_exists' });
+    }
+    const items = await this.repo.listItemsByVnBook(bookId);
+    const target = items.find((i) => i.vnRole === input.role && (i.vnOrdinal ?? null) === (input.ordinal ?? null));
+    if (!target) {
+      throw new BadRequestException({ message: `VN gradebook has no ${input.role} column to map into`, code: 'grades.vn_mapping_target_not_found' });
+    }
+    const row = await this.repo.insertVnActivityMapping({
+      courseId: book.courseId, bookId, cmId: input.cmId, itemId: sourceItem.id,
+      targetItemId: target.id, role: input.role, ordinal: input.ordinal ?? null, createdBy: actorId,
+    });
+    return this.mappingView(row);
+  }
+
+  /** Các khai vai trò điểm của một sổ, kèm truy vết hoạt động nguồn và cột đích. */
+  async listActivityMappings(bookId: string): Promise<VnActivityMappingView[]> {
+    await this.getBook(bookId);
+    const rows = await this.repo.listVnActivityMappings(bookId);
+    const views: VnActivityMappingView[] = [];
+    for (const row of rows) views.push(await this.mappingView(row));
+    return views;
+  }
+
+  /** Gỡ khai vai trò của một hoạt động khỏi sổ (vết quyết định đã ghi không đổi). */
+  async deleteActivityMapping(actorId: string, bookId: string, mappingId: string): Promise<{ deleted: true }> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:manage', book.courseId);
+    const row = await this.repo.getVnActivityMapping(mappingId);
+    if (!row || row.bookId !== bookId) {
+      throw new NotFoundException({ message: `VN activity mapping ${mappingId} not found`, code: 'grades.vn_mapping_not_found' });
+    }
+    await this.repo.deleteVnActivityMapping(mappingId);
+    return { deleted: true };
+  }
+
+  /** Quyết định chốt/bỏ qua mới nhất cho một (khai vai trò, học sinh). */
+  private latestDecision(actions: VnCandidateActionRow[], mappingId: string, userId: string): VnCandidateActionRow | undefined {
+    let found: VnCandidateActionRow | undefined;
+    for (const a of actions) {
+      if (a.mappingId === mappingId && a.userId === userId && (a.action === 'commit' || a.action === 'dismiss')) found = a;
+    }
+    return found;
+  }
+
+  /** Vân tay điểm nguồn (giá trị hiệu lực + thời điểm cập nhật của bản ghi điểm) còn khớp quyết định đã ghi hay không. */
+  private decisionMatchesGrade(decision: VnCandidateActionRow, grade: GradeRow): boolean {
+    const value = grade.finalGrade ?? grade.rawGrade;
+    return decision.sourceGradeValue === value
+      && (decision.sourceGradeUpdatedAt?.getTime() ?? null) === grade.updatedAt.getTime();
+  }
+
+  /**
+   * Hộp ứng viên của sổ: mọi (hoạt động đã khai vai trò × học sinh đã có điểm
+   * hoạt động) kèm giá trị quy đổi thang 10 và trạng thái quyết định. Ứng
+   * viên đã chốt/bỏ qua hiện lại dạng `pending` với cờ activityGradeChanged
+   * khi điểm hoạt động thay đổi sau quyết định (vân tay không còn khớp).
+   */
+  async listCandidates(actorId: string, bookId: string): Promise<{ bookId: string; candidates: VnCandidateView[] }> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:viewall', book.courseId);
+    const mappings = await this.repo.listVnActivityMappings(bookId);
+    const actions = await this.repo.listVnCandidateActions(bookId);
+    const candidates: VnCandidateView[] = [];
+    for (const mapping of mappings) {
+      const source = await this.repo.getItem(mapping.itemId);
+      const target = await this.repo.getItem(mapping.targetItemId);
+      if (!source || !target) continue;
+      const grades = await this.repo.listGradesForItem(mapping.itemId);
+      for (const grade of grades) {
+        const value = grade.finalGrade ?? grade.rawGrade;
+        if (value === null) continue;
+        let converted: number;
+        try {
+          converted = convertGradeToScale10(value, source.gradeMin, source.gradeMax);
+        } catch {
+          continue; // Thang của item nguồn không hợp lệ — không sinh ứng viên thay vì bịa số.
+        }
+        const decision = this.latestDecision(actions, mapping.id, grade.userId);
+        let state: VnCandidateState = 'pending';
+        let changed = false;
+        if (decision) {
+          if (this.decisionMatchesGrade(decision, grade)) state = decision.action === 'commit' ? 'committed' : 'dismissed';
+          else changed = true;
+        }
+        candidates.push({
+          mappingId: mapping.id, userId: grade.userId, cmId: mapping.cmId,
+          component: source.itemModule, activityName: source.itemName,
+          sourceItemId: mapping.itemId, targetItemId: mapping.targetItemId,
+          targetRole: target.vnRole, targetOrdinal: target.vnOrdinal,
+          activityGrade: value, activityGradeMin: source.gradeMin, activityGradeMax: source.gradeMax,
+          convertedGrade: converted, state, activityGradeChanged: changed,
+          committedValue: state === 'committed' ? (decision?.committedValue ?? null) : null,
+          decidedBy: decision?.actorId ?? null, decidedAt: decision?.createdAt ?? null,
+        });
+      }
+    }
+    return { bookId, candidates };
+  }
+
+  /** Lấy (khai vai trò + điểm hoạt động hiện tại) của một ứng viên; chưa có điểm hoạt động thì không có ứng viên để quyết. */
+  private async requireCandidate(bookId: string, mappingId: string, userId: string): Promise<{
+    mapping: VnActivityMappingRow; grade: GradeRow; value: number; converted: number;
+  }> {
+    const mapping = await this.repo.getVnActivityMapping(mappingId);
+    if (!mapping || mapping.bookId !== bookId) {
+      throw new NotFoundException({ message: `VN activity mapping ${mappingId} not found`, code: 'grades.vn_mapping_not_found' });
+    }
+    const source = await this.repo.getItem(mapping.itemId);
+    const grade = await this.repo.getGrade(mapping.itemId, userId);
+    const value = grade?.finalGrade ?? grade?.rawGrade ?? null;
+    if (!source || !grade || value === null) {
+      throw new BadRequestException({ message: 'Student has no grade in the mapped activity yet — no candidate to decide', code: 'grades.vn_candidate_not_found' });
+    }
+    let converted: number;
+    try {
+      converted = convertGradeToScale10(value, source.gradeMin, source.gradeMax);
+    } catch {
+      throw new BadRequestException({ message: 'Activity grade range cannot be converted to scale 10', code: 'grades.vn_candidate_unconvertible' });
+    }
+    return { mapping, grade, value, converted };
+  }
+
+  /**
+   * Chốt một ứng viên vào cột (thao tác của giáo viên theo Điều 6.2): ghi giá
+   * trị quy đổi — hoặc giá trị GV sửa, khi đó điểm vào cột mang cờ overridden
+   * của engine — qua đúng đường ghi điểm của gradebook (tôn trọng khoá của
+   * cột, ghi history với nguồn vn-candidate), rồi lưu vết quyết định kèm vân
+   * tay điểm hoạt động tại lúc chốt.
+   */
+  async commitCandidate(actorId: string, bookId: string, mappingId: string, userId: string, input: {
+    value?: number;
+  }): Promise<VnCandidateActionRow> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:edit', book.courseId);
+    const { mapping, grade, value, converted } = await this.requireCandidate(bookId, mappingId, userId);
+    const committed = input.value !== undefined ? round1(input.value) : converted;
+    const adjusted = Math.abs(committed - converted) > 1e-9;
+    const source = await this.repo.getItem(mapping.itemId);
+    await this.grades.setGrade(actorId, mapping.targetItemId, userId, { rawGrade: committed }, {
+      source: `vn-candidate:${source?.itemModule ?? 'mod'}`, overridden: adjusted,
+    });
+    return this.repo.insertVnCandidateAction({
+      courseId: book.courseId, bookId, mappingId, targetItemId: mapping.targetItemId,
+      sourceItemId: mapping.itemId, userId, action: 'commit',
+      sourceGradeValue: value, sourceGradeUpdatedAt: grade.updatedAt,
+      convertedGrade: converted, committedValue: committed, actorId,
+    });
+  }
+
+  /** Bỏ qua một ứng viên: lưu vết kèm vân tay — ứng viên chỉ hiện lại khi điểm hoạt động thay đổi. */
+  async dismissCandidate(actorId: string, bookId: string, mappingId: string, userId: string): Promise<VnCandidateActionRow> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:edit', book.courseId);
+    const { mapping, grade, value, converted } = await this.requireCandidate(bookId, mappingId, userId);
+    return this.repo.insertVnCandidateAction({
+      courseId: book.courseId, bookId, mappingId, targetItemId: mapping.targetItemId,
+      sourceItemId: mapping.itemId, userId, action: 'dismiss',
+      sourceGradeValue: value, sourceGradeUpdatedAt: grade.updatedAt,
+      convertedGrade: converted, committedValue: null, actorId,
+    });
+  }
+
+  /**
+   * Đặt trạng thái kiểm tra bù cho một cột định kì (ĐĐGgk/ĐĐGck) của một học
+   * sinh (Điều 7.4–7.5): `awaiting_makeup` chỉ đánh dấu (chưa có điểm, chốt
+   * sổ bị chặn bằng mã riêng); `zero` ghi hẳn 0 điểm vào cột qua đường ghi
+   * điểm của engine kèm vết quyết định; `clear` gỡ đánh dấu chờ bù.
+   */
+  async setMakeupStatus(actorId: string, bookId: string, itemId: string, userId: string, input: {
+    state: 'awaiting_makeup' | 'zero' | 'clear';
+  }): Promise<VnColumnStatusView> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:edit', book.courseId);
+    if (book.assessmentMode !== 'score') {
+      throw new BadRequestException({ message: 'Comment-only subjects have no score columns (Điều 5.3a)', code: 'grades.vn_comment_book' });
+    }
+    const items = await this.repo.listItemsByVnBook(bookId);
+    const item = items.find((i) => i.id === itemId);
+    if (!item) {
+      throw new NotFoundException({ message: `VN gradebook column ${itemId} not found`, code: 'grades.vn_column_not_found' });
+    }
+    if (item.vnRole !== 'dggk' && item.vnRole !== 'dgck') {
+      throw new BadRequestException({ message: 'Makeup status applies to periodic columns (ĐĐGgk/ĐĐGck) only — Điều 7', code: 'grades.vn_makeup_role_invalid' });
+    }
+    if (input.state === 'zero') {
+      await this.grades.setGrade(actorId, itemId, userId, { rawGrade: 0 }, { source: 'vn-makeup-zero' });
+      await this.repo.insertVnCandidateAction({
+        courseId: book.courseId, bookId, mappingId: null, targetItemId: itemId, sourceItemId: null,
+        userId, action: 'zero', sourceGradeValue: null, sourceGradeUpdatedAt: null,
+        convertedGrade: null, committedValue: 0, actorId,
+      });
+    } else {
+      await this.repo.insertVnCandidateAction({
+        courseId: book.courseId, bookId, mappingId: null, targetItemId: itemId, sourceItemId: null,
+        userId, action: input.state === 'awaiting_makeup' ? 'awaiting_makeup' : 'clear_makeup',
+        sourceGradeValue: null, sourceGradeUpdatedAt: null,
+        convertedGrade: null, committedValue: null, actorId,
+      });
+    }
+    const grade = await this.repo.getGrade(itemId, userId);
+    const value = grade?.finalGrade ?? grade?.rawGrade ?? null;
+    const actions = await this.repo.listVnCandidateActions(bookId);
+    return { itemId, userId, role: item.vnRole, grade: value, status: this.columnStatus(actions, itemId, userId, value) };
   }
 }
