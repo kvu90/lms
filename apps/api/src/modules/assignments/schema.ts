@@ -92,6 +92,7 @@ export const assignSubmissionFiles = pgTable('assign_submission_files', {
 },
   (table) => [
       index('assign_submission_files_submission_id_idx').on(table.submissionId),
+      index('assign_submission_files_file_id_idx').on(table.fileId),
       unique('assign_submission_files_submission_file_unique').on(table.submissionId, table.fileId),
   ]);
 
@@ -245,6 +246,8 @@ export const assignRubricEvaluations = pgTable('assign_rubric_evaluations', {
 },
   (table) => [
       index('assign_rubric_evaluations_grade_id_idx').on(table.gradeId),
+      index('assign_rubric_evaluations_criterion_id_idx').on(table.criterionId),
+      index('assign_rubric_evaluations_level_id_idx').on(table.levelId),
       unique('assign_rubric_evaluations_grade_criterion_unique').on(table.gradeId, table.criterionId),
   ]);
 
