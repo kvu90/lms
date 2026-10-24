@@ -89,7 +89,11 @@ export function Layout({ children }: { children: ReactNode }) {
  * (chặn mount trang con cho tới khi phiên resolve) nằm ở layout Shell.
  */
 export default function App() {
-  const { initialUser } = useLoaderData<typeof loader>();
+  // Cây render ngoài route gốc (test nhúng, bản nhúng từng phần) có
+  // thể không có dữ liệu loader: khi đó initialUser là undefined và
+  // AuthProvider giữ hành vi resolve phía client như trước SSR.
+  const loaderData = useLoaderData<typeof loader>() as { initialUser: UserProfile | null } | undefined;
+  const initialUser = loaderData?.initialUser;
   // QueryClient phía server phải là instance THEO TỪNG REQUEST (cache
   // dùng chung giữa các request trên cùng tiến trình SSR sẽ rò dữ liệu
   // giữa người dùng); phía client giữ singleton như trước để tầng phiên
