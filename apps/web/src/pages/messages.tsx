@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
@@ -122,13 +123,18 @@ function mergeMessages(existing: MessageView[], incoming: MessageView[]): Messag
  * toàn bộ; mất nối thì khi nối lại trang xin phần thiếu theo seq.
  * Trang còn quản lý chặn liên lạc: chặn/bỏ chặn người đối thoại trong
  * cuộc trò chuyện đang mở và xem danh sách đã chặn
- * (GET/POST/DELETE /messages/contacts...).
+ * (GET/POST/DELETE /messages/contacts...). Deep-link
+ * ?conversation=<id> (contextUrl của thông báo message_new, #49) mở
+ * đúng cuộc trò chuyện khi trang nạp — việc nối tiếp của #33.
  */
 export function MessagesPage() {
   const { t } = useTranslation('app');
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const myId = user?.id;
   const [conversations, setConversations] = useState<ConversationView[]>([]);
+  /** Đã nạp xong danh sách conversation ít nhất một lần — mốc cho deep-link mở đúng cuộc trò chuyện. */
+  const [listLoaded, setListLoaded] = useState(false);
   const [unread, setUnread] = useState(0);
   const [active, setActive] = useState<ConversationView | null>(null);
   const [messages, setMessages] = useState<MessageView[]>([]);
@@ -158,6 +164,8 @@ export function MessagesPage() {
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
+  /** Deep-link ?conversation= chỉ xử lý một lần khi trang vừa nạp (không giành cuộc trò chuyện đang mở ở các lần nạp lại sau). */
+  const deepLinkHandledRef = useRef(false);
   const realtimeRef = useRef<MessagingRealtimeHandle | null>(null);
   const activeRef = useRef<ConversationView | null>(null);
   activeRef.current = active;
@@ -188,6 +196,7 @@ export function MessagesPage() {
     setConversations(list);
     recountUnread(list);
     setBlocked(blockedRes.blocked);
+    setListLoaded(true);
     mergePeople(blockedRes.profiles);
     for (const c of list) mergePeople(c.memberProfiles);
     // Danh bạ + hàng chờ kết bạn (Lớp B): lỗi ở hai đường này không
@@ -273,6 +282,47 @@ export function MessagesPage() {
   useEffect(() => {
     void reload().catch(() => setError(t('messagesLoadFailed')));
   }, [reload]);
+
+  // Deep-link từ thông báo (việc nối tiếp của #33): thông báo
+  // message_new của #49 trỏ contextUrl = /messages?conversation=<id>.
+  // Danh sách nạp xong thì mở đúng conversation đó — có sẵn trong
+  // danh sách thì mở như cú bấm của người dùng; chưa có (danh sách
+  // nạp thiếu/trễ) thì lấy chi tiết thẳng theo id bằng đúng endpoint
+  // trang vẫn dùng để mở, chèn vào danh sách rồi mở. Server là nơi
+  // thực thi quyền thành viên: không phải thành viên/không tồn tại
+  // thì bỏ qua deep-link, trang giữ nguyên như không có tham số.
+  const deepLinkId = searchParams.get('conversation');
+  useEffect(() => {
+    if (!deepLinkId || !listLoaded || deepLinkHandledRef.current) return;
+    deepLinkHandledRef.current = true;
+    const found = conversations.find((c) => c.id === deepLinkId);
+    if (found) {
+      void open(found);
+      return;
+    }
+    void (async () => {
+      try {
+        const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${deepLinkId}`);
+        const summary: ConversationView = {
+          id: detail.id,
+          type: detail.type,
+          name: detail.name,
+          members: detail.members,
+          unread: detail.unread,
+          lastReadSeq: detail.lastReadSeq,
+          lastMessageSeq: detail.lastMessageSeq,
+          lastMessage: detail.lastMessage,
+        };
+        setConversations((prev) => (prev.some((c) => c.id === summary.id) ? prev : [summary, ...prev]));
+        await open(summary);
+      } catch {
+        // Không phải thành viên hoặc conversation không tồn tại: bỏ qua deep-link.
+      }
+    })();
+    // `open` là hàm của chính trang (định nghĩa dưới đây), không phải
+    // dependency cần theo dõi — mốc chạy một lần do deepLinkHandledRef gác.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, listLoaded, conversations]);
 
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
   // nhất qua ref nên không phải nối lại khi state đổi.

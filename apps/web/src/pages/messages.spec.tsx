@@ -100,9 +100,9 @@ function stubFetch(calls: RecordedCall[]) {
 }
 
 /** Render trang tin nhắn trong AuthProvider như ứng dụng thật. */
-function renderMessages() {
+function renderMessages(entry = '/messages') {
   const router = createMemoryRouter([{ path: '/messages', element: <MessagesPage /> }], {
-    initialEntries: ['/messages'],
+    initialEntries: [entry],
   });
   render(
     <AuthProvider>
@@ -543,6 +543,117 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
       expect(calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/report` && c.method === 'POST')).toBe(true),
     );
     expect(await screen.findByText(/Đã gửi báo cáo/)).toBeInTheDocument();
+  });
+});
+
+const CONV3_ID = '01900000-0000-7000-8000-0000000000d9';
+const UNKNOWN_CONV_ID = '01900000-0000-7000-8000-0000000000ff';
+const DEEP_LINK_MESSAGE = {
+  id: '01900000-0000-7000-8000-0000000000e9',
+  conversationId: CONV3_ID,
+  userIdFrom: OTHER_ID,
+  subject: '',
+  fullMessage: 'tin mở bằng deep-link',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  seq: 1,
+  clientMessageId: null,
+};
+
+/**
+ * Stub cho deep-link: danh sách chỉ có CONV_ID; chi tiết của CONV3_ID
+ * tồn tại ở endpoint theo id (mô phỏng conversation chưa nằm trong
+ * danh sách đã nạp); id lạ trả 404.
+ */
+function stubDeepLinkFetch(calls: RecordedCall[]) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations')
+        return respond([
+          { id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+        ]);
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url === `/api/v1/messages/conversations/${CONV3_ID}`)
+        return respond({
+          id: CONV3_ID, type: 2, name: 'Nhóm deep-link', members: [ME_ID, OTHER_ID],
+          messages: [DEEP_LINK_MESSAGE], hasMoreBefore: false, memberReadMarkers: [],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV3_ID}/read`) return respond({ marked: 1, lastReadSeq: 1 });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — notification deep-link (việc nối tiếp #33)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('opens the conversation named by ?conversation= when it is in the loaded list', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubRealtimeFetch(calls);
+    renderMessages(`/messages?conversation=${CONV_ID}`);
+
+    // Không cú bấm nào: khung trò chuyện tự mở đúng conversation của
+    // deep-link, tin của nó hiện ra và nó được đánh dấu đã đọc.
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/read` && c.method === 'POST'),
+      ).toBe(true),
+    );
+  });
+
+  it('fetches by id and opens the conversation when it is not in the loaded list', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubDeepLinkFetch(calls);
+    renderMessages(`/messages?conversation=${CONV3_ID}`);
+
+    // Conversation không có trong danh sách đã nạp: trang lấy chi
+    // tiết thẳng theo id, chèn nó vào danh sách và mở ra.
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin mở bằng deep-link')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Nhóm deep-link/ })).toBeInTheDocument();
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV3_ID}` && c.method === 'GET'),
+    ).toBe(true);
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV3_ID}/read` && c.method === 'POST'),
+      ).toBe(true),
+    );
+  });
+
+  it('ignores an unknown ?conversation= id and keeps the page as-is', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubDeepLinkFetch(calls);
+    renderMessages(`/messages?conversation=${UNKNOWN_CONV_ID}`);
+
+    // Deep-link đã được thử (GET chi tiết theo id → 404) nhưng trang
+    // không mở gì và không vỡ: danh sách vẫn hiện, khung phải vẫn ở
+    // trạng thái chưa chọn conversation.
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/messages/conversations/${UNKNOWN_CONV_ID}` && c.method === 'GET'),
+      ).toBe(true),
+    );
+    expect(await screen.findByRole('button', { name: new RegExp(OTHER_ID) })).toBeInTheDocument();
+    expect(screen.getByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${UNKNOWN_CONV_ID}/read`),
+    ).toBe(false);
   });
 });
 
