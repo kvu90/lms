@@ -74,6 +74,19 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'matrix:copy', capType: 'read', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'matrix:share', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'matrix:moderate', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  // Ngân hàng đề (feat issue #113, EB-1): bộ capability của lớp bank đề,
+  // song song bộ question:* của QB — mọi cổng đều đánh giá TẠI context
+  // của bank đề (một nguồn quyền duy nhất là bank, research G.2/E-8).
+  // view = vào được bank đề + xem đề ready; edit = tạo/sửa đề của mình;
+  // copy = copy đề về bank khác; share = đề xuất đóng góp; moderate =
+  // duyệt đóng góp + quản trị đề của người khác trong bank; deploy =
+  // triển khai đề vào quiz (cộng thêm quiz:manage tại context khoá đích).
+  { name: 'exam:view', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'exam:edit', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'exam:copy', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'exam:share', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'exam:moderate', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:deploy', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   // Quiz activity (mod_quiz) — capability tại context của course module như db/access.php của Moodle.
   { name: 'quiz:view', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'quiz:attempt', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { student: CAP_ALLOW } },
