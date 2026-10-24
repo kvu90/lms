@@ -98,6 +98,7 @@ export const examMatrixCells = pgTable('exam_matrix_cells', {
 },
   (table) => [
       index('exam_matrix_cells_matrix_idx').on(table.matrixId),
+      index('exam_matrix_cells_learning_outcome_idx').on(table.learningOutcomeId),
       unique('exam_matrix_cells_unique').on(table.matrixId, table.learningOutcomeId, table.cognitiveLevel, table.qtype),
       check('exam_matrix_cells_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
       check('exam_matrix_cells_qtype_check', sql`${table.qtype} in ('multichoice', 'truefalse', 'shortanswer', 'essay')`),
@@ -179,6 +180,7 @@ export const quizzes = pgTable('quizzes', {
   (table) => [
       index('quizzes_course_idx').on(table.course),
       index('quizzes_cm_id_idx').on(table.cmId),
+      index('quizzes_matrix_idx').on(table.matrixId),
       check('quizzes_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'periodic', 'mock')`),
   ]);
 
@@ -210,6 +212,7 @@ export const quizOverrides = pgTable('quiz_overrides', {
 },
   (table) => [
       index('quiz_overrides_quiz_idx').on(table.quizId),
+      index('quiz_overrides_group_idx').on(table.groupId),
       check('quiz_overrides_exactly_one_target', sql`(${table.groupId} is null) <> (${table.userId} is null)`),
       unique('quiz_overrides_quiz_group_unique').on(table.quizId, table.groupId),
       unique('quiz_overrides_quiz_user_unique').on(table.quizId, table.userId),

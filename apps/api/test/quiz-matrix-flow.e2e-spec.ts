@@ -49,6 +49,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     mcPool: string[];
     mcPoolHieu: string[];
     tfClusterQuestions: string[];
+    mkQuestion: (body: Record<string, unknown>) => Promise<string>;
   }
 
   async function setup(): Promise<Ctx> {
@@ -141,6 +142,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     return {
       courseId: course.id, sectionId, subjectId, curriculumId, outcomeBiet, outcomeHieu,
       bankCatId, student: s1.token, studentId: s1.id, student2: s2.token, mcPool, mcPoolHieu, tfClusterQuestions,
+      mkQuestion,
     };
   }
 
@@ -412,11 +414,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
   it('matrix bank fields (MB-0): defaults, status lifecycle and version bump on content edit after ready', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 10 });
-    expect(matrix.body.status).toBe('draft');
-    expect(matrix.body.version).toBe(1);
-    expect(matrix.body.isTemplate).toBe(false);
-    expect(matrix.body.bankId).toBeNull();
-    expect(matrix.body.derivedFromMatrixId).toBeNull();
+    expect(matrix.status).toBe('draft');
+    expect(matrix.version).toBe(1);
+    expect(matrix.isTemplate).toBe(false);
+    expect(matrix.bankId).toBeNull();
+    expect(matrix.derivedFromMatrixId).toBeNull();
     // Sửa khi còn draft: version giữ nguyên.
     const draftEdit = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Ma trận nháp v1' });
@@ -429,6 +431,21 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const edit = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Ma trận đã duyệt — sửa tên' });
     expect(edit.body.version).toBe(2);
+    // Thêm/sửa/xoá Ô trên ma trận đã ready cũng tăng version: bản đặc
+    // tả sinh trực tiếp từ ô, sửa ô lặng lẽ sẽ làm đặc tả đã nộp lệch
+    // version mà không ai biết.
+    const withCell = await addCell(matrix.id, {
+      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      questionCount: 1, cellScore: 2,
+    });
+    expect(withCell.status).toBeLessThan(300);
+    expect(withCell.body.version).toBe(3);
+    const cellId = (withCell.body.cells as { id: string }[])[0]!.id;
+    const cellEdit = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}/cells/${cellId}`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionCount: 2 });
+    expect(cellEdit.body.version).toBe(4);
+    const cellDel = await http(app).delete(`/api/v1/exam-matrices/${matrix.id}/cells/${cellId}`).set('Authorization', `Bearer ${admin}`);
+    expect(cellDel.body.version).toBe(5);
   });
 
   it('cluster review presentation (Q-a): per-item fractions, no per-item marks, one summary line naming the scale', async () => {
@@ -462,7 +479,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
 
   it('grade-by-question (Q-b): queue lists every submitted attempt for one question; bulk grading finishes the attempts', async () => {
     const ctx = await setup();
-    const essay = await mkQuestion({
+    const essay = await ctx.mkQuestion({
       qtype: 'essay', name: 'Tự luận', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
     });
     const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)

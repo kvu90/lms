@@ -197,8 +197,10 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(ambiguous.status).toBe(400);
     expect(ambiguous.body.code).toBe('quiz.override_target');
 
+    // Mở cửa sổ riêng cho một học sinh = cửa sổ kiểm tra bù → reason
+    // bắt buộc theo quy tắc của chính Chặng 2 (quiz.override_reason_required).
     const created = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ userId: ctx.studentId, timeOpen: new Date(Date.now() - 60_000).toISOString() });
+      .send({ userId: ctx.studentId, timeOpen: new Date(Date.now() - 60_000).toISOString(), reason: 'Kiểm tra bù — mở cửa sổ riêng cho học sinh' });
     expect(created.status === 200 || created.status === 201).toBe(true);
     expect(created.body.userId).toBe(ctx.studentId);
     expect(created.body.hasPassword).toBe(false);
@@ -355,6 +357,39 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     // Học sinh khác không có override vẫn bị cửa sổ gốc chặn.
     const other = await startAttempt(ctx.student2, quizId);
     expect(other.status).toBe(403);
+  });
+
+  it('override reason rule also binds PATCH: extending time or stripping the reason on the merged state is refused', async () => {
+    const ctx = await setup();
+    const quizId = await createQuizWithSlot(ctx, {});
+    // Override lành tính lúc tạo: chỉ đổi số lượt — không cần reason.
+    const created = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ userId: ctx.studentId, attempts: 3 });
+    expect(created.status === 200 || created.status === 201).toBe(true);
+    // PATCH cộng giờ mà không bổ sung reason → bị từ chối như đường tạo
+    // (trước vòng fix này PATCH trả 200 — vòng qua cổng reason).
+    const patched = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ timeLimitSeconds: 3600 });
+    expect(patched.status).toBe(400);
+    expect(patched.body.code).toBe('quiz.override_reason_required');
+    // PATCH kèm reason → chấp nhận; trạng thái hợp nhất mang cả hai thay đổi.
+    const withReason = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ timeLimitSeconds: 3600, reason: 'Cộng giờ theo KHGD cá nhân (HS hoà nhập)' });
+    expect(withReason.status).toBe(200);
+    expect(withReason.body.timeLimitSeconds).toBe(3600);
+    expect(withReason.body.attempts).toBe(3);
+    expect(withReason.body.reason).toContain('KHGD');
+    // Gỡ reason trong khi override vẫn còn cộng giờ → cũng bị từ chối.
+    const strip = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ reason: null });
+    expect(strip.status).toBe(400);
+    expect(strip.body.code).toBe('quiz.override_reason_required');
+    // Gỡ luôn phần cộng giờ thì reason không còn bắt buộc nữa.
+    const cleared = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ timeLimitSeconds: null, reason: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.timeLimitSeconds).toBeNull();
+    expect(cleared.body.reason).toBeNull();
   });
 
   it('review after-close uses the LATEST close of the whole session (anti-leak across override-shifted sittings)', async () => {

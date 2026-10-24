@@ -57,7 +57,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
       .map((d) => join(drizzleDir, d.name, 'migration.sql'));
     expect(migrations).toHaveLength(1);
     const sqlText = readFileSync(migrations[0]!, 'utf8');
-    // 150 bảng nghiệp vụ: 109 trước đây + session, account, verification,
+    // 160 bảng nghiệp vụ có PK uuidv7: 109 trước đây + session, account, verification,
     // two_factor (đợt Better Auth giai đoạn 1, issue #7) + subjects,
     // curricula, curriculum_nodes, learning_outcomes (đợt GDPT 2018, issue #20)
     // + course_completion_crit_compl (đợt đủ 8 loại tiêu chí completion, issue #23)
@@ -87,7 +87,10 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + question_banks, question_bank_contributions, quiz_slot_version_events
     // (feat ngân hàng câu hỏi chung, PR #83) → 163 bảng tổng, 155 bảng có PK
     // mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(155);
+    // + exam_matrices, exam_matrix_cells, quiz_overrides, quiz_feedbacks,
+    // quiz_attempt_events (Quiz Chặng 2+3, issue #30, PR #84) → 168 bảng
+    // tổng, 160 bảng có PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(160);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -102,7 +105,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(155);
+    expect(defaults.rows.length).toBe(160);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

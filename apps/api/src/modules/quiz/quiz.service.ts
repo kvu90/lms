@@ -944,6 +944,16 @@ export class QuizService {
     if (nextOpen && nextClose && nextClose <= nextOpen) {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
+    // Cùng quy tắc reason như đường tạo, áp trên TRẠNG THÁI HỢP NHẤT
+    // sau PATCH: override người dùng mà trạng thái cuối còn cộng giờ
+    // hoặc mở cửa sổ riêng thì phải có reason. Thiếu cổng này, PATCH
+    // vòng qua được cổng lúc tạo (tạo override lành tính chỉ-đổi-số-lượt
+    // rồi sửa cộng giờ lặng lẽ, không truy vết quyết định).
+    const nextTimeLimit = patch.timeLimit !== undefined ? patch.timeLimit : row.timeLimit;
+    const nextReason = patch.reason !== undefined ? patch.reason : row.reason;
+    if (row.userId && (nextTimeLimit != null || nextOpen != null) && !nextReason) {
+      throw new BadRequestException({ message: 'A reason is required for a user override that extends time or opens a separate window', code: 'quiz.override_reason_required' });
+    }
     if (Object.keys(patch).length) await this.repo.updateOverride(row.id, patch);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_updated', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
     return this.overrideView(await this.getOverrideRow(quiz, overrideId));
@@ -1106,6 +1116,18 @@ export class QuizService {
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_deleted', payload: { matrixId: row.id, actorId } });
   }
 
+  /**
+   * Bản đặc tả sinh TRỰC TIẾP từ các ô, nên thay đổi ở tầng ô trên ma
+   * trận đã rời draft cũng phải tăng version như sửa tầng ma trận (xem
+   * updateMatrix) — nếu không, bản đặc tả đã nộp khớp version tại thời
+   * điểm nộp nhưng không khớp nội dung ô đã bị sửa lặng lẽ sau đó.
+   */
+  private async bumpMatrixVersionIfNonDraft(matrix: ExamMatrixRow): Promise<void> {
+    if (matrix.status !== 'draft') {
+      await this.repo.updateMatrix(matrix.id, { version: matrix.version + 1 });
+    }
+  }
+
   private async getMatrixCellRow(matrix: ExamMatrixRow, cellId: string): Promise<ExamMatrixCellRow> {
     const row = await this.repo.getMatrixCell(cellId);
     if (!row || row.matrixId !== matrix.id) {
@@ -1146,6 +1168,7 @@ export class QuizService {
       questionCount: input.questionCount, cellScore: input.cellScore,
       minutes: input.minutes ?? null, tfScale: input.tfScale ?? null, position,
     });
+    await this.bumpMatrixVersionIfNonDraft(matrix);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_created', payload: { matrixId: matrix.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
@@ -1162,7 +1185,10 @@ export class QuizService {
     if (input.minutes !== undefined) patch.minutes = input.minutes;
     if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
     if (input.position !== undefined) patch.position = input.position;
-    if (Object.keys(patch).length) await this.repo.updateMatrixCell(cell.id, patch);
+    if (Object.keys(patch).length) {
+      await this.repo.updateMatrixCell(cell.id, patch);
+      await this.bumpMatrixVersionIfNonDraft(matrix);
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_updated', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
@@ -1173,6 +1199,7 @@ export class QuizService {
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
     const cell = await this.getMatrixCellRow(matrix, cellId);
     await this.repo.deleteMatrixCell(cell.id);
+    await this.bumpMatrixVersionIfNonDraft(matrix);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_deleted', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }

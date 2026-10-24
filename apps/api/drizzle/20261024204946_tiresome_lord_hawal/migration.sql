@@ -2248,6 +2248,7 @@ CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> s
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_cells_matrix_idx" ON "exam_matrix_cells" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_cells_learning_outcome_idx" ON "exam_matrix_cells" ("learning_outcome_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempt_events_attempt_idx" ON "quiz_attempt_events" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
@@ -2260,13 +2261,18 @@ CREATE INDEX "quiz_slot_version_events_quiz_idx" ON "quiz_slot_version_events" (
 CREATE INDEX "quiz_feedbacks_quiz_idx" ON "quiz_feedbacks" ("quiz_id");--> statement-breakpoint
 >>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/migration.sql
 CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 >>>>>>>> d33d0a4 (feat(quiz): nền Chặng 2 — cột quy tắc thi + bảng quiz_overrides + capability + contracts):apps/api/drizzle/20261024143120_baseline/migration.sql
+========
+CREATE INDEX "quiz_overrides_group_idx" ON "quiz_overrides" ("group_id");--> statement-breakpoint
+>>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/migration.sql
 CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_matrix_cell_id_idx" ON "quiz_slots" ("matrix_cell_id");--> statement-breakpoint
 CREATE INDEX "quiz_slots_cluster_id_idx" ON "quiz_slots" ("cluster_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/migration.sql
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
@@ -2295,6 +2301,9 @@ CREATE INDEX "pages_cm_id_idx" ON "pages" ("cm_id");--> statement-breakpoint
 CREATE INDEX "resources_course_idx" ON "resources" ("course");--> statement-breakpoint
 CREATE INDEX "resources_cm_id_idx" ON "resources" ("cm_id");--> statement-breakpoint
 CREATE INDEX "resources_file_id_idx" ON "resources" ("file_id");--> statement-breakpoint
+========
+CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
+>>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/migration.sql
 CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_subject_id_idx" ON "curriculum_program_records" ("subject_id");--> statement-breakpoint

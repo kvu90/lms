@@ -6,6 +6,7 @@
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
 <<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
   "id": "79aa6f2c-c3f9-4051-889a-c41e10c2b126",
 ========
   "id": "634c9744-81eb-4f0f-84d8-9ee6ebbb0ec3",
@@ -19,6 +20,9 @@
 ========
   "id": "89f672c3-eeff-4cc6-bb4f-8e303bc00841",
 >>>>>>>> 7369cd5 (feat(quiz): hấp thụ MB-0 + preset thi VN + Q-a..Q-d vào PR #84):apps/api/drizzle/20261024161104_baseline/snapshot.json
+========
+  "id": "acbe91b9-7487-4194-b85a-7b0b44f143bf",
+>>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -5638,6 +5642,26 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_matrix_cells",
+        "exam_matrix_cells_learning_outcome_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "n|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "e|idx|public.exam_matrix_cells_learning_outcome_idx",
+        "n|rel|public.exam_matrix_cells_learning_outcome_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.exam_matrix_cells.learning_outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "quiz_attempt_events",
         "quiz_attempt_events_attempt_idx"
       ],
@@ -5773,6 +5797,26 @@
       "statementTarget": [
         "index",
         "public",
+        "quiz_overrides",
+        "quiz_overrides_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_overrides_group_idx",
+        "n|idx|public.quiz_overrides_group_idx",
+        "e|idx|public.quiz_overrides_group_idx",
+        "n|rel|public.quiz_overrides_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_overrides",
+        "n|sch|public",
+        "n|col|public.quiz_overrides.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "quiz_slots",
         "quiz_slots_question_id_idx"
       ],
@@ -5893,6 +5937,7 @@
       "statementTarget": [
         "index",
         "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
         "assign_annotations",
         "assign_annotations_submission_id_idx"
       ],
@@ -6446,6 +6491,21 @@
         "n|tbl|public.resources",
         "n|sch|public",
         "n|col|public.resources.file_id"
+========
+        "quizzes",
+        "quizzes_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_matrix_idx",
+        "n|idx|public.quizzes_matrix_idx",
+        "e|idx|public.quizzes_matrix_idx",
+        "n|rel|public.quizzes_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.matrix_id"
+>>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
       ]
     },
     {
@@ -36710,6 +36770,27 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrix_cells",
+      "name": "exam_matrix_cells_learning_outcome_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "learning_outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "quiz_attempt_events",
       "name": "quiz_attempt_events_attempt_idx",
       "nameExplicit": true,
@@ -36817,6 +36898,27 @@
       "columns": [
         {
           "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_overrides",
+      "name": "quiz_overrides_group_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "group_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -36958,6 +37060,7 @@
     },
     {
       "schema": "public",
+<<<<<<<< HEAD:apps/api/drizzle/20261024204946_tiresome_lord_hawal/snapshot.json
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_idx",
       "nameExplicit": true,
@@ -37531,6 +37634,14 @@
       "columns": [
         {
           "value": "file_id",
+========
+      "table": "quizzes",
+      "name": "quizzes_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+>>>>>>>> 5e923f5 (fix(quiz): vá 9 điểm chặn review PR #84 + tăng version tầng ô ma trận):apps/api/drizzle/20261024185949_baseline/snapshot.json
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
