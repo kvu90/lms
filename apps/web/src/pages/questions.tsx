@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
   type QuestionCategory,
@@ -347,6 +347,15 @@ export function QuestionsPage() {
       await loadStimuli(effective).catch(() => setMessage(t('stimulusLoadFailed')));
     }
   }, [loadQuestions, loadStimuli, qCategory, t]);
+
+  // Thông báo mang về từ màn sửa riêng (vd "Đã lưu thành phiên bản N…"
+  // sau khi sửa câu hỏi) qua router state — giữ phản hồi lưu thành công
+  // mà editor inline trước đây hiện ngay trên trang này.
+  const location = useLocation();
+  useEffect(() => {
+    const notice = (location.state as { notice?: string } | null)?.notice;
+    if (notice) setMessage(notice);
+  }, [location.state]);
 
   useEffect(() => {
     // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —

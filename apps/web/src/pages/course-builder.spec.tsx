@@ -272,7 +272,10 @@ describe('Course builder (teacher)', () => {
     renderCourseBuilder();
 
     const availabilityBox = await screen.findByTestId(`module-availability-${MODULE_ID}`);
-    await userEvent.selectOptions(within(availabilityBox).getByLabelText('Loại điều kiện mới'), 'date');
+    // Trình sửa điều kiện truy cập nay dùng Select của @lms/ui (không còn
+    // select native): bấm trigger rồi chọn option theo nhãn hiển thị.
+    await userEvent.click(within(availabilityBox).getByLabelText('Loại điều kiện mới'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Ngày' }));
     await userEvent.click(within(availabilityBox).getByRole('button', { name: 'Thêm điều kiện' }));
     await userEvent.click(within(availabilityBox).getByRole('button', { name: 'Lưu điều kiện truy cập' }));
 

@@ -6,6 +6,7 @@ import { TestProviders } from '#test/providers';
 import { PermissionsProvider } from '#lib/permissions';
 import { GradebookPage } from './grades';
 import { QuestionsPage, QuestionUsagePage } from './questions';
+import { QuestionEditPage } from './question-editor';
 
 const ITEM = {
   id: '01900000-0000-7000-8000-000000000005',
@@ -273,11 +274,32 @@ describe('Question bank page', () => {
         edited = true;
         return questionView(2);
       }
+      // Các endpoint màn sửa riêng (/questions/:id/edit) mà nút Sửa điều hướng tới.
+      if (url.startsWith('/api/v1/stimuli')) return [];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/versions')
+        return [questionView(edited ? 2 : 1).latestVersion];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/curriculum-links')
+        return { questionId: '01900000-0000-7000-8000-000000000004', subjectIds: [], outcomes: [] };
+      if (url === '/api/v1/access/contexts')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000001',
+            contextLevel: 10,
+            path: '/1',
+            instanceId: '01900000-0000-7000-8000-000000000001',
+          },
+        ];
       return undefined;
     });
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
-    });
+    const router = createMemoryRouter(
+      [
+        { path: '/questions', element: <QuestionsPage /> },
+        { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
+      ],
+      {
+        initialEntries: ['/questions'],
+      },
+    );
     render(
       <TestProviders>
         <RouterProvider router={router} />
@@ -286,7 +308,7 @@ describe('Question bank page', () => {
     await waitFor(() =>
       expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v1'),
     );
-    await userEvent.click(screen.getByRole('button', { name: /Sửa \(phiên bản mới\)/ }));
+    await userEvent.click(screen.getByRole('link', { name: /Sửa \(phiên bản mới\)/ }));
     // Sửa mở editor theo dạng của câu hỏi; lưu trong editor mới tạo phiên bản mới.
     await userEvent.click(await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' }));
     await waitFor(() =>

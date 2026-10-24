@@ -185,14 +185,18 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     event.preventDefault();
     if (editing) {
       try {
-        await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
+        const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
             ...formContent(form, true),
             stimulusId: form.stimulusId === '' ? null : form.stimulusId,
           }),
         });
-        navigate('/questions');
+        // Mang thông báo "đã lưu thành phiên bản N" về trang danh sách
+        // (editor inline trước đây hiện ngay trên trang danh sách).
+        navigate('/questions', {
+          state: { notice: t('questionSavedAsVersion', { version: updated.entry.latestVersion }) },
+        });
       } catch (err) {
         setMessage(withApiReason(t('questionEditFailed'), err));
       }
