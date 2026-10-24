@@ -150,6 +150,14 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     // conversation.updated vào userRoom (kèm nội dung tin cuối), dù
     // message.new vào room hội thoại đã bị chặn ở tầng gateway.
     // Hội thoại nhóm không bị chạm.
+    // CHỈ chặn phát, KHÔNG đẩy socket khỏi room (tiếp quản PR #94):
+    // membership của room là trạng thái bền theo kết nối — socket bị
+    // đẩy ra không tự nối lại khi bỏ chặn (handshake chỉ nối lúc
+    // connect; join/sync từ chối room đang chặn), nên presence sau
+    // bỏ chặn (phát tới room) mất vĩnh viễn cho tới khi nối lại.
+    // Mọi đường phát vào room đều đã có cổng ở thời điểm phát nên
+    // chặn phát là đủ; eviction chỉ dành cho gỡ thành viên thật
+    // (đồng bộ group trong messaging.service.ts).
     const conversation = await this.repo.getConversation(messageRow.conversationId).catch(() => undefined);
     if (conversation?.type === 1 && memberIds.length === 2) {
       const first = memberIds[0];
@@ -157,8 +165,6 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       if (first === undefined || second === undefined) return;
       const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
       if (blocked.includes(second)) {
-        await this.evictUserFromConversation(first, messageRow.conversationId);
-        await this.evictUserFromConversation(second, messageRow.conversationId);
         return;
       }
     }
@@ -195,9 +201,12 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     // `message_deleted` không sinh mới, nhưng một sự kiện tới muộn
     // (xoá trước khi chặn, outbox tiêu thụ sau khi chặn — hoặc xoá
     // bởi người kiểm duyệt ngoài cặp chặn) vẫn không được lộ tới
-    // cặp đang chặn: không phát gì cả, đồng thời đẩy socket của cả
-    // hai ra khỏi room để các sự kiện room về sau cũng không tới.
-    // Hội thoại nhóm không bị chạm.
+    // cặp đang chặn: không phát gì cả.
+    // CHỈ chặn phát, KHÔNG đẩy socket khỏi room (tiếp quản PR #94):
+    // lý do như cổng distributeNewMessage — socket bị đẩy ra không
+    // tự nối lại khi bỏ chặn nên presence sau bỏ chặn sẽ mất; mọi
+    // đường phát vào room đều đã có cổng ở thời điểm phát nên
+    // chặn phát là đủ. Hội thoại nhóm không bị chạm.
     const conversation = await this.repo.getConversation(messageRow.conversationId).catch(() => undefined);
     if (conversation?.type === 1 && memberIds.length === 2) {
       const first = memberIds[0];
@@ -205,8 +214,6 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       if (first === undefined || second === undefined) return;
       const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
       if (blocked.includes(second)) {
-        await this.evictUserFromConversation(first, messageRow.conversationId);
-        await this.evictUserFromConversation(second, messageRow.conversationId);
         return;
       }
     }
@@ -264,6 +271,34 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         .map((socket) => socket.leave(room)));
     } catch (error) {
       this.logger.warn(`Không rà soát được room của conversation ${conversationId}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Nối lại room hội thoại 1–1 cho socket hiện tại của cả hai phía
+   * sau khi bỏ chặn (tiếp quản PR #94): socket nối vào lúc đang chặn
+   * bị handshake bỏ qua khỏi room, và socket trong room có thể đã bị
+   * đẩy ra khi phân phối trong lúc chặn — không có bước nối lại thì
+   * presence và các sự kiện room sau bỏ chặn mất vĩnh viễn cho tới
+   * khi nối lại, trái bất biến "bỏ chặn thì mọi bề mặt hiện lại
+   * nguyên trạng". Đường phụ: lỗi bị nuốt kèm log, không lan ra
+   * lệnh bỏ chặn.
+   */
+  async rejoinDirectConversationAfterUnblock(userId: string, otherUserId: string): Promise<void> {
+    if (!this.server) return;
+    try {
+      const conversations = await this.repo.listConversationsForUser(userId);
+      for (const c of conversations) {
+        if (c.type !== 1) continue;
+        const members = await this.repo.listMembers(c.id);
+        if (members.length === 2 && members.includes(userId) && members.includes(otherUserId)) {
+          const room = conversationRoom(c.id);
+          await this.server.in(userRoom(userId)).socketsJoin(room);
+          await this.server.in(userRoom(otherUserId)).socketsJoin(room);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Không nối lại được room sau bỏ chặn cho ${userId}: ${(error as Error).message}`);
     }
   }
 

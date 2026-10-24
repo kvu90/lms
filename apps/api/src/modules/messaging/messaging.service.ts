@@ -624,6 +624,9 @@ export class MessagingService {
    */
   async unblockContact(userId: string, blockedUserId: string): Promise<{ blocked: string[] }> {
     await this.repo.unblock(userId, blockedUserId);
+    // Nối lại room 1–1 (tiếp quản PR #94): bỏ chặn phải khôi phục
+    // nguyên trạng cho socket đang nối — xem rejoinDirectConversationAfterUnblock.
+    await this.realtime.rejoinDirectConversationAfterUnblock(userId, blockedUserId);
     return { blocked: await this.repo.listBlocked(userId) };
   }
   /**
