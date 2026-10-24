@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261024011607_baseline/snapshot.json
-  "id": "4d61e17c-ced3-40a1-8dc6-2896e962cc53",
-========
-  "id": "f463a82b-ec0c-4487-b172-1803e7a82058",
->>>>>>>> 87701be (Nền dữ liệu + realtime cho messaging theo stack chuẩn (Refs #33)):apps/api/drizzle/20261023151227_baseline/snapshot.json
+  "id": "26e36297-db22-4199-a0a9-33940dfcc6a5",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -30744,7 +30740,6 @@
     },
     {
       "schema": "public",
-<<<<<<<< HEAD:apps/api/drizzle/20261024011607_baseline/snapshot.json
       "table": "curricula",
       "name": "curricula_subject_id_grade_unique",
       "nameExplicit": true,
@@ -30763,7 +30758,12 @@
       "columns": [
         "curriculum_id",
         "id"
-========
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_client_id_unique",
       "nameExplicit": true,
@@ -30771,7 +30771,6 @@
         "conversation_id",
         "user_id_from",
         "client_message_id"
->>>>>>>> 87701be (Nền dữ liệu + realtime cho messaging theo stack chuẩn (Refs #33)):apps/api/drizzle/20261023151227_baseline/snapshot.json
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
