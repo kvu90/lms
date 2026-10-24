@@ -242,10 +242,28 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   /** Phân phối biên đã-đọc của một thành viên vào room của conversation. */
   async distributeReadReceipt(payload: RealtimeMessageReadPayload): Promise<void> {
     if (!this.server) return;
+    // Cùng cổng chặn với distributeNewMessage/distributeMessageDeleted
+    // (việc nối tiếp #33, siết sau PR #94 vòng đánh giá lại): biên
+    // đã-đọc ghi outbox TRƯỚC khi chặn, consumer nhịp 500ms tiêu thụ
+    // SAU khi chặn, không được lộ trạng thái đã-đọc 1–1 sang phía bị
+    // chặn — kể cả khi socket phía đó vẫn nằm trong room (không còn
+    // eviction ở hai cổng kia). Hội thoại nhóm không bị chạm.
+    // CHỈ chặn phát, KHÔNG đẩy socket khỏi room: lý do như hai cổng
+    // kia — socket bị đẩy ra không tự nối lại khi bỏ chặn.
+    const conversation = await this.repo.getConversation(payload.conversationId).catch(() => undefined);
+    const memberIds = await this.repo.listMembers(payload.conversationId).catch(() => null);
+    if (conversation?.type === 1 && memberIds?.length === 2) {
+      const other = memberIds.find((id) => id !== payload.userId);
+      if (other) {
+        const blocked: string[] = await this.repo.listBlockedCounterpartIds(payload.userId).catch(() => []);
+        if (blocked.includes(other)) {
+          return;
+        }
+      }
+    }
     // Cùng kỷ luật F1: rà soát room theo membership hiện tại trước
     // khi phát — thành viên đã bị gỡ không nhận biên đã-đọc nữa. Đọc
     // membership lỗi thì vẫn phát như cũ (realtime là đường phụ).
-    const memberIds = await this.repo.listMembers(payload.conversationId).catch(() => null);
     if (memberIds) await this.evictNonMemberSockets(payload.conversationId, memberIds);
     this.server.to(conversationRoom(payload.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageRead, payload);
   }

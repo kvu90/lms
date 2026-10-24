@@ -25,6 +25,11 @@ import {
  *    còn lại không nhận bất kỳ sự kiện nào của hội thoại đó; socket
  *    mới nối không vào room của hội thoại 1–1 đang chặn.
  *  - Presence (online) không phát tới phía bị chặn.
+ *  - Biên đã-đọc cũng không rò: biên ghi outbox trước khi chặn mà
+ *    consumer tiêu thụ sau khi chặn thì tầng phân phối phải chặn lại
+ *    (cổng chặn của distributeReadReceipt, siết sau PR #94 vòng
+ *    đánh giá lại) — phía bị chặn không nhận message.read nào sau
+ *    thời điểm chặn hoàn tất.
  *  - Bỏ chặn thì mọi bề mặt hiện lại nguyên trạng.
  */
 
@@ -338,6 +343,45 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       }
       expect(presenceEvents.some((e) => e.userId === a.id && e.online)).toBe(true);
       aSocket2.disconnect();
+    } finally {
+      bSocket.disconnect();
+    }
+  });
+
+  it('a read receipt queued before a block is not delivered to the blocked peer after the block', async () => {
+    // B gửi một tin mới để A có mốc chưa đọc mới; B nối socket TRƯỚC
+    // khi chặn (đúng ca tái hiện của đội đánh giá) và nghe message.read.
+    const fresh = await send(b.token, 'tin mới để A đánh dấu đã đọc');
+    expect(fresh.status).toBe(201);
+    const bSocket = await connectSocket(b.token);
+    const reads: { conversationId: string; userId: string; receivedAt: number }[] = [];
+    bSocket.on('message.read', (payload: { conversationId: string; userId: string }) => {
+      reads.push({ ...payload, receivedAt: Date.now() });
+    });
+    try {
+      expect(bSocket.connected).toBe(true);
+      // A đánh dấu đã đọc: outbox message_conversation_read được ghi,
+      // consumer nhịp 500ms chưa kịp tiêu thụ — A chặn B ngay sau đó.
+      const read = await http(app).post(`/api/v1/messages/conversations/${conversationId}/read`)
+        .set('Authorization', `Bearer ${a.token}`).send({});
+      expect(read.status).toBe(201);
+      const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
+        .set('Authorization', `Bearer ${a.token}`).send({});
+      expect(block.status).toBe(201);
+      const blockDoneAt = Date.now();
+      try {
+        // Chờ quá chu kỳ tiêu thụ outbox: biên đã-đọc bị tiêu thụ SAU
+        // khi chặn phải bị cổng chặn ở tầng phân phối chặn lại — B
+        // không được nhận message.read nào tới sau thời điểm chặn
+        // hoàn tất (biên tới trước khi chặn xong là hợp lệ, không
+        // tính là rò).
+        await sleep(1500);
+        expect(reads.filter((r) => r.conversationId === conversationId && r.receivedAt > blockDoneAt)).toEqual([]);
+      } finally {
+        const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
+          .set('Authorization', `Bearer ${a.token}`);
+        expect(unblock.status).toBe(200);
+      }
     } finally {
       bSocket.disconnect();
     }
