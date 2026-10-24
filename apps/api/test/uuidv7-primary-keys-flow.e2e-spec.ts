@@ -80,8 +80,10 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // learning_records (đợt K2 player + tiến độ học, issue #85)
     // + blog_post_placements, blog_post_references (đợt BL1 mô hình
     // space/status blog, issue #87).
-    // (Đếm lại trên baseline hợp nhất sau rebase lên main b120956:
+    // (Đếm lại trên baseline hợp nhất sau rebase lên main be8002b:
     // 158 bảng tổng, 150 bảng có PK mặc định uuidv7().)
+    // + vn_gradebooks, vn_term_results (đợt GB-VN-1 sổ điểm TT 22,
+    // issue #95) → 160 bảng tổng, 152 bảng có PK mặc định uuidv7().
     expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(150);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
