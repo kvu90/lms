@@ -23,12 +23,35 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * `initialUser` do loader gốc (root.tsx) cấp khi SSR: trạng thái phiên
+ * khởi tạo của server và của lần render đầu phía client PHẢI giống hệt
+ * nhau để hydrate không lệch. Không truyền prop này (test, nhúng ngoài
+ * cây route) thì giữ hành vi cũ: bắt đầu ở pha đang tải rồi resolve
+ * phía client. Truyền vào (kể cả null) nghĩa là phiên đã được xác định
+ * phía server — không hiện khung chờ nữa.
+ */
+export function AuthProvider({ children, initialUser }: { children: ReactNode; initialUser?: UserProfile | null }) {
+  const [user, setUser] = useState<UserProfile | null>(initialUser ?? null);
+  const [loading, setLoading] = useState(initialUser === undefined);
 
   const reload = useCallback(async () => {
     if (!tokenStore.access) {
+      // Không có token ở client storage: thử phiên cookie (luồng
+      // session của API, cũng là phiên loader gốc đã đọc phía server)
+      // trước khi kết luận ẩn danh — nếu không, người dùng phiên
+      // cookie sẽ bị đá về ẩn danh ngay sau hydrate dù server vừa
+      // render đúng danh tính của họ.
+      try {
+        const res = await apiFetch('/api/v1/auth/session/me');
+        if (res.ok) {
+          setUser(userProfileSchema.parse(await res.json()));
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Mạng lỗi → coi như ẩn danh, đúng suy biến mềm của luồng cũ.
+      }
       setUser(null);
       setLoading(false);
       return;
