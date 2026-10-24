@@ -32,6 +32,7 @@ export default [
     route('courses/new', 'pages/course-new.tsx'),
     route('courses/:id', 'pages/course.tsx'),
     route('courses/:id/builder', 'pages/course-builder.tsx'),
+    route('courses/:id/learn/:cmId', 'pages/player.tsx'),
     route('courses/:id/admin', 'pages/course-admin.tsx'),
     route('courses/:id/grades', 'pages/grades.tsx'),
     route('courses/:id/quizzes/:quizId', 'pages/quiz.tsx'),

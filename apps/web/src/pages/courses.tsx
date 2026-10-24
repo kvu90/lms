@@ -23,6 +23,10 @@ export function CoursesPage() {
   const { canAdminister } = usePermissions();
   const [tree, setTree] = useState<CourseCategoryTreeNode[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  // Tiến độ học của chính người dùng theo khoá (K2): chỉ khoá truy cập
+  // được mới có số (endpoint progress/me qua cổng khoá học); khoá không
+  // vào được thì probe lỗi và không hiện gì.
+  const [progressByCourse, setProgressByCourse] = useState<Record<string, number | null>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
@@ -39,6 +43,29 @@ export function CoursesPage() {
   useEffect(() => {
     void reload().catch(() => setMessage(t('coursesLoadFailed')));
   }, [reload]);
+
+  // Nạp % tiến độ của từng khoá sau khi có danh sách: probe độc lập
+  // từng khoá, lỗi (chưa ghi danh/không quyền) thì bỏ qua lặng lẽ.
+  useEffect(() => {
+    if (courses.length === 0) return;
+    let alive = true;
+    void (async () => {
+      const entries = await Promise.all(
+        courses.map(async (c) => {
+          try {
+            const p = await apiJson<{ percent: number | null }>(`/api/v1/courses/${c.id}/progress/me`);
+            return [c.id, p.percent] as const;
+          } catch {
+            return [c.id, null] as const;
+          }
+        }),
+      );
+      if (alive) setProgressByCourse(Object.fromEntries(entries));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [courses]);
 
   const flatCategories: CourseCategory[] = [];
   const walk = (nodes: CourseCategoryTreeNode[]) => {
@@ -70,6 +97,11 @@ export function CoursesPage() {
                         {c.fullName} ({c.shortName})
                       </Link>
                       {!c.visible && <span> {t('hiddenSuffix')}</span>}
+                      {progressByCourse[c.id] != null ? (
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          {t('courseProgressLabel', { percent: progressByCourse[c.id]! })}
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
