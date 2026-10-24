@@ -1219,10 +1219,11 @@ export class QuizService {
     }
     const { deficits, pools } = await this.matrixDeficits(actorId, cells);
     if (deficits.length) {
+      // Chi tiết từng ô đi qua mảng message → ProblemDetailsFilter đưa
+      // ra wire ở trường `errors` (filter không chuyển trường tự do).
       throw new UnprocessableEntityException({
-        message: 'The question bank does not have enough questions for every matrix cell',
+        message: deficits.map((d) => `cell ${d.cellId} (outcome ${d.learningOutcomeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
         code: 'quiz.matrix_insufficient_questions',
-        details: { cells: deficits },
       });
     }
     const totalMinutes = cells.reduce((s, c) => s + (c.minutes ?? 0), 0);
@@ -1257,7 +1258,7 @@ export class QuizService {
                 quizId: quiz.id, slot: ++slotNo, page,
                 questionId: member ? member.question.id : null,
                 categoryId: null,
-                matrixCellId: input.drawMode === 'fixed' || member ? cell.id : cell.id,
+                matrixCellId: cell.id,
                 clusterId, maxMark: perUnit / 4,
               });
               if (member) chosen.add(member.question.id);
@@ -1389,9 +1390,8 @@ export class QuizService {
     const { deficits, pools } = await this.matrixDeficits(actorId, cells);
     if (deficits.length) {
       throw new UnprocessableEntityException({
-        message: 'The question bank does not have enough questions to regenerate every matrix cell',
+        message: deficits.map((d) => `cell ${d.cellId} (outcome ${d.learningOutcomeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
         code: 'quiz.matrix_insufficient_questions',
-        details: { cells: deficits },
       });
     }
     const chosen = new Set<string>();

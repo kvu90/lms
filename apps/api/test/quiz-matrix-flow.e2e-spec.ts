@@ -231,6 +231,9 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thiếu câu', drawMode: 'fixed' });
     expect(gen.status).toBe(422);
     expect(gen.body.code).toBe('quiz.matrix_insufficient_questions');
+    // Chi tiết từng ô thiếu đi kèm trên wire (trường errors của problem details).
+    const detailText = JSON.stringify(gen.body.errors ?? []);
+    expect(detailText).toContain('required 4, available 3, deficit 1');
   });
 
   it('generate fixed: slots follow cells, TF cell becomes one cluster of 4 slots with nominal marks', async () => {
