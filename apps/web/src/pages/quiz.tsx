@@ -322,7 +322,32 @@ export function QuizPage() {
                     <span>
                       {t('quizSlotLine', { slot: s.slot, page: s.page })}{' '}
                       {s.questionId ? (slotNames[s.id] ?? t('quizSlotFixed')) : t('quizSlotRandom')}
+                      {s.bankName ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {t('slotBankLine', { bank: s.bankName })}
+                          {s.versionMode === 'pinned' && s.pinnedVersion !== null
+                            ? ` · ${t('slotPinnedLine', { version: s.pinnedVersion })}`
+                            : ` · ${t('slotFollowLatest')}`}
+                          {s.hasNewerVersion && s.latestVersion !== null ? ` · ${t('slotHasNewerLine', { version: s.latestVersion })}` : ''}
+                          {s.questionStatus === 'hidden' ? ` · ${t('slotQuestionWithdrawn')}` : ''}
+                        </span>
+                      ) : null}
                     </span>
+                    {s.hasNewerVersion && s.latestVersion !== null ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void act(() =>
+                            apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}/upgrade-version`, { method: 'POST', body: '{}' }),
+                          )
+                        }
+                      >
+                        {t('slotUpgradeVersion', { version: s.latestVersion })}
+                      </Button>
+                    ) : null}
                     <Label htmlFor={`slot-mark-${s.id}`}>{t('quizSlotMark')}</Label>
                     <Input
                       id={`slot-mark-${s.id}`}
