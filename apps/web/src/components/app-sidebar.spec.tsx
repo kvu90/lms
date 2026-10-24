@@ -59,7 +59,7 @@ const TEACHER_ACCESS = {
       contextId: SYSTEM_CONTEXT_ID,
       contextLevel: 10,
       contextPath: '/1',
-      capabilities: ['moodle/question:add'],
+      capabilities: ['question:add'],
     },
   ],
 };
