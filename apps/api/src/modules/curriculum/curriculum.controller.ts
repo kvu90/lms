@@ -1,0 +1,139 @@
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
+import { ApiTags } from '@nestjs/swagger';
+import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { CurriculumService } from './curriculum.service';
+import {
+  createCurriculumNodeSchema, createCurriculumSchema, createLearningOutcomeSchema, createSubjectSchema,
+  updateCurriculumNodeSchema, updateCurriculumSchema, updateLearningOutcomeSchema, updateSubjectSchema,
+  type CreateCurriculumDto, type CreateCurriculumNodeDto, type CreateLearningOutcomeDto, type CreateSubjectDto,
+  type UpdateCurriculumDto, type UpdateCurriculumNodeDto, type UpdateLearningOutcomeDto, type UpdateSubjectDto,
+} from './dto/curriculum.dto';
+
+@ApiTags('curriculum')
+@Controller({ path: 'curriculum', version: '1' })
+/**
+ * API chương trình (curriculum GDPT 2018, port từ giaokhoa):
+ * subjects → curricula → cây nodes → learning outcomes.
+ * Đọc cần lms/curriculum:view, ghi cần lms/curriculum:manage tại
+ * context của môn học (qua PermissionEvaluator, trong service).
+ */
+export class CurriculumController {
+  constructor(private readonly curriculum: CurriculumService) {}
+
+  // --- subjects ---------------------------------------------------------------
+
+  @Post('subjects')
+  /** POST /curriculum/subjects — tạo môn học trong một context. */
+  async createSubject(@Body({ schema: createSubjectSchema }) dto: CreateSubjectDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.createSubject(actor.id, dto);
+  }
+  @Get('subjects')
+  /** GET /curriculum/subjects?contextId= — môn học trong một context. */
+  async listSubjects(@Query('contextId', { schema: uuidIdSchema }) contextId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.listSubjects(actor.id, contextId);
+  }
+  @Get('subjects/:id')
+  /** GET /curriculum/subjects/:id — chi tiết môn học. */
+  async getSubject(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getSubject(actor.id, id);
+  }
+  @Patch('subjects/:id')
+  /** PATCH /curriculum/subjects/:id — sửa môn học. */
+  async updateSubject(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateSubjectSchema }) dto: UpdateSubjectDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.updateSubject(actor.id, id, dto);
+  }
+  @Delete('subjects/:id')
+  /** DELETE /curriculum/subjects/:id — xoá môn học (cascade toàn bộ cây bên dưới). */
+  async removeSubject(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.curriculum.deleteSubject(actor.id, id);
+    return { deleted: true };
+  }
+
+  // --- curricula ----------------------------------------------------------------
+
+  @Post('curricula')
+  /** POST /curriculum/curricula — tạo chương trình cho môn ở một khối. */
+  async createCurriculum(@Body({ schema: createCurriculumSchema }) dto: CreateCurriculumDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.createCurriculum(actor.id, dto);
+  }
+  @Get('curricula')
+  /** GET /curriculum/curricula?subjectId= — chương trình của một môn. */
+  async listCurricula(@Query('subjectId', { schema: uuidIdSchema }) subjectId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.listCurricula(actor.id, subjectId);
+  }
+  @Get('curricula/:id')
+  /** GET /curriculum/curricula/:id — chi tiết chương trình. */
+  async getCurriculum(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getCurriculum(actor.id, id);
+  }
+  @Get('curricula/:id/tree')
+  /** GET /curriculum/curricula/:id/tree — cây nội dung lồng nhau kèm outcomes từng node. */
+  async getTree(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getTree(actor.id, id);
+  }
+  @Patch('curricula/:id')
+  /** PATCH /curriculum/curricula/:id — sửa chương trình (khối). */
+  async updateCurriculum(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateCurriculumSchema }) dto: UpdateCurriculumDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.updateCurriculum(actor.id, id, dto);
+  }
+  @Delete('curricula/:id')
+  /** DELETE /curriculum/curricula/:id — xoá chương trình (cascade cây node + outcomes). */
+  async removeCurriculum(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.curriculum.deleteCurriculum(actor.id, id);
+    return { deleted: true };
+  }
+
+  // --- nodes ----------------------------------------------------------------------
+
+  @Post('nodes')
+  /** POST /curriculum/nodes — tạo node trong cây của một chương trình. */
+  async createNode(@Body({ schema: createCurriculumNodeSchema }) dto: CreateCurriculumNodeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.createNode(actor.id, dto);
+  }
+  @Get('nodes/:id')
+  /** GET /curriculum/nodes/:id — chi tiết node. */
+  async getNode(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getNode(actor.id, id);
+  }
+  @Patch('nodes/:id')
+  /** PATCH /curriculum/nodes/:id — sửa node (gồm đổi cha trong cùng chương trình). */
+  async updateNode(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateCurriculumNodeSchema }) dto: UpdateCurriculumNodeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.updateNode(actor.id, id, dto);
+  }
+  @Delete('nodes/:id')
+  /** DELETE /curriculum/nodes/:id — xoá node (cascade node con + outcomes). */
+  async removeNode(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.curriculum.deleteNode(actor.id, id);
+    return { deleted: true };
+  }
+
+  // --- outcomes ---------------------------------------------------------------------
+
+  @Post('outcomes')
+  /** POST /curriculum/outcomes — tạo yêu cầu cần đạt dưới một node. */
+  async createOutcome(@Body({ schema: createLearningOutcomeSchema }) dto: CreateLearningOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.createOutcome(actor.id, dto);
+  }
+  @Get('outcomes')
+  /** GET /curriculum/outcomes?nodeId= — yêu cầu cần đạt của một node. */
+  async listOutcomes(@Query('nodeId', { schema: uuidIdSchema }) nodeId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.listOutcomes(actor.id, nodeId);
+  }
+  @Get('outcomes/:id')
+  /** GET /curriculum/outcomes/:id — chi tiết yêu cầu cần đạt. */
+  async getOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.getOutcome(actor.id, id);
+  }
+  @Patch('outcomes/:id')
+  /** PATCH /curriculum/outcomes/:id — sửa yêu cầu cần đạt. */
+  async updateOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateLearningOutcomeSchema }) dto: UpdateLearningOutcomeDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.curriculum.updateOutcome(actor.id, id, dto);
+  }
+  @Delete('outcomes/:id')
+  /** DELETE /curriculum/outcomes/:id — xoá yêu cầu cần đạt. */
+  async removeOutcome(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.curriculum.deleteOutcome(actor.id, id);
+    return { deleted: true };
+  }
+}

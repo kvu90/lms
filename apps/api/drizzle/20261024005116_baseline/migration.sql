@@ -801,6 +801,56 @@ CREATE TABLE "quizzes" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "curricula" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"subject_id" uuid NOT NULL,
+	"grade" smallint NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "curricula_subject_id_grade_unique" UNIQUE("subject_id","grade"),
+	CONSTRAINT "curricula_grade_check" CHECK ("grade" between 1 and 12)
+);
+--> statement-breakpoint
+CREATE TABLE "curriculum_nodes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"curriculum_id" uuid NOT NULL,
+	"parent_id" uuid,
+	"title" text NOT NULL,
+	"kind" text DEFAULT 'topic' NOT NULL,
+	"position" integer DEFAULT 1 NOT NULL,
+	"duration_periods" integer,
+	"duration_percent" double precision,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "curriculum_nodes_curriculum_id_id_unique" UNIQUE("curriculum_id","id"),
+	CONSTRAINT "curriculum_nodes_parent_not_self_check" CHECK ("parent_id" is null or "parent_id" <> "id"),
+	CONSTRAINT "curriculum_nodes_position_check" CHECK ("position" > 0),
+	CONSTRAINT "curriculum_nodes_kind_check" CHECK ("kind" in ('strand', 'topic', 'lesson')),
+	CONSTRAINT "curriculum_nodes_duration_periods_check" CHECK ("duration_periods" is null or "duration_periods" >= 0),
+	CONSTRAINT "curriculum_nodes_duration_percent_check" CHECK ("duration_percent" is null or ("duration_percent" >= 0 and "duration_percent" <= 100))
+);
+--> statement-breakpoint
+CREATE TABLE "learning_outcomes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"node_id" uuid NOT NULL,
+	"content" text NOT NULL,
+	"position" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "learning_outcomes_position_check" CHECK ("position" > 0)
+);
+--> statement-breakpoint
+CREATE TABLE "subjects" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"context_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"slug" text NOT NULL UNIQUE,
+	"position" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "subjects_position_check" CHECK ("position" > 0)
+);
+--> statement-breakpoint
 CREATE TABLE "message" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"conversation_id" uuid NOT NULL,
@@ -1500,6 +1550,10 @@ CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> st
 CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
 CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
 CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
+CREATE INDEX "curricula_subject_id_idx" ON "curricula" ("subject_id");--> statement-breakpoint
+CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id","parent_id","position");--> statement-breakpoint
+CREATE INDEX "learning_outcomes_node_id_idx" ON "learning_outcomes" ("node_id","position");--> statement-breakpoint
+CREATE INDEX "subjects_context_id_idx" ON "subjects" ("context_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
 CREATE INDEX "message_contacts_contact_id_idx" ON "message_contacts" ("contact_id");--> statement-breakpoint
@@ -1671,6 +1725,10 @@ ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOR
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "curricula" ADD CONSTRAINT "curricula_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREIGN KEY ("curriculum_id","parent_id") REFERENCES "curriculum_nodes"("curriculum_id","id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint

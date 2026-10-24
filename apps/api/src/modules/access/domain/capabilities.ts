@@ -56,6 +56,9 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'mod/quiz:grade', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'mod/quiz:viewreports', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'mod/quiz:preview', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  // Curriculum (GDPT 2018, port từ giaokhoa — neo tại context của môn học)
+  { name: 'lms/curriculum:view', capType: 'read', contextLevel: 10, component: 'core_curriculum', archetypes: { ...ALL_STAFF } },
+  { name: 'lms/curriculum:manage', capType: 'write', contextLevel: 10, component: 'core_curriculum', archetypes: { manager: CAP_ALLOW } },
   // Communication & Engagement
   { name: 'moodle/site:sendmessage', capType: 'write', contextLevel: 30, component: 'core_message', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   { name: 'moodle/calendar:manageentries', capType: 'write', contextLevel: 50, component: 'core_calendar', archetypes: { ...ALL_STAFF } },

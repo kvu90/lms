@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "f5a34be1-8e2b-4e43-bb9e-f3e26648470a",
+  "id": "52b20f59-3300-4302-8672-c87293137f33",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1319,6 +1319,85 @@
         "n|rel|public.quizzes",
         "n|type|public.quizzes",
         "n|rel|public.quizzes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "curricula"
+      ],
+      "writes": [
+        "s|tbl|public.curricula",
+        "n|tbl|public.curricula",
+        "e|tbl|public.curricula",
+        "n|rel|public.curricula",
+        "n|type|public.curricula",
+        "n|rel|public.curricula_pkey",
+        "n|rel|public.curricula_subject_id_grade_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|tbl|public.curriculum_nodes",
+        "n|tbl|public.curriculum_nodes",
+        "e|tbl|public.curriculum_nodes",
+        "n|rel|public.curriculum_nodes",
+        "n|type|public.curriculum_nodes",
+        "n|rel|public.curriculum_nodes_pkey",
+        "n|rel|public.curriculum_nodes_curriculum_id_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "learning_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.learning_outcomes",
+        "n|tbl|public.learning_outcomes",
+        "e|tbl|public.learning_outcomes",
+        "n|rel|public.learning_outcomes",
+        "n|type|public.learning_outcomes",
+        "n|rel|public.learning_outcomes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "subjects"
+      ],
+      "writes": [
+        "s|tbl|public.subjects",
+        "n|tbl|public.subjects",
+        "e|tbl|public.subjects",
+        "n|rel|public.subjects",
+        "n|type|public.subjects",
+        "n|rel|public.subjects_pkey",
+        "n|rel|public.subjects_slug_key"
       ],
       "reads": [
         "n|sch|public"
@@ -4032,6 +4111,89 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.cm_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curricula",
+        "curricula_subject_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.curricula_subject_id_idx",
+        "n|idx|public.curricula_subject_id_idx",
+        "e|idx|public.curricula_subject_id_idx",
+        "n|rel|public.curricula_subject_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.curricula.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "curriculum_nodes",
+        "curriculum_nodes_tree_idx"
+      ],
+      "writes": [
+        "s|idx|public.curriculum_nodes_tree_idx",
+        "n|idx|public.curriculum_nodes_tree_idx",
+        "e|idx|public.curriculum_nodes_tree_idx",
+        "n|rel|public.curriculum_nodes_tree_idx"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.parent_id",
+        "n|col|public.curriculum_nodes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "learning_outcomes",
+        "learning_outcomes_node_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.learning_outcomes_node_id_idx",
+        "n|idx|public.learning_outcomes_node_id_idx",
+        "e|idx|public.learning_outcomes_node_id_idx",
+        "n|rel|public.learning_outcomes_node_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.node_id",
+        "n|col|public.learning_outcomes.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "subjects",
+        "subjects_context_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.subjects_context_id_idx",
+        "n|idx|public.subjects_context_id_idx",
+        "e|idx|public.subjects_context_id_idx",
+        "n|rel|public.subjects_context_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.subjects.context_id"
       ]
     },
     {
@@ -7651,6 +7813,100 @@
       "statementTarget": [
         "table",
         "public",
+        "curricula"
+      ],
+      "writes": [
+        "s|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "n|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "e|fk|public.curricula.curricula_subject_id_subjects_id_fkey",
+        "n|con|public.curricula.curricula_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.curricula.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "n|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "e|fk|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey",
+        "n|con|public.curriculum_nodes.curriculum_nodes_curriculum_id_curricula_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|tbl|public.curricula",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curricula.id",
+        "e|uniqueness|public.curricula.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "curriculum_nodes"
+      ],
+      "writes": [
+        "s|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "n|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "e|fk|public.curriculum_nodes.curriculum_nodes_parent_fk",
+        "n|con|public.curriculum_nodes.curriculum_nodes_parent_fk"
+      ],
+      "reads": [
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.parent_id",
+        "n|col|public.curriculum_nodes.curriculum_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.curriculum_id.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "learning_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
+        "n|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
+        "e|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
+        "n|con|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|tbl|public.curriculum_nodes",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.node_id",
+        "n|col|public.curriculum_nodes.id",
+        "e|uniqueness|public.curriculum_nodes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "message"
       ],
       "writes": [
@@ -8714,6 +8970,30 @@
     {
       "schema": "public",
       "name": "quizzes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "curricula",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "curriculum_nodes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "learning_outcomes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "subjects",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -16517,6 +16797,370 @@
     },
     {
       "schema": "public",
+      "table": "curricula",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "grade",
+      "type": "smallint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "parent_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "title",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'topic'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "duration_periods",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "duration_percent",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "node_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "content",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "context_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "slug",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "id",
       "type": "uuid",
@@ -23975,6 +24619,111 @@
     },
     {
       "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_tree_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "curriculum_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "parent_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_node_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "subjects_context_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "context_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_id_idx",
       "nameExplicit": true,
@@ -27310,6 +28059,76 @@
     },
     {
       "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_curriculum_id_curricula_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "curriculum_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curricula",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_parent_fk",
+      "nameExplicit": true,
+      "columns": [
+        "curriculum_id",
+        "parent_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curriculum_nodes",
+      "columnsTo": [
+        "curriculum_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_node_id_curriculum_nodes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "node_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "curriculum_nodes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_conversation_id_message_conversations_id_fkey",
       "nameExplicit": false,
@@ -28508,6 +29327,46 @@
     },
     {
       "schema": "public",
+      "table": "curricula",
+      "name": "curricula_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "subjects_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "message",
       "name": "message_pkey",
       "columns": [
@@ -29397,6 +30256,30 @@
     },
     {
       "schema": "public",
+      "table": "curricula",
+      "name": "curricula_subject_id_grade_unique",
+      "nameExplicit": true,
+      "columns": [
+        "subject_id",
+        "grade"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_curriculum_id_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "curriculum_id",
+        "id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "notification_dispatch_log",
       "name": "notification_dispatch_log_dedupe_unique",
       "nameExplicit": true,
@@ -29732,6 +30615,17 @@
     },
     {
       "schema": "public",
+      "table": "subjects",
+      "name": "subjects_slug_key",
+      "nameExplicit": false,
+      "columns": [
+        "slug"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "calendar_export_tokens",
       "name": "calendar_export_tokens_user_id_key",
       "nameExplicit": false,
@@ -29806,6 +30700,62 @@
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "curricula",
+      "name": "curricula_grade_check",
+      "value": "\"grade\" between 1 and 12",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_parent_not_self_check",
+      "value": "\"parent_id\" is null or \"parent_id\" <> \"id\"",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_kind_check",
+      "value": "\"kind\" in ('strand', 'topic', 'lesson')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_duration_periods_check",
+      "value": "\"duration_periods\" is null or \"duration_periods\" >= 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "curriculum_nodes",
+      "name": "curriculum_nodes_duration_percent_check",
+      "value": "\"duration_percent\" is null or (\"duration_percent\" >= 0 and \"duration_percent\" <= 100)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "subjects",
+      "name": "subjects_position_check",
+      "value": "\"position\" > 0",
+      "entityType": "checks"
     }
   ]
 }
