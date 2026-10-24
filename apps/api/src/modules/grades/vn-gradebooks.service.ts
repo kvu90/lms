@@ -239,18 +239,26 @@ export class VnGradebooksService {
     return { book, items };
   }
 
-  /** Các sổ VN của một khoá học kèm cột của chúng. */
-  async listBooks(courseId: string): Promise<VnBookView[]> {
+  /**
+   * Các sổ VN của một khoá học kèm cột của chúng. Payload chỉ là CẤU TRÚC sổ
+   * (kì, chế độ, quota, cột) — không có điểm của học sinh nào — nhưng vẫn là
+   * bề mặt quản trị sổ: gác `grade:viewall` tại context khoá như hộp ứng viên
+   * (lát cứng hoá nối tiếp #104; trước đây hàm này không nhận actor nên bất kỳ
+   * người dùng đã đăng nhập nào cũng đọc được cấu trúc sổ của mọi khoá).
+   */
+  async listBooks(actorId: string, courseId: string): Promise<VnBookView[]> {
     await this.courses.getCourse(courseId);
+    await this.requireCap(actorId, 'grade:viewall', courseId);
     const books = await this.repo.listVnBooks(courseId);
     const views: VnBookView[] = [];
     for (const book of books) views.push({ book, items: await this.repo.listItemsByVnBook(book.id) });
     return views;
   }
 
-  /** Một sổ VN kèm cột của nó. */
-  async getBookView(bookId: string): Promise<VnBookView> {
+  /** Một sổ VN kèm cột của nó. Gác `grade:viewall` như listBooks (lát cứng hoá nối tiếp #104). */
+  async getBookView(actorId: string, bookId: string): Promise<VnBookView> {
     const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:viewall', book.courseId);
     return { book, items: await this.repo.listItemsByVnBook(book.id) };
   }
 
@@ -527,9 +535,15 @@ export class VnGradebooksService {
     return this.mappingView(row);
   }
 
-  /** Các khai vai trò điểm của một sổ, kèm truy vết hoạt động nguồn và cột đích. */
-  async listActivityMappings(bookId: string): Promise<VnActivityMappingView[]> {
-    await this.getBook(bookId);
+  /**
+   * Các khai vai trò điểm của một sổ, kèm truy vết hoạt động nguồn và cột đích.
+   * Gác `grade:viewall` tại context khoá (lát cứng hoá nối tiếp #104 — điểm ghi
+   * nhận không chặn của đánh giá độc lập GB-VN-2, phán quyết 6389458366: trước
+   * đây hàm này không nhận actor, học sinh và người ngoài khoá đều đọc được).
+   */
+  async listActivityMappings(actorId: string, bookId: string): Promise<VnActivityMappingView[]> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:viewall', book.courseId);
     const rows = await this.repo.listVnActivityMappings(bookId);
     const views: VnActivityMappingView[] = [];
     for (const row of rows) views.push(await this.mappingView(row));
