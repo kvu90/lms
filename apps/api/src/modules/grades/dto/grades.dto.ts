@@ -3,6 +3,7 @@ import {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  exportGradesVneduSchema,
   setGradeLettersSchema,
   setGradeSchema,
   updateGradeCategorySchema,
@@ -13,6 +14,7 @@ import {
   type CreateGradeItem,
   type CreateGradeOutcome,
   type CreateGradeScale,
+  type ExportGradesVnedu,
   type SetGrade,
   type SetGradeLetters,
   type UpdateGrade,
@@ -30,6 +32,7 @@ export {
   createGradeItemSchema,
   createGradeOutcomeSchema,
   createGradeScaleSchema,
+  exportGradesVneduSchema,
   setGradeLettersSchema,
   setGradeSchema,
   updateGradeCategorySchema,
@@ -44,6 +47,7 @@ export type UpdateGradeItemDto = UpdateGradeItem;
 export type SetGradeDto = SetGrade;
 export type UpdateGradeDto = UpdateGrade;
 export type SetLettersDto = SetGradeLetters;
+export type ExportGradesVneduDto = ExportGradesVnedu;
 export type CreateScaleDto = CreateGradeScale;
 export type CreateGradeOutcomeDto = CreateGradeOutcome;
 export type UpdateGradeOutcomeDto = UpdateGradeOutcome;

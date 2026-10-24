@@ -1,11 +1,11 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
-import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
+import { createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, exportGradesVneduSchema, setGradeLettersSchema, setGradeSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type ExportGradesVneduDto, type SetGradeDto, type SetLettersDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -134,6 +134,18 @@ export class GradesController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);
+  }
+  @Post(':courseId/grades/export/vnedu')
+  @HttpCode(200)
+  /**
+   * POST /courses/:courseId/grades/export/vnedu — xuất sổ điểm ra Excel theo cấu trúc vnEdu/TT 22/2021 (issue #53):
+   * body mang ánh xạ mục điểm → loại cột (thường xuyên/giữa kỳ/cuối kỳ) do giáo viên xác nhận; trả file .xlsx đính kèm.
+   */
+  async exportVnedu(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: exportGradesVneduSchema }) dto: ExportGradesVneduDto, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    const { filename, buffer } = await this.grades.exportGradesVnedu(actor.id, courseId, dto);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
   @Post(':courseId/grades/import')
   @UseInterceptors(FileInterceptor('file'))

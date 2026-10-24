@@ -11,6 +11,8 @@ import { UsersService } from '../users/users.service';
 import { AGGREGATIONS, calculateCategory, letterForGrade, adjustedGrade, type AggregationStrategy, type CalcItemInput } from './domain/grade-calculator';
 import { parseCsv, serializeCsv } from './domain/grade-csv';
 import { GradeFormulaError, evaluateGradeFormula, findFormulaCycle, formulaReferences, parseGradeFormula } from './domain/grade-formula';
+import { renderVneduWorkbook, type VneduExportItem, type VneduExportModel } from './domain/vnedu-export';
+import type { ExportGradesVneduDto } from './dto/grades.dto';
 import { GradesRepository, type CategoryRow, type GradeRow, type ItemRow, type LetterRow, type OutcomeRow, type ScaleRow } from './grades.repository';
 
 export const GRADE_REGRADE_QUEUE = 'grade-regrade';
@@ -1196,6 +1198,89 @@ export class GradesService implements OnModuleInit {
       rows.push(row);
     }
     return { filename: `grades-${courseId}.csv`, csv: serializeCsv(rows) };
+  }
+
+  /** Năm học mặc định cho bảng xuất vnEdu: năm học VN bắt đầu tháng 8 (tháng 8–12 thuộc năm học bắt đầu năm đó, tháng 1–7 thuộc năm học bắt đầu năm trước). */
+  private defaultVneduSchoolYear(now = new Date()): string {
+    const startYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${startYear}-${startYear + 1}`;
+  }
+
+  /**
+   * Xuất sổ điểm ra Excel theo cấu trúc vnEdu/TT 22/2021 (issue #53; kiểm
+   * chứng mẫu ở comment Bước 0 của issue): một bảng cho một môn/lớp/học kỳ,
+   * cột STT/Mã học sinh (username)/Họ và tên, mỗi mục thường xuyên một cột
+   * (hệ số 1), giữa kỳ (hệ số 2), cuối kỳ (hệ số 3) và ĐTBmhk tính theo Điều
+   * 9. Ánh xạ mục điểm → loại cột do giáo viên xác nhận tường minh trong
+   * payload (gradebook không có trường loại điểm TT22; đoán ngầm sẽ phân
+   * loại sai lặng lẽ). Điểm xuất là finalGrade quy đổi thang 10 — xem
+   * domain/vnedu-export. Quyền: grade:viewall tại context khoá, như CSV.
+   */
+  async exportGradesVnedu(actorId: string, courseId: string, dto: ExportGradesVneduDto): Promise<{ filename: string; buffer: Buffer }> {
+    const course = await this.courses.getCourse(courseId);
+    await this.requireCap(actorId, 'grade:viewall', courseId);
+    await this.ensureCourseCategory(courseId);
+    const items = await this.repo.listItems(courseId);
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const mappedIds = [...dto.regularItemIds, dto.midtermItemId, dto.finalItemId];
+    if (new Set(mappedIds).size !== mappedIds.length) {
+      throw new BadRequestException({ message: 'Each grade item may only be mapped to one vnEdu column type', code: 'grades.vnedu_duplicate_item' });
+    }
+    const resolveItem = (itemId: string): ItemRow => {
+      const item = byId.get(itemId);
+      if (!item) {
+        throw new BadRequestException({ message: `Grade item ${itemId} does not belong to this course`, code: 'grades.vnedu_item_not_in_course' });
+      }
+      if (item.itemType !== 'manual' && item.itemType !== 'mod') {
+        throw new BadRequestException({ message: `Grade item '${item.itemName}' is a category/course total, not a component grade`, code: 'grades.vnedu_item_not_exportable' });
+      }
+      if (item.gradeType !== 'value') {
+        throw new BadRequestException({ message: `Grade item '${item.itemName}' is not a numeric (value) grade and cannot be converted to the 10-point scale`, code: 'grades.vnedu_item_not_exportable' });
+      }
+      if (!(item.gradeMax > item.gradeMin)) {
+        throw new BadRequestException({ message: `Grade item '${item.itemName}' has an empty grade range`, code: 'grades.vnedu_item_bad_range' });
+      }
+      return item;
+    };
+    const toModelItem = (item: ItemRow): VneduExportItem => ({ id: item.id, name: item.itemName, gradeMin: item.gradeMin, gradeMax: item.gradeMax });
+    const regular = dto.regularItemIds.map((id) => toModelItem(resolveItem(id)));
+    const midterm = toModelItem(resolveItem(dto.midtermItemId));
+    const finalItem = toModelItem(resolveItem(dto.finalItemId));
+
+    const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
+    const userIds = [...new Set(enrolments.map((e) => e.userId))];
+    const usersById = new Map((await this.users.getUsersByIds(userIds)).map((u) => [u.id, u]));
+    const grades = await this.repo.listGradesForCourse(courseId);
+    const gradeByUserItem = new Map(grades.map((g) => [`${g.userId}:${g.itemId}`, g.finalGrade ?? null]));
+    const mappedItems = [...regular, midterm, finalItem];
+    const givenNameOf = (fullName: string): string => fullName.trim().split(/\s+/).at(-1) ?? '';
+    const students = userIds.map((userId) => {
+      const user = usersById.get(userId);
+      const fullName = user ? `${user.lastName} ${user.firstName}`.replace(/\s+/g, ' ').trim() : '';
+      const studentGrades = new Map<string, number | null>();
+      for (const item of mappedItems) studentGrades.set(item.id, gradeByUserItem.get(`${userId}:${item.id}`) ?? null);
+      return { code: user?.username ?? userId, fullName, grades: studentGrades };
+    });
+    // Danh sách lớp VN xếp theo TÊN (từ cuối của họ tên), rồi họ tên đầy đủ, rồi mã — như sổ điểm giấy.
+    students.sort((a, b) =>
+      givenNameOf(a.fullName).localeCompare(givenNameOf(b.fullName), 'vi')
+      || a.fullName.localeCompare(b.fullName, 'vi')
+      || a.code.localeCompare(b.code));
+
+    const schoolYear = dto.schoolYear ?? this.defaultVneduSchoolYear();
+    const model: VneduExportModel = {
+      className: dto.className ?? course.shortName,
+      subjectName: dto.subjectName ?? course.fullName,
+      semester: dto.semester,
+      schoolYear,
+      regular,
+      midterm,
+      final: finalItem,
+      students,
+    };
+    const buffer = await renderVneduWorkbook(model);
+    const safeShortName = course.shortName.replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'course';
+    return { filename: `vnedu-${safeShortName}-hk${dto.semester}-${schoolYear}.xlsx`, buffer };
   }
 
   /**

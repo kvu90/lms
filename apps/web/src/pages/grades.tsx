@@ -88,6 +88,36 @@ interface GradeImportResultView {
   ignoredColumns: string[];
 }
 
+/** Loại cột vnEdu (TT 22/2021) mà giáo viên gán cho một mục điểm khi xuất Excel — issue #53. */
+type VneduColumnKind = 'none' | 'regular' | 'midterm' | 'final';
+
+/**
+ * Mục điểm đủ điều kiện làm cột thành phần vnEdu: mục lá (nhập tay hoặc
+ * hoạt động), điểm số dạng value, không phải mục tính bằng công thức —
+ * khớp đúng điều kiện phía API kiểm khi xuất.
+ */
+function isVneduExportableItem(item: GradeItem): boolean {
+  return (item.itemType === 'manual' || item.itemType === 'mod') && (item.gradeType ?? 'value') === 'value' && !item.calculation;
+}
+
+/**
+ * Gợi ý loại cột vnEdu từ tên mục điểm. Đây CHỈ là mặc định trên giao diện
+ * để giáo viên đỡ phải chọn lại từ đầu — giáo viên xác nhận trước khi xuất
+ * và phía API không hề đoán theo tên.
+ */
+function guessVneduColumnKind(item: GradeItem): VneduColumnKind {
+  const name = item.itemName.toLowerCase();
+  if (/giữa\s*k[ỳì]|giua\s*ky|midterm|\bgk\b/.test(name)) return 'midterm';
+  if (/cuối\s*k[ỳì]|cuoi\s*ky|học\s*k[ỳì]|hoc\s*ky|\bck\b|final/.test(name)) return 'final';
+  return 'regular';
+}
+
+/** Năm học hiện tại dạng "2026-2027": năm học Việt Nam bắt đầu từ tháng 8. */
+function currentSchoolYear(now = new Date()): string {
+  const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}-${start + 1}`;
+}
+
 /**
  * Gradebook: category/item tree with the student's grades, letters at
  * display time, the teacher report (course totals per student) and a grade
@@ -130,6 +160,12 @@ export function GradebookPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [importErrors, setImportErrors] = useState<GradeImportErrorView[]>([]);
+  const [vneduKinds, setVneduKinds] = useState<Record<string, VneduColumnKind>>({});
+  const [vneduSemester, setVneduSemester] = useState('1');
+  const [vneduSchoolYear, setVneduSchoolYear] = useState('');
+  const [vneduSubject, setVneduSubject] = useState('');
+  const [vneduClass, setVneduClass] = useState('');
+  const [vneduMessage, setVneduMessage] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatAggregation, setNewCatAggregation] = useState<string>('natural');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
@@ -180,6 +216,16 @@ export function GradebookPage() {
     setAdminCategories(cats);
     setCatEdits(Object.fromEntries(cats.map((c) => [c.id, c.fullName])));
     setAdminItems(items);
+    // Mặc định ánh xạ vnEdu theo tên mục (giáo viên sửa được từng mục);
+    // mục đã có lựa chọn của giáo viên thì giữ nguyên qua các lần nạp lại.
+    setVneduKinds((prev) => {
+      const next = { ...prev };
+      for (const item of items) {
+        if (!(item.id in next)) next[item.id] = isVneduExportableItem(item) ? guessVneduColumnKind(item) : 'none';
+      }
+      return next;
+    });
+    setVneduSchoolYear((prev) => prev || currentSchoolYear());
     setItemEdits(Object.fromEntries(items.map((i) => [i.id, { itemName: i.itemName, gradeMax: String(i.gradeMax) }])));
     setLetterDrafts(letters.map((l) => ({ letter: l.letter, lowerBoundary: String(l.lowerBoundary) })));
     setAdminScales(scales);
@@ -452,6 +498,52 @@ export function GradebookPage() {
     }
   }
 
+  /**
+   * Xuất Excel vnEdu qua POST /courses/:courseId/grades/export/vnedu
+   * (issue #53): gửi ánh xạ mục điểm → loại cột đang chọn kèm học kỳ, năm
+   * học, môn và lớp (để trống thì server lấy mặc định từ khoá học), nhận
+   * blob .xlsx và tải xuống như đường xuất CSV. Ánh xạ chưa hợp lệ (thiếu
+   * thường xuyên, không đúng một giữa kỳ/một cuối kỳ) thì chặn ngay tại
+   * giao diện, không gọi API.
+   */
+  async function downloadGradesVnedu(event: FormEvent) {
+    event.preventDefault();
+    setVneduMessage(null);
+    const exportable = adminItems.filter(isVneduExportableItem);
+    const regularItemIds = exportable.filter((i) => (vneduKinds[i.id] ?? 'none') === 'regular').map((i) => i.id);
+    const midterms = exportable.filter((i) => vneduKinds[i.id] === 'midterm');
+    const finals = exportable.filter((i) => vneduKinds[i.id] === 'final');
+    if (!regularItemIds.length || midterms.length !== 1 || finals.length !== 1) {
+      setVneduMessage(t('vneduMappingInvalid'));
+      return;
+    }
+    try {
+      const response = await apiFetch(`/api/v1/courses/${courseId}/grades/export/vnedu`, {
+        method: 'POST',
+        body: JSON.stringify({
+          regularItemIds,
+          midtermItemId: midterms[0]!.id,
+          finalItemId: finals[0]!.id,
+          semester: Number(vneduSemester),
+          ...(vneduSchoolYear.trim() ? { schoolYear: vneduSchoolYear.trim() } : {}),
+          ...(vneduSubject.trim() ? { subjectName: vneduSubject.trim() } : {}),
+          ...(vneduClass.trim() ? { className: vneduClass.trim() } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error('vnedu export failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `vnedu-${courseId}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+      setVneduMessage(t('vneduExported'));
+    } catch {
+      setVneduMessage(t('vneduExportFailed'));
+    }
+  }
+
   /** Tính lại điểm toàn khoá qua POST /courses/:courseId/grades/regrade (không body). */
   async function regradeCourse() {
     setAdminMessage(null);
@@ -665,6 +757,78 @@ export function GradebookPage() {
                     ))}
                   </ul>
                 ) : null}
+              </form>
+              <form onSubmit={(e) => void downloadGradesVnedu(e)} className="space-y-3 border-t pt-3">
+                <div>
+                  <p className="font-medium">{t('vneduExportTitle')}</p>
+                  <p className="text-sm">{t('vneduExportDescription')}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="vnedu-semester">{t('vneduSemester')}</Label>
+                    <select
+                      id="vnedu-semester"
+                      value={vneduSemester}
+                      onChange={(e) => setVneduSemester(e.target.value)}
+                      className="border px-2 py-1"
+                    >
+                      <option value="1">{t('vneduSemester1')}</option>
+                      <option value="2">{t('vneduSemester2')}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vnedu-school-year">{t('vneduSchoolYear')}</Label>
+                    <Input
+                      id="vnedu-school-year"
+                      value={vneduSchoolYear}
+                      onChange={(e) => setVneduSchoolYear(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vnedu-subject">{t('vneduSubjectName')}</Label>
+                    <Input
+                      id="vnedu-subject"
+                      value={vneduSubject}
+                      onChange={(e) => setVneduSubject(e.target.value)}
+                      placeholder={t('vneduSubjectPlaceholder')}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vnedu-class">{t('vneduClassName')}</Label>
+                    <Input
+                      id="vnedu-class"
+                      value={vneduClass}
+                      onChange={(e) => setVneduClass(e.target.value)}
+                      placeholder={t('vneduClassPlaceholder')}
+                    />
+                  </div>
+                </div>
+                <ul className="space-y-2">
+                  {adminItems.filter(isVneduExportableItem).map((item) => (
+                    <li key={item.id} className="flex flex-wrap items-center gap-2">
+                      <Label htmlFor={`vnedu-kind-${item.id}`} className="min-w-40">
+                        {item.itemName}
+                      </Label>
+                      <select
+                        id={`vnedu-kind-${item.id}`}
+                        value={vneduKinds[item.id] ?? 'none'}
+                        onChange={(e) =>
+                          setVneduKinds((prev) => ({ ...prev, [item.id]: e.target.value as VneduColumnKind }))
+                        }
+                        className="border px-2 py-1"
+                      >
+                        <option value="none">{t('vneduKindNone')}</option>
+                        <option value="regular">{t('vneduKindRegular')}</option>
+                        <option value="midterm">{t('vneduKindMidterm')}</option>
+                        <option value="final">{t('vneduKindFinal')}</option>
+                      </select>
+                    </li>
+                  ))}
+                </ul>
+                <Button type="submit" variant="outline">
+                  {t('exportGradesVnedu')}
+                </Button>
+                {vneduMessage ? <p role="status">{vneduMessage}</p> : null}
               </form>
               {adminMessage ? <p role="status">{adminMessage}</p> : null}
             </CardContent>
