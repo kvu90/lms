@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/ && cp -r src/modules/curriculum/program-data/. dist/modules/curriculum/program-data/ && cp -r src/modules/curriculum/textbook-data/. dist/modules/curriculum/textbook-data/",
+    "build": "tsc -p tsconfig.build.json && cp -r src/i18n/. dist/i18n/ && cp -r src/modules/curriculum/program-data/. dist/modules/curriculum/program-data/ && cp -r src/modules/books/book-data/. dist/modules/books/book-data/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
