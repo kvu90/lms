@@ -12,7 +12,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: lms_test
+          POSTGRES_DB: lms_test_api
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres"
@@ -24,10 +24,14 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      # Both test suites (api and worker) run against lms_test — their
-      # vitest configs pin that database name — so every step in this
-      # job, the migration included, targets lms_test and nothing else.
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms_test
+      # Each test suite owns its database — api: lms_test_api (created by
+      # the postgres service via POSTGRES_DB), worker: lms_test_worker
+      # (created by a step below) — because turbo runs the suites in
+      # parallel and they must not share mutable global tables (the
+      # outbox backlog race is the failure this isolation prevents).
+      # The vitest configs pin those names; this job-level DATABASE_URL
+      # only serves steps outside the suites (kept on the api database).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms_test_api
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-secret-at-least-16-chars
     steps:
@@ -41,8 +45,12 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Migrate the test database from empty
-        run: pnpm --filter @lms/api db:migrate
+      - name: Create the worker test database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE lms_test_worker'
+      - name: Migrate the test databases from empty
+        run: |
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_api pnpm --filter @lms/api db:migrate
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_worker pnpm --filter @lms/api db:migrate
       - name: Build
         run: pnpm exec turbo run build
       - name: Typecheck

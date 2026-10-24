@@ -79,6 +79,24 @@ export const envSchema = z.object({
   // Files
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
   FILE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  // Better Auth (issue #7): nền authn mới dựng song song sau cờ này, mặc
+  // định TẮT — chừng nào cờ tắt, instance không được dựng, handler không
+  // mount, guard bỏ qua hoàn toàn và hành vi auth hiện tại không đổi một
+  // chút nào. Bật cờ mà thiếu BETTER_AUTH_SECRET thì app từ chối boot
+  // (fail-fast trong BetterAuthService) thay vì chạy với secret rỗng.
+  BETTER_AUTH_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  // Secret ký cookie/phiên riêng của Better Auth — KHÔNG dùng chung
+  // JWT_SECRET để hai hệ xoay vòng độc lập. Chỉ bắt buộc khi cờ bật.
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  // URL công khai của chính API theo góc nhìn trình duyệt, làm baseURL +
+  // origin tin cậy mặc định cho Better Auth. Trống = suy từ PORT local.
+  BETTER_AUTH_URL: z.string().min(1).optional(),
+  // Danh sách origin tin cậy bổ sung (phân tách bằng dấu phẩy) cho các
+  // endpoint đổi trạng thái của Better Auth (kiểm tra Origin của nó).
+  BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
   // Bootstrap admin (seeded on first boot when no site admin exists)
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin123!'),

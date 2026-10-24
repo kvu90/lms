@@ -9,9 +9,12 @@ export default defineConfig({
     hookTimeout: 30000,
     fileParallelism: false,
     env: {
-      // DB test riêng cho từng worktree qua LMS_TEST_DATABASE_URL;
-      // không đặt thì giữ mặc định lms_test như trước (CI không đổi).
-      DATABASE_URL: process.env.LMS_TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/lms_test',
+      // Cách ly suite: API dùng DB riêng lms_test_api, worker dùng
+      // lms_test_worker (xem apps/worker/vitest.config.ts) — hai suite
+      // chạy song song trong CI không còn giẫm lên dữ liệu toàn cục của
+      // nhau (outbox backlog, event_log...). LMS_TEST_DATABASE_URL vẫn
+      // ghi đè được khi cần trỏ cả hai vào một DB riêng theo worktree.
+      DATABASE_URL: process.env.LMS_TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/lms_test_api',
       REDIS_URL: 'redis://localhost:6379',
       JWT_SECRET: 'test-secret-at-least-16-chars',
       NODE_ENV: 'test',
