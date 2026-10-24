@@ -16,7 +16,7 @@ import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
-import { question, questionCategories, questionUsages } from '../questions/schema';
+import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
 
 /**
  * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
@@ -39,9 +39,11 @@ export const examMatrices = pgTable('exam_matrices', {
   contextId: uuid('context_id').notNull(),
   /**
    * Các cột NGÂN HÀNG (lát MB-0 chặn nối đuối theo hồ sơ ngân hàng
-   * đề/ma trận, mục G.1): bank_id trỏ question_banks của PR #83 (bảng
-   * đó chưa có ở nhánh này nên để uuid mềm, MB-1 sẽ neo FK/khuôn bank);
-   * status là vòng đời trong bank (draft/ready/hidden như câu hỏi);
+   * đề/ma trận, mục G.1): bank_id trỏ question_banks (bảng bank đa
+   * loại của PR #83, bank_kind='matrix' với ma trận); MB-1 (issue
+   * #111) neo khoá ngoại thật vào question_banks.id (xoá bank thì
+   * ma trận rơi về "chưa thuộc bank nào", không mất ma trận); status
+   * là vòng đời trong bank (draft/ready/hidden như câu hỏi);
    * is_template phân biệt ma trận mẫu ↔ ma trận làm việc;
    * derived_from_matrix_id truy vết copy (mẫu → bản làm việc);
    * version tăng khi sửa một ma trận đã ready (bản đặc tả đã nộp phải
@@ -49,7 +51,7 @@ export const examMatrices = pgTable('exam_matrices', {
    * duy nhất là BANK (điểm E-8): context_id hiện tại chỉ là neo phạm vi
    * dữ liệu môn — xem resolver quyền trong QuizService.
    */
-  bankId: uuid('bank_id'),
+  bankId: uuid('bank_id').references(() => questionBanks.id, { onDelete: 'set null' }),
   status: text('status').notNull().default('draft'),
   isTemplate: boolean('is_template').notNull().default(false),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
@@ -104,6 +106,38 @@ export const examMatrixCells = pgTable('exam_matrix_cells', {
       check('exam_matrix_cells_qtype_check', sql`${table.qtype} in ('multichoice', 'truefalse', 'shortanswer', 'essay')`),
       check('exam_matrix_cells_count_check', sql`${table.questionCount} > 0`),
       check('exam_matrix_cells_score_check', sql`${table.cellScore} > 0`),
+  ]);
+
+/**
+ * Hàng chờ ĐÓNG GÓP ma trận lên bank chung (MB-1, issue #111 — cơ chế
+ * QB-4 của ngân hàng câu hỏi áp cho ma trận, mục A.2/G.1 của hồ sơ):
+ * giáo viên đề xuất đưa ma trận ready của mình vào một bank ma trận
+ * dùng chung (tổ/trường); người có matrix:moderate tại bank đích duyệt
+ * — duyệt = copy sâu ma trận vào bank đích (result_matrix_id trỏ bản đã
+ * vào bank, derived_from của bản đó trỏ về ma trận nguồn, proposer_id
+ * là truy vết người đóng góp), từ chối bắt buộc có lý do hiện lại cho
+ * người gửi. Ma trận KHÔNG có vòng version như câu hỏi nên hàng chờ chỉ
+ * có một chế độ (tương đương mode 'new' của question_bank_contributions).
+ */
+export const examMatrixContributions = pgTable('exam_matrix_contributions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
+  targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
+  proposerId: uuid('proposer_id').notNull(),
+  note: text('note').notNull().default(''),
+  status: text('status').notNull().default('pending'),
+  rejectReason: text('reject_reason'),
+  reviewerId: uuid('reviewer_id'),
+  resultMatrixId: uuid('result_matrix_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_matrix_contributions_target_bank_idx').on(table.targetBankId),
+      index('exam_matrix_contributions_matrix_idx').on(table.matrixId),
+      index('exam_matrix_contributions_proposer_idx').on(table.proposerId),
+      index('exam_matrix_contributions_status_idx').on(table.status),
+      check('exam_matrix_contributions_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`),
   ]);
 
 /**

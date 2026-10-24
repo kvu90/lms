@@ -1038,6 +1038,52 @@ export const updateExamMatrixCellSchema = z.strictObject({
 });
 export type UpdateExamMatrixCell = z.infer<typeof updateExamMatrixCellSchema>;
 
+/**
+ * MB-1 (issue #111): copy ma trận trong ngân hàng ma trận — đích mặc
+ * định là bank ma trận cá nhân của người copy khi không gửi
+ * targetBankId; name không gửi thì giữ tên nguồn.
+ */
+export const copyExamMatrixSchema = z.strictObject({
+  targetBankId: uuidIdSchema.nullable().optional(),
+  name: z.string().min(1).optional(),
+});
+export type CopyExamMatrix = z.infer<typeof copyExamMatrixSchema>;
+
+/** MB-1: đề xuất đóng góp một ma trận ready vào bank ma trận dùng chung (cơ chế QB-4). */
+export const createMatrixContributionSchema = z.strictObject({
+  targetBankId: uuidIdSchema,
+  note: z.string().max(2000).optional(),
+});
+export type CreateMatrixContribution = z.infer<typeof createMatrixContributionSchema>;
+
+/** MB-1: duyệt đóng góp ma trận — duyệt = copy sâu vào bank đích, không có payload. */
+export const approveMatrixContributionSchema = z.strictObject({});
+export type ApproveMatrixContribution = z.infer<typeof approveMatrixContributionSchema>;
+
+/** MB-1: từ chối đóng góp ma trận — lý do BẮT BUỘC, hiện lại cho người gửi. */
+export const rejectMatrixContributionSchema = z.strictObject({
+  reason: z.string().min(1),
+});
+export type RejectMatrixContribution = z.infer<typeof rejectMatrixContributionSchema>;
+
+/** Một dòng hàng chờ đóng góp ma trận (MB-1): truy vết người đóng góp + kết quả duyệt. */
+export const examMatrixContributionViewSchema = z.object({
+  id: uuidIdSchema,
+  matrixId: uuidIdSchema,
+  matrixName: z.string().nullable(),
+  targetBankId: uuidIdSchema,
+  proposerId: uuidIdSchema,
+  proposerName: z.string().nullable(),
+  note: z.string(),
+  status: z.enum(['pending', 'approved', 'rejected']),
+  rejectReason: z.string().nullable(),
+  reviewerId: uuidIdSchema.nullable(),
+  resultMatrixId: uuidIdSchema.nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ExamMatrixContributionView = z.infer<typeof examMatrixContributionViewSchema>;
+
 /** Khả dụng ngân hàng cho một ô: cần bao nhiêu, có bao nhiêu (ô truefalse đếm theo CHÙM), thiếu bao nhiêu. */
 export const matrixCellAvailabilitySchema = z.object({
   cellId: uuidIdSchema,
