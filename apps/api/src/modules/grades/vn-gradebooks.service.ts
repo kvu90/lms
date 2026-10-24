@@ -330,7 +330,9 @@ export class VnGradebooksService {
       for (const book of hk2Books) {
         if (book.assessmentMode !== 'comment') continue;
         const row = latestByKey.get(`term:${book.id}`);
-        if (row?.commentResult) subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
+        if (row?.commentResult === 'Đạt' || row?.commentResult === 'Chưa đạt') {
+          subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
+        }
       }
     } else {
       const books = await this.repo.listVnBooksByTerm(period);
@@ -338,7 +340,9 @@ export class VnGradebooksService {
         const row = latestByKey.get(`term:${book.id}`);
         if (!row) continue;
         if (book.assessmentMode === 'comment') {
-          if (row.commentResult) subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
+          if (row.commentResult === 'Đạt' || row.commentResult === 'Chưa đạt') {
+            subjects.push({ key: book.courseId, kind: 'comment', commentResult: row.commentResult });
+          }
         } else if (row.dtbHk != null) {
           subjects.push({ key: book.courseId, kind: 'score', dtb: row.dtbHk });
         }
