@@ -35,7 +35,7 @@ describe('Blog space model (issue #87, BL1)', () => {
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { await pg.end().catch(() => undefined); await app.close(); });
 
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
