@@ -93,6 +93,20 @@ export function round1(value: number): number {
   return Math.round(value * 10 + 1e-7) / 10;
 }
 
+/**
+ * Quy đổi một điểm trên thang của hoạt động về thang 10 (Điều 5.3b: thang
+ * khác phải quy đổi về thang 10) — dùng cho ứng viên điểm của GB-VN-2:
+ * điểm gợi ý vào cột = (điểm − min)/(max − min) × 10, kẹp về [0, 10] rồi
+ * làm tròn 1 chữ số thập phân. Ví dụ: 30/40 → 7,5; 18/20 → 9,0.
+ */
+export function convertGradeToScale10(value: number, gradeMin: number, gradeMax: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(gradeMin) || !Number.isFinite(gradeMax) || gradeMax <= gradeMin) {
+    throw new Error(`Invalid grade range for scale-10 conversion: [${gradeMin}, ${gradeMax}]`);
+  }
+  const ratio = (value - gradeMin) / (gradeMax - gradeMin);
+  return round1(Math.min(10, Math.max(0, ratio * 10)));
+}
+
 /** Đầu vào tính ĐTBmhk: các ĐĐGtx (mỗi điểm hệ số 1), ĐĐGgk (hệ số 2), ĐĐGck (hệ số 3). */
 export interface DtbHkInput {
   dgtx: number[];
