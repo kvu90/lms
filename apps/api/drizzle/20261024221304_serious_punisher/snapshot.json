@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "e69c3779-ed76-4483-8624-f02d7c407584",
+  "id": "c7a4a715-2f72-4f4f-88b8-c8c5bce0c468",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1102,6 +1102,45 @@
         "n|rel|public.scales",
         "n|type|public.scales",
         "n|rel|public.scales_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|tbl|public.vn_activity_mappings",
+        "n|tbl|public.vn_activity_mappings",
+        "e|tbl|public.vn_activity_mappings",
+        "n|rel|public.vn_activity_mappings",
+        "n|type|public.vn_activity_mappings",
+        "n|rel|public.vn_activity_mappings_pkey",
+        "n|rel|public.vn_activity_mappings_cm_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|tbl|public.vn_candidate_actions",
+        "n|tbl|public.vn_candidate_actions",
+        "e|tbl|public.vn_candidate_actions",
+        "n|rel|public.vn_candidate_actions",
+        "n|type|public.vn_candidate_actions",
+        "n|rel|public.vn_candidate_actions_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -4775,6 +4814,226 @@
         "n|tbl|public.scales",
         "n|sch|public",
         "n|col|public.scales.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_activity_mappings",
+        "vn_activity_mappings_course_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_activity_mappings_course_id_idx",
+        "n|idx|public.vn_activity_mappings_course_id_idx",
+        "e|idx|public.vn_activity_mappings_course_id_idx",
+        "n|rel|public.vn_activity_mappings_course_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_activity_mappings",
+        "vn_activity_mappings_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_activity_mappings_book_id_idx",
+        "n|idx|public.vn_activity_mappings_book_id_idx",
+        "e|idx|public.vn_activity_mappings_book_id_idx",
+        "n|rel|public.vn_activity_mappings_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_activity_mappings",
+        "vn_activity_mappings_cm_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_activity_mappings_cm_id_idx",
+        "n|idx|public.vn_activity_mappings_cm_id_idx",
+        "e|idx|public.vn_activity_mappings_cm_id_idx",
+        "n|rel|public.vn_activity_mappings_cm_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.cm_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_activity_mappings",
+        "vn_activity_mappings_item_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_activity_mappings_item_id_idx",
+        "n|idx|public.vn_activity_mappings_item_id_idx",
+        "e|idx|public.vn_activity_mappings_item_id_idx",
+        "n|rel|public.vn_activity_mappings_item_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_activity_mappings",
+        "vn_activity_mappings_target_item_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_activity_mappings_target_item_id_idx",
+        "n|idx|public.vn_activity_mappings_target_item_id_idx",
+        "e|idx|public.vn_activity_mappings_target_item_id_idx",
+        "n|rel|public.vn_activity_mappings_target_item_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.target_item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_course_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_course_id_idx",
+        "n|idx|public.vn_candidate_actions_course_id_idx",
+        "e|idx|public.vn_candidate_actions_course_id_idx",
+        "n|rel|public.vn_candidate_actions_course_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_book_id_idx",
+        "n|idx|public.vn_candidate_actions_book_id_idx",
+        "e|idx|public.vn_candidate_actions_book_id_idx",
+        "n|rel|public.vn_candidate_actions_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_mapping_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_mapping_id_idx",
+        "n|idx|public.vn_candidate_actions_mapping_id_idx",
+        "e|idx|public.vn_candidate_actions_mapping_id_idx",
+        "n|rel|public.vn_candidate_actions_mapping_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.mapping_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_target_item_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_target_item_id_idx",
+        "n|idx|public.vn_candidate_actions_target_item_id_idx",
+        "e|idx|public.vn_candidate_actions_target_item_id_idx",
+        "n|rel|public.vn_candidate_actions_target_item_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.target_item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_source_item_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_source_item_id_idx",
+        "n|idx|public.vn_candidate_actions_source_item_id_idx",
+        "e|idx|public.vn_candidate_actions_source_item_id_idx",
+        "n|rel|public.vn_candidate_actions_source_item_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.source_item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "vn_candidate_actions",
+        "vn_candidate_actions_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.vn_candidate_actions_user_id_idx",
+        "n|idx|public.vn_candidate_actions_user_id_idx",
+        "e|idx|public.vn_candidate_actions_user_id_idx",
+        "n|rel|public.vn_candidate_actions_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.user_id"
       ]
     },
     {
@@ -10706,6 +10965,236 @@
       "statementTarget": [
         "table",
         "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|fk|public.vn_activity_mappings.vn_activity_mappings_course_id_course_id_fkey",
+        "n|fk|public.vn_activity_mappings.vn_activity_mappings_course_id_course_id_fkey",
+        "e|fk|public.vn_activity_mappings.vn_activity_mappings_course_id_course_id_fkey",
+        "n|con|public.vn_activity_mappings.vn_activity_mappings_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|fk|public.vn_activity_mappings.vn_activity_mappings_book_id_vn_gradebooks_id_fkey",
+        "n|fk|public.vn_activity_mappings.vn_activity_mappings_book_id_vn_gradebooks_id_fkey",
+        "e|fk|public.vn_activity_mappings.vn_activity_mappings_book_id_vn_gradebooks_id_fkey",
+        "n|con|public.vn_activity_mappings.vn_activity_mappings_book_id_vn_gradebooks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.book_id",
+        "n|col|public.vn_gradebooks.id",
+        "e|uniqueness|public.vn_gradebooks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|fk|public.vn_activity_mappings.vn_activity_mappings_cm_id_course_modules_id_fkey",
+        "n|fk|public.vn_activity_mappings.vn_activity_mappings_cm_id_course_modules_id_fkey",
+        "e|fk|public.vn_activity_mappings.vn_activity_mappings_cm_id_course_modules_id_fkey",
+        "n|con|public.vn_activity_mappings.vn_activity_mappings_cm_id_course_modules_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|tbl|public.course_modules",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.cm_id",
+        "n|col|public.course_modules.id",
+        "e|uniqueness|public.course_modules.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|fk|public.vn_activity_mappings.vn_activity_mappings_item_id_grade_items_id_fkey",
+        "n|fk|public.vn_activity_mappings.vn_activity_mappings_item_id_grade_items_id_fkey",
+        "e|fk|public.vn_activity_mappings.vn_activity_mappings_item_id_grade_items_id_fkey",
+        "n|con|public.vn_activity_mappings.vn_activity_mappings_item_id_grade_items_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.item_id",
+        "n|col|public.grade_items.id",
+        "e|uniqueness|public.grade_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_activity_mappings"
+      ],
+      "writes": [
+        "s|fk|public.vn_activity_mappings.vn_activity_mappings_target_item_id_grade_items_id_fkey",
+        "n|fk|public.vn_activity_mappings.vn_activity_mappings_target_item_id_grade_items_id_fkey",
+        "e|fk|public.vn_activity_mappings.vn_activity_mappings_target_item_id_grade_items_id_fkey",
+        "n|con|public.vn_activity_mappings.vn_activity_mappings_target_item_id_grade_items_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.vn_activity_mappings.target_item_id",
+        "n|col|public.grade_items.id",
+        "e|uniqueness|public.grade_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|fk|public.vn_candidate_actions.vn_candidate_actions_course_id_course_id_fkey",
+        "n|fk|public.vn_candidate_actions.vn_candidate_actions_course_id_course_id_fkey",
+        "e|fk|public.vn_candidate_actions.vn_candidate_actions_course_id_course_id_fkey",
+        "n|con|public.vn_candidate_actions.vn_candidate_actions_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|fk|public.vn_candidate_actions.vn_candidate_actions_book_id_vn_gradebooks_id_fkey",
+        "n|fk|public.vn_candidate_actions.vn_candidate_actions_book_id_vn_gradebooks_id_fkey",
+        "e|fk|public.vn_candidate_actions.vn_candidate_actions_book_id_vn_gradebooks_id_fkey",
+        "n|con|public.vn_candidate_actions.vn_candidate_actions_book_id_vn_gradebooks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.book_id",
+        "n|col|public.vn_gradebooks.id",
+        "e|uniqueness|public.vn_gradebooks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|fk|public.vn_candidate_actions.vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey",
+        "n|fk|public.vn_candidate_actions.vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey",
+        "e|fk|public.vn_candidate_actions.vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey",
+        "n|con|public.vn_candidate_actions.vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|tbl|public.vn_activity_mappings",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.mapping_id",
+        "n|col|public.vn_activity_mappings.id",
+        "e|uniqueness|public.vn_activity_mappings.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|fk|public.vn_candidate_actions.vn_candidate_actions_target_item_id_grade_items_id_fkey",
+        "n|fk|public.vn_candidate_actions.vn_candidate_actions_target_item_id_grade_items_id_fkey",
+        "e|fk|public.vn_candidate_actions.vn_candidate_actions_target_item_id_grade_items_id_fkey",
+        "n|con|public.vn_candidate_actions.vn_candidate_actions_target_item_id_grade_items_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.target_item_id",
+        "n|col|public.grade_items.id",
+        "e|uniqueness|public.grade_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "vn_candidate_actions"
+      ],
+      "writes": [
+        "s|fk|public.vn_candidate_actions.vn_candidate_actions_source_item_id_grade_items_id_fkey",
+        "n|fk|public.vn_candidate_actions.vn_candidate_actions_source_item_id_grade_items_id_fkey",
+        "e|fk|public.vn_candidate_actions.vn_candidate_actions_source_item_id_grade_items_id_fkey",
+        "n|con|public.vn_candidate_actions.vn_candidate_actions_source_item_id_grade_items_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.vn_candidate_actions",
+        "n|sch|public",
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.vn_candidate_actions.source_item_id",
+        "n|col|public.grade_items.id",
+        "e|uniqueness|public.grade_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "vn_gradebooks"
       ],
       "writes": [
@@ -13846,6 +14335,18 @@
     {
       "schema": "public",
       "name": "scales",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "vn_activity_mappings",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "vn_candidate_actions",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -20679,6 +21180,331 @@
       "schema": "public",
       "table": "scales",
       "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "cm_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "target_item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "role",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "ordinal",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "mapping_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "target_item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "source_item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "action",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "source_grade_value",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "source_grade_updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "converted_grade",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "committed_value",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -35909,6 +36735,237 @@
     },
     {
       "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_course_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_cm_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "cm_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_item_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_target_item_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "target_item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_course_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_mapping_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "mapping_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_target_item_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "target_item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_source_item_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "source_item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "vn_gradebooks",
       "name": "vn_gradebooks_course_id_idx",
       "nameExplicit": true,
@@ -41824,6 +42881,176 @@
     },
     {
       "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_book_id_vn_gradebooks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_gradebooks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_cm_id_course_modules_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "cm_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course_modules",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_item_id_grade_items_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_target_item_id_grade_items_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "target_item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_book_id_vn_gradebooks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_gradebooks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_mapping_id_vn_activity_mappings_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "mapping_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_activity_mappings",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_target_item_id_grade_items_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "target_item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_source_item_id_grade_items_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "source_item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "vn_gradebooks",
       "name": "vn_gradebooks_course_id_course_id_fkey",
       "nameExplicit": false,
@@ -44508,6 +45735,26 @@
     },
     {
       "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "vn_candidate_actions",
+      "name": "vn_candidate_actions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "vn_gradebooks",
       "name": "vn_gradebooks_pkey",
       "columns": [
@@ -45878,6 +47125,17 @@
       "columns": [
         "context_id",
         "lower_boundary"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "vn_activity_mappings",
+      "name": "vn_activity_mappings_cm_unique",
+      "nameExplicit": true,
+      "columns": [
+        "cm_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
