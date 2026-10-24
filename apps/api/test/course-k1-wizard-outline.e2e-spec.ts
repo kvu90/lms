@@ -41,6 +41,10 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const itemRes = await http(app).post(`/api/v1/courses/${source.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Bài tập về nhà', itemType: 'manual', gradeMax: 20 });
     expect(itemRes.status).toBe(201);
+    // Tiêu chí hoàn thành theo ngày của khoá nguồn — mốc này cũng phải lùi theo delta.
+    const criteriaRes = await http(app).put(`/api/v1/courses/${source.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
+      .send({ method: 1, criteria: [{ criteriaType: 'date', date: '2026-04-15' }] });
+    expect(criteriaRes.status).toBe(200);
     // Người học trong khoá nguồn — bản sao KHÔNG được chứa.
     const student = await createUserViaApi(app, admin);
     const instance = await createEnrolInstance(app, admin, source.id);
@@ -82,6 +86,11 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const enrolRes = await http(app).get(`/api/v1/courses/${copy.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect(enrolRes.status).toBe(200);
     expect(enrolRes.body).toHaveLength(0);
+    // Ngày của tiêu chí hoàn thành lùi đúng delta: 2026-04-15 + 189 ngày = 2026-10-21.
+    const copyCriteria = await http(app).get(`/api/v1/courses/${copy.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`);
+    expect(copyCriteria.status).toBe(200);
+    const dateCriterion = copyCriteria.body.criteria.find((c: { criteriaType: string }) => c.criteriaType === 'date');
+    expect(String(dateCriterion.date).slice(0, 10)).toBe('2026-10-21');
     void s0;
   });
 
@@ -125,6 +134,11 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const sectionsWith2 = content.sections.filter((s: { modules: unknown[] }) => s.modules.length === 2);
     expect(sectionsWith2).toHaveLength(2);
 
+    // Item điểm 'mod' của module có idNumber: nhân bản trong CÙNG khoá
+    // không được vi phạm unique (courseId, idNumber) của grade_items.
+    const modItem = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+      .send({ itemName: 'Điểm mục 2', itemType: 'mod', cmId: m2.id, idNumber: 'MUC-2', gradeMax: 10 });
+    expect(modItem.status).toBe(201);
     const dupCm = await http(app).post(`/api/v1/courses/${course.id}/modules/${m2.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
     expect(dupCm.status).toBe(201);
     content = await contentOf(course.id, admin);

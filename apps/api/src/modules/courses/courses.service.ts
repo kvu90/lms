@@ -959,7 +959,7 @@ export class CoursesService {
    * viên (grade_grades), theo đúng bảng sao chép Re-run của issue #68.
    */
   private async copyGradeStructure(
-    tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>,
+    tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
   ): Promise<void> {
     const db = tx as unknown as Database;
     const scaleMap = new Map<string, string>();
@@ -1027,7 +1027,7 @@ export class CoursesService {
       await db.insert(courseCompletionCriteria).values({
         course: targetCourseId, criteriaType: c.criteriaType,
         moduleInstance: c.moduleInstance ? cmMap.get(c.moduleInstance) ?? null : null,
-        date: c.date, courseInstance: c.courseInstance === sourceCourseId ? targetCourseId : c.courseInstance,
+        date: this.shiftDate(c.date, deltaMs), courseInstance: c.courseInstance === sourceCourseId ? targetCourseId : c.courseInstance,
         enrolPeriodDays: c.enrolPeriodDays, roleId: c.roleId, sortOrder: c.sortOrder,
       });
     }
@@ -1087,7 +1087,7 @@ export class CoursesService {
       for (const s of ordered) {
         await this.copySectionRow(tx as DbTx, s, created.id, s.section, deltaMs, cmMap);
       }
-      await this.copyGradeStructure(tx as DbTx, sourceCourseId, created.id, cmMap);
+      await this.copyGradeStructure(tx as DbTx, sourceCourseId, created.id, cmMap, deltaMs);
       // Format options (sectionId map lại theo section mới khi có) —
       // đọc section mới ngay trong transaction để thấy dữ liệu vừa chèn.
       const db = tx as unknown as Database;
@@ -1214,7 +1214,7 @@ export class CoursesService {
             courseId: section.course, categoryId: item.categoryId, itemName: item.itemName,
             itemType: item.itemType, itemModule: item.itemModule, itemInstance: newCmId,
             gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-            scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: item.idNumber, calculation: item.calculation,
+            scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
             weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
             multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
             sortOrder: item.sortOrder,
@@ -1253,7 +1253,7 @@ export class CoursesService {
           courseId: cm.course, categoryId: item.categoryId, itemName: item.itemName,
           itemType: item.itemType, itemModule: item.itemModule, itemInstance: created.id,
           gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-          scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: item.idNumber, calculation: item.calculation,
+          scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
           weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
           multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
           sortOrder: item.sortOrder,
