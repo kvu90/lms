@@ -503,9 +503,33 @@ export class EnrolService implements OnModuleInit {
   }
 
   /**
-   * Ghi danh của khoá học.
+   * Cổng xem danh sách ghi danh của khoá học qua API (issue #44): chỉ cho
+   * (a) người thuộc khoá — ghi danh đang hiệu lực hoặc được gán vai tại
+   * context khoá (giáo viên phụ trách không qua ghi danh), hoặc (b) người có
+   * capability `enrol:manage` tại context khoá (site admin đạt qua
+   * PermissionEvaluator). Người ngoài nhận 404 với đúng mã/thông điệp như
+   * khoá không tồn tại (`course.not_found`) để không lộ khoá có tồn tại.
    */
-  async listEnrolmentsForCourse(courseId: string): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
+  private async requireListEnrolmentsAccess(viewerId: string, courseId: string): Promise<void> {
+    await this.courses.getCourse(courseId); // 404 course.not_found khi khoá không tồn tại
+    if (await this.canManageEnrol(viewerId, courseId)) return;
+    if (await this.isEnrolled(courseId, viewerId, { onlyActive: true })) return;
+    const assignments = await this.roles.listAssignments({
+      userId: viewerId,
+      contextId: await this.courses.courseContextId(courseId),
+    });
+    if (assignments.length) return;
+    throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'course.not_found' });
+  }
+
+  /**
+   * Ghi danh của khoá học. Khi truyền `viewerId` (đường API) thì áp cổng
+   * `requireListEnrolmentsAccess`; khi không truyền (đường nội bộ tin cậy —
+   * analytics/completion/grades) bản ghi được trả nguyên vẹn, cùng mẫu
+   * `listInstances(courseId, viewerId?)`.
+   */
+  async listEnrolmentsForCourse(courseId: string, viewerId?: string): Promise<(UserEnrolmentRow & { enrolMethod: string })[]> {
+    if (viewerId) await this.requireListEnrolmentsAccess(viewerId, courseId);
     return this.repo.listUserEnrolmentsForCourse(courseId);
   }
   /**

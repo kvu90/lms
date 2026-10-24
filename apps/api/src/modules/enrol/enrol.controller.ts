@@ -88,10 +88,11 @@ export class EnrolController {
 
   @Get(':courseId/enrolments')
   /**
-   * GET /courses/:courseId/enrolments — ghi danh của khoá học.
+   * GET /courses/:courseId/enrolments — ghi danh của khoá học (chỉ thành viên
+   * khoá hoặc người có quyền quản lý enrol mới xem được; người ngoài nhận 404).
    */
-  async listEnrolments(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.enrol.listEnrolmentsForCourse(courseId);
+  async listEnrolments(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() viewer: AuthenticatedUser) {
+    return this.enrol.listEnrolmentsForCourse(courseId, viewer.id);
   }
   @Get(':courseId/enrolments/me')
   /**
