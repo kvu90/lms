@@ -21,7 +21,7 @@ import './i18n';
 import '@lms/ui/globals.css';
 
 /**
- * Loader gốc (SSR, Giai đoạn 3 của issue #7): chỉ lấy DANH TÍNH TỐI
+ * Loader gốc (SSR, Giai đoạn 3–4 của issue #7): chỉ lấy DANH TÍNH TỐI
  * THIỂU cho vỏ trang. Khi request mang cookie phiên `lms_session` (luồng
  * phiên cookie sẵn có của API), loader chuyển nguyên Cookie sang API
  * nội bộ gọi GET /auth/session/me; không có cookie thì mặc định ẩn danh

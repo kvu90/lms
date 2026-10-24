@@ -408,3 +408,6 @@ export function PlayerPage() {
     </main>
   );
 }
+
+/** Route module là chính trang này (src/routes.ts trỏ thẳng vào file): cần default export để framework mode coi đây là route có component — thiếu nó, request tài liệu phía server bị xếp vào resource route và trả 400 (GĐ4 của issue #7 phát hiện khi rà SSR toàn bộ route). */
+export default PlayerPage;

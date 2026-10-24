@@ -1,4 +1,4 @@
-# Tiến trình SSR + topology C (Giai đoạn 3, issue #7) — PROTOTYPE
+# Tiến trình SSR + topology C (Giai đoạn 3–4, issue #7)
 
 Hai file thuần Node (không bước biên dịch riêng), chạy trên bản build
 của `react-router build` (ssr: true → `build/server` + `build/client`)
@@ -35,6 +35,8 @@ với `LMS_API_INTERNAL_URL` trỏ tới API (mặc định `http://127.0.0.1:30
 | `API_INTERNAL_PORT` | 3100 | Cổng nội bộ của API khi chạy qua launcher. |
 | `LMS_API_INTERNAL_URL` | `http://127.0.0.1:3000` | Địa chỉ API nội bộ cho proxy và cho loader phía server. Launcher tự đặt theo `API_INTERNAL_PORT`. |
 
-Trạng thái: prototype phục vụ đo RAM/TTFB và kiểm chứng cổng GĐ3.
-Procfile production chưa đổi — chuyển topology thật lên Heroku là
-bước điều phối sau khi có kết luận GO/NO-GO của cổng đo.
+Trạng thái: Giai đoạn 4 — SSR toàn bộ route đã thi công trên nền
+prototype này; Procfile production ĐÃ chuyển sang launcher (web dyno
+chạy topology C). Cổng merge: chỉ merge sau khi dyno web nâng lên
+Standard-2X (đo RAM: cặp tiến trình đỉnh ≈484 MB, Eco 512 MB NO-GO);
+main chat điều phối cửa sổ merge + nâng gói.
