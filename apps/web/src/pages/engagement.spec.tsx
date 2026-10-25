@@ -103,6 +103,8 @@ describe('Notifications page', () => {
         return { ...PREF_ROW, ...body };
       }
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
+      // Ghi đè theo khoá (NB-4): trang tải thêm danh sách khoá của user.
+      if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
       return undefined;
     });
     renderNotificationsPage();
@@ -129,6 +131,8 @@ describe('Notifications page', () => {
         return { ...PREF_ROW, ...body };
       }
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
+      // Ghi đè theo khoá (NB-4): trang tải thêm danh sách khoá của user.
+      if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
       return undefined;
     });
     renderNotificationsPage();
@@ -157,6 +161,10 @@ describe('Notifications page', () => {
           );
         if (url === '/api/v1/messages/preferences')
           return new Response(JSON.stringify(PREF_ROWS), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        // Ghi đè theo khoá (NB-4): danh sách khoá tải tốt — lỗi duy nhất
+        // của ca này là PUT tuỳ chọn, để role=alert chỉ có một nguồn.
+        if (url === '/api/v1/messages/preferences/courses')
+          return new Response(JSON.stringify({ courses: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       }),
     );

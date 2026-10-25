@@ -19,10 +19,13 @@ import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useMessagePreferences,
+  useNotificationCourseOverrides,
   useNotificationGroups,
   useReadNotificationGroup,
   useSetMessagePreference,
+  useSetNotificationCourseOverride,
   type EmailFrequency,
+  type NotificationCourseOverrideView,
   type NotificationGroupFilter,
   type NotificationGroupView,
   type NotificationItemView,
@@ -92,22 +95,27 @@ export function NotificationsPage() {
   const [expandedItems, setExpandedItems] = useState<ReadonlyMap<string, NotificationItemView[]>>(new Map());
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set());
   const [savingPrefs, setSavingPrefs] = useState<ReadonlySet<string>>(new Set());
+  const [savingOverrides, setSavingOverrides] = useState<ReadonlySet<string>>(new Set());
   const [expandError, setExpandError] = useState(false);
   const [prefError, setPrefError] = useState<string | null>(null);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
 
   const groupsQuery = useNotificationGroups(groupFilter, unreadOnly);
   const prefsQuery = useMessagePreferences();
+  const overridesQuery = useNotificationCourseOverrides();
   const markReadMutation = useMarkNotificationRead();
   const readGroupMutation = useReadNotificationGroup();
   const deleteMutation = useDeleteNotification();
   const markAllMutation = useMarkAllNotificationsRead();
   const clearReadMutation = useClearReadNotifications();
   const preferenceMutation = useSetMessagePreference();
+  const overrideMutation = useSetNotificationCourseOverride();
 
   const groups = flattenNotificationGroups(groupsQuery.data);
   const prefs = prefsQuery.data ?? [];
+  const overrideCourses = overridesQuery.data ?? [];
   const error =
-    groupsQuery.isError || prefsQuery.isError || expandError ? t('notificationsLoadFailed') : null;
+    groupsQuery.isError || prefsQuery.isError || overridesQuery.isError || expandError ? t('notificationsLoadFailed') : null;
 
   // Đổi bộ lọc = danh sách mới: thu gọn mọi dòng đang mở như hành vi cũ
   // (loadFirstPage trước đây luôn xoá bản đồ mở rộng).
@@ -261,6 +269,29 @@ export function NotificationsPage() {
 
   function changeEmailFrequency(row: NotificationPreferenceView, frequency: EmailFrequency) {
     savePreference(row, 'email', { emailFrequency: frequency });
+  }
+
+  /**
+   * Bật/tắt tắt tiếng một khoá (NB-4): cập nhật lạc quan + hoàn lại
+   * khi lỗi nằm trong mutation ở lib/notifications.ts; ở đây chỉ lo
+   * cờ đang-lưu và thông báo lỗi riêng của khu vực ngoại lệ.
+   */
+  function toggleCourseMute(course: NotificationCourseOverrideView) {
+    if (savingOverrides.has(course.courseId)) return;
+    setOverrideError(null);
+    setSavingOverrides((prev) => new Set(prev).add(course.courseId));
+    overrideMutation.mutate(
+      { courseId: course.courseId, mode: course.mode === 'mute' ? 'all' : 'mute' },
+      {
+        onError: () => setOverrideError(t('courseOverrideSaveFailed')),
+        onSettled: () =>
+          setSavingOverrides((prev) => {
+            const next = new Set(prev);
+            next.delete(course.courseId);
+            return next;
+          }),
+      },
+    );
   }
 
   function markAllRead() {
@@ -509,6 +540,45 @@ export function NotificationsPage() {
               </div>
             </section>
           ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('courseExceptionsTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t('courseExceptionsDescription')}</p>
+          {overrideError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{overrideError}</AlertDescription>
+            </Alert>
+          ) : null}
+          {overrideCourses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('courseExceptionsEmpty')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {overrideCourses.map((course) => (
+                <li key={course.courseId} className="flex items-center gap-3 border-t pt-2 text-sm">
+                  <span className="min-w-0 flex-1 font-medium">
+                    {course.courseName}
+                    {course.mode === 'mute' ? (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('courseMutedBadge')}</span>
+                    ) : null}
+                  </span>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`${t('courseMuteLabel')}: ${course.courseName}`}
+                      checked={course.mode === 'mute'}
+                      disabled={savingOverrides.has(course.courseId)}
+                      onChange={() => toggleCourseMute(course)}
+                    />
+                    {t('courseMuteLabel')}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </PageShell>

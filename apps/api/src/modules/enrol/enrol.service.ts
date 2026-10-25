@@ -336,6 +336,8 @@ export class EnrolService implements OnModuleInit {
       const subject = String(this.i18n.t('platform.enrolWelcomeSubject', { args: { course: course.fullName } }));
       await this.messaging.notify(userId, 'enrol_welcome', {
         subject, body, contextUrl: `/courses/${instance.courseId}`,
+        // Sự kiện gắn khoá rõ ràng: áp ghi đè tắt tiếng theo khoá (NB-4).
+        courseId: instance.courseId,
       });
     } catch {
       /* Tin nhắn chào mừng không được phép làm hỏng ghi danh đã thành công. */

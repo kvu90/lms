@@ -48,6 +48,8 @@ export const queryKeys = {
     ['notifications', 'items', eventType, contextUrl, day] as const,
   /** Tuỳ chọn nhận tin nhắn/thông báo của chính người dùng (GET /messages/preferences). */
   messagePreferences: ['messages', 'preferences'] as const,
+  /** Ghi đè thông báo theo khoá học của chính người dùng (GET /messages/preferences/courses, NB-4). */
+  messageCourseOverrides: ['messages', 'preferences', 'courses'] as const,
   /**
    * Số conversation tin nhắn chưa đọc của chính người dùng (GET
    * /messages/unread-count) — nguồn của huy hiệu trên mục Tin nhắn ở

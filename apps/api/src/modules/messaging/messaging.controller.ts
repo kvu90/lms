@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -183,6 +183,23 @@ export class MessagingController {
    */
   async setPreference(@Body({ schema: setNotificationPreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);
+  }
+  @Get('preferences/courses')
+  /**
+   * GET /messages/preferences/courses — ghi đè thông báo theo khoá
+   * của tôi (NB-4, issue #174): mọi khoá tôi thuộc về kèm chế độ hiệu
+   * lực ('all' | 'mute') — dữ liệu của trang "Ngoại lệ" trong cài đặt.
+   */
+  async courseOverrides(@CurrentUser() actor: AuthenticatedUser) {
+    return { courses: await this.messaging.listCourseNotificationOverrides(actor.id) };
+  }
+  @Put('preferences/courses')
+  /**
+   * PUT /messages/preferences/courses — đặt ghi đè cho một khoá
+   * ('all' | 'mute'); khoá không thuộc về tôi nhận 404 như không tồn tại.
+   */
+  async setCourseOverride(@Body({ schema: setNotificationCourseOverrideSchema }) dto: SetCourseOverrideDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.setCourseNotificationOverride(actor.id, dto);
   }
   @Get('courses')
   /**
