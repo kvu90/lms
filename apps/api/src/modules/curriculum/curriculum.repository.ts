@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { question, questionBankEntries } from '../../db/schema';
 import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from '../../db/schema';
+import { bookMappings, examMatrixCells } from '../../db/schema';
 
 export type SubjectRow = typeof subjects.$inferSelect;
 export type CurriculumRow = typeof curricula.$inferSelect;
@@ -108,10 +109,6 @@ export class CurriculumRepository {
   async insertOutcome(v: typeof learningOutcomes.$inferInsert, tx?: DbTx): Promise<LearningOutcomeRow> {
     const [row] = await (tx ?? this.db).insert(learningOutcomes).values(v).returning(); return row!;
   }
-  /** Xoá toàn bộ yêu cầu cần đạt của một node (dùng khi nạp lại một bản ghi đã đính chính: thay cả bộ YCCĐ). */
-  async deleteOutcomesForNode(nodeId: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(learningOutcomes).where(eq(learningOutcomes.nodeId, nodeId));
-  }
   /** Lấy yêu cầu cần đạt theo id. */
   async getOutcome(id: string): Promise<LearningOutcomeRow | undefined> {
     const [row] = await this.db.select().from(learningOutcomes).where(eq(learningOutcomes.id, id)); return row;
@@ -127,9 +124,42 @@ export class CurriculumRepository {
     return this.db.select().from(learningOutcomes).where(inArray(learningOutcomes.nodeId, nodeIds))
       .orderBy(asc(learningOutcomes.position), asc(learningOutcomes.createdAt));
   }
-  /** Sửa yêu cầu cần đạt. */
-  async updateOutcome(id: string, v: Partial<typeof learningOutcomes.$inferInsert>): Promise<void> {
-    await this.db.update(learningOutcomes).set({ ...v, updatedAt: new Date() }).where(eq(learningOutcomes.id, id));
+  /** Sửa yêu cầu cần đạt (đường nạp truyền tx để diff commit nguyên tử cùng node + dòng sổ). */
+  async updateOutcome(id: string, v: Partial<typeof learningOutcomes.$inferInsert>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(learningOutcomes).set({ ...v, updatedAt: new Date() }).where(eq(learningOutcomes.id, id));
+  }
+  /**
+   * Đếm các tham chiếu "cứng" đang trỏ vào một tập node + YCCĐ từ các
+   * bề mặt khác (ánh xạ sách, ô ma trận đề, gắn câu hỏi): đây là các
+   * FK đã đổi từ cascade sang restrict (GDPT-SEED) — bề mặt quản trị
+   * xoá phải hỏi hàm này trước và từ chối bằng lỗi nghiệp vụ rõ ràng
+   * thay vì để lỗi FK thô của Postgres lộ ra.
+   */
+  async countGuardedReferences(
+    nodeIds: string[],
+    outcomeIds: string[],
+  ): Promise<{ bookMappings: number; examMatrixCells: number; questionOutcomes: number }> {
+    let bookMappingsCount = 0;
+    const mappingConditions = [
+      ...(nodeIds.length > 0 ? [inArray(bookMappings.curriculumNodeId, nodeIds)] : []),
+      ...(outcomeIds.length > 0 ? [inArray(bookMappings.learningOutcomeId, outcomeIds)] : []),
+    ];
+    if (mappingConditions.length > 0) {
+      const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(bookMappings)
+        .where(mappingConditions.length === 1 ? mappingConditions[0] : or(...mappingConditions));
+      bookMappingsCount = row?.n ?? 0;
+    }
+    let examMatrixCellsCount = 0;
+    let questionOutcomesCount = 0;
+    if (outcomeIds.length > 0) {
+      const [cells] = await this.db.select({ n: sql<number>`count(*)::int` }).from(examMatrixCells)
+        .where(inArray(examMatrixCells.learningOutcomeId, outcomeIds));
+      examMatrixCellsCount = cells?.n ?? 0;
+      const [links] = await this.db.select({ n: sql<number>`count(*)::int` }).from(questionLearningOutcomes)
+        .where(inArray(questionLearningOutcomes.learningOutcomeId, outcomeIds));
+      questionOutcomesCount = links?.n ?? 0;
+    }
+    return { bookMappings: bookMappingsCount, examMatrixCells: examMatrixCellsCount, questionOutcomes: questionOutcomesCount };
   }
   /**
    * Đếm câu hỏi sẵn sàng đã gắn vào một YCCĐ, nhóm theo (mức × dạng câu).

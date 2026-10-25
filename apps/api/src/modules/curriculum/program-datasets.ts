@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { v5 as uuidv5 } from 'uuid';
 
 /**
  * Manifest + logic thuần của cơ chế nạp dữ liệu chương trình chuẩn
@@ -201,4 +202,96 @@ export function programRecordEffectiveGrade(records: readonly ProgramRecord[], r
   const sameLevel = graded.filter((r) => r.level === record.level).map((r) => r.grade as number);
   const pool = sameLevel.length > 0 ? sameLevel : graded.map((r) => r.grade as number);
   return Math.min(...pool);
+}
+
+// --- Định danh xác định của dữ liệu chuẩn (phương án D, issue #161) ----------
+
+/**
+ * Namespace UUIDv5 cho TOÀN BỘ dữ liệu chuẩn do dataset sinh ra
+ * (môn, chương trình, node, YCCĐ của tầng chương trình GDPT).
+ *
+ * ⚠️ HẰNG SỐ ĐÓNG BĂNG VĨNH VIỄN — sinh ngẫu nhiên một lần khi chuẩn
+ * này được thiết lập (GDPT-SEED, 25/10/2026). Đổi giá trị này = đổi
+ * mọi id của dữ liệu chuẩn ở mọi môi trường, tương đương đổi chuẩn
+ * định danh; tuyệt đối không sửa, không "sinh lại cho đẹp". Căn cứ:
+ * hồ sơ `gdpt-reference-data-loading-research-2026-10-25.md` mục 5.1
+ * và ADR-017 (ngoại lệ dữ liệu chuẩn của ADR-013: cột vẫn giữ
+ * `DEFAULT uuidv7()`, chỉ các dòng do dataset sinh ra mới mang id v5;
+ * dữ liệu do người dùng tạo tay vẫn uuidv7 như mọi bảng khác).
+ */
+export const PROGRAM_ID_NAMESPACE = '057667e9-ad06-49ca-80ea-50756ad6c0e6';
+
+/**
+ * Id xác định của một thực thể dữ liệu chuẩn: UUIDv5 trên chuỗi
+ * `<loại>|<khoá tự nhiên>` trong namespace của dự án. Cùng khoá tự
+ * nhiên → cùng id ở mọi môi trường, mọi lần seed, mọi thời điểm.
+ */
+export function programId(kind: string, naturalKey: string): string {
+  return uuidv5(`${kind}|${naturalKey}`, PROGRAM_ID_NAMESPACE);
+}
+
+/** Id xác định của môn học: khoá tự nhiên là slug (unique toàn hệ). */
+export function programSubjectId(slug: string): string {
+  return programId('subject', slug);
+}
+
+/** Id xác định của chương trình một khối: khoá tự nhiên là (slug môn, khối). */
+export function programCurriculumId(slug: string, grade: number): string {
+  return programId('curriculum', `${slug}|${grade}`);
+}
+
+/**
+ * Id xác định của một node tổ tiên (mạch/chủ đề): khoá tự nhiên là
+ * đường tổ tiên đầy đủ từ gốc tới chính node đó — mảng các cặp
+ * [kind, title] — trong chương trình (slug, khối) của nó. Đây là cùng
+ * dữ liệu mà chỉ mục cây trong bộ nhớ của tầng nạp dùng làm khoá, nay
+ * nâng thành khoá định danh bền.
+ */
+export function programAncestorNodeId(
+  slug: string,
+  grade: number,
+  path: readonly (readonly [kind: string, title: string])[],
+): string {
+  return programId('node', `${slug}|${grade}|${JSON.stringify(path)}`);
+}
+
+/** Id xác định của node nội dung (lesson) của một bản ghi: khoá tự nhiên là (dataset, mã bản ghi) — trùng khoá sổ đăng ký. */
+export function programLessonNodeId(datasetKey: string, recordId: string): string {
+  return programId('record', `${datasetKey}|${recordId}`);
+}
+
+/** sha256 hex của một dòng YCCĐ (đúng văn bản nguyên văn của dòng). */
+export function programOutcomeTextHash(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+/**
+ * Id xác định của một dòng YCCĐ của một bản ghi: khoá tự nhiên là
+ * (dataset, mã bản ghi, sha256 nội dung dòng). Neo theo NỘI DUNG thay
+ * vì số thứ tự: Bộ chèn một ý mới vào giữa danh sách thì các ý cũ giữ
+ * nguyên id; sửa chữ một ý = id mới (ý cũ thành orphaned — xem luật
+ * diff không-xoá ở ProgramImportService). Hai dòng trùng nội dung
+ * hệt nhau trong cùng một bản ghi được phân biệt bằng hậu tố `#2`,
+ * `#3`… theo thứ tự xuất hiện.
+ */
+export function programOutcomeId(datasetKey: string, recordId: string, text: string, occurrence = 1): string {
+  const suffix = occurrence > 1 ? `#${occurrence}` : '';
+  return programId('outcome', `${datasetKey}|${recordId}|${programOutcomeTextHash(text)}${suffix}`);
+}
+
+/**
+ * Các dòng YCCĐ của một bản ghi kèm id xác định của chúng, theo đúng
+ * thứ tự nguyên văn — đầu vào duy nhất của cả đường tạo mới lẫn đường
+ * diff khi nạp lại. `position` là vị trí 1-based trong danh sách.
+ */
+export function programRecordOutcomeEntries(
+  datasetKey: string,
+  record: ProgramRecord,
+): { id: string; text: string; position: number }[] {
+  const seen = new Map<string, number>();
+  return programRecordOutcomeTexts(record).map((text, i) => {
+    const occurrence = (seen.get(text) ?? 0) + 1;
+    seen.set(text, occurrence);
+    return { id: programOutcomeId(datasetKey, record.id, text, occurrence), text, position: i + 1 };
+  });
 }

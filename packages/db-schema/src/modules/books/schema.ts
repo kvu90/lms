@@ -87,14 +87,17 @@ export const bookNodes = pgTable('book_nodes', {
  * node bài (`book_node_id`, luôn là kind 'lesson') tới đúng MỘT đích —
  * một node nội dung của cây chuẩn (`curriculum_node_id`) hoặc một YCCĐ
  * cụ thể (`learning_outcome_id`). Đây là bảng duy nhất nối tầng sách với
- * cây chuẩn. Đích bị xoá thì dòng ánh xạ bị xoá theo (cascade cả hai
- * phía).
+ * cây chuẩn. Phía sách vẫn cascade (xoá bài = xoá ánh xạ của bài), còn
+ * hai đích phía chương trình là RESTRICT (GDPT-SEED): dữ liệu chuẩn có
+ * định danh ổn định và không bao giờ bị xoá âm thầm qua ánh xạ — xoá
+ * node/YCCĐ còn ánh xạ trỏ vào bị DB chặn, bề mặt quản trị báo lỗi
+ * nghiệp vụ trước (curriculum.delete_referenced).
  */
 export const bookMappings = pgTable('book_mappings', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   bookNodeId: uuid('book_node_id').notNull().references(() => bookNodes.id, { onDelete: 'cascade' }),
-  curriculumNodeId: uuid('curriculum_node_id').references(() => curriculumNodes.id, { onDelete: 'cascade' }),
-  learningOutcomeId: uuid('learning_outcome_id').references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  curriculumNodeId: uuid('curriculum_node_id').references(() => curriculumNodes.id, { onDelete: 'restrict' }),
+  learningOutcomeId: uuid('learning_outcome_id').references(() => learningOutcomes.id, { onDelete: 'restrict' }),
   /** Thứ tự ánh xạ của bài (thứ tự dataset) — quyết định thứ tự YCCĐ suy qua ánh xạ; created_at trong cùng transaction không phân biệt được. */
   position: integer('position').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

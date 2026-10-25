@@ -11,7 +11,7 @@ import { ProgramImportService } from './program-import.service';
   imports: [AccessModule, CoursesModule],
   controllers: [CurriculumController],
   providers: [CurriculumRepository, CurriculumService, ProgramImportService],
-  exports: [CurriculumService, CurriculumRepository],
+  exports: [CurriculumService, CurriculumRepository, ProgramImportService],
 })
 /** Module chương trình học: subjects, curricula, cây nodes, learning outcomes. */
 export class CurriculumModule {}

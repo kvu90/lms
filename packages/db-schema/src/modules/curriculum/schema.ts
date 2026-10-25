@@ -169,7 +169,7 @@ export const questionSubjects = pgTable('question_subjects', {
 export const questionLearningOutcomes = pgTable('question_learning_outcomes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
-  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'restrict' }),
   cognitiveLevel: text('cognitive_level').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },

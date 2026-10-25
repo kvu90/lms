@@ -2836,7 +2836,7 @@ ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempt_events" ADD CONSTRAINT "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2886,12 +2886,12 @@ ALTER TABLE "curriculum_program_records" ADD CONSTRAINT "curriculum_program_reco
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_derived_from_id_learning_outcomes_id_fkey" FOREIGN KEY ("derived_from_id") REFERENCES "learning_outcomes"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_uFf0zSMdIR5s_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_uFf0zSMdIR5s_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "question_subjects" ADD CONSTRAINT "question_subjects_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_subjects" ADD CONSTRAINT "question_subjects_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "book_mappings" ADD CONSTRAINT "book_mappings_book_node_id_book_nodes_id_fkey" FOREIGN KEY ("book_node_id") REFERENCES "book_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "book_mappings" ADD CONSTRAINT "book_mappings_curriculum_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("curriculum_node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "book_mappings" ADD CONSTRAINT "book_mappings_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "book_mappings" ADD CONSTRAINT "book_mappings_curriculum_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("curriculum_node_id") REFERENCES "curriculum_nodes"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "book_mappings" ADD CONSTRAINT "book_mappings_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "book_nodes" ADD CONSTRAINT "book_nodes_book_id_books_id_fkey" FOREIGN KEY ("book_id") REFERENCES "books"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "book_nodes" ADD CONSTRAINT "book_nodes_parent_fk" FOREIGN KEY ("book_id","parent_id") REFERENCES "book_nodes"("book_id","id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "book_records" ADD CONSTRAINT "book_records_book_id_books_id_fkey" FOREIGN KEY ("book_id") REFERENCES "books"("id") ON DELETE CASCADE;--> statement-breakpoint

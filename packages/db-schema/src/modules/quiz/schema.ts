@@ -88,7 +88,7 @@ export const examMatrices = pgTable('exam_matrices', {
 export const examMatrixCells = pgTable('exam_matrix_cells', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
-  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'cascade' }),
+  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'restrict' }),
   cognitiveLevel: text('cognitive_level').notNull(),
   qtype: text('qtype').notNull(),
   questionCount: integer('question_count').notNull(),

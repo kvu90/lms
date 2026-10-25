@@ -161,7 +161,13 @@ export const programDatasetStatusSchema = z.object({
 });
 export type ProgramDatasetStatus = z.infer<typeof programDatasetStatusSchema>;
 
-/** Kết quả một lượt nạp dataset: tạo mới / cập nhật (dataset đính chính) / bỏ qua (đã khớp). */
+/**
+ * Kết quả một lượt nạp dataset: tạo mới / cập nhật (dataset đính
+ * chính) / bỏ qua (đã khớp) + hai đếm orphaned của luật không-xoá
+ * (GDPT-SEED): node của bản ghi đã rút khỏi dataset và YCCĐ 'program'
+ * không còn trong dataset — cả hai được GIỮ NGUYÊN trong DB, chỉ báo
+ * cáo để quản trị xử lý tường minh.
+ */
 export const programImportResultSchema = z.object({
   datasetKey: z.string(),
   subjectId: uuidIdSchema,
@@ -170,6 +176,8 @@ export const programImportResultSchema = z.object({
   updated: z.number().int(),
   skipped: z.number().int(),
   outcomesWritten: z.number().int(),
+  orphanedNodes: z.number().int(),
+  orphanedOutcomes: z.number().int(),
 });
 export type ProgramImportResult = z.infer<typeof programImportResultSchema>;
 
