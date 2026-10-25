@@ -1,4 +1,4 @@
-export { AdminCurriculumTreePage as default } from '../pages/admin-curriculum';
+export { AdminCurriculumTreePage as default } from '../components/admin-curriculum/tree-page';
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
