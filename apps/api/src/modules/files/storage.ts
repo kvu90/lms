@@ -40,6 +40,27 @@ export interface ObjectStorage {
 export function sha256Hex(data: Buffer): string { return createHash('sha256').update(data).digest('hex'); }
 export function contentKey(contentHash: string): string { return `${contentHash.slice(0, 2)}/${contentHash.slice(2, 4)}/${contentHash}`; }
 
+/**
+ * Optional adapter capability: issue a presigned direct-download URL
+ * pointing at the external store itself, instead of proxying bytes
+ * through the API behind an HMAC signature. The local adapter does not
+ * have this capability — issuance falls back to HMAC for it.
+ */
+/** Năng lực tuỳ chọn của adapter: phát URL tải trực tiếp có ký (presigned) trỏ thẳng tới kho ngoài. */
+export interface PresignedDownloadStorage {
+  /**
+   * Tạo URL tải presigned cho một contentHash, kèm gợi ý tên file/loại nội dung khi tải về.
+   */
+  presignGetUrl(contentHash: string, expiresInSeconds: number, opts?: { fileName?: string; mimeType?: string }): Promise<string>;
+}
+
+/**
+ * Adapter có năng lực phát URL presigned hay không.
+ */
+export function supportsPresignedDownloads(storage: ObjectStorage): storage is ObjectStorage & PresignedDownloadStorage {
+  return typeof (storage as Partial<PresignedDownloadStorage>).presignGetUrl === 'function';
+}
+
 @Injectable()
 /**
  * Kho lưu trữ nội dung file trên đĩa local, khoá theo contentHash (hai ký tự đầu làm thư mục con).
