@@ -12,7 +12,9 @@ import { CourseAdminPage } from './course-admin';
 import { CoursesPage } from './courses';
 import { GradebookPage } from './grades';
 import { LearningPlanPage } from './learning-plan';
-import { PrivacyPage, ReportsPage, TokensPage } from './platform';
+import { PrivacyPage } from './platform-privacy';
+import { ReportsPage } from './platform-reports';
+import { TokensPage } from './platform-tokens';
 import { QuestionsPage } from './questions';
 
 /**

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlogPage } from './blog';
 import { HealthPage } from './health';
 import { NotificationsPage } from './notifications';
-import { SearchPage } from './platform';
+import { SearchPage } from './platform-search';
 import { QuizAttemptPage } from './quiz-attempt';
 
 /**

@@ -1,2 +1,2 @@
-/** Route module mỏng: trang nền tảng nằm chung file platform.tsx. */
-export { PrivacyPage as default } from '../pages/platform';
+/** Route module: trang privacy nền tảng ở module riêng pages/platform-privacy.tsx (tách từ platform.tsx — F-10 của #133). */
+export { PrivacyPage as default } from '../pages/platform-privacy';
