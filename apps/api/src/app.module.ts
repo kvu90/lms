@@ -50,6 +50,7 @@ import { EventLogModule } from './modules/event-log/event-log.module';
 import { SearchModule } from './modules/search/search.module';
 import { SiteConfigModule } from './modules/site-config/site-config.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
+import { ClassesModule } from './modules/classes/classes.module';
 import { TenantGuard } from './modules/tenants/tenant.guard';
 import { TenantContextInterceptor } from './modules/tenants/tenant-context.interceptor';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
@@ -171,6 +172,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     PrivacyModule,
     SiteConfigModule,
     TenantsModule,
+    ClassesModule,
     SeedModule,
   ],
   providers: [

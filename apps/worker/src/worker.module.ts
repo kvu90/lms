@@ -10,6 +10,8 @@ import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from '
 import { relations } from './db/relations';
 import { TenantAwarePool } from './db/tenant-pool';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
+import { ClassEnrolReconcileScheduler } from './class-enrol-reconcile.scheduler';
+import { ClassEnrolReconcileProcessor } from './processors/class-enrol-reconcile.processor';
 import { ActivityDueReminderScheduler } from './activity-due-reminder.scheduler';
 import { NotificationRetentionScheduler } from './notification-retention.scheduler';
 import { NotificationDeliveryService } from './notification-delivery.service';
@@ -66,6 +68,7 @@ import {
     }),
     BullModule.registerQueue({ name: 'file-cleanup' }),
     BullModule.registerQueue({ name: 'enrol-expiry' }),
+    BullModule.registerQueue({ name: 'class-enrol-reconcile' }),
     BullModule.registerQueue({ name: 'activity-due-reminders' }),
     BullModule.registerQueue({ name: 'guardian-digests' }),
     BullModule.registerQueue({ name: 'completion-recalculate' }),
@@ -85,6 +88,5 @@ import {
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
-})
+  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
 export class WorkerModule {}

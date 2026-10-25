@@ -183,6 +183,40 @@ export class EnrolService implements OnModuleInit {
     return instance;
   }
   /**
+   * Đảm bảo khoá thuộc lớp có đúng một instance cohort trỏ vào backing
+   * cohort của lớp (issue #184, CLASS-0) — đường nội bộ KHÔNG kiểm
+   * capability (việc tạo instance là hệ quả máy móc của việc tạo khoá
+   * trong lớp, quyền đã chốt ở cổng tạo khoá). Idempotent: đã có instance
+   * cohort cho đúng (khoá, cohort) thì dùng lại (chỉ bổ sung group đích /
+   * chế độ rời lớp khi lớp đã đổi), chưa có thì tạo mới và backfill ngay
+   * toàn bộ roster hiện có — đúng ngữ nghĩa tạo instance cohort sẵn có.
+   * `groupId` là group "cả lớp" tự sinh của khoá (custom_int2).
+   */
+  async ensureClassCohortInstance(courseId: string, cohortId: string, onLeave: 'suspend' | 'unenrol', groupId: string | null): Promise<EnrolRow> {
+    const existing = (await this.repo.listInstances(courseId)).find((i) => i.enrol === 'cohort' && i.customInt1 === cohortId);
+    if (existing) {
+      const patch: Partial<EnrolRow> = {};
+      if (existing.customText1 !== onLeave) patch.customText1 = onLeave;
+      if (groupId && existing.customInt2 !== groupId) patch.customInt2 = groupId;
+      if (Object.keys(patch).length) {
+        await this.repo.updateInstance(existing.id, patch);
+        return { ...existing, ...patch };
+      }
+      return existing;
+    }
+    const instance = await this.repo.insertInstance({
+      courseId, enrol: 'cohort', name: null, roleId: await this.defaultStudentRoleId(),
+      status: 0, enrolPeriod: 0,
+      customInt1: cohortId, customInt2: groupId, customText1: onLeave,
+      cost: 0, currency: '', paymentAccountId: null,
+      enrolmentKey: null, sendWelcomeMessage: false, welcomeMessage: null,
+    });
+    const members = await this.groups.listCohortMembers(cohortId);
+    for (const m of members) await this.enrolUserInternal(instance, m.userId);
+    return instance;
+  }
+
+  /**
    * Lấy instance; ném enrol.instance_not_found khi vắng.
    */
   async getInstance(id: string): Promise<EnrolRow> {
@@ -440,7 +474,11 @@ export class EnrolService implements OnModuleInit {
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
     if (!ue || ue.status === ENROL_WITHDRAWN) throw new NotFoundException({ message: 'User enrolment not found', code: 'enrol.user_not_enrolled' });
     await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE }, tx as never);
+      // modifierId = người thao tác: VẾT phân biệt đình chỉ THỦ CÔNG theo
+      // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
+      // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng các
+      // dòng mang vết người này — issue #184, ca "miễn môn").
+      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx as never);
       await this.outbox.enqueue(tx as never, {
         aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
         payload: { courseId: instance.courseId, userId, instanceId, actorId },
@@ -622,7 +660,10 @@ export class EnrolService implements OnModuleInit {
       if (instance.customText1 === 'unenrol') {
         await this.unenrolInternal(instance, payload.userId);
       } else {
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED });
+        // Đình chỉ do ĐỒNG BỘ HỆ THỐNG: xoá vết modifierId (về null) để
+        // job đối soát phân biệt được với đình chỉ thủ công theo khoá
+        // (vết = actorId do setSuspended ghi) — issue #184.
+        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED, modifierId: null });
         await this.outbox.enqueueStandalone({
           aggregate: 'enrol', type: 'user_enrolment_suspended',
           payload: { courseId: instance.courseId, userId: payload.userId, instanceId: instance.id, reason: 'cohort_removed' },

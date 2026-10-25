@@ -2,7 +2,11 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "05e52ad3-0833-42cf-b5fc-043b25aa88fb",
+<<<<<<<< HEAD:apps/api/drizzle/20261025095908_baseline/snapshot.json
+  "id": "a75b8cee-7977-4384-a754-998832b01b9e",
+========
+  "id": "c150fe98-796a-4a28-9090-832e26f49e22",
+>>>>>>>> a5ab6e9e (feat(classes): nền lớp học hạng nhất CLASS-0 — module classes + backing cohort, context CLASS=45, course.class_id, consumer outbox cohort, job class-enrol-reconcile (issue #184)):apps/api/drizzle/20261025101502_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1062,6 +1066,26 @@
         "n|type|public.groups_members",
         "n|rel|public.groups_members_pkey",
         "n|rel|public.groups_members_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "classes"
+      ],
+      "writes": [
+        "s|tbl|public.classes",
+        "n|tbl|public.classes",
+        "e|tbl|public.classes",
+        "n|rel|public.classes",
+        "n|type|public.classes",
+        "n|rel|public.classes_pkey",
+        "n|rel|public.classes_cohort_id_key"
       ],
       "reads": [
         "n|sch|public"
@@ -4762,6 +4786,26 @@
         "index",
         "public",
         "course",
+        "course_class_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_class_id_idx",
+        "n|idx|public.course_class_id_idx",
+        "e|idx|public.course_class_id_idx",
+        "n|rel|public.course_class_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.course.class_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course",
         "course_subject_id_idx"
       ],
       "writes": [
@@ -5217,6 +5261,87 @@
         "n|tbl|public.groups_members",
         "n|sch|public",
         "n|col|public.groups_members.item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "classes",
+        "classes_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.classes_tenant_id_idx",
+        "n|idx|public.classes_tenant_id_idx",
+        "e|idx|public.classes_tenant_id_idx",
+        "n|rel|public.classes_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|col|public.classes.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "classes",
+        "classes_owner_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.classes_owner_id_idx",
+        "n|idx|public.classes_owner_id_idx",
+        "e|idx|public.classes_owner_id_idx",
+        "n|rel|public.classes_owner_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|col|public.classes.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "classes",
+        "classes_tenant_code_unique"
+      ],
+      "writes": [
+        "s|idx|public.classes_tenant_code_unique",
+        "n|idx|public.classes_tenant_code_unique",
+        "e|idx|public.classes_tenant_code_unique",
+        "n|rel|public.classes_tenant_code_unique"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|col|public.classes.tenant_id",
+        "n|col|public.classes.code"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "classes",
+        "classes_join_code_unique"
+      ],
+      "writes": [
+        "s|idx|public.classes_join_code_unique",
+        "n|idx|public.classes_join_code_unique",
+        "e|idx|public.classes_join_code_unique",
+        "n|rel|public.classes_join_code_unique"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|col|public.classes.join_code"
       ]
     },
     {
@@ -6278,26 +6403,6 @@
         "n|tbl|public.guardian_digests",
         "n|sch|public",
         "n|col|public.guardian_digests.student_user_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "guardian_digests",
-        "guardian_digests_tenant_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.guardian_digests_tenant_id_idx",
-        "n|idx|public.guardian_digests_tenant_id_idx",
-        "e|idx|public.guardian_digests_tenant_id_idx",
-        "n|rel|public.guardian_digests_tenant_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.guardian_digests",
-        "n|sch|public",
-        "n|col|public.guardian_digests.tenant_id"
       ]
     },
     {
@@ -9562,26 +9667,6 @@
       "statementTarget": [
         "index",
         "public",
-        "message_conversations",
-        "message_conversations_tenant_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.message_conversations_tenant_id_idx",
-        "n|idx|public.message_conversations_tenant_id_idx",
-        "e|idx|public.message_conversations_tenant_id_idx",
-        "n|rel|public.message_conversations_tenant_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.message_conversations",
-        "n|sch|public",
-        "n|col|public.message_conversations.tenant_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
         "message_moderator_actions",
         "message_moderator_actions_message_id_idx"
       ],
@@ -9722,26 +9807,6 @@
       "statementTarget": [
         "index",
         "public",
-        "notification_dispatch_log",
-        "notification_dispatch_log_tenant_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.notification_dispatch_log_tenant_id_idx",
-        "n|idx|public.notification_dispatch_log_tenant_id_idx",
-        "e|idx|public.notification_dispatch_log_tenant_id_idx",
-        "n|rel|public.notification_dispatch_log_tenant_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.notification_dispatch_log",
-        "n|sch|public",
-        "n|col|public.notification_dispatch_log.tenant_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
         "notifications",
         "notifications_user_id_from_idx"
       ],
@@ -9775,26 +9840,6 @@
         "n|tbl|public.notifications",
         "n|sch|public",
         "n|col|public.notifications.user_id_to"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "notifications",
-        "notifications_tenant_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.notifications_tenant_id_idx",
-        "n|idx|public.notifications_tenant_id_idx",
-        "e|idx|public.notifications_tenant_id_idx",
-        "n|rel|public.notifications_tenant_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.notifications",
-        "n|sch|public",
-        "n|col|public.notifications.tenant_id"
       ]
     },
     {
@@ -12658,6 +12703,29 @@
       "statementTarget": [
         "table",
         "public",
+        "course"
+      ],
+      "writes": [
+        "s|fk|public.course.course_class_id_classes_id_fkey",
+        "n|fk|public.course.course_class_id_classes_id_fkey",
+        "e|fk|public.course.course_class_id_classes_id_fkey",
+        "n|con|public.course.course_class_id_classes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|col|public.course.class_id",
+        "n|col|public.classes.id",
+        "e|uniqueness|public.classes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "course_categories"
       ],
       "writes": [
@@ -13203,6 +13271,75 @@
         "n|col|public.groups_members.group_id",
         "n|col|public.course_groups.id",
         "e|uniqueness|public.course_groups.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "classes"
+      ],
+      "writes": [
+        "s|fk|public.classes.classes_tenant_id_tenants_id_fkey",
+        "n|fk|public.classes.classes_tenant_id_tenants_id_fkey",
+        "e|fk|public.classes.classes_tenant_id_tenants_id_fkey",
+        "n|con|public.classes.classes_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.classes.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "classes"
+      ],
+      "writes": [
+        "s|fk|public.classes.classes_owner_id_users_id_fkey",
+        "n|fk|public.classes.classes_owner_id_users_id_fkey",
+        "e|fk|public.classes.classes_owner_id_users_id_fkey",
+        "n|con|public.classes.classes_owner_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.classes.owner_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "classes"
+      ],
+      "writes": [
+        "s|fk|public.classes.classes_cohort_id_cohort_id_fkey",
+        "n|fk|public.classes.classes_cohort_id_cohort_id_fkey",
+        "e|fk|public.classes.classes_cohort_id_cohort_id_fkey",
+        "n|con|public.classes.classes_cohort_id_cohort_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.classes",
+        "n|sch|public",
+        "n|tbl|public.cohort",
+        "n|sch|public",
+        "n|col|public.classes.cohort_id",
+        "n|col|public.cohort.id",
+        "e|uniqueness|public.cohort.id"
       ]
     },
     {
@@ -14054,29 +14191,6 @@
         "n|col|public.guardian_digests.student_user_id",
         "n|col|public.users.id",
         "e|uniqueness|public.users.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "guardian_digests"
-      ],
-      "writes": [
-        "s|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
-        "n|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
-        "e|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
-        "n|con|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.guardian_digests",
-        "n|sch|public",
-        "n|tbl|public.tenants",
-        "n|sch|public",
-        "n|col|public.guardian_digests.tenant_id",
-        "n|col|public.tenants.id",
-        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -16848,29 +16962,6 @@
       "statementTarget": [
         "table",
         "public",
-        "message_conversations"
-      ],
-      "writes": [
-        "s|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
-        "n|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
-        "e|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
-        "n|con|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.message_conversations",
-        "n|sch|public",
-        "n|tbl|public.tenants",
-        "n|sch|public",
-        "n|col|public.message_conversations.tenant_id",
-        "n|col|public.tenants.id",
-        "e|uniqueness|public.tenants.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
         "message_user_deletions"
       ],
       "writes": [
@@ -16887,52 +16978,6 @@
         "n|col|public.message_user_deletions.message_id",
         "n|col|public.message.id",
         "e|uniqueness|public.message.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "notification_dispatch_log"
-      ],
-      "writes": [
-        "s|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
-        "n|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
-        "e|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
-        "n|con|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.notification_dispatch_log",
-        "n|sch|public",
-        "n|tbl|public.tenants",
-        "n|sch|public",
-        "n|col|public.notification_dispatch_log.tenant_id",
-        "n|col|public.tenants.id",
-        "e|uniqueness|public.tenants.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "notifications"
-      ],
-      "writes": [
-        "s|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
-        "n|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
-        "e|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
-        "n|con|public.notifications.notifications_tenant_id_tenants_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.notifications",
-        "n|sch|public",
-        "n|tbl|public.tenants",
-        "n|sch|public",
-        "n|col|public.notifications.tenant_id",
-        "n|col|public.tenants.id",
-        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -18057,6 +18102,12 @@
     {
       "schema": "public",
       "name": "groups_members",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "classes",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -23417,6 +23468,19 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "class_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "sort_order",
       "type": "integer",
       "typeSchema": null,
@@ -24892,6 +24956,188 @@
       "notNull": false,
       "dimensions": 0,
       "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "school_year",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "owner_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "cohort_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "allow_self_report",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "join_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "on_leave",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'suspend'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "description",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -27685,19 +27931,6 @@
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "guardian_digests",
-      "name": "tenant_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -37054,19 +37287,6 @@
     {
       "schema": "public",
       "table": "message_conversations",
-      "name": "tenant_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "message_conversations",
       "name": "last_message_seq",
       "type": "integer",
       "typeSchema": null,
@@ -37340,19 +37560,6 @@
     {
       "schema": "public",
       "table": "notification_dispatch_log",
-      "name": "tenant_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "notification_dispatch_log",
       "name": "provider",
       "type": "text",
       "typeSchema": null,
@@ -37461,19 +37668,6 @@
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "notifications",
-      "name": "tenant_id",
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -44030,6 +44224,27 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "course_class_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "class_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "course_subject_id_idx",
       "nameExplicit": true,
       "columns": [
@@ -44526,6 +44741,97 @@
       ],
       "isUnique": false,
       "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_owner_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "owner_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_tenant_code_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "code",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"code\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_join_code_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "join_code",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"join_code\" is not null",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -45638,27 +45944,6 @@
       "columns": [
         {
           "value": "student_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "guardian_digests",
-      "name": "guardian_digests_tenant_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -49195,27 +49480,6 @@
     },
     {
       "schema": "public",
-      "table": "message_conversations",
-      "name": "message_conversations_tenant_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "tenant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
       "table": "message_moderator_actions",
       "name": "message_moderator_actions_message_id_idx",
       "nameExplicit": true,
@@ -49363,27 +49627,6 @@
     },
     {
       "schema": "public",
-      "table": "notification_dispatch_log",
-      "name": "notification_dispatch_log_tenant_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "tenant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
       "table": "notifications",
       "name": "notifications_user_id_from_idx",
       "nameExplicit": true,
@@ -49411,27 +49654,6 @@
       "columns": [
         {
           "value": "user_id_to",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "notifications",
-      "name": "notifications_tenant_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -52217,6 +52439,23 @@
     },
     {
       "schema": "public",
+      "table": "course",
+      "name": "course_class_id_classes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "class_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "classes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "course_categories",
       "name": "course_categories_tenant_id_tenants_id_fkey",
       "nameExplicit": false,
@@ -52621,6 +52860,57 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_owner_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "owner_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_cohort_id_cohort_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "cohort_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "cohort",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -53250,23 +53540,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "guardian_digests",
-      "name": "guardian_digests_tenant_id_tenants_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenants",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -55315,23 +55588,6 @@
     },
     {
       "schema": "public",
-      "table": "message_conversations",
-      "name": "message_conversations_tenant_id_tenants_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenants",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
       "table": "message_user_deletions",
       "name": "message_user_deletions_message_id_message_id_fkey",
       "nameExplicit": false,
@@ -55345,40 +55601,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "notification_dispatch_log",
-      "name": "notification_dispatch_log_tenant_id_tenants_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenants",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "notifications",
-      "name": "notifications_tenant_id_tenants_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "tenant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "tenants",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -56579,6 +56801,16 @@
       "schema": "public",
       "table": "groups_members",
       "name": "groups_members_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_pkey",
       "columns": [
         "id"
       ],
@@ -59149,6 +59381,17 @@
       "nameExplicit": false,
       "columns": [
         "short_name"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "classes",
+      "name": "classes_cohort_id_key",
+      "nameExplicit": false,
+      "columns": [
+        "cohort_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

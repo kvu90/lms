@@ -42,6 +42,25 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'course:viewhiddenactivities', capType: 'read', contextLevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'course:manageactivities', capType: 'write', contextLevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'course:managegroups', capType: 'write', contextLevel: 50, component: 'core_group', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  // Lớp học hạng nhất (issue #184, CLASS-0): capability tại context LỚP
+  // (CLASS=45, giữa coursecat 40 và course 50). Ba quyền kiểu Azota là
+  // class:manageroster (quản lý danh sách học sinh), class:assignwork
+  // (giao bài/tạo khoá trong lớp), class:grade (xem + chấm bài trong lớp);
+  // cấp cho đồng GV qua 3 vai hệ thống classassigner/classgrader/
+  // classrostermanager gán TẠI context lớp (override đặt tại context lớp
+  // lúc tạo lớp — khuôn qbankmember/qbanklead), chủ lớp giữ editingteacher
+  // tại context lớp với bộ override đầy đủ đặt cùng lúc. Archetype ở đây
+  // chỉ manager để quyền không tự chảy vào mọi lớp qua gán vai ở nơi khác;
+  // class:create là ngoại lệ có editingteacher vì GV phải tự tạo được lớp
+  // của mình (đánh giá tại context tenant, chủ lớp = người tạo).
+  { name: 'class:create', capType: 'write', contextLevel: 40, component: 'core_class', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'class:view', capType: 'read', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:update', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:delete', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:manageroster', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:assignwork', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:grade', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
+  { name: 'class:share', capType: 'write', contextLevel: 45, component: 'core_class', archetypes: { manager: CAP_ALLOW } },
   { name: 'group:accessallgroups', capType: 'read', contextLevel: 50, component: 'core_group', archetypes: { ...ALL_STAFF } },
   { name: 'cohort:manage', capType: 'write', contextLevel: 10, component: 'core_cohort', archetypes: { manager: CAP_ALLOW } },
   { name: 'cohort:view', capType: 'read', contextLevel: 10, component: 'core_cohort', archetypes: { ...ALL_STAFF } },
@@ -177,7 +196,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'privacy:manage', capType: 'write', contextLevel: 10, component: 'core_privacy', archetypes: { manager: CAP_ALLOW } },
 ];
 
-export const CONTEXT_LEVELS = { SYSTEM: 10, TENANT: 20, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
+export const CONTEXT_LEVELS = { SYSTEM: 10, TENANT: 20, USER: 30, COURSECAT: 40, CLASS: 45, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
 
 export interface RoleDefinition { shortName: string; name: string; archetype: string; sortOrder: number }
 export const DEFAULT_ROLES: RoleDefinition[] = [

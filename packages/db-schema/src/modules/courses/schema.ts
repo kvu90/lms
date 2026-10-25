@@ -15,6 +15,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { curricula, curriculumNodes, learningOutcomes, subjects } from '../curriculum/schema';
 import { bookNodes, books } from '../books/schema';
+import { classes } from '../classes/schema';
 import { tenants } from '../tenants/schema';
 
 /** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. `tenant_id` = tenant sở hữu (TENANT-0, #168) — danh mục chỉ tồn tại trong một tenant. */
@@ -68,6 +69,17 @@ export const course = pgTable('course', {
    * bản thành khoá thật. Mặc định false nên mọi khoá hiện có giữ nguyên.
    */
   isTemplate: boolean('is_template').notNull().default(false),
+  /**
+   * Lớp học chứa khoá này (issue #184, CLASS-0): một khoá dạy thật thuộc
+   * đúng MỘT lớp — danh sách học sinh của lớp (backing cohort) được vật
+   * chất hoá xuống khoá qua enrol instance cohort tự tạo. NULL chỉ hợp lệ
+   * cho khoá mẫu (`is_template`); ràng buộc đầy đủ (NOT NULL + CHECK) siết
+   * ở cửa sổ đóng gói/CLASS-1 cùng đợt dọn fixture tạo khoá — lát nền này
+   * giữ cột nullable để không vỡ hàng loạt fixture tạo khoá hiện hữu,
+   * đường tạo khoá qua lớp đã ép đủ ngữ nghĩa ở tầng service. FK RESTRICT:
+   * lớp còn khoá thì không xoá được lớp (theo tiền lệ GDPT-seed).
+   */
+  classId: uuid('class_id').references(() => classes.id, { onDelete: 'restrict' }),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -75,6 +87,7 @@ export const course = pgTable('course', {
   (table) => [
       index('course_tenant_id_idx').on(table.tenantId),
       index('course_category_idx').on(table.category),
+      index('course_class_id_idx').on(table.classId),
       index('course_subject_id_idx').on(table.subjectId),
       check('course_grade_check', sql`${table.grade} is null or (${table.grade} between 1 and 12)`),
   ]);

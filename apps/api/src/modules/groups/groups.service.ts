@@ -263,6 +263,19 @@ export class GroupsService implements OnModuleInit {
   async addMemberInternal(groupId: string, userId: string, component = '', itemId: string | null = null): Promise<void> {
     await this.repo.addMember(groupId, userId, component, itemId);
   }
+
+  /**
+   * Tạo nhóm không kiểm capability — dành cho đồng bộ nội bộ: group "cả
+   * lớp" tự sinh khi một khoá được tạo trong lớp (issue #184, CLASS-0).
+   * Idempotent theo (courseId, name): đã có nhóm cùng tên trong khoá thì
+   * trả lại nhóm đó (unique `course_groups_course_name_unique` là chốt
+   * DB; đua hai lần tạo cùng lúc thì lần sau đọc lại theo tên).
+   */
+  async createGroupInternal(courseId: string, name: string): Promise<GroupRow> {
+    const existing = (await this.repo.listGroups(courseId)).find((g) => g.name === name);
+    if (existing) return existing;
+    return this.repo.insertGroup({ courseId, name, idNumber: '', description: '', enrolmentKey: null });
+  }
   /**
    * Gỡ thành viên không kiểm capability — dành cho đồng bộ nội bộ.
    */
