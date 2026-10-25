@@ -113,18 +113,18 @@ export class ExamsRepository {
    * undefined khi câu không có entry nào ở trạng thái ready
    * (draft/hidden đều không được đưa vào đề).
    */
-  async resolveReadyVersion(questionId: string): Promise<{ versionId: string; versionNumber: number } | undefined> {
+  async resolveReadyVersion(questionId: string): Promise<{ versionId: string; versionNumber: number; defaultMark: number } | undefined> {
     const entries = await this.db.select({
       latestVersion: questionBankEntries.latestVersion,
       status: questionBankEntries.status,
     }).from(questionBankEntries).where(eq(questionBankEntries.questionId, questionId));
     const entry = entries.find((e) => e.status === 'ready');
     if (!entry) return undefined;
-    const [ver] = await this.db.select({ id: questionVersions.id, version: questionVersions.version })
+    const [ver] = await this.db.select({ id: questionVersions.id, version: questionVersions.version, defaultMark: questionVersions.defaultMark })
       .from(questionVersions)
       .where(and(eq(questionVersions.questionId, questionId), eq(questionVersions.version, entry.latestVersion)));
     if (!ver) return undefined;
-    return { versionId: ver.id, versionNumber: ver.version };
+    return { versionId: ver.id, versionNumber: ver.version, defaultMark: ver.defaultMark };
   }
 
   /** Trạng thái entry của các câu (để hiển thị trong chi tiết đề: câu đã rút khỏi ngân hàng vẫn đọc được trong version đã chụp). */

@@ -186,19 +186,19 @@ describe('CAM-0 paper grading flow', () => {
       (res as NodeJS.ReadableStream).on('end', () => cb(null, Buffer.concat(chunks)));
     };
     // Mặc định mới: phiếu DÙNG CHUNG (trước đây mặc định là cá nhân hoá).
-    const shared = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf`)
+    const shared = await http(app).get(`/api/v1/exam-batches/${ctx.batch.id}/sheets?format=pdf`)
       .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
     expect(shared.status).toBe(200);
     expect(shared.headers['content-type']).toContain('application/pdf');
     expect((shared.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     expect(shared.headers['content-disposition']).toContain('dung-chung');
     // Tuỳ chọn hẹp tường minh: in theo danh sách (cá nhân hoá).
-    const personal = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf?kind=personalized`)
+    const personal = await http(app).get(`/api/v1/exam-batches/${ctx.batch.id}/sheets?format=pdf&kind=personalized`)
       .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
     expect(personal.status).toBe(200);
     expect(personal.headers['content-disposition']).toContain('ca-nhan');
     // Tên cũ kind=blank vẫn chạy như phiếu dùng chung.
-    const blank = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf?kind=blank&copies=1`)
+    const blank = await http(app).get(`/api/v1/exam-batches/${ctx.batch.id}/sheets?format=pdf&kind=blank&copies=1`)
       .set('Authorization', `Bearer ${ctx.teacher}`);
     expect(blank.status).toBe(200);
   });

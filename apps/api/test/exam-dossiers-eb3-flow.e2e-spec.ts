@@ -140,7 +140,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     systemQuestionId = poolA[0]!;
 
     const matrixRes = await http(app).post('/api/v1/exam-matrices').set(bearer(admin))
-      .send({ name: 'Ma trận giữa kỳ EB-3', subjectId, curriculumId, presetKind: 'custom', totalScore: 4 });
+      .send({ name: 'Ma trận giữa kỳ EB-3', subjectId, curriculumId, totalScore: 4 });
     const matrix = matrixRes.body as { id: string; version: number };
     matrixId = matrix.id;
     matrixVersion = matrix.version;
@@ -273,7 +273,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(done.resultExamId).toBeTruthy();
     expect(done.reviews).toHaveLength(1);
     expect(done.reviews[0]).toMatchObject({ level: 1, reviewerId: leader.id, decision: 'approved' });
-    const inBank = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/papers`).set(bearer(leader.token));
+    const inBank = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
     const landed = (inBank.body as { id: string; status: string; derivedFromExamId: string | null }[])
       .find((p) => p.id === done.resultExamId);
     expect(landed).toBeTruthy();
@@ -330,7 +330,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       expect(pendingBoard.resultExamId).toBeNull();
       expect(pendingBoard.reviews).toHaveLength(1);
       // Chưa hiệu lực: đề chưa vào bank tổ.
-      const inBankBefore = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/papers`).set(bearer(leader.token));
+      const inBankBefore = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
       expect((inBankBefore.body as { derivedFromExamId: string | null }[]).some((p) => p.derivedFromExamId === paper.paper.id)).toBe(false);
 
       // Tổ trưởng không qua được cổng cấp 2 (không có exam:moderate tại context hệ thống).
@@ -345,7 +345,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       expect(done.status).toBe('approved');
       expect(done.resultExamId).toBeTruthy();
       expect(done.reviews.map((r) => [r.level, r.decision])).toEqual([[1, 'approved'], [2, 'approved']]);
-      const inBankAfter = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/papers`).set(bearer(leader.token));
+      const inBankAfter = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
       expect((inBankAfter.body as { id: string }[]).map((p) => p.id)).toContain(done.resultExamId);
 
       // Từ chối ở cấp 2: vẫn bắt buộc lý do, vết cấp 1 giữ nguyên.
@@ -426,7 +426,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
   it('TC5: đề định kỳ ready ở bank trường — GV khác khối bị chặn, GV đúng khối xem được và có audit', async () => {
     // Đề giữa kỳ khối 10 (admin soạn trong bank trường) + đề thường xuyên làm đối chứng.
     const mkSchoolPaper = async (examKind: string): Promise<string> => {
-      const created = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(admin))
+      const created = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(admin))
         .send({ name: `Đề ${examKind} EB-3`, examKind, grade: 10, slots: [{ questionId: systemQuestionId }] });
       expect(created.status, JSON.stringify(created.body)).toBe(201);
       const id = (created.body as PaperBody).paper.id;
@@ -464,7 +464,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     // Luồng vào bank thật: người dùng mở bank trước (bước này đồng bộ
     // tư cách thành viên bank trường cho staff) rồi mới mở đề.
     for (const viewer of [teacher10, teacher11, plainStaff]) {
-      const list = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(viewer.token));
+      const list = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(viewer.token));
       expect(list.status).toBe(200);
     }
 

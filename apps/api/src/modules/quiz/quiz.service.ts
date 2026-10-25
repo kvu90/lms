@@ -542,6 +542,7 @@ export class QuizService {
       monitorEvents: quiz.monitorEvents,
       slots: slotViews,
       sumGrades: slots.reduce((sum, s) => sum + s.maxMark, 0),
+      variants: quiz.variants ?? [],
     };
   }
 

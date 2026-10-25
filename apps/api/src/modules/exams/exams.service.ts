@@ -311,7 +311,9 @@ export class ExamsService {
         questionId: s.questionId,
         pinnedVersionId: ready.versionId,
         pinnedVersionNumber: ready.versionNumber,
-        maxMark: s.maxMark ?? 1,
+        // Không ghi điểm cho slot = lấy điểm mặc định của phiên bản
+        // câu hỏi đã ghim (khuôn quiz cũ: điểm slot thắng khi ghi rõ).
+        maxMark: s.maxMark ?? ready.defaultMark,
         section: s.section ?? '',
         clusterId: s.clusterId ?? null,
       });

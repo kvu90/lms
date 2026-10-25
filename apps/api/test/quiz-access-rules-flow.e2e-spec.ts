@@ -224,7 +224,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(stillBlocked.body.code).toBe('quiz.not_yet_open');
 
     // Xoá override thì cửa sổ gốc quay lại hiệu lực.
-    const del = await http(app).delete(`/api/v1/exam-pins/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const del = await http(app).delete(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(del.status).toBe(200);
     const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(info.body.effective.timeOpen).toBe(future.slice(0, 19) + '.000Z' === future ? future : info.body.effective.timeOpen);
@@ -372,24 +372,24 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(created.status === 200 || created.status === 201).toBe(true);
     // PATCH cộng giờ mà không bổ sung reason → bị từ chối như đường tạo
     // (trước vòng fix này PATCH trả 200 — vòng qua cổng reason).
-    const patched = await http(app).patch(`/api/v1/exam-pins/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const patched = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: 3600 });
     expect(patched.status).toBe(400);
     expect(patched.body.code).toBe('quiz.override_reason_required');
     // PATCH kèm reason → chấp nhận; trạng thái hợp nhất mang cả hai thay đổi.
-    const withReason = await http(app).patch(`/api/v1/exam-pins/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const withReason = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: 3600, reason: 'Cộng giờ theo KHGD cá nhân (HS hoà nhập)' });
     expect(withReason.status).toBe(200);
     expect(withReason.body.timeLimitSeconds).toBe(3600);
     expect(withReason.body.attempts).toBe(3);
     expect(withReason.body.reason).toContain('KHGD');
     // Gỡ reason trong khi override vẫn còn cộng giờ → cũng bị từ chối.
-    const strip = await http(app).patch(`/api/v1/exam-pins/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const strip = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ reason: null });
     expect(strip.status).toBe(400);
     expect(strip.body.code).toBe('quiz.override_reason_required');
     // Gỡ luôn phần cộng giờ thì reason không còn bắt buộc nữa.
-    const cleared = await http(app).patch(`/api/v1/exam-pins/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const cleared = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: null, reason: null });
     expect(cleared.status).toBe(200);
     expect(cleared.body.timeLimitSeconds).toBeNull();
@@ -424,7 +424,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const view1 = await http(app).get(`/api/v1/quiz-attempts/${submitted.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(view1.body.questions[0].rightAnswer).toBeNull(); // chưa lộ đáp án
     // Gỡ override ca muộn → đợt đóng hẳn → đáp án hiện.
-    await http(app).delete(`/api/v1/exam-pins/${quizId}/overrides/${gov.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    await http(app).delete(`/api/v1/exam-pin-overrides/${gov.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     const view2 = await http(app).get(`/api/v1/quiz-attempts/${submitted.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(view2.body.questions[0].rightAnswer).not.toBeNull();
   });

@@ -581,6 +581,8 @@ export const quizViewSchema = z.object({
   monitorEvents: z.boolean(),
   slots: z.array(quizSlotViewSchema),
   sumGrades: z.number(),
+  /** Mã đề của lần ghim (hoán vị in ấn CAM của cùng một bộ câu): mã 3 chữ số + seed xáo trộn. */
+  variants: z.array(z.object({ code: z.string(), seed: z.number() })),
 });
 export type QuizView = z.infer<typeof quizViewSchema>;
 

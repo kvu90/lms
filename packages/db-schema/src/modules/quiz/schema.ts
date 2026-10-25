@@ -221,6 +221,7 @@ export const examPins = pgTable('exam_pins', {
       index('exam_pins_cm_id_idx').on(table.cmId),
       index('exam_pins_exam_idx').on(table.examId),
       index('exam_pins_exam_version_idx').on(table.examVersionId),
+      index('exam_pins_target_group_idx').on(table.targetGroupId),
       check('exam_pins_preset_check', sql`${table.preset} is null or ${table.preset} in ('regular', 'periodic', 'mock')`),
   ]);
 

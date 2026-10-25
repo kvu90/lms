@@ -443,7 +443,7 @@ describe('Shared question bank (feat #70)', () => {
     const upgraded = await http(app).put(`/api/v1/exams/${draft.examId}/slots`).set(bearer(leader.token))
       .send({ slots: [{ questionId: q.question.id }] });
     expect(upgraded.status, JSON.stringify(upgraded.body)).toBe(200);
-    const newVersionId = (upgraded.body as { currentVersionId: string }).currentVersionId;
+    const newVersionId = (upgraded.body as { version: { id: string } }).version.id;
     const lockedUpgrade = await http(app).patch(`/api/v1/exam-pins/${quizId}`).set(bearer(leader.token))
       .send({ examVersionId: newVersionId });
     expect(lockedUpgrade.status).toBe(400);

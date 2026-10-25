@@ -93,7 +93,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
   }
 
   async function createPaper(token: string, bankId: string, name: string, slots: { questionId: string; maxMark?: number; section?: string }[]): Promise<PaperBody> {
-    const res = await http(app).post(`/api/v1/exams/banks/${bankId}/papers`).set(bearer(token))
+    const res = await http(app).post(`/api/v1/exams/banks/${bankId}/exams`).set(bearer(token))
       .send({ name, examKind: 'regular', slots });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body as PaperBody;
@@ -230,7 +230,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     await setStatus(admin, source.paper.id, 'ready');
 
     // GV thấy đề trong bank trường và copy về ngân hàng đề cá nhân (đích mặc định).
-    const list = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(owner.token));
+    const list = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(owner.token));
     expect(list.status).toBe(200);
     expect((list.body as { id: string }[]).map((p) => p.id)).toContain(source.paper.id);
 
@@ -281,11 +281,11 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const bankRes = await http(app).post('/api/v1/question-banks').set(bearer(admin))
       .send({ name: 'Ngân hàng đề trường EB4', scope: 'school', bankKind: 'exam' });
     const schoolBank = bankRes.body as BankBody;
-    const studentList = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(student.token));
+    const studentList = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(student.token));
     expect(studentList.status).toBe(403);
     const studentGet = await http(app).get(`/api/v1/exams/${paper.paper.id}`).set(bearer(student.token));
     expect(studentGet.status).toBe(403);
-    const studentCreate = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(student.token))
+    const studentCreate = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(student.token))
       .send({ name: 'Đề của học sinh', slots: [] });
     expect(studentCreate.status).toBe(403);
   });
@@ -336,7 +336,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     // Câu bị rút (hidden) không vào được đề.
     const withdraw = await http(app).post(`/api/v1/questions/${qHidden}/withdraw`).set(bearer(owner.token)).send({ reason: 'Sai đáp án' });
     expect(withdraw.status).toBe(201);
-    const badPaper = await http(app).post(`/api/v1/exams/banks/${eBank.id}/papers`).set(bearer(owner.token))
+    const badPaper = await http(app).post(`/api/v1/exams/banks/${eBank.id}/exams`).set(bearer(owner.token))
       .send({ name: 'Đề chứa câu rút', slots: [{ questionId: qHidden }] });
     expect(badPaper.status).toBe(400);
     expect((badPaper.body as { code?: string }).code).toBe('exam.slot_question_not_ready');
@@ -388,7 +388,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const approved = approve.body as { status: string; resultExamId: string | null };
     expect(approved.status).toBe('approved');
     expect(approved.resultExamId).toBeTruthy();
-    const inSchool = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/papers`).set(bearer(admin));
+    const inSchool = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(admin));
     const copied = (inSchool.body as { id: string; derivedFromExamId: string | null }[])
       .find((p) => p.id === approved.resultExamId);
     expect(copied?.derivedFromExamId).toBe(paper.paper.id);
