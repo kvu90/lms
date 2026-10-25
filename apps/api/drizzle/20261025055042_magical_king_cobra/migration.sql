@@ -746,6 +746,26 @@ CREATE TABLE "vn_term_results" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "guardian_digests" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"guardian_user_id" uuid NOT NULL,
+	"student_user_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"window_start" timestamp with time zone,
+	"window_end" timestamp with time zone,
+	"activity_cm_id" uuid,
+	"dedupe_key" text NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	"new_results_count" integer DEFAULT 0 NOT NULL,
+	"announcements_count" integer DEFAULT 0 NOT NULL,
+	"overdue_count" integer DEFAULT 0 NOT NULL,
+	"upcoming_count" integer DEFAULT 0 NOT NULL,
+	"notification_id" uuid,
+	"sent_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "guardian_links" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"guardian_user_id" uuid NOT NULL,
@@ -2475,6 +2495,9 @@ CREATE INDEX "vn_gradebooks_category_id_idx" ON "vn_gradebooks" ("category_id");
 CREATE INDEX "vn_term_results_book_id_idx" ON "vn_term_results" ("book_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_course_id_idx" ON "vn_term_results" ("course_id");--> statement-breakpoint
 CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "guardian_digests_dedupe_key_unique" ON "guardian_digests" ("dedupe_key");--> statement-breakpoint
+CREATE INDEX "guardian_digests_guardian_user_id_idx" ON "guardian_digests" ("guardian_user_id");--> statement-breakpoint
+CREATE INDEX "guardian_digests_student_user_id_idx" ON "guardian_digests" ("student_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_guardian_user_id_idx" ON "guardian_links" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_student_user_id_idx" ON "guardian_links" ("student_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "guardian_links_active_pair_unique" ON "guardian_links" ("guardian_user_id","student_user_id") WHERE "status" = 'active';--> statement-breakpoint
@@ -2814,6 +2837,8 @@ ALTER TABLE "vn_gradebooks" ADD CONSTRAINT "vn_gradebooks_course_id_course_id_fk
 ALTER TABLE "vn_gradebooks" ADD CONSTRAINT "vn_gradebooks_category_id_grade_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "grade_categories"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_book_id_vn_gradebooks_id_fkey" FOREIGN KEY ("book_id") REFERENCES "vn_gradebooks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_view_state" ADD CONSTRAINT "guardian_view_state_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
