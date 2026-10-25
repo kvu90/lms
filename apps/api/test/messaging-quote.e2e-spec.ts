@@ -48,22 +48,18 @@ let admin: string;
 const sockets: Socket[] = [];
 
 let counter = 0;
-async function person(prefix: string): Promise<Person> {
+async function person(_prefix: string): Promise<Person> {
   counter += 1;
-  const username = `m3${prefix}${Date.now()}${counter}`;
-  const created = await createUserViaApi(app, admin, {
-    username, password: STRONG_PASSWORD, firstname: 'M3', lastname: prefix,
-    email: `${username}@example.com`,
-  });
-  const token = await login(app, username, STRONG_PASSWORD);
-  return { id: created.id as string, username, token };
+  const created = await createUserViaApi(app, admin);
+  const session = await login(app, created.username, STRONG_PASSWORD);
+  return { id: created.id, username: created.username, token: session.accessToken };
 }
 
 async function befriend(a: Person, b: Person): Promise<void> {
   const req = await http(app).post(`/api/v1/messages/contacts/${b.id}`)
     .set('Authorization', `Bearer ${a.token}`).send({});
   expect(req.status).toBe(201);
-  const accept = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/accept`)
+  const accept = await http(app).post(`/api/v1/messages/contacts/${a.id}/accept`)
     .set('Authorization', `Bearer ${b.token}`).send({});
   expect(accept.status).toBe(201);
 }
@@ -280,7 +276,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
   });
 
   it('8. realtime: message.new mang đủ dữ kiện trích dẫn cho phía nhận', async () => {
-    const socket: Socket = io(`${base}/messaging`, {
+    const socket: Socket = io(`${base}/messages`, {
       auth: { token: b.token }, transports: ['websocket'], reconnection: false,
     });
     sockets.push(socket);
