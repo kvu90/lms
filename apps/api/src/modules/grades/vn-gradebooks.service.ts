@@ -287,7 +287,10 @@ export class VnGradebooksService {
     for (const book of books) {
       if (!(await this.isTermResultPublished(book, actorId))) {
         terms.push({
-          bookId: null, term: book.term, assessmentMode: book.assessmentMode, published: false,
+          // Cột term/assessmentMode là text trong schema; giá trị chỉ được
+          // ghi từ DTO đã validate ở createBook — ép về union miền như quy
+          // ước sẵn có của file này (commentResult as VnCommentResult).
+          bookId: null, term: book.term as VnTerm, assessmentMode: book.assessmentMode as VnAssessmentMode, published: false,
           dtbHk: null, commentResult: null, comment: null, awaitingMakeup: false,
         });
         continue;
@@ -301,7 +304,7 @@ export class VnGradebooksService {
         awaitingMakeup = computed.awaitingMakeupRoles.length > 0;
       }
       terms.push({
-        bookId: book.id, term: book.term, assessmentMode: book.assessmentMode, published: true,
+        bookId: book.id, term: book.term as VnTerm, assessmentMode: book.assessmentMode as VnAssessmentMode, published: true,
         dtbHk, commentResult: finalized?.commentResult ?? null, comment: finalized?.comment ?? null, awaitingMakeup,
       });
     }
