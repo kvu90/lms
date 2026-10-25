@@ -210,7 +210,7 @@ describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
 
     await openPaletteWithKeyboard();
     expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
-    expect(await screen.findByTestId('palette-item-screen-questions')).toHaveTextContent('Câu hỏi');
+    expect(await screen.findByTestId('palette-item-screen-questions')).toHaveTextContent('Ngân hàng câu hỏi');
     expect(screen.queryByTestId('palette-item-screen-admin-users')).not.toBeInTheDocument();
   });
 });

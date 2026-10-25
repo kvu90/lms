@@ -387,7 +387,7 @@ describe('Dashboard theo vai trò', () => {
     expect(screen.getByText('Vai trò')).toBeInTheDocument();
     // Ngân hàng câu hỏi được phép với admin — nằm trong nhóm Học tập.
     await userEvent.click(screen.getByRole('button', { name: 'Học tập' }));
-    expect(await screen.findByText('Câu hỏi')).toBeInTheDocument();
+    expect(await screen.findByText('Ngân hàng câu hỏi')).toBeInTheDocument();
   });
 
   it('sidebar của student không có mục quản trị và không có ngân hàng câu hỏi', async () => {
@@ -397,6 +397,6 @@ describe('Dashboard theo vai trò', () => {
     expect(screen.getByText('Khoá học')).toBeInTheDocument();
     expect(screen.queryByText('Người dùng')).not.toBeInTheDocument();
     expect(screen.queryByText('Vai trò')).not.toBeInTheDocument();
-    expect(screen.queryByText('Câu hỏi')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ngân hàng câu hỏi')).not.toBeInTheDocument();
   });
 });

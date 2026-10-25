@@ -344,7 +344,7 @@ export const appResources = {
     app: {
       navProfile: 'Hồ sơ',
       navCourses: 'Khoá học',
-      navQuestions: 'Câu hỏi',
+      navQuestions: 'Ngân hàng câu hỏi',
       navMessages: 'Tin nhắn',
       navNotifications: 'Thông báo',
       navCalendar: 'Lịch',
@@ -1774,7 +1774,7 @@ export const appResources = {
     app: {
       navProfile: 'Profile',
       navCourses: 'Courses',
-      navQuestions: 'Questions',
+      navQuestions: 'Question bank',
       navMessages: 'Messages',
       navNotifications: 'Notifications',
       navCalendar: 'Calendar',
