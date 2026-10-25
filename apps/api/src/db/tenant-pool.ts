@@ -89,7 +89,12 @@ export class TenantAwarePool extends Pool {
       // Dạng callback (pg dùng nội bộ cho pool.query): giữ nguyên hợp
       // đồng — client trao tay đã sẵn sàng gắn GUC ở câu query đầu.
       super.connect((err, client, done) => {
-        if (err || !client) return callback(err, client, done);
+        if (err || !client)
+          return callback(
+            err ?? new Error('TenantAwarePool: connect failed'),
+            client as PoolClient,
+            done,
+          );
         try {
           this.prepareClient(client);
         } catch (prepError) {
