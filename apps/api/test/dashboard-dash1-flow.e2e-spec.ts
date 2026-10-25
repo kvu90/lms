@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken,
@@ -22,20 +23,23 @@ import { createGradeItem, setGrade } from './assessment-helpers';
 describe('DASH1: dashboard việc cần làm (issue #121)', () => {
   let app: INestApplication;
   let admin: string;
+  let pg: Client;
 
   interface Overview {
     generatedAt: string;
     previousSeenAt: string | null;
     dueItems: { courseId: string; cmId: string; kind: string; name: string; dueAt: string; status: string }[];
     newResults: { courseId: string; kind: string; itemId: string | null; itemName: string | null; finalGrade: number | null; feedback: string | null; changedAt: string }[];
-    gradingQueue: { courseId: string; pendingCount: number; assignmentPending: number; quizPending: number; oldestPendingAt: string | null }[];
+    gradingQueue: { courseId: string; pendingCount: number; assignmentPending: number; quizPending: number; paperPending: number; paperQuizId: string | null; oldestPendingAt: string | null }[];
   }
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
   }, 120000);
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { await pg.end(); await app.close(); });
 
   interface Ctx {
     course: { id: string; fullName: string };
@@ -231,6 +235,61 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     view = await overview(ctx.teacher);
     queue = view.gradingQueue.find((q) => q.courseId === ctx.course.id);
     expect(queue).toMatchObject({ pendingCount: 1, assignmentPending: 1 });
+  });
+
+  it('hàng đợi chấm — phiếu giấy CAM-0 (#187): đếm tách bạch hai trạng thái chờ, deep-link về quiz có phiếu chờ lâu nhất, xử lý hết thì về 0, GV khác không thấy', async () => {
+    const ctx = await setup();
+    const quizA = await createQuizWithMc(ctx, { name: 'Quiz giấy A' });
+    const quizB = await createQuizWithMc(ctx, { name: 'Quiz giấy B' });
+
+    // Chèn thẳng phiếu quét vào DB (đường tắt fixture như các spec CAM-0
+    // vẫn dùng pg Client): file_id/uploaded_by là uuid không FK.
+    const uploader = ctx.student.id;
+    const insertScan = async (quizId: string, status: string, createdAt: string) => {
+      await pg.query(
+        `INSERT INTO quiz_paper_scans (quiz_id, file_id, status, uploaded_by, created_at, updated_at)
+         VALUES ($1, gen_random_uuid(), $2, $3, $4, $4)`,
+        [quizId, status, uploader, createdAt],
+      );
+    };
+    const threeHoursAgo = new Date(Date.now() - 3 * 3_600_000).toISOString();
+    const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000).toISOString();
+    const anHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+    // Quiz A: 1 needs_review (lâu nhất toàn khoá) + 1 needs_identity.
+    await insertScan(quizA.id, 'needs_review', threeHoursAgo);
+    await insertScan(quizA.id, 'needs_identity', anHourAgo);
+    // Quiz B: 1 needs_review mới hơn phiếu lâu nhất của A.
+    await insertScan(quizB.id, 'needs_review', twoHoursAgo);
+    // Hai trạng thái KHÔNG chờ: không được đếm.
+    await insertScan(quizA.id, 'ready', anHourAgo);
+    await insertScan(quizB.id, 'recorded', anHourAgo);
+
+    let view = await overview(ctx.teacher);
+    let queue = view.gradingQueue.find((q) => q.courseId === ctx.course.id);
+    // 3 phiếu chờ, tách bạch khỏi bài nộp/lượt quiz; đích deep-link là
+    // quiz A (phiếu chờ lâu nhất); mốc chờ lâu nhất lấy từ phiếu giấy.
+    expect(queue).toMatchObject({
+      pendingCount: 3, assignmentPending: 0, quizPending: 0,
+      paperPending: 3, paperQuizId: quizA.id,
+    });
+    expect(new Date(queue!.oldestPendingAt!).getTime()).toBe(new Date(threeHoursAgo).getTime());
+
+    // Học sinh không thấy hàng đợi; GV của khoá khác không thấy đếm này.
+    const studentView = await overview(ctx.studentToken);
+    expect(studentView.gradingQueue).toEqual([]);
+    const otherCtx = await setup();
+    const otherView = await overview(otherCtx.teacher);
+    expect(otherView.gradingQueue.some((q) => q.courseId === ctx.course.id)).toBe(false);
+
+    // Xử lý hết phiếu chờ (chuyển sang recorded) → đếm về 0, khoá biến
+    // mất khỏi hàng đợi vì không còn việc chờ nào khác.
+    await pg.query(
+      `UPDATE quiz_paper_scans SET status = 'recorded'
+       WHERE quiz_id = ANY($1) AND status IN ('needs_review', 'needs_identity')`,
+      [[quizA.id, quizB.id]],
+    );
+    view = await overview(ctx.teacher);
+    expect(view.gradingQueue.some((q) => q.courseId === ctx.course.id)).toBe(false);
   });
 
   it('thẻ khoá: đặt màu/biệt danh lưu được, chỉ chủ nhân thấy; người ngoài khoá không đặt được cho khoá', async () => {

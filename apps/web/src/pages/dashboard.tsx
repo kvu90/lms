@@ -150,8 +150,10 @@ function StudentTodoBlock() {
 
 /**
  * Khối "Hàng đợi chấm" của giáo viên (DASH1): số bài chờ chấm gộp theo
- * khoá (bài nộp C2 chưa trả bài + lượt quiz chờ chấm tay) và bài chờ lâu
- * nhất; bấm vào tới sổ điểm của khoá để xử lý hàng đợi.
+ * khoá (bài nộp C2 chưa trả bài + lượt quiz chờ chấm tay + phiếu giấy
+ * CAM-0 chờ xử lý) và bài chờ lâu nhất; bấm vào tới sổ điểm của khoá để
+ * xử lý hàng đợi, riêng phần phiếu giấy là deep-link thẳng tới bề mặt rà
+ * soát CAM-0 của quiz có phiếu chờ lâu nhất (issue #187).
  */
 function TeacherGradingBlock() {
   const { t, i18n } = useTranslation('dashboard');
@@ -183,12 +185,19 @@ function TeacherGradingBlock() {
                 </Link>
                 <Badge>{t('gradingPending', { count: row.pendingCount })}</Badge>
                 <span className="text-muted-foreground">
-                  {[
-                    row.assignmentPending > 0 ? t('gradingAssignmentPart', { count: row.assignmentPending }) : null,
-                    row.quizPending > 0 ? t('gradingQuizPart', { count: row.quizPending }) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  {row.assignmentPending > 0 ? t('gradingAssignmentPart', { count: row.assignmentPending }) : null}
+                  {row.assignmentPending > 0 && row.quizPending > 0 ? ' · ' : null}
+                  {row.quizPending > 0 ? t('gradingQuizPart', { count: row.quizPending }) : null}
+                  {(row.assignmentPending > 0 || row.quizPending > 0) && row.paperPending > 0 ? ' · ' : null}
+                  {row.paperPending > 0 && row.paperQuizId ? (
+                    <Link
+                      to={`/courses/${row.courseId}/quizzes/${row.paperQuizId}/paper`}
+                      className="font-medium text-foreground hover:underline"
+                      data-testid="grading-paper-link"
+                    >
+                      {t('gradingPaperPart', { count: row.paperPending })}
+                    </Link>
+                  ) : null}
                   {row.oldestPendingAt
                     ? ` · ${t('gradingOldest', { date: dateTimeLabel(row.oldestPendingAt, i18n.language) })}`
                     : ''}

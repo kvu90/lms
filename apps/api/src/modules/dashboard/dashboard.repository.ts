@@ -14,6 +14,7 @@ import {
   gradeItems,
   gradePublications,
   quizAttempts,
+  quizPaperScans,
   quizzes,
   roleAssignments,
   userCourseCardPrefs,
@@ -258,6 +259,28 @@ export class DashboardRepository {
         inArray(quizzes.course, courseIds),
         eq(quizAttempts.state, 'needsgrading'),
         eq(quizAttempts.preview, false),
+      ));
+  }
+
+  /**
+   * Phiếu giấy CAM-0 đang chờ xử lý trong tập khoá (chỉ hai trạng thái chờ
+   * giáo viên: needs_identity + needs_review; ready/recorded KHÔNG tính —
+   * ready là đã đủ điều kiện ghi, recorded là đã xong). Trả từng phiếu để
+   * service gom số đếm + mốc chờ lâu nhất + quiz đích deep-link.
+   */
+  async paperPendingRows(courseIds: string[]) {
+    if (!courseIds.length) return [];
+    return this.db
+      .select({
+        courseId: quizzes.course,
+        quizId: quizPaperScans.quizId,
+        createdAt: quizPaperScans.createdAt,
+      })
+      .from(quizPaperScans)
+      .innerJoin(quizzes, eq(quizzes.id, quizPaperScans.quizId))
+      .where(and(
+        inArray(quizzes.course, courseIds),
+        inArray(quizPaperScans.status, ['needs_identity', 'needs_review']),
       ));
   }
 

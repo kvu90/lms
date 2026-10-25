@@ -260,7 +260,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
             : [],
         gradingQueue:
           role === 'teacher'
-            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 3, assignmentPending: 2, quizPending: 1, oldestPendingAt: past }]
+            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 5, assignmentPending: 2, quizPending: 1, paperPending: 2, paperQuizId: 'quiz-paper-1', oldestPendingAt: past }]
             : [],
       });
     }
@@ -336,11 +336,16 @@ describe('Dashboard theo vai trò', () => {
     const row = await screen.findByTestId('grading-queue-row');
     expect(screen.getByTestId('dashboard-grading-queue')).toBeInTheDocument();
     expect(row).toHaveTextContent('Khoá học mẫu');
-    expect(row).toHaveTextContent('3');
+    expect(row).toHaveTextContent('5');
     // Bấm vào hàng đợi tới thẳng trang điểm của khoá (href nằm ở thẻ
     // liên kết bao quanh hàng — Button render qua Link của Base UI).
     const queueLink = row.closest('a') ?? row.querySelector('a');
     expect(queueLink?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/grades`);
+    // Phần phiếu giấy CAM-0 (#187): đếm tách bạch + deep-link thẳng tới
+    // bề mặt rà soát phiếu của đúng quiz có phiếu chờ lâu nhất.
+    const paperLink = screen.getByTestId('grading-paper-link');
+    expect(paperLink).toHaveTextContent('2 phiếu giấy chờ xử lý');
+    expect(paperLink.getAttribute('href')).toBe(`/courses/${COURSE_ID}/quizzes/quiz-paper-1/paper`);
   });
 
   it('admin thấy khối quản trị hệ thống, không thấy khối giảng dạy/học tập', async () => {
