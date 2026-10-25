@@ -10,7 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
@@ -1439,7 +1439,7 @@ export class MessagingService {
    * (xem {@link assertDirectConversationVisible}).
    */
   async getConversation(userId: string, conversationId: string, opts: { limit?: number } = {}): Promise<ConversationRow & {
-    members: string[]; messages: MessageRow[]; hasMoreBefore: boolean;
+    members: string[]; messages: MessageWithQuoteRow[]; hasMoreBefore: boolean;
     lastReadSeq: number; memberReadMarkers: { userId: string; lastReadSeq: number }[];
     memberProfiles: Record<string, PersonSummaryView>;
     canModerate: boolean; canManage: boolean;
@@ -1463,7 +1463,15 @@ export class MessagingService {
       includeDeleted: canModerate,
       viewerId: canModerate ? undefined : userId,
     });
-    const messages = canModerate ? rawMessages : rawMessages.map(blankRecalledContent);
+    // Khối trích dẫn (lát M3) dựng từ dòng tin gốc THÔ theo quyền
+    // của người xem, TRƯỚC khi vô hiệu nội dung tin đã thu hồi của
+    // chính cửa sổ — hai việc độc lập: quote lộ hay không do trạng
+    // thái của tin GỐC quyết, theo messageQuoteOf.
+    const withQuotes = await this.repo.attachQuotes(rawMessages, {
+      privileged: canModerate,
+      viewerId: canModerate ? undefined : userId,
+    });
+    const messages = canModerate ? withQuotes : withQuotes.map((m) => ({ ...blankRecalledContent(m), replyTo: m.replyTo }));
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     const members = await this.repo.listMembers(conversationId);
     return {
@@ -1488,7 +1496,7 @@ export class MessagingService {
    */
   async listConversationMessages(userId: string, conversationId: string, query: {
     beforeSeq?: number; afterSeq?: number; limit?: number;
-  }): Promise<{ messages: MessageRow[]; hasMoreBefore: boolean }> {
+  }): Promise<{ messages: MessageWithQuoteRow[]; hasMoreBefore: boolean }> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
@@ -1504,7 +1512,14 @@ export class MessagingService {
       includeDeleted: canModerate,
       viewerId: canModerate ? undefined : userId,
     });
-    const messages = canModerate ? rawMessages : rawMessages.map(blankRecalledContent);
+    // Khối trích dẫn (lát M3): cùng luật dựng với getConversation —
+    // theo quyền của người xem trên tin gốc thô, độc lập với việc vô
+    // hiệu nội dung thu hồi của chính cửa sổ này.
+    const withQuotes = await this.repo.attachQuotes(rawMessages, {
+      privileged: canModerate,
+      viewerId: canModerate ? undefined : userId,
+    });
+    const messages = canModerate ? withQuotes : withQuotes.map((m) => ({ ...blankRecalledContent(m), replyTo: m.replyTo }));
     return {
       messages,
       hasMoreBefore: messages.length > 0 && query.afterSeq === undefined
@@ -1526,7 +1541,7 @@ export class MessagingService {
    * với outbox `message_sent`; realtime đến client qua consumer của
    * outbox, service KHÔNG tự phát socket.
    */
-  async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string; clientMessageId?: string }): Promise<MessageRow> {
+  async sendMessage(actorId: string, conversationId: string, input: { text: string; subject?: string; clientMessageId?: string; replyToMessageId?: string }): Promise<MessageWithQuoteRow> {
     const systemCtx = await this.contexts.ensureSystemContext();
     const senderCtx = await this.contexts.getByLevelInstance(30, actorId);
     await this.evaluator.requireCapability(actorId, 'site:sendmessage', senderCtx?.id ?? systemCtx.id);
@@ -1576,9 +1591,29 @@ export class MessagingService {
         await this.assertCanContact(actorId, other);
       }
     }
+    // Kết quả trả về luôn mang khối trích dẫn đã dựng cho chính
+    // người gửi (lát M3): client thay bản lạc quan bằng bản thật mà
+    // không phải tải lại cửa sổ.
+    const withQuote = async (row: MessageRow): Promise<MessageWithQuoteRow> =>
+      (await this.repo.attachQuotes([row], { privileged: false, viewerId: actorId }))[0]!;
     if (input.clientMessageId) {
       const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);
-      if (existing) return existing;
+      if (existing) return withQuote(existing);
+    }
+    // Gác TRÍCH DẪN (lát M3, issue #229): tin gốc phải thuộc ĐÚNG
+    // conversation đang gửi. Tin không tồn tại và tin của conversation
+    // khác nhận CÙNG một 400 — không lộ tồn tại tin của hội thoại
+    // khác. Đặt trước cổng độ dài/throttle như mọi lỗi nội dung: yêu
+    // cầu sai không đốt quota gửi. Phần trích dẫn KHÔNG tính vào
+    // trần độ dài (chỉ `text` bị đếm ở assertMessageLengthAllowed).
+    if (input.replyToMessageId) {
+      const original = await this.repo.getMessage(input.replyToMessageId);
+      if (!original || original.conversationId !== conversationId) {
+        throw new BadRequestException({
+          message: 'Quoted message not found in this conversation',
+          code: 'messaging.reply_target_not_found',
+        });
+      }
     }
     // Chặn lạm dụng đường gửi (lát M2, issue #212) — đặt SAU điểm trả
     // trùng clientMessageId và sau mọi cổng tư cách/liên lạc: lượt gửi
@@ -1588,29 +1623,32 @@ export class MessagingService {
     await this.assertMessageLengthAllowed(input.text);
     await this.sendThrottle.consume(actorId);
     try {
-      return await this.repo.dbHandle.transaction(async (tx) => {
+      const saved = await this.repo.dbHandle.transaction(async (tx) => {
         const seq = await this.repo.allocateNextSeq(conversationId, tx as never);
         const msg = await this.repo.insertMessage({
           conversationId: conversationId, userIdFrom: actorId,
           subject: input.subject ?? '', fullMessage: input.text, smallMessage: input.text.slice(0, 200),
           seq, clientMessageId: input.clientMessageId ?? null,
+          replyToMessageId: input.replyToMessageId ?? null,
         }, tx as never);
         await this.outbox.enqueue(tx as never, {
           aggregate: 'messaging', type: 'message_sent',
           payload: {
             conversationId, messageId: msg.id, seq, fromUserId: actorId,
             memberIds: members, clientMessageId: input.clientMessageId ?? null,
+            replyToMessageId: input.replyToMessageId ?? null,
           },
         });
         return msg;
       });
+      return await withQuote(saved);
     } catch (err) {
       // Hai lần gửi trùng khoá chạy đồng thời: một lần thắng ở ràng buộc
       // duy nhất, lần còn lại nhận lỗi 23505 sau khi transaction đã huỷ —
       // đọc lại tin thắng và trả như một lần gửi thành công.
       if (input.clientMessageId && isUniqueViolation(err)) {
         const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);
-        if (existing) return existing;
+        if (existing) return withQuote(existing);
       }
       throw err;
     }

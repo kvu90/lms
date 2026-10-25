@@ -101,6 +101,59 @@ export function blankRecalledContent(row: MessageRow): MessageRow {
   if (!row.recalledAt) return row;
   return { ...row, fullMessage: '', smallMessage: '' };
 }
+
+/**
+ * Khối tóm tắt TRÍCH DẪN của một tin gốc (lát M3, issue #229) — hình
+ * dạng khớp `messageQuoteSchema` của @lms/contracts (khai báo cục bộ
+ * ở đây để repository không phụ thuộc contracts; tương thích cấu
+ * trúc khi gán vào wire ở tầng realtime/service).
+ */
+export interface MessageQuoteView {
+  id: string;
+  seq: number;
+  userIdFrom: string;
+  excerpt: string;
+  unavailable: boolean;
+}
+
+/** Một dòng tin kèm khối trích dẫn đã dựng sẵn cho người nhận (`replyTo = null` khi không trích dẫn). */
+export type MessageWithQuoteRow = MessageRow & { replyTo: MessageQuoteView | null };
+
+/** Trần độ dài của excerpt trích dẫn: đủ nhận ra tin gốc, không biến khối trích dẫn thành bản sao của tin. */
+export const QUOTE_EXCERPT_MAX_CHARS = 120;
+
+/**
+ * Rút gọn nội dung làm excerpt trích dẫn: cắt theo CODE POINT (không
+ * cắt giữa cặp surrogate của emoji) và thêm dấu … khi bị cắt.
+ */
+export function quoteExcerptOf(text: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= QUOTE_EXCERPT_MAX_CHARS) return text;
+  return `${chars.slice(0, QUOTE_EXCERPT_MAX_CHARS).join('')}…`;
+}
+
+/**
+ * Dựng khối trích dẫn của một tin gốc cho một người nhận.
+ *
+ * Luật lộ nội dung (cùng họ với blankRecalledContent): người xem
+ * THƯỜNG không bao giờ nhận nội dung của tin gốc đã xoá mềm/đã thu
+ * hồi, cũng không nhận nội dung của tin chính họ đã xoá-phía-mình —
+ * cả ba trường hợp đều thành `unavailable = true` + excerpt rỗng để
+ * client hiện "tin gốc đã bị xoá". Người có thẩm quyền kiểm duyệt
+ * (privileged — cửa sổ truy vết) thấy excerpt thật, vì họ vốn đọc
+ * được chính tin gốc ở đường truy vết.
+ */
+export function messageQuoteOf(original: MessageRow, opts: { privileged: boolean; deletedForViewer?: boolean }): MessageQuoteView {
+  const unavailable = !opts.privileged
+    && (original.deletedAt !== null || original.recalledAt !== null || opts.deletedForViewer === true);
+  return {
+    id: original.id,
+    seq: original.seq,
+    userIdFrom: original.userIdFrom,
+    excerpt: unavailable ? '' : quoteExcerptOf(original.fullMessage),
+    unavailable,
+  };
+}
 export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
 export type ReportRow = typeof messageConversationReports.$inferSelect;
 export type CourseGroupRow = typeof courseGroups.$inferSelect;
@@ -273,6 +326,7 @@ export class MessagingRepository {
               smallMessage: lastMessageRaw.small_message as string,
               seq: lastMessageRaw.seq as number,
               clientMessageId: (lastMessageRaw.client_message_id as string | null) ?? null,
+              replyToMessageId: (lastMessageRaw.reply_to_message_id as string | null) ?? null,
               deletedAt: lastMessageRaw.deleted_at ? new Date(lastMessageRaw.deleted_at as string) : null,
               deletedBy: (lastMessageRaw.deleted_by as string | null) ?? null,
               recalledAt: lastMessageRaw.recalled_at ? new Date(lastMessageRaw.recalled_at as string) : null,
@@ -427,6 +481,52 @@ export class MessagingRepository {
   async getMessagesByIds(ids: string[]): Promise<MessageRow[]> {
     if (ids.length === 0) return [];
     return this.db.select().from(message).where(inArray(message.id, ids));
+  }
+  /** Trong tập id này, các tin user đã đặt cờ xoá-phía-mình (lọc cá nhân của vòng đời tin nhắn). */
+  async listDeletedForUserIds(messageIds: string[], userId: string): Promise<Set<string>> {
+    if (messageIds.length === 0) return new Set();
+    const rows = await this.db.select({ messageId: messageUserDeletions.messageId })
+      .from(messageUserDeletions)
+      .where(and(inArray(messageUserDeletions.messageId, messageIds), eq(messageUserDeletions.userId, userId)));
+    return new Set(rows.map((r) => r.messageId));
+  }
+  /**
+   * Gắn khối trích dẫn (lát M3, issue #229) cho một lô tin: tra lô
+   * các tin gốc một lần (không N+1), dựng quote theo quyền của người
+   * nhận bằng {@link messageQuoteOf}. Tin gốc tra không thấy (chỉ
+   * còn xảy ra khi khoá ngoại chưa kịp set null sau xoá cứng) hoặc
+   * thuộc conversation khác (dữ liệu không thể sinh qua đường gửi —
+   * gác ở service) thì `replyTo = null`: hiển thị như tin thường,
+   * không dựng khối trích dẫn rỗng.
+   *
+   * `viewerId` chỉ áp khi KHÔNG privileged: tin gốc bị chính người
+   * xem xoá-phía-mình thì quote thành unavailable như đã xoá. Đường
+   * realtime phân phối theo room dùng privileged=false và KHÔNG
+   * truyền viewerId (khối trích dẫn là dữ kiện chung của room; việc
+   * cá nhân hoá xoá-phía-mình chốt ở các đường đọc REST/sync vốn có
+   * viewerId — người đã ẩn tin gốc vốn đã thấy nó khi còn là thành
+   * viên nên đây không phải kênh lộ nội dung mới).
+   */
+  async attachQuotes(rows: MessageRow[], opts: { privileged: boolean; viewerId?: string }): Promise<MessageWithQuoteRow[]> {
+    const originalIds = [...new Set(rows.map((r) => r.replyToMessageId).filter((id): id is string => id !== null))];
+    if (originalIds.length === 0) return rows.map((r) => ({ ...r, replyTo: null }));
+    const originals = await this.getMessagesByIds(originalIds);
+    const byId = new Map(originals.map((o) => [o.id, o]));
+    const deletedForViewer = !opts.privileged && opts.viewerId
+      ? await this.listDeletedForUserIds(originalIds, opts.viewerId)
+      : new Set<string>();
+    return rows.map((r) => {
+      if (!r.replyToMessageId) return { ...r, replyTo: null };
+      const original = byId.get(r.replyToMessageId);
+      if (!original || original.conversationId !== r.conversationId) return { ...r, replyTo: null };
+      return {
+        ...r,
+        replyTo: messageQuoteOf(original, {
+          privileged: opts.privileged,
+          deletedForViewer: deletedForViewer.has(original.id),
+        }),
+      };
+    });
   }
   /**
    * Ghi một dòng dấu vết hành động kiểm duyệt. Gọi TRƯỚC khi trạng

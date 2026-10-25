@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   MESSAGING_SOCKET_EVENTS,
   type LmsMessage,
+  type MessageQuote,
   type RealtimeConversationInvalidatePayload,
   type RealtimeConversationUpdatedPayload,
   type RealtimeMessageDeletedPayload,
@@ -36,8 +37,12 @@ export function userRoom(tenantId: string | null | undefined, userId: string): s
   return `t:${tenantRealtimeSegment(tenantId)}:user:${userId}`;
 }
 
-/** Dạng wire của một tin nhắn (khớp `messageSchema` của contracts; createdAt là chuỗi ISO). */
-export function toWireMessage(row: MessageRow): LmsMessage {
+/**
+ * Dạng wire của một tin nhắn (khớp `messageSchema` của contracts; createdAt là chuỗi ISO).
+ * Khối trích dẫn (lát M3) do tầng gọi dựng sẵn qua `attachQuotes` của
+ * repository rồi truyền vào — hàm này thuần ánh xạ, không tự tra DB.
+ */
+export function toWireMessage(row: MessageRow, quote: MessageQuote | null = null): LmsMessage {
   return {
     id: row.id,
     conversationId: row.conversationId,
@@ -51,6 +56,8 @@ export function toWireMessage(row: MessageRow): LmsMessage {
     deletedBy: row.deletedBy,
     recalledAt: row.recalledAt ? row.recalledAt.toISOString() : null,
     recalledBy: row.recalledBy,
+    replyToMessageId: row.replyToMessageId,
+    replyTo: quote,
   };
 }
 
@@ -189,7 +196,13 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       }
     }
     const tenantId = conversation?.tenantId ?? null;
-    const wire = toWireMessage(messageRow);
+    // Khối trích dẫn (lát M3) dựng MỘT lần cho cả room theo luật
+    // người xem thường — payload message.new/conversation.updated
+    // mang đủ dữ kiện để client hiện ngay, không gọi thêm. Việc cá
+    // nhân hoá theo cờ xoá-phía-mình của từng người nhận chốt ở
+    // đường đọc REST/sync (xem attachQuotes của repository).
+    const [withQuote] = await this.repo.attachQuotes([messageRow], { privileged: false });
+    const wire = toWireMessage(messageRow, withQuote?.replyTo ?? null);
     const newPayload: RealtimeNewMessagePayload = { conversationId: messageRow.conversationId, message: wire };
     // Rà soát room NGAY TRƯỚC khi phát: socket của thành viên đã bị gỡ
     // khỏi conversation (membership chốt bởi consumer tại thời điểm
