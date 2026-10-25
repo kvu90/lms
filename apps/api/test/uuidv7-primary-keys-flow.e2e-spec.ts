@@ -111,6 +111,9 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // #124; message_user_deletions là bảng nối thuần túy, PK phức hợp,
     // không tính) → 182 bảng tổng, 171 bảng có PK mặc định uuidv7()
     // trên nền 7ff4691 (180 của EB-1 + 2 bảng vòng đời, 1 PK uuidv7).
+    // + guardian_view_state (đợt PH-1 bề mặt phụ huynh, issue #130 —
+    // PK phức hợp (guardian, student), không cột id) → 183 bảng tổng,
+    // 171 bảng có PK mặc định uuidv7().
     expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(171);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);

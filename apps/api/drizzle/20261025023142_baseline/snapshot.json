@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "2b258918-3122-4501-a38e-748dabeff40d",
+  "id": "0e9c4b5a-dd12-4133-8d79-24e110bcbf7b",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1218,6 +1218,25 @@
         "n|rel|public.guardian_links",
         "n|type|public.guardian_links",
         "n|rel|public.guardian_links_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_view_state"
+      ],
+      "writes": [
+        "s|tbl|public.guardian_view_state",
+        "n|tbl|public.guardian_view_state",
+        "e|tbl|public.guardian_view_state",
+        "n|rel|public.guardian_view_state",
+        "n|type|public.guardian_view_state",
+        "n|rel|public.guardian_view_state_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -5506,6 +5525,26 @@
         "n|sch|public",
         "n|col|public.guardian_links.guardian_user_id",
         "n|col|public.guardian_links.student_user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_view_state",
+        "guardian_view_state_student_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_view_state_student_user_id_idx",
+        "n|idx|public.guardian_view_state_student_user_id_idx",
+        "e|idx|public.guardian_view_state_student_user_id_idx",
+        "n|rel|public.guardian_view_state_student_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_view_state",
+        "n|sch|public",
+        "n|col|public.guardian_view_state.student_user_id"
       ]
     },
     {
@@ -12294,6 +12333,52 @@
       "statementTarget": [
         "table",
         "public",
+        "guardian_view_state"
+      ],
+      "writes": [
+        "s|fk|public.guardian_view_state.guardian_view_state_guardian_user_id_users_id_fkey",
+        "n|fk|public.guardian_view_state.guardian_view_state_guardian_user_id_users_id_fkey",
+        "e|fk|public.guardian_view_state.guardian_view_state_guardian_user_id_users_id_fkey",
+        "n|con|public.guardian_view_state.guardian_view_state_guardian_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_view_state",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_view_state.guardian_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_view_state"
+      ],
+      "writes": [
+        "s|fk|public.guardian_view_state.guardian_view_state_student_user_id_users_id_fkey",
+        "n|fk|public.guardian_view_state.guardian_view_state_student_user_id_users_id_fkey",
+        "e|fk|public.guardian_view_state.guardian_view_state_student_user_id_users_id_fkey",
+        "n|con|public.guardian_view_state.guardian_view_state_student_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_view_state",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_view_state.student_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "user_course_card_prefs"
       ],
       "writes": [
@@ -15723,6 +15808,12 @@
     {
       "schema": "public",
       "name": "guardian_links",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "guardian_view_state",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -23565,6 +23656,71 @@
     {
       "schema": "public",
       "table": "guardian_links",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "guardian_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "student_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "last_seen_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -40157,6 +40313,27 @@
     },
     {
       "schema": "public",
+      "table": "guardian_view_state",
+      "name": "guardian_view_state_student_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "student_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "user_course_card_prefs",
       "name": "user_course_card_prefs_course_idx",
       "nameExplicit": true,
@@ -46836,6 +47013,40 @@
     },
     {
       "schema": "public",
+      "table": "guardian_view_state",
+      "name": "guardian_view_state_guardian_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "guardian_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "guardian_view_state_student_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "student_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "user_course_card_prefs",
       "name": "user_course_card_prefs_course_id_course_id_fkey",
       "nameExplicit": false,
@@ -49117,6 +49328,17 @@
       "columns": [
         "grouping_id",
         "group_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_view_state",
+      "name": "guardian_view_state_pkey",
+      "columns": [
+        "guardian_user_id",
+        "student_user_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
