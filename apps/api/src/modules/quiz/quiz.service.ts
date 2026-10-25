@@ -999,6 +999,11 @@ export class QuizService {
     if (matrix.bankId) {
       const bank = await this.banks.findBankById(matrix.bankId);
       if (bank) {
+        // Ma trận thuộc bank personal của người khác → 404 như ma trận
+        // không tồn tại (issue #123), trước mọi cổng capability.
+        if (await this.banks.isForeignPersonalBank(actorId, bank)) {
+          throw new NotFoundException({ message: `Exam matrix ${matrix.id} not found`, code: 'quiz.matrix_not_found' });
+        }
         await this.banks.syncBankMembership(bank);
         const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
         const ok = capability === QUIZ_CAPABILITIES.viewMatrix ? caps.view : caps.manage;
@@ -1104,13 +1109,27 @@ export class QuizService {
     return this.matrixView(row);
   }
 
-  /** Các ma trận của một môn (quiz:viewmatrix tại context của môn). */
+  /** Các ma trận của một môn (quiz:viewmatrix tại context của môn).
+   * Ma trận thuộc bank personal của người khác bị loại khỏi danh sách
+   * (issue #123) — danh sách theo môn không được rò ma trận riêng. */
   async listMatrices(actorId: string, subjectId: string): Promise<ExamMatrixView[]> {
     const subject = await this.curriculum.getSubject(actorId, subjectId);
     await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.viewMatrix, subject.contextId);
     const rows = await this.repo.listMatricesBySubject(subject.id);
+    const foreignPersonalByBank = new Map<string, boolean>();
     const out: ExamMatrixView[] = [];
-    for (const r of rows) out.push(await this.matrixView(r));
+    for (const r of rows) {
+      if (r.bankId) {
+        let foreign = foreignPersonalByBank.get(r.bankId);
+        if (foreign === undefined) {
+          const bank = await this.banks.findBankById(r.bankId);
+          foreign = bank ? await this.banks.isForeignPersonalBank(actorId, bank) : false;
+          foreignPersonalByBank.set(r.bankId, foreign);
+        }
+        if (foreign) continue;
+      }
+      out.push(await this.matrixView(r));
+    }
     return out;
   }
 

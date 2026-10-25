@@ -144,6 +144,10 @@ export class MatrixBanksService {
    */
   async listBankMatrices(actorId: string, bankId: string): Promise<ExamMatrixView[]> {
     const bank = await this.getMatrixBankOrThrow(bankId);
+    // Bank ma trận personal của người khác → 404 như bank không tồn tại (issue #123).
+    if (await this.banks.isForeignPersonalBank(actorId, bank)) {
+      throw new NotFoundException({ message: `Matrix bank ${bankId} not found`, code: 'quiz.matrix_bank_not_found' });
+    }
     await this.banks.syncBankMembership(bank);
     const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
     if (!caps.view) {

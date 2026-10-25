@@ -161,7 +161,56 @@ export class QuestionsService {
 
   /** Actor có quyền dùng ngân hàng tại context này không (không ném). */
   private async canUseBank(actorId: string, contextId: string): Promise<boolean> {
+    // Riêng tư bank personal (issue #123): context là context của một
+    // bank personal thì chỉ chủ sở hữu (và site admin như bất biến hệ
+    // thống) đọc được nội dung trong đó — capability kế thừa từ context
+    // hệ thống của GV staff/manager KHÔNG mở bank riêng của đồng nghiệp.
+    // Đây là cổng chung của mọi đường *ForViewer nên REST và MCP
+    // (get_question dùng getQuestionForViewer) giữ parity tuyệt đối.
+    const bank = await this.repo.getBankByContextId(contextId).catch(() => undefined);
+    if (bank && bank.scope === 'personal' && bank.ownerId !== actorId) {
+      const isAdmin = await this.evaluator.isSiteAdmin(actorId).catch(() => false);
+      if (!isAdmin) return false;
+    }
     return this.evaluator.hasCapability(actorId, 'question:useall', contextId).catch(() => false);
+  }
+
+  // --- riêng tư bank personal: cổng GHI (issue #123, vòng 2) ----------------
+  // Sườn đọc đã gác bằng canUseBank/assert*Readable, nhưng các đường GHI
+  // trước đây chỉ gác capability tại context: GV archetype editingteacher
+  // kế thừa question:add/editall/managecategory từ context hệ thống xuống
+  // context bank personal của đồng nghiệp nên sửa/xoá/chen được nội dung
+  // trong bank riêng của người khác (phán quyết đánh giá PR #127
+  // 6392040333). Cổng ghi dùng chung dưới đây áp cùng quy tắc chủ sở hữu
+  // như tầng bank (isForeignPersonalBank ở QuestionBanksService): category
+  // thuộc bank personal của người khác → tài nguyên "không tồn tại" đối
+  // với actor (404 đúng mã not-found của chính tài nguyên đó, nhất quán
+  // sườn đọc); site admin giữ toàn quyền như bất biến hiện hành.
+  // Chỉ áp ở các method CÓ actorId mà controller gọi. Các đường nội bộ
+  // tầng service không qua actor (quiz/engine cho attempt của học sinh)
+  // không gọi các method này nên không đổi hành vi; MCP create_question
+  // luôn gọi với actor = chủ token vào bank của chính chủ nên qua cổng
+  // như thường.
+
+  /** Bank chứa category: bankId tường minh trước, rồi bank sở hữu context của category. */
+  private async bankOfCategory(category: QCategoryRow): Promise<{ scope: string; ownerId: string | null } | undefined> {
+    if (category.bankId) {
+      const byId = await this.repo.getBankById(category.bankId).catch(() => undefined);
+      if (byId) return byId;
+    }
+    return this.repo.getBankByContextId(category.contextId).catch(() => undefined);
+  }
+
+  /** Ném notFound() khi category thuộc bank personal của người khác đối với actor. */
+  private async assertCategoryNotForeignPersonal(
+    actorId: string,
+    category: QCategoryRow,
+    notFound: () => NotFoundException,
+  ): Promise<void> {
+    const bank = await this.bankOfCategory(category);
+    if (!bank || bank.scope !== 'personal' || bank.ownerId === actorId) return;
+    const isAdmin = await this.evaluator.isSiteAdmin(actorId).catch(() => false);
+    if (!isAdmin) throw notFound();
   }
 
   private categoryNotFound(id: string): NotFoundException {
@@ -212,11 +261,23 @@ export class QuestionsService {
         code: 'question.category_context_not_found',
       });
     }
-    await this.requireCap(actorId, 'question:managecategory', ctx.id);
+    let attachedBank: Awaited<ReturnType<QuestionsRepository['getBankById']>>;
     if (input.bankId !== undefined) {
-      const bank = await this.repo.getBankById(input.bankId);
-      if (!bank) throw new NotFoundException({ message: `Question bank ${input.bankId} not found`, code: 'question.bank_not_found' });
-      if (bank.contextId !== ctx.id) {
+      attachedBank = await this.repo.getBankById(input.bankId);
+      if (!attachedBank) throw new NotFoundException({ message: `Question bank ${input.bankId} not found`, code: 'question.bank_not_found' });
+    }
+    // Cổng ghi bank personal (issue #123 vòng 2): tạo category gắn vào
+    // bank personal của người khác — tường minh qua bankId hay ngầm qua
+    // context của bank đó — → 404 như bank không tồn tại.
+    for (const candidate of [attachedBank, await this.repo.getBankByContextId(ctx.id).catch(() => undefined)]) {
+      if (candidate && candidate.scope === 'personal' && candidate.ownerId !== actorId
+        && !(await this.evaluator.isSiteAdmin(actorId).catch(() => false))) {
+        throw new NotFoundException({ message: `Question bank ${candidate.id} not found`, code: 'question.bank_not_found' });
+      }
+    }
+    await this.requireCap(actorId, 'question:managecategory', ctx.id);
+    if (attachedBank) {
+      if (attachedBank.contextId !== ctx.id) {
         throw new BadRequestException({ message: 'A category attached to a bank must live in the bank context', code: 'question.category_bank_context_mismatch' });
       }
     }
@@ -279,6 +340,7 @@ export class QuestionsService {
    */
   async createStimulus(actorId: string, input: { categoryId: string; content: RichTextInput }): Promise<StimulusRow> {
     const category = await this.getCategory(input.categoryId);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.categoryNotFound(input.categoryId));
     await this.requireCap(actorId, 'question:add', category.contextId);
     const row = await this.repo.insertStimulus({
       categoryId: category.id, createdBy: actorId, content: toRichTextDocument(input.content) as never,
@@ -330,6 +392,7 @@ export class QuestionsService {
   async updateStimulus(actorId: string, id: string, input: { content: RichTextInput }): Promise<StimulusRow> {
     const stimulus = await this.getStimulus(id);
     const category = await this.getCategory(stimulus.categoryId);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.stimulusNotFound(id));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.updateStimulus(id, { content: toRichTextDocument(input.content) as never });
@@ -342,6 +405,7 @@ export class QuestionsService {
   async deleteStimulus(actorId: string, id: string): Promise<void> {
     const stimulus = await this.getStimulus(id);
     const category = await this.getCategory(stimulus.categoryId);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.stimulusNotFound(id));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     await this.requireStimulusMutable(stimulus);
     await this.repo.deleteStimulus(id);
@@ -612,6 +676,7 @@ export class QuestionsService {
     sourceKind?: string; sourceRef?: string;
   } & QuestionContentInput): Promise<QuestionView> {
     const category = await this.getCategory(input.categoryId);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.categoryNotFound(input.categoryId));
     await this.requireCap(actorId, 'question:add', category.contextId);
     this.assertSupportedQtype(input.qtype);
     const content = this.normaliseContent(input.qtype, input);
@@ -705,6 +770,7 @@ export class QuestionsService {
   } & QuestionContentInput): Promise<QuestionView> {
     const { question: q, entry, latestVersion } = await this.getQuestion(questionId);
     const category = await this.getCategory(q.category);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.questionNotFound(questionId));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     this.assertSupportedQtype(q.qtype);
     const hasNewContent = input.answers !== undefined || input.answer !== undefined || input.options !== undefined;
@@ -744,6 +810,7 @@ export class QuestionsService {
     const q = await this.repo.getQuestion(questionId);
     if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const category = await this.getCategory(q.category);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.questionNotFound(questionId));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     return q;
   }

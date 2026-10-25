@@ -154,9 +154,10 @@ describe('MCP server (MCP-0, issue #110)', () => {
     teacherB = await mkStaffUser();
     student = await mkUser();
     const banksRes = await callTool(app, teacherA.token, 'list_my_banks', {});
-    // list_my_banks theo đúng semantics REST (question:useall kế thừa
-    // theo cây context) có thể gồm bank của giáo viên khác — bank GHI
-    // của MCP là bank personal CỦA CHÍNH chủ token (lọc theo ownerId).
+    // list_my_banks dùng đúng listBanks của REST: sau issue #123 bank
+    // personal của giáo viên khác không còn xuất hiện trong danh sách;
+    // bank GHI của MCP là bank personal CỦA CHÍNH chủ token (lọc theo
+    // ownerId như trước).
     const personal = (banksRes.structured?.banks as any[]).find((b) => b.scope === 'personal' && b.kind === 'question' && b.ownerId === teacherA.id);
     bankA = personal.id as string;
     catA = personal.defaultCategoryId as string;
@@ -595,19 +596,20 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(intoSchool.structured!.error.code).toBe('question.bank_not_found');
   });
 
-  it('get_question: projection không lộ source; cổng đọc bám đúng REST (useall theo cây context)', async () => {
+  it('get_question: projection không lộ source; cổng đọc bám đúng REST (gồm riêng tư bank personal #123)', async () => {
     const mine = await callTool(app, teacherA.token, 'get_question', { questionId: draftMcId });
     expect(mine.isError).toBe(false);
     expect(mine.structured!.question.id).toBe(draftMcId);
     expect(JSON.stringify(mine.structured)).not.toContain('source_kind');
     expect(JSON.stringify(mine.structured)).not.toContain('source_ref');
 
-    // Cổng đọc là assertQuestionReadable của REST: question:useall tại
-    // context category, KẾ THỪA xuống từ vai teacher tại context hệ
-    // thống — giáo viên khác đọc được (giống hệt REST, MCP không tự
-    // thêm luật riêng); học viên không có useall → not found.
+    // Cổng đọc là assertQuestionReadable của REST dùng chung: từ issue
+    // #123, câu thuộc bank personal của người khác → not found ở MỌI
+    // bề mặt (REST và MCP parity — MCP không tự thêm luật riêng);
+    // học viên cũng not found như trước.
     const foreignTeacher = await callTool(app, teacherB.token, 'get_question', { questionId: draftMcId });
-    expect(foreignTeacher.isError).toBe(false);
+    expect(foreignTeacher.isError).toBe(true);
+    expect(foreignTeacher.structured!.error.code).toBe('question.not_found');
     const stu = await callTool(app, student.token, 'get_question', { questionId: draftMcId });
     expect(stu.isError).toBe(true);
     expect(stu.structured!.error.code).toBe('question.not_found');
