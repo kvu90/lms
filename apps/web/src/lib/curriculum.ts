@@ -85,6 +85,12 @@ export interface FrameUnit {
   kind: string;
   depth: number;
   outcomeCount: number;
+  /**
+   * YCCĐ của các bài (lesson) mà đơn vị này là tổ tiên-không-phải-lesson
+   * gần nhất — để bề mặt chọn khung trình bày theo mẫu Bộ (Nội dung |
+   * Yêu cầu cần đạt) mà không nhân bản một YCCĐ lên nhiều đơn vị tổ tiên.
+   */
+  outcomeTexts: { lesson: string; texts: string[] }[];
 }
 
 function countOutcomes(node: CurriculumTreeNode): number {
@@ -94,12 +100,40 @@ function countOutcomes(node: CurriculumTreeNode): number {
 /** Làm phẳng cây thành danh sách đơn vị khung theo thứ tự duyệt cây (cha trước con). */
 export function flattenFrameUnits(nodes: CurriculumTreeNode[], depth = 0, out: FrameUnit[] = []): FrameUnit[] {
   for (const node of nodes) {
+    let unit: FrameUnit | null = null;
     if (node.kind !== 'lesson') {
-      out.push({ nodeId: node.id, title: node.title, kind: node.kind, depth, outcomeCount: countOutcomes(node) });
+      unit = {
+        nodeId: node.id, title: node.title, kind: node.kind, depth,
+        outcomeCount: countOutcomes(node), outcomeTexts: [],
+      };
+      out.push(unit);
     }
-    flattenFrameUnits(node.children, depth + 1, out);
+    collectFrameUnits(node, depth, out, unit);
   }
   return out;
+}
+
+function collectFrameUnits(
+  node: CurriculumTreeNode,
+  depth: number,
+  out: FrameUnit[],
+  currentUnit: FrameUnit | null,
+): void {
+  for (const child of node.children) {
+    if (child.kind === 'lesson') {
+      if (currentUnit && child.outcomes.length > 0) {
+        currentUnit.outcomeTexts.push({ lesson: child.title, texts: child.outcomes.map((o) => o.content) });
+      }
+      collectFrameUnits(child, depth + 1, out, currentUnit);
+      continue;
+    }
+    const unit: FrameUnit = {
+      nodeId: child.id, title: child.title, kind: child.kind, depth: depth + 1,
+      outcomeCount: countOutcomes(child), outcomeTexts: [],
+    };
+    out.push(unit);
+    collectFrameUnits(child, depth + 1, out, unit);
+  }
 }
 
 /**

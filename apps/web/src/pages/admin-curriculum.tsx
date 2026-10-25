@@ -19,14 +19,18 @@ import {
 import '../i18n';
 
 /**
- * Quản trị chương trình GDPT 2018 (K0a, chuẩn §9): màn danh sách môn
- * thu/mở ra chương trình theo khối; tạo/sửa môn, chương trình, node và
- * YCCĐ đều là MÀN RIÊNG; Sửa/Xoá nằm ngay tại dòng. Đầu trang là panel
- * nạp dữ liệu chuẩn: mỗi dataset đã kiểm chứng (Toán, Ngữ văn) hiện
- * trạng thái đã nạp/tổng số bản ghi và nút Nạp — nạp lại không nhân đôi
- * (sổ đăng ký phía API quyết định). Mọi lời gọi bị API gác bằng
- * curriculum:manage tại context hệ thống: 403 thì trang hiện thông báo
- * không có quyền thay vì sập (học sinh không vào được trang này).
+ * Quản trị chương trình GDPT 2018 (K0a + GDPT-SEED): bề mặt chính là
+ * danh sách môn học — thu/mở ra chương trình theo khối, cây của một
+ * khối trình bày theo mẫu Bộ (bảng Nội dung | Yêu cầu cần đạt nhóm
+ * theo mạch). Tạo/sửa môn, chương trình, node và YCCĐ đều là MÀN
+ * RIÊNG; Sửa/Xoá nằm ngay tại dòng (§9). Panel đồng bộ dữ liệu chuẩn
+ * nằm cuối trang như tiện ích phụ: chương trình đã được seed tự động
+ * khi dựng DB (định danh xác định UUIDv5), panel chỉ để đồng bộ lại
+ * khi dataset được đính chính — nạp lại không nhân đôi và không xoá
+ * (sổ đăng ký + luật không-xoá phía API quyết định). Mọi lời gọi bị
+ * API gác bằng curriculum:manage tại context hệ thống: 403 thì trang
+ * hiện thông báo không có quyền thay vì sập (học sinh không vào được
+ * trang này).
  */
 
 interface DatasetStatus {
@@ -46,6 +50,8 @@ interface ImportResult {
   skipped: number;
   outcomesWritten: number;
   totalRecords: number;
+  orphanedNodes: number;
+  orphanedOutcomes: number;
 }
 
 interface BookImportResult {
@@ -250,82 +256,73 @@ export function AdminCurriculumPage() {
       {!forbidden ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t('curriculumImportTitle')}</CardTitle>
+            <CardTitle>{t('curriculumSubjectsTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">{t('curriculumImportDescription')}</p>
-            {datasets.map((dataset) => {
-              const result = importResults[dataset.datasetKey];
-              return (
-                <div key={dataset.datasetKey} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">{dataset.subjectName}</span>
-                  <Badge variant={dataset.importedRecords >= dataset.totalRecords ? 'default' : 'secondary'}>
-                    {t('curriculumImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
-                  </Badge>
-                  <span className="text-muted-foreground">
-                    {t('curriculumImportGrades', { grades: dataset.grades.join(', ') })}
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={importing === dataset.datasetKey}
-                    onClick={() => void importDataset(dataset)}
-                  >
-                    {t('curriculumImportRun')}
-                  </Button>
-                  {result ? (
-                    <span className="text-muted-foreground">
-                      {t('curriculumImportResult', {
-                        created: result.created, updated: result.updated, skipped: result.skipped,
-                      })}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {!forbidden ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('bookImportTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">{t('bookImportDescription')}</p>
-            {bookDatasets.map((dataset) => {
-              const result = bookImportResults[dataset.datasetKey];
-              return (
-                <div key={dataset.datasetKey} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="font-medium">
-                    {t('bookImportBook', { book: dataset.bookTitle, grade: dataset.grade })}
-                  </span>
-                  <Badge variant={dataset.importedRecords >= dataset.totalRecords ? 'default' : 'secondary'}>
-                    {t('bookImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
-                  </Badge>
-                  <span className="text-muted-foreground">
-                    {t('bookImportMapped', { mapped: dataset.mappedRecords })}
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={bookImporting === dataset.datasetKey}
-                    onClick={() => void importBookDataset(dataset)}
-                  >
-                    {t('bookImportRun')}
-                  </Button>
-                  {result ? (
-                    <span className="text-muted-foreground">
-                      {t('bookImportResult', {
-                        created: result.created, updated: result.updated, skipped: result.skipped,
-                        mappings: result.mappingsWritten,
-                      })}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
+            <div>
+              <Button type="button" render={<Link to="/admin/curriculum/subjects/new" />}>
+                {t('curriculumCreateSubject')}
+              </Button>
+            </div>
+            {subjects.length === 0 ? (
+              <Empty className="p-6">
+                <EmptyHeader>
+                  <EmptyTitle>{t('curriculumNoSubjects')}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ul className="flex flex-col gap-2" aria-label={t('curriculumSubjectsTitle')}>
+                {subjects.map((subject) => {
+                  const open = openSubjects.includes(subject.id);
+                  const curricula = curriculaBySubject[subject.id] ?? [];
+                  return (
+                    <li key={subject.id} className="rounded border p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void toggleSubject(subject)}>
+                          {open ? '▾' : '▸'} {subject.name}
+                        </Button>
+                        <Badge variant="secondary">{subject.slug}</Badge>
+                        <span className="ml-auto flex gap-2">
+                          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/edit`} />}>
+                            {t('curriculumEdit')}
+                          </Button>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => void deleteSubject(subject)}>
+                            {t('curriculumDelete')}
+                          </Button>
+                        </span>
+                      </div>
+                      {open ? (
+                        <div className="mt-3 flex flex-col gap-2">
+                          <ul className="flex flex-col gap-1" aria-label={t('curriculumCurriculaLabel', { name: subject.name })}>
+                            {curricula.map((curriculum) => (
+                              <li key={curriculum.id} className="flex flex-wrap items-center gap-2 text-sm">
+                                <span>{t('curriculumGradeLabel', { grade: curriculum.grade })}</span>
+                                <Link className="underline" to={`/admin/curriculum/curricula/${curriculum.id}`}>
+                                  {t('curriculumViewTree')}
+                                </Link>
+                                <span className="ml-auto flex gap-2">
+                                  <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculum.id}/edit`} />}>
+                                    {t('curriculumEdit')}
+                                  </Button>
+                                  <Button type="button" variant="destructive" size="sm" onClick={() => void deleteCurriculum(subject, curriculum)}>
+                                    {t('curriculumDelete')}
+                                  </Button>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div>
+                            <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/curricula/new`} />}>
+                              {t('curriculumCreateCurriculum')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       ) : null}
@@ -415,160 +412,219 @@ export function AdminCurriculumPage() {
       {!forbidden ? (
         <Card>
           <CardHeader>
-            <CardTitle>{t('curriculumSubjectsTitle')}</CardTitle>
+            <CardTitle>{t('bookImportTitle')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <div>
-              <Button type="button" render={<Link to="/admin/curriculum/subjects/new" />}>
-                {t('curriculumCreateSubject')}
-              </Button>
-            </div>
-            {subjects.length === 0 ? (
-              <Empty className="p-6">
-                <EmptyHeader>
-                  <EmptyTitle>{t('curriculumNoSubjects')}</EmptyTitle>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <ul className="flex flex-col gap-2" aria-label={t('curriculumSubjectsTitle')}>
-                {subjects.map((subject) => {
-                  const open = openSubjects.includes(subject.id);
-                  const curricula = curriculaBySubject[subject.id] ?? [];
-                  return (
-                    <li key={subject.id} className="rounded border p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void toggleSubject(subject)}>
-                          {open ? '▾' : '▸'} {subject.name}
-                        </Button>
-                        <Badge variant="secondary">{subject.slug}</Badge>
-                        <span className="ml-auto flex gap-2">
-                          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/edit`} />}>
-                            {t('curriculumEdit')}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => void deleteSubject(subject)}>
-                            {t('curriculumDelete')}
-                          </Button>
-                        </span>
-                      </div>
-                      {open ? (
-                        <div className="mt-3 flex flex-col gap-2">
-                          <ul className="flex flex-col gap-1" aria-label={t('curriculumCurriculaLabel', { name: subject.name })}>
-                            {curricula.map((curriculum) => (
-                              <li key={curriculum.id} className="flex flex-wrap items-center gap-2 text-sm">
-                                <span>{t('curriculumGradeLabel', { grade: curriculum.grade })}</span>
-                                <Link className="underline" to={`/admin/curriculum/curricula/${curriculum.id}`}>
-                                  {t('curriculumViewTree')}
-                                </Link>
-                                <span className="ml-auto flex gap-2">
-                                  <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculum.id}/edit`} />}>
-                                    {t('curriculumEdit')}
-                                  </Button>
-                                  <Button type="button" variant="destructive" size="sm" onClick={() => void deleteCurriculum(subject, curriculum)}>
-                                    {t('curriculumDelete')}
-                                  </Button>
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                          <div>
-                            <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/curricula/new`} />}>
-                              {t('curriculumCreateCurriculum')}
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <p className="text-sm text-muted-foreground">{t('bookImportDescription')}</p>
+            {bookDatasets.map((dataset) => {
+              const result = bookImportResults[dataset.datasetKey];
+              return (
+                <div key={dataset.datasetKey} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">
+                    {t('bookImportBook', { book: dataset.bookTitle, grade: dataset.grade })}
+                  </span>
+                  <Badge variant={dataset.importedRecords >= dataset.totalRecords ? 'default' : 'secondary'}>
+                    {t('bookImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {t('bookImportMapped', { mapped: dataset.mappedRecords })}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={bookImporting === dataset.datasetKey}
+                    onClick={() => void importBookDataset(dataset)}
+                  >
+                    {t('bookImportRun')}
+                  </Button>
+                  {result ? (
+                    <span className="text-muted-foreground">
+                      {t('bookImportResult', {
+                        created: result.created, updated: result.updated, skipped: result.skipped,
+                        mappings: result.mappingsWritten,
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       ) : null}
+
+      {!forbidden ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('curriculumImportTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">{t('curriculumImportDescription')}</p>
+            {datasets.map((dataset) => {
+              const result = importResults[dataset.datasetKey];
+              return (
+                <div key={dataset.datasetKey} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-medium">{dataset.subjectName}</span>
+                  <Badge variant={dataset.importedRecords >= dataset.totalRecords ? 'default' : 'secondary'}>
+                    {t('curriculumImportState', { imported: dataset.importedRecords, total: dataset.totalRecords })}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {t('curriculumImportGrades', { grades: dataset.grades.join(', ') })}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={importing === dataset.datasetKey}
+                    onClick={() => void importDataset(dataset)}
+                  >
+                    {t('curriculumImportRun')}
+                  </Button>
+                  {result ? (
+                    <span className="text-muted-foreground">
+                      {t('curriculumImportResult', {
+                        created: result.created, updated: result.updated, skipped: result.skipped,
+                      })}
+                      {(result.orphanedNodes ?? 0) + (result.orphanedOutcomes ?? 0) > 0
+                        ? ` · ${t('curriculumImportOrphaned', {
+                            nodes: result.orphanedNodes ?? 0, outcomes: result.orphanedOutcomes ?? 0,
+                          })}`
+                        : ''}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
+
     </PageShell>
   );
 }
 
 // --- Màn cây chương trình ------------------------------------------------------
 
-function TreeNodeRow({
-  node, curriculumId, depth, openIds, onToggle, onDeleteNode, onDeleteOutcome,
+/**
+ * Trình bày cây chương trình theo MẪU CỦA BỘ (GDPT-SEED, issue #161):
+ * mỗi mạch nội dung (node strand ở gốc cây) là một bảng hai cột
+ * "Nội dung | Yêu cầu cần đạt". Các bậc ở giữa (section/topic) không
+ * thành dòng riêng nếu không mang YCCĐ — tựa của chúng flatten vào
+ * đường đi ở cột Nội dung; node mang YCCĐ ở bất kỳ bậc nào cũng thành
+ * dòng. Hành vi quản trị giữ nguyên §9: thêm node con / thêm YCCĐ /
+ * Sửa mở màn riêng, Xoá tại dòng.
+ */
+interface ProgramRow {
+  node: CurriculumTreeNode;
+  path: string[];
+}
+
+/** Flatten một subtree thành các dòng bảng (cha trước con, giữ thứ tự cây). */
+function flattenProgramRows(node: CurriculumTreeNode, path: string[], out: ProgramRow[]): void {
+  if (node.kind === 'lesson' || node.outcomes.length > 0) out.push({ node, path });
+  for (const child of node.children) flattenProgramRows(child, [...path, node.title], out);
+}
+
+/** Các nút thao tác tại dòng của một node (dùng cho cả tiêu đề mạch lẫn dòng nội dung). */
+function NodeRowActions({
+  node, curriculumId, onDeleteNode,
 }: {
   node: CurriculumTreeNode;
   curriculumId: string;
-  depth: number;
-  openIds: string[];
-  onToggle: (id: string) => void;
+  onDeleteNode: (node: CurriculumTreeNode) => void;
+}) {
+  const { t } = useTranslation('app');
+  return (
+    <span className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculumId}/nodes/new?parentId=${node.id}`} />}>
+        {t('curriculumAddChildNode')}
+      </Button>
+      <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/nodes/${node.id}/outcomes/new`} />}>
+        {t('curriculumAddOutcome')}
+      </Button>
+      <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/nodes/${node.id}/edit`} />}>
+        {t('curriculumEdit')}
+      </Button>
+      <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteNode(node)}>
+        {t('curriculumDelete')}
+      </Button>
+    </span>
+  );
+}
+
+/** Một bảng chương trình: tiêu đề mạch (nếu có) + các dòng Nội dung | Yêu cầu cần đạt. */
+function ProgramGroupTable({
+  title, groupNode, rows, curriculumId, onDeleteNode, onDeleteOutcome,
+}: {
+  title: string | null;
+  groupNode: CurriculumTreeNode | null;
+  rows: ProgramRow[];
+  curriculumId: string;
   onDeleteNode: (node: CurriculumTreeNode) => void;
   onDeleteOutcome: (node: CurriculumTreeNode, outcomeId: string) => void;
 }) {
   const { t } = useTranslation('app');
-  const open = openIds.includes(node.id);
-  const hasChildren = node.children.length > 0 || node.outcomes.length > 0;
   return (
-    <li className="rounded border p-2" style={{ marginLeft: `${depth * 1.25}rem` }}>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Button type="button" variant="ghost" size="sm" disabled={!hasChildren} onClick={() => onToggle(node.id)}>
-          {hasChildren ? (open ? '▾' : '▸') : '·'}
-        </Button>
-        <Badge variant={node.kind === 'strand' ? 'default' : 'secondary'}>{t(`curriculumKind_${node.kind}`)}</Badge>
-        <span className="font-medium">{node.title}</span>
-        <span className="ml-auto flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculumId}/nodes/new?parentId=${node.id}`} />}>
-            {t('curriculumAddChildNode')}
-          </Button>
-          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/nodes/${node.id}/outcomes/new`} />}>
-            {t('curriculumAddOutcome')}
-          </Button>
-          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/nodes/${node.id}/edit`} />}>
-            {t('curriculumEdit')}
-          </Button>
-          <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteNode(node)}>
-            {t('curriculumDelete')}
-          </Button>
-        </span>
-      </div>
-      {open && node.outcomes.length > 0 ? (
-        <ul className="mt-2 flex flex-col gap-1" aria-label={t('curriculumOutcomesLabel')}>
-          {node.outcomes.map((outcome) => (
-            <li key={outcome.id} className="flex flex-wrap items-start gap-2 rounded bg-muted/50 p-2 text-sm">
-              <span className="min-w-0 flex-1">
-                <span>{outcome.content}</span>
-                {outcome.sourceRef ? (
-                  <span className="block text-xs text-muted-foreground">
-                    {t('curriculumOutcomeSource', { source: outcome.sourceRef })}
-                  </span>
+    <section className="overflow-hidden rounded border">
+      {title !== null && groupNode ? (
+        <header className="flex flex-wrap items-center gap-2 border-b bg-muted/40 p-3">
+          <Badge variant="default">{t(`curriculumKind_${groupNode.kind}`)}</Badge>
+          <h3 className="font-semibold">{title}</h3>
+          <span className="ml-auto">
+            <NodeRowActions node={groupNode} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
+          </span>
+        </header>
+      ) : null}
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b text-left">
+            <th className="w-1/2 p-2 font-medium">{t('curriculumContentColumn')}</th>
+            <th className="p-2 font-medium">{t('curriculumOutcomesLabel')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ node, path }) => (
+            <tr key={node.id} className="border-b align-top last:border-0">
+              <td className="p-2">
+                {path.length > 0 ? (
+                  <span className="block text-xs text-muted-foreground">{path.join(' › ')}</span>
                 ) : null}
-              </span>
-              <span className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/outcomes/${outcome.id}/edit`} />}>
-                  {t('curriculumEdit')}
-                </Button>
-                <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteOutcome(node, outcome.id)}>
-                  {t('curriculumDelete')}
-                </Button>
-              </span>
-            </li>
+                <span className="font-medium">{node.title}</span>
+                <span className="mt-1 block">
+                  <NodeRowActions node={node} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
+                </span>
+              </td>
+              <td className="p-2">
+                {node.outcomes.length === 0 ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {node.outcomes.map((outcome) => (
+                      <li key={outcome.id} className="flex flex-wrap items-start gap-2">
+                        <span className="min-w-0 flex-1">
+                          <span>{outcome.content}</span>
+                          {outcome.sourceRef ? (
+                            <span className="block text-xs text-muted-foreground">
+                              {t('curriculumOutcomeSource', { source: outcome.sourceRef })}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/outcomes/${outcome.id}/edit`} />}>
+                            {t('curriculumEdit')}
+                          </Button>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteOutcome(node, outcome.id)}>
+                            {t('curriculumDelete')}
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </td>
+            </tr>
           ))}
-        </ul>
-      ) : null}
-      {open && node.children.length > 0 ? (
-        <ul className="mt-2 flex flex-col gap-2">
-          {node.children.map((child) => (
-            <TreeNodeRow
-              key={child.id}
-              node={child}
-              curriculumId={curriculumId}
-              depth={depth + 1}
-              openIds={openIds}
-              onToggle={onToggle}
-              onDeleteNode={onDeleteNode}
-              onDeleteOutcome={onDeleteOutcome}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -576,7 +632,6 @@ export function AdminCurriculumTreePage() {
   const { t } = useTranslation('app');
   const { curriculumId } = useParams();
   const [tree, setTree] = useState<CurriculumTree | null>(null);
-  const [openIds, setOpenIds] = useState<string[]>([]);
   const [forbidden, setForbidden] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -585,10 +640,6 @@ export function AdminCurriculumTreePage() {
     try {
       const data = await fetchTree(curriculumId);
       setTree(data);
-      // Mặc định mở hai cấp đầu để admin thấy ngay nội dung + YCCĐ khi rà soát cây.
-      setOpenIds((prev) =>
-        prev.length > 0 ? prev : data.nodes.flatMap((n) => [n.id, ...n.children.map((c) => c.id)]),
-      );
       setForbidden(false);
     } catch (err) {
       if (err instanceof ApiError && err.problem.status === 403) setForbidden(true);
@@ -598,10 +649,6 @@ export function AdminCurriculumTreePage() {
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  function toggle(id: string) {
-    setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
 
   async function deleteNode(node: CurriculumTreeNode) {
     if (!window.confirm(t('curriculumConfirmDeleteNode', { title: node.title }))) return;
@@ -660,20 +707,40 @@ export function AdminCurriculumTreePage() {
           {t('curriculumBackToList')}
         </Link>
       </div>
-      <ul className="flex flex-col gap-2" aria-label={t('curriculumTreeTitle', { subject: tree.subject.name, grade: tree.curriculum.grade })}>
-        {tree.nodes.map((node) => (
-          <TreeNodeRow
-            key={node.id}
-            node={node}
-            curriculumId={tree.curriculum.id}
-            depth={0}
-            openIds={openIds}
-            onToggle={toggle}
-            onDeleteNode={(n) => void deleteNode(n)}
-            onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
-          />
-        ))}
-      </ul>
+      <div className="flex flex-col gap-4">
+        {tree.nodes.map((root) => {
+          // Node gốc là mạch nội dung → một bảng mang tên mạch; node gốc
+          // khác (dataset không mang mạch) → bảng không tiêu đề nhóm.
+          const rows: ProgramRow[] = [];
+          if (root.kind === 'strand') {
+            if (root.outcomes.length > 0) rows.push({ node: root, path: [] });
+            for (const child of root.children) flattenProgramRows(child, [], rows);
+            return (
+              <ProgramGroupTable
+                key={root.id}
+                title={root.title}
+                groupNode={root}
+                rows={rows}
+                curriculumId={tree.curriculum.id}
+                onDeleteNode={(n) => void deleteNode(n)}
+                onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
+              />
+            );
+          }
+          flattenProgramRows(root, [], rows);
+          return (
+            <ProgramGroupTable
+              key={root.id}
+              title={null}
+              groupNode={null}
+              rows={rows}
+              curriculumId={tree.curriculum.id}
+              onDeleteNode={(n) => void deleteNode(n)}
+              onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
+            />
+          );
+        })}
+      </div>
     </PageShell>
   );
 }

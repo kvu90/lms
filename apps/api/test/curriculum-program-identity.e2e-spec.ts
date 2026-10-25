@@ -103,7 +103,21 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
     expect(recA && recB && recC).toBeTruthy();
     await wipeSubject();
   }, 120_000);
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => {
+    // Dọn sạch dấu vết trong DB test dùng chung (sách + câu hỏi + ma
+    // trận + môn GDCD dựng cho kiểm chứng) để các spec khác không bị
+    // nhiễu bởi dữ liệu của spec này; thứ tự xoá tôn trọng FK restrict:
+    // gỡ các bề mặt tham chiếu trước, môn xoá sau cùng (cascade cây).
+    try {
+      await pg.query(`delete from books where title like 'Sach kiem chung GDPT-SEED%'`);
+      await pg.query(`delete from question where name = 'Câu kiểm chứng GDPT-SEED'`);
+      await pg.query(`delete from exam_matrices where name = 'Ma trận kiểm chứng GDPT-SEED'`);
+      await pg.query(`delete from question_categories where name like 'cat-gdpt-seed%'`);
+      await wipeSubject();
+    } catch { /* dọn dẹp thất bại không được làm đỏ suite */ }
+    await pg.end();
+    await app.close();
+  });
 
   it('imports GDCD with deterministic UUIDv5 ids matching the natural-key formulas', async () => {
     const res = await svc.importDatasetInternal(DATASET_KEY);

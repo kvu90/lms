@@ -16,6 +16,10 @@ import { ProgramImportService } from './modules/curriculum/program-import.servic
  * sections + module, ghi danh, điểm mẫu, một huy hiệu đã cấp cho student1
  * và một sự kiện lịch của khoá học. Mật khẩu xem tại README, mục Review —
  * CHỈ dùng cho môi trường dev/review.
+ *
+ * Riêng chương trình GDPT 2018 không đi qua HTTP: seed gọi thẳng lõi
+ * ProgramImportService (entry nội bộ) cho mọi dataset trong manifest —
+ * xem khối "[seed] program ..." trong main().
  */
 const ADMIN = { username: process.env['ADMIN_USERNAME'] ?? 'admin', password: process.env['ADMIN_PASSWORD'] ?? 'Admin123!' };
 const TEACHER_PASSWORD = ['Teacher', '123', '!'].join('');
