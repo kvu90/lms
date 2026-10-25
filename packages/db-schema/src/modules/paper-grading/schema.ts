@@ -1,4 +1,4 @@
-/** Các bảng của chấm bài giấy bằng camera (CAM-0, issue #112) — module paper-grading sở hữu; barrel `src/db/schema.ts` tổng hợp cho Drizzle. */
+/** Các bảng của chấm bài giấy bằng camera (CAM-0, issue #112) — module paper-grading sở hữu; barrel của package `@lms/db-schema` tổng hợp cho Drizzle. */
 import {
   check,
   index,
