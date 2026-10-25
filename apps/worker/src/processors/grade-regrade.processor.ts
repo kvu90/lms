@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '../db/schema';
+import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '@lms/db-schema';
 import { calculateCategory, evaluateGradeFormula, parseGradeFormula, type AggregationStrategy, type CalcItemInput } from '@lms/grades';
 
 type Database = NodePgDatabase<typeof relations>;

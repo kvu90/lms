@@ -8,7 +8,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq } from 'drizzle-orm';
 import { FileCleanupProcessor } from '../src/processors/file-cleanup.processor';
-import { files } from '../src/db/schema';
+import { files } from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 const STORAGE = '/tmp/lms-worker-test-files';

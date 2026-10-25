@@ -1,24 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq } from 'drizzle-orm';
+import { uuidIdSchema } from '@lms/contracts';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
-import { contextTable, eventLog } from './db/schema';
+import { context as contextTable, eventLog, outboxEvents } from '@lms/db-schema';
 
 type Database = NodePgDatabase<typeof relations>;
 
-/** The outbox row shape the writer mirrors (structural subset of the Drizzle row). */
-export interface OutboxRowLike {
-  id: string;
-  seq: number;
-  aggregate: string;
-  type: string;
+type OutboxRow = typeof outboxEvents.$inferSelect;
+
+/**
+ * Hình dáng row outbox mà writer phản chiếu — suy thẳng từ định nghĩa bảng
+ * dùng chung `@lms/db-schema` (trước đây là interface chép tay). `payload`
+ * thu hẹp về record vì writer chỉ đọc payload dạng object.
+ */
+export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' | 'occurredAt'> & {
   payload: Record<string, unknown> | null;
-  occurredAt: Date;
-}
+};
 
 const COURSE_CONTEXT_LEVEL = 50;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Candidate payload keys naming the primary object of an event, per outbox
@@ -116,7 +117,7 @@ export class EventLogWriter {
 
   /** Read-only course-context lookup; a missing context leaves the column null (the payload still carries courseId). */
   private async courseContextId(courseId: string): Promise<string | null> {
-    if (!UUID_RE.test(courseId)) return null;
+    if (!uuidIdSchema.safeParse(courseId).success) return null;
     const rows = await this.db
       .select({ id: contextTable.id })
       .from(contextTable)

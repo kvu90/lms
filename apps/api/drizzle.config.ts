@@ -14,7 +14,10 @@ const migrateUrl =
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/db/schema.ts',
+  // Schema sống ở package dùng chung @lms/db-schema (issue #140). Trỏ thẳng
+  // vào source TS của package: bước Migrate trong CI chạy trước bước Build
+  // nên không thể phụ thuộc dist đã biên dịch của package.
+  schema: '../../packages/db-schema/src/index.ts',
   out: './drizzle',
   dbCredentials: { url: migrateUrl },
 });

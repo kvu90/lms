@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { notificationDispatchLog, userPreferences, users } from '../db/schema';
+import { notificationDispatchLog, userPreferences, users } from '@lms/db-schema';
 
 type Database = NodePgDatabase<typeof relations>;
 

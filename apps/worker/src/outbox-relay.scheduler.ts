@@ -5,7 +5,7 @@ import { Interval } from '@nestjs/schedule';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
-import { outboxEvents } from './db/schema';
+import { outboxEvents } from '@lms/db-schema';
 import { EventLogWriter } from './event-log-writer.service';
 import { TaskLogService } from './task-log.service';
 

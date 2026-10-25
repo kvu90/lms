@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { question, questionBankEntries } from '../questions/schema';
-import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from './schema';
+import { question, questionBankEntries } from '../../db/schema';
+import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from '../../db/schema';
 
 export type SubjectRow = typeof subjects.$inferSelect;
 export type CurriculumRow = typeof curricula.$inferSelect;

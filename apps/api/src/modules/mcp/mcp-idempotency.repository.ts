@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, lte } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { mcpIdempotencyKeys } from './schema';
+import { mcpIdempotencyKeys } from '../../db/schema';
 
 export type McpIdempotencyKeyRow = typeof mcpIdempotencyKeys.$inferSelect;
 

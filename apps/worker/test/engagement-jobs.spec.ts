@@ -11,7 +11,7 @@ import {
   badge, badgeCriteria, badgeIssued, calendarEvents, calendarSubscriptions,
   cohortMembers, courseCompletions, customFieldCategory, customFieldData, customFieldField,
   notificationDispatchLog, notifications, userPreferences,
-} from '../src/db/schema';
+} from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
-import { taskLog } from './db/schema';
+import { taskLog } from '@lms/db-schema';
 
 type Database = NodePgDatabase<typeof relations>;
 

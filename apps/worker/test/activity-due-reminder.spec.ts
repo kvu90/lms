@@ -4,7 +4,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq, sql } from 'drizzle-orm';
 import { ActivityDueReminderProcessor } from '../src/processors/activity-due-reminder.processor';
-import { enrol, outboxEvents, quizzes, userEnrolments } from '../src/db/schema';
+import { enrol, outboxEvents, quizzes, userEnrolments } from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**

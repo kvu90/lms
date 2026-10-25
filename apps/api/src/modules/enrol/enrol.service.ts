@@ -545,7 +545,7 @@ export class EnrolService implements OnModuleInit {
     return this.repo.getUserEnrolment(instanceId, userId);
   }
 
-  /** Expiry sweep (same logic the worker's enrol-expiry processor runs on its own schema copy). Returns flipped ids. */
+  /** Expiry sweep (same logic the worker's enrol-expiry processor runs on the shared schema). Returns flipped ids. */
   /**
    * Xử lý các ghi danh quá hạn (worker enrol-expiry gọi): đình chỉ/rút theo cấu hình instance.
    */

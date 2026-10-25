@@ -10,7 +10,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 
 type Database = NodePgDatabase<typeof relations>;
-import { files } from '../db/schema';
+import { files } from '@lms/db-schema';
 
 export interface FileCleanupJobData { contentHash: string }
 export interface FileCleanupResult { contentHash: string; removed: boolean; refcount: number }
