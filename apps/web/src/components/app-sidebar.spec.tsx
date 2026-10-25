@@ -120,7 +120,6 @@ const PROBE_PATHS = [
   'search',
   'badges',
   'learning-plan',
-  'blog',
   'questions',
   'admin/users',
   'admin/roles',
@@ -411,7 +410,6 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
     expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kế hoạch học tập' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Ngữ liệu' })).not.toBeInTheDocument();
   });
 

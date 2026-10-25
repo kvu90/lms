@@ -6,7 +6,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
 
 /**
- * Social (Tag / Comment / Rating / Blog / Notes) flow tests — every
+ * Social (Tag / Comment / Rating / Notes) flow tests — every
  * sub-system is POLYMORPHIC (component + itemType/area + itemId +
  * contextId, no hard FK), proven by running the SAME API over two
  * different item kinds, with capability checks at the item's context.
@@ -17,14 +17,11 @@ import { contextIdByLevelInstance, courseContextId } from './engagement-helpers'
  *    test_add_comments_single (comment/tests/comment_test.php 404s in 5.3).
  *  - rating/tests/rating_test.php: test_get_ratings_sql — per-item
  *    aggregates: (1,3)→2, (1,4)→2.5, (3,5)→4, count=2 each.
- *  - blog/tests/lib_test.php: test_overrides (blog_listing association
- *    filters). blog/tests/bloglib_test.php, blog_test.php, external_test.php
- *    404 in the 5.3 tree — recorded here honestly.
  *  - notes/tests/lib_test.php covers only profile navigation in 5.3; the
  *    note visibility law follows report §2#16 + the social spec (course notes
  *    are for the course's teachers).
  */
-describe('Social: tags, comments, ratings, blog, notes', () => {
+describe('Social: tags, comments, ratings, notes', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -45,31 +42,26 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     return { course, student, studentToken, ctxId };
   }
 
-  it('tags are polymorphic: the same API tags a course and a blog post; ordering is per item; correlations follow co-occurrence (taglib_test)', async () => {
-    const { course, studentToken, ctxId } = await courseWithStudent();
+  it('tags are polymorphic: the same API tags a course and a badge; ordering is per item; correlations follow co-occurrence (taglib_test)', async () => {
+    const { course, student, studentToken, ctxId } = await courseWithStudent();
     const setCourse = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'core', itemType: 'course', itemId: course.id, contextId: ctxId, tags: ['Science', 'STEM'] });
     expect(setCourse.status).toBe(201);
     expect(setCourse.body.tags.map((t: { name: string }) => t.name)).toEqual(['science', 'stem']);
     expect(setCourse.body.tags.map((t: { ordering: number }) => t.ordering)).toEqual([1, 2]);
 
-    // Same API, different item kind: a blog post (its context is the author's user context).
-    const post = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
-      .send({ subject: 'Field notes', content: 'We measured things', publishState: 'site' });
-    expect(post.status).toBe(201);
-    const authorCtx = await contextIdByLevelInstance(app, admin, 30, (await http(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${studentToken}`)).body.id as string).catch(() => '');
-    void authorCtx;
-    const studentId = post.body.userId as string;
-    const userCtx = await contextIdByLevelInstance(app, admin, 30, studentId);
+    // Same API, different item kind: a badge (its context is the owner's user context).
+    const badgeItemId = uuidv7();
+    const userCtx = await contextIdByLevelInstance(app, admin, 30, student.id);
     const setPost = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
-      .send({ component: 'core_blog', itemType: 'post', itemId: post.body.id, contextId: userCtx, tags: ['science', 'fieldwork'] });
+      .send({ component: 'core_badges', itemType: 'badge', itemId: badgeItemId, contextId: userCtx, tags: ['science', 'fieldwork'] });
     expect(setPost.status).toBe(201);
     // Ordering restarts at 1 for a different item (oracle ordering case).
     expect(setPost.body.tags.map((t: { ordering: number }) => t.ordering)).toEqual([1, 2]);
 
     const courseTags = await http(app).get('/api/v1/tags/items').query({ component: 'core', itemType: 'course', itemId: course.id }).set('Authorization', `Bearer ${studentToken}`);
     expect(courseTags.body).toHaveLength(2);
-    const postTags = await http(app).get('/api/v1/tags/items').query({ component: 'core_blog', itemType: 'post', itemId: post.body.id }).set('Authorization', `Bearer ${studentToken}`);
+    const postTags = await http(app).get('/api/v1/tags/items').query({ component: 'core_badges', itemType: 'badge', itemId: badgeItemId }).set('Authorization', `Bearer ${studentToken}`);
     expect(postTags.body.map((t: { name: string }) => t.name)).toEqual(['science', 'fieldwork']);
     // 'science' is shared: its correlation set links the co-occurring tags of both items.
     const science = (courseTags.body as { id: string; name: string }[]).find((t) => t.name === 'science')!;
@@ -93,17 +85,16 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
     expect(emptied.body.tags).toHaveLength(0);
   });
 
-  it('comments are polymorphic with per-context capabilities: post/read on a course item and on a blog post; strangers cannot post (externallib_test)', async () => {
+  it('comments are polymorphic with per-context capabilities: post/read on a course item and on a forum post; strangers cannot post (externallib_test)', async () => {
     const { course, student, studentToken, ctxId } = await courseWithStudent();
     const c1 = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${studentToken}`)
       .send({ contextId: ctxId, component: 'core', commentArea: 'course', itemId: course.id, content: 'Great course' });
     expect(c1.status).toBe(201);
-    // Same API shape on a completely different item kind (blog post).
-    const post = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
-      .send({ subject: 'Hello', content: 'World', publishState: 'site' });
+    // Same API shape on a completely different item kind (forum post).
+    const forumItemId = uuidv7();
     const userCtx = await contextIdByLevelInstance(app, admin, 30, student.id);
     const c2 = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${studentToken}`)
-      .send({ contextId: userCtx, component: 'core_blog', commentArea: 'post', itemId: post.body.id, content: 'Nice post' });
+      .send({ contextId: userCtx, component: 'mod_forum', commentArea: 'post', itemId: forumItemId, content: 'Nice post' });
     expect(c2.status).toBe(201);
 
     const list = await http(app).get('/api/v1/comments').query({ contextId: ctxId, component: 'core', commentArea: 'course', itemId: course.id }).set('Authorization', `Bearer ${studentToken}`);
@@ -178,36 +169,6 @@ describe('Social: tags, comments, ratings, blog, notes', () => {
       .set('Authorization', `Bearer ${admin}`);
     expect(listAdmin.body).toHaveLength(2);
     void ctxId;
-  });
-
-  it('blog: drafts are author-only; public posts are site-visible; a course-space post is visible to course members only (blog lib_test filters)', async () => {
-    const { course, student, studentToken } = await courseWithStudent();
-    const draft = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
-      .send({ subject: 'Draft thoughts', content: 'secret', publishState: 'draft' });
-    const pub = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
-      .send({ subject: 'Public post', content: 'hello all', publishState: 'site' });
-    const other = await createUserViaApi(app, admin);
-    const otherToken = (await login(app, other.username, STRONG_PASSWORD)).accessToken;
-
-    const otherList = await http(app).get('/api/v1/blog/posts').query({ userId: student.id }).set('Authorization', `Bearer ${otherToken}`);
-    const subjects = (otherList.body as { subject: string }[]).map((p) => p.subject);
-    expect(subjects).toContain('Public post');
-    expect(subjects).not.toContain('Draft thoughts');
-
-    // Từ BL1 (issue #87) audience do SPACE của bài quyết định (association
-    // cũ chỉ còn là liên kết hiển thị): bài đăng thẳng vào space khoá thì
-    // chỉ thành viên khoá thấy — trong bộ lọc khoá lẫn danh sách tác giả.
-    const coursePost = await http(app).post('/api/v1/blog/posts').set('Authorization', `Bearer ${studentToken}`)
-      .send({ subject: 'Course post', content: 'for the class', spaceType: 'course', spaceId: course.id, status: 'published' });
-    expect(coursePost.status).toBe(201);
-    const courseList = await http(app).get('/api/v1/blog/posts').query({ courseId: course.id }).set('Authorization', `Bearer ${studentToken}`);
-    expect((courseList.body as { subject: string }[]).map((p) => p.subject)).toContain('Course post');
-    const otherCourseList = await http(app).get('/api/v1/blog/posts').query({ courseId: course.id }).set('Authorization', `Bearer ${otherToken}`);
-    expect((otherCourseList.body as { subject: string }[]).map((p) => p.subject)).not.toContain('Course post');
-    const otherAuthorList = await http(app).get('/api/v1/blog/posts').query({ userId: student.id }).set('Authorization', `Bearer ${otherToken}`);
-    expect((otherAuthorList.body as { subject: string }[]).map((p) => p.subject)).not.toContain('Course post');
-    void draft;
-    void pub;
   });
 
   it('notes: draft is creator-only, course notes are visible to the course teacher (not fellow students, not the subject), site notes to system-level viewers', async () => {

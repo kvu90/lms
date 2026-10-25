@@ -75,7 +75,7 @@ describe('Platform services: search permission re-check, webservice tokens, cont
 
   it('search: a suspended user document leaves the index (purge by owner) and areas registry lists at least 3 real areas', async () => {
     const areas = await http(app).get('/api/v1/search/areas').set('Authorization', `Bearer ${admin}`);
-    expect(areas.body).toEqual(expect.arrayContaining(['courses', 'users', 'contentbank', 'blog']));
+    expect(areas.body).toEqual(expect.arrayContaining(['courses', 'users', 'contentbank']));
     const user = await createUserViaApi(app, admin);
     const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemId: user.id });
     expect(idx.body.indexed).toBe(true);

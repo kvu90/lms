@@ -67,7 +67,6 @@ export function CommandPalette() {
             { id: 'screen-learning-plan', title: t('app:navLearningPlan'), url: '/learning-plan', group: 'screens' },
           ] as PaletteItem[])
         : []),
-      { id: 'screen-blog', title: t('app:navBlog'), url: '/blog', group: 'screens' },
       ...(perms.canUseQuestionBank
         ? [{ id: 'screen-questions', title: t('app:navQuestions'), url: '/questions', group: 'screens' } as PaletteItem]
         : []),
