@@ -143,7 +143,11 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // định uuidv7().
     // + payment_provider_events (lát VietQR 1, issue #189 — sổ sự kiện
     // thô SePay, PK id uuidv7) → 187 bảng có PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(187);
+    // − 4 bảng blog (gỡ hẳn tính năng Blog, issue #173: blog_posts của
+    // BL0 + blog_post_placements, blog_post_references,
+    // blog_association của BL1 — cả bốn đều PK id uuidv7) → 197 bảng
+    // tổng, 183 bảng có PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(183);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -164,14 +168,14 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 189 bảng có cột `id`: 187 bảng PK uuidv7 như khuôn chung (gồm 2
+    // 185 bảng có cột `id`: 183 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, và 3 bảng tenant của TENANT-0,
-    // issue #168) + ĐÚNG
+    // issue #168; đã trừ 4 bảng blog bị gỡ ở issue #173) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(189);
+    expect(defaults.rows.length).toBe(185);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

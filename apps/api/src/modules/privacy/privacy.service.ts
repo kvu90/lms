@@ -6,7 +6,7 @@ import { FilesService } from '../files/files.service';
 import { UsersService } from '../users/users.service';
 import { PrivacyRepository, type PrivacyRequestRow } from './privacy.repository';
 import {
-  badgeIssued, blogPosts, calendarEvents, comments, competencyUserComp, contentBankContent,
+  badgeIssued, calendarEvents, comments, competencyUserComp, contentBankContent,
   courseCompletions, courseModulesCompletion, files as filesTable, gradeGrades, learningPlans,
   message, notes, notifications, payments, rating, searchDocuments, tagInstance,
   userEnrolments, userPreferences, users,
@@ -133,11 +133,10 @@ export class PrivacyService {
         const b = (await db.delete(learningPlans).where(eq(learningPlans.userId, userId)).returning()).length;
         return a + b;
       });
-    simple('social', ['comments.user_id', 'rating.user_id', 'blog_posts.user_id', 'notes.user_id/created_by', 'tag_instance.ti_user_id'],
+    simple('social', ['comments.user_id', 'rating.user_id', 'notes.user_id/created_by', 'tag_instance.ti_user_id'],
       async (userId) => ({
         comments: await db.select().from(comments).where(eq(comments.userId, userId)),
         ratings: await db.select().from(rating).where(eq(rating.userId, userId)),
-        blogPosts: await db.select().from(blogPosts).where(eq(blogPosts.userId, userId)),
         notesAbout: await db.select().from(notes).where(eq(notes.userId, userId)),
         tags: await db.select().from(tagInstance).where(eq(tagInstance.tiUserId, userId)),
       }),
@@ -145,7 +144,6 @@ export class PrivacyService {
         let n = 0;
         n += (await db.delete(comments).where(eq(comments.userId, userId)).returning()).length;
         n += (await db.delete(rating).where(eq(rating.userId, userId)).returning()).length;
-        n += (await db.delete(blogPosts).where(eq(blogPosts.userId, userId)).returning()).length;
         n += (await db.delete(notes).where(eq(notes.userId, userId)).returning()).length;
         n += (await db.delete(notes).where(eq(notes.createdBy, userId)).returning()).length;
         n += (await db.delete(tagInstance).where(eq(tagInstance.tiUserId, userId)).returning()).length;

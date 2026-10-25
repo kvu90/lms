@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
-import { BlogPage } from './blog';
 import { HealthPage } from './health';
 import { NotificationsPage } from './notifications';
 import { SearchPage } from './platform-search';
@@ -103,20 +102,6 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
     await waitFor(() => expect(container.querySelector('[data-slot="empty"]')).not.toBeNull());
     expect(screen.getByText('Không có kết quả nào bạn được phép xem.')).toBeInTheDocument();
-  });
-
-  it('blog: danh sách rỗng hiện Empty, form viết bài vẫn còn trong trang', async () => {
-    stubJsonFetch((url) => (url === '/api/v1/blog/posts' ? [] : undefined));
-    const { container } = render(
-      <MemoryRouter>
-        <BlogPage />
-      </MemoryRouter>,
-    );
-    expectNarrowShell(container);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Blog');
-    await waitFor(() => expect(container.querySelector('[data-slot="empty"]')).not.toBeNull());
-    expect(screen.getByText('Chưa có bài viết nào.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tiêu đề')).toBeInTheDocument();
   });
 
   it('notifications: nút hành động chính nằm ở PageHeader, rỗng hiện Empty', async () => {

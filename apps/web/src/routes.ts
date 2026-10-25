@@ -58,7 +58,6 @@ export default [
     route('calendar', 'pages/calendar.tsx'),
     route('badges', 'pages/badges.tsx'),
     route('learning-plan', 'pages/learning-plan.tsx'),
-    route('blog', 'pages/blog.tsx'),
     route('search', 'routes/search.tsx'),
     route('tokens', 'routes/tokens.tsx'),
     route('backup', 'routes/backup.tsx'),

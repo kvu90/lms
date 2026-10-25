@@ -7,7 +7,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import {
   analyticsModels, analyticsPredictions, backupIdMappings, backupJobSteps, backupJobs,
-  badge, badgeCriteria, blogPosts, calendarEvents, calendarSubscriptions, competencyUserComp,
+  badge, badgeCriteria, calendarEvents, calendarSubscriptions, competencyUserComp,
   contentBankContent, context as contextTable, course,
   courseCompletions, courseModules, courseModulesCompletion, courseSections, enrol,
   gradeGrades, gradeItems, insights, notifications, outboxEvents, payments, privacyExportFiles,
@@ -132,7 +132,7 @@ export class RestoreProcessor extends WorkerHost {
   }
 }
 
-/** Search reindex: dựng lại tài liệu courses/users/contentbank/blog từ dữ liệu gốc; user suspended/deleted bị loại. */
+/** Search reindex: dựng lại tài liệu courses/users/contentbank từ dữ liệu gốc; user suspended/deleted bị loại. */
 @Processor('search-reindex')
 /**
  * Xử lý job dựng lại chỉ mục tìm kiếm.
@@ -166,15 +166,6 @@ export class SearchReindexProcessor extends WorkerHost {
       if (c.visibility !== 'public') continue;
       await this.db.insert(searchDocuments).values({ area: 'contentbank', itemId: c.id, contextId: c.contextId, title: c.name, content: c.name, ownerId: c.creatorId })
         .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: c.name, content: c.name, contextId: c.contextId } });
-      indexed++;
-    }
-    const posts = await this.db.select().from(blogPosts);
-    for (const p of posts) {
-      if (p.status !== 'published') continue;
-      const ctx = ctxFor(30, p.userId) ?? contexts.find((c) => c.contextLevel === 10);
-      if (!ctx) continue;
-      await this.db.insert(searchDocuments).values({ area: 'blog', itemId: p.id, contextId: ctx.id, title: p.subject, content: `${p.subject} ${p.content}`, ownerId: p.userId })
-        .onConflictDoUpdate({ target: [searchDocuments.area, searchDocuments.itemId], set: { title: p.subject, content: `${p.subject} ${p.content}`, contextId: ctx.id } });
       indexed++;
     }
     return { indexed };
@@ -309,7 +300,6 @@ export class PrivacyProcessor extends WorkerHost {
     deleted.calendar = (await this.db.delete(calendarEvents).where(eq(calendarEvents.userId, userId)).returning()).length;
     deleted.badges = (await this.db.delete(badgeIssued).where(eq(badgeIssued.userId, userId)).returning()).length;
     deleted.competencies = (await this.db.delete(competencyUserComp).where(eq(competencyUserComp.userId, userId)).returning()).length;
-    deleted.social = (await this.db.delete(blogPosts).where(eq(blogPosts.userId, userId)).returning()).length;
     deleted.search = (await this.db.delete(searchDocuments).where(eq(searchDocuments.ownerId, userId)).returning()).length;
     deleted.contentbank = (await this.db.delete(contentBankContent).where(eq(contentBankContent.creatorId, userId)).returning()).length;
     deleted.payments = (await this.db.update(payments).set({ userId: '00000000-0000-0000-0000-000000000000' }).where(eq(payments.userId, userId)).returning()).length;

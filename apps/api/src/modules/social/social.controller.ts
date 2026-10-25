@@ -2,13 +2,11 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestj
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { BlogMigrationService } from './blog-migration.service';
-import { BlogService } from './blog.service';
 import { CommentsService } from './comments.service';
 import { NotesService } from './notes.service';
 import { RatingsService } from './ratings.service';
 import { TagsService } from './tags.service';
-import { addCommentSchema, addItemTagSchema, associateBlogPostSchema, createBlogPostSchema, createNoteSchema, rateItemSchema, setItemTagsSchema, updateBlogPostSchema, type AddCommentDto, type AddItemTagDto, type AssociatePostDto, type CreateNoteDto, type CreatePostDto, type RateDto, type SetItemTagsDto, type UpdatePostDto } from './dto/social.dto';
+import { addCommentSchema, addItemTagSchema, createNoteSchema, rateItemSchema, setItemTagsSchema, type AddCommentDto, type AddItemTagDto, type CreateNoteDto, type RateDto, type SetItemTagsDto } from './dto/social.dto';
 
 @ApiTags('tags')
 @Controller({ path: 'tags', version: '1' })
@@ -81,74 +79,6 @@ export class RatingsController {
   async list(@Query('contextId') contextId: string, @Query('component') component: string,
     @Query('ratingArea') ratingArea: string, @Query('itemId') itemId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.ratings.listRatings(actor.id, { contextId, component, ratingArea, itemId });
-  }
-}
-
-@ApiTags('blog')
-@Controller({ path: 'blog', version: '1' })
-/**
- * API blog: bài viết và liên kết với khoá học/module.
- */
-export class BlogController {
-  constructor(
-    private readonly blog: BlogService,
-    private readonly migration: BlogMigrationService,
-  ) {}
-  @Post('posts')
-  async create(@Body({ schema: createBlogPostSchema }) dto: CreatePostDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.blog.createPost(actor.id, dto);
-  }
-  @Get('feed')
-  async feed(@Query('spaceType') spaceType: string | undefined, @Query('spaceId') spaceId: string | undefined,
-    @Query('authorId') authorId: string | undefined, @Query('kind') kind: string | undefined,
-    @Query('status') status: string | undefined, @Query('tag') tag: string | undefined,
-    @Query('cursor') cursor: string | undefined, @Query('limit') limit: string | undefined,
-    @CurrentUser() actor: AuthenticatedUser) {
-    // Feed theo space (BL1): phân trang con trỏ + lọc kind/tag/status;
-    // audience lọc theo viewer ở service.
-    return this.blog.feed(actor.id, {
-      spaceType: spaceType || undefined,
-      spaceId: spaceId || undefined,
-      authorId: authorId || undefined,
-      kind: kind || undefined,
-      status: status || undefined,
-      tag: tag || undefined,
-      cursor: cursor || undefined,
-      limit: limit ? Number.parseInt(limit, 10) || undefined : undefined,
-    });
-  }
-  @Post('migrations/space-model')
-  async runSpaceMigration(@CurrentUser() actor: AuthenticatedUser) {
-    // Backfill di trú dữ liệu cũ sang mô hình space (BL1) — site admin.
-    return this.migration.runAsAdmin(actor.id);
-  }
-  @Get('posts')
-  async list(@Query('userId') userId: string | undefined, @Query('courseId') courseId: string | undefined,
-    @Query('cmid') cmid: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
-    return this.blog.listPosts(actor.id, {
-      userId: userId || undefined,
-      courseId: courseId || undefined,
-      cmid: cmid || undefined,
-    });
-  }
-  @Get('posts/:id')
-  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    // Cổng audience (issue #48): không có quyền xem → 404, không trả nội
-    // dung kèm cờ như trước. Viewer hợp lệ luôn có visibleToMe = true.
-    const post = await this.blog.getPostForViewer(id, actor.id);
-    return { ...post, visibleToMe: true };
-  }
-  @Patch('posts/:id')
-  async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateBlogPostSchema }) dto: UpdatePostDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.blog.updatePost(actor.id, id, dto);
-  }
-  @Delete('posts/:id')
-  async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.blog.deletePost(actor.id, id);
-  }
-  @Post('posts/:id/associations')
-  async associate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: associateBlogPostSchema }) dto: AssociatePostDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.blog.associate(actor.id, id, dto);
   }
 }
 

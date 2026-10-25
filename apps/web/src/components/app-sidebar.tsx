@@ -3,7 +3,6 @@ import {
   IconAward,
   IconBell,
   IconBook,
-  IconBooks,
   IconCalendar,
   IconChartBar,
   IconDatabase,
@@ -69,13 +68,12 @@ function readStoredOpenGroups(): string[] {
  *
  * - 6 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông báo,
  *   Tìm kiếm): các trang mọi người dùng đăng nhập đều tự phục vụ được.
- * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog —
- *   chỉ hiện khi người dùng có dấu chân học tập (issue #176, quy tắc
- *   M+A: đang là học viên ở ≥1 khoá HOẶC có hiện vật học tập của chính
- *   mình qua cờ hasLearnerFootprint). Ẩn điều hướng ≠ khoá trang: gõ
- *   thẳng /badges hay /learning-plan vẫn vào được, API hai trang vốn
- *   chỉ trả dữ liệu của chính người gọi. Mục Blog hiện vẫn nằm trong
- *   nhóm này và đi theo cổng chung cho tới khi #171 tách Blog ra.
+ * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập — chỉ
+ *   hiện khi người dùng có dấu chân học tập (issue #176, quy tắc M+A:
+ *   đang là học viên ở ≥1 khoá HOẶC có hiện vật học tập của chính mình
+ *   qua cờ hasLearnerFootprint). Ẩn điều hướng ≠ khoá trang: gõ thẳng
+ *   /badges hay /learning-plan vẫn vào được, API hai trang vốn chỉ trả
+ *   dữ liệu của chính người gọi.
  * - Bốn mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (đính
  *   chính issue #70, Lão gia chốt 25/10/2026 — KHÔNG còn nhóm cha
  *   "Ngân hàng câu hỏi" bọc ngoài): "Câu hỏi của tôi" (thân mục dẫn
@@ -180,7 +178,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             children: [
               { title: t('app:navBadges'), url: '/badges', icon: IconAward },
               { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
-              { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
             ],
           },
         ]

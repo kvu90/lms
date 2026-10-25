@@ -56,13 +56,6 @@
     "not_found": "Badge not found",
     "site_badge_manager_only": "Site badges require a manager role at the system context"
   },
-  "blog": {
-    "associate_forbidden": "Only the author can associate this post",
-    "bad_publishstate": "Unknown publish state",
-    "delete_forbidden": "Only the author can delete this post",
-    "edit_forbidden": "Only the author can edit this post",
-    "not_found": "Blog post not found"
-  },
   "calendar": {
     "bad_time": "Invalid event start time",
     "bad_type": "Unknown calendar event type",

@@ -21,7 +21,6 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
   { prefix: '/calendar', key: 'navCalendar', ns: 'app' },
   { prefix: '/badges', key: 'navBadges', ns: 'app' },
   { prefix: '/learning-plan', key: 'navLearningPlan', ns: 'app' },
-  { prefix: '/blog', key: 'navBlog', ns: 'app' },
   { prefix: '/search', key: 'navSearch', ns: 'app' },
   { prefix: '/tokens', key: 'navTokens', ns: 'app' },
   { prefix: '/backup', key: 'navBackup', ns: 'app' },
