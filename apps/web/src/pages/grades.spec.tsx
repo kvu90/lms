@@ -185,6 +185,101 @@ describe('Gradebook page', () => {
   });
 });
 
+describe('Gradebook page — kết quả VN của tôi (issue #180)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const COURSE_ID = '01900000-0000-7000-8000-000000000010';
+  const MINE_URL = `/api/v1/courses/${COURSE_ID}/grades/vn-results/mine`;
+
+  function stubMine(mine: unknown) {
+    stubFetch((url) => {
+      if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return BOOK;
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return REPORT;
+      if (url === MINE_URL) return mine;
+      return undefined;
+    });
+  }
+
+  it('đã công bố: hiện ĐTB + nhận xét của kì đã công bố, kì chưa công bố chỉ hiện nhãn chưa công bố', async () => {
+    stubMine({
+      courseId: COURSE_ID,
+      terms: [
+        {
+          bookId: '01900000-0000-7000-8000-000000000101',
+          term: 'hk1',
+          assessmentMode: 'score',
+          published: true,
+          dtbHk: 7.9,
+          commentResult: null,
+          comment: 'Học tập tốt',
+          awaitingMakeup: false,
+        },
+        {
+          bookId: null,
+          term: 'hk2',
+          assessmentMode: 'score',
+          published: false,
+          dtbHk: null,
+          commentResult: null,
+          comment: null,
+          awaitingMakeup: false,
+        },
+      ],
+      year: { published: false, dtbYear: null, comment: null },
+      levels: { hk1: null, hk2: null, year: null },
+    });
+    renderGradebook();
+    const block = await screen.findByTestId('my-vn-results');
+    expect(block).toHaveTextContent('Kết quả học tập của tôi');
+    expect(screen.getByTestId('my-vn-term-hk1')).toHaveTextContent('7,9');
+    expect(screen.getByTestId('my-vn-term-hk1')).toHaveTextContent('Học tập tốt');
+    expect(screen.getByTestId('my-vn-term-hk2')).toHaveTextContent('Chưa công bố');
+    expect(screen.getByTestId('my-vn-year')).toHaveTextContent('Chưa công bố');
+  });
+
+  it('chưa công bố kỳ/năm nào: khối chỉ hiện nhãn chưa công bố, không một con điểm nào', async () => {
+    stubMine({
+      courseId: COURSE_ID,
+      terms: [
+        {
+          bookId: null,
+          term: 'hk1',
+          assessmentMode: 'score',
+          published: false,
+          dtbHk: null,
+          commentResult: null,
+          comment: null,
+          awaitingMakeup: false,
+        },
+      ],
+      year: { published: false, dtbYear: null, comment: null },
+      levels: { hk1: null, hk2: null, year: null },
+    });
+    renderGradebook();
+    const block = await screen.findByTestId('my-vn-results');
+    expect(block).toHaveTextContent('Chưa công bố');
+    // Khẳng định khoá nằm ở TỪNG HÀNG kỳ/năm: chỉ nhãn "Chưa công bố",
+    // không nhãn điểm/mức/nhận xét nào (mô tả của khối ở CardHeader có
+    // nhắc chữ "Điểm trung bình" theo thiết kế nên không rà toàn trang).
+    for (const testid of ['my-vn-term-hk1', 'my-vn-year']) {
+      const row = screen.getByTestId(testid);
+      expect(row).toHaveTextContent('Chưa công bố');
+      expect(row.textContent).not.toMatch(/Điểm trung bình|Mức học tập|Nhận xét của giáo viên/);
+    }
+  });
+
+  it('khoá chưa có sổ VN: không render khối kết quả của tôi', async () => {
+    stubMine({ courseId: COURSE_ID, terms: [], year: null, levels: { hk1: null, hk2: null, year: null } });
+    renderGradebook();
+    await waitFor(() => expect(screen.getByText('Quiz 1')).toBeInTheDocument());
+    expect(screen.queryByTestId('my-vn-results')).not.toBeInTheDocument();
+  });
+});
+
 describe('Question bank page', () => {
   afterEach(() => {
     vi.unstubAllGlobals();

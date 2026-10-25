@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router';
+import { useLocation, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   Gradebook,
@@ -8,6 +8,7 @@ import type {
   GradeItem,
   GradeLetter,
   GradeReport,
+  MyVnCourseResultsView,
 } from '@lms/contracts';
 import { AGGREGATIONS } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -131,6 +132,11 @@ function currentSchoolYear(now = new Date()): string {
   return `${start}-${start + 1}`;
 }
 
+/** Số điểm hiển thị theo ngôn ngữ (tối đa 2 chữ số thập phân, không ép 0) — cùng quy ước trang phụ huynh. */
+function scoreLabel(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
+}
+
 /**
  * Gradebook: category/item tree with the student's grades, letters at
  * display time, the teacher report (course totals per student) and a grade
@@ -147,7 +153,7 @@ function currentSchoolYear(now = new Date()): string {
  * controller phía API.
  */
 export function GradebookPage() {
-  const { t } = useTranslation('app');
+  const { t, i18n } = useTranslation('app');
   const { id } = useParams();
   const courseId = id ?? '';
   const perms = usePermissions();
@@ -175,6 +181,29 @@ export function GradebookPage() {
     perms.canAdminister ||
     perms.teaching.some((c) => c.course.id === courseId) ||
     (courseAccess?.capabilities.includes('grade:viewall') ?? false);
+
+  /**
+   * Kết quả VN của CHÍNH học sinh trong khoá (issue #180): chỉ tải cho
+   * người học (staff có bề mặt sổ VN riêng), qua endpoint tự duyệt sổ +
+   * cổng công bố PH-0 — trang chỉ trình bày hình dạng API trả: kỳ/năm
+   * chưa công bố thì API đã null hoá mọi điểm, trang hiện "chưa công bố".
+   * Lỗi tải (chưa ghi danh…) thì ẩn khối, không sập trang điểm chính.
+   */
+  const location = useLocation();
+  const myVnQuery = useQuery({
+    queryKey: queryKeys.myVnResults(courseId),
+    queryFn: () => apiJson<MyVnCourseResultsView>(`/api/v1/courses/${courseId}/grades/vn-results/mine`),
+    enabled: perms.ready && !isStaff,
+    retry: false,
+  });
+  const myVn = myVnQuery.data ?? null;
+
+  /** Liên kết sâu từ dashboard ("kết quả kỳ mới", #vn-results): cuộn tới khối kết quả VN khi dữ liệu đã về. */
+  useEffect(() => {
+    if (location.hash === '#vn-results' && myVn) {
+      document.getElementById('vn-results')?.scrollIntoView();
+    }
+  }, [location.hash, myVn]);
 
   const [adminCategories, setAdminCategories] = useState<GradeCategory[]>([]);
   const [adminItems, setAdminItems] = useState<GradeItem[]>([]);
@@ -723,6 +752,81 @@ export function GradebookPage() {
       <Card>
         <CardContent className="space-y-4">{book.categories.map((c) => renderCategory(c, 0))}</CardContent>
       </Card>
+
+      {/* Kết quả VN của chính học sinh (issue #180): API đã gác cổng công bố —
+          chưa công bố thì mọi số đều null, khối chỉ hiện nhãn "chưa công bố". */}
+      {!isStaff && myVn && (myVn.terms.length > 0 || myVn.year) && (
+        <Card id="vn-results" data-testid="my-vn-results">
+          <CardHeader>
+            <CardTitle>{t('myVnResultsTitle')}</CardTitle>
+            <CardDescription>{t('myVnResultsDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            {myVn.terms.map((term) => {
+              const termLevel = term.term === 'hk1' ? myVn.levels.hk1 : myVn.levels.hk2;
+              return (
+                <div
+                  key={`${term.term}-${term.bookId ?? 'unpublished'}`}
+                  className="flex flex-col gap-0.5 border-b pb-2 last:border-0"
+                  data-testid={`my-vn-term-${term.term}`}
+                >
+                  <span className="font-medium">{term.term === 'hk1' ? t('myVnTermHk1') : t('myVnTermHk2')}</span>
+                  {!term.published ? (
+                    <span className="text-muted-foreground">{t('myVnUnpublished')}</span>
+                  ) : (
+                    <>
+                      {term.dtbHk !== null && (
+                        <span>
+                          {t('myVnDtb')}: <span className="font-medium">{scoreLabel(term.dtbHk, i18n.language)}</span>
+                        </span>
+                      )}
+                      {term.commentResult && (
+                        <span>
+                          {t('myVnCommentResult')}: <span className="font-medium">{term.commentResult}</span>
+                        </span>
+                      )}
+                      {term.comment && (
+                        <span className="text-muted-foreground">
+                          {t('myVnComment')}: {term.comment}
+                        </span>
+                      )}
+                      {term.awaitingMakeup && <span className="text-muted-foreground">{t('myVnAwaitingMakeup')}</span>}
+                      {termLevel && (
+                        <span>
+                          {t('myVnLevel')}: <span className="font-medium">{termLevel}</span>
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
+            {myVn.year && (
+              <div className="flex flex-col gap-0.5 border-b pb-2 last:border-0" data-testid="my-vn-year">
+                <span className="font-medium">{t('myVnYear')}</span>
+                {!myVn.year.published ? (
+                  <span className="text-muted-foreground">{t('myVnUnpublished')}</span>
+                ) : (
+                  <>
+                    {myVn.year.dtbYear !== null && (
+                      <span>
+                        {t('myVnDtbYear')}:{' '}
+                        <span className="font-medium">{scoreLabel(myVn.year.dtbYear, i18n.language)}</span>
+                      </span>
+                    )}
+                    {myVn.year.comment && <span className="text-muted-foreground">{myVn.year.comment}</span>}
+                    {myVn.levels.year && (
+                      <span>
+                        {t('myVnLevel')}: <span className="font-medium">{myVn.levels.year}</span>
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {report && (
         <Card>

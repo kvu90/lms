@@ -105,6 +105,26 @@ export interface VnStudentClassification extends VnClassification {
   subjects: VnSubjectLevelInput[];
 }
 
+/** Một học kì trong bề mặt "kết quả của tôi" (issue #180): chưa công bố thì bookId + mọi số đều null. */
+export interface MyVnTermResultView {
+  bookId: string | null;
+  term: VnTerm;
+  assessmentMode: VnAssessmentMode;
+  published: boolean;
+  dtbHk: number | null;
+  commentResult: string | null;
+  comment: string | null;
+  awaitingMakeup: boolean;
+}
+
+/** Bề mặt "kết quả của tôi" của chính học sinh trong một khoá (issue #180) — hình dạng khớp contracts MyVnCourseResultsView. */
+export interface MyVnCourseResultsView {
+  courseId: string;
+  terms: MyVnTermResultView[];
+  year: { published: boolean; dtbYear: number | null; comment: string | null } | null;
+  levels: { hk1: string | null; hk2: string | null; year: string | null };
+}
+
 /**
  * Nghiệp vụ sổ điểm VN (GB-VN-1, issue #95) — lớp preset TT 22 trên gradebook
  * engine: sổ tự sinh cột theo quota số tiết vào một category weightedmean
@@ -244,6 +264,69 @@ export class VnGradebooksService {
   async finalizedYearResultForGuardian(courseId: string, userId: string): Promise<VnTermResultRow | null> {
     const rows = await this.repo.listVnYearResults(courseId, userId);
     return rows.at(-1) ?? null;
+  }
+
+  /**
+   * Bề mặt "kết quả của tôi" cho CHÍNH học sinh trong một khoá (issue
+   * #180): đường khám phá sổ VN duy nhất cho chính chủ — danh sách sổ
+   * của khoá thuộc về staff (grade:viewall) nên học sinh không tự tra
+   * bookId được; ở đây server tự duyệt sổ và CHỈ trả dữ liệu qua đúng
+   * cổng công bố PH-0 như bề mặt phụ huynh: kỳ/năm chưa công bố thì
+   * `published=false`, mọi trường điểm/nhận xét đều null và bookId
+   * cũng null (không lộ định danh sổ). Đã công bố thì lấy cùng nguồn
+   * với phụ huynh: bản chốt mới nhất, thiếu bản chốt thì tính trực
+   * tiếp từ điểm cột (computeTermResultUnchecked — cổng đã kiểm ở
+   * trên). Mức học tập Điều 9 lấy từ getStudentClassification vốn đã
+   * tự gác công bố cho chính chủ (403 khi mọi môn đều chưa công bố →
+   * mức null).
+   */
+  async getMyVnResults(actorId: string, courseId: string): Promise<MyVnCourseResultsView> {
+    await this.assertCanReadStudentResult(actorId, courseId, actorId);
+    const books = await this.repo.listVnBooks(courseId);
+    const terms: MyVnTermResultView[] = [];
+    for (const book of books) {
+      if (!(await this.isTermResultPublished(book, actorId))) {
+        terms.push({
+          // Cột term/assessmentMode là text trong schema; giá trị chỉ được
+          // ghi từ DTO đã validate ở createBook — ép về union miền như quy
+          // ước sẵn có của file này (commentResult as VnCommentResult).
+          bookId: null, term: book.term as VnTerm, assessmentMode: book.assessmentMode as VnAssessmentMode, published: false,
+          dtbHk: null, commentResult: null, comment: null, awaitingMakeup: false,
+        });
+        continue;
+      }
+      const finalized = await this.finalizedTermResultForGuardian(book.id, actorId);
+      let dtbHk = finalized?.dtbHk ?? null;
+      let awaitingMakeup = false;
+      if (!finalized && book.assessmentMode === 'score') {
+        const computed = await this.computeTermResultUnchecked(book, actorId);
+        dtbHk = computed.dtbHk;
+        awaitingMakeup = computed.awaitingMakeupRoles.length > 0;
+      }
+      terms.push({
+        bookId: book.id, term: book.term as VnTerm, assessmentMode: book.assessmentMode as VnAssessmentMode, published: true,
+        dtbHk, commentResult: finalized?.commentResult ?? null, comment: finalized?.comment ?? null, awaitingMakeup,
+      });
+    }
+    let year: MyVnCourseResultsView['year'] = null;
+    if (books.length > 0) {
+      if (await this.isYearResultPublished(courseId, actorId)) {
+        const finalizedYear = await this.finalizedYearResultForGuardian(courseId, actorId);
+        year = { published: true, dtbYear: finalizedYear?.dtbYear ?? null, comment: finalizedYear?.comment ?? null };
+      } else {
+        year = { published: false, dtbYear: null, comment: null };
+      }
+    }
+    const levels: MyVnCourseResultsView['levels'] = { hk1: null, hk2: null, year: null };
+    for (const period of ['hk1', 'hk2', 'year'] as const) {
+      try {
+        const classification = await this.getStudentClassification(actorId, actorId, period);
+        levels[period] = classification.subjects.length > 0 ? classification.level : null;
+      } catch {
+        levels[period] = null;
+      }
+    }
+    return { courseId, terms, year, levels };
   }
 
   /** Lấy sổ VN; ném grades.vn_book_not_found khi vắng. */
