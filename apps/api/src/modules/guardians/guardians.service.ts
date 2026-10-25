@@ -125,12 +125,31 @@ export class GuardiansService {
     return link;
   }
 
+  /**
+   * Cổng liên kết cho bề mặt PH-1 (issue #130): không có liên kết active
+   * tới đúng học sinh → 404 đồng nhất (kể cả khi học sinh không tồn tại),
+   * để kẻ đoán ID không phân biệt được "không có liên kết" với "không có
+   * học sinh này" — nguyên tắc cứng "chỉ con mình" của research mục 5.1.
+   */
+  async requireActiveLinkOr404(guardianId: string, studentId: string): Promise<GuardianLinkRow> {
+    const link = await this.repo.findActiveLink(guardianId, studentId);
+    if (!link) {
+      throw new NotFoundException({ message: 'Student not found', code: 'guardian.student_not_found' });
+    }
+    return link;
+  }
+
   /** Audit một lần phụ huynh xem dữ liệu của con (event_log qua outbox). */
-  private async auditView(guardianId: string, studentId: string, courseId: string, surface: string): Promise<void> {
+  private async auditView(guardianId: string, studentId: string, courseId: string | null, surface: string): Promise<void> {
     await this.outbox.enqueueStandalone({
       aggregate: 'guardian', type: 'guardian_student_results_viewed',
       payload: { actorId: guardianId, userId: studentId, courseId, objectId: studentId, surface },
     }).catch(() => undefined);
+  }
+
+  /** Audit một lần xem trên bề mặt PH-1 (không gắn một khoá cụ thể). */
+  async recordView(guardianId: string, studentId: string, surface: string): Promise<void> {
+    await this.auditView(guardianId, studentId, null, surface);
   }
 
   /** Sổ điểm (đã qua cổng công bố) của con trong một khoá — cho phụ huynh có liên kết active. */
