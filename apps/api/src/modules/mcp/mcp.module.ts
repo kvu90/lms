@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EventsModule } from '../../infra/events/events.module';
+import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
+import { CurriculumModule } from '../curriculum/curriculum.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { UsersModule } from '../users/users.module';
 import { McpDepsService } from './mcp-deps.service';
@@ -17,7 +19,10 @@ import { McpIdempotencyRepository } from './mcp-idempotency.repository';
  * Export duy nhất là facade McpDepsService để bootstrap dựng mount deps.
  */
 @Module({
-  imports: [QuestionsModule, UsersModule, EventsModule],
+  // BetterAuthModule (MCP-1): McpDepsService đọc trạng thái AS từ
+  // BetterAuthService để dựng verifier RS. CurriculumModule (MCP-1):
+  // tool tra YCCĐ dùng CurriculumService như REST vẫn dùng.
+  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule],
   providers: [McpIdempotencyRepository, McpDepsService],
   exports: [McpDepsService],
 })

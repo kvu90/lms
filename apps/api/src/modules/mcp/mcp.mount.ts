@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { McpBridgeAuth } from './mcp-bridge-auth';
 import type { McpActor } from './mcp.context';
+import type { McpOAuthVerifier } from './mcp-oauth-verifier';
 import { McpRateLimiter } from './mcp-rate-limit';
 import { createLmsMcpServer } from './mcp.server';
 import type { McpToolDeps } from './mcp.tools';
@@ -37,14 +38,31 @@ const MCP_SCOPES = ['lms.questions.read', 'lms.questions.draft', 'lms.questions.
  * Tập scope kỷ nguyên CẦU AUTH cấp cho token hệ thống (authInfo.scopes):
  * chỉ các scope đã có tool thật sau lưng — read + draft của MCP-0 và
  * contribute của lát MCP-2 (issue #110 mở lại). `lms.questions.write`
- * vẫn chỉ nằm trong PRM, chờ tool publish của MCP-1. Khi AS OAuth 2.1
- * (MCP-1) thay cầu auth, scope lấy từ access token và mount truyền
- * nguyên qua deps.grantedScopes — cổng dưới đây không đổi.
+ * KHÔNG nằm ở đây: publish là tool của MCP-1 và chỉ gọi được bằng
+ * access token OAuth thật (cầu auth cấp trần đồng nhất không dựng
+ * được ca thiếu scope — chính là động cơ của lát này). Khi AS bật,
+ * scope lấy từ access token qua McpOAuthVerifier; `deps.grantedScopes`
+ * vẫn là đường ghi đè cho test ở cả hai kỷ nguyên.
  */
 const BRIDGE_SCOPES: readonly string[] = ['lms.questions.read', 'lms.questions.draft', 'lms.banks.contribute'];
 
-/** Tool ghi có scope riêng: thiếu scope → 403 `insufficient_scope` + challenge step-up (research Phần 2.2). */
+/**
+ * Scope riêng của TỪNG tool (lát MCP-1 hoàn thiện bản đồ của MCP-0):
+ * thiếu scope → 403 `insufficient_scope` + challenge step-up (research
+ * Phần 2.2). Scope chỉ là TRẦN của token — quyền nghiệp vụ thật vẫn do
+ * capability tại context của bank quyết ở tầng tool như REST.
+ */
 const TOOL_REQUIRED_SCOPES: Record<string, string> = {
+  list_my_banks: 'lms.questions.read',
+  list_categories: 'lms.questions.read',
+  get_question: 'lms.questions.read',
+  search_questions: 'lms.questions.read',
+  check_duplicates: 'lms.questions.read',
+  search_curriculum_outcomes: 'lms.questions.read',
+  create_question: 'lms.questions.draft',
+  create_questions_batch: 'lms.questions.draft',
+  create_stimulus_with_questions: 'lms.questions.draft',
+  publish_questions: 'lms.questions.write',
   submit_contribution: 'lms.banks.contribute',
 };
 
@@ -52,7 +70,12 @@ interface JsonRpcEnvelope {
   jsonrpc?: unknown;
   id?: unknown;
   method?: unknown;
-  params?: { name?: unknown; _meta?: Record<string, unknown>; clientInfo?: { name?: unknown } } & Record<string, unknown>;
+  params?: {
+    name?: unknown;
+    arguments?: unknown;
+    _meta?: Record<string, unknown>;
+    clientInfo?: { name?: unknown };
+  } & Record<string, unknown>;
 }
 
 function jsonRpcError(res: Response, status: number, id: unknown, code: number, message: string): void {
@@ -92,6 +115,19 @@ export interface McpMountDeps {
   /** Origin công khai của chính API (PRM `resource` + authorization_servers mặc định). */
   publicBaseUrl: string | null;
   issuer: string | null;
+  /**
+   * Bộ kiểm access token OAuth của AS (lát MCP-1). Có giá trị → mount
+   * đi đường RS THẬT: token được kiểm chữ ký JWKS + iss/aud bởi
+   * verifier của plugin và scope lấy từ chính token; cầu bridge KHÔNG
+   * được dùng nữa. Null/thiếu → đường lùi cầu auth của MCP-0 như cũ.
+   */
+  oauthVerifier?: McpOAuthVerifier | null;
+  /**
+   * Phân giải `sub` của access token thành actor còn hiệu lực (chỉ
+   * dùng ở đường OAuth): null = tài khoản đã xoá/treo → 401, cùng
+   * nghĩa với kiểm tra tài khoản trong cầu bridge.
+   */
+  resolveActor?: (userId: string) => Promise<{ username: string } | null>;
   /**
    * Trần scope hiệu lực cho mọi request qua mount này. Mặc định (khi
    * không truyền) = BRIDGE_SCOPES của kỷ nguyên cầu auth; AS OAuth sẽ
@@ -187,21 +223,65 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
         }
       }
       // Token phải hợp lệ trước khi bất kỳ tool nào chạy (research 3.1 lớp 0).
-      const identity = await deps.bridgeAuth.authenticate(req.get('authorization'));
-      if (!identity) {
-        res.setHeader(
-          'WWW-Authenticate',
-          `Bearer resource_metadata="${baseOf(req)}/.well-known/oauth-protected-resource", error="invalid_token"`,
-        );
-        return jsonRpcError(res, 401, body.id, -32001, 'Unauthorized: a valid LMS access token is required');
+      // Hai đường auth, chọn theo deps (lát MCP-1):
+      // - AS bật (deps.oauthVerifier): RS thật — verifier của plugin
+      //   kiểm chữ ký JWKS + iss/aud + hạn; scope + client_id lấy từ
+      //   CHÍNH token; tài khoản phải còn hoạt động qua resolveActor
+      //   (cùng nghĩa kiểm tra trong cầu bridge).
+      // - AS tắt: đường lùi cầu auth MCP-0 (token JWT hệ thống HS256,
+      //   trần scope = BRIDGE_SCOPES) — giữ nguyên hành vi MCP-0.
+      let identity: { userId: string; username: string };
+      let tokenScopes: readonly string[];
+      let verifiedClientId: string | null = null;
+      if (deps.oauthVerifier) {
+        const verdict = await deps.oauthVerifier.verify(toWebRequest(req, raw));
+        if (!verdict.ok) {
+          res.setHeader(
+            'WWW-Authenticate',
+            verdict.wwwAuthenticate ??
+              `Bearer resource_metadata="${baseOf(req)}/.well-known/oauth-protected-resource", error="invalid_token"`,
+          );
+          const forbidden = verdict.status === 403;
+          return jsonRpcError(
+            res,
+            forbidden ? 403 : 401,
+            body.id,
+            forbidden ? -32003 : -32001,
+            forbidden
+              ? 'Insufficient scope: the access token does not carry the required scope'
+              : 'Unauthorized: a valid LMS access token is required',
+          );
+        }
+        const actor = deps.resolveActor ? await deps.resolveActor(verdict.identity.userId) : null;
+        if (!actor || verdict.identity.userId.length === 0) {
+          res.setHeader(
+            'WWW-Authenticate',
+            `Bearer resource_metadata="${baseOf(req)}/.well-known/oauth-protected-resource", error="invalid_token"`,
+          );
+          return jsonRpcError(res, 401, body.id, -32001, 'Unauthorized: the token subject is not an active LMS user');
+        }
+        identity = { userId: verdict.identity.userId, username: actor.username };
+        tokenScopes = verdict.identity.scopes;
+        verifiedClientId = verdict.identity.clientId;
+      } else {
+        const bridgeIdentity = await deps.bridgeAuth.authenticate(req.get('authorization'));
+        if (!bridgeIdentity) {
+          res.setHeader(
+            'WWW-Authenticate',
+            `Bearer resource_metadata="${baseOf(req)}/.well-known/oauth-protected-resource", error="invalid_token"`,
+          );
+          return jsonRpcError(res, 401, body.id, -32001, 'Unauthorized: a valid LMS access token is required');
+        }
+        identity = bridgeIdentity;
+        tokenScopes = BRIDGE_SCOPES;
       }
+      const effectiveScopes = deps.grantedScopes ?? tokenScopes;
       if (body.method === 'tools/call') {
         const toolName = typeof body.params?.name === 'string' ? body.params.name : undefined;
         // Cổng scope ở tầng mount (cùng họ 401/429): tool có scope
         // riêng mà trần hiệu lực không có → 403 + challenge step-up
         // gồm đủ scope còn thiếu trong một lần (research Phần 2.2).
         const requiredScope = toolName ? TOOL_REQUIRED_SCOPES[toolName] : undefined;
-        const effectiveScopes = deps.grantedScopes ?? BRIDGE_SCOPES;
         if (requiredScope && !effectiveScopes.includes(requiredScope)) {
           res.setHeader(
             'WWW-Authenticate',
@@ -209,7 +289,17 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
           );
           return jsonRpcError(res, 403, body.id, -32003, `Insufficient scope: this tool requires "${requiredScope}"`);
         }
-        const decision = deps.rateLimiter.check(identity.userId, McpRateLimiter.bucketForTool(toolName));
+        // Batch tính rate-limit theo SỐ ITEM (hồ sơ 3.3: hạn mức tạo
+        // tính theo câu), các tool khác một lượt gọi = một đơn vị.
+        const args = body.params?.arguments;
+        const cost =
+          toolName === 'create_questions_batch' &&
+          typeof args === 'object' &&
+          args !== null &&
+          Array.isArray((args as { items?: unknown }).items)
+            ? ((args as { items: unknown[] }).items.length ?? 1)
+            : 1;
+        const decision = deps.rateLimiter.check(identity.userId, McpRateLimiter.bucketForTool(toolName), Date.now(), cost);
         if (!decision.allowed) {
           res.setHeader('Retry-After', String(decision.retryAfterSeconds));
           return jsonRpcError(res, 429, body.id, -32029, 'Rate limit exceeded for this tool; retry later');
@@ -217,8 +307,10 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       }
       const authInfo: AuthInfo = {
         token: (req.get('authorization') ?? '').slice('Bearer '.length),
-        clientId: clientIdOf(body),
-        scopes: [...(deps.grantedScopes ?? BRIDGE_SCOPES)],
+        // Đường OAuth: client_id ĐÃ ĐƯỢC AS XÁC THỰC trên token. Đường
+        // cầu auth: chỉ còn clientInfo tự giới thiệu (truy vết).
+        clientId: verifiedClientId ?? clientIdOf(body),
+        scopes: [...effectiveScopes],
         extra: { userId: identity.userId, username: identity.username, ip: req.ip ?? null },
       };
       const webRes = await handler.fetch(toWebRequest(req, raw), { authInfo });

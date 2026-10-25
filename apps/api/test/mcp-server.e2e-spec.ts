@@ -785,7 +785,7 @@ describe('MCP rate limit (app riêng, hạn tạo = 2/giờ)', () => {
       const base = a.get(McpDepsService).createMountDeps();
       return {
         ...base,
-        rateLimiter: new McpRateLimiter({ read: 1000, create: 2 }),
+        rateLimiter: new McpRateLimiter({ read: 1000, create: 2, publish: 10 }),
       } satisfies McpMountDeps;
     });
     admin2 = await adminToken(app2);

@@ -667,6 +667,40 @@ export class QuestionsService {
   }
 
   /**
+   * Lõi ghi một câu hỏi TRONG một giao dịch đang mở: question + entry +
+   * version 1 + nội dung theo qtype. Tách ra để đường tạo đơn
+   * (createQuestion) và đường tạo nhóm nguyên tử
+   * (createStimulusWithQuestions) dùng CHUNG một đường ghi — không có
+   * biến thể nghiệp vụ thứ hai. Nội dung phải đã qua normaliseContent
+   * ở caller (chạy trước khi mở giao dịch để lỗi payload không giữ
+   * giao dịch mở).
+   */
+  private async insertQuestionGraph(
+    tx: DbTx,
+    actorId: string,
+    category: QCategoryRow,
+    input: { qtype: string; name: string; sourceKind?: string; sourceRef?: string } & QuestionContentInput,
+    content: NormalisedContent,
+    stimulusId: string | null,
+  ): Promise<{ q: QuestionRow; entry: EntryRow; version: VersionRow }> {
+    const q = await this.repo.insertQuestion({
+      category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
+      sourceKind: input.sourceKind ?? 'manual', sourceRef: input.sourceRef ?? null,
+    }, tx);
+    const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
+    const version = await this.repo.insertVersion({
+      questionBankEntryId: entry.id, questionId: q.id, version: 1,
+      questionText: toRichTextDocument(input.questionText ?? '') as never,
+      generalFeedback: this.docOrNull(input.generalFeedback) as never,
+      guidance: this.docOrNull(input.guidance) as never,
+      defaultMark: input.defaultMark ?? 1, penalty: input.penalty ?? 0,
+      stimulusId,
+    }, tx);
+    await this.writeVersionContent(tx, input.qtype as SupportedQtype, version.id, content);
+    return { q, entry, version };
+  }
+
+  /**
    * Tạo câu hỏi kèm version 1 và entry. Đáp án/options của payload được
    * bung ra question_answers + bảng options của qtype trong cùng giao dịch.
    */
@@ -683,24 +717,59 @@ export class QuestionsService {
     const stimulus = input.stimulusId ? await this.resolveStimulus(input.stimulusId, category.id) : null;
     let created!: { q: QuestionRow; entry: EntryRow; version: VersionRow };
     await this.repo.dbHandle.transaction(async (tx) => {
-      const q = await this.repo.insertQuestion({
-        category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
-        sourceKind: input.sourceKind ?? 'manual', sourceRef: input.sourceRef ?? null,
-      }, tx);
-      const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
-      const version = await this.repo.insertVersion({
-        questionBankEntryId: entry.id, questionId: q.id, version: 1,
-        questionText: toRichTextDocument(input.questionText ?? '') as never,
-        generalFeedback: this.docOrNull(input.generalFeedback) as never,
-        guidance: this.docOrNull(input.guidance) as never,
-        defaultMark: input.defaultMark ?? 1, penalty: input.penalty ?? 0,
-        stimulusId: stimulus?.id ?? null,
-      }, tx);
-      await this.writeVersionContent(tx, input.qtype as SupportedQtype, version.id, content);
-      created = { q, entry, version };
+      created = await this.insertQuestionGraph(tx, actorId, category, input, content, stimulus?.id ?? null);
     });
     await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_created', payload: { questionId: created.q.id, version: 1 } });
     return this.assembleView(created.q, created.entry, created.version);
+  }
+
+  /**
+   * Tạo MỘT ngữ liệu + NHÓM câu hỏi bám ngữ liệu đó trong đúng MỘT
+   * giao dịch (đường của tool MCP create_stimulus_with_questions, lát
+   * MCP-1 issue #163): hoặc cả nhóm tồn tại, hoặc không gì tồn tại —
+   * khác hẳn việc client gọi create_stimulus rồi create_question rời
+   * rạc (câu mồ côi khi rớt giữa chừng). Cổng quyền + chuẩn hoá nội
+   * dung của TỪNG câu chạy TRƯỚC khi mở giao dịch theo đúng đường của
+   * createQuestion/createStimulus; phần ghi dùng chung lõi
+   * insertQuestionGraph. Ngữ liệu mới thuộc cùng category nên không
+   * cần resolveStimulus — mọi câu trong nhóm bám thẳng stimulus vừa tạo.
+   */
+  async createStimulusWithQuestions(
+    actorId: string,
+    input: {
+      categoryId: string;
+      content: RichTextInput;
+      questions: ({
+        qtype: string; name: string;
+        sourceKind?: string; sourceRef?: string;
+      } & QuestionContentInput)[];
+    },
+  ): Promise<{ stimulus: StimulusRow; questions: QuestionView[] }> {
+    const category = await this.getCategory(input.categoryId);
+    await this.assertCategoryNotForeignPersonal(actorId, category, () => this.categoryNotFound(input.categoryId));
+    await this.requireCap(actorId, 'question:add', category.contextId);
+    // Chuẩn hoá + kiểm qtype của cả nhóm TRƯỚC giao dịch: một câu lỗi
+    // là cả nhóm dừng tại đây, chưa có dòng nào được ghi.
+    const prepared = input.questions.map((question) => {
+      this.assertSupportedQtype(question.qtype);
+      return { question, content: this.normaliseContent(question.qtype, question) };
+    });
+    let stimulus!: StimulusRow;
+    const created: { q: QuestionRow; entry: EntryRow; version: VersionRow }[] = [];
+    await this.repo.dbHandle.transaction(async (tx) => {
+      stimulus = await this.repo.insertStimulus({
+        categoryId: category.id, createdBy: actorId, content: toRichTextDocument(input.content) as never,
+      }, tx);
+      for (const { question, content } of prepared) {
+        created.push(await this.insertQuestionGraph(tx, actorId, category, question, content, stimulus.id));
+      }
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'stimulus', type: 'stimulus_created', payload: { stimulusId: stimulus.id, categoryId: category.id } });
+    for (const item of created) {
+      await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_created', payload: { questionId: item.q.id, version: 1 } });
+    }
+    const questions = await Promise.all(created.map((item) => this.assembleView(item.q, item.entry, item.version)));
+    return { stimulus, questions };
   }
 
   /**

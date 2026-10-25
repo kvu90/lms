@@ -178,3 +178,256 @@ export const mcpSubmitContributionOutputSchema = z.object({
   failed: z.number().int(),
 });
 export type McpSubmitContributionOutput = z.infer<typeof mcpSubmitContributionOutputSchema>;
+
+/**
+ * ── Lát MCP-1 (issue #163) ──────────────────────────────────────────
+ * Các tool dưới đây dùng cùng một bộ nguyên tắc biên như MCP-0: strict
+ * object, chuỗi/mảng có trần, idempotencyKey bắt buộc ở mọi tool ghi,
+ * kết quả ghi theo TỪNG ITEM (một item lỗi không kéo cả lô xuống, trừ
+ * tool nhóm ngữ liệu nguyên tử ghi rõ ở mô tả của nó).
+ */
+
+/**
+ * Một câu trong lô của `create_questions_batch`: đúng hình của
+ * create_question trừ bankId/categoryId/idempotencyKey (chung cả lô).
+ * `clientItemId` do client đặt để đối chiếu kết quả từng câu và làm
+ * khoá idempotency TỪNG CÂU (khoá lô + clientItemId). `stimulusRef`
+ * trỏ tới một ngữ liệu khai trong mảng `stimuli` của cùng lô (server
+ * tạo trước trong cùng thao tác); `stimulusId` trỏ ngữ liệu đã có —
+ * hai trường loại trừ nhau.
+ */
+export const mcpBatchQuestionItemSchema = z.strictObject({
+  clientItemId: z.string().min(1).max(64),
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+  name: z.string().min(1).max(255),
+  questionText: z.string().min(1).max(20000),
+  generalFeedback: z.string().max(5000).optional(),
+  guidance: z.string().max(5000).optional(),
+  defaultMark: z.number().gt(0).max(100).optional(),
+  penalty: z.number().min(0).max(1).optional(),
+  stimulusId: uuidIdSchema.optional(),
+  stimulusRef: z.string().min(1).max(64).optional(),
+  answers: z.array(mcpAnswerInputSchema).max(10).optional(),
+  options: mcpQuestionOptionsInputSchema.optional(),
+});
+export type McpBatchQuestionItem = z.infer<typeof mcpBatchQuestionItemSchema>;
+
+/**
+ * Tool `create_questions_batch`: tạo NHIỀU câu draft trong bank cá
+ * nhân của chủ token trong một lần gọi. Ngữ nghĩa từng-item như
+ * submit_contribution: item trùng exact → `duplicate_exact` (không
+ * tạo), item lỗi → `failed` kèm mã + fieldPath, các item còn lại vẫn
+ * chạy. Idempotency TỪNG CÂU: phát lại cùng khoá lô + cùng payload
+ * của một item thì trả kết quả cũ của item đó.
+ */
+export const mcpCreateQuestionsBatchInputSchema = z.strictObject({
+  bankId: uuidIdSchema,
+  categoryId: uuidIdSchema,
+  stimuli: z
+    .array(
+      z.strictObject({
+        ref: z.string().min(1).max(64),
+        content: z.string().min(1).max(20000),
+      }),
+    )
+    .max(10)
+    .optional(),
+  items: z.array(mcpBatchQuestionItemSchema).min(1).max(50),
+  idempotencyKey: z.string().min(1).max(200),
+});
+export type McpCreateQuestionsBatchInput = z.infer<typeof mcpCreateQuestionsBatchInputSchema>;
+
+export const mcpBatchItemResultSchema = z.object({
+  clientItemId: z.string(),
+  status: z.enum(['created', 'duplicate_exact', 'failed']),
+  questionId: uuidIdSchema.nullable(),
+  existingQuestionId: uuidIdSchema.nullable(),
+  entryId: uuidIdSchema.nullable(),
+  version: z.number().int().nullable(),
+  questionStatus: z.string().nullable(),
+  duplicate: z.enum(['none', 'near', 'exact']),
+  nearDuplicateOf: uuidIdSchema.nullable(),
+  reviewUrl: z.string().nullable(),
+  code: z.string().nullable(),
+  message: z.string().nullable(),
+  fieldPath: z.string().nullable(),
+});
+export type McpBatchItemResult = z.infer<typeof mcpBatchItemResultSchema>;
+
+export const mcpCreateQuestionsBatchOutputSchema = z.object({
+  bankId: uuidIdSchema,
+  categoryId: uuidIdSchema,
+  stimuli: z.array(
+    z.object({
+      ref: z.string(),
+      stimulusId: uuidIdSchema.nullable(),
+      status: z.enum(['created', 'failed']),
+      code: z.string().nullable(),
+      message: z.string().nullable(),
+    }),
+  ),
+  results: z.array(mcpBatchItemResultSchema),
+  created: z.number().int(),
+  failed: z.number().int(),
+});
+export type McpCreateQuestionsBatchOutput = z.infer<typeof mcpCreateQuestionsBatchOutputSchema>;
+
+/** Một câu trong nhóm của `create_stimulus_with_questions`: hình của create_question trừ bank/category/key; stimulus là ngữ liệu của chính tool này nên không có stimulusId/Ref. */
+export const mcpStimulusQuestionItemSchema = z.strictObject({
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+  name: z.string().min(1).max(255),
+  questionText: z.string().min(1).max(20000),
+  generalFeedback: z.string().max(5000).optional(),
+  guidance: z.string().max(5000).optional(),
+  defaultMark: z.number().gt(0).max(100).optional(),
+  penalty: z.number().min(0).max(1).optional(),
+  answers: z.array(mcpAnswerInputSchema).max(10).optional(),
+  options: mcpQuestionOptionsInputSchema.optional(),
+});
+export type McpStimulusQuestionItem = z.infer<typeof mcpStimulusQuestionItemSchema>;
+
+/**
+ * Tool `create_stimulus_with_questions`: tạo một ngữ liệu + nhóm câu
+ * bám ngữ liệu đó NGUYÊN TỬ (một giao dịch ở tầng service — hoặc cả
+ * nhóm tồn tại, hoặc không gì tồn tại; khác hẳn batch từng-item).
+ * Mọi câu vào draft như create_question.
+ */
+export const mcpCreateStimulusWithQuestionsInputSchema = z.strictObject({
+  bankId: uuidIdSchema,
+  categoryId: uuidIdSchema,
+  stimulusContent: z.string().min(1).max(20000),
+  questions: z.array(mcpStimulusQuestionItemSchema).min(1).max(50),
+  idempotencyKey: z.string().min(1).max(200),
+});
+export type McpCreateStimulusWithQuestionsInput = z.infer<typeof mcpCreateStimulusWithQuestionsInputSchema>;
+
+export const mcpCreateStimulusWithQuestionsOutputSchema = z.object({
+  stimulusId: uuidIdSchema,
+  results: z.array(mcpCreateQuestionOutputSchema),
+  created: z.number().int(),
+});
+export type McpCreateStimulusWithQuestionsOutput = z.infer<typeof mcpCreateStimulusWithQuestionsOutputSchema>;
+
+/**
+ * Tool `publish_questions` (scope `lms.questions.write`): duyệt phát
+ * hành các câu DRAFT của CHÍNH chủ token trong bank cá nhân của họ lên
+ * `ready` — đúng đường nghiệp vụ `setQuestionStatus` mà giao diện web
+ * dùng. Từng-item: câu không phải của chủ token coi như không tồn
+ * tại; câu không ở draft → failed `question.publish_not_draft`.
+ */
+export const mcpPublishQuestionsInputSchema = z.strictObject({
+  questionIds: z.array(uuidIdSchema).min(1).max(50),
+  idempotencyKey: z.string().min(1).max(200),
+});
+export type McpPublishQuestionsInput = z.infer<typeof mcpPublishQuestionsInputSchema>;
+
+export const mcpPublishQuestionsOutputSchema = z.object({
+  results: z.array(
+    z.object({
+      questionId: uuidIdSchema,
+      status: z.enum(['published', 'failed']),
+      code: z.string().nullable(),
+      message: z.string().nullable(),
+    }),
+  ),
+  published: z.number().int(),
+  failed: z.number().int(),
+});
+export type McpPublishQuestionsOutput = z.infer<typeof mcpPublishQuestionsOutputSchema>;
+
+/**
+ * Tool `search_questions`: tìm câu trong MỘT bank mà chủ token xem
+ * được, theo chuỗi con trong tên/thân câu (đã chuẩn hoá NFC + thường
+ * hoá hai phía như cổng chống trùng) và lọc qtype tuỳ chọn. Chỉ trả
+ * SIÊU DỮ LIỆU (không đáp án) — muốn nội dung đầy đủ dùng get_question.
+ */
+export const mcpSearchQuestionsInputSchema = z.strictObject({
+  bankId: uuidIdSchema,
+  query: z.string().min(1).max(200),
+  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+export type McpSearchQuestionsInput = z.infer<typeof mcpSearchQuestionsInputSchema>;
+
+export const mcpSearchQuestionsOutputSchema = z.object({
+  bankId: uuidIdSchema,
+  questions: z.array(
+    z.object({
+      id: uuidIdSchema,
+      name: z.string(),
+      qtype: z.string(),
+      status: z.string(),
+      categoryId: uuidIdSchema,
+      categoryName: z.string(),
+      mine: z.boolean(),
+    }),
+  ),
+  truncated: z.boolean(),
+});
+export type McpSearchQuestionsOutput = z.infer<typeof mcpSearchQuestionsOutputSchema>;
+
+/**
+ * Tool `check_duplicates`: soi trùng (exact/near) cho các câu SẮP tạo
+ * trong một bank mà không ghi gì cả — cùng cơ chế băm nội dung QB-4
+ * với cổng tạo, để client AI tự quyết định bỏ/sửa trước khi tạo thật.
+ */
+export const mcpCheckDuplicatesInputSchema = z.strictObject({
+  bankId: uuidIdSchema,
+  items: z
+    .array(
+      z.strictObject({
+        clientItemId: z.string().min(1).max(64),
+        qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+        questionText: z.string().min(1).max(20000),
+        answers: z.array(mcpAnswerInputSchema).max(10).optional(),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type McpCheckDuplicatesInput = z.infer<typeof mcpCheckDuplicatesInputSchema>;
+
+export const mcpCheckDuplicatesOutputSchema = z.object({
+  bankId: uuidIdSchema,
+  results: z.array(
+    z.object({
+      clientItemId: z.string(),
+      verdict: z.enum(['exact', 'near', 'none']),
+      existingQuestionId: uuidIdSchema.nullable(),
+      nearDuplicateOf: uuidIdSchema.nullable(),
+    }),
+  ),
+});
+export type McpCheckDuplicatesOutput = z.infer<typeof mcpCheckDuplicatesOutputSchema>;
+
+/**
+ * Tool `search_curriculum_outcomes`: tra YCCĐ THẬT của chương trình
+ * GDPT theo từ khoá (+ lọc môn/khối) trong các môn chủ token đọc được
+ * (`curriculum:view` tại context môn) — để model bám đúng YCCĐ khi
+ * soạn câu. Liên kết câu×YCCĐ chính thức vẫn ở tầng ma trận/quiz; kết
+ * quả ở đây thuần tra cứu, kèm `sourceRef` làm truy vết nhẹ.
+ */
+export const mcpSearchCurriculumOutcomesInputSchema = z.strictObject({
+  query: z.string().min(1).max(200),
+  subjectId: uuidIdSchema.optional(),
+  gradeLevel: z.number().int().min(1).max(12).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+export type McpSearchCurriculumOutcomesInput = z.infer<typeof mcpSearchCurriculumOutcomesInputSchema>;
+
+export const mcpSearchCurriculumOutcomesOutputSchema = z.object({
+  outcomes: z.array(
+    z.object({
+      id: uuidIdSchema,
+      content: z.string(),
+      sourceKind: z.string(),
+      sourceRef: z.string().nullable(),
+      nodeId: uuidIdSchema,
+      nodeTitle: z.string(),
+      subjectId: uuidIdSchema,
+      subjectName: z.string(),
+      grade: z.number().int(),
+    }),
+  ),
+});
+export type McpSearchCurriculumOutcomesOutput = z.infer<typeof mcpSearchCurriculumOutcomesOutputSchema>;
