@@ -21,14 +21,18 @@ import { contextIdByLevelInstance, suspendUser } from './engagement-helpers';
  *  - Nhắn riêng 1-1 CHỈ giữa liên hệ đã kết bạn: cùng khoá không
  *    còn mở cổng, công tắc `core/messagingallusers` bật cũng không
  *    mở; hội thoại cũ với người đã gỡ liên hệ vẫn đọc được lịch
- *    sử nhưng gửi mới bị chặn.
+ *    sử nhưng gửi mới bị chặn. NGOẠI LỆ duy nhất (chốt bổ sung
+ *    25/10/2026): giáo viên của khoá ↔ học sinh đang ghi danh chính
+ *    khoá đó nhắn trực tiếp không cần kết bạn — spec riêng
+ *    messaging-teacher-direct.e2e-spec.ts khoá hành vi đó; ở spec
+ *    này actor là học sinh nên `canDirectMessage` luôn false.
  */
 
 interface Person { id: string; username: string; token: string; displayName: string }
 
 interface RosterMember {
   userId: string; displayName: string; username: string;
-  role: 'teacher' | 'student'; relationship: string;
+  role: 'teacher' | 'student'; relationship: string; canDirectMessage: boolean;
 }
 
 describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ liên hệ (issue #33)', () => {
@@ -143,9 +147,12 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     expect(byId.has(actor.id)).toBe(false);
     expect(byId.has(outsider.id)).toBe(false);
     expect(members.map((m) => m.displayName)).not.toContain('Ghi Danh');
-    // Whitelist trường: đúng 5 khoá, không rò thêm dữ kiện ghi danh/hồ sơ.
+    // Whitelist trường: đúng 6 khoá, không rò thêm dữ kiện ghi danh/hồ sơ.
+    // (canDirectMessage thêm theo ngoại lệ GV–HS chốt 25/10/2026; actor
+    // là học sinh nên mọi dòng đều false ở góc nhìn này.)
     for (const m of members) {
-      expect(Object.keys(m).sort()).toEqual(['displayName', 'relationship', 'role', 'userId', 'username']);
+      expect(Object.keys(m).sort()).toEqual(['canDirectMessage', 'displayName', 'relationship', 'role', 'userId', 'username']);
+      expect(m.canDirectMessage).toBe(false);
     }
     expect(res.body.nextCursor).toBeNull();
   });

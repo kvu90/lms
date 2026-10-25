@@ -802,6 +802,62 @@ export class MessagingRepository {
       ));
     return rows.map((r) => r.courseId);
   }
+  /**
+   * Khoá chung của một cặp (giáo viên, học sinh) theo quan hệ mở cổng
+   * nhắn riêng trực tiếp (ngoại lệ đã chốt bổ sung 25/10/2026 trên
+   * issue #33): MỘT phía có gán vai archetype staff
+   * ({@link STAFF_ARCHETYPES}) TẠI context của khoá — đúng khái niệm
+   * "giáo viên của khoá" mà roster dùng cho cờ teacher, hẹp hơn
+   * capability `course:managegroups` (chỉ tổ trưởng/quản lý nhóm mới
+   * có) — và phía KIA có ghi danh ĐANG HIỆU LỰC trong chính khoá đó.
+   * Trả id khoá đầu tiên khớp, không có thì null. Một truy vấn duy
+   * nhất neo theo cặp user (role_assignments theo user/context và
+   * user_enrolments theo user đều có index sẵn) — không quét toàn bộ
+   * danh sách khoá hay thành viên, không cần index/schema mới.
+   */
+  async findTeacherStudentSharedCourseId(userA: string, userB: string): Promise<string | null> {
+    const now = new Date();
+    const rows = await this.db.select({ courseId: context.instanceId })
+      .from(context)
+      .innerJoin(roleAssignments, eq(roleAssignments.contextId, context.id))
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .innerJoin(enrol, eq(enrol.courseId, context.instanceId))
+      .innerJoin(userEnrolments, eq(userEnrolments.enrolId, enrol.id))
+      .where(and(
+        eq(context.contextLevel, 50),
+        inArray(role.archetype, [...STAFF_ARCHETYPES]),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
+        or(
+          and(eq(roleAssignments.userId, userA), eq(userEnrolments.userId, userB)),
+          and(eq(roleAssignments.userId, userB), eq(userEnrolments.userId, userA)),
+        ),
+      ))
+      .limit(1);
+    return rows[0]?.courseId ?? null;
+  }
+  /**
+   * User có gán vai archetype staff TẠI context của đúng khoá này hay
+   * không — "giáo viên của khoá" theo cùng định nghĩa roster dùng,
+   * dùng để tính cờ nhắn thẳng trên từng dòng roster.
+   */
+  async isCourseTeachingStaff(courseId: string, userId: string): Promise<boolean> {
+    const [courseCtx] = await this.db.select({ id: context.id }).from(context)
+      .where(and(eq(context.contextLevel, 50), eq(context.instanceId, courseId)));
+    if (!courseCtx) return false;
+    const rows = await this.db.select({ id: roleAssignments.id })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .where(and(
+        eq(roleAssignments.contextId, courseCtx.id),
+        eq(roleAssignments.userId, userId),
+        inArray(role.archetype, [...STAFF_ARCHETYPES]),
+      ))
+      .limit(1);
+    return rows.length > 0;
+  }
   /** Tóm tắt một khoá (cho danh sách "khoá của tôi" của luồng tìm bạn theo khoá). */
   async getCourseSummary(courseId: string): Promise<{ courseId: string; fullName: string; shortName: string } | undefined> {
     const [row] = await this.db.select({ courseId: course.id, fullName: course.fullName, shortName: course.shortName })
@@ -855,13 +911,16 @@ export class MessagingRepository {
    * viên về app (số đo của đội kiểm tra trên issue #33: roster 50.000
    * thành viên trả hết là ~6,3 MB JSON; OFFSET sâu chậm hơn hẳn).
    * Tập thành viên = ghi danh hiệu lực ∪ gán vai tại context khoá;
-   * cờ `staff` = có gán vai archetype staff tại context khoá. Tài
+   * cờ `staff` = có gán vai archetype staff tại context khoá; cờ
+   * `enrolled` = thành viên có ghi danh hiệu lực (dù đồng thời có gán
+   * vai hay không) — căn cứ phía "học sinh" của quan hệ nhắn thẳng
+   * GV–HS trên roster. Tài
    * khoản đã xoá/tạm ngưng/khách, chính người xem, và người có quan
    * hệ chặn với người xem (CẢ hai chiều) bị loại ngay tại SQL. Chỉ
    * các trường trong whitelist của hợp đồng roster được chọn ra.
    */
   async listCourseRosterPage(courseId: string, actorId: string, cursor: { displayName: string; username: string; userId: string } | null, limit: number): Promise<{
-    userId: string; username: string; firstName: string; lastName: string; displayName: string; staff: boolean;
+    userId: string; username: string; firstName: string; lastName: string; displayName: string; staff: boolean; enrolled: boolean;
   }[]> {
     const cursorCond = cursor
       ? sql`and ((case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end), u.username, u.id) > (${cursor.displayName}, ${cursor.username}, ${cursor.userId}::uuid)`
@@ -871,24 +930,24 @@ export class MessagingRepository {
         select id from ${context} where context_level = 50 and instance_id = ${courseId}
       ),
       member_flags as (
-        select ue.user_id as user_id, false as staff
+        select ue.user_id as user_id, false as staff, true as enrolled
         from ${userEnrolments} ue
         join ${enrol} e on e.id = ue.enrol_id
         where e.course_id = ${courseId}
           and ue.status = 0 and e.status = 0
           and ue.time_start <= now() and (ue.time_end is null or ue.time_end >= now())
         union all
-        select ra.user_id as user_id, (r.archetype in ('manager', 'coursecreator', 'editingteacher', 'teacher')) as staff
+        select ra.user_id as user_id, (r.archetype in ('manager', 'coursecreator', 'editingteacher', 'teacher')) as staff, false as enrolled
         from ${roleAssignments} ra
         join ${role} r on r.id = ra.role_id
         where ra.context_id = (select id from course_ctx)
       ),
       members as (
-        select user_id, bool_or(staff) as staff from member_flags group by user_id
+        select user_id, bool_or(staff) as staff, bool_or(enrolled) as enrolled from member_flags group by user_id
       )
       select u.id as user_id, u.username as username, u.first_name as first_name, u.last_name as last_name,
         (case when btrim(u.first_name || ' ' || u.last_name) = '' then u.username else btrim(u.first_name || ' ' || u.last_name) end) as display_name,
-        m.staff as staff
+        m.staff as staff, m.enrolled as enrolled
       from members m
       join ${users} u on u.id = m.user_id
       where u.deleted = false and u.suspended = false and u.is_guest = false
@@ -912,6 +971,7 @@ export class MessagingRepository {
         lastName: raw.last_name as string,
         displayName: raw.display_name as string,
         staff: Boolean(raw.staff),
+        enrolled: Boolean(raw.enrolled),
       };
     });
   }

@@ -164,6 +164,14 @@ export type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outg
 export interface CourseRosterMemberView extends PersonSummaryView {
   role: 'teacher' | 'student';
   relationship: ContactRelationship;
+  /**
+   * Người xem là giáo viên của khoá này và thành viên đang ghi danh
+   * hiệu lực trong khoá → hai người nhắn riêng trực tiếp được không
+   * cần kết bạn (ngoại lệ chốt bổ sung 25/10/2026 trên issue #33).
+   * Web hiện nút "Nhắn tin" tại dòng theo cờ này; cổng API vẫn tự
+   * kiểm lại quan hệ tại mỗi lần mở/gửi, cờ này chỉ là gợi ý hiển thị.
+   */
+  canDirectMessage: boolean;
 }
 
 /** Một khoá mà người dùng thuộc về — đầu vào của luồng tìm bạn theo khoá. */
@@ -685,13 +693,31 @@ export class MessagingService {
    * `core/messagingallusers`): người gửi chỉ nhắn riêng được với
    * người nhận khi hai người là liên hệ ĐÃ ĐƯỢC DUYỆT của nhau (luồng
    * yêu cầu–chấp nhận của Lớp B — yêu cầu đang chờ không mở cổng).
-   * Cùng khoá KHÔNG còn mở cổng: bạn cùng lớp muốn nhắn riêng phải kết
-   * bạn qua roster thành viên khoá trước. Kiểm này là một tra cứu
-   * `isContact` theo khoá chính (đội kiểm tra đo 0,018 ms — không
-   * nghẽn). Notification hệ thống (`notify`) KHÔNG đi qua cổng này.
+   * Cùng khoá KHÔNG còn mở cổng cho học sinh với nhau: bạn cùng lớp
+   * muốn nhắn riêng phải kết bạn qua roster thành viên khoá trước.
+   * Kiểm này là một tra cứu `isContact` theo khoá chính (đội kiểm tra
+   * đo 0,018 ms — không nghẽn). Notification hệ thống (`notify`)
+   * KHÔNG đi qua cổng này.
+   *
+   * NGOẠI LỆ duy nhất (Lão gia chốt bổ sung 25/10/2026 trên issue
+   * #33): cặp GIÁO VIÊN của khoá ↔ HỌC SINH đang ghi danh chính khoá
+   * đó nhắn riêng trực tiếp không cần kết bạn — cả mở hội thoại mới
+   * lẫn gửi vào hội thoại cũ, cả hai chiều (học sinh trả lời được).
+   * Căn cứ là quan hệ khoá thật (gán vai dạy tại context khoá +
+   * ghi danh hiệu lực — xem
+   * {@link MessagingRepository.findTeacherStudentSharedCourseId}),
+   * tính lại tại MỖI lần kiểm: hết ghi danh hoặc hết vai dạy thì
+   * cổng đóng lại ngay, lịch sử cũ vẫn đọc được như luật gỡ liên hệ.
+   * Quan hệ CHẶN vẫn thắng ngoại lệ này ở cả hai chiều: đã chặn thì
+   * cặp GV–HS cũng không qua được (đường gửi vốn đã chặn bằng mã
+   * `messaging.contact_blocked` trước khi tới đây; kiểm thêm tại đây
+   * để đường MỞ hội thoại mới khép cùng một luật).
    */
   private async assertCanContact(senderId: string, recipientId: string): Promise<void> {
     if (await this.repo.isContact(recipientId, senderId)) return;
+    const blockedEitherWay = (await this.repo.isBlocked(senderId, recipientId))
+      || (await this.repo.isBlocked(recipientId, senderId));
+    if (!blockedEitherWay && await this.repo.findTeacherStudentSharedCourseId(senderId, recipientId)) return;
     throw new ForbiddenException({
       message: 'You can only message a contact directly — send a contact request from the course member list and wait for it to be accepted',
       code: 'messaging.not_a_contact',
@@ -740,6 +766,10 @@ export class MessagingService {
    * đã kiểm chứng (userId, displayName, username) + dấu hiệu vai trò
    * + trạng thái quan hệ với người xem; quan hệ chặn (cả hai chiều)
    * đã bị giấu ngay tại SQL nên `blocked` không xuất hiện ở đây.
+   * Mỗi dòng còn mang `canDirectMessage`: người xem là giáo viên của
+   * khoá và thành viên đang ghi danh hiệu lực thì nhắn riêng trực
+   * tiếp được theo ngoại lệ GV–HS (chốt bổ sung 25/10/2026 trên
+   * issue #33) — web hiện nút "Nhắn tin" theo cờ này.
    * Phân trang con trỏ theo (displayName, username, id), trần trang
    * {@link ROSTER_MAX_PAGE_SIZE} — không có đường lấy toàn bộ roster.
    */
@@ -756,10 +786,11 @@ export class MessagingService {
     const rows = await this.repo.listCourseRosterPage(courseId, actorId, cursor, limit + 1);
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
-    const [contactIds, incoming, outgoing] = await Promise.all([
+    const [contactIds, incoming, outgoing, viewerIsTeacher] = await Promise.all([
       this.repo.listContacts(actorId),
       this.repo.listIncomingContactRequests(actorId),
       this.repo.listOutgoingContactRequests(actorId),
+      this.repo.isCourseTeachingStaff(courseId, actorId),
     ]);
     const contactSet = new Set(contactIds);
     const incomingSet = new Set(incoming.map((r) => r.userIdFrom));
@@ -776,6 +807,10 @@ export class MessagingService {
       username: row.username,
       role: (row.staff ? 'teacher' : 'student') as 'teacher' | 'student',
       relationship: relationshipOf(row.userId),
+      // Cờ nhắn thẳng khớp đúng cổng API: người xem dạy khoá này +
+      // thành viên đang ghi danh (dòng có quan hệ chặn đã bị SQL giấu
+      // nên không cần trừ ở đây).
+      canDirectMessage: viewerIsTeacher && row.enrolled,
     }));
     const last = page[page.length - 1];
     const nextCursor = hasMore && last

@@ -63,6 +63,12 @@ interface MessagingCourse {
 interface RosterMember extends PersonSummary {
   role: 'teacher' | 'student';
   relationship: ContactRelationship;
+  /**
+   * GV của khoá nhắn riêng trực tiếp được với thành viên này (đang
+   * ghi danh) không cần kết bạn — ngoại lệ chốt 25/10/2026 trên
+   * issue #33; API kèm cờ này thì hiện nút "Nhắn tin" tại dòng.
+   */
+  canDirectMessage?: boolean;
 }
 /** Một yêu cầu kết bạn trong hàng chờ: API đã kèm tên hiển thị của phía kia. */
 interface ContactRequestView {
@@ -799,6 +805,11 @@ export function MessagesPage() {
                       <Badge variant="secondary">
                         {m.role === 'teacher' ? t('rosterTeacher') : t('rosterStudent')}
                       </Badge>
+                      {m.canDirectMessage && m.relationship !== 'contact' ? (
+                        <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
+                          {t('messageWithContact')}
+                        </Button>
+                      ) : null}
                       {m.relationship === 'none' ? (
                         <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(m.userId)}>
                           {t('addContact')}
