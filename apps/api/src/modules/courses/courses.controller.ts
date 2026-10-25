@@ -67,7 +67,7 @@ export class CoursesController {
   /**
    * GET /courses — liệt kê/tìm khoá học (không gồm khoá mẫu — K1).
    */
-  async list(@Query('category') category?: string, @CurrentUser() actor: AuthenticatedUser) {
+  async list(@CurrentUser() actor: AuthenticatedUser, @Query('category') category?: string) {
     return this.courses.listCoursesFor(actor.id, category || undefined);
   }
   @Get('templates')
