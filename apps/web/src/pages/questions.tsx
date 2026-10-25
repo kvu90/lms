@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
@@ -563,14 +563,43 @@ export function QuestionsPage() {
   // khác và bấm qua lại giữa các mục con khi đang ở ngay trang này;
   // không có tham số bank (hoặc giá trị lạ) thì giữ nguyên trạng thái
   // người dùng đang thao tác.
+  //
+  // Tham số section (đính chính sidebar #70): chọn đúng PHẦN trong khu
+  // vực để cuộn tới — ba phần của Ngân hàng hệ thống (questions /
+  // papers / matrices, neo #system-questions / #system-papers /
+  // #system-matrices) hoặc thẻ Ngữ liệu của khu Câu hỏi của tôi
+  // (section=stimuli, neo #stimuli).
+  const sectionAnchorRef = useRef<string | null>(null);
   useEffect(() => {
-    const bank = new URLSearchParams(location.search).get('bank');
+    const params = new URLSearchParams(location.search);
+    const bank = params.get('bank');
     if (bank !== 'system' && bank !== 'my-questions' && bank !== 'my-papers' && bank !== 'my-matrices') return;
     setMyOpen(bank === 'my-questions');
     setMyPapersOpen(bank === 'my-papers');
     setMyMatrixOpen(bank === 'my-matrices');
     setSystemOpen(bank === 'system');
+    const section = params.get('section');
+    sectionAnchorRef.current =
+      bank === 'system' && (section === 'questions' || section === 'papers' || section === 'matrices')
+        ? `system-${section}`
+        : bank === 'my-questions' && section === 'stimuli'
+          ? 'stimuli'
+          : null;
   }, [location.search]);
+
+  // Cuộn tới phần được neo khi phần tử đã render (ba phần hệ thống chỉ
+  // tồn tại sau khi collapse Ngân hàng hệ thống mở). Thử ở mỗi lần
+  // render cho tới khi thấy phần tử; môi trường không có
+  // scrollIntoView (jsdom) thì bỏ qua.
+  useEffect(() => {
+    const id = sectionAnchorRef.current;
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) {
+      sectionAnchorRef.current = null;
+      el.scrollIntoView?.();
+    }
+  });
 
   useEffect(() => {
     // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
@@ -1839,7 +1868,7 @@ export function QuestionsPage() {
         </CardHeader>
         {systemOpen && (
           <CardContent className="space-y-6">
-            <section className="space-y-3">
+            <section id="system-questions" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
                 <div>
@@ -1958,7 +1987,7 @@ export function QuestionsPage() {
             {/* Ngân hàng đề chung (EB-1): chọn một bank đề chung → danh
                 sách đề ready của bank đó + Copy về ngân hàng đề của tôi
                 tại dòng; người duyệt của bank thấy hàng chờ đóng góp đề. */}
-            <section className="space-y-3">
+            <section id="system-papers" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedExamBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
                 <div>
@@ -2112,7 +2141,7 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
-            <section className="space-y-3">
+            <section id="system-matrices" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedMatrixBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
                 <div>
@@ -2306,7 +2335,7 @@ export function QuestionsPage() {
         </div>
       ) : null}
 
-      <Card>
+      <Card id="stimuli" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>{t('stimuli')}</CardTitle>
           <CardDescription>{t('stimuliDescription')}</CardDescription>

@@ -425,12 +425,15 @@ describe('Question bank page — admin parity (issue #70)', () => {
 });
 
 /**
- * Liên kết sâu ?bank= (mở lại issue #70): sidebar có nhóm Ngân hàng câu
- * hỏi riêng với 4 mục con trỏ thẳng tới từng khu vực của trang —
+ * Liên kết sâu ?bank= (mở lại issue #70): các mục ngân hàng cấp cao
+ * nhất của sidebar trỏ thẳng tới từng khu vực của trang —
  * ?bank=system / my-questions / my-papers / my-matrices phải mở đúng
  * collapse tương ứng (aria-expanded=true trên nút collapse) và đóng ba
  * collapse còn lại ngay từ lần dựng đầu, không cần thao tác bấm. URL
- * không có tham số thì cả bốn collapse đóng như hành vi cũ.
+ * không có tham số thì cả bốn collapse đóng như hành vi cũ. Tham số
+ * section (đính chính #70) chọn đúng phần trong khu: ba phần của Ngân
+ * hàng hệ thống có neo #system-questions / #system-papers /
+ * #system-matrices, thẻ Ngữ liệu có neo #stimuli.
  */
 describe('Question bank page — deep link ?bank= (issue #70)', () => {
   afterEach(() => {
@@ -522,5 +525,44 @@ describe('Question bank page — deep link ?bank= (issue #70)', () => {
     for (const other of TOGGLES.slice(1)) {
       expect(screen.getByRole('button', { name: other.name })).toHaveAttribute('aria-expanded', 'false');
     }
+  });
+
+  it('?bank=system&section=papers mở collapse hệ thống và cả ba phần đều có neo id đúng', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    stubDeepLinkFetch();
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions?bank=system&section=papers'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute('aria-expanded', 'true');
+    // Ba phần của khu hệ thống render kèm neo để sidebar cuộn tới
+    // đúng phần; phần được trỏ (đề) cũng nằm trong số đó.
+    expect(document.getElementById('system-questions')).not.toBeNull();
+    expect(document.getElementById('system-papers')).not.toBeNull();
+    expect(document.getElementById('system-matrices')).not.toBeNull();
+  });
+
+  it('?bank=my-questions&section=stimuli mở collapse của tôi và thẻ Ngữ liệu có neo #stimuli', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    stubDeepLinkFetch();
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions?bank=my-questions&section=stimuli'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(document.getElementById('stimuli')).not.toBeNull();
   });
 });
