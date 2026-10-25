@@ -10,6 +10,7 @@ import { redisTlsFromUrl } from '../../config/env';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingService, displayNameOf } from './messaging.service';
 import { UsersService } from '../users/users.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 /** Nhịp quét outbox của consumer thông báo (khớp nhịp consumer realtime). */
 const POLL_INTERVAL_MS = 500;
@@ -147,8 +148,20 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     await this.redis.quit().catch(() => undefined);
   }
 
-  /** Một nhịp quét: khởi tạo watermark nếu cần, rồi xử lý mọi sự kiện mới theo thứ tự seq. */
+  /**
+   * Một nhịp quét: khởi tạo watermark nếu cần, rồi xử lý mọi sự kiện
+   * mới theo thứ tự seq.
+   *
+   * TENANT-1 (#196): consumer quét outbox XUYÊN tenant nên toàn nhịp
+   * chạy trong ngữ cảnh platform tường minh — pool gắn GUC theo ALS ở
+   * mọi checkout, RLS fail-closed không làm mù sự kiện của các tenant.
+   * Tenant của từng thông báo được gắn ở điểm tạo (MessagingService).
+   */
   private async tick(): Promise<void> {
+    return tenantAls.run({ platform: true }, () => this.tickInContext());
+  }
+
+  private async tickInContext(): Promise<void> {
     if (this.ticking) return;
     this.ticking = true;
     try {
@@ -283,6 +296,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.gradeUpdatedBody', { course: courseName, item: itemName }),
       contextUrl: `/courses/${item.courseId}/grades`,
       courseId: item.courseId,
+      tenantId: await this.tenantIdOf(payload, item.courseId),
     });
   }
 
@@ -296,6 +310,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.courseCompletedBody', { course: courseName }),
       contextUrl: `/courses/${courseId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -312,6 +327,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.enrolExpiryWarningBody', { course: courseName, date: dateText }),
       contextUrl: `/courses/${courseId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -342,6 +358,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
         ? `/courses/${courseId}/assignments/${assignmentId}`
         : `/courses/${courseId}/quizzes/${quizId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -493,6 +510,8 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     const sender = await this.users.getByIdOrUndefined(message.userIdFrom);
     const senderName = sender ? displayNameOf(sender) : '';
     const contextUrl = `/messages?conversation=${message.conversationId}`;
+    const tenantId = (typeof payload.tenantId === 'string' ? payload.tenantId : null)
+      ?? await this.repo.getConversationTenantId(message.conversationId);
     // Membership chốt TẠI THỜI ĐIỂM XỬ LÝ (kỷ luật F1 như consumer
     // realtime): thành viên đã rời conversation không nhận thông báo.
     const memberIds = await this.repo.listMembers(message.conversationId);
@@ -514,8 +533,19 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
         body: this.t('platform.messageNewBody'),
         contextUrl,
         fromUserId: message.userIdFrom,
+        tenantId,
       });
     }
+  }
+
+  /**
+   * Tenant của một sự kiện gắn khoá học (TENANT-1, #196): ưu tiên
+   * tenantId đã gương trong payload lúc phát; sự kiện cũ chưa có thì
+   * tra từ khoá học nguồn.
+   */
+  private async tenantIdOf(payload: Record<string, unknown>, courseId: string): Promise<string | null> {
+    if (typeof payload.tenantId === 'string') return payload.tenantId;
+    return this.repo.getCourseTenantId(courseId);
   }
 
   /**

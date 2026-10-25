@@ -145,6 +145,11 @@ export class NotificationDeliveryService implements OnModuleDestroy {
    */
   async deliverInApp(userId: string, providerName: string, input: {
     subject: string; body: string; smallMessage: string; contextUrl?: string | null; fromUserId?: string | null;
+    // TENANT-1 (#196): nơi phát truyền tenant đã phân giải (tenant của
+    // khoá chứa sự kiện / tenant mặc định của người nhận) để dòng
+    // thông báo + dispatch log mang đúng tenant; không truyền thì giữ
+    // hành vi cũ (không gắn tenant — chỉ hiển thị ở ngữ cảnh platform).
+    tenantId?: string | null;
   }): Promise<InAppDeliveryResult> {
     const provider = WORKER_PROVIDERS[providerName];
     if (!provider) return { status: 'unknown-provider' };
@@ -157,6 +162,7 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       await this.db.insert(notificationDispatchLog).values({
         userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
         subject: input.subject, dedupeKey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
+        tenantId: input.tenantId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-suspended' };
     }
@@ -165,6 +171,7 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       await this.db.insert(notificationDispatchLog).values({
         userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
         subject: input.subject, dedupeKey: `popup-off-${providerName}-${userId}-${randomUUID()}`,
+        tenantId: input.tenantId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-preference' };
     }
@@ -174,11 +181,13 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       subject: input.subject, fullMessage: input.body, smallMessage: input.smallMessage,
       component: provider.component, eventType: providerName,
       contextUrl: input.contextUrl ?? null,
+      tenantId: input.tenantId ?? null,
     }).returning();
     await this.db.insert(notificationDispatchLog).values({
       notificationId: notification!.id, userId, provider: providerName,
       channel: 'popup', status: 'delivered', subject: input.subject,
       dedupeKey: `popup-${notification!.id}`,
+      tenantId: input.tenantId ?? null,
     }).onConflictDoNothing();
     // Số chưa đọc vừa tăng: báo cho các stream SSE đang mở của người
     // nhận (qua Redis pub/sub) để huy hiệu cập nhật ngay, không polling.

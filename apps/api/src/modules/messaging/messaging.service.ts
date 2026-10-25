@@ -14,6 +14,7 @@ import { blankRecalledContent, MessagingRepository, type ConversationRow, type M
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 export const NOTIFICATION_DISPATCH_QUEUE = 'notification-dispatch';
 
@@ -665,15 +666,31 @@ export class MessagingService {
      * đè theo khoá không áp dụng (hành vi như trước NB-4).
      */
     courseId?: string;
+    /**
+     * Tenant của notification (TENANT-1, #196): nơi gọi biết đối tượng
+     * nguồn (khoá/conversation/liên kết giám hộ) thì truyền tường minh;
+     * không truyền thì lấy ngữ cảnh ALS của luồng, cuối cùng là tenant
+     * mặc định của người nhận theo membership active. Mọi dedupe_key
+     * dispatch mang tiền tố tenant, nối bằng dấu '-' — dedupe_key của
+     * kênh ngoài đồng thời là jobId BullMQ, mà BullMQ cấm ký tự ':'
+     * trong custom jobId (bài học TENANT-1: tiền tố '{tenant}:' làm
+     * queue.add ném lỗi giữa notify, digest kẹt trạng thái queued).
+     */
+    tenantId?: string | null;
   }): Promise<NotifyResult> {
     const provider = providerByName(providerName);
     if (!provider) return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'unknown-provider' };
     const recipient = await this.users.getByIdOrUndefined(userId);
+    let tenantId = input.tenantId ?? tenantAls.getStore()?.tenantId ?? null;
+    if (tenantId === null && recipient) {
+      tenantId = await this.repo.getUserDefaultTenantId(userId);
+    }
+    const tenantKey = tenantId ?? 'platform';
     if (!recipient || recipient.suspended || recipient.deleted) {
       // Suspended users receive nothing (report §2#12). Nothing is stored.
       await this.repo.insertDispatchLog({
-        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended',
-        subject: input.subject, dedupeKey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended', tenantId,
+        subject: input.subject, dedupeKey: `${tenantKey}-skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
       }).catch(() => undefined);
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'suspended' };
     }
@@ -686,7 +703,7 @@ export class MessagingService {
     if (input.courseId && !isExemptFromCourseMute(provider)
       && (await this.users.getPreference(userId, coursePreferenceName(input.courseId))) === 'mute') {
       await this.repo.insertDispatchLog({
-        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute',
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute', tenantId,
         subject: input.subject, dedupeKey: `course-mute-${providerName}-${userId}-${randomUUID()}`,
       });
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'course-mute' };
@@ -703,7 +720,7 @@ export class MessagingService {
     if (provider.channels.includes('popup')) {
       if (resolved.popupEnabled) {
         const notification = await this.repo.insertNotification({
-          userIdFrom: input.fromUserId ?? null, userIdTo: userId,
+          userIdFrom: input.fromUserId ?? null, userIdTo: userId, tenantId,
           subject: input.subject, fullMessage: input.body, smallMessage: input.body.slice(0, 200),
           component: provider.component, eventType: providerName,
           contextUrl: input.contextUrl ?? null,
@@ -712,14 +729,14 @@ export class MessagingService {
         channels.popup = 'delivered';
         await this.repo.insertDispatchLog({
           notificationId: notification.id, userId: userId, provider: providerName, channel: 'popup',
-          status: 'delivered', subject: input.subject,
-          dedupeKey: `popup-${notification.id}`,
+          status: 'delivered', subject: input.subject, tenantId,
+          dedupeKey: `${tenantKey}-popup-${notification.id}`,
         });
       } else {
         channels.popup = 'skipped-preference';
         await this.repo.insertDispatchLog({
-          userId: userId, provider: providerName, channel: 'popup', status: 'skipped-preference',
-          subject: input.subject, dedupeKey: `popup-off-${providerName}-${userId}-${randomUUID()}`,
+          userId: userId, provider: providerName, channel: 'popup', status: 'skipped-preference', tenantId,
+          subject: input.subject, dedupeKey: `${tenantKey}-popup-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }
@@ -741,9 +758,9 @@ export class MessagingService {
         ? resolved.emailFrequency !== 'off'
         : await this.isChannelEnabled(userId, providerName, channel, state);
       if (channelEnabled) {
-        const dedupeKey = `dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
+        const dedupeKey = `${tenantKey}-dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
-          userId, provider: providerName, channel,
+          userId, provider: providerName, channel, tenantId,
           // Kênh ngoài chỉ nhận bản tối thiểu hoá khi caller cung cấp
           // (luật ở docblock của notify) — điểm số/nội dung tin nhắn
           // không bao giờ rời app qua job này.
@@ -754,14 +771,14 @@ export class MessagingService {
       } else {
         channels[channel] = 'skipped-preference';
         await this.repo.insertDispatchLog({
-          userId: userId, provider: providerName, channel, status: 'skipped-preference',
-          subject: input.subject, dedupeKey: `${channel}-off-${providerName}-${userId}-${randomUUID()}`,
+          userId: userId, provider: providerName, channel, status: 'skipped-preference', tenantId,
+          subject: input.subject, dedupeKey: `${tenantKey}-${channel}-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }
 
     await this.outbox.enqueueStandalone({
-      aggregate: 'messaging', type: 'notification_created',
+      aggregate: 'messaging', type: 'notification_created', tenantId,
       payload: { userId, provider: providerName, notificationId },
     });
     return { provider: providerName, userId, notificationId, channels };
@@ -1248,7 +1265,7 @@ export class MessagingService {
       }
     }
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
-      const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId }, tx as never);
+      const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId, tenantId: tenantAls.getStore()?.tenantId ?? null }, tx as never);
       for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
       return created;
     });
@@ -1359,11 +1376,13 @@ export class MessagingService {
     const existing = await this.repo.findGroupConversation(group.id);
     if (existing) return { ...existing, members: await this.syncGroupConversationMembers(existing) };
     const courseCtx = await this.contexts.getByLevelInstance(50, group.courseId);
+    // TENANT-1 (#196): conversation của group thuộc tenant của khoá chứa group.
+    const tenantId = (await this.repo.getCourseTenantId(group.courseId)) ?? tenantAls.getStore()?.tenantId ?? null;
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
       const created = await this.repo.insertConversation({
         type: 2, name: input.name ?? group.name,
         component: 'core_group', itemType: 'groups', itemId: group.id,
-        contextId: courseCtx?.id ?? null, createdBy: actorId,
+        contextId: courseCtx?.id ?? null, createdBy: actorId, tenantId,
       }, tx as never);
       for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx as never);
       return created;

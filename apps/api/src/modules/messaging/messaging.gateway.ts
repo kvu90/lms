@@ -78,7 +78,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       }
       client.data.userId = identity.userId;
       client.data.username = identity.username;
-      await client.join(userRoom(identity.userId));
+      client.data.tenantId = identity.tenantId;
+      await client.join(userRoom(identity.tenantId, identity.userId));
       const conversations = await this.repo.listConversationsForUser(identity.userId);
       for (const conversation of conversations) {
         // Lớp phòng thủ thứ hai (việc nối tiếp #33, siết sau PR #94
@@ -90,9 +91,9 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
         // nào của hội thoại đó để lộ; tầng phân phối xoá tin còn
         // chặn nốt trường hợp outbox tới muộn (xem distributeMessageDeleted).
         if (await this.isBlockedDirectConversation(conversation.id, identity.userId)) continue;
-        await client.join(conversationRoom(conversation.id));
+        await client.join(conversationRoom(conversation.tenantId, conversation.id));
       }
-      await this.realtime.markConnected(identity.userId, client.id);
+      await this.realtime.markConnected(identity.tenantId, identity.userId, client.id);
     } catch (error) {
       this.logger.warn(`Kết nối realtime của messaging bị ngắt do lỗi: ${(error as Error).message}`);
       client.disconnect(true);
@@ -103,7 +104,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
 
   async handleDisconnect(client: Socket): Promise<void> {
     const userId = client.data.userId as string | undefined;
-    if (userId) await this.realtime.markDisconnected(userId, client.id);
+    const tenantId = (client.data.tenantId as string | null | undefined) ?? null;
+    if (userId) await this.realtime.markDisconnected(tenantId, userId, client.id);
   }
 
   /**
@@ -140,7 +142,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     if (!userId || !conversationId) return { joined: false };
     if (!(await this.repo.isMember(conversationId, userId))) return { joined: false };
     if (await this.isBlockedDirectConversation(conversationId, userId)) return { joined: false };
-    await client.join(conversationRoom(conversationId));
+    const conversation = await this.repo.getConversation(conversationId);
+    await client.join(conversationRoom(conversation?.tenantId ?? null, conversationId));
     return { joined: true };
   }
 
@@ -153,7 +156,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
     await awaitConnectionUser(client);
     const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : null;
     if (!conversationId) return { left: false };
-    await client.leave(conversationRoom(conversationId));
+    const conversation = await this.repo.getConversation(conversationId);
+    await client.leave(conversationRoom(conversation?.tenantId ?? null, conversationId));
     return { left: true };
   }
 
@@ -182,7 +186,8 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       if (await this.isBlockedDirectConversation(conversationId, userId)) continue;
       // Nối vào room luôn thể: conversation tạo sau khi socket nối
       // (hoặc membership mới đồng bộ) thì từ nay nhận realtime trực tiếp.
-      await client.join(conversationRoom(conversationId));
+      const conversation = await this.repo.getConversation(conversationId);
+      await client.join(conversationRoom(conversation?.tenantId ?? null, conversationId));
       // Đồng bộ là đường đọc của CHÍNH người xin: lọc tin họ đã
       // xoá-phía-mình và vô hiệu nội dung tin đã thu hồi — cùng luật
       // với đường đọc REST, không để kênh này thành đường vòng lộ

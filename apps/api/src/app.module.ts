@@ -7,6 +7,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
+import { TenantAwarePool } from './db/tenant-pool';
 import { CacheInfraModule } from './infra/cache/cache-infra.module';
 import { EventsModule } from './infra/events/events.module';
 import { AccessModule } from './modules/access/access.module';
@@ -73,14 +74,25 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     DrizzleModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        drizzle,
-        connection: databaseConnectionFromEnv(
+      useFactory: (config: ConfigService) => {
+        const connection = databaseConnectionFromEnv(
           config.getOrThrow<string>('DATABASE_URL'),
           config.get<boolean>('DATABASE_SSL') ?? false,
-        ),
-        relations,
-      }),
+        );
+        const pool = new TenantAwarePool(
+          typeof connection === 'string' ? { connectionString: connection } : connection,
+        );
+        return {
+          // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
+          // cảnh ALS ở mọi checkout. Kiểu options của @nestjs/drizzle
+          // chỉ mô hình hoá biến thể `connection` (driver tự tạo pool
+          // thường — sai ý đồ), nên dùng biến thể `db`: tự gọi
+          // drizzle() với chính pool này, hành vi tương đương đường
+          // `client` mà runtime của module vốn chuyển thẳng vào
+          // drizzle(config).
+          db: drizzle({ client: pool, relations }),
+        };
+      },
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],

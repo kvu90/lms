@@ -8,9 +8,11 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import {
   badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUserComp,
-  courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
+  course, courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
   notifications, outboxEvents, users,
 } from '@lms/db-schema';
+import { tenantAls } from '../db/tenant-als';
+import { resolveDefaultTenantId } from '../db/default-tenant';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
 const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;
@@ -133,6 +135,13 @@ export class BadgeAwardProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
     const { userId } = job.data;
     const activeBadges = await this.db.select().from(badge).where(eq(badge.status, 1));
     const issuedIds: string[] = [];
@@ -166,8 +175,18 @@ export class BadgeAwardProcessor extends WorkerHost {
       // Text thông báo tra catalog i18n; worker ngoài request context nên
       // truyền locale tường minh (mặc định 'vi' như các processor nền tảng).
       const recipientLocale = 'vi';
+      // TENANT-1 (#196): tenant của notification = tenant của khoá chứa
+      // huy hiệu; huy hiệu cấp platform (không gắn khoá) thì lấy tenant
+      // mặc định của người nhận theo membership.
+      let tenantId: string | null = null;
+      if (badgeRow.courseId) {
+        const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course)
+          .where(eq(course.id, badgeRow.courseId));
+        tenantId = courseRow?.tenantId ?? null;
+      }
+      if (!tenantId) tenantId = await resolveDefaultTenantId(this.db, userId);
       await this.db.insert(notifications).values({
-        userIdTo: userId,
+        userIdTo: userId, tenantId,
         subject: this.i18n.t('platform.badgeAwardedSubject', { locale: recipientLocale, args: { name: badgeRow.name } }),
         fullMessage: this.i18n.t('platform.badgeAwardedBody', { locale: recipientLocale, args: { name: badgeRow.name, issuer: badgeRow.issuerName } }),
         smallMessage: this.i18n.t('platform.badgeAwardedSmall', { locale: recipientLocale, args: { name: badgeRow.name } }),
@@ -175,8 +194,8 @@ export class BadgeAwardProcessor extends WorkerHost {
         contextUrl: `/badges/${badgeRow.id}`,
       });
       await this.db.insert(outboxEvents).values({
-        aggregate: 'badges', type: 'badge_issued',
-        payload: { badgeId: badgeRow.id, userId, issuedId: issued.id, via: 'worker-badge-award' },
+        aggregate: 'badges', type: 'badge_issued', tenantId,
+        payload: { badgeId: badgeRow.id, userId, issuedId: issued.id, via: 'worker-badge-award', tenantId },
       });
     }
     return { evaluated: activeBadges.length, issued: issuedIds };

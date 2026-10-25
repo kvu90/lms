@@ -9,6 +9,7 @@ import {
   courseModules, courseModulesCompletion, userEnrolments, enrol,
   gradeGrades, gradeItems,
 } from '@lms/db-schema';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -41,6 +42,13 @@ export class CompletionRecalculateProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<CompletionRecalculateJobData>): Promise<CompletionRecalculateResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<CompletionRecalculateJobData>): Promise<CompletionRecalculateResult> {
     const { courseId } = job.data;
     const now = new Date();
     const criteria = await this.db.select().from(courseCompletionCriteria)

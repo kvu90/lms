@@ -8,6 +8,7 @@ import type { relations } from './db/relations';
 import { outboxEvents } from '@lms/db-schema';
 import { EventLogWriter } from './event-log-writer.service';
 import { TaskLogService } from './task-log.service';
+import { tenantAls } from './db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -39,6 +40,13 @@ export class OutboxRelayScheduler {
    * lỗi) được ghi vào task_log; nhịp rỗng không ghi để tránh nhiễu 5 giây.
    */
   async relayTick(): Promise<void> {
+    // TENANT-1 (#196): relay quét outbox XUYÊN tenant — bọc ngữ cảnh
+    // platform tường minh để RLS fail-closed không làm mù các sự kiện
+    // mang tenant_id (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.relayTickInContext());
+  }
+
+  private async relayTickInContext(): Promise<void> {
     const startedAt = new Date();
     try {
       const published = await this.publishPending();

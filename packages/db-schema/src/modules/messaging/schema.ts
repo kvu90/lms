@@ -11,6 +11,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { tenants } from '../tenants/schema';
 
 /** Conversations (Moodle `message_conversations`). type: 1=individual, 2=group, 3=self. */
 export const messageConversations = pgTable('message_conversations', {
@@ -31,6 +32,14 @@ export const messageConversations = pgTable('message_conversations', {
    */
   createdBy: uuid('created_by'),
   /**
+   * Tenant sở hữu conversation (TENANT-1, #196): conversation cấu trúc
+   * (lớp/khoá) mang tenant của khoá chứa nó; conversation cá nhân mang
+   * tenant của ngữ cảnh tạo. Cột nullable — tầng realtime dùng nó để
+   * namespace room theo tenant khi có mặt; hàng lịch sử không có tenant
+   * chỉ hiển thị ở ngữ cảnh platform.
+   */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
+  /**
    * Bộ đếm seq của conversation: mỗi tin mới nhận `last_message_seq + 1`
    * trong cùng transaction gửi tin (khoá dòng bằng UPDATE ... RETURNING
    * nên các lần gửi đồng thời không va chạm seq). Client đồng bộ và
@@ -43,6 +52,7 @@ export const messageConversations = pgTable('message_conversations', {
   (table) => [
       index('message_conversations_item_id_idx').on(table.itemId),
       index('message_conversations_context_id_idx').on(table.contextId),
+      index('message_conversations_tenant_id_idx').on(table.tenantId),
   ]);
 
 
@@ -263,6 +273,12 @@ export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   userIdFrom: uuid('user_id_from'),
   userIdTo: uuid('user_id_to').notNull(),
+  /**
+   * Tenant của ngữ cảnh sinh notification (TENANT-1, #196): điểm tạo gắn
+   * tenant đang hiệu lực (ngữ cảnh khoá/sự kiện sinh ra nó); hàng không
+   * gắn tenant chỉ hiển thị ở ngữ cảnh platform theo policy fail-closed.
+   */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   subject: text('subject').notNull().default(''),
   fullMessage: text('full_message').notNull().default(''),
   smallMessage: text('small_message').notNull().default(''),
@@ -276,6 +292,7 @@ export const notifications = pgTable('notifications', {
   (table) => [
       index('notifications_user_id_from_idx').on(table.userIdFrom),
       index('notifications_user_id_to_idx').on(table.userIdTo),
+      index('notifications_tenant_id_idx').on(table.tenantId),
   ]);
 
 
@@ -291,6 +308,8 @@ export const notificationDispatchLog = pgTable(
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
     notificationId: uuid('notification_id'),
     userId: uuid('user_id').notNull(),
+    /** Tenant của notification gốc (TENANT-1, #196) — dedupe + quét phát theo tenant. */
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
     provider: text('provider').notNull(),
     channel: text('channel').notNull(),
     status: text('status').notNull(),
@@ -300,5 +319,6 @@ export const notificationDispatchLog = pgTable(
   },
   (table) => [
       index('notification_dispatch_log_notification_id_idx').on(table.notificationId),
-      index('notification_dispatch_log_user_id_idx').on(table.userId),unique('notification_dispatch_log_dedupe_unique').on(table.dedupeKey)],
+      index('notification_dispatch_log_user_id_idx').on(table.userId),
+      index('notification_dispatch_log_tenant_id_idx').on(table.tenantId),unique('notification_dispatch_log_dedupe_unique').on(table.dedupeKey)],
 );

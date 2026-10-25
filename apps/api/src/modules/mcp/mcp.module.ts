@@ -3,6 +3,7 @@ import { EventsModule } from '../../infra/events/events.module';
 import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { CurriculumModule } from '../curriculum/curriculum.module';
 import { QuestionsModule } from '../questions/questions.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { McpDepsService } from './mcp-deps.service';
 import { McpIdempotencyRepository } from './mcp-idempotency.repository';
@@ -22,7 +23,9 @@ import { McpIdempotencyRepository } from './mcp-idempotency.repository';
   // BetterAuthModule (MCP-1): McpDepsService đọc trạng thái AS từ
   // BetterAuthService để dựng verifier RS. CurriculumModule (MCP-1):
   // tool tra YCCĐ dùng CurriculumService như REST vẫn dùng.
-  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule],
+  // TenantsModule (TENANT-1, #196): McpDepsService dùng TenantsService
+  // phân giải tenant mặc định của actor cho phiên MCP đường OAuth.
+  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule, TenantsModule],
   providers: [McpIdempotencyRepository, McpDepsService],
   exports: [McpDepsService],
 })

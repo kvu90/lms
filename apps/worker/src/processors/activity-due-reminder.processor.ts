@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { assignments, assignSubmissions, course, courseModules, enrol, outboxEvents, quizAttempts, quizzes, userEnrolments } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -60,6 +61,13 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * lượt quét được ghi vào task_log qua TaskLogService.
    */
   async process(_job: Job): Promise<ActivityDueReminderResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(_job));
+  }
+
+  private async processInContext(_job: Job): Promise<ActivityDueReminderResult> {
     void _job;
     return this.taskLog.run('activity-due-reminders', () => this.sweep(), (r) => `reminded ${r.reminded.length} (student, activity) pair(s)`);
   }
@@ -69,6 +77,7 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     const windowEnd = new Date(now.getTime() + ACTIVITY_DUE_REMINDER_WINDOW_HOURS * 3600_000);
     const due = await this.db.select({
       quizId: quizzes.id, quizName: quizzes.name, timeClose: quizzes.timeClose, courseId: quizzes.course,
+      tenantId: course.tenantId,
       cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
     }).from(quizzes)
       .innerJoin(course, eq(course.id, quizzes.course))
@@ -90,9 +99,9 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         if (await this.hasSubmitted(row.quizId, userId)) continue;
         if (await this.alreadyReminded(userId, row.quizId, row.timeClose)) continue;
         await this.db.insert(outboxEvents).values({
-          aggregate: 'activity', type: 'activity_due_reminder',
+          aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
           payload: {
-            userId, courseId: row.courseId, quizId: row.quizId,
+            userId, courseId: row.courseId, quizId: row.quizId, tenantId: row.tenantId,
             activityType: 'quiz', activityName: row.quizName,
             timeClose: row.timeClose.toISOString(),
           },

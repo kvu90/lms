@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
+import { tenantAls } from '../tenants/tenant-als';
 import {
   assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
-  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, userEnrolments, users,
+  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -184,6 +185,7 @@ export class MessagingRepository {
         c.component AS conversation_component, c.item_type AS conversation_item_type,
         c.item_id AS conversation_item_id, c.context_id AS conversation_context_id,
         c.enabled AS conversation_enabled, c.created_by AS conversation_created_by,
+        c.tenant_id AS conversation_tenant_id,
         c.last_message_seq AS conversation_last_seq,
         c.created_at AS conversation_created_at, c.updated_at AS conversation_updated_at,
         mine.last_read_seq AS last_read_seq,
@@ -253,6 +255,7 @@ export class MessagingRepository {
           contextId: raw.conversation_context_id as string | null,
           enabled: raw.conversation_enabled as boolean,
           createdBy: (raw.conversation_created_by as string | null) ?? null,
+          tenantId: (raw.conversation_tenant_id as string | null) ?? null,
           lastMessageSeq: raw.conversation_last_seq as number,
           createdAt: new Date(raw.conversation_created_at as string),
           updatedAt: new Date(raw.conversation_updated_at as string),
@@ -1105,6 +1108,18 @@ export class MessagingRepository {
   }
 
   /**
+   * Tenant hiệu lực cho các đường ĐỌC/GHI phía user của notification
+   * (TENANT-1, #196 — lọc tầng ứng dụng, lớp phòng thủ thứ nhất; RLS
+   * fail-closed là lưới cứng phía sau): đang trong ngữ cảnh một
+   * tenant → chỉ notification của tenant đó; ngữ cảnh platform hoặc
+   * đường nền (consumer quét xuyên tenant) → undefined = không lọc
+   * thêm ở tầng này.
+   */
+  private userTenantScope(): string | undefined {
+    return tenantAls.getStore()?.tenantId;
+  }
+
+  /**
    * Chèn notification trong ứng dụng.
    */
   async insertNotification(v: typeof notifications.$inferInsert, tx?: DbTx): Promise<NotificationRow> {
@@ -1114,24 +1129,36 @@ export class MessagingRepository {
    * Số notification chưa đọc (đếm bằng count(*) ở DB).
    */
   async countUnreadNotifications(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(notifications)
-      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead)));
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      ));
     return row?.value ?? 0;
   }
   /**
    * Đánh dấu một notification đã đọc.
    */
   async markNotificationRead(id: string, userIdTo: string): Promise<boolean> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
+      .where(and(
+        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length > 0;
   }
   /**
    * Đánh dấu mọi notification đã đọc.
    */
   async markAllNotificationsRead(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead))).returning();
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length;
   }
 
@@ -1150,6 +1177,8 @@ export class MessagingRepository {
     limit: number;
   }): Promise<NotificationGroupAggregateRow[]> {
     const where = [sql`user_id_to = ${userIdTo}`];
+    const tenantScope = this.userTenantScope();
+    if (tenantScope) where.push(sql`tenant_id = ${tenantScope}`);
     if (opts.eventTypes && opts.eventTypes.length > 0) {
       where.push(sql`event_type in (${sql.join(opts.eventTypes.map((t) => sql`${t}`), sql`, `)})`);
     }
@@ -1186,7 +1215,11 @@ export class MessagingRepository {
   /** Lấy các notification theo đúng tập id (điểm neo `latest` của các dòng gộp). */
   async listNotificationsByIds(ids: string[]): Promise<NotificationRow[]> {
     if (ids.length === 0) return [];
-    return this.db.select().from(notifications).where(inArray(notifications.id, ids));
+    const tenantId = this.userTenantScope();
+    return this.db.select().from(notifications).where(and(
+      inArray(notifications.id, ids),
+      tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+    ));
   }
 
   /**
@@ -1197,6 +1230,8 @@ export class MessagingRepository {
    */
   async listNotificationItems(userIdTo: string, opts: NotificationItemsOptions): Promise<NotificationRow[]> {
     const conditions = [eq(notifications.userIdTo, userIdTo)];
+    const tenantId = this.userTenantScope();
+    if (tenantId) conditions.push(eq(notifications.tenantId, tenantId));
     if (opts.eventType) conditions.push(eq(notifications.eventType, opts.eventType));
     if (opts.eventTypes && opts.eventTypes.length > 0) conditions.push(inArray(notifications.eventType, opts.eventTypes));
     if (opts.source === null) {
@@ -1222,11 +1257,13 @@ export class MessagingRepository {
    * của trung tâm v2: chỉ các mục chưa đọc thuộc đúng khoá mới đổi.
    */
   async markNotificationGroupRead(userIdTo: string, key: { eventType: string; sourceKey: string; day: string }): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
       .where(and(
         eq(notifications.userIdTo, userIdTo),
         eq(notifications.eventType, key.eventType),
         isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
         sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ${key.sourceKey}`,
         sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
       )).returning();
@@ -1235,15 +1272,23 @@ export class MessagingRepository {
 
   /** Xoá MỘT notification của đúng chủ sở hữu; false khi không tồn tại hoặc không phải của họ. */
   async deleteNotification(id: string, userIdTo: string): Promise<boolean> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.delete(notifications)
-      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
+      .where(and(
+        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length > 0;
   }
 
   /** Dọn mọi notification ĐÃ ĐỌC của user (trung tâm v2); trả số mục đã xoá. */
   async deleteReadNotifications(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.delete(notifications)
-      .where(and(eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead))).returning();
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length;
   }
 
@@ -1395,6 +1440,47 @@ export class MessagingRepository {
     await this.db.update(notifications)
       .set({ subject, fullMessage, smallMessage: fullMessage.slice(0, 200) })
       .where(eq(notifications.id, id));
+  }
+
+  /** Tenant sở hữu khoá học (TENANT-1, #196) — nguồn tenant cho notification/dữ liệu phát sinh từ khoá. */
+  async getCourseTenantId(courseId: string): Promise<string | null> {
+    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId));
+    return row?.tenantId ?? null;
+  }
+
+  /** Tenant của một conversation (TENANT-1, #196) — nguồn tenant cho notification tin nhắn mới. */
+  async getConversationTenantId(conversationId: string): Promise<string | null> {
+    const [row] = await this.db.select({ tenantId: messageConversations.tenantId }).from(messageConversations)
+      .where(eq(messageConversations.id, conversationId));
+    return row?.tenantId ?? null;
+  }
+
+  /**
+   * Tenant mặc định của một user (TENANT-1, #196) — cùng luật với
+   * `TenantsService.resolveDefaultTenant` (TENANT-0): membership active
+   * duy nhất → tenant đó; nhiều tenant → tenant trường đầu tiên;
+   * không có → tenant platform (Trang chính). Dùng làm nguồn tenant
+   * cuối cùng cho notification khi nơi phát không gắn đối tượng nguồn
+   * thuộc tenant nào (bảng users KHÔNG có cột tenant — tư cách thành
+   * viên mới là nguồn sự thật).
+   */
+  async getUserDefaultTenantId(userId: string): Promise<string | null> {
+    const rows = await this.db.select({ tenantId: tenantMemberships.tenantId, kind: tenants.kind })
+      .from(tenantMemberships)
+      .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
+      .where(and(
+        eq(tenantMemberships.userId, userId),
+        eq(tenantMemberships.status, 'active'),
+        eq(tenants.status, 'active'),
+      ));
+    const distinct = [...new Map(rows.map((r) => [r.tenantId, r])).values()];
+    if (distinct.length === 1) return distinct[0]!.tenantId;
+    if (distinct.length > 1) {
+      const nonPlatform = distinct.find((r) => r.kind !== 'platform');
+      if (nonPlatform) return nonPlatform.tenantId;
+    }
+    const [zero] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.kind, 'platform'));
+    return zero?.id ?? null;
   }
 
   /**

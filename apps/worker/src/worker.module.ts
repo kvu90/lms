@@ -8,6 +8,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { I18nWorkerModule } from './i18n/i18n.config';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
+import { TenantAwarePool } from './db/tenant-pool';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { ActivityDueReminderScheduler } from './activity-due-reminder.scheduler';
 import { NotificationRetentionScheduler } from './notification-retention.scheduler';
@@ -39,14 +40,22 @@ import {
     DrizzleModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        drizzle,
-        connection: databaseConnectionFromEnv(
+      useFactory: (config: ConfigService) => {
+        const connection = databaseConnectionFromEnv(
           config.getOrThrow<string>('DATABASE_URL'),
           config.get<boolean>('DATABASE_SSL') ?? false,
-        ),
-        relations,
-      }),
+        );
+        const pool = new TenantAwarePool(
+          typeof connection === 'string' ? { connectionString: connection } : connection,
+        );
+        return {
+          // TENANT-1 (#196): pool tự dựng có gắn GUC tenant theo ngữ
+          // cảnh ALS ở mọi checkout — cùng cơ chế với phía API (xem
+          // apps/api/src/app.module.ts): scheduler/processor tự bọc
+          // ngữ cảnh platform/tenant, ngoài ngữ cảnh là fail-closed.
+          db: drizzle({ client: pool, relations }),
+        };
+      },
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],

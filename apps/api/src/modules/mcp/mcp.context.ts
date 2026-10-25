@@ -7,6 +7,15 @@
 export interface McpActor {
   userId: string;
   username: string;
+  /**
+   * Tenant của PHIÊN gọi (TENANT-1, #196): lấy từ claim `tid` của
+   * token (đường bridge) hoặc phân giải từ membership của user
+   * (đường OAuth khi token AS không mang tid). Mount nạp tenant này
+   * vào ALS cho toàn lượt gọi tool — service/RLS tự giới hạn dữ
+   * liệu trong tenant (bank đích của tool ghi phân giải trong đúng
+   * tenant của phiên, không còn đường đọc/ghi xuyên tenant).
+   */
+  tenantId: string | null;
   /** client_id suy từ clientInfo của client MCP (cầu auth tạm — MCP-1 AS sẽ cấp client_id thật qua token). */
   clientId: string;
   ip: string | null;

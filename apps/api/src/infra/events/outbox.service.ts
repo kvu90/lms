@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Database } from '../../db/database';
 import { outboxEvents } from '../../db/schema';
+import { tenantAls } from '../../modules/tenants/tenant-als';
 
 export interface OutboxEventInput {
   aggregate: string;
@@ -26,11 +27,21 @@ export class OutboxService {
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
   async enqueue(tx: OutboxTx, input: OutboxEventInput): Promise<void> {
+    // TENANT-1 (#196): tenant hiệu lực mặc định lấy từ ngữ cảnh ALS
+    // của luồng phát sinh (request tenant / job đã bọc) khi nơi gọi
+    // không chỉ định tường minh; tenant cũng được GƯƠNG vào payload
+    // để các consumer chạy ở ngữ cảnh platform (relay, consumer
+    // thông báo/digest) biết sự kiện thuộc tenant nào mà gắn đúng
+    // tenant cho dữ liệu chúng tạo ra.
+    const tenantId = input.tenantId ?? tenantAls.getStore()?.tenantId ?? null;
+    const payload = tenantId && input.payload['tenantId'] === undefined
+      ? { ...input.payload, tenantId }
+      : input.payload;
     await tx.insert(outboxEvents).values({
       aggregate: input.aggregate,
       type: input.type,
-      payload: input.payload,
-      tenantId: input.tenantId ?? null,
+      payload,
+      tenantId,
     });
   }
 

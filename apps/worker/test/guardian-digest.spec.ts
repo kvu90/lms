@@ -20,6 +20,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
   let context: INestApplicationContext;
   let db: any;
   let processor: GuardianDigestProcessor;
+  let fixtureTenantId = '';
   const suffix = Date.now();
   const DAY = 24 * 3600_000;
 
@@ -82,6 +83,8 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     await context.init();
     db = context.get(getDrizzleToken());
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    const tenantRows = await db.execute(sql`select id from tenants where slug = 'worker-fixture'`);
+    fixtureTenantId = (tenantRows.rows[0] as { id: string }).id;
     processor = context.get(GuardianDigestProcessor);
   });
   afterAll(async () => { await context.close(); });
@@ -145,7 +148,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     const mine = result.queued.filter((q) => q.guardianUserId === guardian);
     expect(mine).toHaveLength(1);
     expect(mine[0]!.kind).toBe('overdue_alert');
-    expect(mine[0]!.dedupeKey).toBe(`overdue:${guardian}:${student}:${overdue.cmId}`);
+    expect(mine[0]!.dedupeKey).toBe(`overdue:${fixtureTenantId}:${guardian}:${student}:${overdue.cmId}`);
 
     const rows = await digestsFor(guardian, student);
     expect(rows).toHaveLength(1);
@@ -173,7 +176,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     const result = await sweep();
     const alerts = result.queued.filter((q) => q.guardianUserId === guardian && q.kind === 'overdue_alert');
     expect(alerts).toHaveLength(1);
-    expect(alerts[0]!.dedupeKey).toBe(`overdue:${guardian}:${student}:${overdue.cmId}`);
+    expect(alerts[0]!.dedupeKey).toBe(`overdue:${fixtureTenantId}:${guardian}:${student}:${overdue.cmId}`);
 
     const rows = await digestsFor(guardian, student);
     const alertRows = rows.filter((r: { kind: string }) => r.kind === 'overdue_alert');

@@ -21,6 +21,10 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     const repo = {
       insertNotification: vi.fn(async (v: Record<string, unknown>) => { inserted.push(v); return { id: 'notif-1', ...v }; }),
       insertDispatchLog: vi.fn(async (v: Record<string, unknown>) => { logs.push(v); return {}; }),
+      // TENANT-1 (#196): notify() phân giải tenant của người nhận qua
+      // repo trước khi áp cổng mute — fake cần có mặt phương thức này
+      // (null = người nhận không thuộc tenant nào, như messaging-notify.spec).
+      getUserDefaultTenantId: vi.fn(async () => null),
     };
     const users = {
       getByIdOrUndefined: vi.fn(async (id: string) => ({ id, suspended: false, deleted: false })),

@@ -410,16 +410,51 @@ export class AuthService {
    */
   /**
    * Đăng nhập thay (login-as) cho quản trị/giáo viên có capability; phiên mang dấu vết người mạo danh.
+   *
+   * TENANT-1 (#196, điểm N2): đây là đường DUY NHẤT để platform vào
+   * danh tính trong một tenant — lý do (`reason`) là bắt buộc (thiếu/
+   * rỗng → 400 `auth.loginas_reason_required`) và mỗi lần mượn danh ghi
+   * một sự kiện audit riêng `user_loginas` vào outbox (được relay soi
+   * vào event_log kèm tenant_id): ai mượn, mượn ai, vào tenant nào, lý
+   * do, IP/UA, thời gian. Phiên cấp cho danh tính đích mang tenant mặc
+   * định của chính user đích — quyền trong tenant đến từ gán vai thật
+   * của user đích, không mang theo quyền của người mượn.
    */
-  async loginAs(adminId: string, targetUserId: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async loginAs(adminId: string, targetUserId: string, reason: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: TokenPair; tenantId: string }> {
+    const trimmedReason = reason?.trim() ?? '';
+    if (!trimmedReason) {
+      throw new BadRequestException({
+        message: 'Login-as requires a reason (platform access into a tenant is audited)',
+        code: 'auth.loginas_reason_required',
+      });
+    }
     const system = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(adminId, 'user:loginas', system.id);
     const target = await this.users.getUser(targetUserId);
     if (target.deleted || target.suspended) throw new ForbiddenException({ message: 'Target account is not active', code: 'auth.account_inactive' });
     if (await this.evaluator.isSiteAdmin(target.id)) throw new ForbiddenException({ message: 'Cannot log in as a site administrator', code: 'auth.loginas_admin_denied' });
+    const tenant = await this.tenants.resolveDefaultTenant(target.id);
     const tokens = await this.issueTokens(target, client);
     await this.recordAuthEvent('user_logged_in', { userId: target.id, actorId: adminId, relatedUserId: target.id, method: 'login-as', ip: client?.ip ?? null });
-    return { user: target, tokens };
+    await this.outbox
+      .enqueueStandalone({
+        aggregate: 'auth',
+        type: 'user_loginas',
+        tenantId: tenant.id,
+        payload: {
+          actorId: adminId,
+          targetUserId: target.id,
+          targetUsername: target.username,
+          tenantId: tenant.id,
+          tenantSlug: tenant.slug,
+          reason: trimmedReason,
+          ip: client?.ip ?? null,
+          userAgent: client?.userAgent ?? null,
+          at: new Date().toISOString(),
+        },
+      })
+      .catch((err) => this.logger.warn(`login-as audit not recorded: ${String(err)}`));
+    return { user: target, tokens, tenantId: tenant.id };
   }
 
   // --- web sessions -----------------------------------------------------------

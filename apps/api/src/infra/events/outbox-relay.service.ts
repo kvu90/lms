@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { outboxEvents } from '../../db/schema';
+import { tenantAls } from '../../modules/tenants/tenant-als';
 import { EventLogWriter } from './event-log-writer.service';
 
 /**
@@ -23,7 +24,17 @@ export class OutboxRelayService {
     private readonly eventLog: EventLogWriter,
   ) {}
 
+  /**
+   * TENANT-1 (#196): relay quét outbox XUYÊN tenant — chạy trong ngữ
+   * cảnh platform tường minh để RLS fail-closed không làm mù các sự
+   * kiện mang tenant_id (pool gắn GUC theo ALS ở mọi checkout). Các
+   * handler nghe EventEmitter trong nhịp này cũng thừa hưởng ngữ cảnh.
+   */
   async publishPending(limit = 50): Promise<number> {
+    return tenantAls.run({ platform: true }, () => this.publishPendingInContext(limit));
+  }
+
+  private async publishPendingInContext(limit: number): Promise<number> {
     const pending = await this.db
       .select()
       .from(outboxEvents)

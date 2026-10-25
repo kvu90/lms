@@ -4,8 +4,9 @@ import type { Job } from 'bullmq';
 import { and, eq, gt, lt, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { enrol, outboxEvents, userEnrolments } from '@lms/db-schema';
+import { course, enrol, outboxEvents, userEnrolments } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -42,8 +43,30 @@ export class EnrolExpiryProcessor extends WorkerHost {
    * được ghi vào task_log qua TaskLogService.
    */
   async process(_job: Job): Promise<EnrolExpiryResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(_job));
+  }
+
+  private async processInContext(_job: Job): Promise<EnrolExpiryResult> {
     void _job;
     return this.taskLog.run('enrol-expiry', () => this.sweep(), (r) => `suspended ${r.suspendedIds.length} enrolment(s), warned ${r.warnedIds.length}`);
+  }
+
+  /** Tenant của khoá học (TENANT-1, #196). */
+  private async tenantIdOfCourse(courseId: string): Promise<string | null> {
+    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course)
+      .where(eq(course.id, courseId));
+    return row?.tenantId ?? null;
+  }
+
+  /** Tenant của khoá chứa một instance ghi danh. */
+  private async tenantIdOfEnrol(enrolId: string): Promise<string | null> {
+    const [instance] = await this.db.select({ courseId: enrol.courseId }).from(enrol)
+      .where(eq(enrol.id, enrolId));
+    if (!instance) return null;
+    return this.tenantIdOfCourse(instance.courseId);
   }
 
   private async sweep(): Promise<EnrolExpiryResult> {
@@ -52,11 +75,13 @@ export class EnrolExpiryProcessor extends WorkerHost {
       .where(and(eq(userEnrolments.status, 0), lt(userEnrolments.timeEnd, now)));
     const suspendedIds: string[] = [];
     for (const ue of expired) {
+      // TENANT-1 (#196): sự kiện mang tenant của khoá chứa instance ghi danh.
+      const tenantId = await this.tenantIdOfEnrol(ue.enrolId);
       await this.db.transaction(async (tx) => {
         await tx.update(userEnrolments).set({ status: 1, updatedAt: now }).where(eq(userEnrolments.id, ue.id));
         await tx.insert(outboxEvents).values({
-          aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { userId: ue.userId, enrolmentId: ue.id, enrolId: ue.enrolId, reason: 'expired' },
+          aggregate: 'enrol', type: 'user_enrolment_suspended', tenantId,
+          payload: { userId: ue.userId, enrolmentId: ue.id, enrolId: ue.enrolId, reason: 'expired', tenantId },
         });
       });
       suspendedIds.push(ue.id);
@@ -93,10 +118,11 @@ export class EnrolExpiryProcessor extends WorkerHost {
       const [instance] = await this.db.select({ courseId: enrol.courseId }).from(enrol)
         .where(eq(enrol.id, ue.enrolId));
       if (!instance) continue;
+      const tenantId = await this.tenantIdOfCourse(instance.courseId);
       await this.db.insert(outboxEvents).values({
-        aggregate: 'enrol', type: 'enrol_expiry_warning',
+        aggregate: 'enrol', type: 'enrol_expiry_warning', tenantId,
         payload: {
-          userId: ue.userId, enrolmentId: ue.id, enrolId: ue.enrolId,
+          userId: ue.userId, enrolmentId: ue.id, enrolId: ue.enrolId, tenantId,
           courseId: instance.courseId, timeEnd: ue.timeEnd.toISOString(),
         },
       });

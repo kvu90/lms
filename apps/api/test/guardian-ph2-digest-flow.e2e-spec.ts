@@ -152,15 +152,29 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     expect(row.notification_id).toBe(notif.id);
 
     // Audit: sự kiện guardian_digest_sent mang số đếm, không điểm.
-    const audit = await pg.query(
+    // Service chốt trạng thái digest TRƯỚC rồi mới ghi audit ở một
+    // ghi riêng — chờ sự kiện xuất hiện thay vì khẳng định tức thì
+    // (đua thời gian đã gặp ở lượt targeted TENANT-1 #196).
+    let audit = await pg.query(
       `select payload::text as text from outbox_events where type = 'guardian_digest_sent' and payload->>'digestId' = $1`, [digestId]);
+    const auditDeadline = Date.now() + 10_000;
+    while (audit.rows.length === 0 && Date.now() < auditDeadline) {
+      await new Promise((r) => setTimeout(r, 300));
+      audit = await pg.query(
+        `select payload::text as text from outbox_events where type = 'guardian_digest_sent' and payload->>'digestId' = $1`, [digestId]);
+    }
     expect(audit.rows).toHaveLength(1);
     expect((audit.rows[0] as { text: string }).text).not.toContain('7.25');
 
     // Kênh email (port log): job dispatch mang bản tối thiểu hoá —
     // hoặc job còn trong Redis (chưa worker nào xử lý), hoặc worker đã
     // ghi dispatch log; cả hai đều chỉ được chứa subject tối thiểu hoá.
-    const jobId = `dispatch-guardian_digest-${guardian.id}-email-${notif.id}`;
+    // TENANT-1 (#196): dedupe_key/jobId mang tiền tố tenant của
+    // notification (tenant của liên kết giám hộ).
+    const notifRow = await pg.query(`select tenant_id from notifications where id = $1`, [notif.id]);
+    const notifTenant = (notifRow.rows[0] as { tenant_id: string | null }).tenant_id;
+    expect(notifTenant).toBeTruthy();
+    const jobId = `${notifTenant}-dispatch-guardian_digest-${guardian.id}-email-${notif.id}`;
     const jobData = await redis.hget(`bull:notification-dispatch:${jobId}`, 'data');
     if (jobData) {
       expect(jobData).toContain('Thông tin mới về việc học của con');
@@ -246,13 +260,20 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     const { user: guardian, token: guardianToken } = await freshGuardian();
     const linkId = await link(teacher, guardian.id, student.id);
 
+    // Thu hồi TRƯỚC khi chốt sự kiện: lượt digest này mô phỏng vết đã
+    // chốt lúc liên kết còn hiệu lực (worker quét trước, thu hồi xảy
+    // ra sau) — chốt sự kiện trước rồi mới thu hồi sẽ đua với nhịp
+    // quét 500ms của consumer (xử lý lúc liên kết còn active và cửa
+    // sổ rỗng thì skipped_empty là đúng nghiệp vụ, ca mất tính xác
+    // định — chẩn đoán TENANT-1 #196 trên CI của head a2d43be).
+    const revoke = await http(app).delete(`/api/v1/guardian-links/${linkId}`).set('Authorization', `Bearer ${teacher}`);
+    expect(revoke.status).toBe(200);
+
     const now = Date.now();
     const digestId = await queueDigestEvent({
       guardianId: guardian.id, studentId: student.id, kind: 'weekly',
       windowStart: new Date(now - 7 * 86_400_000), windowEnd: new Date(now + 86_400_000),
     });
-    const revoke = await http(app).delete(`/api/v1/guardian-links/${linkId}`).set('Authorization', `Bearer ${teacher}`);
-    expect(revoke.status).toBe(200);
 
     const row = await waitDigestStatus(digestId);
     expect(row.status).toBe('skipped_revoked');
@@ -291,7 +312,11 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     // tiêu đề in-app, tuyệt đối không ra kênh ngoài (cùng luật tối
     // thiểu hoá như digest). Hoặc job còn trong Redis, hoặc worker đã
     // ghi dispatch log; cả hai đều chỉ được chứa bản tối thiểu hoá.
-    const jobId = `dispatch-guardian_overdue_alert-${guardian.id}-email-${notif.id}`;
+    // TENANT-1 (#196): dedupe_key/jobId mang tiền tố tenant như digest.
+    const notifRow2 = await pg.query(`select tenant_id from notifications where id = $1`, [notif.id]);
+    const notifTenant2 = (notifRow2.rows[0] as { tenant_id: string | null }).tenant_id;
+    expect(notifTenant2).toBeTruthy();
+    const jobId = `${notifTenant2}-dispatch-guardian_overdue_alert-${guardian.id}-email-${notif.id}`;
     const jobData = await redis.hget(`bull:notification-dispatch:${jobId}`, 'data');
     if (jobData) {
       expect(jobData).toContain('Có việc quá hạn 7 ngày chưa nộp');

@@ -143,16 +143,24 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
 
   it('login-as: an admin with user:loginas can act as another user; a normal user cannot', async () => {
     const target = await createUserViaApi(app, admin);
-    const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id });
+    const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id, reason: 'Hỗ trợ kỹ thuật (spec)' });
     expect(as.status).toBe(201);
     expect(as.body.loginAs.byUserId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${as.body.accessToken}`);
     expect(me.body.id).toBe(target.id);
     const plain = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, plain.username, STRONG_PASSWORD);
-    const denied = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${accessToken}`).send({ userId: target.id });
+    const denied = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${accessToken}`).send({ userId: target.id, reason: 'thử' });
     expect(denied.status).toBe(403);
     expect(denied.body.code).toBe('access.capability_denied');
+  });
+
+  it('login-as: thiếu lý do bị chặn (TENANT-1 #196 — platform vào tenant phải có lý do + audit)', async () => {
+    const target = await createUserViaApi(app, admin);
+    const noReason = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id });
+    expect(noReason.status).toBe(400);
+    const blankReason = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id, reason: '   ' });
+    expect(blankReason.status).toBe(400);
   });
 
   it('authentication alone grants no admin capability (auth ≠ role assignment)', async () => {

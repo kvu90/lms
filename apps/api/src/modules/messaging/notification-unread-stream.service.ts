@@ -4,6 +4,7 @@ import Redis from 'ioredis';
 import { Observable, Subject } from 'rxjs';
 import { redisTlsFromUrl } from '../../config/env';
 import { MessagingRepository } from './messaging.repository';
+import { tenantAls } from '../tenants/tenant-als';
 
 /**
  * Kênh Redis pub/sub mang tín hiệu "số thông báo chưa đọc của một user
@@ -117,7 +118,16 @@ export class NotificationUnreadStreamService implements OnModuleInit, OnModuleDe
     const subjects = this.streamsByUser.get(userId);
     if (!subjects || subjects.size === 0) return;
     try {
-      const unread = await this.repo.countUnreadNotifications(userId);
+      // TENANT-1 (#196): callback pub/sub chạy NGOÀI mọi ngữ cảnh
+      // request — đếm trong ngữ cảnh tenant mặc định của chính user
+      // (theo membership) để RLS fail-closed không trả 0 giả; không
+      // phân giải được tenant thì rơi về ngữ cảnh platform (đếm theo
+      // userId vẫn đúng phạm vi một người).
+      const tenantId = await this.repo.getUserDefaultTenantId(userId).catch(() => null);
+      const unread = await tenantAls.run(
+        tenantId ? { tenantId } : { platform: true },
+        () => this.repo.countUnreadNotifications(userId),
+      );
       for (const subject of subjects) {
         if (!subject.closed) subject.next({ type: 'unread-count', data: { unread } });
       }

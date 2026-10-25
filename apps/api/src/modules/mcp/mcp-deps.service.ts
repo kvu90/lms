@@ -5,6 +5,7 @@ import { BETTER_AUTH_BASE_PATH } from '../auth/better-auth/better-auth.instance'
 import { BetterAuthService } from '../auth/better-auth/better-auth.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
 import { McpBridgeAuth } from './mcp-bridge-auth';
@@ -44,6 +45,7 @@ export class McpDepsService {
     private readonly idempotency: McpIdempotencyRepository,
     private readonly outbox: OutboxService,
     private readonly betterAuth: BetterAuthService,
+    private readonly tenants: TenantsService,
   ) {}
 
   /** Dựng deps của mount từ các provider đã inject (gọi trong main.ts sau NestFactory.create, như mountBetterAuth). */
@@ -81,7 +83,10 @@ export class McpDepsService {
         resolveActor: async (userId: string) => {
           const user = await this.users.getByIdOrUndefined(userId);
           if (!user || user.deleted || user.suspended) return null;
-          return { username: user.username };
+          // TENANT-1 (#196): tenant của phiên OAuth = tenant mặc định
+          // của user theo membership (khi token AS không mang `tid`).
+          const tenant = await this.tenants.resolveDefaultTenant(userId).catch(() => null);
+          return { username: user.username, tenantId: tenant?.id ?? null };
         },
         toolDeps: {
           questions: this.questions,

@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { notificationDispatchLog, notifications } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -57,6 +58,13 @@ export class NotificationRetentionProcessor extends WorkerHost {
    * đúng ngày biên (90/180) vẫn được giữ, sang ngày 91/181 mới bị xoá.
    */
   async sweep(now: Date): Promise<NotificationRetentionResult> {
+    // TENANT-1 (#196): retention quét/xoá xuyên tenant — bọc ngữ cảnh
+    // platform tường minh như mọi processor nền khác, nếu không RLS
+    // fail-closed sẽ làm lượt quét mù dữ liệu tenant (xoá thiếu lặng).
+    return tenantAls.run({ platform: true }, () => this.sweepInContext(now));
+  }
+
+  private async sweepInContext(now: Date): Promise<NotificationRetentionResult> {
     const readCutoff = new Date(now.getTime() - NOTIFICATION_READ_RETENTION_DAYS * DAY_MS);
     const unreadCutoff = new Date(now.getTime() - NOTIFICATION_UNREAD_RETENTION_DAYS * DAY_MS);
     const dispatchCutoff = new Date(now.getTime() - DISPATCH_LOG_RETENTION_DAYS * DAY_MS);
