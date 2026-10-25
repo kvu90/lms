@@ -86,6 +86,22 @@ export const envSchema = z.object({
   // Files
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
   FILE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  // Driver vật lý của module Files: 'local' (mặc định — ổ đĩa
+  // FILE_STORAGE_DIR, hành vi hiện tại không đổi) hoặc 's3' — AWS S3 /
+  // endpoint tương thích S3 (R2/B2/MinIO) qua FILE_STORAGE_S3_ENDPOINT.
+  // Toàn bộ cấu hình S3 CHỈ qua env, tuyệt đối không ghi khoá vào
+  // code/commit; thiếu biến bắt buộc khi driver=s3 thì adapter
+  // fail-fast lúc khởi tạo (chỉ nêu tên biến, không giá trị).
+  FILE_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  FILE_STORAGE_S3_ENDPOINT: z.string().min(1).optional(),
+  FILE_STORAGE_S3_REGION: z.string().min(1).default('us-east-1'),
+  FILE_STORAGE_S3_BUCKET: z.string().min(1).optional(),
+  FILE_STORAGE_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  FILE_STORAGE_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  FILE_STORAGE_S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   // Better Auth (issue #7): nền authn mới dựng song song sau cờ này, mặc
   // định TẮT — chừng nào cờ tắt, instance không được dựng, handler không
   // mount, guard bỏ qua hoàn toàn và hành vi auth hiện tại không đổi một

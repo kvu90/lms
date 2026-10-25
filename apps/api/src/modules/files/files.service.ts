@@ -113,15 +113,16 @@ export class FilesService {
     await this.evaluator.requireCapability(actor.id, 'files:upload', contextId, { isGuest: actor.username === 'guest' });
   }
 
-  /** Capability-checked signed URL issuance: the check happens HERE (server), the signature only transports the result briefly. */
+  /** Capability-checked signed URL issuance: the check happens HERE (server), the signature only transports the result briefly.
+   * Issuance itself is delegated to FileSigningService, which returns a presigned S3 URL when the
+   * storage adapter supports it (driver=s3) and the HMAC API URL otherwise (driver=local, unchanged). */
   /**
-   * Tạo URL tải có ký + hạn dùng.
+   * Tạo URL tải có ký + hạn dùng (presigned khi driver S3, HMAC khi local).
    */
   async createSignedUrl(fileId: string, userId: string, isGuest = false): Promise<{ url: string; expiresAt: number }> {
     const file = await this.getFile(fileId);
     await this.evaluator.requireCapability(userId, 'files:view', file.contextId, { isGuest });
-    const { token, expiresAt } = this.signing.sign(fileId);
-    return { url: `/api/v1/files/${fileId}/download?sig=${encodeURIComponent(token)}`, expiresAt };
+    return this.signing.createDownloadTarget(file);
   }
   /**
    * Kiểm chữ ký URL (ủy quyền cho FileSigningService).
