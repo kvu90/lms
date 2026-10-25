@@ -157,6 +157,10 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'notes:manage', capType: 'write', contextLevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW } },
   // Platform Services
   { name: 'search:use', capType: 'read', contextLevel: 10, component: 'core_search', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  // Vá H2+H5 (sổ rà soát gác quyền #134): ghi/xoá/reindex chỉ mục tìm kiếm là
+  // thao tác bảo trì toàn hệ (index-raw cho phép chèn tài liệu tuỳ ý) — chỉ
+  // quản trị hệ thống tại system context mới được gọi các route ghi của search.
+  { name: 'search:manage', capType: 'write', contextLevel: 10, component: 'core_search', archetypes: { manager: CAP_ALLOW } },
   { name: 'webservice:manage', capType: 'write', contextLevel: 10, component: 'core_webservice', archetypes: { manager: CAP_ALLOW } },
   { name: 'webservice:createtoken', capType: 'write', contextLevel: 10, component: 'core_webservice', archetypes: { manager: CAP_ALLOW } },
   { name: 'backup:backupcourse', capType: 'write', contextLevel: 50, component: 'core_backup', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
