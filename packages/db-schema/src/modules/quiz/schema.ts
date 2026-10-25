@@ -323,7 +323,7 @@ export const examPinFeedbacks = pgTable('exam_pin_feedbacks', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_pin_feedbacks_quiz_idx').on(table.pinId),
+      index('exam_pin_feedbacks_pin_idx').on(table.pinId),
       check('exam_pin_feedbacks_range_check', sql`${table.minPercent} >= 0 and ${table.maxPercent} <= 100 and ${table.minPercent} < ${table.maxPercent}`),
   ]);
 

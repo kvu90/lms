@@ -2084,9 +2084,9 @@ export class QuizService {
       resolvedSlots.push({ quizSlot: s, questionId: s.questionId });
     }
 
-    // Moodle dùng MỘT dãy số lượt cho mỗi (quiz, user) — preview chỉ là
+    // Moodle dùng MỘT dãy số lượt cho mỗi (bài, user) — preview chỉ là
     // cờ trên lượt, không phải dãy riêng: ràng buộc duy nhất của
-    // quiz_attempts là (quiz_id, user_id, attempt_number) không phân
+    // exam_attempts là (pin_id, user_id, attempt_number) không phân
     // biệt preview, đánh số riêng theo cờ sẽ va chạm khi một người vừa
     // preview vừa làm thật.
     const attemptNumber = existing.length + 1;

@@ -41,7 +41,7 @@ export const examBatches = pgTable('exam_batches', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_batches_quiz_idx').on(table.examPinId),
+      index('exam_batches_pin_idx').on(table.examPinId),
       unique('exam_batches_quiz_variant_unique').on(table.examPinId, table.variantCode),
       unique('exam_batches_quiz_exam_code_unique').on(table.examPinId, table.examCode),
       check('exam_batches_code_digits_check', sql`${table.codeDigits} in (4, 8)`),
@@ -93,7 +93,7 @@ export const examScans = pgTable('exam_scans', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_scans_quiz_idx').on(table.examPinId),
+      index('exam_scans_pin_idx').on(table.examPinId),
       index('exam_scans_batch_idx').on(table.batchId),
       index('exam_scans_status_idx').on(table.examPinId, table.status),
       index('exam_scans_student_idx').on(table.studentId),
