@@ -685,24 +685,38 @@ export class ClassesService implements OnModuleInit {
    * context lớp này. Chủ lớp giữ vai editingteacher cố định, không sửa
    * qua đường này.
    */
-  async setStaffRoles(actorId: string, classId: string, input: { userId: string; roles: ClassStaffRole[] }): Promise<ClassStaffView> {
+  async setStaffRoles(actorId: string, classId: string, input: { userId?: string; email?: string; roles: ClassStaffRole[] }): Promise<ClassStaffView> {
     const row = await this.getClassRow(classId);
     const ctxId = await this.classContextId(classId);
     await this.evaluator.requireCapability(actorId, 'class:share', ctxId);
-    if (input.userId === row.ownerId) {
+    // Định danh đồng GV: userId hoặc email của tài khoản CÓ SẴN (đường
+    // phân quyền không tự tạo tài khoản — tạo tài khoản là việc của
+    // quản trị/roster, tránh cấp quyền cho một tài khoản vừa sinh nhầm).
+    let targetId = input.userId;
+    if (!targetId && input.email) {
+      const byEmail = await this.users.getByEmail(input.email.trim().toLowerCase());
+      if (!byEmail) {
+        throw new NotFoundException({ message: `No account with email ${input.email}`, code: 'class.staff_user_not_found' });
+      }
+      targetId = byEmail.id;
+    }
+    if (!targetId) {
+      throw new BadRequestException({ message: 'A staff member must be identified by userId or email', code: 'class.staff_identity_missing' });
+    }
+    if (targetId === row.ownerId) {
       throw new BadRequestException({ message: 'The class owner keeps the owner role; transfer ownership instead of editing class roles', code: 'class.owner_roles_locked' });
     }
     await this.ensureClassRoles();
-    await this.users.getUser(input.userId);
-    await this.tenants.ensureActiveMembership(row.tenantId, input.userId);
+    await this.users.getUser(targetId);
+    await this.tenants.ensureActiveMembership(row.tenantId, targetId);
     type AssignmentRow = { id: string; userId: string; roleId: string; component: string };
-    const assignments = (await this.roles.listAssignments({ contextId: ctxId, userId: input.userId })) as unknown as AssignmentRow[];
+    const assignments = (await this.roles.listAssignments({ contextId: ctxId, userId: targetId })) as unknown as AssignmentRow[];
     for (const shortName of ['classassigner', 'classgrader', 'classrostermanager'] as const) {
       const role = await this.roles.getRoleByShortname(shortName);
       if (!role) continue;
       const existing = assignments.find((a) => a.roleId === role.id && a.component === '');
       const wanted = input.roles.includes(shortName);
-      if (wanted && !existing) await this.roles.assignRole(input.userId, role.id, ctxId, actorId);
+      if (wanted && !existing) await this.roles.assignRole(targetId, role.id, ctxId, actorId);
       if (!wanted && existing) await this.roles.unassignRole(existing.id, actorId);
     }
     return this.listStaff(actorId, classId);

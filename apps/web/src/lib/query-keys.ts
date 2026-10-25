@@ -79,6 +79,22 @@ export const queryKeys = {
   courseCards: ['dashboard', 'course-cards'] as const,
   /** Các con đang liên kết giám hộ với chính người dùng (GET /guardian-links/mine/students) — PH-1. */
   guardianMyStudents: ['guardian', 'my-students'] as const,
+  /** Danh sách lớp mà người gọi có liên hệ (GET /classes) — CLASS-1, issue #184. */
+  classes: ['classes'] as const,
+  /** Gốc khoá lớp — tiền tố làm mới mọi truy vấn của một lớp sau đột biến. */
+  classRoot: (classId: string) => ['classes', classId] as const,
+  /** Chi tiết một lớp (GET /classes/:id). */
+  classDetail: (classId: string) => ['classes', classId, 'detail'] as const,
+  /** Roster của lớp (GET /classes/:id/roster). */
+  classRoster: (classId: string) => ['classes', classId, 'roster'] as const,
+  /** Học sinh đã đình chỉ của lớp (GET /classes/:id/roster/suspended). */
+  classSuspended: (classId: string) => ['classes', classId, 'suspended'] as const,
+  /** Khoá học trong lớp (GET /classes/:id/courses). */
+  classCourses: (classId: string) => ['classes', classId, 'courses'] as const,
+  /** Phân quyền tại lớp (GET /classes/:id/staff). */
+  classStaff: (classId: string) => ['classes', classId, 'staff'] as const,
+  /** Hàng chờ duyệt tự báo danh (GET /classes/:id/join-requests). */
+  classJoinRequests: (classId: string) => ['classes', classId, 'join-requests'] as const,
   /** Tổng quan phụ huynh cho một con (GET /guardian/students/:id/overview) — PH-1. */
   guardianOverview: (studentId: string) => ['guardian', 'overview', studentId] as const,
   /** Kết quả đã công bố của một con (GET /guardian/students/:id/results) — PH-1. */

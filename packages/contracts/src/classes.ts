@@ -172,9 +172,10 @@ export const classStaffViewSchema = z.object({
 });
 export type ClassStaffView = z.infer<typeof classStaffViewSchema>;
 
-/** Đặt lại bộ vai lớp của một đồng GV (mảng rỗng = thu hồi cả 3 vai). Chỉ người có `class:share` mới gọi được; chủ lớp không bị sửa qua đường này. */
+/** Đặt lại bộ vai lớp của một đồng GV (mảng rỗng = thu hồi cả 3 vai). Chỉ người có `class:share` mới gọi được; chủ lớp không bị sửa qua đường này. Đồng GV được định danh bằng userId hoặc bằng EMAIL tài khoản (GV không biết userId của đồng nghiệp). */
 export const setClassStaffRolesSchema = z.strictObject({
-  userId: uuidIdSchema,
+  userId: uuidIdSchema.optional(),
+  email: z.string().min(3).max(200).optional(),
   roles: z.array(classStaffRoleSchema).max(3),
 });
 export type SetClassStaffRoles = z.infer<typeof setClassStaffRolesSchema>;
