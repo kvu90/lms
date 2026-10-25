@@ -318,3 +318,108 @@ describe('Question bank page — role gate (issue #55)', () => {
     expect(calls.some((c) => c.url.startsWith('/api/v1/stimuli'))).toBe(false);
   });
 });
+
+/**
+ * Parity admin ↔ giáo viên trên bề mặt ngân hàng (việc nối tiếp feat
+ * #70, đính chính 25/10/2026): admin có khu riêng ĐÚNG NHƯ giáo viên —
+ * trang /questions render đủ ba collapse (Ngân hàng riêng của tôi /
+ * Ma trận của tôi / Ngân hàng hệ thống) và nút Thêm mới trong khu
+ * riêng dùng được (không disabled oan) cho CẢ admin (isSiteAdmin) lẫn
+ * giáo viên (capability qua context, không phải site admin).
+ */
+describe('Question bank page — admin parity (issue #70)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const PERSONAL_BANK_ID = '01900000-0000-7000-8000-0000000000b1';
+  const SCHOOL_BANK_ID = '01900000-0000-7000-8000-0000000000b2';
+  const PERSONAL_MATRIX_BANK_ID = '01900000-0000-7000-8000-0000000000b3';
+  const SCHOOL_MATRIX_BANK_ID = '01900000-0000-7000-8000-0000000000b4';
+  const CAPS = {
+    use: true, add: true, edit: true, manageCategory: true, copy: true, share: true, moderate: true,
+    matrixView: true, matrixManage: true, matrixCopy: true, matrixShare: true, matrixModerate: true,
+  };
+  const bankRow = (id: string, scope: string, kind: string) => ({
+    id, name: scope === 'personal' ? 'Ngân hàng của tôi' : 'Ngân hàng trường', scope, bankKind: kind,
+    ownerId: scope === 'personal' ? PROFILE.id : null, scopeRefId: null, contextId: SYSTEM_CTX_ID,
+    status: 'active', createdBy: PROFILE.id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    capabilities: CAPS, defaultCategoryId: kind === 'question' ? CATEGORY_ID : null,
+    categoryIds: kind === 'question' ? [CATEGORY_ID] : [],
+  });
+
+  function stubBankFetch(username: string, capabilitiesBody: unknown) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username });
+        if (url === '/api/v1/users/me/capabilities') return respond(capabilitiesBody);
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond([]);
+        if (url === '/api/v1/question-banks')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'question'), bankRow(SCHOOL_BANK_ID, 'school', 'question')]);
+        if (url === '/api/v1/question-banks?kind=matrix')
+          return respond([
+            bankRow(PERSONAL_MATRIX_BANK_ID, 'personal', 'matrix'),
+            bankRow(SCHOOL_MATRIX_BANK_ID, 'school', 'matrix'),
+          ]);
+        if (url === `/api/v1/question-banks/${PERSONAL_MATRIX_BANK_ID}/matrices`) return respond([]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  async function expectFullBankSurface() {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    // Đủ ba collapse như nhau cho mọi vai đủ quyền.
+    expect(await screen.findByText('Ngân hàng riêng của tôi')).toBeInTheDocument();
+    expect(await screen.findByText('Ma trận của tôi')).toBeInTheDocument();
+    expect(await screen.findByText('Ngân hàng hệ thống')).toBeInTheDocument();
+    // Mở collapse riêng: nút Thêm mới phải dùng được (bank cá nhân có
+    // category mặc định) — không disabled oan theo vai.
+    await userEvent.click(screen.getByRole('button', { name: /Ngân hàng riêng của tôi/ }));
+    const addButtons = await screen.findAllByRole('button', { name: 'Thêm mới' });
+    expect(addButtons.length).toBeGreaterThanOrEqual(1);
+    for (const b of addButtons) expect(b).not.toBeDisabled();
+    // Mở collapse ma trận riêng: Thêm mới cũng phải dùng được.
+    await userEvent.click(screen.getByRole('button', { name: /Ma trận của tôi/ }));
+    const allAdd = await screen.findAllByRole('button', { name: 'Thêm mới' });
+    expect(allAdd.length).toBeGreaterThanOrEqual(2);
+    for (const b of allAdd) expect(b).not.toBeDisabled();
+  }
+
+  it('site admin sees and can use the personal bank area exactly like a teacher', async () => {
+    stubBankFetch('admin', { userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+    await expectFullBankSurface();
+  });
+
+  it('teacher (capabilities via context, not site admin) sees the identical surface', async () => {
+    stubBankFetch('teacher1', {
+      userId: PROFILE.id,
+      isSiteAdmin: false,
+      assignments: [],
+      contexts: [
+        {
+          contextId: SYSTEM_CTX_ID, contextLevel: 10, contextPath: '/1',
+          capabilities: ['question:useall', 'question:add', 'question:editall', 'question:managecategory'],
+        },
+      ],
+    });
+    await expectFullBankSurface();
+  });
+});
