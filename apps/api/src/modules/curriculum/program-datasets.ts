@@ -198,18 +198,20 @@ export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
 
 /**
  * Khoá so sánh toàn vẹn giữa các dòng YCCĐ đã trích và `outcome_text`
- * nguyên văn: tách theo khoảng trắng, bỏ các token CHỈ gồm ký tự gạch
- * đầu dòng/dấu phân đoạn (`–`, `−`, `-`, `+`, `•` đứng một mình — các
- * ký tự này là dấu trình bày của văn bản gốc, không phải nội dung;
- * gạch nằm trong một token có chữ, vd `cao – thấp` ở hai phía đều bị
- * xử lý như nhau nên phép so vẫn chặt về mặt chữ), nối lại bằng một
- * khoảng trắng. Hai phía áp cùng một hàm nên phép so chỉ lệch khi chữ
- * thật lệch.
+ * nguyên văn: tách theo khoảng trắng; bỏ các token CHỈ gồm ký tự gạch
+ * đầu dòng/dấu phân đoạn (`–`, `−`, `-`, `+`, `•` đứng một mình) và
+ * tước một ký tự đánh dấu dính ở đầu token có chữ (extraction có chỗ
+ * viết `–Trình bày` thiếu khoảng trắng) — các ký tự này là dấu trình
+ * bày của văn bản gốc, không phải nội dung; gạch nằm giữa một token
+ * có chữ, vd `cao – thấp` ở hai phía đều bị xử lý như nhau nên phép
+ * so vẫn chặt về mặt chữ. Nối lại bằng một khoảng trắng. Hai phía áp
+ * cùng một hàm nên phép so chỉ lệch khi chữ thật lệch.
  */
 export function programOutcomeComparisonKey(text: string): string {
   return text
     .split(/\s+/)
     .filter((token) => token !== '' && !/^[–−+•-]$/.test(token))
+    .map((token) => (/^[–−•+]/.test(token) ? token.slice(1) : token))
     .join(' ');
 }
 

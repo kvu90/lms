@@ -171,6 +171,14 @@ describe('assertProgramRecordOutcomeIntegrity — cổng toàn vẹn khi nạp',
     expect(() => assertProgramRecordOutcomeIntegrity('mau', rec)).not.toThrow();
   });
 
+  it('outcome_text viết dấu gạch dính vào chữ (thiếu khoảng trắng): vẫn khớp, không lỗi', () => {
+    const rec = record({
+      outcomes: [simpleDoc('Kể được một câu chuyện.'), simpleDoc('Trình bày được ý kiến.')],
+      outcome_text: '– Kể được một câu chuyện. –Trình bày được ý kiến.',
+    });
+    expect(() => assertProgramRecordOutcomeIntegrity('mau', rec)).not.toThrow();
+  });
+
   it('doc bị rơi chữ so với outcome_text: ném lỗi nêu dataset + bản ghi', () => {
     const rec = record({
       id: 'XX-0007',
