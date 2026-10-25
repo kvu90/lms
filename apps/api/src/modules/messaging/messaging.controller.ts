@@ -173,6 +173,7 @@ export class MessagingController {
   @Get('preferences')
   /**
    * GET /messages/preferences — tuỳ chọn thông báo v2 của tôi (một dòng mỗi provider, kèm nhãn/mô tả từ registry).
+   * Học sinh (NB-7) chỉ nhận phần tối thiểu: danh sách rỗng — bề mặt của họ là ghi đè theo khoá ở dưới.
    */
   async preferences(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getPreferences(actor.id);
@@ -180,6 +181,7 @@ export class MessagingController {
   @Put('preferences')
   /**
    * PUT /messages/preferences — đặt tuỳ chọn v2 cho một provider (popup và/hoặc tần suất email).
+   * Chỉ giáo viên/nhân sự: học sinh nhận 403 `messaging.preference_staff_only` ngay ở server (NB-7).
    */
   async setPreference(@Body({ schema: setNotificationPreferenceSchema }) dto: SetPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setPreference(actor.id, dto);

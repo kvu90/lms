@@ -111,6 +111,46 @@ describe('Admin site config page', () => {
     expect(put?.body).toEqual({ value: true });
   });
 
+  it('renders the notifications policy section with provider labels and a locked mandatory type (NB-7)', async () => {
+    const calls: RecordedCall[] = [];
+    const notifSettings: SiteSetting[] = [
+      {
+        component: 'notifications', name: 'provider_grade_updated_enabled', type: 'boolean',
+        defaultValue: true, value: true, source: 'default', scope: 'platform',
+      },
+      {
+        component: 'notifications', name: 'provider_enrol_expiry_warning_enabled', type: 'boolean',
+        defaultValue: true, value: true, source: 'default', scope: 'platform',
+      },
+    ];
+    stubFetch(calls, notifSettings);
+    renderPage();
+
+    // Mục riêng "Thông báo" với nhãn loại tử tế thay cho tên khoá thô.
+    expect(await screen.findByRole('heading', { name: 'Thông báo' })).toBeInTheDocument();
+    expect(screen.getByText('Điểm số thay đổi')).toBeInTheDocument();
+    expect(screen.getByText('Sắp hết hạn ghi danh')).toBeInTheDocument();
+    // Loại bắt buộc P2: ghi chú rõ và công tắc bị khoá.
+    expect(screen.getByText('Loại bắt buộc — không tắt được')).toBeInTheDocument();
+    const mandatoryBox = screen.getByRole('checkbox', { name: 'Giá trị của notifications/provider_enrol_expiry_warning_enabled' });
+    // Checkbox của bộ UI (Base UI) thể hiện khoá bằng aria-disabled + data-disabled, không phải thuộc tính disabled gốc.
+    expect(mandatoryBox).toHaveAttribute('aria-disabled', 'true');
+    expect(mandatoryBox).toHaveAttribute('data-disabled');
+    expect(mandatoryBox).toHaveAttribute('aria-checked', 'true');
+
+    // Loại thường: tắt được, Lưu gửi PUT { value: false } tới đúng URL chính sách.
+    const box = screen.getByRole('checkbox', { name: 'Giá trị của notifications/provider_grade_updated_enabled' });
+    expect(box).not.toBeDisabled();
+    await userEvent.click(box);
+    const row = box.closest('li');
+    const saveByText = [...row!.querySelectorAll('button')].find((b) => b.textContent === 'Lưu');
+    await userEvent.click(saveByText!);
+    await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true));
+    const put = calls.find((c) => c.method === 'PUT');
+    expect(put?.url).toBe('/api/v1/site-config/notifications/provider_grade_updated_enabled');
+    expect(put?.body).toEqual({ value: false });
+  });
+
   it('resets an overridden setting via DELETE to the exact setting URL', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);

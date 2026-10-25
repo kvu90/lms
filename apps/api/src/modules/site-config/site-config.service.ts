@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
+import {
+  MESSAGE_PROVIDERS,
+  NOTIFICATION_POLICY_COMPONENT,
+  notificationPolicySettingName,
+} from '../messaging/notification-providers';
 import { SiteConfigRepository } from './site-config.repository';
 import {
   SITE_SETTINGS,
@@ -105,6 +110,20 @@ export class SiteConfigService {
         message: `Invalid value for ${component}/${name}: ${problem}`,
         code: 'site_config.invalid_value',
       });
+    }
+    // Chính sách P2 (issue #174) ở tầng site (NB-7): hai loại thông báo
+    // bắt buộc (mandatoryInApp trong registry provider) thì ADMIN cũng
+    // không tắt được — đặt false cho khoá chính sách của chúng bị từ
+    // chối ngay tại đây để mọi đường ghi (API site-config) đều bị chặn,
+    // không chỉ giao diện admin khoá công tắc.
+    if (def.component === NOTIFICATION_POLICY_COMPONENT && value === false) {
+      const provider = MESSAGE_PROVIDERS.find((p) => notificationPolicySettingName(p.name) === def.name);
+      if (provider?.mandatoryInApp) {
+        throw new BadRequestException({
+          message: `Notification type ${provider.name} is mandatory and cannot be disabled at site level`,
+          code: 'site_config.notification_mandatory',
+        });
+      }
     }
     const before = await this.toView(def);
     await this.repo.storeValue(component, name, value);

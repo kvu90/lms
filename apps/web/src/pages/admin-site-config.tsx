@@ -30,6 +30,30 @@ function settingKey(setting: SiteSetting): string {
   return `${setting.component}/${setting.name}`;
 }
 
+/**
+ * Chính sách thông báo theo loại (NB-7, issue #174): các setting thuộc
+ * component `notifications` mang tên `provider_<tên>_enabled` — sinh ở
+ * API từ registry provider. Trang trình bày chúng thành mục "Thông
+ * báo" riêng với nhãn loại lấy từ i18n (`notifProvider_<tên>`), thay
+ * vì tên khoá thô như các component khác.
+ */
+const NOTIFICATION_POLICY_COMPONENT = 'notifications';
+
+/**
+ * Hai loại bắt buộc (P2) — bản chiếu của `mandatoryInApp` trong
+ * registry ở API: công tắc bị khoá trên giao diện và API cũng từ chối
+ * đặt false (site_config.notification_mandatory); đường khôi phục duy
+ * nhất là Đặt lại về mặc định.
+ */
+const NOTIFICATION_MANDATORY_PROVIDERS = new Set(['enrol_expiry_warning', 'admin_announcement']);
+
+/** Tên provider của một setting chính sách thông báo; null nếu setting không thuộc họ này. */
+function notificationProviderOf(setting: SiteSetting): string | null {
+  if (setting.component !== NOTIFICATION_POLICY_COMPONENT) return null;
+  const match = /^provider_(.+)_enabled$/.exec(setting.name);
+  return match ? match[1]! : null;
+}
+
 /** Đưa một giá trị JSON về dạng hiển thị ngắn cho huy hiệu/audit. */
 function formatValue(value: unknown): string {
   return typeof value === 'string' ? value : (JSON.stringify(value) ?? '');
@@ -150,8 +174,16 @@ export function AdminSiteConfigPage() {
           ) : null}
           {components.map((component) => (
             <div key={component} className="flex flex-col gap-3">
-              <h3 className="font-medium">{component}</h3>
-              <ul className="flex flex-col gap-4" aria-label={component}>
+              <h3 className="font-medium">
+                {component === NOTIFICATION_POLICY_COMPONENT ? t('siteConfigNotificationsTitle') : component}
+              </h3>
+              {component === NOTIFICATION_POLICY_COMPONENT ? (
+                <p className="text-sm text-muted-foreground">{t('siteConfigNotificationsDescription')}</p>
+              ) : null}
+              <ul
+                className="flex flex-col gap-4"
+                aria-label={component === NOTIFICATION_POLICY_COMPONENT ? t('siteConfigNotificationsTitle') : component}
+              >
                 {settings
                   .filter((s) => s.component === component)
                   .map((setting) => {
@@ -159,10 +191,17 @@ export function AdminSiteConfigPage() {
                     const draft = draftOf(setting);
                     const enumOptions = setting.type === 'enum' ? KNOWN_ENUM_OPTIONS[key] : undefined;
                     const inputId = `site-config-${setting.component}-${setting.name}`;
+                    const notifProvider = notificationProviderOf(setting);
+                    const notifMandatory = notifProvider !== null && NOTIFICATION_MANDATORY_PROVIDERS.has(notifProvider);
                     return (
                       <li key={key} className="flex flex-col gap-2 text-sm">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{setting.name}</span>
+                          <span className="font-medium">
+                            {notifProvider !== null ? t(`notifProvider_${notifProvider}`) : setting.name}
+                          </span>
+                          {notifMandatory ? (
+                            <span className="text-xs text-muted-foreground">{t('siteConfigNotificationMandatoryNote')}</span>
+                          ) : null}
                           <Badge variant={setting.source === 'database' ? 'default' : 'secondary'}>
                             {setting.source === 'database'
                               ? t('siteConfigSourceDatabase')
@@ -179,6 +218,7 @@ export function AdminSiteConfigPage() {
                                 id={inputId}
                                 aria-label={t('siteConfigValue', { component: setting.component, name: setting.name })}
                                 checked={draft === true}
+                                disabled={notifMandatory}
                                 onCheckedChange={(checked) =>
                                   setDrafts((prev) => ({ ...prev, [key]: checked === true }))
                                 }
@@ -217,7 +257,7 @@ export function AdminSiteConfigPage() {
                               onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
                             />
                           )}
-                          <Button type="button" onClick={() => save(setting)}>
+                          <Button type="button" onClick={() => save(setting)} disabled={notifMandatory}>
                             {t('siteConfigSave')}
                           </Button>
                           {setting.source === 'database' ? (
