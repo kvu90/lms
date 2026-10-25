@@ -16,7 +16,7 @@ export class PaymentsController {
     return this.payments.createAccount(actor.id, dto);
   }
   @Get('accounts')
-  async listAccounts() { return this.payments.listAccounts(); }
+  async listAccounts(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listAccounts(actor.id); }
   @Post()
   async create(@Body({ schema: createPaymentSchema }) dto: CreatePaymentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createPayment(actor.id, dto);
@@ -28,9 +28,9 @@ export class PaymentsController {
   @Get('me')
   async mine(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listPaymentsForUser(actor.id); }
   @Get(':id')
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.payments.getPayment(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.payments.getPaymentForUser(actor.id, id); }
   @Get(':id/refunds')
-  async refunds(@Param('id', { schema: uuidIdSchema }) id: string) { return this.payments.listRefunds(id); }
+  async refunds(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.payments.listRefundsForUser(actor.id, id); }
   @Post(':id/refund')
   async refund(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.refund(actor.id, id, dto);

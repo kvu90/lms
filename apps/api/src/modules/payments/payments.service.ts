@@ -84,7 +84,11 @@ export class PaymentsService {
     await this.requireManageAccounts(actorId);
     return this.repo.insertAccount({ name: input.name, gateway: input.gateway ?? 'manual' });
   }
-  async listAccounts(): Promise<AccountRow[]> { return this.repo.listAccounts(); }
+  /** Danh sách tài khoản thanh toán là bề mặt quản trị — cùng cổng payment:manageaccounts như createAccount/refund. */
+  async listAccounts(actorId: string): Promise<AccountRow[]> {
+    await this.requireManageAccounts(actorId);
+    return this.repo.listAccounts();
+  }
   async getAccount(id: string): Promise<AccountRow> {
     const row = await this.repo.getAccount(id);
     if (!row) throw new NotFoundException({ message: `Payment account ${id} not found`, code: 'payment.account_not_found' });
@@ -94,6 +98,29 @@ export class PaymentsService {
     const row = await this.repo.getPayment(id);
     if (!row) throw new NotFoundException({ message: `Payment ${id} not found`, code: 'payment.not_found' });
     return row;
+  }
+
+  /**
+   * Cổng đọc payment cho bề mặt HTTP (H3, #134): chỉ chủ sở hữu hoặc holder
+   * payment:manageaccounts tại system mới đọc được. Người ngoài nhận 404
+   * payment.not_found y như payment không tồn tại — không lộ sự tồn tại.
+   * Đường nội bộ (webhook, refund đã gác manageaccounts) dùng getPayment.
+   */
+  private async assertCanReadPayment(actorId: string, payment: PaymentRow): Promise<void> {
+    if (payment.userId === actorId) return;
+    const sys = await this.contexts.ensureSystemContext();
+    if (await this.evaluator.hasCapability(actorId, 'payment:manageaccounts', sys.id)) return;
+    throw new NotFoundException({ message: `Payment ${payment.id} not found`, code: 'payment.not_found' });
+  }
+  async getPaymentForUser(actorId: string, id: string): Promise<PaymentRow> {
+    const row = await this.getPayment(id);
+    await this.assertCanReadPayment(actorId, row);
+    return row;
+  }
+  async listRefundsForUser(actorId: string, paymentId: string): Promise<RefundRow[]> {
+    const payment = await this.getPayment(paymentId);
+    await this.assertCanReadPayment(actorId, payment);
+    return this.repo.listRefunds(paymentId);
   }
 
   /** Tạo payment ở trạng thái pending cho một user. */
