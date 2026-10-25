@@ -27,6 +27,20 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * Tự vệ chống test rỗng: spec cũng khẳng định role thường NGOÀI ngữ
  * cảnh thấy 0 tenant và INSERT bị 42501 — tức RLS thật sự cắn role này,
  * nên boot qua được chỉ có thể nhờ ngữ cảnh platform của seed.
+ *
+ * Vòng 2 (#196, sau triển khai PR #236): boot qua được chưa đủ —
+ * production vẫn chết ở bước review-seed thêm thành viên tenant
+ * (`POST /tenants/{id}/members` → 404 `tenant.not_found` giả vì
+ * TenantsService chưa bọc ngữ cảnh platform cho bề mặt vòng đời/
+ * membership) và `GET /auth/tenants` trả 404 rỗng trên web live vì
+ * handler Better Auth (được mount khi `MCP_AS_ENABLED` bật như
+ * production) nuốt hai segment `tenants`/`switch-tenant` chưa có trong
+ * LEGACY_AUTH_SEGMENTS — tiến trình seed không mount Better Auth nên
+ * trong seed vẫn 200. App con vì vậy được bật `MCP_AS_ENABLED` đúng
+ * hình dạng production, và spec lái trọn đường review-seed qua HTTP:
+ * đăng nhập admin → bộ chọn tenant → tạo user → thêm thành viên →
+ * chuyển phiên. Các spec in-process (createTestApp) không tái hiện
+ * được cả hai lớp lỗi này (không mount Better Auth, kết nối superuser).
  */
 
 const ADMIN_URL =
@@ -64,6 +78,28 @@ async function tryAdminLogin(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Gọi HTTP vào app con (cùng đường review-seed dùng) — trả status + body đã parse. */
+async function apiCall(
+  method: string,
+  path: string,
+  tok?: string,
+  body?: unknown,
+): Promise<{ status: number; body: never }> {
+  const res = await fetch(`${APP_BASE}/api/v1${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', ...(tok ? { authorization: `Bearer ${tok}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  return { status: res.status, body: (text ? JSON.parse(text) : undefined) as never };
+}
+
+async function adminToken(): Promise<string> {
+  const res = await apiCall('POST', '/auth/token', undefined, { username: 'admin', password: 'Admin123!' });
+  expect(res.status, `admin login: ${JSON.stringify(res.body)}`).toBe(201);
+  return (res.body as { accessToken: string }).accessToken;
 }
 
 describe('Seed bootstrap trên DB trống bằng role thường dưới RLS fail-closed (#202)', () => {
@@ -115,6 +151,12 @@ describe('Seed bootstrap trên DB trống bằng role thường dưới RLS fail
       DATABASE_URL: urlFor(SCRATCH_DB, APP_ROLE, APP_ROLE_PASSWORD),
       PORT: String(APP_PORT),
       NODE_ENV: 'test',
+      // Đúng hình dạng production: AS của MCP bật → main.ts mount
+      // handler Better Auth lên /api/v1/auth/* (điều kiện nuốt route
+      // của vòng 2). Secret chỉ dùng trong spec này.
+      MCP_AS_ENABLED: 'true',
+      BETTER_AUTH_SECRET: 'seed-rls-spec-secret-not-production',
+      BETTER_AUTH_URL: APP_BASE,
     };
     delete env.PLATFORM_ADMIN_USERNAME;
     child = spawn(process.execPath, [mainJs], { env, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -179,6 +221,50 @@ describe('Seed bootstrap trên DB trống bằng role thường dưới RLS fail
     } finally {
       await client.end();
     }
+  });
+
+  it('bộ chọn tenant của admin qua GET /auth/tenants trả đủ hai tenant (route auth tự viết không bị handler Better Auth nuốt khi AS bật)', async () => {
+    const tok = await adminToken();
+    const res = await apiCall('GET', '/auth/tenants', tok);
+    expect(res.status, `GET /auth/tenants: ${JSON.stringify(res.body)}`).toBe(200);
+    const slugs = (res.body as { slug: string }[]).map((t) => t.slug).sort();
+    expect(slugs).toEqual(['trang-chinh', 'truong-mac-dinh']);
+  });
+
+  it('platform admin thêm được thành viên vào tenant trường và chuyển phiên sang tenant đó (đường review-seed chết ở production)', async () => {
+    const tok = await adminToken();
+    const mine = await apiCall('GET', '/auth/tenants', tok);
+    expect(mine.status, `GET /auth/tenants: ${JSON.stringify(mine.body)}`).toBe(200);
+    const school = (mine.body as { id: string; slug: string }[]).find((t) => t.slug === 'truong-mac-dinh');
+    expect(school, 'tenant trường mặc định phải có trong bộ chọn của admin').toBeDefined();
+
+    // Danh sách tenant cấp platform phải thấy MỌI tenant, không chỉ
+    // tenant hiệu lực của phiên (claim tid = tenant-zero).
+    const list = await apiCall('GET', '/tenants', tok);
+    expect(list.status, `GET /tenants: ${JSON.stringify(list.body)}`).toBe(200);
+    expect((list.body as { slug: string }[]).map((t) => t.slug).sort()).toEqual(['trang-chinh', 'truong-mac-dinh']);
+
+    const created = await apiCall('POST', '/users', tok, {
+      username: 'seedrls.member',
+      email: 'seedrls.member@example.com',
+      password: 'Member123!',
+      firstName: 'Seed',
+      lastName: 'Member',
+    });
+    expect(created.status, `POST /users: ${JSON.stringify(created.body)}`).toBe(201);
+    const userId = (created.body as { id: string }).id;
+
+    const added = await apiCall('POST', `/tenants/${school!.id}/members`, tok, { userId });
+    expect(added.status, `POST members: ${JSON.stringify(added.body)}`).toBe(201);
+    expect((added.body as { status: string }).status).toBe('active');
+
+    const members = await apiCall('GET', `/tenants/${school!.id}/members`, tok);
+    expect(members.status, `GET members: ${JSON.stringify(members.body)}`).toBe(200);
+    expect((members.body as { userId: string }[]).map((m) => m.userId)).toContain(userId);
+
+    const switched = await apiCall('POST', `/auth/switch-tenant/${school!.id}`, tok);
+    expect(switched.status, `switch-tenant: ${JSON.stringify(switched.body)}`).toBe(201);
+    expect((switched.body as { accessToken?: string }).accessToken).toBeTruthy();
   });
 
   it('role thường ngoài ngữ cảnh vẫn bị RLS chặn (fail-closed còn nguyên — boot qua được là nhờ ngữ cảnh platform của seed)', async () => {

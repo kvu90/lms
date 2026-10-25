@@ -27,6 +27,16 @@ const LEGACY_AUTH_SEGMENTS = new Set([
   'session',
   'sessions',
   'oauth',
+  // HOTFIX #196 vòng 2 (sự cố triển khai TENANT-1): hai segment của
+  // AuthController từng THIẾU trong danh sách này — khi Better Auth
+  // được mount (production bật MCP_AS_ENABLED), `GET /auth/tenants`
+  // và `POST /auth/switch-tenant/:tenantId` bị handler Better Auth
+  // nuốt và trả 404 rỗng, trong khi tiến trình seed (không mount
+  // Better Auth) vẫn trả 200 — đúng triệu chứng live sau triển khai
+  // PR #236. Danh sách phải phủ MỌI segment đầu của route auth tự
+  // viết; thêm route con mới dưới `/auth` là phải thêm segment vào đây.
+  'tenants',
+  'switch-tenant',
 ]);
 
 /**
