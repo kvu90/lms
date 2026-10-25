@@ -35,6 +35,29 @@ export type VnAssessmentMode = (typeof VN_ASSESSMENT_MODES)[number];
 export const VN_COMMENT_RESULTS = ['Đạt', 'Chưa đạt'] as const;
 export type VnCommentResult = (typeof VN_COMMENT_RESULTS)[number];
 
+/**
+ * Mức tổng hợp của môn/hoạt động ở tiểu học (Điều 7.1a TT 27/2020): tại mỗi
+ * mốc tổng hợp, giáo viên xếp mỗi môn vào một trong ba mức này từ quá trình
+ * đánh giá thường xuyên (nhận xét) + kết quả kiểm tra định kỳ. Đây là phán
+ * đoán tổng hợp của giáo viên có minh chứng — hệ thống không tự tính.
+ */
+export const VN_TT27_LEVELS = ['Hoàn thành tốt', 'Hoàn thành', 'Chưa hoàn thành'] as const;
+export type VnTt27Level = (typeof VN_TT27_LEVELS)[number];
+
+/** Mọi giá trị kết quả nhận xét hợp lệ ở cả hai regime (cột comment_result là text; tính hợp lệ xét theo regime của sổ). */
+export const VN_COMMENT_RESULT_VALUES = [...VN_COMMENT_RESULTS, ...VN_TT27_LEVELS] as const;
+export type VnCommentResultValue = (typeof VN_COMMENT_RESULT_VALUES)[number];
+
+/** Tập giá trị kết quả nhận xét hợp lệ cho một regime: tt27 dùng 3 mức Điều 7.1a; còn lại (tt22) dùng Đạt/Chưa đạt Điều 5.3a. */
+export function commentResultsForRegime(regime: string): readonly string[] {
+  return regime === 'tt27' ? VN_TT27_LEVELS : VN_COMMENT_RESULTS;
+}
+
+/** Giá trị kết quả nhận xét có thuộc tập hợp lệ của regime hay không. */
+export function isCommentResultForRegime(regime: string, value: string): boolean {
+  return commentResultsForRegime(regime).includes(value);
+}
+
 /** Bốn mức kết quả học tập (Điều 9.2), xếp từ thấp đến cao để so bậc khi áp quy tắc điều chỉnh 9.3. */
 export const VN_LEVELS = ['Chưa đạt', 'Đạt', 'Khá', 'Tốt'] as const;
 export type VnLevel = (typeof VN_LEVELS)[number];

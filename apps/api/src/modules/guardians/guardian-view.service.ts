@@ -241,7 +241,7 @@ export class GuardianViewService {
       let year: GuardianCourseResultsView['year'] = null;
       if (await this.vn.isYearResultPublished(courseId, studentId)) {
         const finalizedYear = await this.vn.finalizedYearResultForGuardian(courseId, studentId);
-        year = { dtbYear: finalizedYear?.dtbYear ?? null, comment: finalizedYear?.comment ?? null };
+        year = { dtbYear: finalizedYear?.dtbYear ?? null, commentResult: finalizedYear?.commentResult ?? null, comment: finalizedYear?.comment ?? null };
       }
 
       const gradebook = await this.grades.getGradebookForGuardian(courseId, studentId);

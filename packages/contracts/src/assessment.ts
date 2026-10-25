@@ -426,7 +426,8 @@ export type ExportGradesVnedu = z.infer<typeof exportGradesVneduSchema>;
  * TT 22/2021: `subjectPeriodsPerYear` là số tiết/năm của môn — hệ thống suy
  * số cột ĐĐGtx theo Điều 6.2b. `assessmentMode` bỏ trống thì phía server suy
  * từ môn học của khoá (nhóm chỉ-nhận-xét ở Điều 5.3a); môn chỉ-nhận-xét
- * không cần số tiết. `regime` ở lát này chỉ nhận `tt22`.
+ * không cần số tiết. `regime` nhận `tt22` (trung học) hoặc `tt27` (tiểu
+ * học — sổ mức nhận xét ba mức Điều 7.1a TT 27, GB-VN-3); `free` chưa mở.
  */
 export const createVnGradebookSchema = z.strictObject({
   term: z.enum(['hk1', 'hk2']),
@@ -442,12 +443,36 @@ export const finalizeVnTermResultSchema = z.strictObject({
 });
 export type FinalizeVnTermResult = z.infer<typeof finalizeVnTermResultSchema>;
 
-/** Payload ghi kết quả môn chỉ-nhận-xét (Điều 5.3a) cho một học sinh trong một học kì. */
+/**
+ * Payload ghi kết quả môn chỉ-nhận-xét cho một học sinh trong một học kì.
+ * Tập giá trị gồm cả hai regime: Đạt/Chưa đạt (Điều 5.3a TT 22) và ba mức
+ * Hoàn thành tốt/Hoàn thành/Chưa hoàn thành (Điều 7.1a TT 27 cho tiểu học);
+ * phía server đối chiếu giá trị với regime của sổ và từ chối giá trị thuộc
+ * regime khác (mã grades.vn_comment_result_invalid).
+ */
 export const setVnCommentResultSchema = z.strictObject({
-  result: z.enum(['Đạt', 'Chưa đạt']),
+  result: z.enum(['Đạt', 'Chưa đạt', 'Hoàn thành tốt', 'Hoàn thành', 'Chưa hoàn thành']),
   comment: z.string().max(2000).optional(),
 });
 export type SetVnCommentResult = z.infer<typeof setVnCommentResultSchema>;
+
+/**
+ * Payload nhập mức môn chỉ-nhận-xét cho CẢ LỚP dạng lưới (GB-VN-3):
+ * `defaultResult` là mức mặc định áp cho mọi học sinh đã ghi danh của khoá;
+ * `overrides` là ngoại lệ từng học sinh (mức riêng + nhận xét riêng tuỳ chọn).
+ * Học sinh không có ngoại lệ và sổ không có mức mặc định thì không được ghi.
+ * Mọi dòng được ghi trong một transaction phía server.
+ */
+export const setVnCommentResultsBatchSchema = z.strictObject({
+  defaultResult: z.enum(['Đạt', 'Chưa đạt', 'Hoàn thành tốt', 'Hoàn thành', 'Chưa hoàn thành']).nullable().optional(),
+  overrides: z.array(z.strictObject({
+    userId: uuidIdSchema,
+    result: z.enum(['Đạt', 'Chưa đạt', 'Hoàn thành tốt', 'Hoàn thành', 'Chưa hoàn thành']),
+    comment: z.string().max(2000).optional(),
+  })).max(1000).optional(),
+  comment: z.string().max(2000).optional(),
+});
+export type SetVnCommentResultsBatch = z.infer<typeof setVnCommentResultsBatchSchema>;
 
 /** Payload chốt kết quả cả năm của một học sinh trong một khoá học (ĐTBmcn từ hai bản chốt học kì). */
 export const finalizeVnYearResultSchema = z.strictObject({

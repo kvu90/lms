@@ -6,6 +6,7 @@ import { CoursesService } from '../courses/courses.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import {
   classifyLearningLevel, computeDtbCn, computeDtbHk, convertGradeToScale10, dgtxQuotaForPeriods, isCommentOnlySubjectName,
+  isCommentResultForRegime,
   round1, VN_COMMENT_EVALUATIONS_PER_TERM, type VnAssessmentMode, type VnClassification, type VnCommentResult,
   type VnSubjectLevelInput, type VnTerm,
 } from './domain/vn-gradebook';
@@ -165,7 +166,7 @@ export interface MyVnTermResultView {
 export interface MyVnCourseResultsView {
   courseId: string;
   terms: MyVnTermResultView[];
-  year: { published: boolean; dtbYear: number | null; comment: string | null } | null;
+  year: { published: boolean; dtbYear: number | null; commentResult: string | null; comment: string | null } | null;
   levels: { hk1: string | null; hk2: string | null; year: string | null };
 }
 
@@ -358,9 +359,9 @@ export class VnGradebooksService {
     if (books.length > 0) {
       if (await this.isYearResultPublished(courseId, actorId)) {
         const finalizedYear = await this.finalizedYearResultForGuardian(courseId, actorId);
-        year = { published: true, dtbYear: finalizedYear?.dtbYear ?? null, comment: finalizedYear?.comment ?? null };
+        year = { published: true, dtbYear: finalizedYear?.dtbYear ?? null, commentResult: finalizedYear?.commentResult ?? null, comment: finalizedYear?.comment ?? null };
       } else {
-        year = { published: false, dtbYear: null, comment: null };
+        year = { published: false, dtbYear: null, commentResult: null, comment: null };
       }
     }
     const levels: MyVnCourseResultsView['levels'] = { hk1: null, hk2: null, year: null };
@@ -410,18 +411,26 @@ export class VnGradebooksService {
   }): Promise<VnBookView> {
     await this.courses.getCourse(courseId);
     await this.requireCap(actorId, 'grade:manage', courseId);
-    if (input.regime !== undefined && input.regime !== 'tt22') {
-      throw new BadRequestException({ message: `Regime ${input.regime} is not supported in GB-VN-1 (tt27 arrives in GB-VN-3)`, code: 'grades.vn_regime_unsupported' });
+    const regime = input.regime ?? 'tt22';
+    if (regime !== 'tt22' && regime !== 'tt27') {
+      throw new BadRequestException({ message: `Regime ${regime} is not supported`, code: 'grades.vn_regime_unsupported' });
+    }
+    // Tiểu học (TT 27): KHÔNG có cột điểm thường xuyên và không có công thức
+    // trung bình — kết quả môn là MỨC tổng hợp do giáo viên chốt (Điều 7.1a),
+    // nên sổ tt27 luôn là sổ nhận xét. Điểm bài kiểm tra định kỳ số nguyên
+    // (Điều 7.1b/7.1d) là bề mặt riêng, không thuộc phạm vi lát này.
+    if (regime === 'tt27' && input.assessmentMode === 'score') {
+      throw new BadRequestException({ message: 'Regime tt27 gradebooks record synthesis levels, not score columns (Điều 7.1a TT 27)', code: 'grades.vn_tt27_score_mode_unsupported' });
     }
     const existing = (await this.repo.listVnBooks(courseId)).find((b) => b.term === input.term);
     if (existing) {
       throw new BadRequestException({ message: `Course already has a VN gradebook for ${input.term}`, code: 'grades.vn_book_exists' });
     }
-    const mode = input.assessmentMode ?? (await this.deriveAssessmentMode(actorId, courseId));
+    const mode: VnAssessmentMode = regime === 'tt27' ? 'comment' : (input.assessmentMode ?? (await this.deriveAssessmentMode(actorId, courseId)));
 
     if (mode === 'comment') {
       const book = await this.repo.insertVnBook({
-        courseId, term: input.term, regime: 'tt22', assessmentMode: 'comment',
+        courseId, term: input.term, regime, assessmentMode: 'comment',
         subjectPeriodsPerYear: input.subjectPeriodsPerYear ?? null,
         dgtxQuota: VN_COMMENT_EVALUATIONS_PER_TERM, categoryId: null, status: 'open',
       });
@@ -567,6 +576,20 @@ export class VnGradebooksService {
   async finalizeTermResult(actorId: string, bookId: string, userId: string, comment?: string): Promise<VnTermResultRow> {
     const book = await this.getBook(bookId);
     await this.requireCap(actorId, 'grade:edit', book.courseId);
+    if (book.assessmentMode === 'comment') {
+      // Môn nhận xét không có cột điểm để tính: bản chốt của học sinh chính
+      // là dòng kết quả mức đã nhập (setCommentResult / nhập lưới cả lớp).
+      // Chốt lẻ ở đây xác nhận dòng mới nhất đó là bản chốt hiệu lực; chưa
+      // nhập mức cho học sinh thì từ chối như thiếu cột ở môn điểm số.
+      const latest = await this.latestTermResult(bookId, userId);
+      if (!latest || latest.commentResult == null) {
+        throw new BadRequestException({
+          message: 'Cannot finalize: no comment result entered for this student',
+          code: 'grades.vn_result_incomplete',
+        });
+      }
+      return latest;
+    }
     const computation = await this.computeTermResultUnchecked(book, userId);
     if (computation.awaitingMakeupRoles.length > 0) {
       throw new BadRequestException({
@@ -665,7 +688,29 @@ export class VnGradebooksService {
     const book = await this.getBook(bookId);
     await this.requireCap(actorId, 'grade:edit', book.courseId);
     if (book.assessmentMode !== 'score') {
-      throw new BadRequestException({ message: 'Comment-only subjects have no score columns to finalize (Điều 5.3a)', code: 'grades.vn_comment_book' });
+      // Môn nhận xét (GB-VN-3): chốt cả lớp là CỔNG ĐẦY ĐỦ trên cùng đường
+      // bản chốt + công bố như môn điểm số — học sinh nào chưa có mức đã
+      // nhập thì cả lượt bị chặn kèm danh sách, không chốt dở; đủ thì các
+      // dòng kết quả mức mới nhất của cả lớp là bản chốt hiệu lực.
+      const commentUserIds = await this.enrolledStudentIds(book.courseId);
+      const commentRows: VnTermResultRow[] = [];
+      const commentBlocked: VnFinalizeBlockedStudent[] = [];
+      for (const userId of commentUserIds) {
+        const latest = await this.latestTermResult(bookId, userId);
+        if (!latest || latest.commentResult == null) {
+          commentBlocked.push({ userId, reason: 'incomplete', roles: ['commentResult'] });
+        } else {
+          commentRows.push(latest);
+        }
+      }
+      if (commentBlocked.length > 0) {
+        throw new BadRequestException({
+          message: `Cannot finalize gradebook: ${commentBlocked.length} student(s) blocked`,
+          code: 'grades.vn_finalize_book_blocked',
+          blocked: commentBlocked,
+        });
+      }
+      return { bookId, finalizedCount: commentRows.length, results: commentRows };
     }
     const userIds = await this.enrolledStudentIds(book.courseId);
     const ready: { userId: string; dtbHk: number; version: number }[] = [];
@@ -705,16 +750,22 @@ export class VnGradebooksService {
   }
 
   /**
-   * Ghi kết quả của môn chỉ-nhận-xét cho một học sinh trong học kì (dữ liệu tối
-   * thiểu để xếp mức Điều 9 dùng được; bề mặt/luồng đầy đủ của môn nhận xét là GB-VN-3).
+   * Ghi kết quả của môn chỉ-nhận-xét cho một học sinh trong học kì: giá trị
+   * phải thuộc tập của regime của sổ (Đạt/Chưa đạt ở tt22 — Điều 5.3a; ba
+   * mức Hoàn thành tốt/Hoàn thành/Chưa hoàn thành ở tt27 — Điều 7.1a TT 27).
+   * Dòng ghi chính là một bản trong vn_term_results (bản chốt của môn nhận
+   * xét) — công bố đi qua cùng cổng PH-0 như môn tính điểm.
    */
   async setCommentResult(actorId: string, bookId: string, userId: string, input: {
-    result: VnCommentResult; comment?: string;
+    result: string; comment?: string;
   }): Promise<VnTermResultRow> {
     const book = await this.getBook(bookId);
     await this.requireCap(actorId, 'grade:edit', book.courseId);
     if (book.assessmentMode !== 'comment') {
       throw new BadRequestException({ message: 'This VN gradebook is a score subject', code: 'grades.vn_score_book' });
+    }
+    if (!isCommentResultForRegime(book.regime, input.result)) {
+      throw new BadRequestException({ message: `Result "${input.result}" is not a comment result of regime ${book.regime}`, code: 'grades.vn_comment_result_invalid' });
     }
     const previous = await this.latestTermResult(bookId, userId);
     return this.repo.insertVnTermResult({
@@ -722,6 +773,66 @@ export class VnGradebooksService {
       dtbHk: null, dtbYear: null, commentResult: input.result,
       comment: input.comment ?? null, version: (previous?.version ?? 0) + 1,
     });
+  }
+
+  /**
+   * Nhập mức môn chỉ-nhận-xét cho CẢ LỚP dạng lưới (GB-VN-3): mức mặc định
+   * áp cho mọi học sinh đã ghi danh, ngoại lệ từng học sinh ghi đè mức mặc
+   * định (và mang nhận xét riêng nếu có). Mọi dòng ghi trong MỘT
+   * transaction — lượt nhập dở không tồn tại. Học sinh ngoài danh sách ghi
+   * danh trong ngoại lệ, giá trị mức sai regime, hoặc lượt nhập không sinh
+   * dòng nào (không mặc định, không ngoại lệ) đều bị từ chối trước khi ghi.
+   */
+  async setCommentResultsBatch(actorId: string, bookId: string, input: {
+    defaultResult?: string | null;
+    overrides?: { userId: string; result: string; comment?: string }[];
+    comment?: string;
+  }): Promise<{ bookId: string; savedCount: number; results: VnTermResultRow[] }> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:edit', book.courseId);
+    if (book.assessmentMode !== 'comment') {
+      throw new BadRequestException({ message: 'This VN gradebook is a score subject', code: 'grades.vn_score_book' });
+    }
+    const overrides = input.overrides ?? [];
+    if (input.defaultResult != null && !isCommentResultForRegime(book.regime, input.defaultResult)) {
+      throw new BadRequestException({ message: `Result "${input.defaultResult}" is not a comment result of regime ${book.regime}`, code: 'grades.vn_comment_result_invalid' });
+    }
+    for (const o of overrides) {
+      if (!isCommentResultForRegime(book.regime, o.result)) {
+        throw new BadRequestException({ message: `Result "${o.result}" is not a comment result of regime ${book.regime}`, code: 'grades.vn_comment_result_invalid' });
+      }
+    }
+    const enrolled = await this.enrolledStudentIds(book.courseId);
+    const enrolledSet = new Set(enrolled);
+    const overrideByUser = new Map(overrides.map((o) => [o.userId, o]));
+    for (const userId of overrideByUser.keys()) {
+      if (!enrolledSet.has(userId)) {
+        throw new BadRequestException({ message: `Student ${userId} is not enrolled in this course`, code: 'grades.vn_comment_student_not_enrolled' });
+      }
+    }
+    const plan: { userId: string; result: string; comment: string | null }[] = [];
+    for (const userId of enrolled) {
+      const override = overrideByUser.get(userId);
+      const result = override?.result ?? input.defaultResult ?? null;
+      if (result === null) continue;
+      plan.push({ userId, result, comment: override?.comment ?? input.comment ?? null });
+    }
+    if (plan.length === 0) {
+      throw new BadRequestException({ message: 'Nothing to save: provide a default result or per-student overrides', code: 'grades.vn_comment_batch_empty' });
+    }
+    const results = await this.repo.dbHandle.transaction(async (tx) => {
+      const rows: VnTermResultRow[] = [];
+      for (const entry of plan) {
+        const previous = await this.latestTermResult(bookId, entry.userId);
+        rows.push(await this.repo.insertVnTermResult({
+          bookId, courseId: book.courseId, userId: entry.userId, scope: 'term',
+          dtbHk: null, dtbYear: null, commentResult: entry.result,
+          comment: entry.comment, version: (previous?.version ?? 0) + 1,
+        }, tx as never));
+      }
+      return rows;
+    });
+    return { bookId, savedCount: results.length, results };
   }
 
   /** Các bản chốt term của một học sinh trong một sổ (mọi version, cũ → mới). Đọc qua cổng actor như computeTermResult. */
@@ -748,8 +859,24 @@ export class VnGradebooksService {
     if (!hk1 || !hk2) {
       throw new BadRequestException({ message: 'Year result requires VN gradebooks for both terms', code: 'grades.vn_result_incomplete' });
     }
+    if (hk1.assessmentMode === 'comment' && hk2.assessmentMode === 'comment') {
+      // Kết quả NĂM của môn nhận xét = mức tổng hợp cuối năm, chính là kết
+      // quả đã chốt ở sổ học kì II (cùng tiền lệ xếp mức năm của môn nhận
+      // xét trong getStudentClassification). Ghi bản chốt scope 'year' vào
+      // CÙNG vn_term_results và công bố qua CÙNG cổng vn_year như ĐTBmcn.
+      const r2 = await this.latestTermResult(hk2.id, userId);
+      if (!r2 || r2.commentResult == null) {
+        throw new BadRequestException({ message: 'Year result requires a finalized term result for học kì II', code: 'grades.vn_result_incomplete' });
+      }
+      const previousYear = (await this.repo.listVnYearResults(courseId, userId)).at(-1);
+      return this.repo.insertVnTermResult({
+        bookId: null, courseId, userId, scope: 'year',
+        dtbHk: null, dtbYear: null, commentResult: r2.commentResult,
+        comment: comment ?? null, version: (previousYear?.version ?? 0) + 1,
+      });
+    }
     if (hk1.assessmentMode !== 'score' || hk2.assessmentMode !== 'score') {
-      throw new BadRequestException({ message: 'Year average only applies to score subjects', code: 'grades.vn_comment_book' });
+      throw new BadRequestException({ message: 'Year result requires both term gradebooks to use the same assessment mode', code: 'grades.vn_comment_book' });
     }
     const r1 = await this.latestTermResult(hk1.id, userId);
     const r2 = await this.latestTermResult(hk2.id, userId);

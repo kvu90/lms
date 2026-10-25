@@ -16,6 +16,7 @@ import {
   setGradePostingPolicySchema,
   setGradeSchema,
   setVnCommentResultSchema,
+  setVnCommentResultsBatchSchema,
   setVnMakeupStatusSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
@@ -38,6 +39,7 @@ import {
   type SetGradeLetters,
   type SetGradePostingPolicy,
   type SetVnCommentResult,
+  type SetVnCommentResultsBatch,
   type SetVnMakeupStatus,
   type UpdateGrade,
   type UpdateGradeCategory,
@@ -67,6 +69,7 @@ export {
   setGradePostingPolicySchema,
   setGradeSchema,
   setVnCommentResultSchema,
+  setVnCommentResultsBatchSchema,
   setVnMakeupStatusSchema,
   updateGradeCategorySchema,
   updateGradeItemSchema,
@@ -88,6 +91,7 @@ export type DismissVnCandidateDto = DismissVnCandidate;
 export type SetVnMakeupStatusDto = SetVnMakeupStatus;
 export type FinalizeVnTermResultDto = FinalizeVnTermResult;
 export type SetVnCommentResultDto = SetVnCommentResult;
+export type SetVnCommentResultsBatchDto = SetVnCommentResultsBatch;
 export type FinalizeVnYearResultDto = FinalizeVnYearResult;
 export type SetGradePostingPolicyDto = SetGradePostingPolicy;
 export type GradePublicationActionDto = GradePublicationAction;

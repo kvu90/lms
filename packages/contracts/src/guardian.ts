@@ -101,8 +101,8 @@ export interface GuardianCourseResultsView {
   courseId: string;
   courseName: string;
   terms: GuardianTermResultView[];
-  /** Kết quả cả năm đã công bố; null khi chưa công bố. */
-  year: { dtbYear: number | null; comment: string | null } | null;
+  /** Kết quả cả năm đã công bố; null khi chưa công bố. `commentResult` là kết quả năm của môn chỉ-nhận-xét (GB-VN-3); null ở môn điểm số. */
+  year: { dtbYear: number | null; commentResult: string | null; comment: string | null } | null;
   /**
    * Điểm tổng khoá đã qua cổng công bố PH-0 (tổng bị che khi còn điểm
    * chưa công bố trong khoá); null khi chưa có/không được thấy.
@@ -148,8 +148,8 @@ export interface MyVnTermResultView {
 export interface MyVnCourseResultsView {
   courseId: string;
   terms: MyVnTermResultView[];
-  /** Kết quả cả năm: null khi khoá chưa có sổ VN nào; `published=false` khi chưa công bố (mọi số đều null). */
-  year: { published: boolean; dtbYear: number | null; comment: string | null } | null;
+  /** Kết quả cả năm: null khi khoá chưa có sổ VN nào; `published=false` khi chưa công bố (mọi số đều null). `commentResult` là kết quả năm của môn chỉ-nhận-xét (lấy từ bản chốt học kì II, GB-VN-3); null ở môn điểm số. */
+  year: { published: boolean; dtbYear: number | null; commentResult: string | null; comment: string | null } | null;
   /** Mức học tập Điều 9 theo kỳ/năm; null khi chưa có môn nào đã công bố để xếp mức. */
   levels: { hk1: string | null; hk2: string | null; year: string | null };
 }

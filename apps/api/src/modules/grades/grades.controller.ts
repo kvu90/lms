@@ -6,7 +6,7 @@ import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { GradesService } from './grades.service';
 import { VnGradebooksService } from './vn-gradebooks.service';
-import { commitVnCandidateSchema, createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnActivityMappingSchema, createVnGradebookSchema, dismissVnCandidateSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, gradePublicationActionSchema, setGradeLettersSchema, setGradePostingPolicySchema, setGradeSchema, setVnCommentResultSchema, setVnMakeupStatusSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CommitVnCandidateDto, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnActivityMappingDto, type CreateVnGradebookDto, type DismissVnCandidateDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type GradePublicationActionDto, type SetGradeDto, type SetGradePostingPolicyDto, type SetLettersDto, type SetVnCommentResultDto, type SetVnMakeupStatusDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
+import { commitVnCandidateSchema, createGradeCategorySchema, createGradeItemSchema, createGradeOutcomeSchema, createGradeScaleSchema, createVnActivityMappingSchema, createVnGradebookSchema, dismissVnCandidateSchema, exportGradesVneduSchema, finalizeVnTermResultSchema, finalizeVnYearResultSchema, gradePublicationActionSchema, setGradeLettersSchema, setGradePostingPolicySchema, setGradeSchema, setVnCommentResultSchema, setVnCommentResultsBatchSchema, setVnMakeupStatusSchema, updateGradeCategorySchema, updateGradeItemSchema, updateGradeOutcomeSchema, updateGradeSchema, type CommitVnCandidateDto, type CreateGradeCategoryDto, type CreateGradeItemDto, type CreateGradeOutcomeDto, type CreateScaleDto, type CreateVnActivityMappingDto, type CreateVnGradebookDto, type DismissVnCandidateDto, type ExportGradesVneduDto, type FinalizeVnTermResultDto, type FinalizeVnYearResultDto, type GradePublicationActionDto, type SetGradeDto, type SetGradePostingPolicyDto, type SetLettersDto, type SetVnCommentResultDto, type SetVnCommentResultsBatchDto, type SetVnMakeupStatusDto, type UpdateGradeCategoryDto, type UpdateGradeDto, type UpdateGradeItemDto, type UpdateGradeOutcomeDto } from './dto/grades.dto';
 
 @ApiTags('grades')
 @Controller({ path: 'courses', version: '1' })
@@ -364,6 +364,16 @@ export class VnGradebooksController {
   async setCommentResult(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @Body({ schema: setVnCommentResultSchema }) dto: SetVnCommentResultDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.bookInCourse(courseId, bookId);
     return this.vn.setCommentResult(actor.id, bookId, userId, dto);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/comment-results/batch')
+  /**
+   * POST .../vn-books/:bookId/comment-results/batch — nhập mức môn
+   * chỉ-nhận-xét cho cả lớp dạng lưới (GB-VN-3): mức mặc định cho mọi học
+   * sinh đã ghi danh + ngoại lệ từng học sinh, ghi trong một transaction.
+   */
+  async setCommentResultsBatch(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Body({ schema: setVnCommentResultsBatchSchema }) dto: SetVnCommentResultsBatchDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.setCommentResultsBatch(actor.id, bookId, dto);
   }
   @Post(':courseId/grades/vn-books/:bookId/activity-mappings')
   /**
