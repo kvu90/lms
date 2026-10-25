@@ -379,7 +379,7 @@ export const appResources = {
       navHealth: 'Trạng thái hệ thống',
       navGroupLearning: 'Học tập',
       navGroupUsersAccess: 'Người dùng & quyền',
-      navGroupSystemData: 'Hệ thống & dữ liệu',
+      navGroupSystemData: 'Cài đặt hệ thống',
       logout: 'Đăng xuất',
       signIn: 'Đăng nhập',
 
@@ -2184,7 +2184,7 @@ export const appResources = {
       navHealth: 'Health',
       navGroupLearning: 'Learning',
       navGroupUsersAccess: 'Users & access',
-      navGroupSystemData: 'System & data',
+      navGroupSystemData: 'System settings',
       logout: 'Log out',
       signIn: 'Sign in',
 
