@@ -211,6 +211,22 @@ export class MessagingController {
   ) {
     return this.messaging.listCourseRoster(actor.id, courseId, query);
   }
+  @Get('courses/:courseId/conversation')
+  /**
+   * GET /messages/courses/:courseId/conversation — mở (ensure) CHAT
+   * TOÀN LỚP của khoá: cấp phát lười idempotent conversation cấp khoá
+   * (type 2, gắn itemType 'course') và trả conversation kèm members —
+   * đầu vào cho trang khoá, cài đặt khoá (đọc cờ `enabled`) và deep-link
+   * trang Tin nhắn. Chỉ thành viên khoá (ghi danh hiệu lực/gán vai tại
+   * context khoá) hoặc staff khoá mở được; người ngoài nhận 404 như
+   * khoá không tồn tại.
+   */
+  async courseConversation(
+    @Param('courseId', { schema: uuidIdSchema }) courseId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.messaging.ensureCourseConversation(actor.id, courseId);
+  }
   @Get('contacts')
   /**
    * GET /messages/contacts — danh bạ của tôi (chỉ liên hệ đã được

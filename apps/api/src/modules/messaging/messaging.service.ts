@@ -245,6 +245,9 @@ export function isWithinRecallWindow(createdAt: Date, now: Date, windowMinutes: 
  * người theo tên. Notification hệ thống không qua cổng liên lạc này.
  * Conversation gắn course group (component core_group) đồng bộ thành viên
  * theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
+ * Conversation CẤP KHOÁ (chat toàn lớp, component core_course/itemType
+ * course) cùng cơ chế: cấp phát lười khi thành viên/staff mở, thành viên
+ * = ghi danh hiệu lực ∪ staff khoá, đồng bộ lười mỗi lần liệt kê/mở/gửi.
  */
 export class MessagingService {
   constructor(
@@ -875,21 +878,30 @@ export class MessagingService {
       && conversation.itemId !== null;
   }
 
+  /** Conversation có gắn với chính một KHOÁ (chat toàn lớp) qua (component, itemType, itemId) hay không. */
+  private isCourseLinked(conversation: ConversationRow): boolean {
+    return conversation.type === 2
+      && conversation.component === 'core_course'
+      && conversation.itemType === 'course'
+      && conversation.itemId !== null;
+  }
+
   /**
-   * Đồng bộ lười thành viên của một conversation gắn group theo thành viên
-   * group HIỆN TẠI: người mới vào group được thêm, người rời group bị gỡ
-   * khỏi conversation (tin nhắn cũ giữ nguyên). Trả về danh sách thành viên
-   * sau đồng bộ. Chỉ chạy phía messaging khi conversation được liệt kê/mở/
-   * gửi — không cần hook trong module groups.
+   * Đồng bộ lười thành viên của một conversation gắn cấu trúc (group
+   * hoặc khoá) về đúng tập đích HIỆN TẠI: người mới thuộc cấu trúc được
+   * thêm, người đã rời bị gỡ khỏi conversation (tin nhắn cũ giữ nguyên).
+   * Trả về danh sách thành viên sau đồng bộ. Chỉ chạy phía messaging khi
+   * conversation được liệt kê/mở/gửi — không cần hook trong module chủ
+   * của cấu trúc.
    */
-  private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
-    const groupMemberIds = [...new Set(await this.repo.listGroupMemberIds(conversation.itemId!))];
+  private async syncLinkedConversationMembers(conversation: ConversationRow, targetIds: string[]): Promise<string[]> {
+    const memberIds = [...new Set(targetIds)];
     const current = await this.repo.listMembers(conversation.id);
-    for (const id of groupMemberIds) {
+    for (const id of memberIds) {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
     }
     for (const id of current) {
-      if (!groupMemberIds.includes(id)) {
+      if (!memberIds.includes(id)) {
         await this.repo.removeMember(conversation.id, id);
         // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
         // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
@@ -898,12 +910,23 @@ export class MessagingService {
         await this.realtime.evictUserFromConversation(id, conversation.id);
       }
     }
-    return groupMemberIds;
+    return memberIds;
   }
 
-  /** Đồng bộ nếu conversation gắn group; conversation thường thì bỏ qua. */
+  /** Đồng bộ thành viên theo thành viên course group hiện tại. */
+  private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    return this.syncLinkedConversationMembers(conversation, await this.repo.listGroupMemberIds(conversation.itemId!));
+  }
+
+  /** Đồng bộ thành viên theo ghi danh hiệu lực ∪ staff của khoá hiện tại. */
+  private async syncCourseConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    return this.syncLinkedConversationMembers(conversation, await this.repo.listCourseConversationMemberIds(conversation.itemId!));
+  }
+
+  /** Đồng bộ nếu conversation gắn cấu trúc (group/khoá); conversation thường thì bỏ qua. */
   private async syncGroupConversationIfLinked(conversation: ConversationRow): Promise<void> {
     if (this.isGroupLinked(conversation)) await this.syncGroupConversationMembers(conversation);
+    else if (this.isCourseLinked(conversation)) await this.syncCourseConversationMembers(conversation);
   }
 
   /**
@@ -945,6 +968,43 @@ export class MessagingService {
     return { ...conversation, members: groupMemberIds };
   }
 
+  // --- course conversations (chat toàn lớp, gắn chính khoá) -------------------
+
+  /**
+   * Mở (ensure) conversation của CHÍNH khoá — chat toàn lớp: component
+   * 'core_course', itemType 'course', itemId = course id, contextId =
+   * context của khoá. Cấp phát LƯỜI idempotent: chưa có thì tạo với
+   * thành viên khởi tạo = ghi danh hiệu lực ∪ staff khoá, đã có thì
+   * đồng bộ lười rồi trả lại — khoá cũ tự có chat khi mở lần đầu, không
+   * migration dữ liệu. Chỉ thành viên của khoá (ghi danh hiệu lực, gán
+   * vai tại context khoá) hoặc staff khoá mới mở được; người ngoài nhận
+   * 404 cùng mã như khoá không tồn tại (không rò tồn tại). Thẩm quyền
+   * quản lý (bật/tắt) theo staff khoá — người tạo bản ghi (có thể là
+   * một học viên mở lần đầu) KHÔNG thành quản lý, đúng luật conversation
+   * gắn cấu trúc.
+   */
+  async ensureCourseConversation(actorId: string, courseId: string): Promise<ConversationRow & { members: string[] }> {
+    const course = await this.repo.getCourseSummary(courseId);
+    if (!course) throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'messaging.course_not_found' });
+    if (!(await this.repo.isCourseMember(courseId, actorId)) && !(await this.isCourseStaff(actorId, courseId))) {
+      throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'messaging.course_not_found' });
+    }
+    const existing = await this.repo.findCourseConversation(courseId);
+    if (existing) return { ...existing, members: await this.syncCourseConversationMembers(existing) };
+    const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
+    const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
+    const conversation = await this.repo.dbHandle.transaction(async (tx) => {
+      const created = await this.repo.insertConversation({
+        type: 2, name: course.fullName,
+        component: 'core_course', itemType: 'course', itemId: courseId,
+        contextId: courseCtx?.id ?? null, createdBy: actorId,
+      }, tx as never);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      return created;
+    });
+    return { ...conversation, members: memberIds };
+  }
+
   // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
   // Ba câu hỏi khác nhau, không gộp làm một:
   //  - "phụ trách khoá của conversation này" (staff tại context khoá
@@ -966,6 +1026,7 @@ export class MessagingService {
    * quyền kiểm duyệt trên nó).
    */
   private async resolveConversationCourseId(conversation: ConversationRow): Promise<string | null> {
+    if (this.isCourseLinked(conversation)) return conversation.itemId;
     if (this.isGroupLinked(conversation)) {
       const group = await this.repo.getCourseGroup(conversation.itemId!);
       if (group) return group.courseId;
@@ -1006,7 +1067,7 @@ export class MessagingService {
    */
   private async canManageConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.canModerateConversation(userId, conversation)) return true;
-    if (!this.isGroupLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
+    if (!this.isGroupLinked(conversation) && !this.isCourseLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
     return false;
   }
 
@@ -1047,6 +1108,9 @@ export class MessagingService {
     for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
       await this.syncGroupConversationMembers(c);
     }
+    for (const c of await this.repo.listCourseConversationsForMember(userId)) {
+      await this.syncCourseConversationMembers(c);
+    }
     const summaries = await this.repo.listConversationSummaries(userId);
     const myGroupIds = new Set(await this.repo.listGroupIdsForUser(userId));
     const out: (ConversationRow & {
@@ -1058,6 +1122,17 @@ export class MessagingService {
         // đồng bộ ngay (gỡ user khỏi conversation) và ẩn khỏi danh sách.
         await this.syncGroupConversationMembers(s.conversation);
         continue;
+      }
+      if (this.isCourseLinked(s.conversation)) {
+        // Đã rời khoá (huỷ ghi danh/hết vai staff) nhưng membership
+        // conversation chưa được đồng bộ: đối chiếu tập thành viên đúng
+        // nghĩa của khoá — không còn thuộc thì đồng bộ ngay (gỡ user
+        // khỏi conversation) và ẩn khỏi danh sách như đường group.
+        const memberIds = await this.repo.listCourseConversationMemberIds(s.conversation.itemId!);
+        if (!memberIds.includes(userId)) {
+          await this.syncCourseConversationMembers(s.conversation);
+          continue;
+        }
       }
       out.push({
         ...s.conversation,
