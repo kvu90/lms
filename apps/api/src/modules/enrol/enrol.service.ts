@@ -3,11 +3,24 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
-import { RolesService } from '../access/roles.service';
+import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.repository';
+
+/** Dòng gán vai thuộc về một enrol instance: đúng dòng này (và chỉ dòng này) bị gỡ khi instance rút/đổi vai (issue #157). */
+interface EnrolAssignmentRow { id: string; roleId: string; component: string; itemId: string | null }
+
+/** Truy vết nguồn cho dòng gán vai do một enrol instance cấp (Moodle: component/itemid trên role_assignments). */
+function enrolAssignmentSource(instance: EnrolRow): { component: string; itemId: string } {
+  return { component: ENROL_ASSIGNMENT_COMPONENT, itemId: instance.id };
+}
+
+/** Dòng `a` có phải là dòng gán vai do chính instance này cấp hay không. */
+function isInstanceAssignment(a: EnrolAssignmentRow, instance: EnrolRow): boolean {
+  return a.roleId === instance.roleId && a.component === ENROL_ASSIGNMENT_COMPONENT && a.itemId === instance.id;
+}
 
 export const ENROL_ACTIVE = 0;
 export const ENROL_SUSPENDED = 1;
@@ -234,12 +247,14 @@ export class EnrolService implements OnModuleInit {
     for (const ue of enrolments) {
       if (ue.status === ENROL_WITHDRAWN) continue;
       if (instance.roleId) {
+        // Chỉ gỡ dòng do CHÍNH instance này cấp (khớp component/itemId) —
+        // dòng cùng role của instance khác hoặc gán tay giữ nguyên (#157).
         const assignments = await this.roles.listAssignments({ userId: ue.userId, contextId: courseCtxId });
-        for (const a of assignments as { id: string; roleId: string }[]) {
-          if (a.roleId === instance.roleId) await this.roles.unassignRole(a.id);
+        for (const a of assignments as EnrolAssignmentRow[]) {
+          if (isInstanceAssignment(a, instance)) await this.roles.unassignRole(a.id, modifierId, { allowEnrolManaged: true });
         }
       }
-      await this.roles.assignRole(ue.userId, newRoleId, courseCtxId, modifierId);
+      await this.roles.assignRole(ue.userId, newRoleId, courseCtxId, modifierId, enrolAssignmentSource(instance));
     }
   }
   /**
@@ -276,7 +291,10 @@ export class EnrolService implements OnModuleInit {
     }
     if (instance.roleId) {
       const courseCtxId = await this.courses.courseContextId(instance.courseId);
-      await this.roles.assignRole(userId, instance.roleId, courseCtxId, modifierId);
+      // Dòng gán mang truy vết của chính instance này — unenrol/đổi vai
+      // sau đó chỉ gỡ đúng dòng đó, không đụng gán của instance khác hay
+      // gán tay cùng role (issue #157).
+      await this.roles.assignRole(userId, instance.roleId, courseCtxId, modifierId, enrolAssignmentSource(instance));
     }
     if (instance.customInt2) {
       await this.groups.addMemberInternal(instance.customInt2, userId, 'enrol_cohort', instance.id).catch(() => undefined);
@@ -456,12 +474,16 @@ export class EnrolService implements OnModuleInit {
       });
     });
     if (!hasRelated) await this.repo.deleteUserEnrolment(ue.id);
-    // Remove the role assignment this enrolment granted (component-scoped in
-    // Moodle; here: the instance role at the course context).
+    // Remove ONLY the role assignment this enrolment instance granted
+    // (component='enrol' + itemId=instance, Moodle-scoped): assignments of
+    // the same role granted by another instance or manually stay in place,
+    // so a user still enrolled through another instance keeps the role
+    // (issue #157). Legacy rows without component/itemId count as manual
+    // and are likewise left alone.
     if (instance.roleId) {
       const assignments = await this.roles.listAssignments({ userId: userId, contextId: await this.courses.courseContextId(instance.courseId) });
-      for (const a of assignments as { id: string; roleId: string }[]) {
-        if (a.roleId === instance.roleId) await this.roles.unassignRole(a.id);
+      for (const a of assignments as EnrolAssignmentRow[]) {
+        if (isInstanceAssignment(a, instance)) await this.roles.unassignRole(a.id, modifierId, { allowEnrolManaged: true });
       }
     }
     // Downstream hooks (completion 'unenrol' criterion re-evaluation). A
