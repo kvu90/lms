@@ -30,6 +30,20 @@ import {
  *  - Khuôn UI "bank personal đầu tiên trong listBanks" còn đúng: bank
  *    personal duy nhất trong danh sách của mỗi GV là của chính họ.
  * Site admin giữ toàn quyền như bất biến hiện hành (khớp MB-1 E-8).
+ *
+ * VÒNG 2 (phán quyết đánh giá 6392040333 — điểm chặn sườn GHI): spec
+ * vòng 1 dùng archetype `teacher` (không có question:add/editall) nên
+ * mù lỗ hổng ghi — đồng nghiệp archetype `editingteacher` kế thừa
+ * add/editall/managecategory từ context hệ thống xuống bank personal
+ * của người khác, sửa/xoá/chen được nội dung. Vòng 2 khoá bằng cổng
+ * ghi chủ sở hữu ở QuestionsService (+ phía nguồn của đóng góp):
+ *  - editingteacher khác: PATCH câu, POST câu/stimulus vào category
+ *    của đồng nghiệp, PATCH/DELETE stimulus, gắn/gỡ subject + YCCĐ,
+ *    tạo category trong bank của đồng nghiệp, đề xuất đóng góp bằng
+ *    câu của đồng nghiệp → 404 (mã not-found của chính tài nguyên).
+ *  - Chủ sở hữu editingteacher + site admin: ghi bình thường.
+ *  - Bank trường: editingteacher không phải chủ câu vẫn ghi theo
+ *    capability như cũ (cổng chỉ áp bank personal).
  */
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -51,6 +65,17 @@ describe('Bank personal privacy (issue #123)', () => {
   let teacherB: { id: string; username: string; token: string };
   let teacherC: { id: string; username: string; token: string };
   let student: { id: string; username: string; token: string };
+
+  // Vòng 2: cặp editingteacher (có add/editall thật) — nạn nhân + kẻ tấn công.
+  let editorA: { id: string; username: string; token: string };
+  let editorB: { id: string; username: string; token: string };
+  let bankEA: BankBody;
+  let catEA: string;
+  let questionEA: QuestionViewBody;
+  let stimEA: string;
+  let linkSubjectId: string;
+  let linkSubject2Id: string;
+  let linkOutcomeId: string;
 
   let bankA: BankBody;
   let catA: string;
@@ -75,6 +100,13 @@ describe('Bank personal privacy (issue #123)', () => {
   async function mkStaffUser(): Promise<{ id: string; username: string; token: string }> {
     const u = await mkUser();
     await assignRole(app, admin, u.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
+    return u;
+  }
+
+  /** GV archetype editingteacher — vai Teacher thật, CÓ question:add/editall/managecategory. */
+  async function mkEditorUser(): Promise<{ id: string; username: string; token: string }> {
+    const u = await mkUser();
+    await assignRole(app, admin, u.id, await roleIdByShortname(app, admin, 'editingteacher'), await systemContextId(app, admin));
     return u;
   }
 
@@ -149,6 +181,45 @@ describe('Bank personal privacy (issue #123)', () => {
     expect(teamRes.status, JSON.stringify(teamRes.body)).toBe(201);
     teamBank = teamRes.body as BankBody;
     questionTeam = await createQuestion(teacherA.token, teamBank.defaultCategoryId!, 'Câu của tổ', 'Câu hỏi của tổ chuyên môn?');
+
+    // --- Vòng 2: fixtures editingteacher -------------------------------------
+    editorA = await mkEditorUser();
+    editorB = await mkEditorUser();
+    bankEA = (await listBanks(editorA.token)).find((b) => b.scope === 'personal')!;
+    expect(bankEA).toBeTruthy();
+    expect(bankEA.ownerId).toBe(editorA.id);
+    catEA = bankEA.defaultCategoryId!;
+    questionEA = await createQuestion(editorA.token, catEA, 'Câu riêng của editorA', 'PRIV123-EDITOR-SECRET');
+    const stimRes = await http(app).post('/api/v1/stimuli').set(bearer(editorA.token))
+      .send({ categoryId: catEA, content: 'PRIV123-EDITOR-STIMULUS' });
+    expect(stimRes.status, JSON.stringify(stimRes.body)).toBe(201);
+    stimEA = (stimRes.body as { id: string }).id;
+
+    // Môn + YCCĐ cho các ca gắn/gỡ link trên câu của editorA.
+    const mkSubject = async (label: string): Promise<string> => {
+      const res = await http(app).post('/api/v1/curriculum/subjects').set(bearer(admin))
+        .send({ contextId: systemCtxId, name: uniqueName(label), slug: `priv123-${label}-${Date.now()}-${Math.floor(Math.random() * 1e6)}` });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      return (res.body as { id: string }).id;
+    };
+    linkSubjectId = await mkSubject('Môn link 123');
+    linkSubject2Id = await mkSubject('Môn link 123 phụ');
+    const curr2Res = await http(app).post('/api/v1/curriculum/curricula').set(bearer(admin)).send({ subjectId: linkSubjectId, grade: 9 });
+    expect(curr2Res.status, JSON.stringify(curr2Res.body)).toBe(201);
+    const nodeRes = await http(app).post('/api/v1/curriculum/nodes').set(bearer(admin))
+      .send({ curriculumId: (curr2Res.body as { id: string }).id, parentId: null, title: 'Mạch link 123', kind: 'strand' });
+    expect(nodeRes.status, JSON.stringify(nodeRes.body)).toBe(201);
+    const outcomeRes = await http(app).post('/api/v1/curriculum/outcomes').set(bearer(admin))
+      .send({ nodeId: (nodeRes.body as { id: string }).id, content: 'YCCĐ cho ca gắn link 123.' });
+    expect(outcomeRes.status, JSON.stringify(outcomeRes.body)).toBe(201);
+    linkOutcomeId = (outcomeRes.body as { id: string }).id;
+    // Chủ sở hữu gắn sẵn subject + outcome — nền cho các ca gỡ trái phép ở vòng 2.
+    const attachSubj = await http(app).post(`/api/v1/questions/${questionEA.question.id}/subjects`)
+      .set(bearer(editorA.token)).send({ subjectId: linkSubjectId });
+    expect(attachSubj.status, JSON.stringify(attachSubj.body)).toBe(201);
+    const attachOut = await http(app).post(`/api/v1/questions/${questionEA.question.id}/outcomes`)
+      .set(bearer(editorA.token)).send({ outcomeId: linkOutcomeId, cognitiveLevel: 'biet' });
+    expect(attachOut.status, JSON.stringify(attachOut.body)).toBe(201);
   });
   afterAll(async () => { await app.close(); });
 
@@ -239,5 +310,119 @@ describe('Bank personal privacy (issue #123)', () => {
     expect(team.status).toBe(200);
     const qTeam = await http(app).get(`/api/v1/questions/${questionTeam.question.id}`).set(bearer(teacherC.token));
     expect(qTeam.status).toBe(200);
+  });
+
+  it('vòng 2: editingteacher khác KHÔNG ghi được vào bank personal của đồng nghiệp (câu/stimulus/category/link/đóng góp)', async () => {
+    const qid = questionEA.question.id;
+    // PATCH câu của đồng nghiệp → 404 question.not_found, câu còn nguyên.
+    const patch = await http(app).patch(`/api/v1/questions/${qid}`).set(bearer(editorB.token))
+      .send({ name: 'PRIV123-HACKED-NAME' });
+    expect(patch.status, JSON.stringify(patch.body)).toBe(404);
+    expect((patch.body as { code?: string }).code).toBe('question.not_found');
+    const still = await http(app).get(`/api/v1/questions/${qid}`).set(bearer(editorA.token));
+    expect(still.status).toBe(200);
+    expect((still.body as QuestionViewBody).question.name).toBe('Câu riêng của editorA');
+    expect((still.body as { entry: { latestVersion: number } }).entry.latestVersion).toBe(1);
+
+    // POST câu vào category của đồng nghiệp → 404 question.category_not_found, không chèn được.
+    const create = await http(app).post('/api/v1/questions').set(bearer(editorB.token)).send({
+      categoryId: catEA, qtype: 'multichoice', name: 'Câu lạ chèn vào bank editorA', questionText: 'injected',
+      answers: [{ text: 'x', fraction: 1 }, { text: 'y', fraction: 0 }], options: { single: true },
+    });
+    expect(create.status, JSON.stringify(create.body)).toBe(404);
+    expect((create.body as { code?: string }).code).toBe('question.category_not_found');
+    const inCat = await http(app).get(`/api/v1/questions/categories/${catEA}/questions`).set(bearer(editorA.token));
+    expect(JSON.stringify(inCat.body)).not.toContain('Câu lạ chèn vào bank editorA');
+
+    // POST/PATCH/DELETE stimulus trong bank của đồng nghiệp → 404.
+    const createStim = await http(app).post('/api/v1/stimuli').set(bearer(editorB.token))
+      .send({ categoryId: catEA, content: 'stimulus lạ' });
+    expect(createStim.status, JSON.stringify(createStim.body)).toBe(404);
+    const patchStim = await http(app).patch(`/api/v1/stimuli/${stimEA}`).set(bearer(editorB.token))
+      .send({ content: 'PRIV123-HACKED-STIMULUS' });
+    expect(patchStim.status, JSON.stringify(patchStim.body)).toBe(404);
+    expect((patchStim.body as { code?: string }).code).toBe('stimulus.not_found');
+    const delStim = await http(app).delete(`/api/v1/stimuli/${stimEA}`).set(bearer(editorB.token));
+    expect(delStim.status, JSON.stringify(delStim.body)).toBe(404);
+    const stimStill = await http(app).get(`/api/v1/stimuli/${stimEA}`).set(bearer(editorA.token));
+    expect(stimStill.status).toBe(200);
+
+    // Gắn/gỡ subject + YCCĐ trên câu của đồng nghiệp → 404 mọi đường, link còn nguyên.
+    const attachSubj = await http(app).post(`/api/v1/questions/${qid}/subjects`).set(bearer(editorB.token))
+      .send({ subjectId: linkSubject2Id });
+    expect(attachSubj.status, JSON.stringify(attachSubj.body)).toBe(404);
+    const detachSubj = await http(app).delete(`/api/v1/questions/${qid}/subjects/${linkSubjectId}`).set(bearer(editorB.token));
+    expect(detachSubj.status, JSON.stringify(detachSubj.body)).toBe(404);
+    const attachOut = await http(app).post(`/api/v1/questions/${qid}/outcomes`).set(bearer(editorB.token))
+      .send({ outcomeId: linkOutcomeId, cognitiveLevel: 'hieu' });
+    expect(attachOut.status, JSON.stringify(attachOut.body)).toBe(404);
+    const patchOut = await http(app).patch(`/api/v1/questions/${qid}/outcomes/${linkOutcomeId}`).set(bearer(editorB.token))
+      .send({ cognitiveLevel: 'van_dung' });
+    expect(patchOut.status, JSON.stringify(patchOut.body)).toBe(404);
+    const detachOut = await http(app).delete(`/api/v1/questions/${qid}/outcomes/${linkOutcomeId}`).set(bearer(editorB.token));
+    expect(detachOut.status, JSON.stringify(detachOut.body)).toBe(404);
+    const links = await http(app).get(`/api/v1/questions/${qid}/curriculum-links`).set(bearer(editorA.token));
+    expect(links.status).toBe(200);
+    expect((links.body as { subjectIds: string[] }).subjectIds).toContain(linkSubjectId);
+    expect((links.body as { outcomes: { outcomeId: string }[] }).outcomes.map((o) => o.outcomeId)).toContain(linkOutcomeId);
+
+    // Tạo category trong bank của đồng nghiệp (tường minh bankId + ngầm qua context) → 404 bank_not_found.
+    const catExplicit = await http(app).post('/api/v1/questions/categories').set(bearer(editorB.token))
+      .send({ name: 'Category lạ', contextId: bankEA.contextId, bankId: bankEA.id });
+    expect(catExplicit.status, JSON.stringify(catExplicit.body)).toBe(404);
+    expect((catExplicit.body as { code?: string }).code).toBe('question.bank_not_found');
+    const catImplicit = await http(app).post('/api/v1/questions/categories').set(bearer(editorB.token))
+      .send({ name: 'Category lạ 2', contextId: bankEA.contextId });
+    expect(catImplicit.status, JSON.stringify(catImplicit.body)).toBe(404);
+
+    // Đề xuất đóng góp bằng câu của đồng nghiệp vào bank trường → 404 question.not_found.
+    const contrib = await http(app).post(`/api/v1/question-banks/${schoolBank.id}/contributions`).set(bearer(editorB.token))
+      .send({ questionId: qid });
+    expect(contrib.status, JSON.stringify(contrib.body)).toBe(404);
+    expect((contrib.body as { code?: string }).code).toBe('question.not_found');
+  });
+
+  it('vòng 2: chủ sở hữu editingteacher vẫn ghi bình thường trên bank personal của mình', async () => {
+    const qid = questionEA.question.id;
+    const patch = await http(app).patch(`/api/v1/questions/${qid}`).set(bearer(editorA.token))
+      .send({ name: 'Câu riêng của editorA (đã sửa)' });
+    expect(patch.status, JSON.stringify(patch.body)).toBe(200);
+    expect((patch.body as { entry: { latestVersion: number } }).entry.latestVersion).toBe(2);
+    const stim = await http(app).post('/api/v1/stimuli').set(bearer(editorA.token))
+      .send({ categoryId: catEA, content: 'Stimulus vòng đời của editorA' });
+    expect(stim.status, JSON.stringify(stim.body)).toBe(201);
+    const stimId = (stim.body as { id: string }).id;
+    const patchStim = await http(app).patch(`/api/v1/stimuli/${stimId}`).set(bearer(editorA.token))
+      .send({ content: 'Stimulus vòng đời của editorA (đã sửa)' });
+    expect(patchStim.status, JSON.stringify(patchStim.body)).toBe(200);
+    const delStim = await http(app).delete(`/api/v1/stimuli/${stimId}`).set(bearer(editorA.token));
+    expect(delStim.status, JSON.stringify(delStim.body)).toBe(200);
+    const cat = await http(app).post('/api/v1/questions/categories').set(bearer(editorA.token))
+      .send({ name: 'Category riêng của editorA', contextId: bankEA.contextId, bankId: bankEA.id });
+    expect(cat.status, JSON.stringify(cat.body)).toBe(201);
+    // Gỡ + gắn lại link của chính mình chạy như cũ.
+    const detach = await http(app).delete(`/api/v1/questions/${qid}/subjects/${linkSubjectId}`).set(bearer(editorA.token));
+    expect(detach.status, JSON.stringify(detach.body)).toBe(200);
+    const reattach = await http(app).post(`/api/v1/questions/${qid}/subjects`).set(bearer(editorA.token))
+      .send({ subjectId: linkSubjectId });
+    expect(reattach.status, JSON.stringify(reattach.body)).toBe(201);
+  });
+
+  it('vòng 2: ghi vào bank TRƯỜNG không hồi quy — editingteacher không phải chủ câu vẫn sửa/tạo theo capability', async () => {
+    const patch = await http(app).patch(`/api/v1/questions/${questionSchool.question.id}`).set(bearer(editorB.token))
+      .send({ name: 'Câu của trường (editorB sửa)' });
+    expect(patch.status, JSON.stringify(patch.body)).toBe(200);
+    const create = await http(app).post('/api/v1/questions').set(bearer(editorB.token)).send({
+      categoryId: schoolBank.defaultCategoryId!, qtype: 'multichoice', name: 'Câu trường của editorB',
+      questionText: 'Câu hỏi chung do editorB tạo?',
+      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+    });
+    expect(create.status, JSON.stringify(create.body)).toBe(201);
+  });
+
+  it('vòng 2: site admin vẫn ghi được vào bank personal của giáo viên (ngoại lệ đã được chấp nhận)', async () => {
+    const patch = await http(app).patch(`/api/v1/questions/${questionEA.question.id}`).set(bearer(admin))
+      .send({ name: 'Câu riêng của editorA (admin sửa)' });
+    expect(patch.status, JSON.stringify(patch.body)).toBe(200);
   });
 });

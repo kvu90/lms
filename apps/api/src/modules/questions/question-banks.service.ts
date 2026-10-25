@@ -1016,6 +1016,14 @@ export class QuestionBanksService {
     const source = await this.questions.getQuestion(input.questionId);
     const sourceCategory = await this.questionsRepo.getCategory(source.question.category);
     const sourceBank = sourceCategory ? await this.findBankForCategory(sourceCategory) : null;
+    // Nguồn đóng góp thuộc bank personal của người khác → câu "không
+    // tồn tại" đối với người đề xuất (issue #123 vòng 2): đóng góp là
+    // đường đưa nội dung bank riêng lên bank chung, chỉ chủ sở hữu mới
+    // đề xuất được câu của chính mình; đồng nghiệp không rút được nội
+    // dung riêng của người khác qua đường này dù có question:share.
+    if (sourceBank && (await this.isForeignPersonalBank(actorId, sourceBank))) {
+      throw new NotFoundException({ message: `Question ${input.questionId} not found`, code: 'question.not_found' });
+    }
     const shareCtx = sourceBank?.contextId ?? sourceCategory?.contextId;
     if (shareCtx) {
       if (sourceBank) await this.syncMembership(sourceBank);
