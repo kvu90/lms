@@ -1433,3 +1433,150 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Không tìm được tin nhắn.');
   });
 });
+
+/* ================= M5: ghim / lưu trữ / tắt tiếng (issue #240) ================= */
+
+const M5_CONV_A = '01900000-0000-7000-8000-0000000000a5';
+const M5_CONV_B = '01900000-0000-7000-8000-0000000000b5';
+
+interface M5ConvState {
+  id: string; name: string; unread: number;
+  pinnedAt: string | null; archivedAt: string | null; muted: boolean; activity: number;
+}
+
+/**
+ * Stub M5 mô phỏng đúng luật server: danh sách chính chỉ gồm hội
+ * thoại chưa lưu (đã ghim lên đầu, còn lại theo hoạt động), mục đã
+ * lưu là đường GET riêng; PATCH state đổi đúng cờ được gửi và trả
+ * trạng thái đầy đủ.
+ */
+function stubFetchM5(calls: RecordedCall[]) {
+  const convs: M5ConvState[] = [
+    { id: M5_CONV_A, name: 'Hội thoại A', unread: 2, pinnedAt: null, archivedAt: null, muted: false, activity: 1 },
+    { id: M5_CONV_B, name: 'Hội thoại B', unread: 0, pinnedAt: null, archivedAt: null, muted: false, activity: 2 },
+  ];
+  const summary = (c: M5ConvState) => ({
+    id: c.id, type: 1, name: c.name, members: [ME_ID, OTHER_ID], unread: c.unread,
+    lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null,
+    pinnedAt: c.pinnedAt, archivedAt: c.archivedAt, muted: c.muted,
+  });
+  const byServerOrder = (list: M5ConvState[]) => [...list].sort((x, y) =>
+    Number(y.pinnedAt !== null) - Number(x.pinnedAt !== null) || y.activity - x.activity);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond(byServerOrder(convs.filter((c) => !c.archivedAt)).map(summary));
+      if (url === '/api/v1/messages/conversations?archived=true' && method === 'GET')
+        return respond(byServerOrder(convs.filter((c) => c.archivedAt)).map(summary));
+      const stateMatch = url.match(/^\/api\/v1\/messages\/conversations\/([^/]+)\/state$/);
+      if (stateMatch && method === 'PATCH') {
+        const conv = convs.find((c) => c.id === stateMatch[1]);
+        if (!conv) return respond({ code: 'messaging.conversation_not_found' }, 404);
+        const patch = JSON.parse(String(init?.body)) as { pinned?: boolean; archived?: boolean; muted?: boolean };
+        if (patch.pinned !== undefined) conv.pinnedAt = patch.pinned ? '2026-01-02T00:00:00.000Z' : null;
+        if (patch.archived !== undefined) conv.archivedAt = patch.archived ? '2026-01-02T00:00:00.000Z' : null;
+        if (patch.muted !== undefined) conv.muted = patch.muted;
+        return respond({
+          conversationId: conv.id, pinned: conv.pinnedAt !== null, pinnedAt: conv.pinnedAt,
+          archived: conv.archivedAt !== null, archivedAt: conv.archivedAt, muted: conv.muted,
+        });
+      }
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 1, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — M5: ghim / lưu trữ / tắt tiếng (issue #240)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('ghim qua menu đưa hội thoại lên đầu kèm nhãn Đã ghim; tắt tiếng làm mờ số chưa đọc', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM5(calls);
+    renderMessages();
+
+    // Thứ tự server ban đầu: B (hoạt động mới hơn) trước A.
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    const listButtons = () => screen.getAllByRole('button', { name: /Hội thoại [AB]/ });
+    expect(listButtons()[0]).toHaveTextContent('Hội thoại B');
+
+    // Mở menu của A → Ghim.
+    await userEvent.click(screen.getByTestId(`conversation-actions-${M5_CONV_A}`));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Ghim cuộc trò chuyện' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'PATCH'
+        && c.url === `/api/v1/messages/conversations/${M5_CONV_A}/state`
+        && (c.body as { pinned?: boolean }).pinned === true)).toBe(true);
+    });
+    // Sau khi ghim: A lên đầu và mang nhãn Đã ghim.
+    await waitFor(() => expect(listButtons()[0]).toHaveTextContent('Hội thoại A'));
+    expect(await screen.findByText('Đã ghim')).toBeInTheDocument();
+
+    // Tắt tiếng A: số chưa đọc của A chuyển sang dạng mờ.
+    await userEvent.click(screen.getByTestId(`conversation-actions-${M5_CONV_A}`));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Tắt tiếng' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'PATCH'
+        && c.url === `/api/v1/messages/conversations/${M5_CONV_A}/state`
+        && (c.body as { muted?: boolean }).muted === true)).toBe(true);
+    });
+    await waitFor(() => {
+      const dimmed = [...document.querySelectorAll('.opacity-60')].map((el) => el.textContent ?? '');
+      expect(dimmed.some((text) => text.includes('2 chưa đọc'))).toBe(true);
+    });
+  });
+
+  it('lưu trữ: hội thoại rời danh sách chính, hiện ở mục đã lưu; bỏ lưu đưa về danh sách chính', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM5(calls);
+    renderMessages();
+
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+
+    // Lưu trữ B qua menu → B biến khỏi danh sách chính.
+    await userEvent.click(screen.getByTestId(`conversation-actions-${M5_CONV_B}`));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Lưu trữ' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'PATCH'
+        && c.url === `/api/v1/messages/conversations/${M5_CONV_B}/state`
+        && (c.body as { archived?: boolean }).archived === true)).toBe(true);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Hội thoại B/ })).not.toBeInTheDocument();
+    });
+
+    // Mở mục đã lưu: trang xin đúng đường ?archived=true và thấy B ở đó.
+    await userEvent.click(screen.getByRole('button', { name: 'Xem mục đã lưu trữ' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.method === 'GET' && c.url === '/api/v1/messages/conversations?archived=true')).toBe(true);
+    });
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Hội thoại A/ })).not.toBeInTheDocument();
+
+    // Bỏ lưu trữ B ngay trong mục đã lưu → B rời mục; quay lại danh sách chính thì B có mặt.
+    await userEvent.click(screen.getByTestId(`conversation-actions-${M5_CONV_B}`));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Bỏ lưu trữ' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Hội thoại B/ })).not.toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Quay lại danh sách' }));
+    expect(await screen.findByRole('button', { name: /Hội thoại B/ })).toBeInTheDocument();
+  });
+});

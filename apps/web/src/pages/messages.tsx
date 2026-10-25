@@ -14,6 +14,8 @@ import type {
   ContactRelationship,
   ContactRequestView,
   ConversationDetailView,
+  ConversationStatePatch,
+  ConversationStateView,
   ConversationView,
   MessageQuoteView,
   MessageSearchResultView,
@@ -46,6 +48,15 @@ export function MessagesPage() {
   const [searchParams] = useSearchParams();
   const myId = user?.id;
   const [conversations, setConversations] = useState<ConversationView[]>([]);
+  /**
+   * Mục ĐÃ LƯU (lát M5, issue #240): danh sách riêng nạp bằng
+   * `?archived=true` khi người dùng mở mục; hai danh sách không trộn
+   * nhau — server là nguồn sự thật của từng mục.
+   */
+  const [archivedConversations, setArchivedConversations] = useState<ConversationView[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  /** Lỗi của lần đổi trạng thái hội thoại gần nhất (lát M5). */
+  const [stateError, setStateError] = useState<string | null>(null);
   /** Đã nạp xong danh sách conversation ít nhất một lần — mốc cho deep-link mở đúng cuộc trò chuyện. */
   const [listLoaded, setListLoaded] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -191,6 +202,62 @@ export function MessagesPage() {
       }
     }
   }, [mergePeople, recountUnread]);
+
+  /** Nạp mục ĐÃ LƯU (lát M5): danh sách riêng của server, lỗi thì giữ bản gần nhất. */
+  const loadArchived = useCallback(async () => {
+    try {
+      const list = await apiJson<ConversationView[]>('/api/v1/messages/conversations?archived=true');
+      setArchivedConversations(list);
+      for (const c of list) mergePeople(c.memberProfiles);
+    } catch {
+      // Giữ mục đã lưu gần nhất.
+    }
+  }, [mergePeople]);
+
+  /** Mở/đóng mục đã lưu (lát M5): mở thì nạp lại từ server cho tươi. */
+  const toggleArchivedMode = useCallback(() => {
+    setShowArchived((prev) => {
+      if (!prev) void loadArchived();
+      return !prev;
+    });
+  }, [loadArchived]);
+
+  /**
+   * Đặt một cờ trạng thái cá nhân trên một cuộc trò chuyện (lát M5):
+   * server trả trạng thái đầy đủ sau khi đặt; client phản ánh ngay —
+   * lưu thì cuộc trò chuyện rời danh sách chính sang mục đã lưu, bỏ
+   * lưu thì đi chiều ngược lại, ghim/tắt tiếng cập nhật tại chỗ.
+   */
+  const updateConversationState = useCallback(async (conversation: ConversationView, patch: ConversationStatePatch) => {
+    setStateError(null);
+    try {
+      const res = await apiJson<ConversationStateView>(
+        `/api/v1/messages/conversations/${conversation.id}/state`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+      );
+      const applyState = (c: ConversationView): ConversationView => (c.id === conversation.id
+        ? { ...c, pinnedAt: res.pinnedAt, archivedAt: res.archivedAt, muted: res.muted }
+        : c);
+      if (res.archived) {
+        setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
+        setArchivedConversations((prev) => [applyState(conversation), ...prev.filter((c) => c.id !== conversation.id)]);
+      } else if (conversation.archivedAt) {
+        setArchivedConversations((prev) => prev.filter((c) => c.id !== conversation.id));
+        void reload();
+      } else {
+        setConversations((prev) => prev.map(applyState));
+        setArchivedConversations((prev) => prev.map(applyState));
+        // Ghim đổi THỨ TỰ danh sách (server xếp đã ghim lên đầu):
+        // nạp lại danh sách đang xem để thứ tự khớp server ngay.
+        if (patch.pinned !== undefined) {
+          void reload();
+          if (showArchived) void loadArchived();
+        }
+      }
+    } catch {
+      setStateError(t('conversationStateFailed'));
+    }
+  }, [loadArchived, reload, showArchived, t]);
 
   /** Đánh dấu đã đọc ở server và phản ánh ngay vào state (mốc của mình + unread của conversation). */
   const markRead = useCallback(async (conversationId: string) => {
@@ -851,11 +918,15 @@ export function MessagesPage() {
   return (
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
       <ConversationSidebar
-        conversations={conversations}
+        conversations={showArchived ? archivedConversations : conversations}
         active={active}
         unread={unread}
         error={error}
         onOpenConversation={open}
+        archivedMode={showArchived}
+        onToggleArchivedMode={toggleArchivedMode}
+        onUpdateConversationState={updateConversationState}
+        stateError={stateError}
         nameOf={nameOf}
         myCourses={myCourses}
         rosterCourseId={rosterCourseId}

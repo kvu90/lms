@@ -54,6 +54,23 @@ export interface MessageSearchResultView {
   excerpt: string;
   createdAt: string;
 }
+/** Ba cờ trạng thái cá nhân đặt được qua PATCH /conversations/:id/state (lát M5) — chỉ cờ có mặt mới đổi. */
+export interface ConversationStatePatch {
+  pinned?: boolean;
+  archived?: boolean;
+  muted?: boolean;
+}
+
+/** Kết quả PATCH state do API trả (lát M5): trạng thái đầy đủ sau khi đặt. */
+export interface ConversationStateView {
+  conversationId: string;
+  pinned: boolean;
+  pinnedAt: string | null;
+  archived: boolean;
+  archivedAt: string | null;
+  muted: boolean;
+}
+
 /** Tóm tắt hiển thị của một user do API trả kèm (tên thật thay cho UUID thô). */
 export interface PersonSummary {
   userId: string;
@@ -99,6 +116,16 @@ export interface ConversationView {
   lastMessage?: MessageView | null;
   /** Chat đang bật hay không — giáo viên tắt được (Lớp B); vắng mặt coi như đang bật. */
   enabled?: boolean;
+  /**
+   * Trạng thái cá nhân của CHÍNH user trên conversation này (lát M5,
+   * issue #240): `pinnedAt` khác null = đã ghim (danh sách xếp lên
+   * đầu), `archivedAt` khác null = đã lưu trữ (chỉ hiện ở mục đã
+   * lưu), `muted` = đã tắt tiếng (số chưa đọc hiện mờ, huy hiệu
+   * điều hướng không tính).
+   */
+  pinnedAt?: string | null;
+  archivedAt?: string | null;
+  muted?: boolean;
   createdBy?: string | null;
   /** Thẩm quyền của CHÍNH user trên conversation (chỉ chi tiết conversation mới mang): kiểm duyệt / quản lý. */
   canModerate?: boolean;

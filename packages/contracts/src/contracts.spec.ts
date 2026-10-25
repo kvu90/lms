@@ -10,6 +10,7 @@ import {
   createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema,
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
   searchMessagesQuerySchema, messageSearchResultSchema,
+  updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -63,6 +64,30 @@ describe('engagement contracts', () => {
       userIdFrom: '01900000-0000-7000-8000-000000000003', seq: 7, excerpt: '…học bài…', createdAt: new Date().toISOString(),
     });
     expect(result.seq).toBe(7);
+  });
+
+  it('khoá hình dạng trạng thái hội thoại (M5): ba cờ độc lập từng phần, lạ bị chặn', () => {
+    // PATCH state là TỪNG PHẦN: gửi một cờ thì chỉ cờ đó đổi — schema
+    // giữ nguyên đúng các trường đã gửi, không tự điền cờ còn lại
+    // (điền mặc định sẽ ghi đè trạng thái phía server khi client chỉ
+    // định đổi một cờ).
+    expect(updateConversationStateSchema.parse({ muted: true })).toEqual({ muted: true });
+    expect(updateConversationStateSchema.parse({ pinned: false, archived: true })).toEqual({ pinned: false, archived: true });
+    expect(updateConversationStateSchema.parse({})).toEqual({});
+    // Giá trị không phải boolean và khoá lạ bị chặn ở biên hợp đồng.
+    expect(() => updateConversationStateSchema.parse({ pinned: 'yes' })).toThrow();
+    expect(() => updateConversationStateSchema.parse({ starred: true })).toThrow();
+    // Query danh sách: archived chỉ nhận boolean thật.
+    expect(listConversationsQuerySchema.parse({})).toEqual({});
+    expect(listConversationsQuerySchema.parse({ archived: true })).toEqual({ archived: true });
+    expect(() => listConversationsQuerySchema.parse({ archived: 'true' })).toThrow();
+    // Hình dạng trạng thái trả về: cờ boolean suy từ mốc, mốc nullable.
+    const state = conversationMemberStateSchema.parse({
+      conversationId: '01900000-0000-7000-8000-000000000001', pinned: true, pinnedAt: new Date().toISOString(),
+      archived: false, archivedAt: null, muted: false,
+    });
+    expect(state.pinned).toBe(true);
+    expect(state.archivedAt).toBeNull();
   });
 
   it('parses calendar events, badges and rejects impossible shapes', () => {

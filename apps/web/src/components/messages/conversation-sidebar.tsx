@@ -3,10 +3,14 @@ import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@lms/ui/components/dropdown-menu';
 import { Input } from '@lms/ui/components/input';
 import { useTranslation } from 'react-i18next';
 import type {
   ContactRequestView,
+  ConversationStatePatch,
   ConversationView,
   MessagingCourse,
   RosterMember,
@@ -19,6 +23,13 @@ interface ConversationSidebarProps {
   unread: number;
   error: string | null;
   onOpenConversation: (conversation: ConversationView) => void;
+  /** Đang xem mục ĐÃ LƯU thay vì danh sách chính (lát M5). */
+  archivedMode: boolean;
+  onToggleArchivedMode: () => void;
+  /** Đặt một cờ trạng thái cá nhân (ghim/lưu/tắt tiếng) cho một cuộc trò chuyện (lát M5). */
+  onUpdateConversationState: (conversation: ConversationView, patch: ConversationStatePatch) => void;
+  /** Lỗi của lần đổi trạng thái gần nhất (lát M5); null khi không có. */
+  stateError: string | null;
   nameOf: (userId: string) => string;
   myCourses: MessagingCourse[];
   rosterCourseId: string | null;
@@ -41,7 +52,8 @@ interface ConversationSidebarProps {
 
 /** Cột trái trang Tin nhắn: danh sách cuộc trò chuyện + tìm bạn theo khoá + danh bạ + đã chặn. */
 export function ConversationSidebar({
-  conversations, active, unread, error, onOpenConversation, nameOf, myCourses, rosterCourseId,
+  conversations, active, unread, error, onOpenConversation, archivedMode, onToggleArchivedMode,
+  onUpdateConversationState, stateError, nameOf, myCourses, rosterCourseId,
   rosterMembers, rosterError, rosterCursor, onOpenRoster, onLoadMoreRoster, onMessageContact,
   onSendContactRequest, onRespondContactRequest, contacts, contactMessage, incomingRequests,
   outgoingRequests, blocked, blockMessage, onUnblockContact,
@@ -86,17 +98,60 @@ export function ConversationSidebar({
           {filterNeedle && visibleConversations.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('conversationSearchNoResults')}</p>
           ) : null}
+          <div className="flex items-center justify-between gap-2">
+            {archivedMode ? <h3 className="font-medium">{t('archivedConversationsTitle')}</h3> : <span />}
+            <Button type="button" variant="outline" onClick={() => onToggleArchivedMode()}>
+              {archivedMode ? t('backToConversationList') : t('viewArchivedConversations')}
+            </Button>
+          </div>
+          {stateError ? <p role="alert">{stateError}</p> : null}
+          {archivedMode && visibleConversations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('archivedEmpty')}</p>
+          ) : null}
           <ul className="space-y-1">
             {visibleConversations.map((c) => (
               <li key={c.id}>
-                <Button
-                  type="button"
-                  variant={active?.id === c.id ? 'default' : 'outline'}
-                  onClick={() => void open(c)}
-                >
-                  {labelOf(c)}
-                  {(c.unread ?? 0) > 0 ? t('unreadSuffix', { count: c.unread }) : ''}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant={active?.id === c.id ? 'default' : 'outline'}
+                    onClick={() => void open(c)}
+                  >
+                    {labelOf(c)}
+                    {(c.unread ?? 0) > 0
+                      ? c.muted
+                        ? <span className="opacity-60">{t('unreadSuffix', { count: c.unread })}</span>
+                        : t('unreadSuffix', { count: c.unread })
+                      : ''}
+                  </Button>
+                  {c.pinnedAt ? <Badge variant="secondary">{t('pinnedBadge')}</Badge> : null}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={t('conversationActionsLabel')}
+                          data-testid={`conversation-actions-${c.id}`}
+                        />
+                      }
+                    >
+                      …
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={4}>
+                      <DropdownMenuItem onClick={() => onUpdateConversationState(c, { pinned: !c.pinnedAt })}>
+                        {c.pinnedAt ? t('unpinConversation') : t('pinConversation')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onUpdateConversationState(c, { archived: !c.archivedAt })}>
+                        {c.archivedAt ? t('unarchiveConversation') : t('archiveConversation')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onUpdateConversationState(c, { muted: !c.muted })}>
+                        {c.muted ? t('unmuteConversation') : t('muteConversation')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {c.lastMessage ? (
                   <p className="flex items-baseline gap-2 text-xs text-muted-foreground">
                     <span className="truncate">{c.lastMessage.fullMessage}</span>
