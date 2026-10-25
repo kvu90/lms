@@ -262,8 +262,14 @@ describe('Gradebook page — kết quả VN của tôi (issue #180)', () => {
     renderGradebook();
     const block = await screen.findByTestId('my-vn-results');
     expect(block).toHaveTextContent('Chưa công bố');
-    expect(screen.queryByText(/Điểm trung bình/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Nhận xét của giáo viên/)).not.toBeInTheDocument();
+    // Khẳng định khoá nằm ở TỪNG HÀNG kỳ/năm: chỉ nhãn "Chưa công bố",
+    // không nhãn điểm/mức/nhận xét nào (mô tả của khối ở CardHeader có
+    // nhắc chữ "Điểm trung bình" theo thiết kế nên không rà toàn trang).
+    for (const testid of ['my-vn-term-hk1', 'my-vn-year']) {
+      const row = screen.getByTestId(testid);
+      expect(row).toHaveTextContent('Chưa công bố');
+      expect(row.textContent).not.toMatch(/Điểm trung bình|Mức học tập|Nhận xét của giáo viên/);
+    }
   });
 
   it('khoá chưa có sổ VN: không render khối kết quả của tôi', async () => {
