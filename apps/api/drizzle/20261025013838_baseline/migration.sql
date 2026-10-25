@@ -1600,6 +1600,8 @@ CREATE TABLE "message" (
 	"client_message_id" text,
 	"deleted_at" timestamp with time zone,
 	"deleted_by" uuid,
+	"recalled_at" timestamp with time zone,
+	"recalled_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "message_conversation_client_id_unique" UNIQUE("conversation_id","user_id_from","client_message_id")
 );
@@ -1650,6 +1652,25 @@ CREATE TABLE "message_conversations" (
 	"last_message_seq" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "message_moderator_actions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"message_id" uuid NOT NULL,
+	"conversation_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"author_id" uuid NOT NULL,
+	"action" text NOT NULL,
+	"reason" text,
+	"message_seq" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "message_user_deletions" (
+	"message_id" uuid,
+	"user_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "message_user_deletions_pkey" PRIMARY KEY("message_id","user_id")
 );
 --> statement-breakpoint
 CREATE TABLE "message_users_blocked" (
@@ -2531,6 +2552,10 @@ CREATE INDEX "message_conversation_reports_conversation_id_idx" ON "message_conv
 CREATE INDEX "message_conversation_reports_reporter_id_idx" ON "message_conversation_reports" ("reporter_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_item_id_idx" ON "message_conversations" ("item_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_context_id_idx" ON "message_conversations" ("context_id");--> statement-breakpoint
+CREATE INDEX "message_moderator_actions_message_id_idx" ON "message_moderator_actions" ("message_id");--> statement-breakpoint
+CREATE INDEX "message_moderator_actions_conversation_id_idx" ON "message_moderator_actions" ("conversation_id");--> statement-breakpoint
+CREATE INDEX "message_moderator_actions_actor_id_idx" ON "message_moderator_actions" ("actor_id");--> statement-breakpoint
+CREATE INDEX "message_user_deletions_user_id_idx" ON "message_user_deletions" ("user_id");--> statement-breakpoint
 CREATE INDEX "message_users_blocked_blocked_user_id_idx" ON "message_users_blocked" ("blocked_user_id");--> statement-breakpoint
 CREATE INDEX "notification_dispatch_log_notification_id_idx" ON "notification_dispatch_log" ("notification_id");--> statement-breakpoint
 CREATE INDEX "notification_dispatch_log_user_id_idx" ON "notification_dispatch_log" ("user_id");--> statement-breakpoint
@@ -2818,6 +2843,7 @@ ALTER TABLE "books" ADD CONSTRAINT "books_subject_id_subjects_id_fkey" FOREIGN K
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_reports" ADD CONSTRAINT "message_conversation_reports_Pp9sKN3GPtqe_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "message_user_deletions" ADD CONSTRAINT "message_user_deletions_message_id_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "message"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_issued" ADD CONSTRAINT "badge_issued_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_manual_award" ADD CONSTRAINT "badge_manual_award_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint

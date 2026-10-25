@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "e5efdbee-5b7a-4f7e-99d7-3762ac206ad5",
+  "id": "2b258918-3122-4501-a38e-748dabeff40d",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -2527,6 +2527,44 @@
         "n|rel|public.message_conversations",
         "n|type|public.message_conversations",
         "n|rel|public.message_conversations_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "message_moderator_actions"
+      ],
+      "writes": [
+        "s|tbl|public.message_moderator_actions",
+        "n|tbl|public.message_moderator_actions",
+        "e|tbl|public.message_moderator_actions",
+        "n|rel|public.message_moderator_actions",
+        "n|type|public.message_moderator_actions",
+        "n|rel|public.message_moderator_actions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "message_user_deletions"
+      ],
+      "writes": [
+        "s|tbl|public.message_user_deletions",
+        "n|tbl|public.message_user_deletions",
+        "e|tbl|public.message_user_deletions",
+        "n|rel|public.message_user_deletions",
+        "n|type|public.message_user_deletions",
+        "n|rel|public.message_user_deletions_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -8181,6 +8219,86 @@
         "n|tbl|public.message_conversations",
         "n|sch|public",
         "n|col|public.message_conversations.context_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_moderator_actions",
+        "message_moderator_actions_message_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_moderator_actions_message_id_idx",
+        "n|idx|public.message_moderator_actions_message_id_idx",
+        "e|idx|public.message_moderator_actions_message_id_idx",
+        "n|rel|public.message_moderator_actions_message_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_moderator_actions",
+        "n|sch|public",
+        "n|col|public.message_moderator_actions.message_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_moderator_actions",
+        "message_moderator_actions_conversation_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_moderator_actions_conversation_id_idx",
+        "n|idx|public.message_moderator_actions_conversation_id_idx",
+        "e|idx|public.message_moderator_actions_conversation_id_idx",
+        "n|rel|public.message_moderator_actions_conversation_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_moderator_actions",
+        "n|sch|public",
+        "n|col|public.message_moderator_actions.conversation_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_moderator_actions",
+        "message_moderator_actions_actor_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_moderator_actions_actor_id_idx",
+        "n|idx|public.message_moderator_actions_actor_id_idx",
+        "e|idx|public.message_moderator_actions_actor_id_idx",
+        "n|rel|public.message_moderator_actions_actor_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_moderator_actions",
+        "n|sch|public",
+        "n|col|public.message_moderator_actions.actor_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message_user_deletions",
+        "message_user_deletions_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_user_deletions_user_id_idx",
+        "n|idx|public.message_user_deletions_user_id_idx",
+        "e|idx|public.message_user_deletions_user_id_idx",
+        "n|rel|public.message_user_deletions_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_user_deletions",
+        "n|sch|public",
+        "n|col|public.message_user_deletions.user_id"
       ]
     },
     {
@@ -14457,6 +14575,29 @@
       "statementTarget": [
         "table",
         "public",
+        "message_user_deletions"
+      ],
+      "writes": [
+        "s|fk|public.message_user_deletions.message_user_deletions_message_id_message_id_fkey",
+        "n|fk|public.message_user_deletions.message_user_deletions_message_id_message_id_fkey",
+        "e|fk|public.message_user_deletions.message_user_deletions_message_id_message_id_fkey",
+        "n|con|public.message_user_deletions.message_user_deletions_message_id_message_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.message_user_deletions",
+        "n|sch|public",
+        "n|tbl|public.message",
+        "n|sch|public",
+        "n|col|public.message_user_deletions.message_id",
+        "n|col|public.message.id",
+        "e|uniqueness|public.message.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "badge_criteria"
       ],
       "writes": [
@@ -15984,6 +16125,18 @@
     {
       "schema": "public",
       "name": "message_conversations",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "message_moderator_actions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "message_user_deletions",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -31160,6 +31313,32 @@
     {
       "schema": "public",
       "table": "message",
+      "name": "recalled_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "recalled_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -31551,6 +31730,162 @@
       "schema": "public",
       "table": "message_conversations",
       "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "conversation_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "author_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "action",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_seq",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_user_deletions",
+      "name": "message_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_user_deletions",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_user_deletions",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -42748,6 +43083,90 @@
     },
     {
       "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_moderator_actions_message_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "message_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_moderator_actions_conversation_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "conversation_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_moderator_actions_actor_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message_user_deletions",
+      "name": "message_user_deletions_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message_users_blocked",
       "name": "message_users_blocked_blocked_user_id_idx",
       "nameExplicit": true,
@@ -48104,6 +48523,23 @@
     },
     {
       "schema": "public",
+      "table": "message_user_deletions",
+      "name": "message_user_deletions_message_id_message_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "message_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "message",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "badge_criteria",
       "name": "badge_criteria_badge_id_badge_id_fkey",
       "nameExplicit": false,
@@ -48724,6 +49160,17 @@
       "name": "message_conversation_members_pkey",
       "columns": [
         "conversation_id",
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "message_user_deletions",
+      "name": "message_user_deletions_pkey",
+      "columns": [
+        "message_id",
         "user_id"
       ],
       "nameExplicit": false,
@@ -49964,6 +50411,16 @@
       "schema": "public",
       "table": "message_conversations",
       "name": "message_conversations_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "message_moderator_actions",
+      "name": "message_moderator_actions_pkey",
       "columns": [
         "id"
       ],
