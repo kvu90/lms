@@ -10,6 +10,8 @@ import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from '
 import { relations } from './db/relations';
 import { EnrolExpiryScheduler } from './enrol-expiry.scheduler';
 import { ActivityDueReminderScheduler } from './activity-due-reminder.scheduler';
+import { GuardianDigestScheduler } from './guardian-digest.scheduler';
+import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import { TaskLogService } from './task-log.service';
@@ -53,6 +55,7 @@ import {
     BullModule.registerQueue({ name: 'file-cleanup' }),
     BullModule.registerQueue({ name: 'enrol-expiry' }),
     BullModule.registerQueue({ name: 'activity-due-reminders' }),
+    BullModule.registerQueue({ name: 'guardian-digests' }),
     BullModule.registerQueue({ name: 'completion-recalculate' }),
     BullModule.registerQueue({ name: 'grade-regrade' }),
     BullModule.registerQueue({ name: 'notification-dispatch' }),
@@ -69,6 +72,6 @@ import {
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ActivityDueReminderProcessor, ActivityDueReminderScheduler, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
+  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, GradeRegradeProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],
 })
 export class WorkerModule {}
