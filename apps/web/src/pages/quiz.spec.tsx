@@ -222,6 +222,72 @@ describe('Quiz attempt page — real endpoints', () => {
     expect(await screen.findByText(/Kết quả: 5\/5 điểm câu — điểm bài 10\/10/)).toBeInTheDocument();
     expect(screen.getByText(/Đáp án đúng: Paris/)).toBeInTheDocument();
   });
+
+  it('renders all four feedback layers on the review page (ĐX-3, #181)', async () => {
+    const finishedView = {
+      attempt: {
+        id: ATTEMPT_ID,
+        quizId: QUIZ_ID,
+        userId: STUDENT_ID,
+        attemptNumber: 1,
+        state: 'finished',
+        preview: false,
+        timeStart: new Date().toISOString(),
+        timeFinish: new Date().toISOString(),
+        sumGrades: 5,
+        grade: 10,
+      },
+      quiz: { ...quizView([]), sumGrades: 5 },
+      questions: [
+        {
+          slot: 1,
+          page: 1,
+          questionAttemptId: QA_ID,
+          questionId: QUESTION_ID,
+          qtype: 'multichoice',
+          name: 'Capital',
+          questionText: doc('Capital of France?'),
+          stimulus: null,
+          answers: [
+            { id: ANSWER_ID, text: doc('Paris') },
+            { id: '01900000-0000-7000-8000-0000000000cc', text: doc('London') },
+          ],
+          options: { single: true },
+          maxMark: 5,
+          state: 'gradedright',
+          response: ANSWER_ID,
+          fraction: 1,
+          mark: 5,
+          rightAnswer: 'Paris',
+          feedback: doc('Nhận xét riêng cho đáp án Paris.'),
+          generalFeedback: doc('Paris là thủ đô của Pháp.'),
+          manualComment: 'Cô đã đọc bài của em.',
+        },
+      ],
+      totalMax: 5,
+      pendingManualCount: 0,
+      closedDueToTimeLimit: false,
+      overallFeedback: 'Làm tốt lắm, tiếp tục phát huy.',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}`) return respond(finishedView);
+        return respond({}, 404);
+      }),
+    );
+
+    const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
+      initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByText(/Nhận xét cho đáp án của bạn: Nhận xét riêng cho đáp án Paris\./)).toBeInTheDocument();
+    expect(screen.getByText(/Nhận xét của giáo viên: Cô đã đọc bài của em\./)).toBeInTheDocument();
+    expect(screen.getByText('Lời giải')).toBeInTheDocument();
+    expect(screen.getByText(/Paris là thủ đô của Pháp\./)).toBeInTheDocument();
+    expect(screen.getByText(/Nhận xét chung: Làm tốt lắm, tiếp tục phát huy\./)).toBeInTheDocument();
+  });
 });
 
 describe('Quiz results page — manual grading', () => {
