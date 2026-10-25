@@ -14,7 +14,9 @@
  *      nối thì hủy luôn request phía API. WebSocket (socket.io) đi qua
  *      đường hầm TCP ở sự kiện `upgrade`.
  *   3. Phục vụ asset tĩnh của bản build client (tên file có hash →
- *      cache immutable) và giao mọi request còn lại cho server build
+ *      cache immutable; asset text được nén brotli/gzip theo
+ *      Accept-Encoding — xem `compression.mjs`, CHỈ ở đường tĩnh này)
+ *      và giao mọi request còn lại cho server build
  *      của React Router (SSR) qua createRequestListener.
  *
  * Chạy độc lập: `node server/prod-server.mjs` (cần `react-router
@@ -28,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequestListener } from '@react-router/node';
 import * as serverBuild from '../build/server/index.js';
 import { isProxyPath } from './proxy-paths.mjs';
+import { compressBuffer, isCompressibleType, MIN_COMPRESS_BYTES, pickEncoding } from './compression.mjs';
 
 const apiOrigin = new URL(process.env.LMS_API_INTERNAL_URL ?? 'http://127.0.0.1:3000');
 const publicPort = Number(process.env.PORT ?? process.env.PUBLIC_PORT ?? 8080);
@@ -139,9 +142,24 @@ async function tryStatic(req, res) {
     const cache = urlPath.startsWith('/assets/')
       ? 'public, max-age=31536000, immutable'
       : 'public, max-age=3600';
-    res.writeHead(200, { 'Content-Type': type, 'Content-Length': info.size, 'Cache-Control': cache });
+    const body = await readFile(filePath);
+    const headers = { 'Content-Type': type, 'Cache-Control': cache };
+    let payload = body;
+    // Nén CHỈ ở đường tĩnh này (F-12 của #133): SSR streaming và proxy
+    // không đi qua đây. File text đủ lớn + client chấp nhận thì nén,
+    // kèm Vary để cache trung gian tách đúng biến thể theo Accept-Encoding.
+    if (isCompressibleType(type)) {
+      headers.Vary = 'Accept-Encoding';
+      const encoding = info.size >= MIN_COMPRESS_BYTES ? pickEncoding(req.headers['accept-encoding']) : null;
+      if (encoding) {
+        payload = compressBuffer(body, encoding);
+        headers['Content-Encoding'] = encoding;
+      }
+    }
+    headers['Content-Length'] = payload.length;
+    res.writeHead(200, headers);
     if (req.method === 'HEAD') res.end();
-    else res.end(await readFile(filePath));
+    else res.end(payload);
     return true;
   } catch {
     return false;
