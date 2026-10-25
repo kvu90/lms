@@ -84,6 +84,7 @@ export class GradesService implements OnModuleInit {
   async createItem(actorId: string, courseId: string, input: {
     itemName: string; itemType?: string; cmId?: string;
     gradeMax?: number; gradeMin?: number; gradePass?: number; hidden?: boolean;
+    multiplicator?: number; plusFactor?: number;
   }): Promise<ItemRow> {
     await this.courses.getCourse(courseId);
     await this.requireCap(actorId, 'grade:manage', courseId);
@@ -109,6 +110,7 @@ export class GradesService implements OnModuleInit {
       courseId: courseId, itemName: input.itemName, itemType,
       itemModule, itemInstance: itemType === 'mod' ? input.cmId! : null,
       gradeMax, gradeMin, gradePass: input.gradePass ?? 0,
+      multiplicator: input.multiplicator ?? 1, plusFactor: input.plusFactor ?? 0,
       hidden: input.hidden ?? false,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'grades', type: 'grade_item_created', payload: { courseId, itemId: item.id } });
@@ -137,7 +139,7 @@ export class GradesService implements OnModuleInit {
    */
   async updateItem(actorId: string, itemId: string, input: {
     itemName?: string; gradeMax?: number; gradeMin?: number; gradePass?: number;
-    hidden?: boolean; locked?: boolean;
+    hidden?: boolean; locked?: boolean; multiplicator?: number; plusFactor?: number;
   }): Promise<ItemRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'grade:manage', item.courseId);
@@ -148,6 +150,8 @@ export class GradesService implements OnModuleInit {
     if (input.gradePass !== undefined) patch.gradePass = input.gradePass;
     if (input.hidden !== undefined) patch.hidden = input.hidden;
     if (input.locked !== undefined) patch.locked = input.locked;
+    if (input.multiplicator !== undefined) patch.multiplicator = input.multiplicator;
+    if (input.plusFactor !== undefined) patch.plusFactor = input.plusFactor;
     if (Object.keys(patch).length) await this.repo.updateItem(itemId, patch);
     await this.outbox.enqueueStandalone({ aggregate: 'grades', type: 'grade_item_updated', payload: { courseId: item.courseId, itemId } });
     return this.getItem(itemId);
