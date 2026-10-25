@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Database } from '../../../db/database';
@@ -41,11 +41,13 @@ export class BetterAuthService {
     config: ConfigService,
     @InjectDrizzle() db: Database,
     passwordService: PasswordService,
-    // Cổng mail auth (chặng 2.5): Nest chích từ MailModule; tham số
-    // để tuỳ chọn ở chữ ký để các nơi dựng service tay (unit spec,
+    // Cổng mail auth (chặng 2.5): Nest chích từ MailModule. Phải là
+    // @Optional tường minh và KHÔNG khai union `| null` ở chữ ký —
+    // union làm metadata phản chiếu thành Object khiến Nest không
+    // phân giải được tham số. Các nơi dựng service tay (unit spec,
     // script) không truyền thì instance chạy không có đường mail —
     // đúng nghĩa "chưa nối mail" của factory, không phải lỗi.
-    authMail?: AuthMailService | null,
+    @Optional() authMail?: AuthMailService,
   ) {
     this.enabled = config.get<boolean>('BETTER_AUTH_ENABLED') ?? false;
     this.mcpAsEnabled = config.get<boolean>('MCP_AS_ENABLED') ?? false;
