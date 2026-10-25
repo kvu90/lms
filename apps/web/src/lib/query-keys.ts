@@ -74,6 +74,8 @@ export const queryKeys = {
   guardianOverview: (studentId: string) => ['guardian', 'overview', studentId] as const,
   /** Kết quả đã công bố của một con (GET /guardian/students/:id/results) — PH-1. */
   guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
+  /** Tuỳ chọn tần suất digest của phụ huynh cho một con (GET/PUT /guardian/students/:id/digest-preference) — PH-2. */
+  guardianDigestPreference: (studentId: string) => ['guardian', 'digest-preference', studentId] as const,
   /** Cấu hình site (GET /site-config) — gốc khoá, kiêm tiền tố làm mới cả audit sau đột biến. */
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */
