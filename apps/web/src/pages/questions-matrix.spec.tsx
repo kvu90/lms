@@ -130,29 +130,38 @@ describe('Matrix bank UI (MB-1)', () => {
     localStorage.clear();
   });
 
-  it('hai khu vực phân biệt: collapse riêng có ma trận của tôi; bank chung có mẫu và copy về được', async () => {
+  it('hai khu vực phân biệt: trang /matrices có ma trận của tôi; trang /system-bank/matrices có mẫu chung và copy về được', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
-    });
-    const { container } = render(
-      <TestProviders>
-        <RouterProvider router={router} />
-      </TestProviders>,
-    );
-
-    // Khu riêng: mở collapse "Ma trận của tôi" → thấy ma trận cá nhân + Thêm mới.
+    // Khu riêng ở path riêng (chuẩn đường dẫn #221): collapse "Ma trận
+    // của tôi" mở sẵn ở /matrices → thấy ma trận cá nhân + Thêm mới.
     // (Tên ma trận cũng xuất hiện ở <option> của select đề xuất đóng góp
     // nên đếm mọi phần tử khớp thay vì findByText đơn nhất.)
-    await userEvent.click(await screen.findByText('Ma trận của tôi'));
+    const myRouter = createMemoryRouter([{ path: '/matrices', element: <QuestionsPage area="my-matrices" /> }], {
+      initialEntries: ['/matrices'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={myRouter} />
+      </TestProviders>,
+    );
     expect((await screen.findAllByText('Ma trận ôn tập của tôi')).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Thêm mới' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sửa' })).toBeInTheDocument();
+    cleanup();
 
-    // Khu hệ thống: mở collapse → chọn bank tổ → thấy mẫu → copy về.
-    await userEvent.click(screen.getByText('Ngân hàng hệ thống'));
+    // Khu hệ thống ở /system-bank/matrices: chọn bank tổ → thấy mẫu
+    // → copy về.
+    const systemRouter = createMemoryRouter(
+      [{ path: '/system-bank/matrices', element: <QuestionsPage area="system-matrices" /> }],
+      { initialEntries: ['/system-bank/matrices'] },
+    );
+    const { container } = render(
+      <TestProviders>
+        <RouterProvider router={systemRouter} />
+      </TestProviders>,
+    );
     expect(await screen.findByText('Ngân hàng ma trận chung')).toBeInTheDocument();
     const bankSelect = container.querySelector<HTMLSelectElement>('#shared-matrix-bank');
     if (!bankSelect) throw new Error('shared matrix bank select not found');
@@ -173,10 +182,10 @@ describe('Matrix bank UI (MB-1)', () => {
     stubFetch(calls);
     const router = createMemoryRouter(
       [
-        { path: '/questions', element: <div>Danh sách ngân hàng</div> },
-        { path: '/questions/matrices/new', element: <MatrixNewPage /> },
+        { path: '/matrices', element: <div>Danh sách ngân hàng</div> },
+        { path: '/matrices/new', element: <MatrixNewPage /> },
       ],
-      { initialEntries: ['/questions/matrices/new'] },
+      { initialEntries: ['/matrices/new'] },
     );
     render(
       <TestProviders>

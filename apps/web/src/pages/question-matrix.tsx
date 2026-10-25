@@ -80,7 +80,7 @@ function flattenOutcomes(nodes: CurriculumTreeNode[]): { id: string; content: st
   return out;
 }
 
-/** Màn tạo ma trận mới trong bank ma trận cá nhân (route /questions/matrices/new). */
+/** Màn tạo ma trận mới trong bank ma trận cá nhân (route /matrices/new). */
 export function MatrixNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
@@ -146,7 +146,7 @@ export function MatrixNewPage() {
           totalScore: Number(totalScore) || 10, isTemplate, status,
         }),
       });
-      navigate('/questions', { state: { notice: t('matrixCreated') } });
+      navigate('/matrices', { state: { notice: t('matrixCreated') } });
     } catch (err) {
       setMessage(withApiReason(t('matrixCreateFailed'), err));
     }
@@ -174,7 +174,7 @@ export function MatrixNewPage() {
           </CardHeader>
         </Card>
         <p>
-          <Link to="/questions" className="text-sm underline">
+          <Link to="/matrices" className="text-sm underline">
             {t('backToQuestionBankList')}
           </Link>
         </p>
@@ -261,7 +261,7 @@ export function MatrixNewPage() {
                 <Button type="submit" disabled={!name.trim() || !subjectId || !curriculumId}>
                   {t('matrixCreate')}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => navigate('/questions')}>
+                <Button type="button" variant="outline" onClick={() => navigate('/matrices')}>
                   {t('backToQuestionBankList')}
                 </Button>
               </div>
@@ -273,7 +273,7 @@ export function MatrixNewPage() {
   );
 }
 
-/** Màn sửa ma trận (route /questions/matrices/:matrixId/edit): thông tin chung + các ô + khả dụng theo ô. */
+/** Màn sửa ma trận (route /matrices/:matrixId/edit): thông tin chung + các ô + khả dụng theo ô. */
 export function MatrixEditPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
@@ -423,7 +423,7 @@ export function MatrixEditPage() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit">{t('matrixEditTitle')}</Button>
-                <Button type="button" variant="outline" onClick={() => navigate('/questions')}>
+                <Button type="button" variant="outline" onClick={() => navigate('/matrices')}>
                   {t('backToQuestionBankList')}
                 </Button>
               </div>

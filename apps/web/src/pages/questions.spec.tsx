@@ -4,6 +4,24 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { QuestionCategoryNewPage, QuestionsPage, QuestionUsagePage } from './questions';
+import QuestionsRoute from '../routes/questions';
+import StimuliRoute from '../routes/question-stimuli';
+import ExamsRoute from '../routes/exams';
+import ExamPaperNewRoute from '../routes/exam-paper-new';
+import ExamPaperEditRoute from '../routes/exam-paper-edit';
+import LegacyExamPapersRoute from '../routes/legacy-exam-papers';
+import LegacyExamPaperNewRoute from '../routes/legacy-exam-paper-new';
+import LegacyExamPaperEditRoute from '../routes/legacy-exam-paper-edit';
+import MatricesRoute from '../routes/matrices';
+import MatrixNewRoute from '../routes/question-matrix-new';
+import MatrixEditRoute from '../routes/question-matrix-edit';
+import LegacyMatrixNewRoute from '../routes/legacy-matrix-new';
+import LegacyMatrixEditRoute from '../routes/legacy-matrix-edit';
+import SystemBankRoute from '../routes/system-bank';
+import SystemBankQuestionsRoute from '../routes/system-bank-questions';
+import SystemBankExamsRoute from '../routes/system-bank-exams';
+import LegacySystemBankPapersRoute from '../routes/legacy-system-bank-papers';
+import SystemBankMatricesRoute from '../routes/system-bank-matrices';
 
 /**
  * Spec flow làm bài theo endpoint thật của question engine: tạo usage từ
@@ -321,11 +339,13 @@ describe('Question bank page — role gate (issue #55)', () => {
 
 /**
  * Parity admin ↔ giáo viên trên bề mặt ngân hàng (việc nối tiếp feat
- * #70, đính chính 25/10/2026): admin có khu riêng ĐÚNG NHƯ giáo viên —
- * trang /questions render đủ ba collapse (Ngân hàng riêng của tôi /
- * Ma trận của tôi / Ngân hàng hệ thống) và nút Thêm mới trong khu
- * riêng dùng được (không disabled oan) cho CẢ admin (isSiteAdmin) lẫn
- * giáo viên (capability qua context, không phải site admin).
+ * #70, đính chính 25/10/2026): admin có khu riêng ĐÚNG NHƯ giáo viên.
+ * Từ lát R1 (chuẩn đường dẫn #221) mỗi khu vực là một trang theo path
+ * riêng (/questions, /matrices, /exams, /system-bank/*) và
+ * trang chỉ render khu vực của nó, collapse của khu mở sẵn; nút Thêm
+ * mới trong khu riêng dùng được (không disabled oan) cho CẢ admin
+ * (isSiteAdmin) lẫn giáo viên (capability qua context, không phải
+ * site admin).
  */
 describe('Question bank page — admin parity (issue #70)', () => {
   afterEach(() => {
@@ -376,31 +396,68 @@ describe('Question bank page — admin parity (issue #70)', () => {
     );
   }
 
-  async function expectFullBankSurface() {
-    localStorage.setItem('lms.accessToken', 'test-token');
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
+  type BankArea = 'my-questions' | 'my-matrices' | 'my-exams' | 'system-questions';
+  const AREA_PATHS: Record<BankArea, string> = {
+    'my-questions': '/questions',
+    'my-matrices': '/matrices',
+    'my-exams': '/exams',
+    'system-questions': '/system-bank/questions',
+  };
+
+  function renderArea(area: BankArea) {
+    const path = AREA_PATHS[area];
+    const router = createMemoryRouter([{ path, element: <QuestionsPage area={area} /> }], {
+      initialEntries: [path],
     });
     render(
       <TestProviders>
         <RouterProvider router={router} />
       </TestProviders>,
     );
-    // Đủ ba collapse như nhau cho mọi vai đủ quyền.
-    expect(await screen.findByText('Ngân hàng riêng của tôi')).toBeInTheDocument();
-    expect(await screen.findByText('Ma trận của tôi')).toBeInTheDocument();
-    expect(await screen.findByText('Ngân hàng hệ thống')).toBeInTheDocument();
-    // Mở collapse riêng: nút Thêm mới phải dùng được (bank cá nhân có
-    // category mặc định) — không disabled oan theo vai.
-    await userEvent.click(screen.getByRole('button', { name: /Ngân hàng riêng của tôi/ }));
+  }
+
+  async function expectFullBankSurface() {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    // Câu hỏi của tôi (/questions): chỉ có collapse riêng và mở sẵn;
+    // hai khu riêng còn lại KHÔNG nằm chung trang nữa (chuẩn #221).
+    renderArea('my-questions');
+    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: /Ma trận của tôi/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Ngân hàng hệ thống/ })).toBeNull();
+    // Nút Thêm mới trong khu riêng dùng được (bank cá nhân có category
+    // mặc định) — không disabled oan theo vai.
     const addButtons = await screen.findAllByRole('button', { name: 'Thêm mới' });
     expect(addButtons.length).toBeGreaterThanOrEqual(1);
     for (const b of addButtons) expect(b).not.toBeDisabled();
-    // Mở collapse ma trận riêng: Thêm mới cũng phải dùng được.
-    await userEvent.click(screen.getByRole('button', { name: /Ma trận của tôi/ }));
-    const allAdd = await screen.findAllByRole('button', { name: 'Thêm mới' });
-    expect(allAdd.length).toBeGreaterThanOrEqual(2);
-    for (const b of allAdd) expect(b).not.toBeDisabled();
+    cleanup();
+    // Ma trận của tôi (/matrices): collapse ma trận mở sẵn ở trang
+    // riêng, Thêm mới cũng dùng được.
+    renderArea('my-matrices');
+    expect(await screen.findByRole('button', { name: /Ma trận của tôi/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: /Ngân hàng riêng của tôi/ })).toBeNull();
+    const matrixAdd = await screen.findAllByRole('button', { name: 'Thêm mới' });
+    expect(matrixAdd.length).toBeGreaterThanOrEqual(1);
+    for (const b of matrixAdd) expect(b).not.toBeDisabled();
+    cleanup();
+    // Đề của tôi (/exams): collapse đề mở sẵn ở trang riêng.
+    renderArea('my-exams');
+    expect(await screen.findByRole('button', { name: /Đề của tôi/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('button', { name: /Ngân hàng riêng của tôi/ })).toBeNull();
+    cleanup();
+    // Ngân hàng hệ thống (/system-bank/questions): collapse hệ thống
+    // mở sẵn và chỉ render đúng phần câu hỏi của khu.
+    renderArea('system-questions');
+    expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(document.getElementById('system-questions')).not.toBeNull();
+    expect(document.getElementById('system-papers')).toBeNull();
+    expect(document.getElementById('system-matrices')).toBeNull();
+    cleanup();
   }
 
   it('site admin sees and can use the personal bank area exactly like a teacher', async () => {
@@ -425,17 +482,15 @@ describe('Question bank page — admin parity (issue #70)', () => {
 });
 
 /**
- * Liên kết sâu ?bank= (mở lại issue #70): các mục ngân hàng cấp cao
- * nhất của sidebar trỏ thẳng tới từng khu vực của trang —
- * ?bank=system / my-questions / my-papers / my-matrices phải mở đúng
- * collapse tương ứng (aria-expanded=true trên nút collapse) và đóng ba
- * collapse còn lại ngay từ lần dựng đầu, không cần thao tác bấm. URL
- * không có tham số thì cả bốn collapse đóng như hành vi cũ. Tham số
- * section (đính chính #70) chọn đúng phần trong khu: ba phần của Ngân
- * hàng hệ thống có neo #system-questions / #system-papers /
- * #system-matrices, thẻ Ngữ liệu có neo #stimuli.
+ * Khu vực ngân hàng theo PATH (chuẩn đường dẫn #221, lát R1 — thay
+ * cơ chế liên kết sâu ?bank=&section= của issue #70): mỗi khu vực có
+ * path riêng và trang chỉ render đúng khu vực của path đó, collapse
+ * của khu mở sẵn ngay từ lần dựng đầu (aria-expanded=true), các khu
+ * khác KHÔNG có trong trang. Ba phần của Ngân hàng hệ thống giữ neo
+ * #system-questions / #system-papers / #system-matrices trên từng
+ * trang con; thẻ Ngữ liệu giữ neo #stimuli ở /questions/stimuli.
  */
-describe('Question bank page — deep link ?bank= (issue #70)', () => {
+describe('Question bank areas — by path (issue #221)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -456,7 +511,7 @@ describe('Question bank page — deep link ?bank= (issue #70)', () => {
     categoryIds: kind === 'question' ? [CATEGORY_ID] : [],
   });
 
-  function stubDeepLinkFetch() {
+  function stubAreaFetch() {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
@@ -478,19 +533,24 @@ describe('Question bank page — deep link ?bank= (issue #70)', () => {
     );
   }
 
-  const TOGGLES: Array<{ bank: string | null; name: RegExp }> = [
-    { bank: 'my-questions', name: /Ngân hàng riêng của tôi/ },
-    { bank: 'my-matrices', name: /Ma trận của tôi/ },
-    { bank: 'my-papers', name: /Đề của tôi/ },
-    { bank: 'system', name: /Ngân hàng hệ thống/ },
+  type BankArea = 'my-questions' | 'stimuli' | 'my-exams' | 'my-matrices' | 'system-questions' | 'system-exams' | 'system-matrices';
+  const AREA_CASES: Array<{ area: BankArea; path: string; toggle: RegExp | null }> = [
+    { area: 'my-questions', path: '/questions', toggle: /Ngân hàng riêng của tôi/ },
+    { area: 'stimuli', path: '/questions/stimuli', toggle: null },
+    { area: 'my-exams', path: '/exams', toggle: /Đề của tôi/ },
+    { area: 'my-matrices', path: '/matrices', toggle: /Ma trận của tôi/ },
+    { area: 'system-questions', path: '/system-bank/questions', toggle: /Ngân hàng hệ thống/ },
+    { area: 'system-exams', path: '/system-bank/exams', toggle: /Ngân hàng hệ thống/ },
+    { area: 'system-matrices', path: '/system-bank/matrices', toggle: /Ngân hàng hệ thống/ },
   ];
+  const ALL_TOGGLES = [/Ngân hàng riêng của tôi/, /Ma trận của tôi/, /Đề của tôi/, /Ngân hàng hệ thống/];
 
-  for (const openCase of TOGGLES) {
-    it(`?bank=${openCase.bank} mở đúng collapse của khu vực đó, ba collapse còn lại đóng`, async () => {
+  for (const areaCase of AREA_CASES) {
+    it(`${areaCase.path} chỉ render khu vực ${areaCase.area}, collapse của khu mở sẵn`, async () => {
       localStorage.setItem('lms.accessToken', 'test-token');
-      stubDeepLinkFetch();
-      const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-        initialEntries: [`/questions?bank=${openCase.bank}`],
+      stubAreaFetch();
+      const router = createMemoryRouter([{ path: areaCase.path, element: <QuestionsPage area={areaCase.area} /> }], {
+        initialEntries: [areaCase.path],
       });
       render(
         <TestProviders>
@@ -498,71 +558,154 @@ describe('Question bank page — deep link ?bank= (issue #70)', () => {
         </TestProviders>,
       );
 
-      expect(await screen.findByRole('button', { name: openCase.name })).toHaveAttribute('aria-expanded', 'true');
-      for (const other of TOGGLES) {
-        if (other.bank === openCase.bank) continue;
-        expect(screen.getByRole('button', { name: other.name })).toHaveAttribute('aria-expanded', 'false');
+      if (areaCase.toggle) {
+        expect(await screen.findByRole('button', { name: areaCase.toggle })).toHaveAttribute('aria-expanded', 'true');
+      } else {
+        // Trang Ngữ liệu không có thẻ ngân hàng nào — chờ §9 render.
+        expect(await screen.findByText('General')).toBeInTheDocument();
+      }
+      // Các collapse của khu KHÁC không có mặt trong trang này.
+      for (const other of ALL_TOGGLES) {
+        if (areaCase.toggle && other.source === areaCase.toggle.source) continue;
+        expect(screen.queryByRole('button', { name: other })).toBeNull();
       }
     });
   }
 
-  it('không có ?bank= thì cả bốn collapse đóng như hành vi cũ', async () => {
+  it('/questions/stimuli render thẻ Ngữ liệu với neo #stimuli', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
-    stubDeepLinkFetch();
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions'],
-    });
+    stubAreaFetch();
+    const router = createMemoryRouter(
+      [{ path: '/questions/stimuli', element: <QuestionsPage area="stimuli" /> }],
+      { initialEntries: ['/questions/stimuli'] },
+    );
     render(
       <TestProviders>
         <RouterProvider router={router} />
       </TestProviders>,
     );
 
-    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    for (const other of TOGGLES.slice(1)) {
-      expect(screen.getByRole('button', { name: other.name })).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(document.getElementById('stimuli')).not.toBeNull());
+  });
+
+  it('mỗi trang /system-bank/* chỉ render đúng phần của nó với neo id tương ứng', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    stubAreaFetch();
+    const parts: Array<{ area: BankArea; path: string; id: string }> = [
+      { area: 'system-questions', path: '/system-bank/questions', id: 'system-questions' },
+      { area: 'system-exams', path: '/system-bank/exams', id: 'system-papers' },
+      { area: 'system-matrices', path: '/system-bank/matrices', id: 'system-matrices' },
+    ];
+    for (const part of parts) {
+      const router = createMemoryRouter([{ path: part.path, element: <QuestionsPage area={part.area} /> }], {
+        initialEntries: [part.path],
+      });
+      render(
+        <TestProviders>
+          <RouterProvider router={router} />
+        </TestProviders>,
+      );
+      expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      for (const other of parts) {
+        if (other.id === part.id) expect(document.getElementById(other.id)).not.toBeNull();
+        else expect(document.getElementById(other.id)).toBeNull();
+      }
+      cleanup();
     }
   });
+});
 
-  it('?bank=system&section=papers mở collapse hệ thống và cả ba phần đều có neo id đúng', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
-    stubDeepLinkFetch();
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions?bank=system&section=papers'],
-    });
-    render(
-      <TestProviders>
-        <RouterProvider router={router} />
-      </TestProviders>,
-    );
-
-    expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute('aria-expanded', 'true');
-    // Ba phần của khu hệ thống render kèm neo để sidebar cuộn tới
-    // đúng phần; phần được trỏ (đề) cũng nằm trong số đó.
-    expect(document.getElementById('system-questions')).not.toBeNull();
-    expect(document.getElementById('system-papers')).not.toBeNull();
-    expect(document.getElementById('system-matrices')).not.toBeNull();
+/**
+ * Lớp tương thích đường dẫn cũ (chuẩn đường dẫn #221, mục 3.5 của
+ * hồ sơ): URL cũ ?bank=...&section=... và /questions/matrices/* phải
+ * CHUYỂN HƯỚNG THAY THẾ sang path mới tương ứng — kiểm bằng route
+ * module thật trong memory router, khẳng định pathname cuối cùng.
+ * Query thuộc diện F2 còn lại (ngoài bank/section) được giữ nguyên.
+ */
+describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
-  it('?bank=my-questions&section=stimuli mở collapse của tôi và thẻ Ngữ liệu có neo #stimuli', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
-    stubDeepLinkFetch();
-    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
-      initialEntries: ['/questions?bank=my-questions&section=stimuli'],
-    });
-    render(
-      <TestProviders>
-        <RouterProvider router={router} />
-      </TestProviders>,
+  function stubRedirectFetch() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
     );
+  }
 
-    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    expect(document.getElementById('stimuli')).not.toBeNull();
-  });
+  const MATRIX_ID = '01900000-0000-7000-8000-0000000000c9';
+  const REDIRECT_CASES: Array<{ from: string; toPath: string; toSearch?: string }> = [
+    { from: '/questions?bank=my-questions', toPath: '/questions', toSearch: '' },
+    { from: '/questions?bank=my-questions&section=stimuli', toPath: '/questions/stimuli' },
+    { from: '/questions?bank=my-papers', toPath: '/exams' },
+    { from: '/questions?bank=my-matrices', toPath: '/matrices' },
+    { from: '/questions?bank=system', toPath: '/system-bank/questions' },
+    { from: '/questions?bank=system&section=questions', toPath: '/system-bank/questions' },
+    { from: '/questions?bank=system&section=papers', toPath: '/system-bank/exams' },
+    { from: '/questions?bank=system&section=matrices', toPath: '/system-bank/matrices' },
+    { from: '/questions?bank=system&section=papers&x=1', toPath: '/system-bank/exams', toSearch: '?x=1' },
+    { from: '/exam-papers', toPath: '/exams' },
+    { from: '/exam-papers/new', toPath: '/exams/new' },
+    { from: '/exam-papers/01900000-0000-7000-8000-0000000000d7/edit', toPath: '/exams/01900000-0000-7000-8000-0000000000d7/edit' },
+    { from: '/system-bank/papers', toPath: '/system-bank/exams' },
+    { from: '/questions/matrices/new', toPath: '/matrices/new' },
+    { from: `/questions/matrices/${MATRIX_ID}/edit`, toPath: `/matrices/${MATRIX_ID}/edit` },
+    { from: '/system-bank', toPath: '/system-bank/questions' },
+  ];
+
+  for (const redirectCase of REDIRECT_CASES) {
+    it(`${redirectCase.from} → ${redirectCase.toPath}`, async () => {
+      localStorage.setItem('lms.accessToken', 'test-token');
+      stubRedirectFetch();
+      const router = createMemoryRouter(
+        [
+          { path: '/questions', element: <QuestionsRoute /> },
+          { path: '/questions/stimuli', element: <StimuliRoute /> },
+          { path: '/exams', element: <ExamsRoute /> },
+          { path: '/exams/new', element: <ExamPaperNewRoute /> },
+          { path: '/exams/:paperId/edit', element: <ExamPaperEditRoute /> },
+          { path: '/exam-papers', element: <LegacyExamPapersRoute /> },
+          { path: '/exam-papers/new', element: <LegacyExamPaperNewRoute /> },
+          { path: '/exam-papers/:paperId/edit', element: <LegacyExamPaperEditRoute /> },
+          { path: '/matrices', element: <MatricesRoute /> },
+          { path: '/matrices/new', element: <MatrixNewRoute /> },
+          { path: '/matrices/:matrixId/edit', element: <MatrixEditRoute /> },
+          { path: '/questions/matrices/new', element: <LegacyMatrixNewRoute /> },
+          { path: '/questions/matrices/:matrixId/edit', element: <LegacyMatrixEditRoute /> },
+          { path: '/system-bank', element: <SystemBankRoute /> },
+          { path: '/system-bank/questions', element: <SystemBankQuestionsRoute /> },
+          { path: '/system-bank/exams', element: <SystemBankExamsRoute /> },
+          { path: '/system-bank/papers', element: <LegacySystemBankPapersRoute /> },
+          { path: '/system-bank/matrices', element: <SystemBankMatricesRoute /> },
+        ],
+        { initialEntries: [redirectCase.from] },
+      );
+      render(
+        <TestProviders>
+          <RouterProvider router={router} />
+        </TestProviders>,
+      );
+
+      await waitFor(() => expect(router.state.location.pathname).toBe(redirectCase.toPath));
+      if (redirectCase.toSearch !== undefined) {
+        expect(router.state.location.search).toBe(redirectCase.toSearch);
+      }
+    });
+  }
 });
