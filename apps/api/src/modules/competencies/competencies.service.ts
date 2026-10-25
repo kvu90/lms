@@ -208,14 +208,15 @@ export class CompetenciesService implements OnModuleInit {
 
   /**
    * Xem rule qua HTTP (H14, rà soát #134): rule là cấu hình biên soạn của
-   * framework — chỉ người có `competency:planview` hoặc
-   * `competency:competencymanage` tại system mới xem; đường nội bộ
+   * framework — chỉ người có `competency:competencymanage` (cùng cổng
+   * với đường ghi setCompetencyRule) hoặc
+   * `competency:usercompetencyreview` tại system mới xem; đường nội bộ
    * (đánh giá rule khi chấm) vẫn gọi getCompetencyRule không gác.
    */
   async getCompetencyRuleFor(actorId: string, competencyId: string) {
     const sys = await this.systemCtx();
-    const canView = (await this.evaluator.hasCapability(actorId, 'competency:planview', sys))
-      || (await this.evaluator.hasCapability(actorId, 'competency:competencymanage', sys));
+    const canView = (await this.evaluator.hasCapability(actorId, 'competency:competencymanage', sys))
+      || (await this.evaluator.hasCapability(actorId, 'competency:usercompetencyreview', sys));
     if (!canView) {
       throw new ForbiddenException({ message: 'You cannot view competency rule configuration', code: 'competency.rule_forbidden' });
     }
@@ -531,15 +532,16 @@ export class CompetenciesService implements OnModuleInit {
 
   /**
    * Cổng đọc hồ sơ năng lực của một user qua HTTP (H8, rà soát #134):
-   * chỉ chính chủ, hoặc người có `competency:planview` /
-   * `competency:usercompetencyreview` tại system — cùng khuôn các đường
-   * đọc có gác của module (plan view / review workflow). Người ngoài
-   * nhận 403, không đọc được proficiency + nhận xét chấm của HS khác.
+   * chỉ chính chủ, hoặc người có `competency:usercompetencyreview` tại
+   * system — cùng cổng với workflow duyệt usercomp của module. KHÔNG
+   * dùng `competency:planview` làm cổng ở đây: registry cấp planview cho
+   * archetype `user` (mọi user đã đăng nhập) nên nó không phân biệt
+   * được ai với ai. Người ngoài nhận 403, không đọc được proficiency +
+   * nhận xét chấm của HS khác.
    */
   private async assertCanViewUsercomps(actorId: string, targetUserId: string): Promise<void> {
     if (actorId === targetUserId) return;
     const sys = await this.systemCtx();
-    if (await this.evaluator.hasCapability(actorId, 'competency:planview', sys)) return;
     if (await this.evaluator.hasCapability(actorId, 'competency:usercompetencyreview', sys)) return;
     throw new ForbiddenException({ message: 'You cannot view the competency profile of another user', code: 'competency.usercomp_forbidden' });
   }
