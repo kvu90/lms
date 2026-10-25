@@ -18,14 +18,44 @@ export const queryKeys = {
   categoryTree: ['courses', 'categories', 'tree'] as const,
   /** Danh sách vai trò cho khối quản trị. */
   roles: ['access', 'roles'] as const,
+  /** Gốc khoá phân quyền — tiền tố làm mới mọi truy vấn access sau đột biến gán vai. */
+  access: ['access'] as const,
+  /** Danh mục capability của hệ (GET /access/capabilities). */
+  accessCapabilities: ['access', 'capabilities'] as const,
+  /** Cây context phân quyền (GET /access/contexts). */
+  accessContexts: ['access', 'contexts'] as const,
+  /** Ma trận capability của một vai (GET /access/roles/:id/capabilities). */
+  roleCapabilities: (roleId: string) => ['access', 'roles', roleId, 'capabilities'] as const,
   /** Huy hiệu đã cấp cho chính người dùng. */
   myBadges: ['badges', 'mine'] as const,
+  /** Gốc khoá huy hiệu — tiền tố để làm mới mọi truy vấn huy hiệu sau đột biến. */
+  badges: ['badges'] as const,
+  /** Toàn bộ huy hiệu (GET /badges) — panel quản trị + tra tên dự phòng. */
+  badgesAll: ['badges', 'all'] as const,
+  /** Danh sách đã cấp của một huy hiệu (GET /badges/:id/issued). */
+  badgeIssued: (badgeId: string) => ['badges', badgeId, 'issued'] as const,
   /** Thông báo của chính người dùng. */
   notifications: ['notifications'] as const,
   /** Số thông báo chưa đọc của chính người dùng (huy hiệu trên chuông ở header). */
   notificationUnreadCount: ['notifications', 'unread-count'] as const,
+  /** Gốc khoá danh sách nhóm thông báo — tiền tố cho setQueriesData/invalidate mọi biến thể lọc. */
+  notificationGroupsRoot: ['notifications', 'groups'] as const,
+  /** Một trang danh sách nhóm thông báo v2 theo bộ lọc (nhóm + chỉ chưa đọc). */
+  notificationGroups: (group: string, unreadOnly: boolean) =>
+    ['notifications', 'groups', group, unreadOnly] as const,
+  /** Các mục phẳng của một dòng gộp thông báo (khi mở rộng dòng). */
+  notificationGroupItems: (eventType: string, contextUrl: string, day: string) =>
+    ['notifications', 'items', eventType, contextUrl, day] as const,
+  /** Tuỳ chọn nhận tin nhắn/thông báo của chính người dùng (GET /messages/preferences). */
+  messagePreferences: ['messages', 'preferences'] as const,
   /** Sự kiện lịch trong một khoảng ngày (ISO string đầu/cuối khoảng). */
   calendarEvents: (from: string, to: string) => ['calendar', 'events', from, to] as const,
+  /** Gốc khoá lịch — tiền tố làm mới mọi truy vấn lịch sau đột biến. */
+  calendar: ['calendar'] as const,
+  /** Các đăng ký lịch ngoài của người dùng (GET /calendar/subscriptions). */
+  calendarSubscriptions: ['calendar', 'subscriptions'] as const,
+  /** Đường dẫn đăng ký xuất lịch của chính người dùng (GET /calendar/export-token). */
+  calendarExportToken: ['calendar', 'export-token'] as const,
   /** Các nhà cung cấp đăng nhập ngoài đang bật (GET /auth/oauth/providers) — dùng chung cho trang login và thẻ liên kết ở hồ sơ. */
   oauthProviders: ['auth', 'oauth', 'providers'] as const,
   /** Các liên kết đăng nhập ngoài của chính người dùng (GET /auth/oauth/links). */
@@ -44,4 +74,8 @@ export const queryKeys = {
   guardianOverview: (studentId: string) => ['guardian', 'overview', studentId] as const,
   /** Kết quả đã công bố của một con (GET /guardian/students/:id/results) — PH-1. */
   guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
+  /** Cấu hình site (GET /site-config) — gốc khoá, kiêm tiền tố làm mới cả audit sau đột biến. */
+  siteConfig: ['site-config'] as const,
+  /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */
+  siteConfigAudit: ['site-config', 'audit'] as const,
 };

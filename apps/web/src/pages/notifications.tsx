@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -7,48 +8,32 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import {
+  fetchNotificationGroupItems,
+  flattenNotificationGroups,
+  notificationGroupKey,
+  preferenceKey,
+  updateNotificationGroupsCache,
+  useClearReadNotifications,
+  useDeleteNotification,
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useMessagePreferences,
+  useNotificationGroups,
+  useReadNotificationGroup,
+  useSetMessagePreference,
+  type NotificationGroupFilter,
+  type NotificationGroupView,
+  type NotificationItemView,
+  type PreferenceChannel,
+  type PreferenceRow,
+  type PreferenceState,
+} from '#lib/notifications';
 
-/** Một mục thông báo đầy đủ như API danh sách phẳng của trung tâm v2 trả về. */
-interface NotificationItemView {
-  id: string;
-  subject: string;
-  fullMessage: string;
-  smallMessage: string;
-  eventType: string;
-  contextUrl: string | null;
-  contextUrlName: string | null;
-  timeRead: string | null;
-  createdAt: string;
-}
-
-/**
- * Một dòng GỘP của trung tâm thông báo v2 (issue #51): khoá gộp
- * (loại × nguồn × ngày), `latest` là mục mới nhất đại diện.
- */
-interface NotificationGroupView {
-  eventType: string;
-  component: string;
-  group: NotificationGroupFilter;
-  contextUrl: string | null;
-  day: string;
-  count: number;
-  unreadCount: number;
-  latest: {
-    id: string;
-    subject: string;
-    smallMessage: string;
-    contextUrlName: string | null;
-    createdAt: string;
-    timeRead: string | null;
-  };
-}
-
-type NotificationGroupFilter = 'learning' | 'people' | 'system';
 type GroupFilterSelection = NotificationGroupFilter | 'all';
 
 function groupKey(g: Pick<NotificationGroupView, 'eventType' | 'contextUrl' | 'day'>): string {
-  return `${g.eventType}|${g.contextUrl ?? ''}|${g.day}`;
+  return notificationGroupKey(g);
 }
 
 /** Nhãn đầu mục ngày: Hôm nay / Hôm qua theo ngày lịch của trình duyệt, còn lại in ngày cụ thể. */
@@ -77,27 +62,6 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
   return new Date(iso).toLocaleString();
 }
 
-type PreferenceChannel = 'popup' | 'email' | 'push';
-type PreferenceState = 'loggedin' | 'loggedoff';
-
-/**
- * Một dòng tuỳ chọn đúng như API trả: mỗi (provider × channel × state)
- * là một bản ghi độc lập kèm cờ `enabled` của chính nó. PUT cũng chỉ
- * nhận đúng một dòng như vậy (`setMessagePreferenceSchema`), không có
- * khái niệm lưu cả cục.
- */
-interface PreferenceRow {
-  provider: string;
-  component: string;
-  channel: PreferenceChannel;
-  state: PreferenceState;
-  enabled: boolean;
-}
-
-function preferenceKey(row: Pick<PreferenceRow, 'provider' | 'channel' | 'state'>): string {
-  return `${row.provider}|${row.channel}|${row.state}`;
-}
-
 /**
  * Notification centre + preferences. The centre is the v2 grouped
  * list (issue #51): rows are grouped by (type × source × day) with
@@ -108,51 +72,51 @@ function preferenceKey(row: Pick<PreferenceRow, 'provider' | 'channel' | 'state'
  * channel × login-state) preference allowed the popup channel; each
  * toggle PUTs exactly that one preference row through to the API and
  * takes effect on the very next dispatch.
+ *
+ * Dữ liệu qua TanStack Query (lib/notifications.ts, F-01): danh sách
+ * nhóm là infinite query theo khoá bộ lọc, các mục mở rộng tải qua
+ * fetchQuery vào cùng cache, tuỳ chọn là một query + mutation lạc quan
+ * trên cache. Điểm khác hành vi cũ quan trọng nhất: mọi thao tác
+ * đọc/đọc-nhóm/đọc-hết/xoá đều LÀM MỚI khoá `notificationUnreadCount`
+ * — huy hiệu chuông ở sidebar/header dùng chung khoá đó (trước đây
+ * trang này không hề invalidate nên huy hiệu giữ số cũ sau khi đã
+ * đọc ở đây). Các cập nhật đếm tại chỗ vẫn giữ nguyên, nay áp thẳng
+ * lên cache qua setQueriesData thay cho state cục bộ.
  */
 export function NotificationsPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
-  const [groups, setGroups] = useState<NotificationGroupView[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilterSelection>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [expandedItems, setExpandedItems] = useState<ReadonlyMap<string, NotificationItemView[]>>(new Map());
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set());
-  const [prefs, setPrefs] = useState<PreferenceRow[]>([]);
   const [savingPrefs, setSavingPrefs] = useState<ReadonlySet<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [expandError, setExpandError] = useState(false);
   const [prefError, setPrefError] = useState<string | null>(null);
 
-  const groupsUrl = useCallback((cursor?: string) => {
-    const params = new URLSearchParams({ limit: '20' });
-    if (groupFilter !== 'all') params.set('group', groupFilter);
-    if (unreadOnly) params.set('unreadOnly', 'true');
-    if (cursor) params.set('cursor', cursor);
-    return `/api/v1/notifications?${params.toString()}`;
+  const groupsQuery = useNotificationGroups(groupFilter, unreadOnly);
+  const prefsQuery = useMessagePreferences();
+  const markReadMutation = useMarkNotificationRead();
+  const readGroupMutation = useReadNotificationGroup();
+  const deleteMutation = useDeleteNotification();
+  const markAllMutation = useMarkAllNotificationsRead();
+  const clearReadMutation = useClearReadNotifications();
+  const preferenceMutation = useSetMessagePreference();
+
+  const groups = flattenNotificationGroups(groupsQuery.data);
+  const prefs = prefsQuery.data ?? [];
+  const error =
+    groupsQuery.isError || prefsQuery.isError || expandError ? t('notificationsLoadFailed') : null;
+
+  // Đổi bộ lọc = danh sách mới: thu gọn mọi dòng đang mở như hành vi cũ
+  // (loadFirstPage trước đây luôn xoá bản đồ mở rộng).
+  useEffect(() => {
+    setExpandedItems(new Map());
   }, [groupFilter, unreadOnly]);
 
-  const loadFirstPage = useCallback(async () => {
-    const page = await apiJson<{ items: NotificationGroupView[]; nextCursor: string | null }>(groupsUrl());
-    setGroups(page.items);
-    setNextCursor(page.nextCursor);
-    setExpandedItems(new Map());
-  }, [groupsUrl]);
-
-  useEffect(() => {
-    void loadFirstPage().catch(() => setError(t('notificationsLoadFailed')));
-  }, [loadFirstPage]);
-
-  useEffect(() => {
-    void apiJson<PreferenceRow[]>('/api/v1/messages/preferences')
-      .then(setPrefs)
-      .catch(() => setError(t('notificationsLoadFailed')));
-  }, [t]);
-
-  async function loadMore() {
-    if (!nextCursor) return;
-    const page = await apiJson<{ items: NotificationGroupView[]; nextCursor: string | null }>(groupsUrl(nextCursor));
-    setGroups((prev) => [...prev, ...page.items]);
-    setNextCursor(page.nextCursor);
+  function loadMore() {
+    if (groupsQuery.hasNextPage) void groupsQuery.fetchNextPage();
   }
 
   async function toggleExpand(group: NotificationGroupView) {
@@ -167,16 +131,10 @@ export function NotificationsPage() {
     }
     setExpanding((prev) => new Set(prev).add(key));
     try {
-      const params = new URLSearchParams({
-        eventType: group.eventType,
-        contextUrl: group.contextUrl ?? '',
-        day: group.day,
-        limit: '100',
-      });
-      const page = await apiJson<{ items: NotificationItemView[]; nextCursor: string | null }>(`/api/v1/notifications/items?${params.toString()}`);
-      setExpandedItems((prev) => new Map(prev).set(key, page.items));
+      const items = await fetchNotificationGroupItems(queryClient, group);
+      setExpandedItems((prev) => new Map(prev).set(key, items));
     } catch {
-      setError(t('notificationsLoadFailed'));
+      setExpandError(true);
     } finally {
       setExpanding((prev) => {
         const next = new Set(prev);
@@ -186,12 +144,14 @@ export function NotificationsPage() {
     }
   }
 
-  /** Đánh dấu một mục đã đọc ở cả server (nếu đang chưa đọc) lẫn trạng thái hiển thị. */
-  async function markItemReadLocal(group: NotificationGroupView, itemId: string) {
+  /** Đánh dấu một mục đã đọc ở trạng thái hiển thị (cache nhóm + mục đang mở rộng). */
+  function applyItemRead(group: NotificationGroupView, itemId: string) {
     const key = groupKey(group);
-    setGroups((prev) => prev.map((g) => (groupKey(g) === key && g.unreadCount > 0
-      ? { ...g, unreadCount: g.unreadCount - 1, latest: g.latest.id === itemId ? { ...g.latest, timeRead: new Date().toISOString() } : g.latest }
-      : g)));
+    updateNotificationGroupsCache(queryClient, (prev) =>
+      prev.map((g) => (groupKey(g) === key && g.unreadCount > 0
+        ? { ...g, unreadCount: g.unreadCount - 1, latest: g.latest.id === itemId ? { ...g.latest, timeRead: new Date().toISOString() } : g.latest }
+        : g)),
+    );
     setExpandedItems((prev) => {
       const items = prev.get(key);
       if (!items) return prev;
@@ -202,99 +162,109 @@ export function NotificationsPage() {
   }
 
   /** Bấm vào một mục: đánh dấu đã đọc rồi đi tới đúng ngữ cảnh của mục đó. */
-  async function openItem(group: NotificationGroupView, item: Pick<NotificationItemView, 'id' | 'contextUrl' | 'timeRead'>) {
-    if (!item.timeRead) {
-      await apiJson(`/api/v1/notifications/${item.id}/read`, { method: 'POST', body: '{}' }).catch(() => undefined);
-      await markItemReadLocal(group, item.id);
-    }
+  function openItem(group: NotificationGroupView, item: Pick<NotificationItemView, 'id' | 'contextUrl' | 'timeRead'>) {
     const target = item.contextUrl ?? group.contextUrl;
+    if (!item.timeRead) {
+      markReadMutation.mutate(item.id, {
+        onSettled: () => {
+          applyItemRead(group, item.id);
+          if (target) navigate(target);
+        },
+      });
+      return;
+    }
     if (target) navigate(target);
   }
 
   /** Bấm vào thân dòng gộp: đi tới ngữ cảnh của nguồn và đánh dấu đã đọc cả nhóm. */
-  async function openGroup(group: NotificationGroupView) {
+  function openGroup(group: NotificationGroupView) {
     if (group.count === 1) {
-      await openItem(group, { id: group.latest.id, contextUrl: group.contextUrl, timeRead: group.latest.timeRead });
+      openItem(group, { id: group.latest.id, contextUrl: group.contextUrl, timeRead: group.latest.timeRead });
       return;
     }
     if (!group.contextUrl) {
-      await toggleExpand(group);
+      void toggleExpand(group);
       return;
     }
     if (group.unreadCount > 0) {
-      await apiJson('/api/v1/notifications/read-group', {
-        method: 'POST',
-        body: JSON.stringify({ eventType: group.eventType, contextUrl: group.contextUrl, day: group.day }),
-      }).catch(() => undefined);
-      const key = groupKey(group);
-      setGroups((prev) => prev.map((g) => (groupKey(g) === key ? { ...g, unreadCount: 0 } : g)));
+      readGroupMutation.mutate(group, {
+        onSettled: () => {
+          const key = groupKey(group);
+          updateNotificationGroupsCache(queryClient, (prev) =>
+            prev.map((g) => (groupKey(g) === key ? { ...g, unreadCount: 0 } : g)),
+          );
+          navigate(group.contextUrl!);
+        },
+      });
+      return;
     }
     navigate(group.contextUrl);
   }
 
   /** Xoá một mục ngay tại dòng (§9): cập nhật đếm của dòng gộp, dòng rỗng thì biến mất. */
-  async function deleteItem(group: NotificationGroupView, item: NotificationItemView) {
-    await apiJson(`/api/v1/notifications/${item.id}`, { method: 'DELETE' }).catch(() => undefined);
-    const key = groupKey(group);
-    setExpandedItems((prev) => {
-      const items = prev.get(key);
-      if (!items) return prev;
-      const next = new Map(prev);
-      next.set(key, items.filter((n) => n.id !== item.id));
-      return next;
+  function deleteItem(group: NotificationGroupView, item: NotificationItemView) {
+    deleteMutation.mutate(item.id, {
+      onSettled: () => {
+        const key = groupKey(group);
+        setExpandedItems((prev) => {
+          const items = prev.get(key);
+          if (!items) return prev;
+          const next = new Map(prev);
+          next.set(key, items.filter((n) => n.id !== item.id));
+          return next;
+        });
+        updateNotificationGroupsCache(queryClient, (prev) =>
+          prev.flatMap((g) => {
+            if (groupKey(g) !== key) return [g];
+            const count = g.count - 1;
+            if (count <= 0) return [];
+            const remaining = expandedItems.get(key)?.filter((n) => n.id !== item.id) ?? [];
+            const latest = g.latest.id === item.id && remaining.length > 0
+              ? {
+                  id: remaining[0]!.id, subject: remaining[0]!.subject, smallMessage: remaining[0]!.smallMessage,
+                  contextUrlName: remaining[0]!.contextUrlName, createdAt: remaining[0]!.createdAt, timeRead: remaining[0]!.timeRead,
+                }
+              : g.latest;
+            return [{ ...g, count, unreadCount: item.timeRead ? g.unreadCount : Math.max(0, g.unreadCount - 1), latest }];
+          }),
+        );
+      },
     });
-    setGroups((prev) => prev.flatMap((g) => {
-      if (groupKey(g) !== key) return [g];
-      const count = g.count - 1;
-      if (count <= 0) return [];
-      const remaining = expandedItems.get(key)?.filter((n) => n.id !== item.id) ?? [];
-      const latest = g.latest.id === item.id && remaining.length > 0
-        ? {
-            id: remaining[0]!.id, subject: remaining[0]!.subject, smallMessage: remaining[0]!.smallMessage,
-            contextUrlName: remaining[0]!.contextUrlName, createdAt: remaining[0]!.createdAt, timeRead: remaining[0]!.timeRead,
-          }
-        : g.latest;
-      return [{ ...g, count, unreadCount: item.timeRead ? g.unreadCount : Math.max(0, g.unreadCount - 1), latest }];
-    }));
   }
 
-  async function toggle(row: PreferenceRow) {
+  function toggle(row: PreferenceRow) {
     const key = preferenceKey(row);
     if (savingPrefs.has(key)) return;
     const enabled = !row.enabled;
     setPrefError(null);
     setSavingPrefs((prev) => new Set(prev).add(key));
-    // Cập nhật lạc quan đúng một dòng; PUT lỗi thì hoàn lại dòng đó và
-    // báo lỗi riêng của khu vực tuỳ chọn, các dòng khác không bị đụng.
-    setPrefs((prev) => prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled } : p)));
-    try {
-      const saved = await apiJson<PreferenceRow>('/api/v1/messages/preferences', {
-        method: 'PUT',
-        body: JSON.stringify({ provider: row.provider, channel: row.channel, state: row.state, enabled }),
-      });
-      setPrefs((prev) =>
-        prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled: saved.enabled } : p)),
-      );
-    } catch {
-      setPrefs((prev) => prev.map((p) => (preferenceKey(p) === key ? { ...p, enabled: row.enabled } : p)));
-      setPrefError(t('preferenceSaveFailed'));
-    } finally {
-      setSavingPrefs((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }
+    // Cập nhật lạc quan + hoàn lại khi lỗi nằm trong mutation ở
+    // lib/notifications.ts; ở đây chỉ lo cờ đang-lưu theo dòng và lỗi
+    // riêng của khu vực tuỳ chọn.
+    preferenceMutation.mutate(
+      { row, enabled },
+      {
+        onError: () => setPrefError(t('preferenceSaveFailed')),
+        onSettled: () =>
+          setSavingPrefs((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          }),
+      },
+    );
   }
 
-  async function markAllRead() {
-    await apiJson('/api/v1/notifications/read-all', { method: 'POST', body: '{}' });
-    await loadFirstPage();
+  function markAllRead() {
+    markAllMutation.mutate(undefined, {
+      onSuccess: () => setExpandedItems(new Map()),
+    });
   }
 
-  async function clearRead() {
-    await apiJson('/api/v1/notifications/clear-read', { method: 'POST', body: '{}' });
-    await loadFirstPage();
+  function clearRead() {
+    clearReadMutation.mutate(undefined, {
+      onSuccess: () => setExpandedItems(new Map()),
+    });
   }
 
   // Gộp các dòng phẳng của API thành từng cặp (provider × channel) để
@@ -337,10 +307,10 @@ export function NotificationsPage() {
         title={t('notifications')}
         actions={
           <>
-            <Button type="button" variant="outline" onClick={() => void markAllRead()}>
+            <Button type="button" variant="outline" onClick={() => markAllRead()}>
               {t('markAllRead')}
             </Button>
-            <Button type="button" variant="outline" onClick={() => void clearRead()}>
+            <Button type="button" variant="outline" onClick={() => clearRead()}>
               {t('clearReadNotifications')}
             </Button>
           </>
@@ -387,7 +357,7 @@ export function NotificationsPage() {
                     {dayHeader ? <p className="pt-2 text-xs font-semibold uppercase text-muted-foreground">{dayHeader}</p> : null}
                     <div className={`rounded border p-2 ${group.unreadCount > 0 ? '' : 'opacity-60'}`}>
                       <div className="flex items-start gap-2">
-                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => void openGroup(group)}>
+                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openGroup(group)}>
                           <p className="font-medium">{group.latest.subject}</p>
                           {group.latest.smallMessage ? <p className="truncate text-sm">{group.latest.smallMessage}</p> : null}
                           <p className="text-xs text-muted-foreground">
@@ -415,7 +385,7 @@ export function NotificationsPage() {
                             size="sm"
                             variant="ghost"
                             aria-label={`${t('deleteNotification')}: ${group.latest.subject}`}
-                            onClick={() => void deleteItem(group, {
+                            onClick={() => deleteItem(group, {
                               id: group.latest.id, subject: group.latest.subject, fullMessage: '', smallMessage: group.latest.smallMessage,
                               eventType: group.eventType, contextUrl: group.contextUrl, contextUrlName: group.latest.contextUrlName,
                               timeRead: group.latest.timeRead, createdAt: group.latest.createdAt,
@@ -429,7 +399,7 @@ export function NotificationsPage() {
                         <ul className="mt-2 space-y-1 border-t pt-2">
                           {items.map((item) => (
                             <li key={item.id} className={`flex items-start gap-2 rounded p-1 ${item.timeRead ? 'opacity-60' : ''}`}>
-                              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => void openItem(group, item)}>
+                              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openItem(group, item)}>
                                 <p className="text-sm font-medium">{item.subject}</p>
                                 <p className="text-sm">{item.fullMessage}</p>
                                 <p className="text-xs text-muted-foreground">
@@ -441,7 +411,7 @@ export function NotificationsPage() {
                                 size="sm"
                                 variant="ghost"
                                 aria-label={`${t('deleteNotification')}: ${item.subject}`}
-                                onClick={() => void deleteItem(group, item)}
+                                onClick={() => deleteItem(group, item)}
                               >
                                 {t('deleteNotification')}
                               </Button>
@@ -456,8 +426,8 @@ export function NotificationsPage() {
               })}
             </ul>
           )}
-          {nextCursor ? (
-            <Button type="button" variant="outline" onClick={() => void loadMore()}>
+          {groupsQuery.hasNextPage ? (
+            <Button type="button" variant="outline" onClick={() => loadMore()}>
               {t('loadMoreNotifications')}
             </Button>
           ) : null}
@@ -497,7 +467,7 @@ export function NotificationsPage() {
                             type="checkbox"
                             checked={row.enabled}
                             disabled={savingPrefs.has(preferenceKey(row))}
-                            onChange={() => void toggle(row)}
+                            onChange={() => toggle(row)}
                           />
                         ) : null}
                       </td>

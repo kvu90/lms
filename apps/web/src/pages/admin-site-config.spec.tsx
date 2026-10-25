@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SiteSetting } from '@lms/contracts';
+import { TestProviders } from '#test/providers';
 import { AdminSiteConfigPage } from './admin-site-config';
 
 /**
@@ -55,12 +56,16 @@ function stubFetch(calls: RecordedCall[], settings: SiteSetting[] = SETTINGS) {
   );
 }
 
-/** Render trang cấu hình site qua router bộ nhớ như các spec khác. */
+/** Render trang cấu hình site qua router bộ nhớ trong khung provider của ứng dụng thật (trang đã chuyển sang TanStack Query ở F-01). */
 function renderPage() {
   const router = createMemoryRouter([{ path: '/admin/site-config', element: <AdminSiteConfigPage /> }], {
     initialEntries: ['/admin/site-config'],
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Admin site config page', () => {

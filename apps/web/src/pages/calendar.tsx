@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -23,27 +23,20 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiFetch, apiJson } from '#lib/api';
-
-interface EventView {
-  id: string;
-  name: string;
-  description: string;
-  eventType: string;
-  timeStart: string;
-  timeDuration: number;
-  repeatId: string;
-  isException: boolean;
-}
-
-/** Một đăng ký lịch ngoài (hàng của GET /calendar/subscriptions phía server). */
-interface SubscriptionView {
-  id: string;
-  name: string;
-  url: string | null;
-  eventType: string;
-  pollInterval: number;
-}
+import { apiFetch } from '#lib/api';
+import {
+  useCalendarEvents,
+  useCalendarExportToken,
+  useCalendarSubscriptions,
+  useCreateCalendarEvent,
+  useCreateCalendarExportToken,
+  useCreateCalendarSubscription,
+  useDeleteCalendarEvent,
+  useImportCalendarSubscription,
+  useRemindCalendarEvent,
+  useRevokeCalendarExportToken,
+  type CalendarEventView as EventView,
+} from '#lib/calendar';
 
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
 const EVENT_TYPES = ['user', 'site', 'category', 'course', 'group'] as const;
@@ -55,15 +48,17 @@ const EVENT_TYPES = ['user', 'site', 'category', 'course', 'group'] as const;
  * thành viên, user chỉ cho chủ sở hữu) — vì vậy nút xoá chỉ hiện ở sự kiện
  * loại `user`, tức sự kiện của chính người đang xem; nhắc thì API cho phép
  * với mọi sự kiện người dùng nhìn thấy được.
+ *
+ * Dữ liệu qua TanStack Query (lib/calendar.ts, F-01): sự kiện tháng dùng
+ * đúng khoá factory `calendarEvents(from, to)` đã có sẵn; subscription và
+ * token xuất lịch là hai query riêng (lỗi tải giữ dữ liệu cũ như trước);
+ * mọi đột biến làm mới các truy vấn lịch qua tiền tố khoá thay vì nạp lại
+ * thủ công.
  */
 export function CalendarPage() {
   const { t, i18n } = useTranslation('app');
-  const [events, setEvents] = useState<EventView[]>([]);
-  const [subscriptions, setSubscriptions] = useState<SubscriptionView[]>([]);
   const [typeFilter, setTypeFilter] = useState<(typeof TYPES)[number]>('all');
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [eventSheetOpen, setEventSheetOpen] = useState(false);
   const [evName, setEvName] = useState('');
   const [evDescription, setEvDescription] = useState('');
@@ -76,86 +71,75 @@ export function CalendarPage() {
   const [evCategoryId, setEvCategoryId] = useState('');
   const [subName, setSubName] = useState('');
   const [subUrl, setSubUrl] = useState('');
-  /** Đường dẫn đăng ký xuất lịch của chính user (từ GET /calendar/export-token); null = chưa tạo. */
-  const [exportToken, setExportToken] = useState<{ token: string; url: string } | null>(null);
   const now = useMemo(() => new Date(), []);
-
-  /** Nạp sự kiện của tháng hiện tại và danh sách subscription. */
-  const reload = useCallback(async () => {
+  const range = useMemo(() => {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
     const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    const list = await apiJson<EventView[]>(
-      `/api/v1/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`,
-    );
-    setEvents(list);
-    const subs = await apiJson<SubscriptionView[]>('/api/v1/calendar/subscriptions').catch(() => null);
-    if (subs) setSubscriptions(subs);
-    const token = await apiJson<{ token: string; url: string } | null>('/api/v1/calendar/export-token').catch(
-      () => undefined,
-    );
-    if (token !== undefined) setExportToken(token);
+    return { from: from.toISOString(), to: to.toISOString() };
   }, [now]);
 
-  useEffect(() => {
-    void reload()
-      .catch(() => setError(t('calendarLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+  const eventsQuery = useCalendarEvents(range.from, range.to);
+  const subscriptionsQuery = useCalendarSubscriptions();
+  const exportTokenQuery = useCalendarExportToken();
+  const createEventMutation = useCreateCalendarEvent();
+  const deleteEventMutation = useDeleteCalendarEvent();
+  const remindMutation = useRemindCalendarEvent();
+  const createSubscriptionMutation = useCreateCalendarSubscription();
+  const importSubscriptionMutation = useImportCalendarSubscription();
+  const createTokenMutation = useCreateCalendarExportToken();
+  const revokeTokenMutation = useRevokeCalendarExportToken();
+
+  const events = eventsQuery.data ?? [];
+  const subscriptions = subscriptionsQuery.data ?? [];
+  const exportToken = exportTokenQuery.data ?? null;
+  const loading = eventsQuery.isPending;
+  const loadFailed = eventsQuery.isError;
 
   /** Tạo sự kiện theo đúng DTO: loại sự kiện quyết định id phạm vi đi kèm. */
-  async function createEvent(event: FormEvent) {
+  function createEvent(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
-    try {
-      await apiJson('/api/v1/calendar/events', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: evName,
-          ...(evDescription ? { description: evDescription } : {}),
-          eventType: evType,
-          timeStart: new Date(evStart).toISOString(),
-          ...(evDuration ? { timeDuration: Number(evDuration) } : {}),
-          ...(evLocation ? { location: evLocation } : {}),
-          ...(evType === 'course' || evType === 'group' ? { courseId: evCourseId } : {}),
-          ...(evType === 'group' ? { groupId: evGroupId } : {}),
-          ...(evType === 'category' ? { categoryId: evCategoryId } : {}),
-        }),
-      });
-      setEvName('');
-      setEvDescription('');
-      setEvLocation('');
-      setMessage(t('eventCreated'));
-      setEventSheetOpen(false);
-      await reload();
-    } catch {
-      setMessage(t('eventCreateFailed'));
-    }
+    createEventMutation.mutate(
+      {
+        name: evName,
+        ...(evDescription ? { description: evDescription } : {}),
+        eventType: evType,
+        timeStart: new Date(evStart).toISOString(),
+        ...(evDuration ? { timeDuration: Number(evDuration) } : {}),
+        ...(evLocation ? { location: evLocation } : {}),
+        ...(evType === 'course' || evType === 'group' ? { courseId: evCourseId } : {}),
+        ...(evType === 'group' ? { groupId: evGroupId } : {}),
+        ...(evType === 'category' ? { categoryId: evCategoryId } : {}),
+      },
+      {
+        onSuccess: () => {
+          setEvName('');
+          setEvDescription('');
+          setEvLocation('');
+          setMessage(t('eventCreated'));
+          setEventSheetOpen(false);
+        },
+        onError: () => setMessage(t('eventCreateFailed')),
+      },
+    );
   }
 
-  /** Xoá một sự kiện của mình rồi nạp lại danh sách tháng. */
-  async function deleteEvent(id: string) {
+  /** Xoá một sự kiện của mình; danh sách tháng được làm mới qua invalidation. */
+  function deleteEvent(id: string) {
     setMessage(null);
-    try {
-      await apiJson(`/api/v1/calendar/events/${id}`, { method: 'DELETE' });
-      setMessage(t('eventDeleted'));
-      await reload();
-    } catch {
-      setMessage(t('eventDeleteFailed'));
-    }
+    deleteEventMutation.mutate(id, {
+      onSuccess: () => setMessage(t('eventDeleted')),
+      onError: () => setMessage(t('eventDeleteFailed')),
+    });
   }
 
   /** Đặt nhắc trước sự kiện 60 phút (DTO nhắc chỉ gồm `minutesBefore`). */
-  async function remind(id: string) {
+  function remind(id: string) {
     setMessage(null);
-    try {
-      await apiJson(`/api/v1/calendar/events/${id}/remind`, {
-        method: 'POST',
-        body: JSON.stringify({ minutesBefore: 60 }),
-      });
-      setMessage(t('reminderSet'));
-    } catch {
-      setMessage(t('reminderFailed'));
-    }
+    remindMutation.mutate(id, {
+      onSuccess: () => setMessage(t('reminderSet')),
+      onError: () => setMessage(t('reminderFailed')),
+    });
   }
 
   /**
@@ -163,33 +147,29 @@ export function CalendarPage() {
    * (lịch cá nhân): loại `site` phía server đòi capability quản lý
    * subscription cấp hệ thống, không phù hợp cho subscription cá nhân.
    */
-  async function createSubscription(event: FormEvent) {
+  function createSubscription(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
-    try {
-      await apiJson('/api/v1/calendar/subscriptions', {
-        method: 'POST',
-        body: JSON.stringify({ name: subName, url: subUrl, eventType: 'user' }),
-      });
-      setSubName('');
-      setSubUrl('');
-      setMessage(t('subscriptionCreated'));
-      await reload();
-    } catch {
-      setMessage(t('subscriptionCreateFailed'));
-    }
+    createSubscriptionMutation.mutate(
+      { name: subName, url: subUrl },
+      {
+        onSuccess: () => {
+          setSubName('');
+          setSubUrl('');
+          setMessage(t('subscriptionCreated'));
+        },
+        onError: () => setMessage(t('subscriptionCreateFailed')),
+      },
+    );
   }
 
   /** Yêu cầu nhập ngay một subscription (server đưa vào hàng đợi worker). */
-  async function importSubscription(id: string) {
+  function importSubscription(id: string) {
     setMessage(null);
-    try {
-      await apiJson(`/api/v1/calendar/subscriptions/${id}/import`, { method: 'POST', body: '{}' });
-      setMessage(t('importQueued'));
-      await reload();
-    } catch {
-      setMessage(t('importFailed'));
-    }
+    importSubscriptionMutation.mutate(id, {
+      onSuccess: () => setMessage(t('importQueued')),
+      onError: () => setMessage(t('importFailed')),
+    });
   }
 
   /** Tải tệp ICS của chính user qua GET /calendar/export.ics (endpoint đòi đăng nhập nên phải fetch kèm token rồi tải blob, không dùng link trực tiếp). */
@@ -211,29 +191,21 @@ export function CalendarPage() {
   }
 
   /** Tạo hoặc tạo lại đường dẫn đăng ký xuất lịch (POST /calendar/export-token thay token cũ). */
-  async function createExportToken() {
+  function createExportToken() {
     setMessage(null);
-    try {
-      const created = await apiJson<{ token: string; url: string }>('/api/v1/calendar/export-token', {
-        method: 'POST',
-      });
-      setExportToken(created);
-      setMessage(t('exportTokenCreated'));
-    } catch {
-      setMessage(t('exportTokenCreateFailed'));
-    }
+    createTokenMutation.mutate(undefined, {
+      onSuccess: () => setMessage(t('exportTokenCreated')),
+      onError: () => setMessage(t('exportTokenCreateFailed')),
+    });
   }
 
   /** Thu hồi đường dẫn đăng ký xuất lịch (DELETE /calendar/export-token) — đường dẫn cũ lập tức hết hiệu lực. */
-  async function revokeExportToken() {
+  function revokeExportToken() {
     setMessage(null);
-    try {
-      await apiJson('/api/v1/calendar/export-token', { method: 'DELETE' });
-      setExportToken(null);
-      setMessage(t('exportTokenRevoked'));
-    } catch {
-      setMessage(t('exportTokenRevokeFailed'));
-    }
+    revokeTokenMutation.mutate(undefined, {
+      onSuccess: () => setMessage(t('exportTokenRevoked')),
+      onError: () => setMessage(t('exportTokenRevokeFailed')),
+    });
   }
 
   const visible = events.filter((e) => typeFilter === 'all' || e.eventType === typeFilter);
@@ -266,7 +238,7 @@ export function CalendarPage() {
               </SheetHeader>
               {/* §5.6: form sự kiện nằm trong Sheet — danh sách sự kiện là
                   nội dung chính của trang, form không chiếm chỗ cố định. */}
-              <form onSubmit={(e) => void createEvent(e)} className="px-4">
+              <form onSubmit={(e) => createEvent(e)} className="px-4">
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="ev-name">{t('eventName')}</FieldLabel>
@@ -354,21 +326,19 @@ export function CalendarPage() {
           </Sheet>
         }
       />
-      {error ? (
+      {loadFailed ? (
         <>
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{t('calendarLoadFailed')}</AlertDescription>
           </Alert>
           <div>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
-                setError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setError(t('calendarLoadFailed')))
-                  .finally(() => setLoading(false));
+                void eventsQuery.refetch();
+                void subscriptionsQuery.refetch();
+                void exportTokenQuery.refetch();
               }}
             >
               {t('retry')}
@@ -425,11 +395,11 @@ export function CalendarPage() {
                           · {e.eventType} · {timeLabel(e.timeStart)}
                         </span>
                         {e.isException ? <span> {t('adjustedOccurrence')}</span> : null}
-                        <Button type="button" variant="outline" onClick={() => void remind(e.id)}>
+                        <Button type="button" variant="outline" onClick={() => remind(e.id)}>
                           {t('remindOneHour')}
                         </Button>
                         {e.eventType === 'user' ? (
-                          <Button type="button" variant="outline" onClick={() => void deleteEvent(e.id)}>
+                          <Button type="button" variant="outline" onClick={() => deleteEvent(e.id)}>
                             {t('deleteEvent')}
                           </Button>
                         ) : null}
@@ -464,14 +434,14 @@ export function CalendarPage() {
             {exportToken ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Input id="export-token-url" readOnly value={exportToken.url} className="max-w-xl" />
-                <Button type="button" variant="destructive" onClick={() => void revokeExportToken()}>
+                <Button type="button" variant="destructive" onClick={() => revokeExportToken()}>
                   {t('revokeExportToken')}
                 </Button>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm text-muted-foreground">{t('noExportToken')}</p>
-                <Button type="button" onClick={() => void createExportToken()}>
+                <Button type="button" onClick={() => createExportToken()}>
                   {t('createExportToken')}
                 </Button>
               </div>
@@ -490,7 +460,7 @@ export function CalendarPage() {
               <li key={s.id} data-testid={`subscription-${s.id}`} className="flex items-center gap-3">
                 <span>{s.name}</span>
                 <span className="text-sm text-muted-foreground">{s.url ?? ''}</span>
-                <Button type="button" variant="outline" onClick={() => void importSubscription(s.id)}>
+                <Button type="button" variant="outline" onClick={() => importSubscription(s.id)}>
                   {t('importSubscription')}
                 </Button>
               </li>
@@ -503,7 +473,7 @@ export function CalendarPage() {
               </EmptyHeader>
             </Empty>
           ) : null}
-          <form onSubmit={(e) => void createSubscription(e)}>
+          <form onSubmit={(e) => createSubscription(e)}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="sub-name">{t('subscriptionName')}</FieldLabel>
