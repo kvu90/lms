@@ -53,7 +53,7 @@ export function NodeRowActions({
 
 /** Một bảng chương trình: tiêu đề mạch (nếu có) + các dòng Nội dung | Yêu cầu cần đạt. */
 export function ProgramGroupTable({
-  title, groupNode, rows, curriculumId, onDeleteNode, onDeleteOutcome,
+  title, groupNode, rows, curriculumId, onDeleteNode, onDeleteOutcome, continued = false,
 }: {
   title: string | null;
   groupNode: CurriculumTreeNode | null;
@@ -61,6 +61,8 @@ export function ProgramGroupTable({
   curriculumId: string;
   onDeleteNode: (node: CurriculumTreeNode) => void;
   onDeleteOutcome: (node: CurriculumTreeNode, outcomeId: string) => void;
+  /** Mạch này đã bắt đầu ở trang trước (phân trang cắt qua mạch) → tiêu đề kèm dấu (tiếp) như văn bản in. */
+  continued?: boolean;
 }) {
   const { t } = useTranslation('app');
   return (
@@ -69,6 +71,7 @@ export function ProgramGroupTable({
         <header className="flex flex-wrap items-center gap-2 border-b bg-muted/40 p-3">
           <Badge variant="default">{t(`curriculumKind_${groupNode.kind}`)}</Badge>
           <h3 className="font-semibold">{title}</h3>
+          {continued ? <span className="text-sm text-muted-foreground">{t('curriculumGroupContinued')}</span> : null}
           <span className="ml-auto">
             <NodeRowActions node={groupNode} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
           </span>
@@ -100,6 +103,7 @@ export function ProgramGroupTable({
                   <ul className="flex flex-col gap-2">
                     {node.outcomes.map((outcome) => (
                       <li key={outcome.id} className="flex flex-wrap items-start gap-2">
+                        <span aria-hidden="true" className="text-muted-foreground">–</span>
                         <span className="min-w-0 flex-1">
                           <span>{outcome.content}</span>
                           {outcome.sourceRef ? (
