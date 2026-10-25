@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { tenantAls } from '../tenants/tenant-als';
 import {
@@ -48,6 +48,29 @@ export interface MessageWindowOptions {
    * hưởng. Chế độ truy vết bỏ qua cờ này: dấu vết phải đầy đủ.
    */
   viewerId?: string;
+}
+
+/** Tuỳ chọn tìm nội dung tin trong một conversation (lát M4, issue #237). */
+export interface MessageSearchOptions {
+  /** Chuỗi con cần khớp (đã cắt khoảng trắng ở tầng service), khớp không phân biệt hoa thường. */
+  query: string;
+  /** Số kết quả tối đa (mặc định 20, trần 50) — kết quả mới nhất trước. */
+  limit?: number;
+  /**
+   * Tầm nhìn truy vết của người có thẩm quyền kiểm duyệt: tìm cả
+   * trên tin đã xoá mềm/đã thu hồi và bỏ qua cờ xoá-phía-mình —
+   * đúng tầm nhìn của cửa sổ tin truy vết.
+   */
+  privileged?: boolean;
+  /** Người đang tìm (chỉ áp khi không privileged): loại tin người này đã xoá-phía-mình. */
+  viewerId?: string;
+  /**
+   * Tác giả bị loại khỏi kết quả của người thường: các phía có quan
+   * hệ chặn hai chiều với người tìm — luật "liên hệ đã chặn thì ẩn
+   * khỏi mọi bề mặt" áp cho cả kết quả tìm (hội thoại 1–1 đã bị cổng
+   * chặn chặn ở tầng service trước khi tới đây).
+   */
+  excludedAuthorIds?: string[];
 }
 export type NotificationRow = typeof notifications.$inferSelect;
 
@@ -153,6 +176,32 @@ export function messageQuoteOf(original: MessageRow, opts: { privileged: boolean
     excerpt: unavailable ? '' : quoteExcerptOf(original.fullMessage),
     unavailable,
   };
+}
+
+/** Trần độ dài của excerpt kết quả tìm tin (lát M4): cùng trần với excerpt trích dẫn. */
+export const SEARCH_EXCERPT_MAX_CHARS = QUOTE_EXCERPT_MAX_CHARS;
+
+/**
+ * Rút gọn nội dung quanh CHỖ KHỚP cho một kết quả tìm tin (lát M4,
+ * issue #237): cửa sổ tối đa {@link SEARCH_EXCERPT_MAX_CHARS} ký tự
+ * (theo code point) đặt chỗ khớp gần giữa, thêm … ở phía bị cắt.
+ * Khớp theo chuỗi con không phân biệt hoa thường — cùng ngữ nghĩa
+ * với truy vấn ILIKE ở repository. Không tìm thấy chỗ khớp (không
+ * xảy ra với hàng lấy từ truy vấn khớp) thì lùi về rút gọn từ đầu
+ * như excerpt trích dẫn.
+ */
+export function searchExcerptOf(text: string, query: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= SEARCH_EXCERPT_MAX_CHARS) return text;
+  const at = text.toLocaleLowerCase('vi').indexOf(query.toLocaleLowerCase('vi'));
+  if (at < 0) return quoteExcerptOf(text);
+  const matchStart = Array.from(text.slice(0, at)).length;
+  const matchLength = Array.from(query).length;
+  const before = Math.max(0, Math.floor((SEARCH_EXCERPT_MAX_CHARS - matchLength) / 2));
+  const start = Math.max(0, matchStart - before);
+  const end = Math.min(chars.length, start + SEARCH_EXCERPT_MAX_CHARS);
+  const slice = chars.slice(start, end).join('');
+  return `${start > 0 ? '…' : ''}${slice}${end < chars.length ? '…' : ''}`;
 }
 export type ContactRequestRow = typeof messageContactRequests.$inferSelect;
 export type ReportRow = typeof messageConversationReports.$inferSelect;
@@ -412,6 +461,38 @@ export class MessagingRepository {
     if (opts.beforeSeq !== undefined) where.push(lt(message.seq, opts.beforeSeq));
     const rows = await this.db.select().from(message).where(and(...where)).orderBy(desc(message.seq)).limit(limit);
     return rows.reverse();
+  }
+  /**
+   * Tìm nội dung tin trong MỘT conversation (lát M4, issue #237):
+   * khớp chuỗi con trên `full_message` bằng ILIKE (không phân biệt
+   * hoa thường), kết quả mới nhất (seq cao nhất) trước. Tầm nhìn
+   * khóa theo ĐÚNG luật bề mặt đọc hiện hành: người thường chỉ khớp
+   * tin còn hiển thị với chính họ — tin đã xoá mềm, đã THU HỒI (nội
+   * dung đã vô hiệu: khớp trên nội dung gốc của tin thu hồi sẽ lộ
+   * rằng nội dung đó từng tồn tại), tin họ đã xoá-phía-mình, và tin
+   * của phía có quan hệ chặn hai chiều đều bị loại NGAY TẠI SQL.
+   * Người có thẩm quyền (privileged) tìm theo tầm nhìn truy vết.
+   * Ký tự đặc biệt của mẫu LIKE trong truy vấn của người dùng được
+   * thoát để tìm là tìm CHUỖI CON đúng nghĩa, không phải mẫu.
+   */
+  async searchMessages(conversationId: string, opts: MessageSearchOptions): Promise<MessageRow[]> {
+    const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
+    const escaped = opts.query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+    const where = [
+      eq(message.conversationId, conversationId),
+      sql`${message.fullMessage} ILIKE ${`%${escaped}%`}`,
+    ];
+    if (!opts.privileged) {
+      where.push(isNull(message.deletedAt));
+      where.push(isNull(message.recalledAt));
+      if (opts.viewerId) {
+        where.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${opts.viewerId})`);
+      }
+      if (opts.excludedAuthorIds && opts.excludedAuthorIds.length > 0) {
+        where.push(notInArray(message.userIdFrom, opts.excludedAuthorIds));
+      }
+    }
+    return this.db.select().from(message).where(and(...where)).orderBy(desc(message.seq)).limit(limit);
   }
   /** Còn tin cũ hơn seq này trong conversation hay không (cho nút tải thêm). */
   async hasMessagesBefore(conversationId: string, seq: number, includeDeleted = false, viewerId?: string): Promise<boolean> {
