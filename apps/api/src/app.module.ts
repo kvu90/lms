@@ -50,7 +50,8 @@ import { SearchModule } from './modules/search/search.module';
 import { SiteConfigModule } from './modules/site-config/site-config.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { TenantGuard } from './modules/tenants/tenant.guard';
-import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { TenantContextInterceptor } from './modules/tenants/tenant-context.interceptor';
+import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
 import { BetterAuthSessionGuard } from './common/better-auth-session.guard';
@@ -174,6 +175,9 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     // mọi bề mặt đã phủ tenant (TENANT-0, #168).
     { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
+    // Interceptor bọc ALS tenant quanh handler (guard chỉ ghim tenant
+    // lên request — enterWith không qua được biên guard→handler).
+    { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
     /**
      * Pipe validation Standard Schema có dịch thông điệp theo catalog i18n
      * (chương Validation của docs Nest + trang i18n chính thức): thay cho

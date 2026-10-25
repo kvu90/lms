@@ -35,7 +35,7 @@ export class TenantGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser; tenantId?: string }>();
     const zero = await this.repo.getTenantBySlug(PLATFORM_TENANT_SLUG);
     // Tenant-zero chưa được gieo (chỉ có thể xảy ra trước bootstrap seed
     // trong các test đơn vị không boot app đầy đủ): không gắn ngữ cảnh.
@@ -73,6 +73,12 @@ export class TenantGuard implements CanActivate {
       }
     }
     this.tenantContext.enter({ tenantId, userId: user?.id });
+    // Ghim cả lên request: `enterWith` ở guard không sống qua biên
+    // guard→handler của Nest (đã kiểm chứng bằng spec #168: handler
+    // thấy ALS rỗng), nên TenantContextInterceptor đọc lại từ đây và
+    // bọc `run` quanh lúc handler được subscribe mới giữ được ngữ
+    // cảnh cho toàn bộ chuỗi xử lý của request.
+    request.tenantId = tenantId;
     return true;
   }
 }

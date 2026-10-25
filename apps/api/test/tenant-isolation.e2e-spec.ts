@@ -53,7 +53,7 @@ describe('tenant isolation (TENANT-0, #168)', () => {
   let teacherRefreshA = '';
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
-  const must = async (res: { status: number; body: never }, what: string) => {
+  const must = async (res: { status: number; body: unknown }, what: string) => {
     if (res.status < 200 || res.status >= 300) throw new Error(`${what}: ${res.status} ${JSON.stringify(res.body)}`);
     return res.body as never;
   };
@@ -193,9 +193,10 @@ describe('tenant isolation (TENANT-0, #168)', () => {
     expect(inB.find((s) => s.name === 'fullname')?.value).not.toBe('Trường A (spec)');
     const platform = await must(await http(app).get('/api/v1/site-config').set(auth(adminZero)), 'platform settings') as { name: string; value: unknown }[];
     expect(platform.find((s) => s.name === 'fullname')?.value).not.toBe('Trường A (spec)');
-    // Setting chỉ-platform không ghi đè được từ tenant.
+    // Setting chỉ-platform không ghi đè được từ tenant (400, code site_config.platform_only).
     const platformOnly = await http(app).put('/api/v1/site-config/tenant-settings/core/sitepolicy').set(auth(adminA)).send({ value: 'x' });
-    expect(platformOnly.status).toBe(422);
+    expect(platformOnly.status).toBe(400);
+    expect((platformOnly.body as { code?: string }).code).toBe('site_config.platform_only');
   });
 
   it('(3) mỗi tenant đúng một bank trường; bank platform tenant_id NULL', async () => {
