@@ -1,26 +1,15 @@
-import { useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { Link, Outlet } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@lms/ui/components/button';
 import { useAuth } from '../lib/auth';
+import { useSidebarDefaultOpen } from '../lib/sidebar-default-open';
 import { AppSidebar } from '../components/app-sidebar';
 import { AppShellSkeleton } from '../components/app-shell-skeleton';
 import { SiteHeader } from '../components/site-header';
 import { SidebarInset, SidebarProvider } from '@lms/ui/components/sidebar';
 
-/**
- * Đọc trạng thái thu/mở sidebar người dùng đã chọn từ cookie
- * `sidebar_state` mà ui/sidebar ghi mỗi lần bật/tắt: bản SPA không có
- * layout phía server để đọc cookie như bản Next.js của block gốc, nên
- * nếu không khôi phục ở đây thì mỗi lần F5 sidebar lại bung về mặc định
- * và bề ngang vùng nội dung co giãn một nhịp. Chỉ đọc ở lần dựng khung
- * đầu tiên (defaultOpen), các lần bật/tắt sau do ui/sidebar tự ghi lại.
- */
-function readSidebarDefaultOpen(): boolean {
-  if (typeof document === 'undefined') return true;
-  const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/);
-  return match ? match[1] === 'true' : true;
-}
+export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
 
 /**
  * Khung của khu vực ĐÃ đăng nhập, theo block dashboard-01: sidebar điều
@@ -31,7 +20,13 @@ function readSidebarDefaultOpen(): boolean {
  * trang nào cũng ở trong provider kể cả khi khung thay đổi.
  */
 function AuthenticatedShell() {
-  const [sidebarDefaultOpen] = useState(readSidebarDefaultOpen);
+  // Trạng thái thu/mở khởi tạo lấy từ root loader qua context (F-11
+  // của #133, việc #146): loader đã đọc cookie `sidebar_state` từ
+  // request phía server nên giá trị này khớp giữa HTML SSR và lần
+  // render hydrate đầu — không còn lệch hydrate khi cookie là false.
+  // Chỉ là giá trị khởi tạo (defaultOpen); các lần bật/tắt sau do
+  // ui/sidebar tự ghi lại cookie.
+  const sidebarDefaultOpen = useSidebarDefaultOpen();
   return (
     <SidebarProvider
       defaultOpen={sidebarDefaultOpen}

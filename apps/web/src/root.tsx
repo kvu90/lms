@@ -15,10 +15,22 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
 import { PermissionsProvider } from './lib/permissions';
 import { createQueryClient, queryClient } from './lib/query-client';
+import { SidebarDefaultOpenContext } from './lib/sidebar-default-open';
 import { fetchApiJson } from './lib/server-api';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
 import '@lms/ui/globals.css';
+
+/**
+ * Đọc cookie `sidebar_state` (ui/sidebar ghi mỗi lần bật/tắt) từ một
+ * chuỗi Cookie: dùng cho loader phía server (Cookie của request) và
+ * cho fallback phía client (document.cookie) khi cây render không có
+ * dữ liệu loader. Không có cookie thì mặc định mở như block gốc.
+ */
+function parseSidebarState(cookie: string): boolean {
+  const match = cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/);
+  return match ? match[1] === 'true' : true;
+}
 
 /**
  * Loader gốc (SSR, Giai đoạn 3–4 của issue #7): chỉ lấy DANH TÍNH TỐI
@@ -32,13 +44,33 @@ import '@lms/ui/globals.css';
  * phiên. Token ở localStorage (luồng chính hiện tại) không đọc được
  * phía server — người dùng luồng đó vẫn được client resolve như trước
  * ngay sau hydrate; chuyển hẳn sang phiên cookie là Giai đoạn 2.
+ *
+ * Loader còn trả `sidebarDefaultOpen`: trạng thái thu/mở sidebar đọc
+ * từ cookie `sidebar_state` CỦA CHÍNH REQUEST (F-11 của #133, việc
+ * #146) — chỉ đọc cookie, không gọi API thêm, nên nguyên tắc cách ly
+ * ở trên không đổi; shell khởi tạo sidebar từ giá trị này thay vì tự
+ * đọc cookie phía client, để SSR và hydrate đầu khớp nhau.
  */
-export async function loader({ request }: { request: Request }): Promise<{ initialUser: UserProfile | null }> {
+export async function loader({
+  request,
+}: {
+  request: Request;
+}): Promise<{ initialUser: UserProfile | null; sidebarDefaultOpen: boolean }> {
   const cookie = request.headers.get('Cookie') ?? '';
-  if (!/(?:^|;\s*)lms_session=/.test(cookie)) return { initialUser: null };
+  const sidebarDefaultOpen = parseSidebarState(cookie);
+  if (!/(?:^|;\s*)lms_session=/.test(cookie)) return { initialUser: null, sidebarDefaultOpen };
   const body = await fetchApiJson('/api/v1/auth/session/me', { Cookie: cookie });
   const parsed = userProfileSchema.safeParse(body);
-  return { initialUser: parsed.success ? parsed.data : null };
+  return { initialUser: parsed.success ? parsed.data : null, sidebarDefaultOpen };
+}
+
+/**
+ * Tiêu đề mặc định của toàn app (F-08 của #133, việc #146): route lá
+ * có meta() riêng thì tiêu đề của route đó thay thế; Layout không còn
+ * gắn cứng <title> nữa.
+ */
+export function meta(): { title: string }[] {
+  return [{ title: 'LMS' }];
 }
 
 /**
@@ -61,7 +93,6 @@ export function Layout({ children }: { children: ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>LMS</title>
         <Meta />
         <Links />
       </head>
@@ -92,8 +123,17 @@ export default function App() {
   // Cây render ngoài route gốc (test nhúng, bản nhúng từng phần) có
   // thể không có dữ liệu loader: khi đó initialUser là undefined và
   // AuthProvider giữ hành vi resolve phía client như trước SSR.
-  const loaderData = useLoaderData<typeof loader>() as { initialUser: UserProfile | null } | undefined;
+  const loaderData = useLoaderData<typeof loader>() as
+    | { initialUser: UserProfile | null; sidebarDefaultOpen?: boolean }
+    | undefined;
   const initialUser = loaderData?.initialUser;
+  // Trạng thái sidebar khởi tạo: ưu tiên giá trị loader (đọc từ cookie
+  // của request phía server — SSR và hydrate đầu khớp nhau). Cây render
+  // không có dữ liệu loader (test nhúng) thì giữ fallback đọc cookie
+  // phía client như hành vi trước #146.
+  const sidebarDefaultOpen =
+    loaderData?.sidebarDefaultOpen ??
+    (typeof document === 'undefined' ? true : parseSidebarState(document.cookie));
   // QueryClient phía server phải là instance THEO TỪNG REQUEST (cache
   // dùng chung giữa các request trên cùng tiến trình SSR sẽ rò dữ liệu
   // giữa người dùng); phía client giữ singleton như trước để tầng phiên
@@ -101,13 +141,15 @@ export default function App() {
   // mỗi request phía server — có đúng một instance riêng.
   const [requestQueryClient] = useState(() => (typeof window === 'undefined' ? createQueryClient() : null));
   return (
-    <QueryClientProvider client={requestQueryClient ?? queryClient}>
-      <AuthProvider initialUser={initialUser}>
-        <PermissionsProvider>
-          <Outlet />
-        </PermissionsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <SidebarDefaultOpenContext.Provider value={sidebarDefaultOpen}>
+      <QueryClientProvider client={requestQueryClient ?? queryClient}>
+        <AuthProvider initialUser={initialUser}>
+          <PermissionsProvider>
+            <Outlet />
+          </PermissionsProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </SidebarDefaultOpenContext.Provider>
   );
 }
 
