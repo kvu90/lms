@@ -286,16 +286,16 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
     expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kế hoạch học tập' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Câu hỏi' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Ngân hàng câu hỏi' })).not.toBeInTheDocument();
   });
 
-  it('giáo viên có capability câu hỏi: mục Câu hỏi hiện trong nhóm Học tập', async () => {
+  it('giáo viên có capability câu hỏi: mục Ngân hàng câu hỏi hiện trong nhóm Học tập', async () => {
     seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
-    const questions = await screen.findByRole('link', { name: 'Câu hỏi' });
+    const questions = await screen.findByRole('link', { name: 'Ngân hàng câu hỏi' });
     expect(questions).toHaveAttribute('href', '/questions');
     // Giáo viên thuần vẫn không thấy nhóm quản trị.
     expect(screen.queryByRole('button', { name: 'Người dùng & quyền' })).not.toBeInTheDocument();
