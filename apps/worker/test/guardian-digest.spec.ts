@@ -4,7 +4,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { GuardianDigestProcessor } from '../src/processors/guardian-digest.processor';
-import { guardianDigests, outboxEvents, userPreferences } from '../src/db/schema';
+import { guardianDigests, outboxEvents, userPreferences } from '@lms/db-schema';
 
 /**
  * PH-2 (issue #159) — phía phát hiện ở worker: lượt quét guardian-digests

@@ -7,7 +7,7 @@ import type { relations } from '../db/relations';
 import {
   assignments, assignSubmissions, course, courseModules, enrol, guardianDigests, guardianLinks,
   outboxEvents, quizAttempts, quizzes, userEnrolments, userPreferences,
-} from '../db/schema';
+} from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
 
 type Database = NodePgDatabase<typeof relations>;

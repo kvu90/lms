@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261025041423_baseline/snapshot.json
-  "id": "290769e4-bd55-4e1a-ba42-22fefcfc1f76",
-========
-  "id": "f3894ca1-6153-47a9-ad73-6a8374f7c060",
->>>>>>>> a6d5762 (PH-2 chặng 1 (issue #159): bảng guardian_digests + contracts tần suất digest + view subset phía worker):apps/api/drizzle/20261025034819_baseline/snapshot.json
+  "id": "211b1b35-5f12-4391-8036-c0bcd7577439",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
