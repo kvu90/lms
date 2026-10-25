@@ -1,15 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
-import { uuidIdSchema } from '@lms/contracts';
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { generateFromMatrixSchema, uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { ExamPapersService } from './exam-papers.service';
+import type { GenerateFromMatrixDto } from '../quiz/dto/quiz.dto';
 import {
   approveExamPaperContributionSchema, copyExamPaperSchema, createExamPaperContributionSchema,
-  createExamPaperSchema, deployExamPaperSchema, rejectExamPaperContributionSchema,
-  setExamPaperSlotsSchema, setExamPaperStatusSchema, updateExamPaperSchema,
+  createExamPaperSchema, deployExamPaperSchema, materializeExamPaperSchema, rejectExamPaperContributionSchema,
+  setExamPaperSlotsSchema, setExamPaperStatusSchema, swapExamPaperSlotSchema, updateExamPaperSchema,
   type ApproveExamPaperContributionDto, type CopyExamPaperDto, type CreateExamPaperContributionDto,
-  type CreateExamPaperDto, type DeployExamPaperDto, type RejectExamPaperContributionDto,
-  type SetExamPaperSlotsDto, type SetExamPaperStatusDto, type UpdateExamPaperDto,
+  type CreateExamPaperDto, type DeployExamPaperDto, type MaterializeExamPaperDto, type RejectExamPaperContributionDto,
+  type SetExamPaperSlotsDto, type SetExamPaperStatusDto, type SwapExamPaperSlotDto, type UpdateExamPaperDto,
 } from './dto/exam-papers.dto';
 
 @ApiTags('exam-papers')
@@ -122,9 +123,62 @@ export class ExamPapersController {
 
   @Post(':id/deploy')
   /**
-   * POST /exam-papers/:id/deploy — triển khai đề ready vào một quiz: chụp slots sang quiz_slots và ghim paper version trên quiz.
+   * POST /exam-papers/:id/deploy — triển khai đề ready vào một quiz: chụp slots sang quiz_slots và ghim paper version trên quiz (recipe: ghi slot theo ô nguồn, câu rút tại attempt); mỗi lần triển khai sinh mã đề ở tầng deployment.
    */
   async deploy(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: deployExamPaperSchema }) dto: DeployExamPaperDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.papers.deploy(actor.id, id, dto);
+  }
+
+  @Post(':id/materialize')
+  /**
+   * POST /exam-papers/:id/materialize — chụp một đề RECIPE xuống SNAPSHOT mới (derived_from trỏ về recipe + matrix version); sửa tiếp trên snapshot bằng swap-cùng-ô.
+   */
+  async materialize(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: materializeExamPaperSchema }) dto: MaterializeExamPaperDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.papers.materialize(actor.id, id, dto);
+  }
+
+  @Post(':id/swap')
+  /**
+   * POST /exam-papers/:id/swap — đổi câu của một slot snapshot bằng swap-cùng-ô (câu thay phải thuộc pool của ô nguồn của slot).
+   */
+  async swap(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: swapExamPaperSlotSchema }) dto: SwapExamPaperSlotDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.papers.swapSlot(actor.id, id, dto);
+  }
+
+  @Get(':id/deployments')
+  /**
+   * GET /exam-papers/:id/deployments — các lần triển khai của đề kèm mã đề (variant_code) của từng lần.
+   */
+  async deployments(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.papers.listDeployments(actor.id, id);
+  }
+
+  @Get(':id/print')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  /**
+   * GET /exam-papers/:id/print?deploymentId=&variantCode= — bản in HTML của đề theo một mã đề của một lần triển khai (thứ tự câu hoán vị theo seed của mã).
+   */
+  async print(@Param('id', { schema: uuidIdSchema }) id: string, @Query('deploymentId') deploymentId: string | undefined, @Query('variantCode') variantCode: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    return this.papers.printPaperHtml(actor.id, id, deploymentId ?? '', variantCode ?? '');
+  }
+}
+
+@ApiTags('exam-matrices')
+@Controller({ path: 'exam-matrices', version: '1' })
+/**
+ * Generate hai bước (EB-2, điểm E-3): POST /exam-matrices/:id/generate
+ * giữ nguyên URL + payload của Chặng 3 nhưng điều phối ở lớp ngân
+ * hàng đề: matrix → exam_papers (snapshot/recipe) → deploy vào quiz
+ * mới. Thiếu câu ở bất kỳ ô nào trả 422 kèm chi tiết từng ô.
+ */
+export class ExamMatrixGenerateController {
+  constructor(private readonly papers: ExamPapersService) {}
+
+  @Post(':id/generate')
+  /**
+   * POST /exam-matrices/:id/generate — sinh đề từ ma trận (một thao tác): fixed → đề snapshot, per_student → đề recipe, rồi triển khai vào quiz trong khoá.
+   */
+  async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.papers.generateFromMatrix(actor.id, id, dto);
   }
 }

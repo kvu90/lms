@@ -14,7 +14,36 @@ import {
 import { sql } from 'drizzle-orm';
 import { subjects } from '../curriculum/schema';
 import { question, questionBanks } from '../questions/schema';
-import { examMatrices } from '../quiz/schema';
+import { examMatrices, examMatrixCells } from '../quiz/schema';
+
+/** Một ô trong bản chụp cấu trúc của đề recipe (EB-2): tiêu chí rút + số câu + điểm của ô tại đúng matrix version đã ghim. */
+export interface RecipeCellSpec {
+  /** Ô nguồn trong exam_matrix_cells (truy vết + điểm neo swap-cùng-ô khi materialize). */
+  sourceCellId: string;
+  learningOutcomeId: string;
+  cognitiveLevel: string;
+  qtype: string;
+  /** Số ĐƠN VỊ rút (ô truefalse đếm theo chùm 4 câu). */
+  questionCount: number;
+  cellScore: number;
+  minutes: number | null;
+  tfScale: number[] | null;
+}
+
+/**
+ * Công thức của một đề RECIPE tại một paper version (EB-2, điểm A.1/
+ * D.2): cấu trúc ô CHỤP CỨNG tại thời điểm sinh đề từ matrix version
+ * đã ghim — ma trận bị sửa về sau (version mới) không đổi cấu trúc
+ * của recipe này; bộ câu thì rút lại tại từng lần triển khai/attempt
+ * theo pool của các ô nguồn.
+ */
+export interface RecipeSpec {
+  drawMode: 'fixed' | 'per_student';
+  /** Scope của bank nguồn của ma trận tại thời điểm sinh đề (pool rút theo scope này lúc triển khai). */
+  sourceBankScope: string | null;
+  sourceBankId: string | null;
+  cells: RecipeCellSpec[];
+}
 
 /**
  * Thực thể ĐỀ (feat issue #113, EB-1; research ngân hàng đề/ma trận mục
@@ -85,6 +114,13 @@ export const examPaperVersions = pgTable('exam_paper_versions', {
   tfScale: jsonb('tf_scale').$type<number[]>(),
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   matrixVersion: integer('matrix_version'),
+  /**
+   * Công thức recipe (EB-2): chỉ có ở paper version của đề kind=
+   * 'recipe' (và bản chụp snapshot materialize từ recipe — giữ để báo
+   * cáo lệch tỉ lệ theo ô + swap-cùng-ô biết pool nguồn). Snapshot
+   * thường: null.
+   */
+  recipeSpec: jsonb('recipe_spec').$type<RecipeSpec>(),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -114,12 +150,19 @@ export const examPaperSlots = pgTable('exam_paper_slots', {
   pinnedVersionNumber: integer('pinned_version_number'),
   maxMark: doublePrecision('max_mark').notNull().default(1),
   clusterId: uuid('cluster_id'),
+  /**
+   * Ô ma trận NGUỒN của slot (EB-2, chỉ ở snapshot materialize từ
+   * recipe): điểm neo cho swap-cùng-ô (câu thay phải thuộc pool của
+   * ô này) và báo cáo lệch tỉ lệ theo ô. Slot soạn tay: null.
+   */
+  matrixCellId: uuid('matrix_cell_id').references(() => examMatrixCells.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('exam_paper_slots_version_idx').on(table.paperVersionId),
       index('exam_paper_slots_question_idx').on(table.questionId),
       index('exam_paper_slots_cluster_idx').on(table.clusterId),
+      index('exam_paper_slots_matrix_cell_idx').on(table.matrixCellId),
       unique('exam_paper_slots_version_position_unique').on(table.paperVersionId, table.position),
   ]);
 
@@ -153,4 +196,34 @@ export const examPaperContributions = pgTable('exam_paper_contributions', {
       index('exam_paper_contributions_paper_idx').on(table.paperId),
       index('exam_paper_contributions_proposer_idx').on(table.proposerId),
       index('exam_paper_contributions_status_idx').on(table.status),
+  ]);
+
+/** Một biến thể mã đề của một lần triển khai: mã in trên đề + seed hoán vị thứ tự câu/đáp án khi in. */
+export interface ExamVariant {
+  code: string;
+  seed: number;
+}
+
+/**
+ * Một LẦN TRIỂN KHAI một paper version vào một quiz (EB-2, điểm E-5):
+ * MÃ ĐỀ sống ở tầng này, KHÔNG ở đề — cùng một đề triển khai nhiều
+ * lần/mã là các dòng khác nhau. variants: danh sách mã 001, 002… kèm
+ * seed hoán vị của từng mã (in đề snapshot theo mã thì dùng đúng seed
+ * đó để thứ tự in khớp với bản chấm). quiz_id là con trỏ mềm (bảng
+ * quizzes thuộc module quiz; xoá quiz không được vỡ sổ triển khai).
+ */
+export const examDeployments = pgTable('exam_deployments', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
+  paperVersionId: uuid('paper_version_id').notNull().references(() => examPaperVersions.id, { onDelete: 'cascade' }),
+  quizId: uuid('quiz_id').notNull(),
+  variantCount: integer('variant_count').notNull().default(1),
+  variants: jsonb('variants').$type<ExamVariant[]>().notNull(),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_deployments_paper_idx').on(table.paperId),
+      index('exam_deployments_paper_version_idx').on(table.paperVersionId),
+      index('exam_deployments_quiz_idx').on(table.quizId),
   ]);

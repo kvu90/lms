@@ -6,9 +6,9 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
 import {
-  addQuizSlotSchema, clusterQuizSlotsSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizFeedbackSchema, createQuizOverrideSchema, createQuizSchema, generateFromMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema, recordQuizAttemptEventSchema, startQuizAttemptSchema,
+  addQuizSlotSchema, clusterQuizSlotsSchema, createExamMatrixCellSchema, createExamMatrixSchema, createQuizFeedbackSchema, createQuizOverrideSchema, createQuizSchema, gradeQuizQuestionSchema, manualGradeQuizSchema, recordQuizAttemptEventSchema, startQuizAttemptSchema,
   submitQuizResponseSchema, swapQuizSlotSchema, updateExamMatrixCellSchema, updateExamMatrixSchema, updateQuizOverrideSchema, updateQuizSchema, updateQuizSlotSchema,
-  type AddQuizSlotDto, type ClusterQuizSlotsDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizFeedbackDto, type CreateQuizOverrideDto, type GenerateFromMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto, type RecordQuizAttemptEventDto, type StartQuizAttemptDto,
+  type AddQuizSlotDto, type ClusterQuizSlotsDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateQuizDto, type CreateQuizFeedbackDto, type CreateQuizOverrideDto, type GradeQuizQuestionDto, type ManualGradeQuizDto, type RecordQuizAttemptEventDto, type StartQuizAttemptDto,
   type SubmitQuizResponseDto, type SwapQuizSlotDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto, type UpdateQuizDto, type UpdateQuizOverrideDto, type UpdateQuizSlotDto,
 } from './dto/quiz.dto';
 
@@ -313,14 +313,9 @@ export class ExamMatricesController {
   async availability(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.matrixAvailability(actor.id, id);
   }
-  @Post(':id/generate')
-  /**
-   * POST /exam-matrices/:id/generate — sinh quiz + slots từ ma trận vào
-   * một khoá học; thiếu câu ở bất kỳ ô nào trả 422 kèm chi tiết từng ô.
-   */
-  async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.quiz.generateQuizFromMatrix(actor.id, id, dto);
-  }
+  // POST /exam-matrices/:id/generate đã chuyển sang ExamPapersModule
+  // (EB-2: generate hai bước matrix → paper → deploy, xem
+  // ExamMatrixGenerateController) — route giữ nguyên URL cho GV.
   @Get(':id/specification')
   /**
    * GET /exam-matrices/:id/specification — view model bản đặc tả theo

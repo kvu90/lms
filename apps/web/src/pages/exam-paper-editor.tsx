@@ -9,7 +9,7 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import { apiFetch, apiJson } from '#lib/api';
 import { withApiReason } from './questions';
 
 /** Một slot của đề như API exam-papers trả về (đã ghim version câu). */
@@ -22,17 +22,48 @@ interface PaperSlotView {
   pinnedVersionNumber: number | null;
   maxMark: number;
   clusterId: string | null;
+  /** Ô ma trận nguồn (EB-2) — có ở snapshot chụp từ recipe; neo swap-cùng-ô. */
+  matrixCellId: string | null;
+}
+
+/** Công thức rút câu đã ghim của đề recipe (EB-2). */
+interface RecipeSpecView {
+  drawMode: string;
+  sourceBankScope: string | null;
+  cells: { qtype: string; questionCount: number; cellScore: number }[];
+}
+
+/** Một dòng báo cáo tỉ lệ theo ô (snapshot chụp từ recipe). */
+interface CellReportView {
+  sourceCellId: string;
+  expectedUnits: number;
+  actualUnits: number;
+  expectedScore: number;
+  actualScore: number;
+  deviated: boolean;
+}
+
+/** Một lần triển khai đề + các mã đề của lần đó (EB-2). */
+interface DeploymentView {
+  id: string;
+  quizId: string;
+  variantCount: number;
+  variants: { code: string; seed: number }[];
+  createdAt: string;
 }
 
 /** Chi tiết một đề (GET /exam-papers/:id). */
 interface PaperView {
-  paper: { id: string; bankId: string; status: string; latestVersion: number };
+  paper: { id: string; bankId: string; kind: string; status: string; latestVersion: number; derivedFromPaperId: string | null };
   version: {
     id: string; version: number; name: string;
     subjectId: string | null; grade: number | null; examKind: string | null;
     totalScore: number; durationMinutes: number | null;
+    matrixId: string | null; matrixVersion: number | null;
+    recipeSpec: RecipeSpecView | null;
   };
   slots: PaperSlotView[];
+  cellReport: CellReportView[] | null;
   capabilities: { edit: boolean };
 }
 
@@ -51,6 +82,8 @@ interface SlotDraft {
   maxMark: string;
   section: string;
   pinnedVersionNumber: number | null;
+  /** Ô ma trận nguồn (EB-2): slot có trường này thì đổi câu bằng swap-cùng-ô. */
+  matrixCellId?: string | null;
 }
 
 const EXAM_KINDS = ['regular', 'midterm', 'final', 'mock', 'practice'] as const;
@@ -90,6 +123,9 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<DiscoveryItemLite[]>([]);
   const [searched, setSearched] = useState(false);
+  const [deployments, setDeployments] = useState<DeploymentView[]>([]);
+  /** Vị trí slot đang ở chế độ đổi câu cùng ô (EB-2); null = chế độ thêm câu thường. */
+  const [swapPosition, setSwapPosition] = useState<number | null>(null);
 
   const loadPaper = useCallback(async () => {
     if (mode !== 'edit' || !paperId) return;
@@ -107,6 +143,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         maxMark: String(s.maxMark),
         section: s.section,
         pinnedVersionNumber: s.pinnedVersionNumber,
+        matrixCellId: s.matrixCellId,
       })));
     } catch (err) {
       setMessage(withApiReason(t('examPaperSaveFailed'), err));
@@ -114,6 +151,70 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   }, [mode, paperId, t]);
 
   useEffect(() => { void loadPaper(); }, [loadPaper]);
+
+  const loadDeployments = useCallback(async () => {
+    if (mode !== 'edit' || !paperId) return;
+    try {
+      setDeployments(await apiJson<DeploymentView[]>(`/api/v1/exam-papers/${paperId}/deployments`));
+    } catch {
+      setDeployments([]);
+    }
+  }, [mode, paperId]);
+
+  useEffect(() => { void loadDeployments(); }, [loadDeployments]);
+
+  /** Chụp recipe xuống snapshot rồi mở bản chụp để sửa (EB-2). */
+  async function doMaterialize() {
+    if (!paperId) return;
+    setMessage(null);
+    try {
+      const snapshot = await apiJson<PaperView>(`/api/v1/exam-papers/${paperId}/materialize`, { method: 'POST', body: '{}' });
+      setMessage(t('materializeOk'));
+      await navigate(`/exam-papers/${snapshot.paper.id}/edit`);
+    } catch (err) {
+      setMessage(withApiReason(t('materializeFailed'), err));
+    }
+  }
+
+  /** Đổi câu của slot đang chọn sang câu khác CÙNG Ô (server gác pool của ô nguồn). */
+  async function doSwap(questionId: string) {
+    if (!paperId || swapPosition == null) return;
+    setMessage(null);
+    try {
+      const view = await apiJson<PaperView>(`/api/v1/exam-papers/${paperId}/swap`, {
+        method: 'POST',
+        body: JSON.stringify({ position: swapPosition, questionId }),
+      });
+      setOriginal(view);
+      setSlots(view.slots.map((s) => ({
+        questionId: s.questionId,
+        questionName: s.questionName ?? s.questionId,
+        maxMark: String(s.maxMark),
+        section: s.section,
+        pinnedVersionNumber: s.pinnedVersionNumber,
+        matrixCellId: s.matrixCellId,
+      })));
+      setSwapPosition(null);
+      setMessage(t('swapOk', { version: view.version.version }));
+    } catch (err) {
+      setMessage(withApiReason(t('swapFailed'), err));
+    }
+  }
+
+  /** In đề snapshot theo một mã đề: tải HTML kèm token rồi mở tab in. */
+  async function printVariant(deploymentId: string, code: string) {
+    if (!paperId) return;
+    setMessage(null);
+    try {
+      const response = await apiFetch(`/api/v1/exam-papers/${paperId}/print?deploymentId=${deploymentId}&variantCode=${code}`);
+      if (!response.ok) throw new Error('print failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank');
+    } catch (err) {
+      setMessage(withApiReason(t('printFailed'), err));
+    }
+  }
 
   async function searchQuestions() {
     try {
@@ -210,6 +311,12 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     }
   }
 
+  const isRecipe = mode === 'edit' && original?.paper.kind === 'recipe';
+  const recipeSpec = original?.version.recipeSpec ?? null;
+  /** Thứ tự slot nháp còn khớp bản đã lưu thì mới ánh xạ được vị trí cho swap-cùng-ô. */
+  const orderIntact = !!original && slots.length === original.slots.length
+    && slots.every((s, i) => s.questionId === original.slots[i]!.questionId);
+
   return (
     <PageShell width="full">
       <PageHeader
@@ -225,6 +332,35 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
+      {isRecipe ? (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('recipeInfoTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm">{original?.version.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {t('recipePinnedMatrix', { version: original?.version.matrixVersion ?? '—' })}
+                {' · '}
+                {recipeSpec?.drawMode === 'per_student' ? t('recipeDrawPerStudent') : t('recipeDrawFixed')}
+                {recipeSpec?.sourceBankScope ? ` · ${t('recipeSourceScope', { scope: recipeSpec.sourceBankScope })}` : ''}
+              </p>
+              {recipeSpec ? (
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {recipeSpec.cells.map((cell, i) => (
+                    <li key={i}>{t('recipeCellLine', { index: i + 1, qtype: cell.qtype, count: cell.questionCount, score: cell.cellScore })}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="text-sm text-muted-foreground">{t('recipeNotEditable')}</p>
+              {original?.capabilities.edit ? (
+                <Button type="button" onClick={() => void doMaterialize()}>{t('materializeAction')}</Button>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
       <form onSubmit={(e) => void submit(e)} className="space-y-6">
         <Card>
           <CardContent className="pt-6">
@@ -299,6 +435,15 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     />
                     <Button type="button" variant="outline" onClick={() => moveSlot(index, -1)}>↑</Button>
                     <Button type="button" variant="outline" onClick={() => moveSlot(index, 1)}>↓</Button>
+                    {mode === 'edit' && slot.matrixCellId && orderIntact ? (
+                      <Button
+                        type="button"
+                        variant={swapPosition === index + 1 ? 'default' : 'outline'}
+                        onClick={() => setSwapPosition(swapPosition === index + 1 ? null : index + 1)}
+                      >
+                        {t('swapAction')}
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -312,6 +457,9 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
             )}
             <div className="space-y-3 border-t pt-4">
               <Label htmlFor="paper-pick">{t('examPickQuestions')}</Label>
+              {swapPosition != null ? (
+                <p className="text-sm text-muted-foreground">{t('swapPickHint', { position: swapPosition })}</p>
+              ) : null}
               <div className="flex flex-wrap items-end gap-2">
                 <Input
                   id="paper-pick"
@@ -336,9 +484,9 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                         type="button"
                         variant="outline"
                         disabled={slots.some((s) => s.questionId === item.questionId)}
-                        onClick={() => addQuestion(item)}
+                        onClick={() => (swapPosition != null ? void doSwap(item.questionId) : addQuestion(item))}
                       >
-                        {t('examAddQuestion')}
+                        {swapPosition != null ? t('swapApply') : t('examAddQuestion')}
                       </Button>
                     </li>
                   ))}
@@ -350,6 +498,52 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
         <Button type="submit" disabled={!name.trim()}>{t('saveAction')}</Button>
       </form>
+      )}
+      {mode === 'edit' && original && !isRecipe && original.cellReport && original.cellReport.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('cellReportTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {original.cellReport.map((cell, i) => (
+                <li key={cell.sourceCellId} className={cell.deviated ? 'text-destructive' : 'text-muted-foreground'}>
+                  {t('cellReportLine', {
+                    index: i + 1,
+                    expectedUnits: cell.expectedUnits, expectedScore: cell.expectedScore,
+                    actualUnits: cell.actualUnits, actualScore: cell.actualScore,
+                  })}
+                  {' — '}
+                  {cell.deviated ? t('cellDeviated') : t('cellAligned')}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
+      {mode === 'edit' && deployments.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('deploymentsTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {deployments.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 flex-1">
+                    {new Date(d.createdAt).toLocaleString()} · {t('deploymentVariants', { count: d.variantCount, codes: d.variants.map((v) => v.code).join(', ') })}
+                  </span>
+                  {!isRecipe ? d.variants.map((v) => (
+                    <Button key={v.code} type="button" variant="outline" onClick={() => void printVariant(d.id, v.code)}>
+                      {t('printVariant', { code: v.code })}
+                    </Button>
+                  )) : null}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
     </PageShell>
   );
 }

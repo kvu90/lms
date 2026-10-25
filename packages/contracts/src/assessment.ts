@@ -1720,5 +1720,35 @@ export type RejectExamPaperContribution = z.infer<typeof rejectExamPaperContribu
 export const deployExamPaperSchema = z.strictObject({
   quizId: uuidIdSchema,
   replace: z.boolean().optional(),
+  /**
+   * Số mã đề (variant) sinh cho lần triển khai này ở tầng deployment
+   * (EB-2, điểm E-5): mỗi mã 001, 002… kèm seed hoán vị để in/chấm
+   * khớp. Bỏ trống = 1 mã duy nhất.
+   */
+  variantCount: z.number().int().min(1).max(50).optional(),
 });
 export type DeployExamPaper = z.infer<typeof deployExamPaperSchema>;
+
+/**
+ * Payload chụp (materialize) một đề RECIPE xuống SNAPSHOT (EB-2, điểm
+ * D.3): recipe không sửa tay trực tiếp — sửa là chụp thành snapshot
+ * mới (derived_from trỏ về recipe + matrix version) rồi sửa trên
+ * snapshot. `name` bỏ trống thì lấy tên recipe kèm hậu tố "bản chụp".
+ */
+export const materializeExamPaperSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+});
+export type MaterializeExamPaper = z.infer<typeof materializeExamPaperSchema>;
+
+/**
+ * Payload đổi câu của một slot snapshot BẰNG SWAP-CÙNG-Ô (EB-2, điểm
+ * D.3): slot đích (theo `position`) phải mang ô ma trận nguồn; câu thay
+ * phải thuộc pool của chính ô đó (cùng YCCĐ + mức + dạng). Điểm của
+ * slot giữ nguyên nên tỉ lệ ô chỉ lệch khi cấu trúc bị sửa bằng đường
+ * khác — báo cáo lệch tỉ lệ đi kèm chi tiết đề.
+ */
+export const swapExamPaperSlotSchema = z.strictObject({
+  position: z.number().int().positive(),
+  questionId: uuidIdSchema,
+});
+export type SwapExamPaperSlot = z.infer<typeof swapExamPaperSlotSchema>;
