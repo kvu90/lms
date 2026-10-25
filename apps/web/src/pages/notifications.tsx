@@ -481,6 +481,12 @@ export function NotificationsPage() {
               <AlertDescription>{prefError}</AlertDescription>
             </Alert>
           ) : null}
+          {/* NB-7: học sinh chỉ có bề mặt tối thiểu — API trả danh sách
+              theo loại rỗng cho họ; trang nói rõ thay vì hiện một thẻ
+              trống, bề mặt thật của họ là Ngoại lệ theo khoá ở dưới. */}
+          {prefsQuery.isSuccess && prefs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('prefMinimalNote')}</p>
+          ) : null}
           {prefSections.map((section) => (
             <section key={section.group} aria-label={groupLabel[section.group]} className="space-y-3">
               <h3 className="text-sm font-semibold">{groupLabel[section.group]}</h3>

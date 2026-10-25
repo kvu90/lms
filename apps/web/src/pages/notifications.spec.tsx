@@ -45,7 +45,7 @@ interface CourseOverrideState {
   mode: 'all' | 'mute';
 }
 
-function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: boolean; prefEnabled: boolean; courses: CourseOverrideState[] }) {
+function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: boolean; prefEnabled: boolean; courses: CourseOverrideState[]; minimalPrefs?: boolean }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -84,6 +84,8 @@ function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: bool
         return respond({});
       }
       if (url === '/api/v1/messages/preferences' && method === 'GET') {
+        // NB-7: học sinh nhận danh sách rỗng (phần tối thiểu).
+        if (state.minimalPrefs) return respond([]);
         // Mô hình v2 (NB-2): một dòng mỗi provider, nhãn từ registry.
         return respond([
           {
@@ -244,5 +246,26 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     expect(put?.body).toEqual({ courseId: 'course-1', mode: 'mute' });
     // Sau khi lưu, cả hai khoá đều mang huy hiệu đã tắt tiếng.
     await waitFor(() => expect(screen.getAllByText('Đã tắt tiếng')).toHaveLength(2));
+  });
+
+  it('student minimal surface: no per-type rows, minimal note shown, course exceptions remain (NB-7)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    const state = {
+      unread: 0, allRead: true, prefEnabled: true, minimalPrefs: true,
+      courses: [{ courseId: 'course-1', courseName: 'Khoá Toán 10', mode: 'all' as const }],
+    };
+    stubFetch(calls, state);
+    renderPage();
+
+    // Không còn dòng tuỳ chọn theo loại nào; trang nói rõ bề mặt tối thiểu.
+    expect(
+      await screen.findByText('Tài khoản học sinh chỉ tuỳ chỉnh được thông báo theo từng khoá học ở mục Ngoại lệ theo khoá học bên dưới.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Điểm số thay đổi')).not.toBeInTheDocument();
+    // Bề mặt còn lại của học sinh: ngoại lệ theo khoá vẫn hiện và dùng được.
+    expect(await screen.findByText('Ngoại lệ theo khoá học')).toBeInTheDocument();
+    expect(screen.getByText('Khoá Toán 10')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tắt tiếng khoá này: Khoá Toán 10')).toBeInTheDocument();
   });
 });
