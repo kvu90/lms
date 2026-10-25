@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCategory } from './grade-calculator';
+import { calculateCategory } from './grade-calculator.js';
 import {
   GradeFormulaError, calculateFromFormula, findFormulaCycle, formulaReferences, parseGradeFormula,
-} from './grade-formula';
+} from './grade-formula.js';
 
 /**
  * GOLDEN calculated grade items — bộ đánh giá công thức an toàn (không eval).

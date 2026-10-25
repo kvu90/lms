@@ -5,8 +5,7 @@ import { eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '../db/schema';
-import { calculateCategory, type AggregationStrategy, type CalcItemInput } from '../domain/grade-calculator';
-import { evaluateGradeFormula, parseGradeFormula } from '../domain/grade-formula';
+import { calculateCategory, evaluateGradeFormula, parseGradeFormula, type AggregationStrategy, type CalcItemInput } from '@lms/grades';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -24,7 +23,7 @@ export interface GradeRegradeResult { courseId: string; users: number; updatedTo
  */
 @Processor('grade-regrade')
 /**
- * Xử lý job tính lại điểm (regrade) cho user/khoá học bằng grade-calculator của worker.
+ * Xử lý job tính lại điểm (regrade) cho user/khoá học bằng grade-calculator của package dùng chung @lms/grades.
  */
 export class GradeRegradeProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
@@ -48,7 +47,7 @@ export class GradeRegradeProcessor extends WorkerHost {
       const gradeByItem = new Map(grades.map((g) => [g.itemId, g]));
       const finalByItem = new Map<string, number | null>(grades.map((g) => [g.itemId, g.finalGrade]));
 
-      // Calculated items (bản worker — cùng logic với API): đánh giá công thức theo idNumber
+      // Calculated items (từ @lms/grades dùng chung với API): đánh giá công thức theo idNumber
       // trước khi tổng hợp category, kẹp vào [gradeMin, gradeMax] của item và lưu lại điểm.
       const byIdnumber = new Map(items.filter((i) => i.idNumber).map((i) => [i.idNumber!, i]));
       const computedCalc = new Map<string, number | null>();

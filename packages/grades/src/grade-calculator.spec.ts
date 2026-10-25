@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateCategory, letterForGrade, type CalcItemInput } from './grade-calculator';
+import { calculateCategory, letterForGrade, type CalcItemInput } from './grade-calculator.js';
 
 /**
  * GOLDEN GRADEBOOK (§3.11b) — pure-domain arithmetic.
