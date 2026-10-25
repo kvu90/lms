@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, courseGroupingSchema, enrolInstanceSchema,
-  gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, notificationPreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
+  myActivityGradesSchema, courseActivityGridSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, notificationPreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
   paymentWebhookSchema, restoreCourseSchema,
-  createGradeItemSchema, createGradeOutcomeSchema, gradeOutcomeSchema,
+  createGradeItemSchema,
   richTextDocumentSchema, richTextInputSchema, toRichTextDocument, extractRichTextPlainText, emptyRichTextDocument,
   createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema,
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
@@ -117,57 +117,42 @@ describe('course contracts', () => {
 
 describe('assessment contracts', () => {
   const item = {
-    id: '01900000-0000-7000-8000-000000000005', courseId: '01900000-0000-7000-8000-000000000010', categoryId: '01900000-0000-7000-8000-000000000001', itemName: 'Quiz 1', itemType: 'manual', itemModule: null,
-    itemInstance: null, gradeMax: 100, gradeMin: 0, gradePass: 50, weightOverride: false,
-    aggregationCoef: 0, extraCredit: false, multiplicator: 1, plusFactor: 0, hidden: false, locked: false,
+    id: '01900000-0000-7000-8000-000000000005', courseId: '01900000-0000-7000-8000-000000000010', itemName: 'Quiz 1', itemType: 'mod', itemModule: 'mod_quiz',
+    itemInstance: '01900000-0000-7000-8000-000000000003', gradeMax: 100, gradeMin: 0, gradePass: 50,
+    multiplicator: 1, plusFactor: 0, hidden: false, locked: false, sortOrder: 0, postingPolicy: 'auto',
   };
-  it('parses a gradebook tree with letters on grades and a course total', () => {
-    const book = gradebookSchema.parse({
+  const grade = {
+    id: '01900000-0000-7000-8000-000000000002', itemId: '01900000-0000-7000-8000-000000000005', userId: '01900000-0000-7000-8000-000000000007', rawGrade: 70, finalGrade: 70, hidden: false, locked: false,
+    overridden: false, excluded: false, frozen: false, feedback: 'ok', aggregationWeight: null,
+  };
+  it('parses per-activity grades with publication states (no course total anywhere)', () => {
+    const mine = myActivityGradesSchema.parse({
       courseId: '01900000-0000-7000-8000-000000000010', userId: '01900000-0000-7000-8000-000000000007',
-      categories: [{
-        category: {
-          id: '01900000-0000-7000-8000-000000000001', courseId: '01900000-0000-7000-8000-000000000010', parent: null, fullName: '', aggregation: 'natural', dropLow: 0,
-          keepHigh: 0, aggregateOnlyGraded: false, depth: 1, path: '/1', hidden: false,
-        },
-        total: {
-          item: { ...item, id: '01900000-0000-7000-8000-000000000009', itemName: 'Course total', itemType: 'course', itemInstance: '01900000-0000-7000-8000-000000000010' },
-          grade: {
-            id: '01900000-0000-7000-8000-000000000003', itemId: '01900000-0000-7000-8000-000000000009', userId: '01900000-0000-7000-8000-000000000007', rawGrade: null, finalGrade: 100, hidden: false, locked: false,
-            overridden: false, excluded: false, frozen: false, feedback: null, aggregationWeight: null, letter: 'B',
-          },
-        },
-        items: [{
-          item,
-          grade: {
-            id: '01900000-0000-7000-8000-000000000002', itemId: '01900000-0000-7000-8000-000000000005', userId: '01900000-0000-7000-8000-000000000007', rawGrade: 70, finalGrade: 70, hidden: false, locked: false,
-            overridden: false, excluded: false, frozen: false, feedback: 'ok', aggregationWeight: 52.6, letter: null,
-          },
-        }],
-        children: [],
-      }],
-      courseTotal: null,
+      activities: [{ item, grade, publication: { policy: 'auto', published: true } }],
     });
-    expect(book.categories[0]?.total?.grade?.letter).toBe('B');
-    expect(book.categories[0]?.items[0]?.grade?.finalGrade).toBe(70);
-    expect(() => gradebookSchema.parse({ courseId: 'x' })).toThrow();
+    expect(mine.activities[0]?.grade?.finalGrade).toBe(70);
+    expect(mine.activities[0]?.publication.published).toBe(true);
+    expect(() => myActivityGradesSchema.parse({ courseId: 'x' })).toThrow();
   });
 
+  it('parses the read-only student x activity grid for teachers', () => {
+    const grid = courseActivityGridSchema.parse({
+      courseId: '01900000-0000-7000-8000-000000000010',
+      items: [item],
+      publications: { [item.id]: { policy: 'manual', published: false } },
+      rows: [{ userId: '01900000-0000-7000-8000-000000000007', grades: { [item.id]: 70 } }],
+    });
+    expect(grid.rows[0]?.grades[item.id]).toBe(70);
+    expect(grid.publications[item.id]?.published).toBe(false);
+  });
 
-  it('parses grade outcomes and calculated/outcome grade item payloads, and rejects bad shapes', () => {
-    const outcome = gradeOutcomeSchema.parse({
-      id: '01900000-0000-7000-8000-000000000020', courseId: null,
-      scaleId: '01900000-0000-7000-8000-000000000021', name: 'Teamwork', description: '',
-    });
-    expect(outcome.courseId).toBeNull(); // site outcome
-    expect(createGradeOutcomeSchema.parse({ name: 'Teamwork', scaleId: outcome.scaleId }).name).toBe('Teamwork');
-    expect(() => createGradeOutcomeSchema.parse({ name: 'Teamwork' })).toThrow();
-    const calc = createGradeItemSchema.parse({
-      itemName: 'Average', itemType: 'calculated', idNumber: 'avg', calculation: '=average([[quiz1]],[[quiz2]])',
-    });
-    expect(calc.calculation).toContain('[[quiz1]]');
-    const withOutcome = createGradeItemSchema.parse({ itemName: 'Outcome item', outcomeId: outcome.id });
-    expect(withOutcome.outcomeId).toBe(outcome.id);
-    expect(() => createGradeItemSchema.parse({ itemName: 'X', outcomeId: 'not-a-uuid' })).toThrow();
+  it('parses grade item payloads (manual/mod) and rejects shapes of the removed aggregate model', () => {
+    const manual = createGradeItemSchema.parse({ itemName: 'Kiểm tra 15 phút', gradeMax: 10, multiplicator: 0.5 });
+    expect(manual.multiplicator).toBe(0.5);
+    // Mô hình tổng hợp đã gỡ (issue #224): strictObject từ chối các trường chết.
+    expect(() => createGradeItemSchema.parse({ itemName: 'X', calculation: '=average([[a]])' })).toThrow();
+    expect(() => createGradeItemSchema.parse({ itemName: 'X', outcomeId: '01900000-0000-7000-8000-000000000020' })).toThrow();
+    expect(() => createGradeItemSchema.parse({ itemName: 'X', categoryId: '01900000-0000-7000-8000-000000000001' })).toThrow();
   });
 
   it('parses a question usage with attempts, pinned versions and steps', () => {
