@@ -7,6 +7,7 @@ import type { Database } from '../../db/database';
 import { outboxEvents } from '../../db/schema';
 import { redisTlsFromUrl } from '../../config/env';
 import { GuardianDigestService, type GuardianDigestDuePayload, type GuardianOverdueAlertPayload } from './guardian-digest.service';
+import { tenantAls } from '../tenants/tenant-als';
 
 /** Nhịp quét outbox của consumer digest (khớp nhịp các consumer khác). */
 const POLL_INTERVAL_MS = 500;
@@ -76,8 +77,19 @@ export class GuardianDigestConsumer implements OnModuleInit, OnModuleDestroy {
     await this.redis.quit().catch(() => undefined);
   }
 
-  /** Một nhịp quét: khởi tạo watermark nếu cần, rồi xử lý mọi sự kiện mới theo thứ tự seq. */
+  /**
+   * Một nhịp quét: khởi tạo watermark nếu cần, rồi xử lý mọi sự kiện
+   * mới theo thứ tự seq.
+   *
+   * TENANT-1 (#196): consumer quét outbox XUYÊN tenant nên toàn nhịp
+   * chạy trong ngữ cảnh platform tường minh — pool gắn GUC theo ALS ở
+   * mọi checkout, RLS fail-closed không làm mù sự kiện của các tenant.
+   */
   private async tick(): Promise<void> {
+    return tenantAls.run({ platform: true }, () => this.tickInContext());
+  }
+
+  private async tickInContext(): Promise<void> {
     if (this.ticking) return;
     this.ticking = true;
     try {

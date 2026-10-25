@@ -11,6 +11,7 @@ import {
   courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
   notifications, outboxEvents, users,
 } from '@lms/db-schema';
+import { tenantAls } from '../db/tenant-als';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
 const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;
@@ -133,6 +134,13 @@ export class BadgeAwardProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<BadgeAwardJobData>): Promise<BadgeAwardResult> {
     const { userId } = job.data;
     const activeBadges = await this.db.select().from(badge).where(eq(badge.status, 1));
     const issuedIds: string[] = [];

@@ -11,6 +11,7 @@ import type { relations } from '../db/relations';
 
 type Database = NodePgDatabase<typeof relations>;
 import { files } from '@lms/db-schema';
+import { tenantAls } from '../db/tenant-als';
 
 export interface FileCleanupJobData { contentHash: string }
 export interface FileCleanupResult { contentHash: string; removed: boolean; refcount: number }
@@ -36,6 +37,13 @@ export class FileCleanupProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<FileCleanupJobData>): Promise<FileCleanupResult> {
     const { contentHash } = job.data;
     const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(files).where(eq(files.contentHash, contentHash));
     const refcount = row?.n ?? 0;

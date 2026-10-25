@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { notificationDispatchLog, userPreferences, users } from '@lms/db-schema';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -41,6 +42,13 @@ export class NotificationDispatchProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<NotificationDispatchJobData>): Promise<NotificationDispatchResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<NotificationDispatchJobData>): Promise<NotificationDispatchResult> {
     const { userId, provider, channel, subject, dedupeKey } = job.data;
     const [existing] = await this.db.select().from(notificationDispatchLog)
       .where(eq(notificationDispatchLog.dedupeKey, dedupeKey));

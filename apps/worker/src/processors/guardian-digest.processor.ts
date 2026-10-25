@@ -9,6 +9,7 @@ import {
   outboxEvents, quizAttempts, quizzes, userEnrolments, userPreferences,
 } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -89,6 +90,13 @@ export class GuardianDigestProcessor extends WorkerHost {
    * task_log qua TaskLogService.
    */
   async process(_job: Job): Promise<GuardianDigestSweepResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(_job));
+  }
+
+  private async processInContext(_job: Job): Promise<GuardianDigestSweepResult> {
     void _job;
     return this.taskLog.run('guardian-digests', () => this.sweep(), (r) => `queued ${r.queued.length} guardian digest item(s)`);
   }

@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { assignments, assignSubmissions, course, courseModules, enrol, outboxEvents, quizAttempts, quizzes, userEnrolments } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -60,6 +61,13 @@ export class ActivityDueReminderProcessor extends WorkerHost {
    * lượt quét được ghi vào task_log qua TaskLogService.
    */
   async process(_job: Job): Promise<ActivityDueReminderResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(_job));
+  }
+
+  private async processInContext(_job: Job): Promise<ActivityDueReminderResult> {
     void _job;
     return this.taskLog.run('activity-due-reminders', () => this.sweep(), (r) => `reminded ${r.reminded.length} (student, activity) pair(s)`);
   }

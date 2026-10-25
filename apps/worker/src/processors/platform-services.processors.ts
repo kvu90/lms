@@ -16,6 +16,8 @@ import {
   searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
 } from '@lms/db-schema';
 import { NotificationDeliveryService } from '../notification-delivery.service';
+import { tenantAls } from '../db/tenant-als';
+import { resolveDefaultTenantId } from '../db/default-tenant';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -37,6 +39,13 @@ export class BackupProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<{ jobId: string }>): Promise<{ status: string; sections?: number; cms?: number }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ jobId: string }>): Promise<{ status: string; sections?: number; cms?: number }> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
@@ -103,6 +112,13 @@ export class BackupProcessor extends WorkerHost {
 export class RestoreProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ jobId: string }>): Promise<{ status: string; mapped?: number }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ jobId: string }>): Promise<{ status: string; mapped?: number }> {
     const [row] = await this.db.select().from(backupJobs).where(eq(backupJobs.id, job.data.jobId));
     if (!row) return { status: 'missing' };
     if (row.status === 'completed') return { status: 'duplicate' };
@@ -140,6 +156,13 @@ export class RestoreProcessor extends WorkerHost {
 export class SearchReindexProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(_job: Job<Record<string, never>>): Promise<{ indexed: number }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(_job));
+  }
+
+  private async processInContext(_job: Job<Record<string, never>>): Promise<{ indexed: number }> {
     void _job;
     let indexed = 0;
     const courses = await this.db.select().from(course);
@@ -180,6 +203,13 @@ export class SearchReindexProcessor extends WorkerHost {
 export class AnalyticsRunProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ courseId: string }>): Promise<{ predictions: number; insights: number }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ courseId: string }>): Promise<{ predictions: number; insights: number }> {
     const courseId = job.data.courseId;
     let [model] = await this.db.select().from(analyticsModels).where(eq(analyticsModels.name, 'students_at_risk'));
     if (!model) {
@@ -241,6 +271,13 @@ export class ReportScheduleProcessor extends WorkerHost {
     private readonly delivery: NotificationDeliveryService,
   ) { super(); }
   async process(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
     const [schedule] = await this.db.select().from(reportBuilderSchedule).where(eq(reportBuilderSchedule.id, job.data.scheduleId));
     if (!schedule || !schedule.enabled) return { rows: 0, status: 'missing-or-disabled' };
     const [report] = await this.db.select().from(reportBuilderReport).where(eq(reportBuilderReport.id, schedule.reportId));
@@ -259,11 +296,17 @@ export class ReportScheduleProcessor extends WorkerHost {
      */
     const recipientLocale = 'vi';
     const subject = this.i18n.t('platform.reportReadySubject', { locale: recipientLocale });
+    // TENANT-1 (#196): báo cáo chưa mang tenant riêng — notification
+    // gắn tenant mặc định của người tạo lịch theo membership (người
+    // sẽ đọc thông báo), truyền xuống hàm luật dùng chung để dòng
+    // thông báo + dispatch log mang đúng tenant.
+    const tenantId = await resolveDefaultTenantId(this.db, schedule.createdBy);
     await this.delivery.deliverInApp(schedule.createdBy, 'report_scheduled', {
       subject,
       body: this.i18n.t('platform.reportReadyBody', { locale: recipientLocale, args: { name: report?.name ?? String(schedule.reportId) } }),
       smallMessage: subject,
       contextUrl: `/reports/${schedule.reportId}`,
+      tenantId,
     });
     return { rows, status: 'completed' };
   }
@@ -277,6 +320,13 @@ export class ReportScheduleProcessor extends WorkerHost {
 export class PrivacyProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ requestId: string }>): Promise<{ status: string; subsystems: string[] }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ requestId: string }>): Promise<{ status: string; subsystems: string[] }> {
     const [req] = await this.db.select().from(privacyRequests).where(eq(privacyRequests.id, job.data.requestId));
     if (!req) return { status: 'missing', subsystems: [] };
     if (req.status === 'completed') return { status: 'duplicate', subsystems: [] };
@@ -322,6 +372,13 @@ export class PrivacyProcessor extends WorkerHost {
 export class PaymentReconciliationProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }
   async process(job: Job<{ paymentId?: string; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<{ paymentId?: string; externalTransactionId?: string; status?: string }>): Promise<{ status: string; duplicate?: boolean; succeeded?: number }> {
     if (job.data.paymentId && job.data.externalTransactionId) {
       const [existing] = await this.db.select().from(payments)
         .where(and(eq(payments.gateway, 'manual'), eq(payments.externalTransactionId, job.data.externalTransactionId)));

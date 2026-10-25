@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '@lms/db-schema';
 import { calculateCategory, evaluateGradeFormula, parseGradeFormula, type AggregationStrategy, type CalcItemInput } from '@lms/grades';
+import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -32,6 +33,13 @@ export class GradeRegradeProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<GradeRegradeJobData>): Promise<GradeRegradeResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<GradeRegradeJobData>): Promise<GradeRegradeResult> {
     const { courseId } = job.data;
     const categories = await this.db.select().from(gradeCategories).where(eq(gradeCategories.courseId, courseId));
     const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));

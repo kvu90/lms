@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
 import { ProgramImportService } from './modules/curriculum/program-import.service';
+import { tenantAls } from './modules/tenants/tenant-als';
 
 /**
  * Seed dữ liệu mẫu cho buổi review (chạy bằng `pnpm seed` ở thư mục gốc).
@@ -220,7 +221,10 @@ async function main(): Promise<void> {
     // tập id khớp giữa mọi môi trường.
     const programImport = app.get(ProgramImportService, { strict: false });
     const programStartedAt = Date.now();
-    const programResults = await programImport.importAllDatasetsInternal();
+    // TENANT-1 (#196): đường nạp trực tiếp (không qua HTTP) chạy với
+    // danh nghĩa hệ thống — bọc ngữ cảnh platform tường minh để RLS
+    // fail-closed cho thấy/ghi được dữ liệu dùng chung của platform.
+    const programResults = await tenantAls.run({ platform: true }, () => programImport.importAllDatasetsInternal());
     for (const r of programResults) {
       console.log(`[seed] program ${r.datasetKey}: created=${r.created} updated=${r.updated} skipped=${r.skipped} orphanedNodes=${r.orphanedNodes} orphanedOutcomes=${r.orphanedOutcomes}`);
     }

@@ -5,8 +5,10 @@ import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { calendarEvents, notifications } from '@lms/db-schema';
+import { calendarEvents, course, notifications } from '@lms/db-schema';
 import { NotificationDeliveryService } from '../notification-delivery.service';
+import { tenantAls } from '../db/tenant-als';
+import { resolveDefaultTenantId } from '../db/default-tenant';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -38,6 +40,13 @@ export class CalendarReminderProcessor extends WorkerHost {
    * Xử lý một job của queue tương ứng.
    */
   async process(job: Job<CalendarReminderJobData>): Promise<CalendarReminderResult> {
+    // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
+    // ngữ cảnh platform tường minh để RLS fail-closed không làm mù
+    // dữ liệu tenant (pool gắn GUC theo ALS ở mọi checkout).
+    return tenantAls.run({ platform: true }, () => this.processInContext(job));
+  }
+
+  private async processInContext(job: Job<CalendarReminderJobData>): Promise<CalendarReminderResult> {
     const { eventId, userId } = job.data;
     const [event] = await this.db.select().from(calendarEvents).where(eq(calendarEvents.id, eventId));
     if (!event) return { status: 'event-missing' };
@@ -51,11 +60,24 @@ export class CalendarReminderProcessor extends WorkerHost {
     // truyền locale tường minh (mặc định 'vi' như các processor nền tảng).
     const recipientLocale = 'vi';
     const subject = this.i18n.t('platform.calendarReminderSubject', { locale: recipientLocale, args: { name: event.name } });
+    // TENANT-1 (#196): tenant của notification = tenant của khoá chứa
+    // sự kiện; sự kiện cá nhân/platform thì lấy tenant mặc định của
+    // người nhận theo membership. Truyền xuống hàm luật dùng chung để
+    // dòng thông báo + dispatch log mang đúng tenant (thiếu là thông
+    // báo thành "không gắn tenant", user trong tenant không thấy).
+    let tenantId: string | null = null;
+    if (event.courseId) {
+      const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course)
+        .where(eq(course.id, event.courseId));
+      tenantId = courseRow?.tenantId ?? null;
+    }
+    if (!tenantId) tenantId = await resolveDefaultTenantId(this.db, userId);
     const delivered = await this.delivery.deliverInApp(userId, 'calendar_reminder', {
       subject,
       body: this.i18n.t('platform.calendarReminderBody', { locale: recipientLocale, args: { name: event.name, time: event.timeStart.toISOString() } }),
       smallMessage: subject,
       contextUrl,
+      tenantId,
     });
     if (delivered.status === 'delivered') return { status: 'notified', notificationId: delivered.notificationId };
     if (delivered.status === 'skipped-suspended') return { status: 'skipped-suspended' };
