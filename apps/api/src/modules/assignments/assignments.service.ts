@@ -541,6 +541,57 @@ export class AssignmentsService {
   }
 
   /**
+   * Kết quả của MỘT bài tập cho giáo viên (issue #224 — bộ thống kê
+   * Azota, cùng khuôn với quiz results): tham gia = số HS ghi danh đã
+   * nộp so với tổng ghi danh + danh sách chưa nộp; điểm trung bình và
+   * phổ điểm tính trên điểm đã chấm của bài (kể cả gói chấm đang nháp
+   * chưa trả — đây là màn thống kê nội bộ của giáo viên); bảng điểm
+   * từng HS chính là danh sách bài nộp của giáo viên.
+   */
+  async getResults(actorId: string, assignmentId: string): Promise<{
+    assignment: AssignmentView;
+    rows: AssignSubmissionSummary[];
+    summary: {
+      enrolledCount: number;
+      submittedCount: number;
+      notSubmittedStudents: { userId: string; displayName: string }[];
+      gradedCount: number;
+      averageGrade: number | null;
+      gradeMax: number;
+      distribution: { fromPct: number; toPct: number; count: number }[];
+    };
+  }> {
+    const assignment = await this.getAssignment(assignmentId);
+    const rows = await this.listSubmissionsForTeacher(actorId, assignmentId);
+    const enrolments = await this.enrol.listEnrolmentsForCourse(assignment.course);
+    const enrolledIds = new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userId));
+    const enrolledRows = rows.filter((r) => enrolledIds.has(r.userId));
+    const notSubmittedStudents = enrolledRows
+      .filter((r) => r.status === 'none' || r.status === 'draft')
+      .map((r) => ({ userId: r.userId, displayName: r.displayName }));
+    const gradedValues = rows.map((r) => r.grade).filter((g): g is number => g !== null);
+    const gradeMax = assignment.grade;
+    const distribution = Array.from({ length: 10 }, (_, i) => ({ fromPct: i * 10, toPct: (i + 1) * 10, count: 0 }));
+    for (const g of gradedValues) {
+      const pct = gradeMax > 0 ? (g / gradeMax) * 100 : 0;
+      distribution[Math.min(9, Math.max(0, Math.floor(pct / 10)))]!.count += 1;
+    }
+    return {
+      assignment: this.assignmentView(assignment),
+      rows,
+      summary: {
+        enrolledCount: enrolledIds.size,
+        submittedCount: enrolledRows.length - notSubmittedStudents.length,
+        notSubmittedStudents,
+        gradedCount: gradedValues.length,
+        averageGrade: gradedValues.length ? gradedValues.reduce((a, b) => a + b, 0) / gradedValues.length : null,
+        gradeMax,
+        distribution,
+      },
+    };
+  }
+
+  /**
    * Chi tiết một bài nộp cho giáo viên chấm (assign:viewallsubmissions
    * hoặc assign:grade): các tệp kèm signed URL xem toàn màn + điểm/lời
    * phê hiện tại.

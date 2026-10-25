@@ -10,7 +10,7 @@ import {
   badge, badgeCriteria, calendarEvents, calendarSubscriptions,
   course, courseCompletions, courseCompletionCriteria, courseCompletionCritCompl, courseCompletionSettings,
   courseGroups, courseModules, courseModulesCompletion, courseSections, enrol, files as filesTable,
-  gradeCategories, gradeGrades, gradeItems, groupings, groupingsGroups, groupsMembers,
+  gradeGrades, gradeItems, groupings, groupingsGroups, groupsMembers,
   question, questionAnswers, questionBankEntries, questionCategories, questionTruefalse, questionVersions,
   qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli,
   userEnrolments, users,
@@ -214,39 +214,30 @@ export class BackupService {
     this.registerContributor({
       name: 'grades',
       export: async (courseId, anonymize) => {
-        if (!courseId) return { categories: [], items: [], grades: [] };
-        const categories = await db.select().from(gradeCategories).where(eq(gradeCategories.courseId, courseId));
+        if (!courseId) return { items: [], grades: [] };
         const items = await db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
         const grades = items.length ? await db.select().from(gradeGrades).where(inArray(gradeGrades.itemId, items.map((i) => i.id))) : [];
-        return { categories, items, grades: grades.map((g) => ({ ...g, userId: anonymize ? 0 : g.userId })) };
+        return { items, grades: grades.map((g) => ({ ...g, userId: anonymize ? 0 : g.userId })) };
       },
       import: async (targetCourseId, data, mapping) => {
         if (!targetCourseId) return;
+        // Bản backup cũ có thể mang trường categories/item loại
+        // category/course của gradebook tổng hợp đã gỡ (issue #224) —
+        // các phần đó bị BỎ QUA khi khôi phục, chỉ item điểm theo bài
+        // (manual/mod) và điểm của chúng được khôi phục.
         const d = data as {
-          categories: (typeof gradeCategories.$inferSelect)[]; items: (typeof gradeItems.$inferSelect)[]; grades: (typeof gradeGrades.$inferSelect)[];
+          items: (typeof gradeItems.$inferSelect)[]; grades: (typeof gradeGrades.$inferSelect)[];
         };
-        // Categories: lặp cho tới khi mọi parent đã được map (cây theo parent).
-        const pending = [...d.categories].sort((a, b) => a.depth - b.depth);
-        for (const cat of pending) {
-          const newParent = cat.parent ? mapping.get('grade_category', cat.parent) ?? null : null;
-          if (cat.parent && !newParent) continue;
-          const [row] = await db.insert(gradeCategories).values({
-            courseId: targetCourseId, parent: newParent, fullName: cat.fullName, aggregation: cat.aggregation,
-            dropLow: cat.dropLow, keepHigh: cat.keepHigh, aggregateOnlyGraded: cat.aggregateOnlyGraded, depth: cat.depth, path: cat.path, hidden: cat.hidden,
-          }).returning();
-          await mapping.map('grade_category', cat.id, row!.id);
-        }
         for (const item of d.items) {
+          if (item.itemType !== 'mod' && item.itemType !== 'manual') continue;
           let instance = item.itemInstance;
           if (item.itemType === 'mod') instance = item.itemInstance ? (mapping.get('cm', item.itemInstance) ?? null) : null;
-          else if (item.itemType === 'category') instance = item.itemInstance ? (mapping.get('grade_category', item.itemInstance) ?? null) : null;
-          else if (item.itemType === 'course') instance = targetCourseId;
-          const categoryId = item.categoryId ? mapping.get('grade_category', item.categoryId) ?? null : null;
           const [row] = await db.insert(gradeItems).values({
-            courseId: targetCourseId, categoryId, itemName: item.itemName, itemType: item.itemType,
+            courseId: targetCourseId, itemName: item.itemName, itemType: item.itemType,
             itemModule: item.itemModule, itemInstance: instance, gradeType: item.gradeType, gradeMax: item.gradeMax,
-            gradeMin: item.gradeMin, gradePass: item.gradePass, weightOverride: item.weightOverride,
-            aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit, hidden: item.hidden, sortOrder: item.sortOrder,
+            gradeMin: item.gradeMin, gradePass: item.gradePass,
+            multiplicator: item.multiplicator, plusFactor: item.plusFactor,
+            hidden: item.hidden, sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
           }).onConflictDoNothing().returning();
           const existing = row ?? (await db.select().from(gradeItems).where(and(
             eq(gradeItems.courseId, targetCourseId), eq(gradeItems.itemType, item.itemType), instance === null ? isNull(gradeItems.itemInstance) : eq(gradeItems.itemInstance, instance),
@@ -823,7 +814,6 @@ export class BackupService {
     await db.delete(courseSections).where(eq(courseSections.course, courseId));
     await db.delete(enrol).where(eq(enrol.courseId, courseId));
     await db.delete(gradeItems).where(eq(gradeItems.courseId, courseId));
-    await db.delete(gradeCategories).where(eq(gradeCategories.courseId, courseId));
     await db.delete(courseCompletions).where(eq(courseCompletions.course, courseId));
     await db.delete(courseGroups).where(eq(courseGroups.courseId, courseId));
     await db.delete(groupings).where(eq(groupings.courseId, courseId));

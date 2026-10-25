@@ -4,30 +4,15 @@ import { richTextDocumentSchema, richTextInputSchema } from './rich-text.js';
 
 /** Assessment contracts — the single shape source between api and web for grades & questions. */
 
-export const AGGREGATIONS = [
-  'natural', 'mean', 'weightedmean', 'simpleweightedmean', 'median', 'lowest', 'highest', 'mode', 'sum',
-] as const;
-export type Aggregation = (typeof AGGREGATIONS)[number];
-
-export const gradeCategorySchema = z.object({
-  id: uuidIdSchema,
-  courseId: uuidIdSchema,
-  parent: uuidIdSchema.nullable(),
-  fullName: z.string(),
-  aggregation: z.string(),
-  dropLow: z.number().int(),
-  keepHigh: z.number().int(),
-  aggregateOnlyGraded: z.boolean(),
-  depth: z.number().int(),
-  path: z.string(),
-  hidden: z.boolean(),
-});
-export type GradeCategory = z.infer<typeof gradeCategorySchema>;
-
+/**
+ * Mục điểm — ĐIỂM THEO TỪNG BÀI (issue #224): mỗi mục là điểm của đúng
+ * một hoạt động (itemType 'mod', itemInstance = course module) hoặc một
+ * mục nhập tay ('manual'). Không còn category/letters/scales/outcomes,
+ * không còn điểm tổng khoá.
+ */
 export const gradeItemSchema = z.object({
   id: uuidIdSchema,
   courseId: uuidIdSchema,
-  categoryId: uuidIdSchema.nullable(),
   itemName: z.string(),
   itemType: z.string(),
   itemModule: z.string().nullable(),
@@ -35,30 +20,16 @@ export const gradeItemSchema = z.object({
   gradeMax: z.number(),
   gradeMin: z.number(),
   gradePass: z.number(),
-  weightOverride: z.boolean(),
-  aggregationCoef: z.number(),
-  extraCredit: z.boolean(),
   multiplicator: z.number(),
   plusFactor: z.number(),
   hidden: z.boolean(),
   locked: z.boolean(),
+  sortOrder: z.number().int(),
+  postingPolicy: z.string(),
   gradeType: z.string().optional(),
-  scaleId: uuidIdSchema.nullable().optional(),
-  outcomeId: uuidIdSchema.nullable().optional(),
   idNumber: z.string().nullable().optional(),
-  calculation: z.string().nullable().optional(),
 });
 export type GradeItem = z.infer<typeof gradeItemSchema>;
-
-/** Một grade outcome: thang định tính mức site (courseId null) hoặc mức khoá học, gắn với một scale. */
-export const gradeOutcomeSchema = z.object({
-  id: uuidIdSchema,
-  courseId: uuidIdSchema.nullable(),
-  scaleId: uuidIdSchema,
-  name: z.string(),
-  description: z.string(),
-});
-export type GradeOutcome = z.infer<typeof gradeOutcomeSchema>;
 
 export const gradeGradeSchema = z.object({
   id: uuidIdSchema,
@@ -72,63 +43,48 @@ export const gradeGradeSchema = z.object({
   excluded: z.boolean(),
   frozen: z.boolean(),
   feedback: z.string().nullable(),
-  aggregationWeight: z.number().nullable(),
-  letter: z.string().nullable(),
-  scaleValue: z.string().nullable().optional(),
-  outcomeName: z.string().nullable().optional(),
+  aggregationWeight: z.number().nullable().optional(),
 });
 export type GradeGrade = z.infer<typeof gradeGradeSchema>;
 
-export const gradebookItemViewSchema = z.object({
+/** Trạng thái công bố của một bài: chính sách (auto/manual) + đã công bố hay chưa (công bố ở cấp BÀI). */
+export const gradePublicationStateSchema = z.object({
+  policy: z.enum(['auto', 'manual']),
+  published: z.boolean(),
+});
+export type GradePublicationState = z.infer<typeof gradePublicationStateSchema>;
+
+/** Một bài trong danh sách điểm theo bài của một học sinh: mục + điểm + trạng thái công bố. */
+export const activityGradeViewSchema = z.object({
   item: gradeItemSchema,
   grade: gradeGradeSchema.nullable(),
+  publication: gradePublicationStateSchema,
 });
-export type GradebookItemView = z.infer<typeof gradebookItemViewSchema>;
+export type ActivityGradeView = z.infer<typeof activityGradeViewSchema>;
 
-export interface GradebookCategoryView {
-  category: GradeCategory;
-  total: GradebookItemView | null;
-  items: GradebookItemView[];
-  children: GradebookCategoryView[];
-}
-export const gradebookCategoryViewSchema: z.ZodType<GradebookCategoryView> = z.object({
-  category: gradeCategorySchema,
-  total: gradebookItemViewSchema.nullable(),
-  items: z.array(gradebookItemViewSchema),
-  children: z.lazy(() => z.array(gradebookCategoryViewSchema)),
-});
-export const gradebookSchema = z.object({
+/** Điểm theo từng bài của một học sinh trong một khoá (thay sổ điểm tổng hợp — issue #224). */
+export const myActivityGradesSchema = z.object({
   courseId: uuidIdSchema,
   userId: uuidIdSchema,
-  categories: z.array(gradebookCategoryViewSchema),
-  courseTotal: gradebookItemViewSchema.nullable(),
+  activities: z.array(activityGradeViewSchema),
 });
-export type Gradebook = z.infer<typeof gradebookSchema>;
+export type MyActivityGrades = z.infer<typeof myActivityGradesSchema>;
 
-export const gradeLetterSchema = z.object({
-  id: uuidIdSchema,
-  contextId: uuidIdSchema,
-  lowerBoundary: z.number(),
-  letter: z.string(),
-});
-export type GradeLetter = z.infer<typeof gradeLetterSchema>;
-
-export const gradeReportSchema = z.object({
+/**
+ * Lưới CHỈ-ĐỌC học sinh × các bài cho giáo viên (issue #224): mỗi ô là
+ * điểm của đúng bài đó; KHÔNG điểm tổng, KHÔNG trọng số, KHÔNG chốt.
+ */
+export const courseActivityGridSchema = z.object({
   courseId: uuidIdSchema,
+  items: z.array(gradeItemSchema),
+  publications: z.record(z.string(), gradePublicationStateSchema),
   rows: z.array(z.object({
     userId: uuidIdSchema,
-    finalGrade: z.number().nullable(),
-    letter: z.string().nullable(),
-    outcomes: z.array(z.object({
-      itemId: uuidIdSchema,
-      outcomeId: uuidIdSchema,
-      outcomeName: z.string(),
-      scaleValue: z.string().nullable(),
-      finalGrade: z.number().nullable(),
-    })).optional(),
+    displayName: z.string(),
+    grades: z.record(z.string(), z.number().nullable()),
   })),
 });
-export type GradeReport = z.infer<typeof gradeReportSchema>;
+export type CourseActivityGrid = z.infer<typeof courseActivityGridSchema>;
 
 // --- Questions ---------------------------------------------------------------
 
@@ -316,66 +272,28 @@ export const markManualCompletionSchema = z.strictObject({
 });
 export type MarkManualCompletion = z.infer<typeof markManualCompletionSchema>;
 
-/** Payload tạo hạng mục điểm (grade category). */
-export const createGradeCategorySchema = z.strictObject({
-  fullName: z.string().min(1),
-  parentId: uuidIdSchema.optional(),
-  aggregation: z.string().optional(),
-  dropLow: z.number().int().optional(),
-  keepHigh: z.number().int().optional(),
-  aggregateOnlyGraded: z.boolean().optional(),
-  hidden: z.boolean().optional(),
-});
-export type CreateGradeCategory = z.infer<typeof createGradeCategorySchema>;
-
-/** Payload sửa hạng mục điểm; `parentId` nhận `null` để đưa hạng mục về gốc. */
-export const updateGradeCategorySchema = z.strictObject({
-  fullName: z.string().optional(),
-  aggregation: z.string().optional(),
-  dropLow: z.number().int().optional(),
-  keepHigh: z.number().int().optional(),
-  aggregateOnlyGraded: z.boolean().optional(),
-  hidden: z.boolean().optional(),
-  parentId: uuidIdSchema.nullable().optional(),
-});
-export type UpdateGradeCategory = z.infer<typeof updateGradeCategorySchema>;
-
-/** Payload tạo mục điểm (grade item): `itemType` manual | mod | calculated; `cmId` bắt buộc ở tầng nghiệp vụ khi là mod; `calculation` bắt buộc khi là calculated; `outcomeId` gắn outcome (điểm lưu theo chỉ số scale của outcome). */
+/** Payload tạo mục điểm (grade item): `itemType` manual | mod; `cmId` bắt buộc ở tầng nghiệp vụ khi là mod. */
 export const createGradeItemSchema = z.strictObject({
   itemName: z.string().min(1),
   itemType: z.string().optional(),
-  categoryId: uuidIdSchema.optional(),
   cmId: uuidIdSchema.optional(),
   gradeMax: z.number().optional(),
   gradeMin: z.number().optional(),
   gradePass: z.number().optional(),
-  scaleId: uuidIdSchema.optional(),
-  outcomeId: uuidIdSchema.optional(),
   idNumber: z.string().min(1).optional(),
-  calculation: z.string().min(1).optional(),
-  weightOverride: z.boolean().optional(),
-  weight: z.number().optional(),
-  extraCredit: z.boolean().optional(),
   multiplicator: z.number().optional(),
   plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
 });
 export type CreateGradeItem = z.infer<typeof createGradeItemSchema>;
 
-/** Payload sửa mục điểm (mọi trường đều tuỳ chọn); `outcomeId`/`scaleId` nhận `null` để gỡ gắn kết. */
+/** Payload sửa mục điểm (mọi trường đều tuỳ chọn); */
 export const updateGradeItemSchema = z.strictObject({
   itemName: z.string().optional(),
-  categoryId: uuidIdSchema.optional(),
   gradeMax: z.number().optional(),
   gradeMin: z.number().optional(),
   gradePass: z.number().optional(),
-  scaleId: uuidIdSchema.nullable().optional(),
-  outcomeId: uuidIdSchema.nullable().optional(),
   idNumber: z.string().min(1).nullable().optional(),
-  calculation: z.string().min(1).nullable().optional(),
-  weightOverride: z.boolean().optional(),
-  weight: z.number().optional(),
-  extraCredit: z.boolean().optional(),
   multiplicator: z.number().optional(),
   plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
@@ -404,7 +322,7 @@ export const updateGradeSchema = z.strictObject({
 export type UpdateGrade = z.infer<typeof updateGradeSchema>;
 
 /**
- * Payload xuất sổ điểm ra Excel theo cấu trúc vnEdu/TT 22/2021 (issue #53):
+ * Payload xuất bảng điểm ra Excel theo cấu trúc vnEdu/TT 22/2021 (issue #53; nguồn là điểm đã công bố của các bài GV chọn — issue #224):
  * giáo viên ánh xạ tường minh từng mục điểm lá sang một loại cột — các mục
  * thường xuyên (hệ số 1, ít nhất 1), đúng một mục giữa kỳ (hệ số 2) và một
  * mục cuối kỳ (hệ số 3). `semester` là học kỳ 1 hoặc 2; tên lớp/môn/năm học
@@ -420,115 +338,6 @@ export const exportGradesVneduSchema = z.strictObject({
   className: z.string().min(1).max(200).optional(),
 });
 export type ExportGradesVnedu = z.infer<typeof exportGradesVneduSchema>;
-
-/**
- * Payload mở sổ điểm VN (GB-VN-1, issue #95) cho một khoá học × học kì theo
- * TT 22/2021: `subjectPeriodsPerYear` là số tiết/năm của môn — hệ thống suy
- * số cột ĐĐGtx theo Điều 6.2b. `assessmentMode` bỏ trống thì phía server suy
- * từ môn học của khoá (nhóm chỉ-nhận-xét ở Điều 5.3a); môn chỉ-nhận-xét
- * không cần số tiết. `regime` ở lát này chỉ nhận `tt22`.
- */
-export const createVnGradebookSchema = z.strictObject({
-  term: z.enum(['hk1', 'hk2']),
-  subjectPeriodsPerYear: z.number().int().min(1).max(1000).optional(),
-  assessmentMode: z.enum(['score', 'comment']).optional(),
-  regime: z.enum(['tt22', 'tt27', 'free']).optional(),
-});
-export type CreateVnGradebook = z.infer<typeof createVnGradebookSchema>;
-
-/** Payload chốt kết quả học kì của một học sinh trong một sổ VN: ghi bản snapshot vào vn_term_results kèm nhận xét kì. */
-export const finalizeVnTermResultSchema = z.strictObject({
-  comment: z.string().max(2000).optional(),
-});
-export type FinalizeVnTermResult = z.infer<typeof finalizeVnTermResultSchema>;
-
-/** Payload ghi kết quả môn chỉ-nhận-xét (Điều 5.3a) cho một học sinh trong một học kì. */
-export const setVnCommentResultSchema = z.strictObject({
-  result: z.enum(['Đạt', 'Chưa đạt']),
-  comment: z.string().max(2000).optional(),
-});
-export type SetVnCommentResult = z.infer<typeof setVnCommentResultSchema>;
-
-/** Payload chốt kết quả cả năm của một học sinh trong một khoá học (ĐTBmcn từ hai bản chốt học kì). */
-export const finalizeVnYearResultSchema = z.strictObject({
-  comment: z.string().max(2000).optional(),
-});
-export type FinalizeVnYearResult = z.infer<typeof finalizeVnYearResultSchema>;
-
-/**
- * Payload khai vai trò điểm cho một hoạt động vào sổ VN (GB-VN-2, issue #104):
- * gắn course module `cmId` (quiz/assignment — hoạt động đã có grade item loại
- * `mod`) vào cột đích của sổ. Vai `dgtx` bắt buộc kèm `ordinal` (thứ tự cột
- * ĐĐGtx 1..quota của sổ); `dggk`/`dgck` là cột đơn, không kèm ordinal.
- */
-export const createVnActivityMappingSchema = z.strictObject({
-  cmId: uuidIdSchema,
-  role: z.enum(['dgtx', 'dggk', 'dgck']),
-  ordinal: z.number().int().min(1).max(99).optional(),
-});
-export type CreateVnActivityMapping = z.infer<typeof createVnActivityMappingSchema>;
-
-/**
- * Payload chốt một ứng viên điểm vào cột (GB-VN-2): bỏ trống `value` thì chốt
- * đúng giá trị đã quy đổi thang 10 từ điểm hoạt động; truyền `value` là GV sửa
- * trước khi chốt — giá trị vào cột mang cờ overridden của engine.
- */
-export const commitVnCandidateSchema = z.strictObject({
-  value: z.number().min(0).max(10).optional(),
-});
-export type CommitVnCandidate = z.infer<typeof commitVnCandidateSchema>;
-
-/** Payload bỏ qua một ứng viên điểm (GB-VN-2): không có tham số — ứng viên chỉ hiện lại khi điểm hoạt động thay đổi. */
-export const dismissVnCandidateSchema = z.strictObject({});
-export type DismissVnCandidate = z.infer<typeof dismissVnCandidateSchema>;
-
-/**
- * Payload đặt trạng thái kiểm tra bù cho một cột định kì (ĐĐGgk/ĐĐGck) của một
- * học sinh (GB-VN-2, Điều 7.4–7.5 TT 22): `awaiting_makeup` = chờ kiểm tra bù
- * (chặn chốt sổ bằng mã riêng); `zero` = ghi hẳn 0 điểm theo Điều 7.5;
- * `clear` = gỡ đánh dấu chờ bù.
- */
-export const setVnMakeupStatusSchema = z.strictObject({
-  state: z.enum(['awaiting_makeup', 'zero', 'clear']),
-});
-export type SetVnMakeupStatus = z.infer<typeof setVnMakeupStatusSchema>;
-
-/** Một mốc chữ cái trong thang điểm chữ (grade letter). */
-export const gradeLetterBoundarySchema = z.strictObject({
-  letter: z.string().min(1),
-  lowerBoundary: z.number(),
-});
-export type GradeLetterBoundary = z.infer<typeof gradeLetterBoundarySchema>;
-
-/** Payload đặt toàn bộ thang điểm chữ cho một context. */
-export const setGradeLettersSchema = z.strictObject({
-  letters: z.array(gradeLetterBoundarySchema),
-});
-export type SetGradeLetters = z.infer<typeof setGradeLettersSchema>;
-
-/** Payload tạo thang điểm (grade scale): `scale` là danh sách mức phân tách bằng dấu phẩy. */
-export const createGradeScaleSchema = z.strictObject({
-  name: z.string().min(1),
-  scale: z.string().min(1),
-  description: z.string().optional(),
-});
-export type CreateGradeScale = z.infer<typeof createGradeScaleSchema>;
-
-/** Payload tạo grade outcome: gắn với một scale có sẵn; dùng cho cả outcome mức site và mức khoá học. */
-export const createGradeOutcomeSchema = z.strictObject({
-  name: z.string().min(1),
-  scaleId: uuidIdSchema,
-  description: z.string().optional(),
-});
-export type CreateGradeOutcome = z.infer<typeof createGradeOutcomeSchema>;
-
-/** Payload sửa grade outcome (mọi trường đều tuỳ chọn). */
-export const updateGradeOutcomeSchema = z.strictObject({
-  name: z.string().min(1).optional(),
-  scaleId: uuidIdSchema.optional(),
-  description: z.string().optional(),
-});
-export type UpdateGradeOutcome = z.infer<typeof updateGradeOutcomeSchema>;
 
 /** Payload tạo danh mục câu hỏi trong ngân hàng câu hỏi. */
 export const createQuestionCategorySchema = z.strictObject({

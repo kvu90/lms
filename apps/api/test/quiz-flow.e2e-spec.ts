@@ -126,11 +126,8 @@ describe('Quiz activity (mod_quiz)', () => {
   }
   async function gradeOfQuizItem(courseId: string, cmId: string, userId: string): Promise<number | null> {
     const book = await getGradebook(app, admin, courseId, userId);
-    for (const category of book.categories as unknown as { items: { item: { itemInstance: string | null }; grade: { finalGrade: number | null } | null }[] }[]) {
-      const found = category.items.find((i) => i.item.itemInstance === cmId);
-      if (found) return found.grade?.finalGrade ?? null;
-    }
-    return null;
+    const found = book.activities.find((i) => i.item.itemInstance === cmId);
+    return found?.grade?.finalGrade ?? null;
   }
 
   it('full round: slot marks rule, random slot, essay manual grading changes the recorded grade', async () => {

@@ -8,7 +8,7 @@
 
 `apps/api` là backend duy nhất của sản phẩm: toàn bộ nghiệp vụ của một LMS cho **lớp học
 online** tương thích nghiệp vụ sư phạm Việt Nam (Moodle là sàn tối thiểu) chạy qua API này —
-khoá học, lớp học, ghi danh, ngân hàng câu hỏi/đề/ma trận, quiz, bài tập, sổ điểm, nhắn tin,
+khoá học, lớp học, ghi danh, ngân hàng câu hỏi/đề/ma trận, quiz, bài tập, điểm theo bài, nhắn tin,
 thông báo, thanh toán học phí, chấm bài giấy bằng camera, MCP cho AI nhập câu hỏi, quản trị
 tenant (trung tâm) và nền tảng. Mọi quy tắc nghiệp vụ bất biến phải được thực thi **ở đây,
 phía server** — client không bao giờ là nơi gác nghiệp vụ duy nhất.

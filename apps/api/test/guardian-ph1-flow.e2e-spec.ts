@@ -38,12 +38,9 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     student: { id: string };
     courses: {
       courseId: string;
-      terms: { bookId: string; term: string; dtbHk: number | null; commentResult: string | null; comment: string | null }[];
-      year: { dtbYear: number | null; comment: string | null } | null;
-      courseTotal: { finalGrade: number | null; gradeMax: number } | null;
+      activities: { itemId: string; itemName: string; finalGrade: number | null; gradeMax: number; feedback: string | null }[];
     }[];
   }
-  interface BookView { book: { id: string }; items: { id: string }[] }
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -251,42 +248,17 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     expect((third.body as Overview).newResults).toEqual([]);
   }, 180000);
 
-  it('kết quả theo môn: chỉ kì/năm ĐÃ CÔNG BỐ + nhận xét tổng; điểm tổng khoá bị che khi còn item chưa công bố', async () => {
+  it('kết quả theo bài: PH chỉ thấy điểm của các bài ĐÃ CÔNG BỐ (không kỳ/năm, không điểm tổng)', async () => {
     const { course, student, teacher } = await courseWithPeople();
     const { user: guardian, token: guardianToken } = await freshGuardian();
     await link(teacher, guardian.id, student.id);
 
-    const mkBook = async (term: string) => {
-      const res = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-books`)
-        .set('Authorization', `Bearer ${admin}`).send({ term, subjectPeriodsPerYear: 35 });
-      expect(res.status).toBe(201);
-      return res.body as BookView;
-    };
-    const hk1 = await mkBook('hk1');
-    const hk2 = await mkBook('hk2');
-    for (let i = 0; i < 4; i += 1) await setGrade(app, admin, hk1.items[i]!.id, student.id, [8, 9, 7, 8][i]!);
-    for (let i = 0; i < 4; i += 1) await setGrade(app, admin, hk2.items[i]!.id, student.id, 9);
-    // Chốt kì 1 kèm nhận xét tổng; công bố kì 1. Kì 2 chỉ chốt, KHÔNG công bố.
-    const fin1 = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-books/${hk1.book.id}/results/${student.id}/finalize`)
-      .set('Authorization', `Bearer ${admin}`).send({ comment: 'Tiến bộ rõ rệt' });
-    expect(fin1.status).toBe(201);
-    const fin2 = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-books/${hk2.book.id}/results/${student.id}/finalize`)
-      .set('Authorization', `Bearer ${admin}`).send({});
-    expect(fin2.status).toBe(201);
-    const pub1 = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-books/${hk1.book.id}/results/${student.id}/publish`)
-      .set('Authorization', `Bearer ${admin}`).send({});
-    expect(pub1.status).toBe(201);
-    // Chốt + công bố năm: ĐTB năm = (7,9 + 2×9)/3 = 8,6.
-    const finYear = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-year-results/${student.id}/finalize`)
-      .set('Authorization', `Bearer ${admin}`).send({});
-    expect(finYear.status).toBe(201);
-    const pubYear = await http(app).post(`/api/v1/courses/${course.id}/grades/vn-year-results/${student.id}/publish`)
-      .set('Authorization', `Bearer ${admin}`).send({});
-    expect(pubYear.status).toBe(201);
-
-    // Một item manual chưa công bố trong khoá → điểm tổng khoá bị che.
-    const manualItem = await createGradeItem(app, admin, course.id, { itemName: 'Tổng kết manual', gradeMax: 10 });
-    await setGrade(app, admin, manualItem.id, student.id, 5);
+    // Bài A: chấm với chính sách auto (mặc định) → công bố ngay.
+    const autoItem = await createGradeItem(app, admin, course.id, { itemName: 'Kiểm tra 15 phút PH1', gradeMax: 10 });
+    await setGrade(app, teacher, autoItem.id, student.id, 8);
+    // Bài B: chính sách manual, đã chấm nhưng CHƯA công bố.
+    const manualItem = await createGradeItem(app, admin, course.id, { itemName: 'Bài chưa công bố PH1', gradeMax: 10 });
+    await setGrade(app, teacher, manualItem.id, student.id, 5);
     const policy = await http(app).put(`/api/v1/courses/grades/items/${manualItem.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
@@ -295,20 +267,19 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     expect(res1.status).toBe(200);
     const body1 = res1.body as Results;
     const courseView = body1.courses.find((c) => c.courseId === course.id)!;
-    // Chỉ kì 1 (đã công bố) hiện, kèm ĐTB + nhận xét tổng; kì 2 vắng mặt.
-    expect(courseView.terms).toHaveLength(1);
-    expect(courseView.terms[0]).toMatchObject({ term: 'hk1', dtbHk: 7.9, comment: 'Tiến bộ rõ rệt' });
-    expect(courseView.year).toMatchObject({ dtbYear: 8.6 });
-    expect(courseView.courseTotal).toBeNull();
-    expect(JSON.stringify(body1)).not.toContain('Tổng kết manual');
+    expect(courseView.activities).toHaveLength(1);
+    expect(courseView.activities[0]).toMatchObject({ itemId: autoItem.id, itemName: 'Kiểm tra 15 phút PH1', finalGrade: 8 });
+    // Bài chưa công bố vắng tuyệt đối — kể cả trong JSON thô.
+    expect(JSON.stringify(body1)).not.toContain('Bài chưa công bố PH1');
+    expect(JSON.stringify(body1)).not.toContain(manualItem.id);
 
-    // Công bố item manual → điểm tổng hiện (số thật, không phải 0 giả).
+    // Công bố bài B → PH thấy cả hai bài.
     const pubItem = await http(app).post(`/api/v1/courses/grades/items/${manualItem.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect([200, 201]).toContain(pubItem.status);
     const res2 = await results(guardianToken, student.id);
     const courseView2 = (res2.body as Results).courses.find((c) => c.courseId === course.id)!;
-    expect(typeof courseView2.courseTotal?.finalGrade).toBe('number');
+    expect(new Set(courseView2.activities.map((a) => a.itemId))).toEqual(new Set([autoItem.id, manualItem.id]));
   }, 180000);
 
   it('cổng chỉ con mình: PH khác/người lạ/học sinh tự gọi → 404 đồng nhất; đường ghi → 404; thu hồi liên kết → mất quyền ngay; audit đủ', async () => {

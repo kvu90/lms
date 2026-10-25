@@ -87,7 +87,9 @@ const CONTENT = {
 
 const REPORT = {
   courseId: COURSE_ID,
-  rows: [{ userId: '01900000-0000-7000-8000-000000000007', finalGrade: 85, letter: 'B' }],
+  items: [],
+  publications: {},
+  rows: [{ userId: '01900000-0000-7000-8000-000000000007', displayName: 'Học Viên Mẫu', grades: {} }],
 };
 const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
 
@@ -152,7 +154,7 @@ function stubFetch(calls: RecordedCall[]) {
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
       if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`)
-        return respond({ courseId: COURSE_ID, userId: TEACHER_ID, categories: [], courseTotal: null });
+        return respond({ courseId: COURSE_ID, userId: TEACHER_ID, activities: [] });
       if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET')
         return respond({ ...COURSE, contextId: CONTENT.contextId, customFields: [], formatOptions: {} });
       if (url === `/api/v1/courses/${COURSE_ID}/content`) return respond(CONTENT);
@@ -287,7 +289,7 @@ function stubFetchGroups(calls: RecordedCall[]) {
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
       if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`)
-        return respond({ courseId: COURSE_ID, userId: TEACHER_ID, categories: [], courseTotal: null });
+        return respond({ courseId: COURSE_ID, userId: TEACHER_ID, activities: [] });
       if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET')
         return respond({ ...COURSE, contextId: CONTENT.contextId, customFields: [], formatOptions: {} });
       if (url === `/api/v1/courses/${COURSE_ID}/content`) return respond(CONTENT);

@@ -3,15 +3,17 @@ import ExcelJS from 'exceljs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
-import { createGradeItem, setGrade } from './assessment-helpers';
-import { parseCsv } from '../src/modules/grades/domain/grade-csv';
+import { createGradeItem, getGradebook, setGrade } from './assessment-helpers';
 
 /**
- * Xuất sổ điểm Excel vnEdu (issue #53). Oracle: Thông tư 22/2021/TT-BGDĐT
- * (Điều 5 thang 10 + làm tròn 1 chữ số thập phân; Điều 9 công thức ĐTBmhk)
- * và kết quả kiểm chứng mẫu ở comment Bước 0 của issue #53. Test đối chiếu
- * TỪNG Ô điểm trong file .xlsx với gradebook (qua CSV export — đường đọc
- * độc lập của cùng sổ điểm): khớp 100% mới đạt.
+ * Xuất bảng điểm Excel vnEdu (issue #53; nguồn đổi ở issue #224).
+ * Oracle: Thông tư 22/2021/TT-BGDĐT (Điều 5 thang 10 + làm tròn 1 chữ
+ * số thập phân; Điều 9 công thức ĐTBmhk — bản công thức ĐTB DUY NHẤT
+ * còn lại của hệ nằm trong domain/vnedu-export và test này kiểm trực
+ * tiếp qua file xuất) và kết quả kiểm chứng mẫu ở comment Bước 0 của
+ * issue #53. Test đối chiếu TỪNG Ô điểm trong file .xlsx với điểm theo
+ * bài (qua GET gradebook — đường đọc độc lập): khớp 100% mới đạt.
+ * Nguồn xuất (issue #224): chỉ bài ĐÃ CÔNG BỐ mới được xuất.
  */
 describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
   let app: INestApplication;
@@ -122,21 +124,19 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
     expect(sheet.getCell(4, 8).value).toBe('Điểm trung bình môn học kỳ (ĐTBmhk)');
     expect(sheet.rowCount).toBe(7); // 5 dòng đầu + đúng 2 học sinh, không dòng thừa
 
-    // Đối chiếu từng ô với gradebook qua CSV export (đường đọc độc lập):
-    // ô = finalGrade quy đổi thang 10 theo gradeMax của mục, làm tròn 1 số thập phân.
-    const csvRes = await http(app).get(`/api/v1/courses/${course.id}/grades/export`).set('Authorization', `Bearer ${admin}`);
-    expect(csvRes.status).toBe(200);
-    const table = parseCsv(csvRes.text);
-    const header = table[0]!;
+    // Đối chiếu từng ô với điểm theo bài qua GET gradebook (đường đọc
+    // độc lập): ô = finalGrade quy đổi thang 10 theo gradeMax của mục,
+    // làm tròn 1 số thập phân.
     const maxByItemName = new Map([['Kiểm tra miệng', 10], ['Kiểm tra 15 phút', 100], ['Giữa kỳ', 10], ['Cuối kỳ', 10]]);
     const colByItemName = new Map([['Kiểm tra miệng', 4], ['Kiểm tra 15 phút', 5], ['Giữa kỳ', 6], ['Cuối kỳ', 7]]);
     for (const student of [s1, s2]) {
-      const csvRow = table.find((r) => r[1] === student.username)!;
+      const book = await getGradebook(app, admin, course.id, student.id);
+      const gradeByItemName = new Map(book.activities.map((a) => [a.item.itemName, a.grade?.finalGrade ?? null]));
       const sheetRow = rowOfStudent(sheet, student.username);
       const converted: (number | null)[] = [];
       for (const [itemName, sheetCol] of colByItemName) {
-        const raw = csvRow[header.indexOf(itemName)] ?? '';
-        const expected = raw === '' ? null : round1((Number(raw) / maxByItemName.get(itemName)!) * 10);
+        const raw = gradeByItemName.get(itemName) ?? null;
+        const expected = raw === null ? null : round1((raw / maxByItemName.get(itemName)!) * 10);
         converted.push(expected);
         const cell = sheet.getCell(sheetRow, sheetCol).value ?? null;
         expect(cell, `${student.username} / ${itemName}`).toBe(expected);
@@ -165,7 +165,7 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('ánh xạ không hợp lệ bị 400: trùng mục giữa hai loại cột, mục của khoá khác, mục tổng khoá học, thiếu mục thường xuyên', async () => {
+  it('ánh xạ không hợp lệ bị 400: trùng mục giữa hai loại cột, mục của khoá khác, thiếu mục thường xuyên', async () => {
     const { course } = await setupCourse(0);
     const tx = await createGradeItem(app, admin, course.id, { itemName: 'TX', gradeMax: 10 });
     const gk = await createGradeItem(app, admin, course.id, { itemName: 'GK', gradeMax: 10 });
@@ -185,18 +185,39 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
     expect(foreign.status).toBe(400);
     expect(foreign.body.code).toBe('grades.vnedu_item_not_in_course');
 
-    const itemsRes = await http(app).get(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`);
-    const courseTotal = (itemsRes.body as { itemType: string; id: string }[]).find((i) => i.itemType === 'course');
-    expect(courseTotal).toBeDefined();
-    const total = await exportVneduJson(course.id, {
-      regularItemIds: [tx.id], midtermItemId: courseTotal!.id, finalItemId: ck.id, semester: 1,
-    });
-    expect(total.status).toBe(400);
-    expect(total.body.code).toBe('grades.vnedu_item_not_exportable');
-
     const noRegular = await exportVneduJson(course.id, {
       regularItemIds: [], midtermItemId: gk.id, finalItemId: ck.id, semester: 1,
     });
     expect(noRegular.status).toBe(400);
+  });
+
+  it('nguồn xuất (issue #224): bài ở policy manual CHƯA công bố bị từ chối; công bố rồi thì xuất được', async () => {
+    const { course, students } = await setupCourse(1);
+    const [s1] = students as [{ id: string; username: string }];
+    const tx = await createGradeItem(app, admin, course.id, { itemName: 'TX', gradeMax: 10 });
+    const gk = await createGradeItem(app, admin, course.id, { itemName: 'GK', gradeMax: 10 });
+    const ck = await createGradeItem(app, admin, course.id, { itemName: 'CK', gradeMax: 10 });
+    await setGrade(app, admin, tx.id, s1.id, 8);
+    await setGrade(app, admin, gk.id, s1.id, 7);
+    await setGrade(app, admin, ck.id, s1.id, 9);
+
+    // GK đặt policy manual và chưa công bố → cả lượt xuất bị từ chối.
+    const policy = await http(app).put(`/api/v1/courses/grades/items/${gk.id}/posting-policy`)
+      .set('Authorization', `Bearer ${admin}`).send({ policy: 'manual' });
+    expect(policy.status).toBe(200);
+    const blocked = await exportVneduJson(course.id, {
+      regularItemIds: [tx.id], midtermItemId: gk.id, finalItemId: ck.id, semester: 1,
+    });
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.code).toBe('grades.vnedu_item_not_published');
+
+    // Công bố GK → xuất thành công.
+    const pub = await http(app).post(`/api/v1/courses/grades/items/${gk.id}/publish`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(pub.status).toBe(201);
+    const ok = await exportVneduFile(course.id, {
+      regularItemIds: [tx.id], midtermItemId: gk.id, finalItemId: ck.id, semester: 1,
+    });
+    expect(ok.status).toBe(200);
   });
 });

@@ -81,7 +81,6 @@ export function CompletionCard({
                     >
                       <option value="module">{t('criterionTypeModule')}</option>
                       <option value="date">{t('criterionTypeDate')}</option>
-                      <option value="grade">{t('criterionTypeGrade')}</option>
                     </select>
                   </div>
                   {criterion.criteriaType === 'module' ? (
@@ -133,7 +132,16 @@ export function CompletionCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setCriteriaDraft((prev) => [...prev, { criteriaType: 'grade', moduleInstance: '', date: '' }])}
+                  onClick={() =>
+                    setCriteriaDraft((prev) => [
+                      ...prev,
+                      {
+                        criteriaType: 'module',
+                        moduleInstance: sections.flatMap((s) => s.modules)[0]?.id ?? '',
+                        date: '',
+                      },
+                    ])
+                  }
                 >
                   {t('addCriterion')}
                 </Button>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import type { Course, Gradebook, GradeReport, MyAccessView } from '@lms/contracts';
+import type { Course, CourseActivityGrid, MyAccessView, MyActivityGrades } from '@lms/contracts';
 import { apiJson } from './api';
 import { useAuth } from './auth';
 import { queryKeys } from './query-keys';
@@ -19,10 +19,10 @@ export interface CourseAccess {
    * ảnh chụp quyền (API vẫn là nơi thực thi quyền thật).
    */
   capabilities: string[];
-  /** Báo cáo điểm toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
-  report: GradeReport | null;
-  /** Sổ điểm của chính người dùng trong khoá (null nếu không truy cập được). */
-  gradebook: Gradebook | null;
+  /** Lưới điểm theo bài toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
+  report: CourseActivityGrid | null;
+  /** Điểm theo từng bài của chính người dùng trong khoá (null nếu không truy cập được). */
+  gradebook: MyActivityGrades | null;
 }
 
 /** Cấp context theo quy ước của hệ thống quyền (khớp CONTEXT_LEVELS phía API). */
@@ -155,10 +155,10 @@ function hasCourseAssignment(access: MyAccessView | null, course: Course): boole
 
 /** Dữ liệu điểm hiển thị của một khoá mà dashboard cần (không quyết định phân loại). */
 export interface CourseGradeData {
-  /** Báo cáo điểm toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
-  report: GradeReport | null;
-  /** Sổ điểm của chính người dùng trong khoá (null nếu không truy cập được). */
-  gradebook: Gradebook | null;
+  /** Lưới điểm theo bài toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
+  report: CourseActivityGrid | null;
+  /** Điểm theo từng bài của chính người dùng trong khoá (null nếu không truy cập được). */
+  gradebook: MyActivityGrades | null;
 }
 
 /**
@@ -170,8 +170,8 @@ export interface CourseGradeData {
  */
 export async function fetchCourseGradeData(courseId: string): Promise<CourseGradeData> {
   const [report, gradebook] = await Promise.all([
-    probe<GradeReport>(`/api/v1/courses/${courseId}/grades/report`),
-    probe<Gradebook>(`/api/v1/courses/${courseId}/gradebook`),
+    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/grades/report`),
+    probe<MyActivityGrades>(`/api/v1/courses/${courseId}/gradebook`),
   ]);
   return { report, gradebook };
 }

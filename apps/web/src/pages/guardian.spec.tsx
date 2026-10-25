@@ -89,9 +89,9 @@ function resultsFor(childId: string) {
       {
         courseId: COURSE_ID,
         courseName: 'Toán 1',
-        terms: [{ bookId: 'book-1', term: 'hk1', assessmentMode: 'score', dtbHk: 7.9, commentResult: null, comment: 'Tiến bộ rõ rệt' }],
-        year: { dtbYear: 8.6, comment: null },
-        courseTotal: { finalGrade: 8.5, gradeMax: 10 },
+        activities: [
+          { itemId: 'item-1', itemName: 'Kiểm tra giữa kỳ', finalGrade: 7.9, gradeMax: 10, feedback: 'Tiến bộ rõ rệt' },
+        ],
       },
     ],
   };
@@ -178,10 +178,10 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
     // Khối tiến độ: 50% + khoá chưa theo dõi.
     expect(screen.getByText(/50%/)).toBeTruthy();
     expect(screen.getByText('Khoá chưa bật theo dõi hoàn thành')).toBeTruthy();
-    // Kết quả theo môn: ĐTB kì 7,9 (định dạng vi) + nhận xét tổng + ĐTB năm.
-    expect(screen.getByText('7,9')).toBeTruthy();
+    // Kết quả theo môn: điểm theo bài đã công bố (định dạng vi) + lời phê của bài.
+    expect(screen.getByText('Kiểm tra giữa kỳ')).toBeTruthy();
+    expect(screen.getByText('7,9 / 10')).toBeTruthy();
     expect(screen.getByText(/Tiến bộ rõ rệt/)).toBeTruthy();
-    expect(screen.getByText('8,6')).toBeTruthy();
     // Chỉ-xem về dữ liệu của con: các nút duy nhất là chọn con + tần
     // suất digest của CHÍNH phụ huynh (PH-2) — không nút hành động thay con.
     expect(await screen.findByRole('button', { name: 'Hàng tuần' })).toBeTruthy();
@@ -199,7 +199,7 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
     expect(await screen.findByText('Tuần này con không có việc nào đến hạn.')).toBeTruthy();
     expect(screen.getByText('Chưa có kết quả mới kể từ lần xem trước.')).toBeTruthy();
     expect(screen.queryByText('Bài nộp quá hạn')).toBeNull();
-    expect(screen.queryByText('7,9')).toBeNull();
+    expect(screen.queryByText('7,9 / 10')).toBeNull();
   });
 
   it('tài khoản chưa liên kết con nào: báo rõ, không lộ dữ liệu', async () => {

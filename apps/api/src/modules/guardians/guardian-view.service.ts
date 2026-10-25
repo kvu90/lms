@@ -9,7 +9,6 @@ import type {
 } from '@lms/contracts';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { GradesService } from '../grades/grades.service';
-import { VnGradebooksService } from '../grades/vn-gradebooks.service';
 import { UsersService } from '../users/users.service';
 import { GuardianViewRepository } from './guardian-view.repository';
 import { GuardiansService } from './guardians.service';
@@ -44,7 +43,6 @@ export class GuardianViewService {
     private readonly guardians: GuardiansService,
     private readonly dashboard: DashboardService,
     private readonly grades: GradesService,
-    private readonly vn: VnGradebooksService,
     private readonly users: UsersService,
   ) {}
 
@@ -221,41 +219,23 @@ export class GuardianViewService {
 
     const courses: GuardianCourseResultsView[] = [];
     for (const courseId of courseIds) {
-      const terms: GuardianCourseResultsView['terms'] = [];
-      for (const book of await this.vn.listBooksForGuardian(courseId)) {
-        if (!(await this.vn.isTermResultPublished(book, studentId))) continue;
-        const finalized = await this.vn.finalizedTermResultForGuardian(book.id, studentId);
-        const computed = finalized
-          ? null
-          : await this.vn.computeTermResultForGuardian(book.id, studentId);
-        terms.push({
-          bookId: book.id,
-          term: book.term,
-          assessmentMode: book.assessmentMode,
-          dtbHk: finalized?.dtbHk ?? computed?.dtbHk ?? null,
-          commentResult: finalized?.commentResult ?? null,
-          comment: finalized?.comment ?? null,
-        });
-      }
-
-      let year: GuardianCourseResultsView['year'] = null;
-      if (await this.vn.isYearResultPublished(courseId, studentId)) {
-        const finalizedYear = await this.vn.finalizedYearResultForGuardian(courseId, studentId);
-        year = { dtbYear: finalizedYear?.dtbYear ?? null, comment: finalizedYear?.comment ?? null };
-      }
-
-      const gradebook = await this.grades.getGradebookForGuardian(courseId, studentId);
-      const total = gradebook.courseTotal;
-      const courseTotal = total?.grade
-        ? { finalGrade: total.grade.finalGrade, gradeMax: total.item.gradeMax }
-        : null;
-
+      // Điểm theo từng bài ĐÃ CÔNG BỐ (cổng PH-0 như học sinh tự xem) —
+      // mô hình điểm theo bài (issue #224): không còn kết quả kỳ/năm
+      // của Sổ điểm VN và không còn điểm tổng khoá.
+      const views = await this.grades.listPublishedActivityGrades(courseId, studentId);
+      const activities = views
+        .filter((v) => v.grade !== null)
+        .map((v) => ({
+          itemId: v.item.id,
+          itemName: v.item.itemName,
+          finalGrade: v.grade!.finalGrade,
+          gradeMax: v.item.gradeMax,
+          feedback: v.grade!.feedback,
+        }));
       courses.push({
         courseId,
         courseName: names.get(courseId) ?? '',
-        terms,
-        year,
-        courseTotal,
+        activities,
       });
     }
 

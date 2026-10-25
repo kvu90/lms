@@ -8,6 +8,7 @@ import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
+import { EnrolService } from '../enrol/enrol.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { GradesService } from '../grades/grades.service';
 import { GroupsService } from '../groups/groups.service';
@@ -276,6 +277,31 @@ export interface QuizQuestionStat {
   /** Số câu đã chấm mà fraction = 0. */
   fullyWrongCount: number;
   wrongStudents: QuizQuestionWrongStudent[];
+  /** Số câu đã chấm đúng trọn vẹn (fraction = 1) — bộ thống kê Azota (issue #224). */
+  correctCount: number;
+  /** Học sinh làm đúng trọn vẹn câu này (kèm tên hiển thị) — bộ Azota. */
+  correctStudents: { userId: string; displayName: string }[];
+}
+
+/**
+ * Tổng quan kết quả MỘT bài kiểm tra cho giáo viên (bộ thống kê Azota —
+ * issue #224): tham gia (bao nhiêu HS ghi danh, bao nhiêu đã nộp, ai
+ * chưa nộp), điểm trung bình của bài và phổ điểm theo 10 dải phần trăm
+ * của thang điểm bài. Điểm từng HS nằm ở gradesByUser/attempts của
+ * getResults; thống kê theo câu nằm ở questionStats.
+ */
+export interface QuizResultsSummary {
+  enrolledCount: number;
+  /** Số học sinh có ít nhất một lượt ĐÃ NỘP (finished/needsgrading). */
+  submittedCount: number;
+  /** Học sinh ghi danh mà chưa nộp lượt nào (kể cả đang làm dở). */
+  notSubmittedStudents: { userId: string; displayName: string }[];
+  /** Điểm trung bình của bài trên các HS đã có điểm; null khi chưa ai có điểm. */
+  averageGrade: number | null;
+  /** Thang điểm của bài (quizzes.grade). */
+  gradeMax: number;
+  /** Phổ điểm: 10 dải [0–10%), …, [90–100%] theo % của gradeMax. */
+  distribution: { fromPct: number; toPct: number; count: number }[];
 }
 
 /** Một câu đang chờ chấm tay trong hàng đợi của giáo viên. */
@@ -318,6 +344,7 @@ export class QuizService {
     private readonly banks: QuestionBanksService,
     private readonly grades: GradesService,
     private readonly users: UsersService,
+    private readonly enrol: EnrolService,
     private readonly passwords: PasswordService,
     private readonly groups: GroupsService,
     private readonly curriculum: CurriculumService,
@@ -2915,6 +2942,7 @@ export class QuizService {
     gradesByUser: { userId: string; grade: number | null }[];
     needsGrading: QuizNeedsGradingView[];
     questionStats: QuizQuestionStat[];
+    summary: QuizResultsSummary;
   }> {
     const quiz = await this.getQuiz(quizId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
@@ -2924,6 +2952,7 @@ export class QuizService {
     const userIds = [...new Set(rows.map((r) => r.userId))];
     const gradesByUser: { userId: string; grade: number | null }[] = [];
     for (const userId of userIds) gradesByUser.push({ userId, grade: await this.currentGradeForUser(quiz, userId) });
+    const summary = await this.resultsSummary(quiz, rows, gradesByUser);
     const needsGrading: QuizNeedsGradingView[] = [];
     for (const r of rows.filter((a) => a.state === 'needsgrading')) {
       const usage = await this.questions.getUsage(r.usageId);
@@ -2938,7 +2967,47 @@ export class QuizService {
       }
     }
     const questionStats = await this.questionStats(rows);
-    return { quiz: await this.quizView(quiz), attempts, gradesByUser, needsGrading, questionStats };
+    return { quiz: await this.quizView(quiz), attempts, gradesByUser, needsGrading, questionStats, summary };
+  }
+
+  /**
+   * Tổng quan tham gia + phổ điểm của bài (bộ Azota — issue #224):
+   * ghi danh lấy từ enrol của khoá chứa quiz; "đã nộp" = có ít nhất
+   * một lượt finished/needsgrading (không tính preview của GV); phổ
+   * điểm tính trên điểm BÀI hiện tại của từng HS (gradesByUser).
+   */
+  private async resultsSummary(
+    quiz: QuizRow,
+    rows: QuizAttemptRow[],
+    gradesByUser: { userId: string; grade: number | null }[],
+  ): Promise<QuizResultsSummary> {
+    const enrolments = await this.enrol.listEnrolmentsForCourse(quiz.course);
+    const enrolledIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userId))];
+    const submittedIds = new Set(rows.filter((r) => r.state === 'finished' || r.state === 'needsgrading').map((r) => r.userId));
+    const notSubmittedIds = enrolledIds.filter((id) => !submittedIds.has(id));
+    const nameById = new Map<string, string>();
+    if (notSubmittedIds.length) {
+      for (const u of await this.users.getUsersByIds(notSubmittedIds)) {
+        const full = `${u.firstName} ${u.lastName}`.trim();
+        nameById.set(u.id, full || u.username);
+      }
+    }
+    const graded = gradesByUser.map((g) => g.grade).filter((g): g is number => g !== null);
+    const averageGrade = graded.length ? graded.reduce((a, b) => a + b, 0) / graded.length : null;
+    const distribution = Array.from({ length: 10 }, (_, i) => ({ fromPct: i * 10, toPct: (i + 1) * 10, count: 0 }));
+    for (const g of graded) {
+      const pct = quiz.grade > 0 ? (g / quiz.grade) * 100 : 0;
+      const idx = Math.min(9, Math.max(0, Math.floor(pct / 10)));
+      distribution[idx]!.count += 1;
+    }
+    return {
+      enrolledCount: enrolledIds.length,
+      submittedCount: enrolledIds.filter((id) => submittedIds.has(id)).length,
+      notSubmittedStudents: notSubmittedIds.map((userId) => ({ userId, displayName: nameById.get(userId) ?? userId })),
+      averageGrade,
+      gradeMax: quiz.grade,
+      distribution,
+    };
   }
 
   /**
@@ -2959,6 +3028,7 @@ export class QuizService {
       wrongCount: number;
       fullyWrongCount: number;
       wrong: { userId: string; quizAttemptId: string; attemptNumber: number; fraction: number; mark: number }[];
+      correct: { userId: string }[];
     }
     const bySlot = new Map<number, SlotAcc>();
     for (const r of submitted) {
@@ -2968,7 +3038,7 @@ export class QuizService {
         if (!acc) {
           acc = {
             questionIds: new Set(), maxMark: a.maxMark, attemptsCount: 0,
-            gradedCount: 0, pendingCount: 0, wrongCount: 0, fullyWrongCount: 0, wrong: [],
+            gradedCount: 0, pendingCount: 0, wrongCount: 0, fullyWrongCount: 0, wrong: [], correct: [],
           };
           bySlot.set(a.slot, acc);
         }
@@ -2978,6 +3048,7 @@ export class QuizService {
           acc.pendingCount += 1;
         } else if (a.fraction !== null && a.fraction !== undefined) {
           acc.gradedCount += 1;
+          if (a.fraction === 1) acc.correct.push({ userId: r.userId });
           if (a.fraction < 1) {
             acc.wrongCount += 1;
             if (a.fraction === 0) acc.fullyWrongCount += 1;
@@ -2989,10 +3060,13 @@ export class QuizService {
         }
       }
     }
-    const wrongUserIds = [...new Set([...bySlot.values()].flatMap((acc) => acc.wrong.map((w) => w.userId)))];
+    const statUserIds = [...new Set([...bySlot.values()].flatMap((acc) => [
+      ...acc.wrong.map((w) => w.userId),
+      ...acc.correct.map((c) => c.userId),
+    ]))];
     const nameById = new Map<string, string>();
-    if (wrongUserIds.length) {
-      for (const u of await this.users.getUsersByIds(wrongUserIds)) {
+    if (statUserIds.length) {
+      for (const u of await this.users.getUsersByIds(statUserIds)) {
         const full = `${u.firstName} ${u.lastName}`.trim();
         nameById.set(u.id, full || u.username);
       }
@@ -3019,6 +3093,11 @@ export class QuizService {
           displayName: nameById.get(w.userId) ?? w.userId,
           quizAttemptId: w.quizAttemptId, attemptNumber: w.attemptNumber,
           fraction: w.fraction, mark: w.mark,
+        })),
+        correctCount: acc.correct.length,
+        correctStudents: acc.correct.map((c) => ({
+          userId: c.userId,
+          displayName: nameById.get(c.userId) ?? c.userId,
         })),
       });
     }

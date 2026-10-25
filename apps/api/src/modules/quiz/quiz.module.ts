@@ -3,6 +3,7 @@ import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
 import { CurriculumModule } from '../curriculum/curriculum.module';
+import { EnrolModule } from '../enrol/enrol.module';
 import { GradesModule } from '../grades/grades.module';
 import { GroupsModule } from '../groups/groups.module';
 import { QuestionsModule } from '../questions/questions.module';
@@ -23,7 +24,7 @@ import { QuizService } from './quiz.service';
  * nào trong số đó phụ thuộc Quiz.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule],
+  imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule],
   controllers: [CourseQuizzesController, QuizzesController, QuizAttemptsController, ExamMatricesController, ExamMatrixBankController, QuestionBankMatricesController],
   providers: [QuizRepository, QuizService, MatrixBanksService],
   exports: [QuizService, MatrixBanksService],

@@ -226,29 +226,6 @@ export class DashboardService {
       }
     }
 
-    // Kết quả VN: phạm vi chỉ tính là mới khi vết hiệu lực MỚI NHẤT là
-    // publish và vết publish đó nằm sau mốc xem trước.
-    const publications = await this.repo.vnPublicationsForUser(userId, enrolled);
-    const latestByScope = new Map<string, (typeof publications)[number]>();
-    for (const p of publications) {
-      const key = `${p.scope}:${p.bookId ?? p.courseId}`;
-      latestByScope.set(key, p); // rows đã sắp theo createdAt tăng dần → hàng cuối là mới nhất
-    }
-    for (const p of latestByScope.values()) {
-      if (p.action !== 'publish' || p.createdAt <= since) continue;
-      results.push({
-        courseId: p.courseId,
-        courseName: names.get(p.courseId) ?? '',
-        kind: p.scope === 'vn_year' ? 'vn_year' : 'vn_term',
-        itemId: null,
-        itemName: null,
-        finalGrade: null,
-        gradeMax: null,
-        feedback: null,
-        changedAt: p.createdAt.toISOString(),
-      });
-    }
-
     results.sort((a, b) => a.changedAt.localeCompare(b.changedAt));
     return results;
   }
