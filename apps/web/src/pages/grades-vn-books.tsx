@@ -427,7 +427,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
                             <p className="text-xs text-muted-foreground">{t('vnBookStatusMissing')}</p>
                           ) : null}
                           {periodic ? (
-                            <Select onValueChange={(v) => { if (v) void setMakeup(row, item.id, v); }}>
+                            <Select onValueChange={(v: string | null) => { if (v) void setMakeup(row, item.id, v); }}>
                               <SelectTrigger aria-label={t('vnBookMakeupLabel')} className="mt-1 w-32">
                                 <SelectValue placeholder={t('vnBookMakeupLabel')} />
                               </SelectTrigger>
