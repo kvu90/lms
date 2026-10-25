@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type {
   Cohort,
+  Course,
   CourseCompletion,
   CourseGroup,
   CourseGrouping,
@@ -10,6 +11,7 @@ import type {
 } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Checkbox } from '@lms/ui/components/checkbox';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import {
@@ -58,6 +60,15 @@ export function CourseAdminPage() {
   const [expandedCohortId, setExpandedCohortId] = useState('');
   const [cohortMembers, setCohortMembers] = useState<Record<string, { userId: string; timeAdded: string }[]>>({});
   const [cohortMemberInputs, setCohortMemberInputs] = useState<Record<string, string>>({});
+  const [expandedGroupId, setExpandedGroupId] = useState('');
+  const [groupMembers, setGroupMembers] = useState<Record<string, { userId: string; timeAdded: string }[]>>({});
+  const [groupMemberSelection, setGroupMemberSelection] = useState<Record<string, string>>({});
+  const [renamingGroupId, setRenamingGroupId] = useState('');
+  const [groupRenameDraft, setGroupRenameDraft] = useState('');
+  /** Bản nháp chế độ nhóm của khoá (GN-3): khởi tạo một lần từ GET khoá, GV sửa rồi lưu qua PATCH khoá. */
+  const [groupModeDraft, setGroupModeDraft] = useState<number | null>(null);
+  const [groupModeForceDraft, setGroupModeForceDraft] = useState(false);
+  const groupModeInitRef = useRef(false);
   /** Trạng thái chat toàn lớp (conversation cấp khoá): nạp qua GET ensure của messaging; null = chưa nạp được/không thuộc khoá. */
   const [courseChat, setCourseChat] = useState<{ id: string; enabled: boolean } | null>(null);
   const [courseChatBusy, setCourseChatBusy] = useState(false);
@@ -78,7 +89,7 @@ export function CourseAdminPage() {
 
 
   const reload = useCallback(async () => {
-    const [g, gr, c, i, e, comp, chat] = await Promise.all([
+    const [g, gr, c, i, e, comp, chat, course] = await Promise.all([
       apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`).catch(() => []),
       apiJson<CourseGrouping[]>(`/api/v1/courses/${courseId}/groupings`).catch(() => []),
       apiJson<Cohort[]>('/api/v1/cohorts').catch(() => []),
@@ -86,6 +97,7 @@ export function CourseAdminPage() {
       apiJson<UserEnrolment[]>(`/api/v1/courses/${courseId}/enrolments`).catch(() => []),
       apiJson<CourseCompletion[]>(`/api/v1/courses/${courseId}/completion`).catch(() => []),
       apiJson<{ id: string; enabled: boolean }>(`/api/v1/messages/courses/${courseId}/conversation`).catch(() => null),
+      apiJson<Course>(`/api/v1/courses/${courseId}`).catch(() => null),
     ]);
     setGroups(g);
     setGroupings(gr);
@@ -94,6 +106,11 @@ export function CourseAdminPage() {
     setEnrolments(e);
     setCompletions(comp);
     setCourseChat(chat ? { id: chat.id, enabled: chat.enabled } : null);
+    if (course && !groupModeInitRef.current) {
+      groupModeInitRef.current = true;
+      setGroupModeDraft(course.groupMode);
+      setGroupModeForceDraft(course.groupModeForce);
+    }
   }, [courseId]);
 
   useEffect(() => {
@@ -114,6 +131,105 @@ export function CourseAdminPage() {
       setMessage(t('groupCreated'));
     } catch {
       setMessage(t('groupCreateFailed'));
+    }
+  }
+
+  /** Mở/thu danh sách thành viên của một nhóm khoá: GET /courses/:id/groups/:groupId/members khi mở lần đầu. */
+  async function toggleGroupMembers(groupId: string) {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId('');
+      return;
+    }
+    setExpandedGroupId(groupId);
+    if (!groupMembers[groupId]) {
+      try {
+        const rows = await apiJson<{ userId: string; timeAdded: string }[]>(
+          `/api/v1/courses/${courseId}/groups/${groupId}/members`,
+        );
+        setGroupMembers((prev) => ({ ...prev, [groupId]: rows }));
+      } catch {
+        setMessage(t('groupMembersLoadFailed'));
+      }
+    }
+  }
+
+  /** Thêm một học sinh đã ghi danh vào nhóm qua POST groups/:groupId/members; API chặn người chưa ghi danh hiệu lực (400 group.member_not_enrolled). */
+  async function addGroupMember(groupId: string) {
+    const userId = groupMemberSelection[groupId];
+    if (!userId) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groups/${groupId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
+      setGroupMemberSelection((prev) => ({ ...prev, [groupId]: '' }));
+      const rows = await apiJson<{ userId: string; timeAdded: string }[]>(
+        `/api/v1/courses/${courseId}/groups/${groupId}/members`,
+      ).catch(() => [...(groupMembers[groupId] ?? []), { userId, timeAdded: new Date().toISOString() }]);
+      setGroupMembers((prev) => ({ ...prev, [groupId]: rows }));
+      setMessage(t('groupMemberAdded'));
+    } catch {
+      setMessage(t('groupMemberAddFailed'));
+    }
+  }
+
+  /** Gỡ thành viên khỏi nhóm qua DELETE groups/:groupId/members/:userId (chỉ gỡ khỏi nhóm, ghi danh khoá giữ nguyên). */
+  async function removeGroupMember(groupId: string, userId: string) {
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groups/${groupId}/members/${userId}`, { method: 'DELETE' });
+      const rows = await apiJson<{ userId: string; timeAdded: string }[]>(
+        `/api/v1/courses/${courseId}/groups/${groupId}/members`,
+      ).catch(() => (groupMembers[groupId] ?? []).filter((m) => m.userId !== userId));
+      setGroupMembers((prev) => ({ ...prev, [groupId]: rows }));
+      setMessage(t('groupMemberRemoved'));
+    } catch {
+      setMessage(t('groupMemberRemoveFailed'));
+    }
+  }
+
+  /** Đổi tên nhóm ngay tại dòng qua PATCH groups/:groupId (chỉ gửi `name`). */
+  async function renameGroup(groupId: string) {
+    const name = groupRenameDraft.trim();
+    if (!name) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groups/${groupId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      });
+      setRenamingGroupId('');
+      setGroupRenameDraft('');
+      await reload();
+      setMessage(t('groupRenamed'));
+    } catch {
+      setMessage(t('groupRenameFailed'));
+    }
+  }
+
+  /** Xoá nhóm qua DELETE groups/:groupId — hỏi xác nhận trước; thành viên bị gỡ khỏi nhóm nhưng ghi danh khoá không đổi. */
+  async function deleteGroup(group: CourseGroup) {
+    if (!window.confirm(t('confirmDeleteGroup', { name: group.name }))) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}/groups/${group.id}`, { method: 'DELETE' });
+      if (expandedGroupId === group.id) setExpandedGroupId('');
+      await reload();
+      setMessage(t('groupDeleted'));
+    } catch {
+      setMessage(t('groupDeleteFailed'));
+    }
+  }
+
+  /** Lưu chế độ nhóm của khoá qua PATCH /courses/:id (`groupMode` + `groupModeForce` — hai trường API khoá đã nhận). */
+  async function saveGroupMode(event: FormEvent) {
+    event.preventDefault();
+    if (groupModeDraft === null) return;
+    try {
+      await apiJson(`/api/v1/courses/${courseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ groupMode: groupModeDraft, groupModeForce: groupModeForceDraft }),
+      });
+      setMessage(t('groupModeSaved'));
+    } catch {
+      setMessage(t('groupModeSaveFailed'));
     }
   }
 
@@ -353,23 +469,195 @@ export function CourseAdminPage() {
           <CardDescription>{t('groupsInCourse')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {groups.map((g) => (
-              <li key={g.id} className="flex flex-wrap items-center gap-2">
-                <span>{g.name}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => void openGroupChat(g.id)}>
-                  {t('groupChatOpen')}
-                </Button>
-              </li>
-            ))}
+          <ul className="space-y-3">
+            {groups.map((g) => {
+              const members = groupMembers[g.id] ?? [];
+              const memberIds = new Set(members.map((m) => m.userId));
+              const candidates = enrolments.filter(
+                (e, idx, all) =>
+                  e.status === 0 && !memberIds.has(e.userId) && all.findIndex((x) => x.userId === e.userId) === idx,
+              );
+              return (
+                <li key={g.id} data-testid={`group-${g.id}`} className="space-y-2 rounded border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {renamingGroupId === g.id ? (
+                      <>
+                        <Input
+                          aria-label={t('groupRenameLabel', { name: g.name })}
+                          value={groupRenameDraft}
+                          onChange={(e) => setGroupRenameDraft(e.target.value)}
+                          className="w-48"
+                        />
+                        <Button type="button" size="sm" onClick={() => void renameGroup(g.id)}>
+                          {t('groupRenameSave')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRenamingGroupId('');
+                            setGroupRenameDraft('');
+                          }}
+                        >
+                          {t('groupRenameCancel')}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">{g.name}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void toggleGroupMembers(g.id)}>
+                          {t('groupViewMembers')}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => void openGroupChat(g.id)}>
+                          {t('groupChatOpen')}
+                        </Button>
+                        {canManageGroups && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setRenamingGroupId(g.id);
+                                setGroupRenameDraft(g.name);
+                              }}
+                            >
+                              {t('groupRename')}
+                            </Button>
+                            <Button type="button" variant="destructive" size="sm" onClick={() => void deleteGroup(g)}>
+                              {t('deleteGroup')}
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {expandedGroupId === g.id && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">{t('groupMembersTitle', { name: g.name })}</p>
+                      <ul className="space-y-1">
+                        {members.map((m) => (
+                          <li key={m.userId} className="flex items-center gap-2 text-sm">
+                            <span>{t('groupMemberLine', { userId: m.userId, time: m.timeAdded })}</span>
+                            {canManageGroups && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void removeGroupMember(g.id, m.userId)}
+                              >
+                                {t('groupRemoveMember')}
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                        {members.length === 0 && (
+                          <li className="text-sm text-muted-foreground">{t('groupNoMembers')}</li>
+                        )}
+                      </ul>
+                      {canManageGroups && candidates.length > 0 && (
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div className="space-y-1">
+                            <span id={`group-add-${g.id}-label`} className="text-sm font-medium">
+                              {t('groupAddMemberLabel')}
+                            </span>
+                            <Select
+                              items={Object.fromEntries([
+                                ['none', '—'],
+                                ...candidates.map((e) => [e.userId, e.userId] as [string, string]),
+                              ])}
+                              value={(groupMemberSelection[g.id] ?? '') === '' ? 'none' : groupMemberSelection[g.id]}
+                              onValueChange={(v) =>
+                                setGroupMemberSelection((prev) => ({ ...prev, [g.id]: !v || v === 'none' ? '' : v }))
+                              }
+                            >
+                              <SelectTrigger aria-labelledby={`group-add-${g.id}-label`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">—</SelectItem>
+                                {candidates.map((e) => (
+                                  <SelectItem key={e.userId} value={e.userId}>
+                                    {e.userId}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => void addGroupMember(g.id)}>
+                            {t('groupAddMember')}
+                          </Button>
+                        </div>
+                      )}
+                      {canManageGroups && candidates.length === 0 && members.length > 0 && (
+                        <p className="text-sm text-muted-foreground">{t('groupAllEnrolledInGroup')}</p>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+            {groups.length === 0 && <li className="text-sm">{t('noGroups')}</li>}
           </ul>
-          <form onSubmit={createGroup} className="mt-3 space-y-2">
-            <Label htmlFor="group-name">{t('newGroupName')}</Label>
-            <Input id="group-name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-            <Button type="submit">{t('createGroup')}</Button>
-          </form>
+          {canManageGroups && (
+            <form onSubmit={createGroup} className="mt-3 space-y-2">
+              <Label htmlFor="group-name">{t('newGroupName')}</Label>
+              <Input id="group-name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+              <Button type="submit">{t('createGroup')}</Button>
+            </form>
+          )}
         </CardContent>
       </Card>
+
+      {canBuild && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('groupModeSettings')}</CardTitle>
+            <CardDescription>{t('groupModeDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {groupModeDraft === null ? (
+              <p className="text-sm text-muted-foreground">{t('groupModeLoadFailed')}</p>
+            ) : (
+              <form onSubmit={(e) => void saveGroupMode(e)} className="space-y-3">
+                <div className="space-y-1">
+                  <span id="group-mode-label" className="text-sm font-medium">
+                    {t('groupModeLabel')}
+                  </span>
+                  <Select
+                    items={Object.fromEntries([
+                      ['0', t('groupModeNone')],
+                      ['1', t('groupModeSeparate')],
+                      ['2', t('groupModeVisible')],
+                    ])}
+                    value={String(groupModeDraft)}
+                    onValueChange={(v) => v && setGroupModeDraft(Number(v))}
+                  >
+                    <SelectTrigger aria-labelledby="group-mode-label">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('groupModeNone')}</SelectItem>
+                      <SelectItem value="1">{t('groupModeSeparate')}</SelectItem>
+                      <SelectItem value="2">{t('groupModeVisible')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <span className="flex items-center gap-2">
+                  <Checkbox
+                    id="group-mode-force"
+                    checked={groupModeForceDraft}
+                    onCheckedChange={(checked) => setGroupModeForceDraft(checked === true)}
+                  />
+                  <Label htmlFor="group-mode-force">{t('groupModeForceLabel')}</Label>
+                </span>
+                <Button type="submit">{t('groupModeSave')}</Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {canManageGroups && (
         <Card>
