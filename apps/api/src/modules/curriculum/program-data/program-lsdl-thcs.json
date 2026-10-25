@@ -13,7 +13,20 @@
    "content": "– Địa lí và cuộc sống",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được vai trò của Địa lí trong cuộc sống."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của Địa lí trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được vai trò của Địa lí trong cuộc sống.",
    "source": {
@@ -36,13 +49,104 @@
    "content": "– Hệ thống kinh vĩ tuyến. Toạ độ địa lí của một địa điểm trên bản đồ – Các yếu tố cơ bản của bản đồ – Các loại bản đồ thông dụng – Lược đồ trí nhớ",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được trên bản đồ và trên quả Địa Cầu: kinh tuyến gốc, xích đạo, các bán cầu; ghi được tọa độ địa lí của một địa điểm trên bản đồ.",
-    "Nhận biết được một số lưới kinh vĩ tuyến của bản đồ thế giới.",
-    "Biết đọc các kí hiệu bản đồ và chú giải bản đồ hành chính, bản đồ địa hình.",
-    "Biết xác định hướng trên bản đồ và tính khoảng cách thực tế giữa hai địa điểm trên bản đồ theo tỉ lệ bản đồ.",
-    "Biết đọc bản đồ, xác định được vị trí của đối tượng địa lí trên bản đồ.",
-    "Biết tìm đường đi trên bản đồ.",
-    "Vẽ được lược đồ trí nhớ thể hiện các đối tượng địa lí thân quen đối với cá nhân học sinh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ và trên quả Địa Cầu: kinh tuyến gốc, xích đạo, các bán cầu; ghi được tọa độ địa lí của một địa điểm trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số lưới kinh vĩ tuyến của bản đồ thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết đọc các kí hiệu bản đồ và chú giải bản đồ hành chính, bản đồ địa hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết xác định hướng trên bản đồ và tính khoảng cách thực tế giữa hai địa điểm trên bản đồ theo tỉ lệ bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết đọc bản đồ, xác định được vị trí của đối tượng địa lí trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tìm đường đi trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được lược đồ trí nhớ thể hiện các đối tượng địa lí thân quen đối với cá nhân học sinh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được trên bản đồ và trên quả Địa Cầu: kinh tuyến gốc, xích đạo, các bán cầu; ghi được tọa độ địa lí của một địa điểm trên bản đồ. – Nhận biết được một số lưới kinh vĩ tuyến của bản đồ thế giới. – Biết đọc các kí hiệu bản đồ và chú giải bản đồ hành chính, bản đồ địa hình. – Biết xác định hướng trên bản đồ và tính khoảng cách thực tế giữa hai địa điểm trên bản đồ theo tỉ lệ bản đồ. – Biết đọc bản đồ, xác định được vị trí của đối tượng địa lí trên bản đồ. – Biết tìm đường đi trên bản đồ. – Vẽ được lược đồ trí nhớ thể hiện các đối tượng địa lí thân quen đối với cá nhân học sinh.",
    "source": {
@@ -65,13 +169,104 @@
    "content": "– Vị trí của Trái Đất trong hệ Mặt Trời – Hình dạng, kích thước Trái Đất – Chuyển động của Trái Đất và hệ quả địa lí",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí của Trái Đất trong hệ Mặt Trời.",
-    "Mô tả được hình dạng, kích thước Trái Đất.",
-    "Mô tả được chuyển động của Trái Đất (quanh trục và quanh Mặt Trời).",
-    "Xác định được phương hướng ngoài thực tế dựa vào quan sát hiện tượng tự nhiên hoặc dùng địa bàn.",
-    "Nhận biết được giờ địa phương/giờ khu vực, so sánh được giờ của hai địa điểm trên Trái Đất.",
-    "Trình bày được hiện tượng ngày đêm luân phiên nhau và mô tả được sự lệch hướng chuyển động của vật thể theo chiều kinh tuyến.",
-    "Trình bày được hiện tượng ngày đêm dài ngắn theo mùa."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí của Trái Đất trong hệ Mặt Trời."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được hình dạng, kích thước Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được chuyển động của Trái Đất (quanh trục và quanh Mặt Trời)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được phương hướng ngoài thực tế dựa vào quan sát hiện tượng tự nhiên hoặc dùng địa bàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được giờ địa phương/giờ khu vực, so sánh được giờ của hai địa điểm trên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được hiện tượng ngày đêm luân phiên nhau và mô tả được sự lệch hướng chuyển động của vật thể theo chiều kinh tuyến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được hiện tượng ngày đêm dài ngắn theo mùa."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí của Trái Đất trong hệ Mặt Trời. – Mô tả được hình dạng, kích thước Trái Đất. – Mô tả được chuyển động của Trái Đất (quanh trục và quanh Mặt Trời). – Xác định được phương hướng ngoài thực tế dựa vào quan sát hiện tượng tự nhiên hoặc dùng địa bàn. – Nhận biết được giờ địa phương/giờ khu vực, so sánh được giờ của hai địa điểm trên Trái Đất. – Trình bày được hiện tượng ngày đêm luân phiên nhau và mô tả được sự lệch hướng chuyển động của vật thể theo chiều kinh tuyến. – Trình bày được hiện tượng ngày đêm dài ngắn theo mùa.",
    "source": {
@@ -95,15 +290,132 @@
    "content": "– Cấu tạo của Trái Đất – Các mảng kiến tạo – Hiện tượng động đất, núi lửa và sức phá hoại của các tai biến thiên nhiên này – Quá trình nội sinh và ngoại sinh. Hiện tượng tạo núi – Các dạng địa hình chính – Khoáng sản",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được cấu tạo của Trái Đất gồm ba lớp.",
-    "Xác định được trên lược đồ các mảng kiến tạo lớn, đới tiếp giáp của hai mảng xô vào nhau.",
-    "Trình bày được hiện tượng động đất, núi lửa và nêu được nguyên nhân của hiện tượng này.",
-    "Biết tìm kiếm thông tin về các thảm hoạ thiên nhiên do động đất và núi lửa gây ra.",
-    "Phân biệt được quá trình nội sinh và ngoại sinh.",
-    "Trình bày được tác động đồng thời của quá trình nội sinh và ngoại sinh trong hiện tượng tạo núi.",
-    "Phân biệt được các dạng địa hình chính trên Trái Đất.",
-    "Biết đọc lược đồ địa hình tỉ lệ lớn và lát cắt địa hình đơn giản.",
-    "Kể được tên một số loại khoáng sản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu tạo của Trái Đất gồm ba lớp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên lược đồ các mảng kiến tạo lớn, đới tiếp giáp của hai mảng xô vào nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được hiện tượng động đất, núi lửa và nêu được nguyên nhân của hiện tượng này."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tìm kiếm thông tin về các thảm hoạ thiên nhiên do động đất và núi lửa gây ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được quá trình nội sinh và ngoại sinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tác động đồng thời của quá trình nội sinh và ngoại sinh trong hiện tượng tạo núi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các dạng địa hình chính trên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết đọc lược đồ địa hình tỉ lệ lớn và lát cắt địa hình đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số loại khoáng sản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được cấu tạo của Trái Đất gồm ba lớp. – Xác định được trên lược đồ các mảng kiến tạo lớn, đới tiếp giáp của hai mảng xô vào nhau. – Trình bày được hiện tượng động đất, núi lửa và nêu được nguyên nhân của hiện tượng này. – Biết tìm kiếm thông tin về các thảm hoạ thiên nhiên do động đất và núi lửa gây ra. – Phân biệt được quá trình nội sinh và ngoại sinh. – Trình bày được tác động đồng thời của quá trình nội sinh và ngoại sinh trong hiện tượng tạo núi. – Phân biệt được các dạng địa hình chính trên Trái Đất. – Biết đọc lược đồ địa hình tỉ lệ lớn và lát cắt địa hình đơn giản. – Kể được tên một số loại khoáng sản.",
    "source": {
@@ -126,17 +438,160 @@
    "content": "– Các tầng khí quyển. Thành phần không khí – Các khối khí. Khí áp và gió – Nhiệt độ và mưa. Thời tiết, khí hậu – Sự biến đổi khí hậu và biện pháp ứng phó",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được các tầng khí quyển, đặc điểm chính của tầng đối lưu và tầng bình lưu; hiểu được vai trò của oxy, hơi nước và khí carbonic.",
-    "Kể được tên và nêu được đặc điểm về nhiệt độ, độ ẩm của một số khối khí.",
-    "Trình bày được sự phân bố các đai khí áp và các loại gió thổi thường xuyên trên Trái Đất.",
-    "Trình bày được sự thay đổi nhiệt độ bề mặt Trái Đất theo vĩ độ.",
-    "Mô tả được hiện tượng hình thành mây, mưa.",
-    "Biết cách sử dụng nhiệt kế, ẩm kế, khí áp kế.",
-    "Phân biệt được thời tiết và khí hậu.",
-    "Trình bày được khái quát đặc điểm của một trong các đới khí hậu.",
-    "Phân tích được biểu đồ nhiệt độ, lượng mưa; xác định được đặc điểm về nhiệt độ và lượng mưa của một số địa điểm trên bản đồ khí hậu thế giới.",
-    "Nêu được một số biểu hiện của biến đổi khí hậu.",
-    "Trình bày được một số biện pháp phòng tránh thiên tai và ứng phó với biến đổi khí hậu."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các tầng khí quyển, đặc điểm chính của tầng đối lưu và tầng bình lưu; hiểu được vai trò của oxy, hơi nước và khí carbonic."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và nêu được đặc điểm về nhiệt độ, độ ẩm của một số khối khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phân bố các đai khí áp và các loại gió thổi thường xuyên trên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự thay đổi nhiệt độ bề mặt Trái Đất theo vĩ độ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được hiện tượng hình thành mây, mưa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sử dụng nhiệt kế, ẩm kế, khí áp kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được thời tiết và khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái quát đặc điểm của một trong các đới khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được biểu đồ nhiệt độ, lượng mưa; xác định được đặc điểm về nhiệt độ và lượng mưa của một số địa điểm trên bản đồ khí hậu thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số biểu hiện của biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số biện pháp phòng tránh thiên tai và ứng phó với biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được các tầng khí quyển, đặc điểm chính của tầng đối lưu và tầng bình lưu; hiểu được vai trò của oxy, hơi nước và khí carbonic. – Kể được tên và nêu được đặc điểm về nhiệt độ, độ ẩm của một số khối khí. – Trình bày được sự phân bố các đai khí áp và các loại gió thổi thường xuyên trên Trái Đất. – Trình bày được sự thay đổi nhiệt độ bề mặt Trái Đất theo vĩ độ. – Mô tả được hiện tượng hình thành mây, mưa. – Biết cách sử dụng nhiệt kế, ẩm kế, khí áp kế. – Phân biệt được thời tiết và khí hậu. – Trình bày được khái quát đặc điểm của một trong các đới khí hậu. – Phân tích được biểu đồ nhiệt độ, lượng mưa; xác định được đặc điểm về nhiệt độ và lượng mưa của một số địa điểm trên bản đồ khí hậu thế giới. – Nêu được một số biểu hiện của biến đổi khí hậu. – Trình bày được một số biện pháp phòng tránh thiên tai và ứng phó với biến đổi khí hậu.",
    "source": {
@@ -159,19 +614,98 @@
    "content": "– Biển và đại dương. Một số đặc điểm của môi trường biển – Nước ngầm và băng hà",
    "kind": "requirement",
    "outcomes": [
-    "mùa lũ của sông với các nguồn cấp nước sông.",
-    "Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ.",
-    "Xác định được trên bản đồ các đại dương thế giới.",
-    "Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển.",
-    "Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới.",
-    "Nêu được tầm quan trọng của nước ngầm và băng hà."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các bộ phận của một dòng sông lớn; mối quan hệ giữa mùa lũ của sông với các nguồn cấp nước sông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các đại dương thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tầm quan trọng của nước ngầm và băng hà."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "mùa lũ của sông với các nguồn cấp nước sông. – Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ. – Xác định được trên bản đồ các đại dương thế giới. – Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển. – Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới. – Nêu được tầm quan trọng của nước ngầm và băng hà.",
+   "outcome_text": "– Mô tả được các bộ phận của một dòng sông lớn; mối quan hệ giữa mùa lũ của sông với các nguồn cấp nước sông. – Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ. – Xác định được trên bản đồ các đại dương thế giới. – Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển. – Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới. – Nêu được tầm quan trọng của nước ngầm và băng hà.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     13,
      14
     ]
    }
@@ -187,13 +721,104 @@
    "content": "– Lớp đất trên Trái Đất. Thành phần của đất – Các nhân tố hình thành đất – Một số nhóm đất điển hình ở các đới thiên nhiên trên Trái Đất – Sự sống trên hành tinh – Sự phân bố các đới thiên nhiên – Rừng nhiệt đới",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được các tầng đất và các thành phần chính của đất.",
-    "Trình bày được một số nhân tố hình thành đất.",
-    "Kể được tên và xác định được trên bản đồ một số nhóm đất điển hình ở vùng nhiệt đới hoặc ở vùng ôn đới.",
-    "Nêu được ví dụ về sự đa dạng của thế giới sinh vật ở lục địa và ở đại dương.",
-    "Xác định được trên bản đồ sự phân bố các đới thiên nhiên trên thế giới.",
-    "Trình bày được đặc điểm của rừng nhiệt đới.",
-    "Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các tầng đất và các thành phần chính của đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số nhân tố hình thành đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và xác định được trên bản đồ một số nhóm đất điển hình ở vùng nhiệt đới hoặc ở vùng ôn đới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ví dụ về sự đa dạng của thế giới sinh vật ở lục địa và ở đại dương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ sự phân bố các đới thiên nhiên trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm của rừng nhiệt đới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được các tầng đất và các thành phần chính của đất. – Trình bày được một số nhân tố hình thành đất. – Kể được tên và xác định được trên bản đồ một số nhóm đất điển hình ở vùng nhiệt đới hoặc ở vùng ôn đới. – Nêu được ví dụ về sự đa dạng của thế giới sinh vật ở lục địa và ở đại dương. – Xác định được trên bản đồ sự phân bố các đới thiên nhiên trên thế giới. – Trình bày được đặc điểm của rừng nhiệt đới. – Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương.",
    "source": {
@@ -216,13 +841,104 @@
    "content": "– Dân số thế giới – Sự phân bố dân cư thế giới – Con người và thiên nhiên – Bảo vệ tự nhiên, khai thác thông minh các tài nguyên vì sự phát triển bền vững",
    "kind": "requirement",
    "outcomes": [
-    "Đọc được biểu đồ quy mô dân số thế giới.",
-    "Trình bày và giải thích được đặc điểm phân bố dân cư trên thế giới.",
-    "Xác định được trên bản đồ một số thành phố đông dân nhất thế giới.",
-    "Nêu được các tác động của thiên nhiên lên hoạt động sản xuất và sinh hoạt của con người.",
-    "Trình bày được những tác động chủ yếu của loài người lên thiên nhiên Trái Đất.",
-    "Nêu được ý nghĩa của việc bảo vệ tự nhiên và khai thác thông minh các tài nguyên vì sự phát triển bền vững. Liên hệ thực tế địa phương.",
-    "Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được biểu đồ quy mô dân số thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được đặc điểm phân bố dân cư trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ một số thành phố đông dân nhất thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các tác động của thiên nhiên lên hoạt động sản xuất và sinh hoạt của con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những tác động chủ yếu của loài người lên thiên nhiên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của việc bảo vệ tự nhiên và khai thác thông minh các tài nguyên vì sự phát triển bền vững. Liên hệ thực tế địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Đọc được biểu đồ quy mô dân số thế giới. – Trình bày và giải thích được đặc điểm phân bố dân cư trên thế giới. – Xác định được trên bản đồ một số thành phố đông dân nhất thế giới. – Nêu được các tác động của thiên nhiên lên hoạt động sản xuất và sinh hoạt của con người. – Trình bày được những tác động chủ yếu của loài người lên thiên nhiên Trái Đất. – Nêu được ý nghĩa của việc bảo vệ tự nhiên và khai thác thông minh các tài nguyên vì sự phát triển bền vững. Liên hệ thực tế địa phương. – Biết cách tìm hiểu môi trường tự nhiên qua tài liệu và tham quan địa phương.",
    "source": {
@@ -245,7 +961,20 @@
    "content": "– Thời gian trong lịch sử",
    "kind": "requirement",
    "outcomes": [
-    "Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,...",
    "source": {
@@ -268,22 +997,202 @@
    "content": "– Nguồn gốc loài người – Xã hội nguyên thuỷ – Sự chuyển biến từ xã hội nguyên thuỷ sang xã hội có giai cấp – Sự chuyển biến và phân hóa của xã hội nguyên thuỷ",
    "kind": "requirement",
    "outcomes": [
-    "Giới thiệu được sơ lược quá trình tiến hoá từ vượn người thành người trên Trái Đất.",
-    "Xác định được những dấu tích của người tối cổ ở Đông Nam Á.",
-    "Kể được tên được những địa điểm tìm thấy dấu tích của người tối cổ trên đất nước Việt Nam.",
-    "Mô tả được sơ lược các giai đoạn tiến triển của xã hội người nguyên thuỷ.",
-    "Trình bày được những nét chính về đời sống của người thời nguyên thuỷ (vật chất, tinh thần, tổ chức xã hội,...).",
-    "Nhận biết được vai trò của lao động đối với quá trình phát triển của người nguyên thuỷ cũng như của con người và xã hội loài người.",
-    "Nêu được đôi nét về đời sống của người nguyên thuỷ trên đất nước Việt Nam.",
-    "Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến từ xã hội nguyên thuỷ sang xã hội có giai cấp.",
-    "Mô tả được sự hình thành xã hội có giai cấp.",
-    "Giải thích được vì sao xã hội nguyên thuỷ tan rã.",
-    "Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến và phân hóa của xã hội nguyên thuỷ.",
-    "Mô tả được sự hình thành xã hội có giai cấp.",
-    "Mô tả và giải thích được sự phân hóa không triệt để của xã hội nguyên thủy ở phương Đông.",
-    "Nêu được một số nét cơ bản của xã hội nguyên thủy ở Việt Nam (qua các nền văn hóa khảo cổ Phùng Nguyên",
-    "Đồng Đậu",
-    "Gò Mun)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được sơ lược quá trình tiến hoá từ vượn người thành người trên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những dấu tích của người tối cổ ở Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên được những địa điểm tìm thấy dấu tích của người tối cổ trên đất nước Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sơ lược các giai đoạn tiến triển của xã hội người nguyên thuỷ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về đời sống của người thời nguyên thuỷ (vật chất, tinh thần, tổ chức xã hội,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được vai trò của lao động đối với quá trình phát triển của người nguyên thuỷ cũng như của con người và xã hội loài người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được đôi nét về đời sống của người nguyên thuỷ trên đất nước Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến từ xã hội nguyên thuỷ sang xã hội có giai cấp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự hình thành xã hội có giai cấp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được vì sao xã hội nguyên thuỷ tan rã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến và phân hóa của xã hội nguyên thuỷ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự hình thành xã hội có giai cấp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả và giải thích được sự phân hóa không triệt để của xã hội nguyên thủy ở phương Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nét cơ bản của xã hội nguyên thủy ở Việt Nam (qua các nền văn hóa khảo cổ Phùng Nguyên – Đồng Đậu – Gò Mun)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giới thiệu được sơ lược quá trình tiến hoá từ vượn người thành người trên Trái Đất. – Xác định được những dấu tích của người tối cổ ở Đông Nam Á. – Kể được tên được những địa điểm tìm thấy dấu tích của người tối cổ trên đất nước Việt Nam. – Mô tả được sơ lược các giai đoạn tiến triển của xã hội người nguyên thuỷ. – Trình bày được những nét chính về đời sống của người thời nguyên thuỷ (vật chất, tinh thần, tổ chức xã hội,...). – Nhận biết được vai trò của lao động đối với quá trình phát triển của người nguyên thuỷ cũng như của con người và xã hội loài người. – Nêu được đôi nét về đời sống của người nguyên thuỷ trên đất nước Việt Nam. – Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến từ xã hội nguyên thuỷ sang xã hội có giai cấp. – Mô tả được sự hình thành xã hội có giai cấp. – Giải thích được vì sao xã hội nguyên thuỷ tan rã. – Trình bày được quá trình phát hiện ra kim loại và vai trò của nó đối với sự chuyển biến và phân hóa của xã hội nguyên thuỷ. – Mô tả được sự hình thành xã hội có giai cấp. – Mô tả và giải thích được sự phân hóa không triệt để của xã hội nguyên thủy ở phương Đông. – Nêu được một số nét cơ bản của xã hội nguyên thủy ở Việt Nam (qua các nền văn hóa khảo cổ Phùng Nguyên – Đồng Đậu – Gò Mun).",
    "source": {
@@ -307,11 +1216,76 @@
    "content": "– Hy Lạp và La Mã",
    "kind": "requirement",
    "outcomes": [
-    "Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ.",
-    "Nêu được những thành tựu cơ bản của nền văn minh Trung Quốc.",
-    "Giới thiệu và nhận xét được tác động về điều kiện tự nhiên (hải cảng, biển đảo) đối với sự hình thành, phát triển của nền văn minh Hy Lạp và La Mã.",
-    "Trình bày được tổ chức nhà nước thành bang, nhà nước đế chế ở Hy Lạp và La Mã.",
-    "Nêu được một số thành tựu văn hoá tiêu biểu của Hy Lạp, La Mã."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những thành tựu cơ bản của nền văn minh Trung Quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu và nhận xét được tác động về điều kiện tự nhiên (hải cảng, biển đảo) đối với sự hình thành, phát triển của nền văn minh Hy Lạp và La Mã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tổ chức nhà nước thành bang, nhà nước đế chế ở Hy Lạp và La Mã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số thành tựu văn hoá tiêu biểu của Hy Lạp, La Mã."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ. – Nêu được những thành tựu cơ bản của nền văn minh Trung Quốc. – Giới thiệu và nhận xét được tác động về điều kiện tự nhiên (hải cảng, biển đảo) đối với sự hình thành, phát triển của nền văn minh Hy Lạp và La Mã. – Trình bày được tổ chức nhà nước thành bang, nhà nước đế chế ở Hy Lạp và La Mã. – Nêu được một số thành tựu văn hoá tiêu biểu của Hy Lạp, La Mã.",
    "source": {
@@ -334,10 +1308,62 @@
    "content": "– Khái lược về khu vực Đông Nam Á – Các vương quốc cổ ở Đông Nam Á – Giao lưu thương mại và văn hóa ở Đông Nam Á từ đầu Công nguyên đến thế kỉ X",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày sơ lược về vị trí địa lí của vùng Đông Nam Á.",
-    "Trình bày được quá trình xuất hiện các vương quốc cổ ở Đông Nam Á từ đầu Công nguyên đến thế kỉ VII.",
-    "Nêu được sự hình thành và phát triển ban đầu của các vương quốc phong kiến từ thế kỉ VII đến thế kỉ X ở Đông Nam Á.",
-    "Phân tích được những tác động chính của quá trình giao lưu thương mại và văn hóa ở Đông Nam Á từ đầu Công nguyên đến thế kỉ X."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày sơ lược về vị trí địa lí của vùng Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình xuất hiện các vương quốc cổ ở Đông Nam Á từ đầu Công nguyên đến thế kỉ VII."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự hình thành và phát triển ban đầu của các vương quốc phong kiến từ thế kỉ VII đến thế kỉ X ở Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những tác động chính của quá trình giao lưu thương mại và văn hóa ở Đông Nam Á từ đầu Công nguyên đến thế kỉ X."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày sơ lược về vị trí địa lí của vùng Đông Nam Á. – Trình bày được quá trình xuất hiện các vương quốc cổ ở Đông Nam Á từ đầu Công nguyên đến thế kỉ VII. – Nêu được sự hình thành và phát triển ban đầu của các vương quốc phong kiến từ thế kỉ VII đến thế kỉ X ở Đông Nam Á. – Phân tích được những tác động chính của quá trình giao lưu thương mại và văn hóa ở Đông Nam Á từ đầu Công nguyên đến thế kỉ X.",
    "source": {
@@ -360,14 +1386,118 @@
    "content": "+ Nhà nước Âu Lạc – Thời kì Bắc thuộc và chống Bắc thuộc từ thế kỉ II trước Công nguyên đến năm 938 + Chính sách cai trị của các triều đại phong kiến phương Bắc + Sự chuyển biến về kinh tế, văn hoá trong thời kì Bắc thuộc + Các cuộc đấu tranh giành lại độc lập và bảo vệ bản sắc văn hoá của dân tộc + Bước ngoặt lịch sử ở đầu thế kỉ X",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được tổ chức nhà nước của Văn Lang, Âu Lạc.",
-    "Mô tả được đời sống vật chất và tinh thần của cư dân Văn Lang, Âu Lạc.",
-    "Nêu được một số chính sách cai trị của phong kiến phương Bắc trong thời kì Bắc thuộc.",
-    "Nhận biết được một số chuyển biến quan trọng về kinh tế, xã hội, văn hoá ở Việt Nam trong thời kì Bắc thuộc.",
-    "Lập được biểu đồ, sơ đồ và trình bày được những nét chính; giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của các cuộc khởi nghĩa tiêu biểu của nhân dân Việt Nam trong thời kì Bắc thuộc (khởi nghĩa Hai Bà Trưng, Bà Triệu, Lý Bí, Mai Thúc Loan, Phùng Hưng,...).",
-    "Giới thiệu được những nét chính của cuộc đấu tranh về văn hoá và bảo vệ bản sắc văn hoá của nhân dân Việt Nam trong thời kì Bắc thuộc.",
-    "Trình bày được những nét chính (nội dung, kết quả) về các cuộc vận động giành quyền tự chủ của nhân dân Việt Nam dưới sự lãnh đạo của họ Khúc và họ Dương.",
-    "Mô tả được những nét chính trận chiến Bạch Đằng lịch sử năm 938 và những điểm độc đáo trong tổ chức đánh giặc của Ngô Quyền."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tổ chức nhà nước của Văn Lang, Âu Lạc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đời sống vật chất và tinh thần của cư dân Văn Lang, Âu Lạc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số chính sách cai trị của phong kiến phương Bắc trong thời kì Bắc thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số chuyển biến quan trọng về kinh tế, xã hội, văn hoá ở Việt Nam trong thời kì Bắc thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được biểu đồ, sơ đồ và trình bày được những nét chính; giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của các cuộc khởi nghĩa tiêu biểu của nhân dân Việt Nam trong thời kì Bắc thuộc (khởi nghĩa Hai Bà Trưng, Bà Triệu, Lý Bí, Mai Thúc Loan, Phùng Hưng,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét chính của cuộc đấu tranh về văn hoá và bảo vệ bản sắc văn hoá của nhân dân Việt Nam trong thời kì Bắc thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính (nội dung, kết quả) về các cuộc vận động giành quyền tự chủ của nhân dân Việt Nam dưới sự lãnh đạo của họ Khúc và họ Dương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính trận chiến Bạch Đằng lịch sử năm 938 và những điểm độc đáo trong tổ chức đánh giặc của Ngô Quyền."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được tổ chức nhà nước của Văn Lang, Âu Lạc. – Mô tả được đời sống vật chất và tinh thần của cư dân Văn Lang, Âu Lạc. – Nêu được một số chính sách cai trị của phong kiến phương Bắc trong thời kì Bắc thuộc. – Nhận biết được một số chuyển biến quan trọng về kinh tế, xã hội, văn hoá ở Việt Nam trong thời kì Bắc thuộc. – Lập được biểu đồ, sơ đồ và trình bày được những nét chính; giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của các cuộc khởi nghĩa tiêu biểu của nhân dân Việt Nam trong thời kì Bắc thuộc (khởi nghĩa Hai Bà Trưng, Bà Triệu, Lý Bí, Mai Thúc Loan, Phùng Hưng,...). – Giới thiệu được những nét chính của cuộc đấu tranh về văn hoá và bảo vệ bản sắc văn hoá của nhân dân Việt Nam trong thời kì Bắc thuộc. – Trình bày được những nét chính (nội dung, kết quả) về các cuộc vận động giành quyền tự chủ của nhân dân Việt Nam dưới sự lãnh đạo của họ Khúc và họ Dương. – Mô tả được những nét chính trận chiến Bạch Đằng lịch sử năm 938 và những điểm độc đáo trong tổ chức đánh giặc của Ngô Quyền.",
    "source": {
@@ -390,13 +1520,104 @@
    "content": "– Vương quốc Champa – Vương quốc Phù Nam",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được ý nghĩa lịch sử của chiến thắng Bạch Đằng năm 938.",
-    "Mô tả được sự thành lập, quá trình phát triển của Champa.",
-    "Trình bày được những nét chính về tổ chức xã hội và kinh tế của Champa.",
-    "Nhận biết được một số thành tựu văn hoá của Champa.",
-    "Mô tả được sự thành lập, quá trình phát triển và suy vong của Phù Nam.",
-    "Trình bày được những nét chính về tổ chức xã hội và kinh tế của Phù Nam.",
-    "Nhận biết được một số thành tựu văn hoá của Phù Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa lịch sử của chiến thắng Bạch Đằng năm 938."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự thành lập, quá trình phát triển của Champa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về tổ chức xã hội và kinh tế của Champa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số thành tựu văn hoá của Champa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự thành lập, quá trình phát triển và suy vong của Phù Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về tổ chức xã hội và kinh tế của Phù Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số thành tựu văn hoá của Phù Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được ý nghĩa lịch sử của chiến thắng Bạch Đằng năm 938. – Mô tả được sự thành lập, quá trình phát triển của Champa. – Trình bày được những nét chính về tổ chức xã hội và kinh tế của Champa. – Nhận biết được một số thành tựu văn hoá của Champa. – Mô tả được sự thành lập, quá trình phát triển và suy vong của Phù Nam. – Trình bày được những nét chính về tổ chức xã hội và kinh tế của Phù Nam. – Nhận biết được một số thành tựu văn hoá của Phù Nam.",
    "source": {
@@ -419,9 +1640,48 @@
    "content": "– Đặc điểm dân cư, xã hội – Phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên – Khái quát về Liên minh châu Âu (EU)",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu.",
-    "Lựa chọn và trình bày được một vấn đề bảo vệ môi trường ở châu Âu.",
-    "Nêu được dẫn chứng về Liên minh châu Âu (EU) như một trong bốn trung tâm kinh tế lớn trên thế giới."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và trình bày được một vấn đề bảo vệ môi trường ở châu Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được dẫn chứng về Liên minh châu Âu (EU) như một trong bốn trung tâm kinh tế lớn trên thế giới."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu. – Lựa chọn và trình bày được một vấn đề bảo vệ môi trường ở châu Âu. – Nêu được dẫn chứng về Liên minh châu Âu (EU) như một trong bốn trung tâm kinh tế lớn trên thế giới.",
    "source": {
@@ -444,13 +1704,104 @@
    "content": "– Vị trí địa lí, phạm vi châu Á – Đặc điểm tự nhiên – Đặc điểm dân cư, xã hội – Bản đồ chính trị châu Á; các khu vực của châu Á – Các nền kinh tế lớn và kinh tế mới nổi ở châu Á",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Á.",
-    "Trình bày được một trong những đặc điểm thiên nhiên châu Á, ý nghĩa của đặc điểm này đối với việc sử dụng và bảo vệ tự nhiên.",
-    "Xác định được trên bản đồ các khu vực địa hình và các khoáng sản chính ở châu Á.",
-    "Trình bày được đặc điểm dân cư, tôn giáo; sự phân bố dân cư và các đô thị lớn.",
-    "Xác định được trên bản đồ chính trị các khu vực của châu Á.",
-    "Trình bày được đặc điểm tự nhiên của một trong các khu vực ở châu Á.",
-    "Biết cách sưu tầm tư liệu và trình bày về một trong các nền kinh tế lớn và nền kinh tế mới nổi của châu Á (ví dụ: Trung Quốc, Nhật Bản, Hàn Quốc, Singapore)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một trong những đặc điểm thiên nhiên châu Á, ý nghĩa của đặc điểm này đối với việc sử dụng và bảo vệ tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các khu vực địa hình và các khoáng sản chính ở châu Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm dân cư, tôn giáo; sự phân bố dân cư và các đô thị lớn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ chính trị các khu vực của châu Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm tự nhiên của một trong các khu vực ở châu Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sưu tầm tư liệu và trình bày về một trong các nền kinh tế lớn và nền kinh tế mới nổi của châu Á (ví dụ: Trung Quốc, Nhật Bản, Hàn Quốc, Singapore)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Á. – Trình bày được một trong những đặc điểm thiên nhiên châu Á, ý nghĩa của đặc điểm này đối với việc sử dụng và bảo vệ tự nhiên. – Xác định được trên bản đồ các khu vực địa hình và các khoáng sản chính ở châu Á. – Trình bày được đặc điểm dân cư, tôn giáo; sự phân bố dân cư và các đô thị lớn. – Xác định được trên bản đồ chính trị các khu vực của châu Á. – Trình bày được đặc điểm tự nhiên của một trong các khu vực ở châu Á. – Biết cách sưu tầm tư liệu và trình bày về một trong các nền kinh tế lớn và nền kinh tế mới nổi của châu Á (ví dụ: Trung Quốc, Nhật Bản, Hàn Quốc, Singapore).",
    "source": {
@@ -473,11 +1824,76 @@
    "content": "– Vị trí địa lí, phạm vi châu Phi – Đặc điểm tự nhiên – Đặc điểm dân cư, xã hội – Phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên – Khái quát về Cộng hoà Nam Phi",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Phi.",
-    "Phân tích được một trong những đặc điểm thiên nhiên châu Phi; một trong những vấn đề môi trường trong sử dụng thiên nhiên (ví dụ: vấn đề săn bắn và buôn bán động vật hoang dã, lấy ngà voi, sừng tê giác,...).",
-    "Trình bày được một trong những vấn đề nổi cộm về dân cư, xã hội và di sản lịch sử châu Phi (ví dụ: vấn đề nạn đói, vấn đề xung đột quân sự,...).",
-    "Trình bày được cách thức người dân châu Phi khai thác thiên nhiên ở các môi trường khác nhau.",
-    "Biết cách sưu tầm tư liệu và trình bày được một số sự kiện lịch sử về Cộng hoà Nam Phi trong mấy thập niên gần đây."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Phi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một trong những đặc điểm thiên nhiên châu Phi; một trong những vấn đề môi trường trong sử dụng thiên nhiên (ví dụ: vấn đề săn bắn và buôn bán động vật hoang dã, lấy ngà voi, sừng tê giác,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một trong những vấn đề nổi cộm về dân cư, xã hội và di sản lịch sử châu Phi (ví dụ: vấn đề nạn đói, vấn đề xung đột quân sự,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cách thức người dân châu Phi khai thác thiên nhiên ở các môi trường khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sưu tầm tư liệu và trình bày được một số sự kiện lịch sử về Cộng hoà Nam Phi trong mấy thập niên gần đây."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Phi. – Phân tích được một trong những đặc điểm thiên nhiên châu Phi; một trong những vấn đề môi trường trong sử dụng thiên nhiên (ví dụ: vấn đề săn bắn và buôn bán động vật hoang dã, lấy ngà voi, sừng tê giác,...). – Trình bày được một trong những vấn đề nổi cộm về dân cư, xã hội và di sản lịch sử châu Phi (ví dụ: vấn đề nạn đói, vấn đề xung đột quân sự,...). – Trình bày được cách thức người dân châu Phi khai thác thiên nhiên ở các môi trường khác nhau. – Biết cách sưu tầm tư liệu và trình bày được một số sự kiện lịch sử về Cộng hoà Nam Phi trong mấy thập niên gần đây.",
    "source": {
@@ -500,19 +1916,150 @@
    "content": "– Vị trí địa lí, phạm vi châu Mỹ – Phát kiến ra châu Mỹ – Đặc điểm tự nhiên, dân cư, xã hội của các khu vực châu Mỹ (Bắc Mỹ, Trung và Nam Mỹ) – Phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên ở các khu vực châu Mỹ",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày khái quát về vị trí địa lí, phạm vi châu Mỹ.",
-    "Phân tích được các hệ quả địa lí",
-    "lịch sử của việc Christopher Colombus phát kiến ra châu Mỹ (1492",
-    "1502). Bắc Mỹ:",
-    "Trình bày được một trong những đặc điểm của tự nhiên: sự phân hoá của địa hình, khí hậu; sông, hồ; các đới thiên nhiên.",
-    "Phân tích được một trong những vấn đề dân cư, xã hội: vấn đề nhập cư và chủng tộc, vấn đề đô thị hoá.",
-    "Phân tích được phương thức con người khai thác tự nhiên bền vững.",
-    "Xác định được trên bản đồ một số trung tâm kinh tế quan trọng. Trung và Nam Mỹ:",
-    "Trình bày được sự phân hoá tự nhiên theo chiều Đông",
-    "Tây, theo chiều Bắc",
-    "Nam và theo chiều cao (trên dãy núi Andes); đặc điểm của rừng nhiệt đới Amazon.",
-    "Trình bày được đặc điểm nguồn gốc dân cư Trung và Nam Mỹ, vấn đề đô thị hoá, văn hoá Mỹ Latinh.",
-    "Phân tích được vấn đề khai thác, sử dụng và bảo vệ thiên nhiên thông qua trường hợp rừng Amazon."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày khái quát về vị trí địa lí, phạm vi châu Mỹ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các hệ quả địa lí – lịch sử của việc Christopher Colombus phát kiến ra châu Mỹ (1492 – 1502)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bắc Mỹ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một trong những đặc điểm của tự nhiên: sự phân hoá của địa hình, khí hậu; sông, hồ; các đới thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một trong những vấn đề dân cư, xã hội: vấn đề nhập cư và chủng tộc, vấn đề đô thị hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được phương thức con người khai thác tự nhiên bền vững."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ một số trung tâm kinh tế quan trọng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trung và Nam Mỹ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phân hoá tự nhiên theo chiều Đông – Tây, theo chiều Bắc – Nam và theo chiều cao (trên dãy núi Andes); đặc điểm của rừng nhiệt đới Amazon."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm nguồn gốc dân cư Trung và Nam Mỹ, vấn đề đô thị hoá, văn hoá Mỹ Latinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề khai thác, sử dụng và bảo vệ thiên nhiên thông qua trường hợp rừng Amazon."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày khái quát về vị trí địa lí, phạm vi châu Mỹ. – Phân tích được các hệ quả địa lí – lịch sử của việc Christopher Colombus phát kiến ra châu Mỹ (1492 – 1502). Bắc Mỹ: – Trình bày được một trong những đặc điểm của tự nhiên: sự phân hoá của địa hình, khí hậu; sông, hồ; các đới thiên nhiên. – Phân tích được một trong những vấn đề dân cư, xã hội: vấn đề nhập cư và chủng tộc, vấn đề đô thị hoá. – Phân tích được phương thức con người khai thác tự nhiên bền vững. – Xác định được trên bản đồ một số trung tâm kinh tế quan trọng. Trung và Nam Mỹ: – Trình bày được sự phân hoá tự nhiên theo chiều Đông – Tây, theo chiều Bắc – Nam và theo chiều cao (trên dãy núi Andes); đặc điểm của rừng nhiệt đới Amazon. – Trình bày được đặc điểm nguồn gốc dân cư Trung và Nam Mỹ, vấn đề đô thị hoá, văn hoá Mỹ Latinh. – Phân tích được vấn đề khai thác, sử dụng và bảo vệ thiên nhiên thông qua trường hợp rừng Amazon.",
    "source": {
@@ -536,10 +2083,62 @@
    "content": "– Vị trí địa lí, phạm vi châu Đại Dương – Đặc điểm thiên nhiên của các đảo, quần đảo và lục địa Australia – Một số đặc điểm dân cư, xã hội và phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được các bộ phận của châu Đại Dương; vị trí địa lí, hình dạng và kích thước lục địa Australia.",
-    "Xác định được trên bản đồ các khu vực địa hình và khoáng sản. Phân tích được đặc điểm khí hậu Australia, những nét đặc sắc của tài nguyên sinh vật ở Australia.",
-    "Trình bày được đặc điểm dân cư, một số vấn đề về lịch sử và văn hoá độc đáo của Australia.",
-    "Phân tích được phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên ở Australia."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các bộ phận của châu Đại Dương; vị trí địa lí, hình dạng và kích thước lục địa Australia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các khu vực địa hình và khoáng sản. Phân tích được đặc điểm khí hậu Australia, những nét đặc sắc của tài nguyên sinh vật ở Australia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm dân cư, một số vấn đề về lịch sử và văn hoá độc đáo của Australia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên ở Australia."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được các bộ phận của châu Đại Dương; vị trí địa lí, hình dạng và kích thước lục địa Australia. – Xác định được trên bản đồ các khu vực địa hình và khoáng sản. Phân tích được đặc điểm khí hậu Australia, những nét đặc sắc của tài nguyên sinh vật ở Australia. – Trình bày được đặc điểm dân cư, một số vấn đề về lịch sử và văn hoá độc đáo của Australia. – Phân tích được phương thức con người khai thác, sử dụng và bảo vệ thiên nhiên ở Australia.",
    "source": {
@@ -562,10 +2161,62 @@
    "content": "– Vị trí địa lí của châu Nam Cực – Lịch sử phát kiến châu Nam Cực – Đặc điểm tự nhiên và tài nguyên thiên nhiên của châu Nam Cực",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí của châu Nam Cực.",
-    "Trình bày được lịch sử khám phá và nghiên cứu châu Nam Cực.",
-    "Trình bày được đặc điểm thiên nhiên nổi bật của châu Nam Cực.",
-    "Mô tả được kịch bản về sự thay đổi của thiên nhiên châu Nam Cực khi có biến đổi khí hậu toàn cầu."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí của châu Nam Cực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được lịch sử khám phá và nghiên cứu châu Nam Cực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm thiên nhiên nổi bật của châu Nam Cực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được kịch bản về sự thay đổi của thiên nhiên châu Nam Cực khi có biến đổi khí hậu toàn cầu."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí của châu Nam Cực. – Trình bày được lịch sử khám phá và nghiên cứu châu Nam Cực. – Trình bày được đặc điểm thiên nhiên nổi bật của châu Nam Cực. – Mô tả được kịch bản về sự thay đổi của thiên nhiên châu Nam Cực khi có biến đổi khí hậu toàn cầu.",
    "source": {
@@ -588,20 +2239,112 @@
    "content": "– Cải cách tôn giáo – Sự hình thành quan hệ sản xuất tư bản chủ nghĩa ở Tây Âu trung đại",
    "kind": "requirement",
    "outcomes": [
-    "từ thế kỉ XIII đến thế kỉ XVI.",
-    "Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng.",
-    "Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu.",
-    "Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo.",
-    "Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo.",
-    "Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu.",
-    "Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được sự biến đổi quan trọng về kinh tế – xã hội của Tây Âu từ thế kỉ XIII đến thế kỉ XVI."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "từ thế kỉ XIII đến thế kỉ XVI. – Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng. – Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu. – Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo. – Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo. – Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu. – Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu.",
+   "outcome_text": "– Giới thiệu được sự biến đổi quan trọng về kinh tế – xã hội của Tây Âu từ thế kỉ XIII đến thế kỉ XVI. – Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng. – Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu. – Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo. – Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo. – Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu. – Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     24,
      25
     ]
    }
@@ -617,11 +2360,62 @@
    "content": "– Khái lược tiến trình lịch sử của Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX – Thành tựu chính trị, kinh tế, văn hóa của Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX",
    "kind": "requirement",
    "outcomes": [
-    "Lập được sơ đồ tiến trình phát triển của Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (các thời Đường, Tống, Nguyên, Minh, Thanh).",
-    "Nêu được những nét chính về sự thịnh vượng của Trung Quốc dưới thời Đường.",
-    "Mô tả được sự phát triển kinh tế dưới thời Minh",
-    "Thanh.",
-    "Giới thiệu và nhận xét được những thành tựu chủ yếu của văn hoá Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (Nho giáo, sử học, kiến trúc,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được sơ đồ tiến trình phát triển của Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (các thời Đường, Tống, Nguyên, Minh, Thanh)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về sự thịnh vượng của Trung Quốc dưới thời Đường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự phát triển kinh tế dưới thời Minh – Thanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu và nhận xét được những thành tựu chủ yếu của văn hoá Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (Nho giáo, sử học, kiến trúc,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Lập được sơ đồ tiến trình phát triển của Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (các thời Đường, Tống, Nguyên, Minh, Thanh). – Nêu được những nét chính về sự thịnh vượng của Trung Quốc dưới thời Đường. – Mô tả được sự phát triển kinh tế dưới thời Minh – Thanh. – Giới thiệu và nhận xét được những thành tựu chủ yếu của văn hoá Trung Quốc từ thế kỉ VII đến giữa thế kỉ XIX (Nho giáo, sử học, kiến trúc,...).",
    "source": {
@@ -644,9 +2438,48 @@
    "content": "– Vương triều Gupta – Vương triều Hồi giáo Delhi – Đế quốc Mogul",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được những nét chính về điều kiện tự nhiên của Ấn Độ.",
-    "Trình bày khái quát được sự ra đời và tình hình chính trị, kinh tế, xã hội của Ấn Độ dưới thời các vương triều Gupta, Delhi và đế quốc Mogul.",
-    "Giới thiệu và nhận xét được một số thành tựu tiêu biểu về văn hoá của Ấn Độ từ thế kỉ IV đến giữa thế kỉ XIX."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về điều kiện tự nhiên của Ấn Độ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày khái quát được sự ra đời và tình hình chính trị, kinh tế, xã hội của Ấn Độ dưới thời các vương triều Gupta, Delhi và đế quốc Mogul."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu và nhận xét được một số thành tựu tiêu biểu về văn hoá của Ấn Độ từ thế kỉ IV đến giữa thế kỉ XIX."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được những nét chính về điều kiện tự nhiên của Ấn Độ. – Trình bày khái quát được sự ra đời và tình hình chính trị, kinh tế, xã hội của Ấn Độ dưới thời các vương triều Gupta, Delhi và đế quốc Mogul. – Giới thiệu và nhận xét được một số thành tựu tiêu biểu về văn hoá của Ấn Độ từ thế kỉ IV đến giữa thế kỉ XIX.",
    "source": {
@@ -669,14 +2502,118 @@
    "content": "– Khái quát về Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI – Vương quốc Campuchia – Vương quốc Lào",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được quá trình hình thành, phát triển của các quốc gia Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI.",
-    "Giới thiệu và nhận xét được những thành tựu văn hoá tiêu biểu của Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI.",
-    "Mô tả được quá trình hình thành và phát triển của Vương quốc Campuchia.",
-    "Nhận biết và đánh giá được sự phát triển của Vương quốc Campuchia thời Angkor.",
-    "Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Campuchia.",
-    "Mô tả được quá trình hình thành và phát triển của Vương quốc Lào.",
-    "Nhận biết và đánh giá được sự phát triển của Vương quốc Lào thời Lan Xang.",
-    "Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Lào."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình hình thành, phát triển của các quốc gia Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu và nhận xét được những thành tựu văn hoá tiêu biểu của Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình hình thành và phát triển của Vương quốc Campuchia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và đánh giá được sự phát triển của Vương quốc Campuchia thời Angkor."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Campuchia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình hình thành và phát triển của Vương quốc Lào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và đánh giá được sự phát triển của Vương quốc Lào thời Lan Xang."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Lào."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được quá trình hình thành, phát triển của các quốc gia Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI. – Giới thiệu và nhận xét được những thành tựu văn hoá tiêu biểu của Đông Nam Á từ nửa sau thế kỉ X đến nửa đầu thế kỉ XVI. – Mô tả được quá trình hình thành và phát triển của Vương quốc Campuchia. – Nhận biết và đánh giá được sự phát triển của Vương quốc Campuchia thời Angkor. – Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Campuchia. – Mô tả được quá trình hình thành và phát triển của Vương quốc Lào. – Nhận biết và đánh giá được sự phát triển của Vương quốc Lào thời Lan Xang. – Nêu được một số nét tiêu biểu về văn hoá của Vương quốc Lào.",
    "source": {
@@ -699,34 +2636,286 @@
    "content": "– Việt Nam từ năm 938 đến năm 1009: thời Ngô – Đinh – Tiền Lê – Việt Nam từ thế kỉ XI đến đầu thế kỉ XIII: thời Lý – Việt Nam từ thế kỉ XIII đến đầu thế kỉ XV: thời Trần, Hồ + Thời Trần + Thời Hồ – Cuộc khởi nghĩa Lam Sơn (1418 – 1427)",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được những nét chính về thời Ngô.",
-    "Trình bày được công cuộc thống nhất đất nước của Đinh Bộ Lĩnh và sự thành lập nhà Đinh.",
-    "Mô tả được cuộc kháng chiến chống Tống của Lê Hoàn năm 981.",
-    "Giới thiệu được những nét chính về tổ chức chính quyền thời Ngô",
-    "Đinh",
-    "Tiền Lê.",
-    "Nhận biết được đời sống xã hội, văn hoá thời Ngô",
-    "Đinh",
-    "Tiền Lê.",
-    "Trình bày được sự thành lập nhà Lý. Đánh giá được sự kiện dời đô ra Đại La của Lý Công Uẩn.",
-    "Mô tả được những nét chính về chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Lý.",
-    "Đánh giá được những nét độc đáo của cuộc kháng chiến chống Tống và vai trò của Lý Thường Kiệt trong cuộc kháng chiến chống Tống (1075",
-    "1077).",
-    "Giới thiệu được những thành tựu tiêu biểu về văn hoá, giáo dục thời Lý (Văn Miếu",
-    "Quốc Tử Giám, mở khoa thi,...).",
-    "Mô tả được sự thành lập nhà Trần.",
-    "Trình bày được những nét chính về tình hình chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Trần.",
-    "Lập được lược đồ diễn biến chính của ba lần kháng chiến chống quân xâm lược Mông",
-    "Nguyên.",
-    "Phân tích được nguyên nhân thắng lợi, nêu được ý nghĩa lịch sử của ba lần kháng chiến chống quân xâm lược Mông",
-    "Nguyên, nhận thức được sâu sắc tinh thần đoàn kết và quyết tâm chống giặc ngoại xâm của quân dân Đại Việt.",
-    "Nêu được những thành tựu chủ yếu về văn hoá và đánh giá được vai trò của một số nhân vật lịch sử tiêu biểu thời Trần: Trần Thủ Độ, Trần Quốc Tuấn, Trần Nhân Tông,...",
-    "Trình bày được sự ra đời của nhà Hồ.",
-    "Giới thiệu được một số nội dung chủ yếu trong cải cách của Hồ Quý Ly và nêu được tác động của những cải cách ấy đối với xã hội thời nhà Hồ.",
-    "Mô tả được những nét chính về cuộc kháng chiến chống quân xâm lược nhà Minh.",
-    "Giải thích được nguyên nhân thất bại của cuộc kháng chiến chống quân Minh xâm lược.",
-    "Trình bày được một số sự kiện tiêu biểu của cuộc khởi nghĩa Lam Sơn.",
-    "Giải thích được nguyên nhân chính dẫn đến thắng lợi của cuộc khởi nghĩa Lam Sơn."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về thời Ngô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được công cuộc thống nhất đất nước của Đinh Bộ Lĩnh và sự thành lập nhà Đinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cuộc kháng chiến chống Tống của Lê Hoàn năm 981."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét chính về tổ chức chính quyền thời Ngô – Đinh – Tiền Lê."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được đời sống xã hội, văn hoá thời Ngô – Đinh – Tiền Lê."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự thành lập nhà Lý. Đánh giá được sự kiện dời đô ra Đại La của Lý Công Uẩn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính về chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Lý."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được những nét độc đáo của cuộc kháng chiến chống Tống và vai trò của Lý Thường Kiệt trong cuộc kháng chiến chống Tống (1075 – 1077)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những thành tựu tiêu biểu về văn hoá, giáo dục thời Lý (Văn Miếu – Quốc Tử Giám, mở khoa thi,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự thành lập nhà Trần."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về tình hình chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Trần."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được lược đồ diễn biến chính của ba lần kháng chiến chống quân xâm lược Mông – Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được nguyên nhân thắng lợi, nêu được ý nghĩa lịch sử của ba lần kháng chiến chống quân xâm lược Mông – Nguyên, nhận thức được sâu sắc tinh thần đoàn kết và quyết tâm chống giặc ngoại xâm của quân dân Đại Việt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những thành tựu chủ yếu về văn hoá và đánh giá được vai trò của một số nhân vật lịch sử tiêu biểu thời Trần: Trần Thủ Độ, Trần Quốc Tuấn, Trần Nhân Tông,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự ra đời của nhà Hồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được một số nội dung chủ yếu trong cải cách của Hồ Quý Ly và nêu được tác động của những cải cách ấy đối với xã hội thời nhà Hồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính về cuộc kháng chiến chống quân xâm lược nhà Minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguyên nhân thất bại của cuộc kháng chiến chống quân Minh xâm lược."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số sự kiện tiêu biểu của cuộc khởi nghĩa Lam Sơn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguyên nhân chính dẫn đến thắng lợi của cuộc khởi nghĩa Lam Sơn."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được những nét chính về thời Ngô. – Trình bày được công cuộc thống nhất đất nước của Đinh Bộ Lĩnh và sự thành lập nhà Đinh. – Mô tả được cuộc kháng chiến chống Tống của Lê Hoàn năm 981. – Giới thiệu được những nét chính về tổ chức chính quyền thời Ngô – Đinh – Tiền Lê. – Nhận biết được đời sống xã hội, văn hoá thời Ngô – Đinh – Tiền Lê. – Trình bày được sự thành lập nhà Lý. Đánh giá được sự kiện dời đô ra Đại La của Lý Công Uẩn. – Mô tả được những nét chính về chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Lý. – Đánh giá được những nét độc đáo của cuộc kháng chiến chống Tống và vai trò của Lý Thường Kiệt trong cuộc kháng chiến chống Tống (1075 – 1077). – Giới thiệu được những thành tựu tiêu biểu về văn hoá, giáo dục thời Lý (Văn Miếu – Quốc Tử Giám, mở khoa thi,...). – Mô tả được sự thành lập nhà Trần. – Trình bày được những nét chính về tình hình chính trị, kinh tế, xã hội, văn hóa, tôn giáo thời Trần. – Lập được lược đồ diễn biến chính của ba lần kháng chiến chống quân xâm lược Mông – Nguyên. – Phân tích được nguyên nhân thắng lợi, nêu được ý nghĩa lịch sử của ba lần kháng chiến chống quân xâm lược Mông – Nguyên, nhận thức được sâu sắc tinh thần đoàn kết và quyết tâm chống giặc ngoại xâm của quân dân Đại Việt. – Nêu được những thành tựu chủ yếu về văn hoá và đánh giá được vai trò của một số nhân vật lịch sử tiêu biểu thời Trần: Trần Thủ Độ, Trần Quốc Tuấn, Trần Nhân Tông,... – Trình bày được sự ra đời của nhà Hồ. – Giới thiệu được một số nội dung chủ yếu trong cải cách của Hồ Quý Ly và nêu được tác động của những cải cách ấy đối với xã hội thời nhà Hồ. – Mô tả được những nét chính về cuộc kháng chiến chống quân xâm lược nhà Minh. – Giải thích được nguyên nhân thất bại của cuộc kháng chiến chống quân Minh xâm lược. – Trình bày được một số sự kiện tiêu biểu của cuộc khởi nghĩa Lam Sơn. – Giải thích được nguyên nhân chính dẫn đến thắng lợi của cuộc khởi nghĩa Lam Sơn.",
    "source": {
@@ -750,11 +2939,62 @@
    "content": "– Việt Nam thời Lê sơ (1428 – 1527) – Vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được ý nghĩa của cuộc khởi nghĩa Lam Sơn và đánh giá được vai trò của một số nhân vật tiêu biểu: Lê Lợi, Nguyễn Trãi, Nguyễn Chích,...",
-    "Mô tả được sự thành lập nhà Lê sơ.",
-    "Nhận biết được tình hình kinh tế",
-    "xã hội thời Lê sơ.",
-    "Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của cuộc khởi nghĩa Lam Sơn và đánh giá được vai trò của một số nhân vật tiêu biểu: Lê Lợi, Nguyễn Trãi, Nguyễn Chích,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự thành lập nhà Lê sơ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được tình hình kinh tế – xã hội thời Lê sơ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được ý nghĩa của cuộc khởi nghĩa Lam Sơn và đánh giá được vai trò của một số nhân vật tiêu biểu: Lê Lợi, Nguyễn Trãi, Nguyễn Chích,... – Mô tả được sự thành lập nhà Lê sơ. – Nhận biết được tình hình kinh tế – xã hội thời Lê sơ. – Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI.",
    "source": {
@@ -777,11 +3017,48 @@
    "content": "– Nguyên nhân của các cuộc phát kiến địa lí – Một số cuộc đại phát kiến địa lí – Tác động của các cuộc đại phát kiến địa lí đối với tiến trình lịch sử",
    "kind": "requirement",
    "outcomes": [
-    "Giải thích được nguyên nhân và những yếu tố tác động đến các cuộc đại phát kiến địa lí.",
-    "Mô tả được các cuộc đại phát kiến địa lí: Christopher Colombus tìm ra châu Mỹ (1492",
-    "1502), cuộc thám hiểm của Ferdinand Magellan vòng quanh Trái Đất (1519",
-    "1522).",
-    "Phân tích được tác động của các cuộc đại phát kiến địa lí đối với tiến trình lịch sử."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguyên nhân và những yếu tố tác động đến các cuộc đại phát kiến địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các cuộc đại phát kiến địa lí: Christopher Colombus tìm ra châu Mỹ (1492 – 1502), cuộc thám hiểm của Ferdinand Magellan vòng quanh Trái Đất (1519 – 1522)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các cuộc đại phát kiến địa lí đối với tiến trình lịch sử."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giải thích được nguyên nhân và những yếu tố tác động đến các cuộc đại phát kiến địa lí. – Mô tả được các cuộc đại phát kiến địa lí: Christopher Colombus tìm ra châu Mỹ (1492 – 1502), cuộc thám hiểm của Ferdinand Magellan vòng quanh Trái Đất (1519 – 1522). – Phân tích được tác động của các cuộc đại phát kiến địa lí đối với tiến trình lịch sử.",
    "source": {
@@ -804,8 +3081,34 @@
    "content": "– Các đô thị cổ đại và các nền văn minh cổ đại – Các đô thị trung đại châu Âu và giới thương nhân",
    "kind": "requirement",
    "outcomes": [
-    "Phân tích được các điều kiện địa lí và lịch sử góp phần hình thành và phát triển một đô thị cổ đại và trung đại (qua một số trường hợp cụ thể).",
-    "Trình bày được mối quan hệ giữa đô thị với các nền văn minh cổ đại; vai trò của giới thương nhân với sự phát triển đô thị châu Âu trung đại."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các điều kiện địa lí và lịch sử góp phần hình thành và phát triển một đô thị cổ đại và trung đại (qua một số trường hợp cụ thể)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được mối quan hệ giữa đô thị với các nền văn minh cổ đại; vai trò của giới thương nhân với sự phát triển đô thị châu Âu trung đại."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Phân tích được các điều kiện địa lí và lịch sử góp phần hình thành và phát triển một đô thị cổ đại và trung đại (qua một số trường hợp cụ thể). – Trình bày được mối quan hệ giữa đô thị với các nền văn minh cổ đại; vai trò của giới thương nhân với sự phát triển đô thị châu Âu trung đại.",
    "source": {
@@ -828,8 +3131,34 @@
    "content": "– Đặc điểm vị trí địa lí và phạm vi lãnh thổ – Ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đối với sự hình thành đặc điểm địa lí tự nhiên Việt Nam",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí.",
-    "Phân tích được ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đối với sự hình thành đặc điểm địa lí tự nhiên Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đối với sự hình thành đặc điểm địa lí tự nhiên Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí. – Phân tích được ảnh hưởng của vị trí địa lí và phạm vi lãnh thổ đối với sự hình thành đặc điểm địa lí tự nhiên Việt Nam.",
    "source": {
@@ -852,16 +3181,56 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế.",
-    "Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam.",
-    "Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm được ví dụ chứng minh ảnh hưởng của sự phân hoá địa hình đối với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế. – Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam. – Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản.",
+   "outcome_text": "– Tìm được ví dụ chứng minh ảnh hưởng của sự phân hoá địa hình đối với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế. – Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam. – Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     30,
      31
     ]
    }
@@ -877,17 +3246,160 @@
    "content": "– Khí hậu nhiệt đới ẩm gió mùa, phân hoá đa dạng – Tác động của biến đổi khí hậu đối với khí hậu và thuỷ văn Việt Nam – Đặc điểm sông ngòi. Chế độ nước sông của một số hệ thống sông lớn – Hồ, đầm và nước ngầm – Vai trò của tài nguyên khí hậu và tài nguyên nước đối với sự phát triển kinh tế – xã hội của nước ta",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm khí hậu nhiệt đới ẩm gió mùa của Việt Nam.",
-    "Vẽ và phân tích được biểu đồ khí hậu của một số trạm thuộc các vùng khí hậu khác nhau.",
-    "Chứng minh được sự phân hoá đa dạng của khí hậu Việt Nam.",
-    "Phân tích được tác động của biến đổi khí hậu đối với khí hậu và thuỷ văn Việt Nam.",
-    "Tìm ví dụ về giải pháp ứng phó với biến đổi khí hậu.",
-    "Xác định được trên bản đồ lưu vực của các hệ thống sông lớn.",
-    "Phân tích được đặc điểm mạng lưới sông và chế độ nước sông của một số hệ thống sông lớn.",
-    "Phân tích được vai trò của hồ, đầm và nước ngầm đối với sản xuất và sinh hoạt.",
-    "Phân tích được ảnh hưởng của khí hậu đối với sản xuất nông nghiệp.",
-    "Phân tích được vai trò của khí hậu đối với sự phát triển du lịch ở một số điểm du lịch nổi tiếng của nước ta.",
-    "Lấy ví dụ chứng minh được tầm quan trọng của việc sử dụng tổng hợp tài nguyên nước ở một lưu vực sông."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm khí hậu nhiệt đới ẩm gió mùa của Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và phân tích được biểu đồ khí hậu của một số trạm thuộc các vùng khí hậu khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được sự phân hoá đa dạng của khí hậu Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của biến đổi khí hậu đối với khí hậu và thuỷ văn Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm ví dụ về giải pháp ứng phó với biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ lưu vực của các hệ thống sông lớn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm mạng lưới sông và chế độ nước sông của một số hệ thống sông lớn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của hồ, đầm và nước ngầm đối với sản xuất và sinh hoạt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của khí hậu đối với sản xuất nông nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của khí hậu đối với sự phát triển du lịch ở một số điểm du lịch nổi tiếng của nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lấy ví dụ chứng minh được tầm quan trọng của việc sử dụng tổng hợp tài nguyên nước ở một lưu vực sông."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm khí hậu nhiệt đới ẩm gió mùa của Việt Nam. – Vẽ và phân tích được biểu đồ khí hậu của một số trạm thuộc các vùng khí hậu khác nhau. – Chứng minh được sự phân hoá đa dạng của khí hậu Việt Nam. – Phân tích được tác động của biến đổi khí hậu đối với khí hậu và thuỷ văn Việt Nam. – Tìm ví dụ về giải pháp ứng phó với biến đổi khí hậu. – Xác định được trên bản đồ lưu vực của các hệ thống sông lớn. – Phân tích được đặc điểm mạng lưới sông và chế độ nước sông của một số hệ thống sông lớn. – Phân tích được vai trò của hồ, đầm và nước ngầm đối với sản xuất và sinh hoạt. – Phân tích được ảnh hưởng của khí hậu đối với sản xuất nông nghiệp. – Phân tích được vai trò của khí hậu đối với sự phát triển du lịch ở một số điểm du lịch nổi tiếng của nước ta. – Lấy ví dụ chứng minh được tầm quan trọng của việc sử dụng tổng hợp tài nguyên nước ở một lưu vực sông.",
    "source": {
@@ -911,13 +3423,104 @@
    "content": "– Đặc điểm chung của lớp phủ thổ nhưỡng – Đặc điểm và sự phân bố của các nhóm đất chính – Vấn đề sử dụng hợp lí tài nguyên đất ở Việt Nam – Đặc điểm chung của sinh vật – Vấn đề bảo tồn đa dạng sinh học ở Việt Nam",
    "kind": "requirement",
    "outcomes": [
-    "Chứng minh được tính chất nhiệt đới gió mùa của lớp phủ thổ nhưỡng.",
-    "Trình bày được đặc điểm phân bố của ba nhóm đất chính.",
-    "Phân tích được đặc điểm của đất feralit và giá trị sử dụng đất feralit trong sản xuất nông, lâm nghiệp.",
-    "Phân tích được đặc điểm của đất phù sa và giá trị sử dụng của đất phù sa trong sản xuất nông nghiệp, thuỷ sản.",
-    "Chứng minh được tính cấp thiết của vấn đề chống thoái hoá đất.",
-    "Chứng minh được sự đa dạng của sinh vật ở Việt Nam.",
-    "Chứng minh được tính cấp thiết của vấn đề bảo tồn đa dạng sinh học ở Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được tính chất nhiệt đới gió mùa của lớp phủ thổ nhưỡng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm phân bố của ba nhóm đất chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm của đất feralit và giá trị sử dụng đất feralit trong sản xuất nông, lâm nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm của đất phù sa và giá trị sử dụng của đất phù sa trong sản xuất nông nghiệp, thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được tính cấp thiết của vấn đề chống thoái hoá đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được sự đa dạng của sinh vật ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được tính cấp thiết của vấn đề bảo tồn đa dạng sinh học ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Chứng minh được tính chất nhiệt đới gió mùa của lớp phủ thổ nhưỡng. – Trình bày được đặc điểm phân bố của ba nhóm đất chính. – Phân tích được đặc điểm của đất feralit và giá trị sử dụng đất feralit trong sản xuất nông, lâm nghiệp. – Phân tích được đặc điểm của đất phù sa và giá trị sử dụng của đất phù sa trong sản xuất nông nghiệp, thuỷ sản. – Chứng minh được tính cấp thiết của vấn đề chống thoái hoá đất. – Chứng minh được sự đa dạng của sinh vật ở Việt Nam. – Chứng minh được tính cấp thiết của vấn đề bảo tồn đa dạng sinh học ở Việt Nam.",
    "source": {
@@ -940,16 +3543,56 @@
    "content": "– Môi trường và tài nguyên biển đảo Việt Nam",
    "kind": "requirement",
    "outcomes": [
-    "phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam).",
-    "Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam.",
-    "Trình bày được các tài nguyên biển và thềm lục địa Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các mốc xác định đường cơ sở, đường phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các tài nguyên biển và thềm lục địa Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam). – Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam. – Trình bày được các tài nguyên biển và thềm lục địa Việt Nam.",
+   "outcome_text": "– Xác định được trên bản đồ các mốc xác định đường cơ sở, đường phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam). – Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam. – Trình bày được các tài nguyên biển và thềm lục địa Việt Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     32,
      33
     ]
    }
@@ -965,11 +3608,76 @@
    "content": "– Cách mạng tư sản Anh – Chiến tranh giành độc lập của 13 thuộc địa Anh ở Bắc Mỹ. – Cách mạng tư sản Pháp – Cách mạng công nghiệp",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được trên bản đồ thế giới địa điểm diễn ra các cuộc cách mạng tư sản tiêu biểu từ thế kỉ XVI đến thế kỉ XVIII.",
-    "Trình bày được những nét chung về nguyên nhân, kết quả, ý nghĩa, tính chất của cách mạng tư sản.",
-    "Nêu được một số đặc điểm chính của các cuộc cách mạng tư sản tiêu biểu ở Anh, Pháp, Mỹ.",
-    "Trình bày được những thành tựu tiêu biểu của cách mạng công nghiệp.",
-    "Nêu được những tác động quan trọng của cách mạng công nghiệp đối với sản xuất và đời sống."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ thế giới địa điểm diễn ra các cuộc cách mạng tư sản tiêu biểu từ thế kỉ XVI đến thế kỉ XVIII."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chung về nguyên nhân, kết quả, ý nghĩa, tính chất của cách mạng tư sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đặc điểm chính của các cuộc cách mạng tư sản tiêu biểu ở Anh, Pháp, Mỹ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những thành tựu tiêu biểu của cách mạng công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những tác động quan trọng của cách mạng công nghiệp đối với sản xuất và đời sống."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được trên bản đồ thế giới địa điểm diễn ra các cuộc cách mạng tư sản tiêu biểu từ thế kỉ XVI đến thế kỉ XVIII. – Trình bày được những nét chung về nguyên nhân, kết quả, ý nghĩa, tính chất của cách mạng tư sản. – Nêu được một số đặc điểm chính của các cuộc cách mạng tư sản tiêu biểu ở Anh, Pháp, Mỹ. – Trình bày được những thành tựu tiêu biểu của cách mạng công nghiệp. – Nêu được những tác động quan trọng của cách mạng công nghiệp đối với sản xuất và đời sống.",
    "source": {
@@ -992,10 +3700,48 @@
    "content": "– Quá trình xâm lược Đông Nam Á của thực dân phương Tây – Tình hình chính trị, kinh tế, văn hoá – xã hội của các nước Đông Nam Á – Cuộc đấu tranh chống ách đô hộ của thực dân phương Tây ở Đông Nam Á",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được những nét chính trong quá trình xâm nhập của tư bản phương Tây vào các nước Đông Nam Á.",
-    "Nêu được những nét nổi bật về tình hình chính trị, kinh tế, văn hoá",
-    "xã hội của các nước Đông Nam Á dưới ách đô hộ của thực dân phương Tây.",
-    "Mô tả được những nét chính về cuộc đấu tranh của các nước Đông Nam Á chống lại ách đô hộ của thực dân phương Tây."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính trong quá trình xâm nhập của tư bản phương Tây vào các nước Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét nổi bật về tình hình chính trị, kinh tế, văn hoá – xã hội của các nước Đông Nam Á dưới ách đô hộ của thực dân phương Tây."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính về cuộc đấu tranh của các nước Đông Nam Á chống lại ách đô hộ của thực dân phương Tây."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được những nét chính trong quá trình xâm nhập của tư bản phương Tây vào các nước Đông Nam Á. – Nêu được những nét nổi bật về tình hình chính trị, kinh tế, văn hoá – xã hội của các nước Đông Nam Á dưới ách đô hộ của thực dân phương Tây. – Mô tả được những nét chính về cuộc đấu tranh của các nước Đông Nam Á chống lại ách đô hộ của thực dân phương Tây.",
    "source": {
@@ -1018,12 +3764,62 @@
    "content": "– Phong trào Tây Sơn – Kinh tế, văn hoá, tôn giáo trong các thế kỉ XVI – XVIII",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),...",
-    "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử và đánh giá được vai trò của Nguyễn Huệ",
-    "Quang Trung trong phong trào Tây Sơn.",
-    "Nêu được những nét chính về tình hình kinh tế.",
-    "Mô tả và nhận xét được những nét chính về sự chuyển biến văn hoá và tôn giáo ở Đại Việt trong các thế kỉ XVI",
-    "XVIII."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử và đánh giá được vai trò của Nguyễn Huệ – Quang Trung trong phong trào Tây Sơn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về tình hình kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả và nhận xét được những nét chính về sự chuyển biến văn hoá và tôn giáo ở Đại Việt trong các thế kỉ XVI – XVIII."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),... – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử và đánh giá được vai trò của Nguyễn Huệ – Quang Trung trong phong trào Tây Sơn. – Nêu được những nét chính về tình hình kinh tế. – Mô tả và nhận xét được những nét chính về sự chuyển biến văn hoá và tôn giáo ở Đại Việt trong các thế kỉ XVI – XVIII.",
    "source": {
@@ -1046,18 +3842,70 @@
    "content": "– Chiến tranh thế giới thứ nhất (1914 – 1918) – Cách mạng tháng Mười Nga năm 1917",
    "kind": "requirement",
    "outcomes": [
-    "công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...).",
-    "Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất.",
-    "Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914",
-    "1918) đối với lịch sử nhân loại.",
-    "Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số hoạt động tiêu biểu của phong trào cộng sản và công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914 – 1918) đối với lịch sử nhân loại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...). – Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất. – Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914 – 1918) đối với lịch sử nhân loại. – Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917.",
+   "outcome_text": "– Mô tả được một số hoạt động tiêu biểu của phong trào cộng sản và công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...). – Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất. – Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914 – 1918) đối với lịch sử nhân loại. – Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     35,
      36
     ]
    }
@@ -1073,10 +3921,34 @@
    "content": "– Một số thành tựu khoa học, kĩ thuật, văn học, nghệ thuật của nhân loại trong các thế kỉ XVIII – XIX – Tác động của sự phát triển khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII – XIX",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được một số thành tựu tiêu biểu về khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII",
-    "XIX.",
-    "Phân tích được tác động của sự phát triển khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII",
-    "XIX."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số thành tựu tiêu biểu về khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII – XIX."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của sự phát triển khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII – XIX."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được một số thành tựu tiêu biểu về khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII – XIX. – Phân tích được tác động của sự phát triển khoa học, kĩ thuật, văn học, nghệ thuật trong các thế kỉ XVIII – XIX.",
    "source": {
@@ -1099,9 +3971,48 @@
    "content": "– Ấn Độ – Đông Nam Á",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX.",
-    "Trình bày được tình hình chính trị, kinh tế, xã hội Ấn Độ nửa sau thế kỉ XIX.",
-    "Nêu được một số sự kiện về phong trào giải phóng dân tộc ở Đông Nam Á từ nửa sau thế kỉ XIX đến đầu thế kỉ XX."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình chính trị, kinh tế, xã hội Ấn Độ nửa sau thế kỉ XIX."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số sự kiện về phong trào giải phóng dân tộc ở Đông Nam Á từ nửa sau thế kỉ XIX đến đầu thế kỉ XX."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX. – Trình bày được tình hình chính trị, kinh tế, xã hội Ấn Độ nửa sau thế kỉ XIX. – Nêu được một số sự kiện về phong trào giải phóng dân tộc ở Đông Nam Á từ nửa sau thế kỉ XIX đến đầu thế kỉ XX.",
    "source": {
@@ -1124,15 +4035,118 @@
    "content": "– Việt Nam nửa đầu thế kỉ XIX – Việt Nam nửa sau thế kỉ XIX – Việt Nam đầu thế kỉ XX",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được sự ra đời của nhà Nguyễn.",
-    "Trình bày được những nét chính về tình hình chính trị, sự phát triển kinh tế, văn hoá, xã hội của Việt Nam thời nhà Nguyễn.",
-    "Mô tả được quá trình thực thi chủ quyền đối với quần đảo Hoàng Sa và quần đảo Trường Sa của các vua Nguyễn.",
-    "Nêu được quá trình thực dân Pháp xâm lược Việt Nam và cuộc kháng chiến chống thực dân Pháp xâm lược của nhân dân Việt Nam (1858",
-    "1884).",
-    "Nhận biết được nguyên nhân, một số nội dung chính trong các đề nghị cải cách của các quan lại, sĩ phu yêu nước.",
-    "Trình bày được một số cuộc khởi nghĩa tiêu biểu trong phong trào Cần vương và cuộc khởi nghĩa Yên Thế.",
-    "Nêu được tác động của cuộc khai thác thuộc địa lần thứ nhất của người Pháp đối với xã hội Việt Nam.",
-    "Giới thiệu được những nét chính về hoạt động yêu nước của Phan Bội Châu, Phan Châu Trinh, Nguyễn Tất Thành."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự ra đời của nhà Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về tình hình chính trị, sự phát triển kinh tế, văn hoá, xã hội của Việt Nam thời nhà Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình thực thi chủ quyền đối với quần đảo Hoàng Sa và quần đảo Trường Sa của các vua Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quá trình thực dân Pháp xâm lược Việt Nam và cuộc kháng chiến chống thực dân Pháp xâm lược của nhân dân Việt Nam (1858 – 1884)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được nguyên nhân, một số nội dung chính trong các đề nghị cải cách của các quan lại, sĩ phu yêu nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số cuộc khởi nghĩa tiêu biểu trong phong trào Cần vương và cuộc khởi nghĩa Yên Thế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác động của cuộc khai thác thuộc địa lần thứ nhất của người Pháp đối với xã hội Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét chính về hoạt động yêu nước của Phan Bội Châu, Phan Châu Trinh, Nguyễn Tất Thành."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được sự ra đời của nhà Nguyễn. – Trình bày được những nét chính về tình hình chính trị, sự phát triển kinh tế, văn hoá, xã hội của Việt Nam thời nhà Nguyễn. – Mô tả được quá trình thực thi chủ quyền đối với quần đảo Hoàng Sa và quần đảo Trường Sa của các vua Nguyễn. – Nêu được quá trình thực dân Pháp xâm lược Việt Nam và cuộc kháng chiến chống thực dân Pháp xâm lược của nhân dân Việt Nam (1858 – 1884). – Nhận biết được nguyên nhân, một số nội dung chính trong các đề nghị cải cách của các quan lại, sĩ phu yêu nước. – Trình bày được một số cuộc khởi nghĩa tiêu biểu trong phong trào Cần vương và cuộc khởi nghĩa Yên Thế. – Nêu được tác động của cuộc khai thác thuộc địa lần thứ nhất của người Pháp đối với xã hội Việt Nam. – Giới thiệu được những nét chính về hoạt động yêu nước của Phan Bội Châu, Phan Châu Trinh, Nguyễn Tất Thành.",
    "source": {
@@ -1156,8 +4170,34 @@
    "content": "– Quá trình hình thành và phát triển châu thổ; chế độ nước của các dòng sông chính – Quá trình con người khai khẩn và cải tạo châu thổ, chế ngự các dòng sông",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được quá trình hình thành và phát triển châu thổ; mô tả được chế độ nước của các dòng sông chính.",
-    "Trình bày được quá trình con người khai khẩn và cải tạo châu thổ, chế ngự và thích ứng với chế độ nước của sông Hồng và sông Cửu Long."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình hình thành và phát triển châu thổ; mô tả được chế độ nước của các dòng sông chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình con người khai khẩn và cải tạo châu thổ, chế ngự và thích ứng với chế độ nước của sông Hồng và sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được quá trình hình thành và phát triển châu thổ; mô tả được chế độ nước của các dòng sông chính. – Trình bày được quá trình con người khai khẩn và cải tạo châu thổ, chế ngự và thích ứng với chế độ nước của sông Hồng và sông Cửu Long.",
    "source": {
@@ -1180,9 +4220,48 @@
    "content": "– Phạm vi các vùng biển và hải đảo Việt Nam – Đặc điểm môi trường và tài nguyên biển, đảo – Quá trình xác lập chủ quyền biển đảo trong lịch sử Việt Nam",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí, phạm vi của vùng biển và hải đảo Việt Nam (theo Luật Biển Việt Nam).",
-    "Trình bày được những nét chính về môi trường, tài nguyên thiên nhiên; phân tích được những thuận lợi và khó khăn đối với phát triển kinh tế và bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.",
-    "Trình bày được quá trình xác lập chủ quyền biển đảo của Việt Nam trong lịch sử."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí, phạm vi của vùng biển và hải đảo Việt Nam (theo Luật Biển Việt Nam)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về môi trường, tài nguyên thiên nhiên; phân tích được những thuận lợi và khó khăn đối với phát triển kinh tế và bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình xác lập chủ quyền biển đảo của Việt Nam trong lịch sử."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí, phạm vi của vùng biển và hải đảo Việt Nam (theo Luật Biển Việt Nam). – Trình bày được những nét chính về môi trường, tài nguyên thiên nhiên; phân tích được những thuận lợi và khó khăn đối với phát triển kinh tế và bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông. – Trình bày được quá trình xác lập chủ quyền biển đảo của Việt Nam trong lịch sử.",
    "source": {
@@ -1205,13 +4284,104 @@
    "content": "– Thành phần dân tộc – Gia tăng dân số ở các thời kì – Cơ cấu dân số theo tuổi và giới tính – Phân bố dân cư – Các loại hình quần cư thành thị và nông thôn – Lao động và việc làm – Chất lượng cuộc sống",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm phân bố các dân tộc Việt Nam.",
-    "Vẽ và nhận xét được biểu đồ về gia tăng dân số.",
-    "Phân tích được sự thay đổi cơ cấu tuổi và giới tính của dân cư.",
-    "Đọc bản đồ Dân số Việt Nam để rút ra được đặc điểm phân bố dân cư.",
-    "Trình bày được sự khác biệt giữa quần cư thành thị và quần cư nông thôn.",
-    "Phân tích được vấn đề việc làm ở địa phương.",
-    "Nhận xét được sự phân hoá thu nhập theo vùng từ bảng số liệu cho trước."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm phân bố các dân tộc Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và nhận xét được biểu đồ về gia tăng dân số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự thay đổi cơ cấu tuổi và giới tính của dân cư."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc bản đồ Dân số Việt Nam để rút ra được đặc điểm phân bố dân cư."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự khác biệt giữa quần cư thành thị và quần cư nông thôn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề việc làm ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được sự phân hoá thu nhập theo vùng từ bảng số liệu cho trước."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm phân bố các dân tộc Việt Nam. – Vẽ và nhận xét được biểu đồ về gia tăng dân số. – Phân tích được sự thay đổi cơ cấu tuổi và giới tính của dân cư. – Đọc bản đồ Dân số Việt Nam để rút ra được đặc điểm phân bố dân cư. – Trình bày được sự khác biệt giữa quần cư thành thị và quần cư nông thôn. – Phân tích được vấn đề việc làm ở địa phương. – Nhận xét được sự phân hoá thu nhập theo vùng từ bảng số liệu cho trước.",
    "source": {
@@ -1234,9 +4404,48 @@
    "content": "– Vấn đề phát triển nông nghiệp xanh",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản.",
-    "Tìm kiếm thông tin, viết báo cáo ngắn về một số mô hình sản xuất nông nghiệp có hiệu quả.",
-    "Trình bày được ý nghĩa của việc phát triển nông nghiệp xanh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm kiếm thông tin, viết báo cáo ngắn về một số mô hình sản xuất nông nghiệp có hiệu quả."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ý nghĩa của việc phát triển nông nghiệp xanh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản. – Tìm kiếm thông tin, viết báo cáo ngắn về một số mô hình sản xuất nông nghiệp có hiệu quả. – Trình bày được ý nghĩa của việc phát triển nông nghiệp xanh.",
    "source": {
@@ -1259,10 +4468,62 @@
    "content": "– Các nhân tố ảnh hưởng đến sự phát triển và phân bố công nghiệp – Sự phát triển và phân bố của các ngành công nghiệp chủ yếu – Vấn đề phát triển công nghiệp xanh",
    "kind": "requirement",
    "outcomes": [
-    "Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố công nghiệp.",
-    "Trình bày được sự phát triển và phân bố của một trong các ngành công nghiệp chủ yếu.",
-    "Xác định được trên bản đồ các trung tâm công nghiệp chính.",
-    "Giải thích được tại sao cần phát triển công nghiệp xanh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố của một trong các ngành công nghiệp chủ yếu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các trung tâm công nghiệp chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tại sao cần phát triển công nghiệp xanh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố công nghiệp. – Trình bày được sự phát triển và phân bố của một trong các ngành công nghiệp chủ yếu. – Xác định được trên bản đồ các trung tâm công nghiệp chính. – Giải thích được tại sao cần phát triển công nghiệp xanh.",
    "source": {
@@ -1285,10 +4546,62 @@
    "content": "– Các nhân tố ảnh hưởng đến sự phát triển và phân bố các ngành dịch vụ – Giao thông vận tải và bưu chính viễn thông – Thương mại, du lịch",
    "kind": "requirement",
    "outcomes": [
-    "Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố các ngành dịch vụ.",
-    "Xác định được trên bản đồ các tuyến đường bộ huyết mạch, các tuyến đường sắt, các cảng biển lớn và các sân bay quốc tế chính.",
-    "Trình bày được sự phát triển ngành bưu chính viễn thông.",
-    "Phân tích được một số xu hướng phát triển mới trong ngành thương mại và du lịch."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố các ngành dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ các tuyến đường bộ huyết mạch, các tuyến đường sắt, các cảng biển lớn và các sân bay quốc tế chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển ngành bưu chính viễn thông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số xu hướng phát triển mới trong ngành thương mại và du lịch."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Phân tích được vai trò của một trong các nhân tố quan trọng ảnh hưởng đến sự phát triển và phân bố các ngành dịch vụ. – Xác định được trên bản đồ các tuyến đường bộ huyết mạch, các tuyến đường sắt, các cảng biển lớn và các sân bay quốc tế chính. – Trình bày được sự phát triển ngành bưu chính viễn thông. – Phân tích được một số xu hướng phát triển mới trong ngành thương mại và du lịch.",
    "source": {
@@ -1311,14 +4624,76 @@
    "content": "– Vị trí địa lí, phạm vi lãnh thổ – Các đặc điểm nổi bật về điều kiện tự nhiên và tài nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng.",
-    "Trình bày được đặc điểm phân hoá thiên nhiên giữa Đông Bắc và Tây Bắc; các thế mạnh để phát triển công nghiệp, lâm",
-    "nông",
-    "thuỷ sản, du lịch.",
-    "Vẽ được sơ đồ tư duy thể hiện các thế mạnh về tự nhiên để phát triển kinh tế",
-    "xã hội của vùng Trung du và miền núi Bắc Bộ.",
-    "Nhận xét được đặc điểm nổi bật về thành phần dân tộc, phân bố dân cư và chất lượng cuộc sống dân cư (sử dụng bản đồ và bảng số liệu).",
-    "Trình bày được sự phát triển và phân bố một trong các ngành kinh tế của vùng (sử dụng bản đồ và bảng số liệu)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm phân hoá thiên nhiên giữa Đông Bắc và Tây Bắc; các thế mạnh để phát triển công nghiệp, lâm – nông – thuỷ sản, du lịch."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được sơ đồ tư duy thể hiện các thế mạnh về tự nhiên để phát triển kinh tế – xã hội của vùng Trung du và miền núi Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được đặc điểm nổi bật về thành phần dân tộc, phân bố dân cư và chất lượng cuộc sống dân cư (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố một trong các ngành kinh tế của vùng (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng. – Trình bày được đặc điểm phân hoá thiên nhiên giữa Đông Bắc và Tây Bắc; các thế mạnh để phát triển công nghiệp, lâm – nông – thuỷ sản, du lịch. – Vẽ được sơ đồ tư duy thể hiện các thế mạnh về tự nhiên để phát triển kinh tế – xã hội của vùng Trung du và miền núi Bắc Bộ. – Nhận xét được đặc điểm nổi bật về thành phần dân tộc, phân bố dân cư và chất lượng cuộc sống dân cư (sử dụng bản đồ và bảng số liệu). – Trình bày được sự phát triển và phân bố một trong các ngành kinh tế của vùng (sử dụng bản đồ và bảng số liệu).",
    "source": {
@@ -1341,8 +4716,34 @@
    "content": "– Đặc điểm phát triển và phân bố các ngành kinh tế của vùng – Vùng kinh tế trọng điểm Bắc Bộ",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu).",
-    "Sưu tầm tư liệu và trình bày được về vùng kinh tế trọng điểm Bắc Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm tư liệu và trình bày được về vùng kinh tế trọng điểm Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu). – Sưu tầm tư liệu và trình bày được về vùng kinh tế trọng điểm Bắc Bộ.",
    "source": {
@@ -1365,13 +4766,104 @@
    "content": "– Vị trí địa lí, phạm vi lãnh thổ – Các đặc điểm nổi bật về điều kiện tự nhiên và tài nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng.",
-    "Trình bày được đặc điểm phân hoá của tự nhiên và giải thích ảnh hưởng của tự nhiên đến sự hình thành cơ cấu kinh tế của vùng.",
-    "Trình bày được vấn đề phòng chống thiên tai và ứng phó với biến đổi khí hậu ở Bắc Trung Bộ.",
-    "Trình bày và giải thích được đặc điểm phân bố dân cư ở vùng Bắc Trung Bộ.",
-    "Phân tích được sự phát triển và phân bố kinh tế ở vùng Bắc Trung Bộ (sử dụng bản đồ và bảng số liệu).",
-    "Phân tích được thế mạnh về du lịch ở vùng Bắc Trung Bộ.",
-    "Phân tích được vấn đề phát triển kinh tế biển ở vùng Bắc Trung Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm phân hoá của tự nhiên và giải thích ảnh hưởng của tự nhiên đến sự hình thành cơ cấu kinh tế của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vấn đề phòng chống thiên tai và ứng phó với biến đổi khí hậu ở Bắc Trung Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được đặc điểm phân bố dân cư ở vùng Bắc Trung Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự phát triển và phân bố kinh tế ở vùng Bắc Trung Bộ (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được thế mạnh về du lịch ở vùng Bắc Trung Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề phát triển kinh tế biển ở vùng Bắc Trung Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được trên bản đồ vị trí địa lí và phạm vi lãnh thổ của vùng. – Trình bày được đặc điểm phân hoá của tự nhiên và giải thích ảnh hưởng của tự nhiên đến sự hình thành cơ cấu kinh tế của vùng. – Trình bày được vấn đề phòng chống thiên tai và ứng phó với biến đổi khí hậu ở Bắc Trung Bộ. – Trình bày và giải thích được đặc điểm phân bố dân cư ở vùng Bắc Trung Bộ. – Phân tích được sự phát triển và phân bố kinh tế ở vùng Bắc Trung Bộ (sử dụng bản đồ và bảng số liệu). – Phân tích được thế mạnh về du lịch ở vùng Bắc Trung Bộ. – Phân tích được vấn đề phát triển kinh tế biển ở vùng Bắc Trung Bộ.",
    "source": {
@@ -1394,13 +4886,76 @@
    "content": "– Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng – Vùng kinh tế trọng điểm miền Trung",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được sự phân bố dân cư, dân tộc.",
-    "Phân tích được những chuyển biến trong sự phát triển và phân bố kinh tế của vùng.",
-    "Phân tích được sự phát triển của một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu).",
-    "Sử dụng sơ đồ tư duy để phân tích được ảnh hưởng của nạn hạn hán và sa mạc hoá đối với sự phát triển kinh tế",
-    "xã hội ở vùng khô hạn Ninh Thuận",
-    "Bình Thuận.",
-    "Trình bày được về vùng kinh tế trọng điểm miền Trung."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phân bố dân cư, dân tộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những chuyển biến trong sự phát triển và phân bố kinh tế của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự phát triển của một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng sơ đồ tư duy để phân tích được ảnh hưởng của nạn hạn hán và sa mạc hoá đối với sự phát triển kinh tế – xã hội ở vùng khô hạn Ninh Thuận – Bình Thuận."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được về vùng kinh tế trọng điểm miền Trung."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được sự phân bố dân cư, dân tộc. – Phân tích được những chuyển biến trong sự phát triển và phân bố kinh tế của vùng. – Phân tích được sự phát triển của một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Sử dụng sơ đồ tư duy để phân tích được ảnh hưởng của nạn hạn hán và sa mạc hoá đối với sự phát triển kinh tế – xã hội ở vùng khô hạn Ninh Thuận – Bình Thuận. – Trình bày được về vùng kinh tế trọng điểm miền Trung.",
    "source": {
@@ -1423,10 +4978,62 @@
    "content": "– Vị trí địa lí, phạm vi lãnh thổ – Các đặc điểm nổi bật về điều kiện tự nhiên và tài nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng.",
-    "Trình bày được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng.",
-    "Nhận xét được đặc điểm dân cư, văn hoá của các dân tộc Tây Nguyên.",
-    "Trình bày được sự phát triển và phân bố các ngành kinh tế thế mạnh của vùng Tây Nguyên; các vấn đề môi trường trong phát triển."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được đặc điểm dân cư, văn hoá của các dân tộc Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố các ngành kinh tế thế mạnh của vùng Tây Nguyên; các vấn đề môi trường trong phát triển."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng. – Trình bày được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng. – Nhận xét được đặc điểm dân cư, văn hoá của các dân tộc Tây Nguyên. – Trình bày được sự phát triển và phân bố các ngành kinh tế thế mạnh của vùng Tây Nguyên; các vấn đề môi trường trong phát triển.",
    "source": {
@@ -1445,23 +5052,102 @@
    "level": "THCS",
    "stream": null,
    "section": "Vùng Đông Nam Bộ",
-   "topic": "nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng – Vùng kinh tế trọng điểm phía Nam",
+   "topic": "Các đặc điểm nổi bật về điều kiện tự nhiên và tài nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng – Vùng kinh tế trọng điểm phía Nam",
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "nguyên thiên nhiên của vùng.",
-    "Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ.",
-    "Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu).",
-    "Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng.",
-    "Phân tích được vị thế của Thành phố Hồ Chí Minh.",
-    "Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vị thế của Thành phố Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "nguyên thiên nhiên của vùng. – Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ. – Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng. – Phân tích được vị thế của Thành phố Hồ Chí Minh. – Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam.",
+   "outcome_text": "– Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng. – Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ. – Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng. – Phân tích được vị thế của Thành phố Hồ Chí Minh. – Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     43,
      44
     ]
    }
@@ -1477,12 +5163,90 @@
    "content": "– Vị trí địa lí, phạm vi lãnh thổ – Các đặc điểm nổi bật về điều kiện tự nhiên và tài nguyên thiên nhiên – Các đặc điểm nổi bật về dân cư, xã hội của vùng – Đặc điểm phát triển và phân bố các ngành kinh tế của vùng – Vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng.",
-    "Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng.",
-    "Phân tích được đặc điểm dân cư; một số vấn đề xã hội của vùng.",
-    "Trình bày được sự phát triển và phân bố một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu).",
-    "Tìm hiểu thông tin và phân tích được tác động của biến đổi khí hậu đối với Đồng bằng sông Cửu Long; đề xuất giải pháp ứng phó.",
-    "Trình bày được về vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm dân cư; một số vấn đề xã hội của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu thông tin và phân tích được tác động của biến đổi khí hậu đối với Đồng bằng sông Cửu Long; đề xuất giải pháp ứng phó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được về vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng. – Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng. – Phân tích được đặc điểm dân cư; một số vấn đề xã hội của vùng. – Trình bày được sự phát triển và phân bố một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Tìm hiểu thông tin và phân tích được tác động của biến đổi khí hậu đối với Đồng bằng sông Cửu Long; đề xuất giải pháp ứng phó. – Trình bày được về vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long.",
    "source": {
@@ -1505,9 +5269,48 @@
    "content": "– Biển và đảo Việt Nam – Phát triển tổng hợp kinh tế biển – Khai thác tài nguyên và bảo vệ môi trường biển đảo",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được trên sơ đồ các vùng biển quốc gia; xác định trên bản đồ các huyện đảo và các tỉnh có các huyện đảo đó.",
-    "Trình bày được nội dung phát triển tổng hợp các ngành kinh tế biển; ý nghĩa của việc phát triển tổng hợp kinh tế biển đảo đối với việc bảo vệ tài nguyên, môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.",
-    "Phân tích được vấn đề khai thác tài nguyên, bảo vệ môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được trên sơ đồ các vùng biển quốc gia; xác định trên bản đồ các huyện đảo và các tỉnh có các huyện đảo đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nội dung phát triển tổng hợp các ngành kinh tế biển; ý nghĩa của việc phát triển tổng hợp kinh tế biển đảo đối với việc bảo vệ tài nguyên, môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề khai thác tài nguyên, bảo vệ môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được trên sơ đồ các vùng biển quốc gia; xác định trên bản đồ các huyện đảo và các tỉnh có các huyện đảo đó. – Trình bày được nội dung phát triển tổng hợp các ngành kinh tế biển; ý nghĩa của việc phát triển tổng hợp kinh tế biển đảo đối với việc bảo vệ tài nguyên, môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông. – Phân tích được vấn đề khai thác tài nguyên, bảo vệ môi trường và giữ vững chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.",
    "source": {
@@ -1530,19 +5333,98 @@
    "content": "– Châu Á từ năm 1918 đến năm 1945 – Chiến tranh thế giới thứ hai (1939 – 1945)",
    "kind": "requirement",
    "outcomes": [
-    "sự hình thành chủ nghĩa phát xít ở châu Âu.",
-    "Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới.",
-    "Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945.",
-    "Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai.",
-    "Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại.",
-    "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về: phong trào cách mạng và sự thành lập Quốc tế Cộng sản; đại suy thoái kinh tế 1929 – 1933; sự hình thành chủ nghĩa phát xít ở châu Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "sự hình thành chủ nghĩa phát xít ở châu Âu. – Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới. – Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945. – Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai. – Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít.",
+   "outcome_text": "– Trình bày được những nét chính về: phong trào cách mạng và sự thành lập Quốc tế Cộng sản; đại suy thoái kinh tế 1929 – 1933; sự hình thành chủ nghĩa phát xít ở châu Âu. – Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới. – Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945. – Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai. – Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
+     45,
      46
     ]
    }
@@ -1558,11 +5440,62 @@
    "content": "– Cách mạng tháng Tám năm 1945",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được tình hình Việt Nam dưới ách thống trị của Pháp",
-    "Nhật Bản.",
-    "Nhận biết được sự chuẩn bị của nhân dân Việt Nam tiến tới khởi nghĩa giành chính quyền: chuyển hướng chiến lược của Đảng Cộng sản Đông Dương; sự ra đời của Mặt trận Việt Minh; cao trào kháng Nhật cứu nước.",
-    "Trình bày được diễn biến chính của Cách mạng tháng Tám năm 1945 và sự ra đời của nước Việt Nam Dân chủ Cộng hoà.",
-    "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử của Cách mạng tháng Tám năm 1945 và đánh giá được vai trò của Đảng Cộng sản Đông Dương trong Cách mạng tháng Tám năm 1945."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tình hình Việt Nam dưới ách thống trị của Pháp – Nhật Bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được sự chuẩn bị của nhân dân Việt Nam tiến tới khởi nghĩa giành chính quyền: chuyển hướng chiến lược của Đảng Cộng sản Đông Dương; sự ra đời của Mặt trận Việt Minh; cao trào kháng Nhật cứu nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được diễn biến chính của Cách mạng tháng Tám năm 1945 và sự ra đời của nước Việt Nam Dân chủ Cộng hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử của Cách mạng tháng Tám năm 1945 và đánh giá được vai trò của Đảng Cộng sản Đông Dương trong Cách mạng tháng Tám năm 1945."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được tình hình Việt Nam dưới ách thống trị của Pháp – Nhật Bản. – Nhận biết được sự chuẩn bị của nhân dân Việt Nam tiến tới khởi nghĩa giành chính quyền: chuyển hướng chiến lược của Đảng Cộng sản Đông Dương; sự ra đời của Mặt trận Việt Minh; cao trào kháng Nhật cứu nước. – Trình bày được diễn biến chính của Cách mạng tháng Tám năm 1945 và sự ra đời của nước Việt Nam Dân chủ Cộng hoà. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử của Cách mạng tháng Tám năm 1945 và đánh giá được vai trò của Đảng Cộng sản Đông Dương trong Cách mạng tháng Tám năm 1945.",
    "source": {
@@ -1585,9 +5518,48 @@
    "content": "– Châu Á từ năm 1945 đến năm 1991",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được một cách khái quát về cách mạng Cuba và đánh giá được kết quả công cuộc xây dựng chủ nghĩa xã hội ở Cuba.",
-    "Giới thiệu được những nét chính về Nhật Bản, Trung Quốc, Ấn Độ từ năm 1945 đến năm 1991.",
-    "Trình bày được cuộc đấu tranh giành độc lập dân tộc và quá trình phát triển của các nước Đông Nam Á, sự hình thành và phát triển của Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một cách khái quát về cách mạng Cuba và đánh giá được kết quả công cuộc xây dựng chủ nghĩa xã hội ở Cuba."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét chính về Nhật Bản, Trung Quốc, Ấn Độ từ năm 1945 đến năm 1991."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cuộc đấu tranh giành độc lập dân tộc và quá trình phát triển của các nước Đông Nam Á, sự hình thành và phát triển của Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được một cách khái quát về cách mạng Cuba và đánh giá được kết quả công cuộc xây dựng chủ nghĩa xã hội ở Cuba. – Giới thiệu được những nét chính về Nhật Bản, Trung Quốc, Ấn Độ từ năm 1945 đến năm 1991. – Trình bày được cuộc đấu tranh giành độc lập dân tộc và quá trình phát triển của các nước Đông Nam Á, sự hình thành và phát triển của Hiệp hội các quốc gia Đông Nam Á (ASEAN).",
    "source": {
@@ -1610,17 +5582,104 @@
    "content": "– Việt Nam từ năm 1954 đến năm 1975 – Việt Nam trong những năm 1976 – 1991",
    "kind": "requirement",
    "outcomes": [
-    "Giới thiệu được những thành tựu tiêu biểu trong công cuộc xây dựng miền Bắc xã hội chủ nghĩa (hoàn thành cải cách ruộng đất, khôi phục và phát triển kinh tế, chi viện cho cách mạng miền Nam, chống chiến tranh phá hoại của đế quốc Mỹ,...).",
-    "Mô tả được các thắng lợi tiêu biểu về quân sự của nhân dân miền Nam trong kháng chiến chống Mỹ, cứu nước giai đoạn 1954",
-    "1975 (phong trào Đồng khởi; đánh bại các chiến lược “Chiến tranh đặc biệt”, “Chiến tranh cục bộ” và “Việt Nam hoá chiến tranh” của Mỹ; Tổng tiến công nổi dậy năm 1968, 1972; Chiến dịch Hồ Chí Minh năm 1975,...).",
-    "Nêu được nguyên nhân thắng lợi và ý nghĩa lịch sử của cuộc kháng chiến chống Mỹ, cứu nước.",
-    "Trình bày được sự thống nhất đất nước về mặt nhà nước, cuộc đấu tranh bảo vệ Tổ quốc ở vùng biên giới Tây Nam và vùng biên giới phía Bắc trong những năm 1975",
-    "1979, đấu tranh bảo vệ chủ quyền biển đảo.",
-    "Nêu được tình hình chính trị, kinh tế, xã hội Việt Nam trong những năm 1976",
-    "1985.",
-    "Mô tả được đường lối Đổi mới của Đảng và Nhà nước ta, giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của công cuộc Đổi mới trong giai đoạn 1986",
-    "1991.",
-    "Đánh giá được thành tựu và hạn chế trong việc thực hiện đường lối Đổi mới."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những thành tựu tiêu biểu trong công cuộc xây dựng miền Bắc xã hội chủ nghĩa (hoàn thành cải cách ruộng đất, khôi phục và phát triển kinh tế, chi viện cho cách mạng miền Nam, chống chiến tranh phá hoại của đế quốc Mỹ,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các thắng lợi tiêu biểu về quân sự của nhân dân miền Nam trong kháng chiến chống Mỹ, cứu nước giai đoạn 1954 – 1975 (phong trào Đồng khởi; đánh bại các chiến lược “Chiến tranh đặc biệt”, “Chiến tranh cục bộ” và “Việt Nam hoá chiến tranh” của Mỹ; Tổng tiến công nổi dậy năm 1968, 1972; Chiến dịch Hồ Chí Minh năm 1975,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên nhân thắng lợi và ý nghĩa lịch sử của cuộc kháng chiến chống Mỹ, cứu nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự thống nhất đất nước về mặt nhà nước, cuộc đấu tranh bảo vệ Tổ quốc ở vùng biên giới Tây Nam và vùng biên giới phía Bắc trong những năm 1975 – 1979, đấu tranh bảo vệ chủ quyền biển đảo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tình hình chính trị, kinh tế, xã hội Việt Nam trong những năm 1976 – 1985."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đường lối Đổi mới của Đảng và Nhà nước ta, giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của công cuộc Đổi mới trong giai đoạn 1986 – 1991."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được thành tựu và hạn chế trong việc thực hiện đường lối Đổi mới."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giới thiệu được những thành tựu tiêu biểu trong công cuộc xây dựng miền Bắc xã hội chủ nghĩa (hoàn thành cải cách ruộng đất, khôi phục và phát triển kinh tế, chi viện cho cách mạng miền Nam, chống chiến tranh phá hoại của đế quốc Mỹ,...). – Mô tả được các thắng lợi tiêu biểu về quân sự của nhân dân miền Nam trong kháng chiến chống Mỹ, cứu nước giai đoạn 1954 – 1975 (phong trào Đồng khởi; đánh bại các chiến lược “Chiến tranh đặc biệt”, “Chiến tranh cục bộ” và “Việt Nam hoá chiến tranh” của Mỹ; Tổng tiến công nổi dậy năm 1968, 1972; Chiến dịch Hồ Chí Minh năm 1975,...). – Nêu được nguyên nhân thắng lợi và ý nghĩa lịch sử của cuộc kháng chiến chống Mỹ, cứu nước. – Trình bày được sự thống nhất đất nước về mặt nhà nước, cuộc đấu tranh bảo vệ Tổ quốc ở vùng biên giới Tây Nam và vùng biên giới phía Bắc trong những năm 1975 – 1979, đấu tranh bảo vệ chủ quyền biển đảo. – Nêu được tình hình chính trị, kinh tế, xã hội Việt Nam trong những năm 1976 – 1985. – Mô tả được đường lối Đổi mới của Đảng và Nhà nước ta, giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của công cuộc Đổi mới trong giai đoạn 1986 – 1991. – Đánh giá được thành tựu và hạn chế trong việc thực hiện đường lối Đổi mới.",
    "source": {
@@ -1643,12 +5702,76 @@
    "content": "– Trật tự thế giới mới – Liên bang Nga từ năm 1991 đến nay – Nước Mỹ từ năm 1991 đến nay – Châu Á từ năm 1991 đến nay",
    "kind": "requirement",
    "outcomes": [
-    "Nhận biết được xu hướng và sự hình thành trật tự thế giới mới sau Chiến tranh lạnh.",
-    "Nêu được tình hình chính trị, kinh tế của Liên bang Nga từ năm 1991 đến nay.",
-    "Trình bày được tình hình chính trị, kinh tế của nước Mỹ từ năm 1991 đến nay.",
-    "Giới thiệu được sự phát triển kinh tế",
-    "xã hội của các nước Đông Bắc Á (Trung Quốc, Nhật Bản, Hàn Quốc) từ năm 1991 đến nay.",
-    "Mô tả được quá trình phát triển của ASEAN từ năm 1991 đến nay và những nét chính của Cộng đồng ASEAN."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được xu hướng và sự hình thành trật tự thế giới mới sau Chiến tranh lạnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tình hình chính trị, kinh tế của Liên bang Nga từ năm 1991 đến nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình chính trị, kinh tế của nước Mỹ từ năm 1991 đến nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được sự phát triển kinh tế – xã hội của các nước Đông Bắc Á (Trung Quốc, Nhật Bản, Hàn Quốc) từ năm 1991 đến nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình phát triển của ASEAN từ năm 1991 đến nay và những nét chính của Cộng đồng ASEAN."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nhận biết được xu hướng và sự hình thành trật tự thế giới mới sau Chiến tranh lạnh. – Nêu được tình hình chính trị, kinh tế của Liên bang Nga từ năm 1991 đến nay. – Trình bày được tình hình chính trị, kinh tế của nước Mỹ từ năm 1991 đến nay. – Giới thiệu được sự phát triển kinh tế – xã hội của các nước Đông Bắc Á (Trung Quốc, Nhật Bản, Hàn Quốc) từ năm 1991 đến nay. – Mô tả được quá trình phát triển của ASEAN từ năm 1991 đến nay và những nét chính của Cộng đồng ASEAN.",
    "source": {
@@ -1671,7 +5794,20 @@
    "content": "– Khái lược công cuộc Đổi mới đất nước từ năm 1991 đến nay – Thành tựu của công cuộc Đổi mới đất nước từ năm 1991 đến nay",
    "kind": "requirement",
    "outcomes": [
-    "Chỉ ra được những thành tựu tiêu biểu (trên các lĩnh vực kinh tế, chính trị, xã hội, văn hóa, quốc phòng, an ninh,…) của công cuộc Đổi mới đất nước từ năm 1991 đến nay."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được những thành tựu tiêu biểu (trên các lĩnh vực kinh tế, chính trị, xã hội, văn hóa, quốc phòng, an ninh,…) của công cuộc Đổi mới đất nước từ năm 1991 đến nay."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Chỉ ra được những thành tựu tiêu biểu (trên các lĩnh vực kinh tế, chính trị, xã hội, văn hóa, quốc phòng, an ninh,…) của công cuộc Đổi mới đất nước từ năm 1991 đến nay.",
    "source": {
@@ -1694,8 +5830,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được những thành tựu chủ yếu của cách mạng khoa học kĩ thuật trên thế giới và ảnh hưởng của cuộc cách mạng đó đến Việt Nam.",
-    "Trình bày được những nét cơ bản về xu hướng toàn cầu hoá và đánh giá được tác động của toàn cầu hoá đối với thế giới và Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những thành tựu chủ yếu của cách mạng khoa học kĩ thuật trên thế giới và ảnh hưởng của cuộc cách mạng đó đến Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét cơ bản về xu hướng toàn cầu hoá và đánh giá được tác động của toàn cầu hoá đối với thế giới và Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được những thành tựu chủ yếu của cách mạng khoa học kĩ thuật trên thế giới và ảnh hưởng của cuộc cách mạng đó đến Việt Nam. – Trình bày được những nét cơ bản về xu hướng toàn cầu hoá và đánh giá được tác động của toàn cầu hoá đối với thế giới và Việt Nam.",
    "source": {
@@ -1718,10 +5880,48 @@
    "content": "– Các đô thị hiện đại – Xu hướng đô thị hoá trên thế giới – Đô thị hoá ở Việt Nam; đô thị và phát triển vùng",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được vai trò của đô thị đối với sự phát triển vùng với tư cách là trung tâm quyền lực và kinh tế của vùng, đất nước, khu vực.",
-    "Mô tả được quá trình đô thị hoá thời kì xã hội công nghiệp và hậu công nghiệp.",
-    "Nêu được tác động của đô thị hoá đối với sự phát triển kinh tế",
-    "xã hội."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của đô thị đối với sự phát triển vùng với tư cách là trung tâm quyền lực và kinh tế của vùng, đất nước, khu vực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình đô thị hoá thời kì xã hội công nghiệp và hậu công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác động của đô thị hoá đối với sự phát triển kinh tế – xã hội."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được vai trò của đô thị đối với sự phát triển vùng với tư cách là trung tâm quyền lực và kinh tế của vùng, đất nước, khu vực. – Mô tả được quá trình đô thị hoá thời kì xã hội công nghiệp và hậu công nghiệp. – Nêu được tác động của đô thị hoá đối với sự phát triển kinh tế – xã hội.",
    "source": {
@@ -1744,11 +5944,62 @@
    "content": "– Văn minh các dòng sông – Biến đổi khí hậu và biện pháp ứng phó với biến đổi khí hậu ở vùng châu thổ của hai đồng bằng hiện đại",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được những nét đặc sắc về văn hoá ở châu thổ sông Hồng và sông Cửu Long thông qua việc tìm hiểu về văn minh các dòng sông.",
-    "Phân tích được những biểu hiện của biến đổi khí hậu ở hai vùng châu thổ sông Hồng và sông Cửu Long.",
-    "Nêu được tác động của biến đổi khí hậu đối với sự phát triển kinh tế",
-    "xã hội ở châu thổ sông Hồng và sông Cửu Long.",
-    "Đề xuất được ở mức độ đơn giản một số biện pháp ứng phó với biến đổi khí hậu liên quan đến vùng châu thổ của hai đồng bằng hiện đại."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét đặc sắc về văn hoá ở châu thổ sông Hồng và sông Cửu Long thông qua việc tìm hiểu về văn minh các dòng sông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những biểu hiện của biến đổi khí hậu ở hai vùng châu thổ sông Hồng và sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác động của biến đổi khí hậu đối với sự phát triển kinh tế – xã hội ở châu thổ sông Hồng và sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp ứng phó với biến đổi khí hậu liên quan đến vùng châu thổ của hai đồng bằng hiện đại."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được những nét đặc sắc về văn hoá ở châu thổ sông Hồng và sông Cửu Long thông qua việc tìm hiểu về văn minh các dòng sông. – Phân tích được những biểu hiện của biến đổi khí hậu ở hai vùng châu thổ sông Hồng và sông Cửu Long. – Nêu được tác động của biến đổi khí hậu đối với sự phát triển kinh tế – xã hội ở châu thổ sông Hồng và sông Cửu Long. – Đề xuất được ở mức độ đơn giản một số biện pháp ứng phó với biến đổi khí hậu liên quan đến vùng châu thổ của hai đồng bằng hiện đại.",
    "source": {
