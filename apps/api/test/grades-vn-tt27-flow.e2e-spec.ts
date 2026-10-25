@@ -72,7 +72,9 @@ describe('Sổ điểm VN TT 27 + lưới môn nhận xét (GB-VN-3, issue #213)
   it('nhập mức lưới 30 học sinh (mặc định + ngoại lệ) lưu đúng từng học sinh trong một lượt', async () => {
     const { course, students } = await newCourse(30);
     const book = (await createBook(course.id, { term: 'hk1', regime: 'tt27' })).body;
-    const [s1, s2, s3] = students as [{ id: string }, { id: string }, { id: string }];
+    const s1 = students[0]!;
+    const s2 = students[1]!;
+    const s3 = students[2]!;
 
     const res = await batch(course.id, book.book.id, {
       defaultResult: 'Hoàn thành',
@@ -162,7 +164,8 @@ describe('Sổ điểm VN TT 27 + lưới môn nhận xét (GB-VN-3, issue #213)
   it('công bố qua cùng cổng PH-0: học sinh chỉ thấy mức của mình sau khi công bố', async () => {
     const { course, students } = await newCourse(2);
     const book = (await createBook(course.id, { term: 'hk1', regime: 'tt27' })).body;
-    const [publishedStudent, hiddenStudent] = students as [{ id: string; username: string }, { id: string; username: string }];
+    const publishedStudent = students[0]!;
+    const hiddenStudent = students[1]!;
     await batch(course.id, book.book.id, {
       defaultResult: 'Hoàn thành',
       overrides: [{ userId: publishedStudent.id, result: 'Hoàn thành tốt' }],
