@@ -32,6 +32,7 @@
   "guardianDigestExternalBody": "New learning information has been published for your child. Sign in to the LMS to see the details.",
   "guardianOverdueAlertSubject": "Overdue by 7 days and not submitted: \"{activity}\"",
   "guardianOverdueAlertBody": "The activity \"{activity}\" of your child {name} has been overdue for 7 days and is not submitted yet. Open the guardian page to see the details and remind your child.",
+  "guardianOverdueAlertExternalSubject": "An activity is overdue by 7 days and not submitted",
   "guardianOverdueAlertExternalBody": "Your child has an activity overdue by 7 days that is not submitted yet. Sign in to the LMS to see the details.",
   "paymentStatus": {
     "pending": "Pending",

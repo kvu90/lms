@@ -120,8 +120,9 @@ export interface GuardianStudentResultsView {
  * PH-2 (issue #159): digest phụ huynh — tần suất tổng hợp đẩy ra cho
  * từng cặp (phụ huynh, con). Mặc định `weekly` theo research mục 1.4
  * (không push từng điểm lẻ); `daily` là tuỳ chọn của phụ huynh; `off`
- * tắt hẳn digest định kỳ (đẩy riêng quá hạn ≥7 ngày cũng tắt theo —
- * phụ huynh đã chọn không nhận đẩy thì tôn trọng tuyệt đối).
+ * chỉ tắt digest ĐỊNH KỲ. Đẩy riêng quá hạn ≥7 ngày là ngoại lệ tách
+ * khỏi digest (research điểm chính sách 6) nên vẫn chạy bất kể tần
+ * suất — kể cả khi phụ huynh chọn `off`.
  */
 export type GuardianDigestFrequency = 'weekly' | 'daily' | 'off';
 

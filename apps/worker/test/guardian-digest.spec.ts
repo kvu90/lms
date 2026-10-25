@@ -130,17 +130,31 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     expect((rows[0].windowEnd as Date).getTime() - (rows[0].windowStart as Date).getTime()).toBe(DAY);
   });
 
-  it('off: không digest, không cả đẩy riêng quá hạn', async () => {
+  it('off: không digest định kỳ, nhưng đẩy riêng quá hạn ≥7 ngày vẫn chạy đúng 1 lần', async () => {
     const guardian = uid(5); const student = uid(6);
     await makeUser(guardian); await makeUser(student);
     await makeLink(guardian, student, 10);
     await setFrequency(guardian, student, 'off');
-    await makeOverdueQuiz(student, 9);
+    const overdue = await makeOverdueQuiz(student, 9);
 
+    // `off` là tần suất CỦA digest: digest định kỳ tắt hẳn, nhưng đẩy
+    // riêng quá hạn là ngoại lệ tách khỏi digest (research điểm chính
+    // sách 6) — vẫn chốt đúng 1 lượt + 1 sự kiện cho phụ huynh này.
     const result = await sweep();
-    expect(result.queued.filter((q) => q.guardianUserId === guardian)).toHaveLength(0);
-    expect(await digestsFor(guardian, student)).toHaveLength(0);
-    expect(await eventsFor('guardian_overdue_alert', guardian)).toHaveLength(0);
+    const mine = result.queued.filter((q) => q.guardianUserId === guardian);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.kind).toBe('overdue_alert');
+    expect(mine[0]!.dedupeKey).toBe(`overdue:${guardian}:${student}:${overdue.cmId}`);
+
+    const rows = await digestsFor(guardian, student);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe('overdue_alert');
+    expect(await eventsFor('guardian_digest_due', guardian)).toHaveLength(0);
+    expect(await eventsFor('guardian_overdue_alert', guardian)).toHaveLength(1);
+
+    const again = await sweep();
+    expect(again.queued.filter((q) => q.guardianUserId === guardian)).toHaveLength(0);
+    expect(await eventsFor('guardian_overdue_alert', guardian)).toHaveLength(1);
   });
 
   it('quá hạn ≥7 ngày: đẩy riêng đúng 1 lần; <7 ngày hoặc đã nộp thì không', async () => {

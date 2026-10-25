@@ -181,7 +181,7 @@ export class GuardianDigestService {
       subject: this.t('platform.guardianOverdueAlertSubject', { activity: payload.activityName }),
       body: this.t('platform.guardianOverdueAlertBody', { activity: payload.activityName, name: studentName }),
       contextUrl: deepLink,
-      externalSubject: this.t('platform.guardianOverdueAlertSubject', { activity: payload.activityName }),
+      externalSubject: this.t('platform.guardianOverdueAlertExternalSubject'),
       externalBody: this.t('platform.guardianOverdueAlertExternalBody'),
     });
     await this.zalo.sendNotice({ guardianUserId: guardianId, studentUserId: studentId, kind: 'overdue_alert', deepLink })

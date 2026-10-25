@@ -59,14 +59,16 @@ function weekStartUtc(now: Date): Date {
  * Hai loại lượt được chốt:
  *  - Digest định kỳ: với mỗi liên kết giám hộ đang `active`, theo tần
  *    suất của chính phụ huynh cho con đó (user_preferences, mặc định
- *    weekly; `off` = không đẩy gì, kể cả đẩy riêng quá hạn), cửa sổ đầy
+ *    weekly; `off` = tắt hẳn digest định kỳ), cửa sổ đầy
  *    đủ vừa đóng (tuần: Thứ Hai→Thứ Hai UTC; ngày: hôm qua UTC) được
  *    chốt đúng MỘT lần. Đổi tần suất hiệu lực từ cửa sổ kế tiếp: lượt
  *    quét chỉ xét tần suất hiện hành, cửa sổ đã có vết không sinh lại.
  *  - Đẩy riêng quá hạn ≥7 ngày: việc (quiz/bài tập) của con chưa nộp,
  *    hạn đã qua từ 7 ngày, được chốt đúng MỘT lần cho từng (phụ huynh,
  *    con, hoạt động) — research mục 5.3.6: đẩy chỉ trong digest, ngoại
- *    lệ duy nhất là quá hạn kéo dài được đẩy riêng một lần.
+ *    lệ duy nhất là quá hạn kéo dài được đẩy riêng một lần. Ngoại lệ
+ *    này TÁCH khỏi digest nên chạy bất kể tần suất — kể cả `off`
+ *    (tần suất là của digest, không chi phối đẩy ngoại lệ).
  *
  * Chống trùng bền nằm ở INSERT vào `guardian_digests` (dedupe_key
  * UNIQUE, onConflictDoNothing): chỉ khi INSERT thật sự tạo hàng mới
@@ -102,27 +104,30 @@ export class GuardianDigestProcessor extends WorkerHost {
 
     for (const link of links) {
       const frequency = frequencyByPair.get(`${link.guardianUserId}:${link.studentUserId}`) ?? 'weekly';
-      if (frequency === 'off') continue;
 
-      // Digest định kỳ cho cửa sổ đầy đủ vừa đóng theo tần suất hiện hành.
-      const window = frequency === 'weekly'
-        ? { start: new Date(weekStartUtc(now).getTime() - 7 * 24 * 3600_000), end: weekStartUtc(now) }
-        : { start: new Date(dayStartUtc(now).getTime() - 24 * 3600_000), end: dayStartUtc(now) };
-      if (link.createdAt < window.end) {
-        const dedupeKey = `digest:${link.guardianUserId}:${link.studentUserId}:${frequency}:${window.start.toISOString()}`;
-        const digestId = await this.queueMark({
-          guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency,
-          windowStart: window.start, windowEnd: window.end, activityCmId: null, dedupeKey,
-        });
-        if (digestId) {
-          await this.db.insert(outboxEvents).values({
-            aggregate: 'guardian', type: 'guardian_digest_due',
-            payload: {
-              guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId,
-              kind: frequency, windowStart: window.start.toISOString(), windowEnd: window.end.toISOString(),
-            },
+      // Digest định kỳ cho cửa sổ đầy đủ vừa đóng theo tần suất hiện
+      // hành — `off` chỉ tắt khối này. Vòng đẩy riêng quá hạn ở dưới là
+      // ngoại lệ tách khỏi digest, chạy bất kể tần suất.
+      if (frequency !== 'off') {
+        const window = frequency === 'weekly'
+          ? { start: new Date(weekStartUtc(now).getTime() - 7 * 24 * 3600_000), end: weekStartUtc(now) }
+          : { start: new Date(dayStartUtc(now).getTime() - 24 * 3600_000), end: dayStartUtc(now) };
+        if (link.createdAt < window.end) {
+          const dedupeKey = `digest:${link.guardianUserId}:${link.studentUserId}:${frequency}:${window.start.toISOString()}`;
+          const digestId = await this.queueMark({
+            guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency,
+            windowStart: window.start, windowEnd: window.end, activityCmId: null, dedupeKey,
           });
-          queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency, dedupeKey });
+          if (digestId) {
+            await this.db.insert(outboxEvents).values({
+              aggregate: 'guardian', type: 'guardian_digest_due',
+              payload: {
+                guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId,
+                kind: frequency, windowStart: window.start.toISOString(), windowEnd: window.end.toISOString(),
+              },
+            });
+            queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency, dedupeKey });
+          }
         }
       }
 

@@ -286,6 +286,23 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     const row = await waitDigestStatus(digestId);
     expect(row.status).toBe('sent');
 
+    // Kênh email (port log): job dispatch của overdue alert PHẢI dùng
+    // subject ngoài TỔNG QUÁT riêng — tên hoạt động chỉ được nằm trong
+    // tiêu đề in-app, tuyệt đối không ra kênh ngoài (cùng luật tối
+    // thiểu hoá như digest). Hoặc job còn trong Redis, hoặc worker đã
+    // ghi dispatch log; cả hai đều chỉ được chứa bản tối thiểu hoá.
+    const jobId = `dispatch-guardian_overdue_alert-${guardian.id}-email-${notif.id}`;
+    const jobData = await redis.hget(`bull:notification-dispatch:${jobId}`, 'data');
+    if (jobData) {
+      expect(jobData).toContain('Có việc quá hạn 7 ngày chưa nộp');
+      expect(jobData).not.toContain('Kiểm tra chương 1');
+    } else {
+      const log = await pg.query(
+        `select subject from notification_dispatch_log where dedupe_key = $1`, [jobId]);
+      expect(log.rows).toHaveLength(1);
+      expect((log.rows[0] as { subject: string }).subject).toBe('Có việc quá hạn 7 ngày chưa nộp');
+    }
+
     await pg.query(`insert into outbox_events (aggregate, type, payload) values ('guardian', 'guardian_overdue_alert', $1::jsonb)`, [JSON.stringify(payload)]);
     await new Promise((r) => setTimeout(r, 2500));
     const all = (await notificationsOf(guardianToken)).filter((n) => n.eventType === 'guardian_overdue_alert');
