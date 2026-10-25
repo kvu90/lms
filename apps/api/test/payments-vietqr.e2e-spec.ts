@@ -14,6 +14,8 @@ import { buildVietQrPayload } from '../src/modules/payments/vietqr';
  * kiện), QR động + vector vàng của hệ thống, che config 6.4.5, cách ly
  * tenant 6.4.6, cổng cộng dồn hoàn + đảo quyền lợi 6.4.7.
  */
+/** Secret webhook gateway 'manual' (cổng verify fail-closed của H1, PR #191): vitest config cấp qua env, spec đọc cùng giá trị để gắn header. */
+const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET ?? '';
 const SEPAY_KEY = 'sk-test-sepay-9f27c1d4aa';
 const SEPAY_XID = 'xid-test-org-001';
 const BANK_ACCOUNT = '113366668888';
@@ -278,7 +280,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     const buyerToken = (await login(app, buyer.username, STRONG_PASSWORD)).accessToken;
     const payment = await createFeePayment(buyerToken, instance.id);
     expect(payment.paymentCode).toBeNull();
-    const hook = await http(app).post('/api/v1/payments/webhook')
+    const hook = await http(app).post('/api/v1/payments/webhook').set('x-payment-webhook-secret', WEBHOOK_SECRET)
       .send({ gateway: 'manual', externalTransactionId: `tx-refund-${Date.now()}`, paymentId: payment.id, status: 'succeeded' });
     expect(hook.body.status).toBe('succeeded');
     expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
