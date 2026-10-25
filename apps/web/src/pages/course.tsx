@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -106,6 +106,7 @@ function allowsManualCompletion(cm: CourseModuleView): boolean {
 export function CoursePage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
+  const navigate = useNavigate();
   const [course, setCourse] = useState<Course | null>(null);
   const [content, setContent] = useState<CourseContent | null>(null);
   const [enrolment, setEnrolment] = useState<MyEnrolmentView | null>(null);
@@ -117,6 +118,8 @@ export function CoursePage() {
   const [loaded, setLoaded] = useState(false);
   const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
   const [busyCmId, setBusyCmId] = useState<string | null>(null);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [completionError, setCompletionError] = useState<string | null>(null);
@@ -161,6 +164,24 @@ export function CoursePage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  /**
+   * Mở chat toàn lớp của khoá: GET ensure conversation cấp khoá phía
+   * messaging (cấp phát lười phía server) rồi điều hướng sang trang Tin
+   * nhắn mở đúng conversation qua deep-link `?conversation=` sẵn có.
+   */
+  async function openClassChat() {
+    setChatBusy(true);
+    setChatError(null);
+    try {
+      const conv = await apiJson<{ id: string }>(`/api/v1/messages/courses/${id}/conversation`);
+      navigate(`/messages?conversation=${conv.id}`);
+    } catch {
+      setChatError(t('courseChatOpenFailed'));
+    } finally {
+      setChatBusy(false);
+    }
+  }
 
   /** Tự ghi danh qua instance self: POST không body, xong nạp lại trạng thái/nội dung. */
   async function selfEnrol(instanceId: string) {
@@ -286,6 +307,19 @@ export function CoursePage() {
           </Card>
         ) : null}
         {isEnrolledActive ? <p className="text-sm text-muted-foreground">{t('enrolledNotice')}</p> : null}
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium">{t('courseChatOpen')}</span>
+            <Button type="button" size="sm" disabled={chatBusy} onClick={() => void openClassChat()}>
+              {t('courseChatOpen')}
+            </Button>
+            {chatError ? (
+              <span role="alert" className="text-sm text-destructive">
+                {chatError}
+              </span>
+            ) : null}
+          </CardContent>
+        </Card>
         {completionError ? (
           <Alert variant="destructive">
             <AlertDescription>{completionError}</AlertDescription>

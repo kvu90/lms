@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import type {
   Cohort,
   CourseCompletion,
@@ -38,6 +38,7 @@ import { usePermissions } from '#lib/permissions';
 export function CourseAdminPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
+  const navigate = useNavigate();
   const courseId = id ?? '';
   const perms = usePermissions();
   const [groups, setGroups] = useState<CourseGroup[]>([]);
@@ -57,6 +58,9 @@ export function CourseAdminPage() {
   const [expandedCohortId, setExpandedCohortId] = useState('');
   const [cohortMembers, setCohortMembers] = useState<Record<string, { userId: string; timeAdded: string }[]>>({});
   const [cohortMemberInputs, setCohortMemberInputs] = useState<Record<string, string>>({});
+  /** Trạng thái chat toàn lớp (conversation cấp khoá): nạp qua GET ensure của messaging; null = chưa nạp được/không thuộc khoá. */
+  const [courseChat, setCourseChat] = useState<{ id: string; enabled: boolean } | null>(null);
+  const [courseChatBusy, setCourseChatBusy] = useState(false);
 
   /** Được xây dựng khoá này hay không: teaching của khoá hoặc quản trị hệ thống. */
   const courseAccess = perms.courses.find((c) => c.course.id === courseId);
@@ -74,13 +78,14 @@ export function CourseAdminPage() {
 
 
   const reload = useCallback(async () => {
-    const [g, gr, c, i, e, comp] = await Promise.all([
+    const [g, gr, c, i, e, comp, chat] = await Promise.all([
       apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`).catch(() => []),
       apiJson<CourseGrouping[]>(`/api/v1/courses/${courseId}/groupings`).catch(() => []),
       apiJson<Cohort[]>('/api/v1/cohorts').catch(() => []),
       apiJson<EnrolInstance[]>(`/api/v1/courses/${courseId}/enrol/instances`).catch(() => []),
       apiJson<UserEnrolment[]>(`/api/v1/courses/${courseId}/enrolments`).catch(() => []),
       apiJson<CourseCompletion[]>(`/api/v1/courses/${courseId}/completion`).catch(() => []),
+      apiJson<{ id: string; enabled: boolean }>(`/api/v1/messages/courses/${courseId}/conversation`).catch(() => null),
     ]);
     setGroups(g);
     setGroupings(gr);
@@ -88,6 +93,7 @@ export function CourseAdminPage() {
     setInstances(i);
     setEnrolments(e);
     setCompletions(comp);
+    setCourseChat(chat ? { id: chat.id, enabled: chat.enabled } : null);
   }, [courseId]);
 
   useEffect(() => {
@@ -108,6 +114,37 @@ export function CourseAdminPage() {
       setMessage(t('groupCreated'));
     } catch {
       setMessage(t('groupCreateFailed'));
+    }
+  }
+
+  /** Bật/tắt chat toàn lớp qua PATCH /messages/conversations/:id (cờ `enabled` sẵn có; chỉ staff khoá đổi được — API thực thi). */
+  async function toggleCourseChat() {
+    if (!courseChat) return;
+    setCourseChatBusy(true);
+    try {
+      const updated = await apiJson<{ id: string; enabled: boolean }>(`/api/v1/messages/conversations/${courseChat.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled: !courseChat.enabled }),
+      });
+      setCourseChat({ id: updated.id, enabled: updated.enabled });
+      setMessage(t('courseChatUpdated'));
+    } catch {
+      setMessage(t('courseChatUpdateFailed'));
+    } finally {
+      setCourseChatBusy(false);
+    }
+  }
+
+  /** Mở chat của một course group: POST /messages/conversations/group (đường sẵn có) rồi deep-link trang Tin nhắn. */
+  async function openGroupChat(groupId: string) {
+    try {
+      const conv = await apiJson<{ id: string }>('/api/v1/messages/conversations/group', {
+        method: 'POST',
+        body: JSON.stringify({ groupId }),
+      });
+      navigate(`/messages?conversation=${conv.id}`);
+    } catch {
+      setMessage(t('groupChatOpenFailed'));
     }
   }
 
@@ -286,13 +323,44 @@ export function CourseAdminPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>{t('courseChatSettings')}</CardTitle>
+          <CardDescription>{t('courseChatSettingsDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {courseChat ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm">{courseChat.enabled ? t('courseChatStateOn') : t('courseChatStateOff')}</span>
+              <Button type="button" variant="outline" size="sm" disabled={courseChatBusy} onClick={() => void toggleCourseChat()}>
+                {courseChat.enabled ? t('courseChatDisable') : t('courseChatEnable')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => navigate(`/messages?conversation=${courseChat.id}`)}
+              >
+                {t('courseChatOpen')}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('courseChatLoadFailed')}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{t('groups')}</CardTitle>
           <CardDescription>{t('groupsInCourse')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul>
+          <ul className="space-y-2">
             {groups.map((g) => (
-              <li key={g.id}>{g.name}</li>
+              <li key={g.id} className="flex flex-wrap items-center gap-2">
+                <span>{g.name}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void openGroupChat(g.id)}>
+                  {t('groupChatOpen')}
+                </Button>
+              </li>
             ))}
           </ul>
           <form onSubmit={createGroup} className="mt-3 space-y-2">
