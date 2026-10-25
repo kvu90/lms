@@ -24,6 +24,7 @@ interface VnBookSummary {
   id: string;
   courseId: string;
   term: string;
+  regime: string;
   assessmentMode: 'score' | 'comment';
   subjectPeriodsPerYear: number | null;
 }
@@ -109,6 +110,8 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
   const [newTerm, setNewTerm] = useState('hk1');
   const [newPeriods, setNewPeriods] = useState('70');
   const [newMode, setNewMode] = useState('score');
+  const [newRegime, setNewRegime] = useState('tt22');
+  const [defaultLevel, setDefaultLevel] = useState('');
 
   const base = `/api/v1/courses/${courseId}/grades/vn-books`;
 
@@ -132,12 +135,15 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
     setCandidates(c.candidates.filter((x) => x.state === 'pending'));
     if (g) {
       const drafts: Record<string, string> = {};
+      const levels: Record<string, string> = {};
       for (const row of g.students) {
         for (const col of row.computation?.columns ?? []) {
           drafts[`${row.userId}|${col.itemId}`] = col.grade === null ? '' : String(col.grade);
         }
+        if (row.snapshot?.commentResult) levels[row.userId] = row.snapshot.commentResult;
       }
       setCellDrafts(drafts);
+      setCommentDrafts(levels);
     }
   }, [base, bookId]);
 
@@ -153,8 +159,12 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
     event.preventDefault();
     setMessage(null);
     try {
-      const body: Record<string, unknown> = { term: newTerm, assessmentMode: newMode };
-      if (newMode === 'score') body.subjectPeriodsPerYear = Number(newPeriods);
+      const body: Record<string, unknown> = {
+        term: newTerm,
+        regime: newRegime,
+        assessmentMode: newRegime === 'tt27' ? 'comment' : newMode,
+      };
+      if (newRegime !== 'tt27' && newMode === 'score') body.subjectPeriodsPerYear = Number(newPeriods);
       const created = await apiJson<{ book: VnBookSummary }>(base, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -255,7 +265,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
   }
 
   async function saveCommentResult(row: VnGridRow) {
-    const result = commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? 'Đạt';
+    const result = commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? levelOptions[0]?.value ?? 'Đạt';
     setMessage(null);
     try {
       await apiJson(`${base}/${bookId}/results/${row.userId}/comment-result`, {
@@ -263,6 +273,41 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
         body: JSON.stringify({ result }),
       });
       setMessage(t('vnBookCommentSaved'));
+      await reloadGrid();
+    } catch {
+      setMessage(t('vnBookCellSaveFailed'));
+    }
+  }
+
+  /** Áp mức mặc định vào mọi dòng của lưới (chỉ là bản nháp phía client cho tới khi lưu cả lớp). */
+  function applyDefaultLevel() {
+    if (!grid) return;
+    const drafts: Record<string, string> = {};
+    for (const row of grid.students) drafts[row.userId] = effectiveDefaultLevel;
+    setCommentDrafts(drafts);
+  }
+
+  /**
+   * Lưu mức cả lớp dạng lưới trong MỘT lượt gọi: mức mặc định + ngoại lệ
+   * là các dòng đang hiển thị khác mức mặc định (nháp khởi tạo từ bản chốt
+   * hiện tại nên lưới hiển thị chính là trạng thái sẽ ghi).
+   */
+  async function saveAllLevels() {
+    if (!grid) return;
+    setMessage(null);
+    setBlocked([]);
+    const overrides = grid.students
+      .map((row) => ({
+        userId: row.userId,
+        result: commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? effectiveDefaultLevel,
+      }))
+      .filter((entry) => entry.result !== effectiveDefaultLevel);
+    try {
+      const saved = await apiJson<{ savedCount: number }>(`${base}/${bookId}/comment-results/batch`, {
+        method: 'POST',
+        body: JSON.stringify({ defaultResult: effectiveDefaultLevel, overrides }),
+      });
+      setMessage(t('vnBookLevelsSaved', { count: saved.savedCount }));
       await reloadGrid();
     } catch {
       setMessage(t('vnBookCellSaveFailed'));
@@ -285,6 +330,19 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
 
   const nameOf = (userId: string) => grid?.students.find((s) => s.userId === userId)?.userName ?? userId;
   const isCommentBook = grid?.book.assessmentMode === 'comment';
+  const isTt27Book = grid?.book.regime === 'tt27';
+  /** Tập mức của lưới nhận xét theo regime của sổ: tt27 ba mức Điều 7.1a TT 27; tt22 Đạt/Chưa đạt Điều 5.3a. */
+  const levelOptions = isTt27Book
+    ? [
+        { value: 'Hoàn thành tốt', label: t('vnBookTt27Good') },
+        { value: 'Hoàn thành', label: t('vnBookTt27Done') },
+        { value: 'Chưa hoàn thành', label: t('vnBookTt27NotYet') },
+      ]
+    : [
+        { value: 'Đạt', label: t('vnBookCommentPass') },
+        { value: 'Chưa đạt', label: t('vnBookCommentFail') },
+      ];
+  const effectiveDefaultLevel = defaultLevel || (isTt27Book ? 'Hoàn thành' : 'Đạt');
 
   return (
     <Card>
@@ -307,18 +365,32 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
             </Select>
           </Field>
           <Field>
-            <FieldLabel htmlFor="vn-book-mode">{t('vnBookMode')}</FieldLabel>
-            <Select value={newMode} onValueChange={(v) => setNewMode(v ?? 'score')}>
-              <SelectTrigger id="vn-book-mode">
+            <FieldLabel htmlFor="vn-book-regime">{t('vnBookRegime')}</FieldLabel>
+            <Select value={newRegime} onValueChange={(v) => setNewRegime(v ?? 'tt22')}>
+              <SelectTrigger id="vn-book-regime">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="score">{t('vnBookModeScore')}</SelectItem>
-                <SelectItem value="comment">{t('vnBookModeComment')}</SelectItem>
+                <SelectItem value="tt22">{t('vnBookRegimeTt22')}</SelectItem>
+                <SelectItem value="tt27">{t('vnBookRegimeTt27')}</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          {newMode === 'score' && (
+          {newRegime !== 'tt27' && (
+            <Field>
+              <FieldLabel htmlFor="vn-book-mode">{t('vnBookMode')}</FieldLabel>
+              <Select value={newMode} onValueChange={(v) => setNewMode(v ?? 'score')}>
+                <SelectTrigger id="vn-book-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="score">{t('vnBookModeScore')}</SelectItem>
+                  <SelectItem value="comment">{t('vnBookModeComment')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+          {newRegime !== 'tt27' && newMode === 'score' && (
             <Field>
               <FieldLabel htmlFor="vn-book-periods">{t('vnBookPeriods')}</FieldLabel>
               <Input
@@ -345,6 +417,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
                   <SelectItem key={b.id} value={b.id}>
                     {t(b.term === 'hk1' ? 'vnBookTermHk1' : 'vnBookTermHk2')} —{' '}
                     {t(b.assessmentMode === 'comment' ? 'vnBookModeComment' : 'vnBookModeScore')}
+                    {b.regime === 'tt27' ? ` — ${t('vnBookRegimeTt27')}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -368,8 +441,14 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
                 {blocked.map((b) => (
                   <li key={b.userId}>
                     {nameOf(b.userId)} —{' '}
-                    {t(b.reason === 'awaiting_makeup' ? 'vnBookBlockedAwaitingMakeup' : 'vnBookBlockedIncomplete')}
-                    {b.roles.length > 0 ? ` (${b.roles.join(', ')})` : ''}
+                    {t(
+                      b.reason === 'awaiting_makeup'
+                        ? 'vnBookBlockedAwaitingMakeup'
+                        : b.roles.includes('commentResult')
+                          ? 'vnBookBlockedNoLevel'
+                          : 'vnBookBlockedIncomplete',
+                    )}
+                    {b.roles.length > 0 && !b.roles.includes('commentResult') ? ` (${b.roles.join(', ')})` : ''}
                   </li>
                 ))}
               </ul>
@@ -473,19 +552,48 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
 
         {grid && isCommentBook ? (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-end gap-2">
+              <Field>
+                <FieldLabel htmlFor="vn-book-default-level">{t('vnBookClassDefault')}</FieldLabel>
+                <Select value={effectiveDefaultLevel} onValueChange={(v) => { if (v) setDefaultLevel(v); }}>
+                  <SelectTrigger id="vn-book-default-level">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {levelOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Button type="button" variant="outline" onClick={() => applyDefaultLevel()}>
+                {t('vnBookApplyDefault')}
+              </Button>
+              <Button type="button" onClick={() => void saveAllLevels()}>
+                {t('vnBookSaveAllLevels')}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void finalizeAll()}>
+                {t('vnBookFinalizeAll')}
+              </Button>
+            </div>
             {grid.students.map((row) => (
               <div key={row.userId} className="flex flex-wrap items-center gap-2">
                 <span className="min-w-40">{row.userName}</span>
                 <Select
-                  value={commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? 'Đạt'}
+                  value={commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? effectiveDefaultLevel}
                   onValueChange={(v) => { if (v) setCommentDrafts((prev) => ({ ...prev, [row.userId]: v })); }}
                 >
                   <SelectTrigger aria-label={`${row.userName} — ${t('vnBookCommentResult')}`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Đạt">{t('vnBookCommentPass')}</SelectItem>
-                    <SelectItem value="Chưa đạt">{t('vnBookCommentFail')}</SelectItem>
+                    {levelOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <Button type="button" size="sm" variant="outline" onClick={() => void saveCommentResult(row)}>

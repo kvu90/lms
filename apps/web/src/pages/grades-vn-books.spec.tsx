@@ -118,6 +118,40 @@ describe('VnBooksSection (sổ điểm VN, issue #183)', () => {
     expect(screen.getByText(/còn chờ kiểm tra bù/)).toBeTruthy();
   });
 
+  it('sổ tt27: lưới mức 3 mức TT 27 — lưu cả lớp gửi mức mặc định + ngoại lệ trong một lượt gọi batch', async () => {
+    const STUDENT_B = '01900000-0000-7000-8000-000000000008';
+    const TT27_BOOK = {
+      id: BOOK_ID, courseId: COURSE_ID, term: 'hk1', regime: 'tt27', assessmentMode: 'comment', subjectPeriodsPerYear: null,
+    };
+    const rowOf = (userId: string, userName: string) => ({
+      userId, userName, computation: null, snapshot: null, published: false, sourceDiverged: false,
+    });
+    const calls = stubFetch((url, init) => {
+      if (url === BASE) return ok([TT27_BOOK]);
+      if (url === `${BASE}/${BOOK_ID}/grid`) return ok({ book: TT27_BOOK, items: [], students: [rowOf(STUDENT_ID, 'Nguyen Van A'), rowOf(STUDENT_B, 'Nguyen Van B')] });
+      if (url === `${BASE}/${BOOK_ID}/candidates`) return ok({ bookId: BOOK_ID, candidates: [] });
+      if (url === `${BASE}/${BOOK_ID}/comment-results/batch` && init?.method === 'POST') {
+        return ok({ bookId: BOOK_ID, savedCount: 2, results: [] });
+      }
+      return undefined;
+    });
+    renderSection();
+    expect(await screen.findByText('Nguyen Van B')).toBeTruthy();
+    // Mức mặc định cả lớp khởi tạo là "Hoàn thành" (mức giữa của TT 27).
+    expect(screen.getByLabelText('Mức mặc định cả lớp')).toBeTruthy();
+    // Học sinh B là ngoại lệ: đổi mức riêng thành "Chưa hoàn thành".
+    await userEvent.click(screen.getByLabelText('Nguyen Van B — Kết quả nhận xét'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Chưa hoàn thành' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu mức cả lớp' }));
+    expect(await screen.findByText(/Đã lưu mức cho 2 học sinh/)).toBeTruthy();
+    const batchCall = calls.find((c) => c.url === `${BASE}/${BOOK_ID}/comment-results/batch`);
+    expect(batchCall).toBeTruthy();
+    expect(JSON.parse(String(batchCall!.init?.body))).toEqual({
+      defaultResult: 'Hoàn thành',
+      overrides: [{ userId: STUDENT_B, result: 'Chưa hoàn thành' }],
+    });
+  });
+
   it('sửa ô điểm của học sinh đã chốt: cảnh báo lệch nguồn hiện TRƯỚC khi lưu, huỷ thì không gọi API lưu điểm', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const calls = stubFetch((url) => {
