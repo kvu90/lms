@@ -5,7 +5,7 @@ import { Badge } from '@lms/ui/components/badge';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Input } from '@lms/ui/components/input';
+import { Textarea } from '@lms/ui/components/textarea';
 import {
   Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
 } from '@lms/ui/components/message';
@@ -14,10 +14,12 @@ import {
   MessageScrollerProvider, MessageScrollerViewport,
 } from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
+import { queryKeys } from '#lib/query-keys';
 
 interface MessageView {
   id: string;
@@ -103,6 +105,24 @@ interface ConversationDetailView extends ConversationView {
 }
 
 /** Gộp tin vào danh sách hiện có: chống trùng theo id và clientMessageId, sắp theo seq (tin lạc quan chưa có seq thật nằm cuối). */
+/**
+ * Mốc thời gian tương đối của tin cuối trong danh sách conversation
+ * (lát M1, issue #204 — cùng khuôn và cùng khoá i18n với trang thông
+ * báo): "vừa xong", "{{count}} phút/giờ/ngày trước"; quá một tuần thì
+ * in ngày giờ cụ thể.
+ */
+function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 60_000) return t('justNow');
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return t('minutesAgo', { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t('hoursAgo', { count: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return t('daysAgo', { count: days });
+  return new Date(iso).toLocaleString();
+}
+
 /** Hai chữ cái đầu của tên hiển thị — nội dung AvatarFallback. */
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -144,6 +164,7 @@ function mergeMessages(existing: MessageView[], incoming: MessageView[]): Messag
 export function MessagesPage() {
   const { t } = useTranslation('app');
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const myId = user?.id;
   const [conversations, setConversations] = useState<ConversationView[]>([]);
@@ -156,7 +177,13 @@ export function MessagesPage() {
   const [readMarkers, setReadMarkers] = useState<Record<string, number>>({});
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
-  const [draft, setDraft] = useState('');
+  /**
+   * Nháp soạn tin THEO TỪNG conversation (lát M1, issue #204): map
+   * theo conversationId, giữ trong bộ nhớ trang — chuyển qua
+   * conversation khác rồi quay lại vẫn còn nguyên nháp của conversation
+   * đó; gửi thành công thì chỉ xoá nháp của đúng conversation đã gửi.
+   */
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
@@ -190,10 +217,19 @@ export function MessagesPage() {
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const lastTypingSentRef = useRef(0);
 
-  /** Số conversation chưa đọc suy từ danh sách (mỗi mục mang unread của chính user). */
+  /**
+   * Số conversation chưa đọc suy từ danh sách (mỗi mục mang unread
+   * của chính user). Mỗi lần đếm lại cũng làm mới truy vấn huy hiệu
+   * Tin nhắn của sidebar (lát M1, issue #204): sidebar tự làm tươi
+   * mỗi 30 giây, nhưng khi người dùng đang ở chính trang này thì số
+   * trên huy hiệu phải khớp ngay với số trang vừa đếm qua realtime
+   * thay vì chờ chu kỳ — làm mới bằng invalidate để server vẫn là
+   * nguồn số đếm cuối cùng.
+   */
   const recountUnread = useCallback((list: ConversationView[]) => {
     setUnread(list.filter((c) => (c.unread ?? 0) > 0).length);
-  }, []);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.messageUnreadCount });
+  }, [queryClient]);
 
   /** Gom tên hiển thị từ một response (profiles/memberProfiles) vào bản đồ tên dùng chung của trang. */
   const mergePeople = useCallback((profiles: Record<string, PersonSummary> | undefined) => {
@@ -367,14 +403,24 @@ export function MessagesPage() {
         if (message.seq < (lastSeqRef.current.get(conversationId) ?? 0)) return;
         noteSeq(conversationId, message.seq);
         setConversations((prev) => {
-          const next = prev.map((c) => (c.id === conversationId
-            ? {
-                ...c,
-                unread: activeRef.current?.id === conversationId ? 0 : unreadCount,
-                lastMessage: message,
-                lastMessageSeq: message.seq,
-              }
-            : c));
+          const target = prev.find((c) => c.id === conversationId);
+          if (!target) {
+            recountUnread(prev);
+            return prev;
+          }
+          // Danh sách tự sắp xếp lại theo hoạt động mới nhất (lát M1,
+          // issue #204): conversation vừa có tin mới được đưa lên đầu
+          // — cùng thứ tự server trả khi tải lại (updated_at giảm
+          // dần) nên realtime và reload không bao giờ lệch nhau.
+          const next = [
+            {
+              ...target,
+              unread: activeRef.current?.id === conversationId ? 0 : unreadCount,
+              lastMessage: message,
+              lastMessageSeq: message.seq,
+            },
+            ...prev.filter((c) => c.id !== conversationId),
+          ];
           recountUnread(next);
           return next;
         });
@@ -514,6 +560,18 @@ export function MessagesPage() {
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (saved.seq > seen) lastSeqRef.current.set(conversationId, saved.seq);
       setMessages((prev) => mergeMessages(prev, [saved]));
+      // Tin mình vừa gửi cũng là hoạt động mới nhất (lát M1, issue
+      // #204): cập nhật xem trước và đưa conversation lên đầu danh
+      // sách ngay tại chỗ, không chờ sự kiện conversation.updated
+      // phản hồi về qua socket.
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === conversationId);
+        if (!target) return prev;
+        return [
+          { ...target, lastMessage: saved, lastMessageSeq: saved.seq },
+          ...prev.filter((c) => c.id !== conversationId),
+        ];
+      });
     } catch {
       setMessages((prev) => prev.map((m) => (m.clientMessageId === clientMessageId && m.localStatus
         ? { ...m, localStatus: 'failed' as const }
@@ -523,9 +581,16 @@ export function MessagesPage() {
 
   async function send(event: FormEvent) {
     event.preventDefault();
-    if (!active || !draft.trim()) return;
-    const text = draft;
-    setDraft('');
+    if (!active) return;
+    const text = drafts[active.id] ?? '';
+    if (!text.trim()) return;
+    // Chỉ xoá nháp của đúng conversation vừa gửi (lát M1, issue
+    // #204) — nháp của các conversation khác giữ nguyên.
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[active.id];
+      return next;
+    });
     await deliver(active.id, text, crypto.randomUUID());
   }
 
@@ -742,6 +807,8 @@ export function MessagesPage() {
   // Tầm nhìn xoá mềm ở phía client (server đã chốt theo vai trò):
   // tin đã xoá chỉ còn hiện với người có thẩm quyền kiểm duyệt.
   const visibleMessages = messages.filter((m) => !m.deletedAt || active?.canModerate);
+  /** Nháp đang hiện ở composer: nháp của conversation đang mở (lát M1). */
+  const draft = active ? (drafts[active.id] ?? '') : '';
 
   return (
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
@@ -765,7 +832,12 @@ export function MessagesPage() {
                   {(c.unread ?? 0) > 0 ? t('unreadSuffix', { count: c.unread }) : ''}
                 </Button>
                 {c.lastMessage ? (
-                  <p className="truncate text-xs text-muted-foreground">{c.lastMessage.fullMessage}</p>
+                  <p className="flex items-baseline gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{c.lastMessage.fullMessage}</span>
+                    <span className="shrink-0" data-testid={`conversation-last-time-${c.id}`}>
+                      {relativeTime(c.lastMessage.createdAt, t)}
+                    </span>
+                  </p>
                 ) : null}
               </li>
             ))}
@@ -1065,12 +1137,24 @@ export function MessagesPage() {
                     <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
                   ) : null}
                   <form onSubmit={(e) => void send(e)} className="flex gap-2">
-                    <Input
+                    <Textarea
                       aria-label={t('messageText')}
                       value={draft}
                       onChange={(e) => {
-                        setDraft(e.target.value);
+                        // Nháp ghi theo conversation đang mở (lát M1,
+                        // issue #204) — soạn dở ở conversation này
+                        // không lẫn sang conversation khác.
+                        setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
                         noteTyping();
+                      }}
+                      onKeyDown={(e) => {
+                        // Enter gửi, Shift+Enter xuống dòng (lát M1,
+                        // issue #204) — ngữ nghĩa chuẩn app nhắn tin
+                        // cho composer nhiều dòng.
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          e.currentTarget.form?.requestSubmit();
+                        }
                       }}
                     />
                     <Button type="submit">{t('send')}</Button>
