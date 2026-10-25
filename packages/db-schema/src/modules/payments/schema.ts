@@ -99,6 +99,8 @@ export const paymentProviderEvents = pgTable('payment_provider_events', {
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique('payment_provider_events_tx_unique').on(t.provider, t.externalTransactionId),
+  index('payment_provider_events_tenant_idx').on(t.tenantId),
+  index('payment_provider_events_account_idx').on(t.accountId),
   index('payment_provider_events_payment_idx').on(t.matchedPaymentId),
   index('payment_provider_events_status_idx').on(t.matchStatus),
 ]);

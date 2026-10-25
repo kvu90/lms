@@ -3021,6 +3021,8 @@ CREATE INDEX "content_bank_content_question_category_id_idx" ON "content_bank_co
 CREATE INDEX "content_bank_content_review_status_idx" ON "content_bank_content" ("review_status");--> statement-breakpoint
 CREATE INDEX "content_bank_content_derived_from_id_idx" ON "content_bank_content" ("derived_from_id");--> statement-breakpoint
 CREATE INDEX "payment_accounts_tenant_id_idx" ON "payment_accounts" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "payment_provider_events_tenant_idx" ON "payment_provider_events" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "payment_provider_events_account_idx" ON "payment_provider_events" ("account_id");--> statement-breakpoint
 CREATE INDEX "payment_provider_events_payment_idx" ON "payment_provider_events" ("matched_payment_id");--> statement-breakpoint
 CREATE INDEX "payment_provider_events_status_idx" ON "payment_provider_events" ("match_status");--> statement-breakpoint
 CREATE INDEX "payment_refunds_payment_id_idx" ON "payment_refunds" ("payment_id");--> statement-breakpoint

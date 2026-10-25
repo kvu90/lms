@@ -11804,6 +11804,46 @@
         "index",
         "public",
         "payment_provider_events",
+        "payment_provider_events_tenant_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_provider_events_tenant_idx",
+        "n|idx|public.payment_provider_events_tenant_idx",
+        "e|idx|public.payment_provider_events_tenant_idx",
+        "n|rel|public.payment_provider_events_tenant_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_provider_events",
+        "payment_provider_events_account_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_provider_events_account_idx",
+        "n|idx|public.payment_provider_events_account_idx",
+        "e|idx|public.payment_provider_events_account_idx",
+        "n|rel|public.payment_provider_events_account_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.account_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_provider_events",
         "payment_provider_events_payment_idx"
       ],
       "writes": [
@@ -52150,6 +52190,48 @@
       "columns": [
         {
           "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_tenant_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_account_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "account_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
