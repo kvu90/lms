@@ -4,7 +4,9 @@
  * Một tiến trình Node thuần (không framework ngoài) giữ ba vai:
  *   1. Mặt tiền HTTP duy nhất: bind cổng PUBLIC_PORT (mặc định $PORT,
  *      trên Heroku là cổng dyno cấp).
- *   2. Proxy `/api/*` và `/socket.io/*` về API ở địa chỉ nội bộ
+ *   2. Proxy các đường của API (xem `proxy-paths.mjs`: `/api/*`,
+ *      `/socket.io/*`, `/mcp`, `/.well-known/oauth-protected-resource`)
+ *      về API ở địa chỉ nội bộ
  *      (LMS_API_INTERNAL_URL, mặc định http://127.0.0.1:3000): chuyển
  *      nguyên header (Cookie đi lên, Set-Cookie — kể cả nhiều header —
  *      đi xuống), nối tiếp chuỗi X-Forwarded-For của chặng trước, và
@@ -25,6 +27,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequestListener } from '@react-router/node';
 import * as serverBuild from '../build/server/index.js';
+import { isProxyPath } from './proxy-paths.mjs';
 
 const apiOrigin = new URL(process.env.LMS_API_INTERNAL_URL ?? 'http://127.0.0.1:3000');
 const publicPort = Number(process.env.PORT ?? process.env.PUBLIC_PORT ?? 8080);
@@ -59,10 +62,6 @@ function forwardedFor(req) {
   const prior = req.headers['x-forwarded-for'];
   const clientIp = req.socket.remoteAddress ?? '';
   return prior ? `${prior}, ${clientIp}` : clientIp;
-}
-
-function isProxyPath(url) {
-  return url.startsWith('/api/') || url === '/api' || url.startsWith('/socket.io/');
 }
 
 /** Proxy HTTP stream hai chiều, không đệm (SSE sống), hủy theo kết nối của trình duyệt. */

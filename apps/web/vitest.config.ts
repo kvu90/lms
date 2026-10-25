@@ -19,7 +19,7 @@ export default defineConfig({
     // nhất là các file trong cùng worker dùng chung một tiến trình.
     pool: 'vmThreads',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts'],
+    include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts', 'server/**/*.spec.mjs'],
     // Trần mặc định 5s quá sát cho test UI khi chạy song song dưới tải.
     testTimeout: 20_000,
   },
