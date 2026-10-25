@@ -87,7 +87,7 @@ function readStoredOpenGroups(): string[] {
  *   cả cụm dùng chung /questions?bank=&section=). Cả bốn chỉ hiện
  *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank) —
  *   học viên thuần không nhìn thấy.
- * - Hai nhóm quản trị ("Người dùng & quyền", "Hệ thống & dữ liệu") chỉ
+ * - Hai nhóm quản trị ("Người dùng & quyền", "Cài đặt hệ thống") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
  *   GET /users/me/capabilities). Phần tử không có quyền thì KHÔNG

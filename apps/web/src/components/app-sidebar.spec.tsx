@@ -9,7 +9,7 @@ import { queryClient } from '../lib/query-client';
 /**
  * Test cho cây điều hướng sidebar sau Lát 1 của hồ sơ UI/UX (sidebar
  * collapse theo cơ chế sidebar-07): 6 mục trực tiếp + các mục cha
- * thu/mở (Học tập / Người dùng & quyền / Hệ thống & dữ liệu / Ngân
+ * thu/mở (Học tập / Người dùng & quyền / Cài đặt hệ thống / Ngân
  * hàng hệ thống) thay cho 3 nhóm phẳng cũ. Dựng đúng cây thật (App →
  * Shell → AppSidebar) như sidebar-notification-count.spec, stub fetch
  * theo vai trò:
@@ -213,7 +213,7 @@ describe('cây điều hướng sidebar — admin', () => {
 
     // 4 mục cha là nút thu/mở thuần (button, không phải link) — gồm
     // "Ngân hàng hệ thống" theo cấu trúc mới của đính chính #70.
-    for (const name of ['Học tập', 'Người dùng & quyền', 'Hệ thống & dữ liệu', 'Ngân hàng hệ thống']) {
+    for (const name of ['Học tập', 'Người dùng & quyền', 'Cài đặt hệ thống', 'Ngân hàng hệ thống']) {
       expect(await screen.findByRole('button', { name })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
     }
@@ -261,12 +261,12 @@ describe('cây điều hướng sidebar — admin', () => {
     expect(hrefs).toEqual(['/system-bank/questions', '/system-bank/exams', '/system-bank/matrices']);
   });
 
-  it('mở "Hệ thống & dữ liệu" thấy đủ 7 mục con đúng thứ tự; các nhóm mở độc lập và đóng riêng được', async () => {
+  it('mở "Cài đặt hệ thống" thấy đủ 7 mục con đúng thứ tự; các nhóm mở độc lập và đóng riêng được', async () => {
     seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Hệ thống & dữ liệu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cài đặt hệ thống' }));
 
     const expectedOrder = [
       '/admin/site-config',
@@ -298,7 +298,7 @@ describe('cây điều hướng sidebar — admin', () => {
     expect(screen.getByRole('link', { name: 'Sao lưu' })).toBeInTheDocument();
 
     // Đóng nhóm Hệ thống: mục con của nó ẩn, nhóm Người dùng vẫn mở.
-    await userEvent.click(screen.getByRole('button', { name: 'Hệ thống & dữ liệu' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cài đặt hệ thống' }));
     expect(screen.queryByRole('link', { name: 'Sao lưu' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Vai trò' })).toBeInTheDocument();
   });
@@ -308,7 +308,7 @@ describe('cây điều hướng sidebar — admin', () => {
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Hệ thống & dữ liệu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cài đặt hệ thống' }));
     await userEvent.click(await screen.findByRole('link', { name: 'Sao lưu' }));
     expect(await screen.findByTestId('probe-backup')).toBeInTheDocument();
   });
@@ -413,7 +413,7 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
 
     expect(await screen.findByRole('link', { name: 'Tổng quan' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Người dùng & quyền' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Hệ thống & dữ liệu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cài đặt hệ thống' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ngân hàng hệ thống' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Câu hỏi của tôi' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Đề của tôi' })).not.toBeInTheDocument();
