@@ -2,7 +2,6 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from './course-enrolment-helpers';
-import { createGradeItem, setGrade, getGradebook } from './assessment-helpers';
 import { createGroupViaApi } from './engagement-helpers';
 
 /**
@@ -76,27 +75,5 @@ describe('Behat retro-audit journeys', () => {
     expect(removed.status).toBe(200);
     list = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${userToken}`);
     expect((list.body as { id: string }[]).some((e) => e.id === eventId)).toBe(false);
-  });
-
-  it('grade scales: a scale item takes index grades and reports them in the gradebook (Behat: grade/tests/behat/grade_scales.feature)', async () => {
-    const cat = await createCategory(app, admin);
-    const course = await createCourse(app, admin, cat.id);
-    const scaleRes = await http(app).post(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Quality scale', scale: 'Poor,OK,Good,Excellent' });
-    expect(scaleRes.status).toBe(201);
-    const scaleId = scaleRes.body.id as string;
-    const listed = await http(app).get(`/api/v1/courses/${course.id}/grades/scales`).set('Authorization', `Bearer ${admin}`);
-    expect((listed.body as { id: string }[]).some((s) => s.id === scaleId)).toBe(true);
-    // Item dùng scale: gradeMax bằng số mức của scale (4).
-    const item = await createGradeItem(app, admin, course.id, { itemName: 'Essay quality', scaleId, gradeMax: 4 });
-    const student = await createUserViaApi(app, admin);
-    const instance = await createEnrolInstance(app, admin, course.id);
-    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/enrol`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
-    const grade = await setGrade(app, admin, item.id, student.id, 3);
-    expect(grade.finalGrade).toBe(3);
-    const book = await getGradebook(app, admin, course.id, student.id);
-    const allItems = book.categories.flatMap((c) => c.items);
-    const row = allItems.find((i) => i.item.id === item.id);
-    expect(row?.grade?.finalGrade).toBe(3);
   });
 });

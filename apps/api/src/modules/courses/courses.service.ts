@@ -4,8 +4,8 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
   course as courseTable, courseModules as courseModulesTable, courseSectionAnchorOutcomes, courseSectionAnchors,
   courseSections as courseSectionsTable,
-  courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeCategories, gradeItems,
-  gradeOutcomes, quizzes, quizSlots, scales,
+  courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeItems,
+  quizzes, quizSlots,
 } from '../../db/schema';
 import type { Database } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -1157,59 +1157,20 @@ export class CoursesService {
     tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
   ): Promise<void> {
     const db = tx as unknown as Database;
-    const scaleMap = new Map<string, string>();
-    const sourceScales = await db.select().from(scales).where(eq(scales.courseId, sourceCourseId));
-    for (const s of sourceScales) {
-      const [row] = await db.insert(scales).values({ courseId: targetCourseId, name: s.name, scale: s.scale, description: s.description }).returning();
-      scaleMap.set(s.id, row!.id);
-    }
-    const outcomeMap = new Map<string, string>();
-    const sourceOutcomes = await db.select().from(gradeOutcomes).where(eq(gradeOutcomes.courseId, sourceCourseId));
-    for (const o of sourceOutcomes) {
-      const [row] = await db.insert(gradeOutcomes).values({
-        courseId: targetCourseId, scaleId: scaleMap.get(o.scaleId) ?? o.scaleId, name: o.name, description: o.description,
-      }).returning();
-      outcomeMap.set(o.id, row!.id);
-    }
-    const categoryMap = new Map<string, string>();
-    const sourceCategories = (await db.select().from(gradeCategories).where(eq(gradeCategories.courseId, sourceCourseId)))
-      .sort((a: { depth: number }, b: { depth: number }) => a.depth - b.depth);
-    const newPathByOldId = new Map<string, string>();
-    for (const cat of sourceCategories) {
-      const newParent = cat.parent ? categoryMap.get(cat.parent) ?? null : null;
-      if (cat.parent && !newParent) continue;
-      const [row] = await db.insert(gradeCategories).values({
-        courseId: targetCourseId, parent: newParent, fullName: cat.fullName, aggregation: cat.aggregation,
-        dropLow: cat.dropLow, keepHigh: cat.keepHigh, aggregateOnlyGraded: cat.aggregateOnlyGraded,
-        depth: cat.depth, path: '', hidden: cat.hidden,
-      }).returning();
-      categoryMap.set(cat.id, row!.id);
-      const parentPath = cat.parent ? newPathByOldId.get(cat.parent) ?? '' : '';
-      const path = `${parentPath}/${row!.id}`;
-      newPathByOldId.set(cat.id, path);
-      await db.update(gradeCategories).set({ path }).where(eq(gradeCategories.id, row!.id));
-    }
     const sourceItems = await db.select().from(gradeItems).where(eq(gradeItems.courseId, sourceCourseId));
     for (const item of sourceItems) {
       let itemInstance = item.itemInstance;
       if (item.itemType === 'mod') {
         itemInstance = item.itemInstance ? cmMap.get(item.itemInstance) ?? null : null;
         if (!itemInstance) continue; // cm không được chép (không xảy ra ở nhân bản toàn khoá) — bỏ item mồ côi.
-      } else if (item.itemType === 'category') {
-        itemInstance = item.itemInstance ? categoryMap.get(item.itemInstance) ?? null : null;
-      } else if (item.itemType === 'course') {
-        itemInstance = targetCourseId;
       }
       await db.insert(gradeItems).values({
         courseId: targetCourseId,
-        categoryId: item.categoryId ? categoryMap.get(item.categoryId) ?? null : null,
         itemName: item.itemName, itemType: item.itemType, itemModule: item.itemModule, itemInstance,
         gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-        scaleId: item.scaleId ? scaleMap.get(item.scaleId) ?? item.scaleId : null,
-        outcomeId: item.outcomeId ? outcomeMap.get(item.outcomeId) ?? item.outcomeId : null,
-        idNumber: item.idNumber, calculation: item.calculation, weightOverride: item.weightOverride,
-        aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit, multiplicator: item.multiplicator,
+        multiplicator: item.multiplicator,
         plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked, sortOrder: item.sortOrder,
+        postingPolicy: item.postingPolicy,
       });
     }
     // Cài đặt tổng hợp hoàn thành khoá + tiêu chí hoàn thành (cấu trúc, không phải tiến độ).
@@ -1425,7 +1386,7 @@ export class CoursesService {
       await this.repo.shiftSections(handle, section.course, section.section + 1, 100000);
       await this.repo.shiftSections(handle, section.course, section.section + 1 + 100000, 1 - 100000);
       created = await this.copySectionRow(tx as DbTx, section, section.course, section.section + 1, 0, cmMap);
-      // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao (cùng category).
+      // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao.
       const db = tx as unknown as Database;
       for (const [oldCmId, newCmId] of cmMap) {
         const items = await db.select().from(gradeItems).where(and(
@@ -1433,13 +1394,11 @@ export class CoursesService {
         ));
         for (const item of items) {
           await db.insert(gradeItems).values({
-            courseId: section.course, categoryId: item.categoryId, itemName: item.itemName,
+            courseId: section.course, itemName: item.itemName,
             itemType: item.itemType, itemModule: item.itemModule, itemInstance: newCmId,
             gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-            scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
-            weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
             multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
-            sortOrder: item.sortOrder,
+            sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
           });
         }
       }
@@ -1472,13 +1431,11 @@ export class CoursesService {
       ));
       for (const item of items) {
         await db.insert(gradeItems).values({
-          courseId: cm.course, categoryId: item.categoryId, itemName: item.itemName,
+          courseId: cm.course, itemName: item.itemName,
           itemType: item.itemType, itemModule: item.itemModule, itemInstance: created.id,
           gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-          scaleId: item.scaleId, outcomeId: item.outcomeId, idNumber: null, calculation: item.calculation,
-          weightOverride: item.weightOverride, aggregationCoef: item.aggregationCoef, extraCredit: item.extraCredit,
           multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
-          sortOrder: item.sortOrder,
+          sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
         });
       }
     });

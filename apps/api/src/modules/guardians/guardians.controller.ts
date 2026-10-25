@@ -71,18 +71,10 @@ export class GuardianViewsController {
 
   @Get('students/:studentId/courses/:courseId/gradebook')
   /**
-   * GET /guardian/students/:studentId/courses/:courseId/gradebook — sổ điểm đã công bố của con trong khoá.
+   * GET /guardian/students/:studentId/courses/:courseId/gradebook — điểm theo từng bài đã công bố của con trong khoá.
    */
   async gradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.guardians.studentGradebook(actor.id, studentId, courseId);
-  }
-
-  @Get('students/:studentId/courses/:courseId/vn-books/:bookId/results')
-  /**
-   * GET /guardian/students/:studentId/courses/:courseId/vn-books/:bookId/results — kết quả học kì VN đã công bố của con trong sổ.
-   */
-  async vnResult(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.guardians.studentVnTermResult(actor.id, studentId, courseId, bookId);
   }
 }
 

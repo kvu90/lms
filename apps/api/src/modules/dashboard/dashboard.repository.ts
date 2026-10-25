@@ -197,33 +197,6 @@ export class DashboardRepository {
       ));
   }
 
-  /** Mọi vết công bố VN (publish/unpublish) của chính user sau mốc — service lấy vết hiệu lực mới nhất. */
-  async vnPublicationsSince(userId: string, since: Date) {
-    return this.db
-      .select()
-      .from(gradePublications)
-      .where(and(
-        eq(gradePublications.userId, userId),
-        inArray(gradePublications.scope, ['vn_term', 'vn_year']),
-        gt(gradePublications.createdAt, since),
-      ))
-      .orderBy(asc(gradePublications.createdAt));
-  }
-
-  /** Toàn bộ vết công bố VN của user cho một tập khoá (để xác định hiệu lực hiện tại của các phạm vi có vết sau mốc). */
-  async vnPublicationsForUser(userId: string, courseIds: string[]) {
-    if (!courseIds.length) return [];
-    return this.db
-      .select()
-      .from(gradePublications)
-      .where(and(
-        eq(gradePublications.userId, userId),
-        inArray(gradePublications.courseId, courseIds),
-        inArray(gradePublications.scope, ['vn_term', 'vn_year']),
-      ))
-      .orderBy(asc(gradePublications.createdAt));
-  }
-
   /** Bài nộp C2 đang chờ chấm trong tập khoá kèm trạng thái gói chấm của đúng attempt hiện tại. */
   async assignmentPendingRows(courseIds: string[]) {
     if (!courseIds.length) return [];

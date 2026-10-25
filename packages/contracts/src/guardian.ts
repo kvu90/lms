@@ -81,77 +81,29 @@ export interface GuardianStudentOverviewView {
   courseProgress: GuardianCourseProgressView[];
 }
 
-/** Kết quả một học kì ĐÃ CÔNG BỐ của con trong một sổ VN (một môn). */
-export interface GuardianTermResultView {
-  bookId: string;
-  /** hk1 | hk2. */
-  term: string;
-  /** score | comment. */
-  assessmentMode: string;
-  /** ĐTB môn học kì (môn điểm số); null khi chưa đủ cột để tính — không hiện 0 giả. */
-  dtbHk: number | null;
-  /** Đạt | Chưa đạt (môn chỉ-nhận-xét); null ở môn điểm số. */
-  commentResult: string | null;
-  /** Nhận xét tổng kỳ của giáo viên đi kèm bản chốt; null khi chưa chốt/không có. */
-  comment: string | null;
+/** Điểm ĐÃ CÔNG BỐ của con ở một bài (một hoạt động) trong khoá — mô hình điểm theo bài, issue #224. */
+export interface GuardianActivityResultView {
+  itemId: string;
+  /** Tên bài (tên grade item). */
+  itemName: string;
+  /** Điểm hiệu lực của bài; null khi chưa có điểm. */
+  finalGrade: number | null;
+  gradeMax: number;
+  /** Lời phê của giáo viên đi kèm điểm; null khi không có. */
+  feedback: string | null;
 }
 
-/** Kết quả học tập đã công bố của con trong một khoá/môn. */
+/** Kết quả học tập đã công bố của con trong một khoá/môn: điểm theo từng bài, không điểm tổng khoá. */
 export interface GuardianCourseResultsView {
   courseId: string;
   courseName: string;
-  terms: GuardianTermResultView[];
-  /** Kết quả cả năm đã công bố; null khi chưa công bố. */
-  year: { dtbYear: number | null; comment: string | null } | null;
-  /**
-   * Điểm tổng khoá đã qua cổng công bố PH-0 (tổng bị che khi còn điểm
-   * chưa công bố trong khoá); null khi chưa có/không được thấy.
-   */
-  courseTotal: { finalGrade: number | null; gradeMax: number } | null;
+  activities: GuardianActivityResultView[];
 }
 
 /** Bề mặt kết quả học tập đã công bố của con, theo từng khoá/môn. */
 export interface GuardianStudentResultsView {
   student: { id: string; firstName: string; lastName: string };
   courses: GuardianCourseResultsView[];
-}
-
-/**
- * Kết quả một học kì VN của CHÍNH học sinh trong một sổ (issue #180),
- * qua đúng cổng công bố PH-0 như bề mặt phụ huynh: chưa công bố thì
- * `published=false` và MỌI trường điểm/nhận xét đều null, `bookId` cũng
- * null — không lộ định danh sổ hay điểm qua đường khám phá này.
- */
-export interface MyVnTermResultView {
-  bookId: string | null;
-  /** hk1 | hk2. */
-  term: string;
-  /** score | comment. */
-  assessmentMode: string;
-  published: boolean;
-  /** ĐTB môn học kì đã công bố; null khi chưa công bố hoặc chưa đủ cột để tính. */
-  dtbHk: number | null;
-  /** Đạt | Chưa đạt (môn chỉ-nhận-xét); null ở môn điểm số. */
-  commentResult: string | null;
-  /** Nhận xét tổng kỳ của giáo viên đi kèm bản chốt đã công bố. */
-  comment: string | null;
-  /** Có cột đang chờ kiểm tra bù (Điều 7.4) — chỉ đúng khi đã công bố và chưa chốt. */
-  awaitingMakeup: boolean;
-}
-
-/**
- * Bề mặt "kết quả của tôi" của học sinh trong MỘT khoá (issue #180):
- * kết quả VN theo kỳ + cả năm của chính chủ, cùng nguồn dữ liệu với bề
- * mặt phụ huynh (bản chốt đã công bố, thiếu bản chốt thì tính trực tiếp
- * sau cổng công bố), kèm mức học tập Điều 9 suy từ các môn ĐÃ công bố.
- */
-export interface MyVnCourseResultsView {
-  courseId: string;
-  terms: MyVnTermResultView[];
-  /** Kết quả cả năm: null khi khoá chưa có sổ VN nào; `published=false` khi chưa công bố (mọi số đều null). */
-  year: { published: boolean; dtbYear: number | null; comment: string | null } | null;
-  /** Mức học tập Điều 9 theo kỳ/năm; null khi chưa có môn nào đã công bố để xếp mức. */
-  levels: { hk1: string | null; hk2: string | null; year: string | null };
 }
 
 /**

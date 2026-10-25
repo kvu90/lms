@@ -51,8 +51,8 @@ export interface DashboardDueItemView {
 export interface DashboardNewResultView {
   courseId: string;
   courseName: string;
-  /** grade_item: điểm/phản hồi của một grade item; vn_term/vn_year: kết quả VN. */
-  kind: 'grade_item' | 'vn_term' | 'vn_year';
+  /** grade_item: điểm/phản hồi của một bài (grade item) đã công bố. */
+  kind: 'grade_item';
   /** Chỉ có ở kind grade_item. */
   itemId: string | null;
   itemName: string | null;

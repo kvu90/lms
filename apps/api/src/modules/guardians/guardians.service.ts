@@ -2,7 +2,6 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { GradesService } from '../grades/grades.service';
-import { VnGradebooksService } from '../grades/vn-gradebooks.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantsService } from '../tenants/tenants.service';
@@ -34,7 +33,6 @@ export class GuardiansService {
     private readonly evaluator: PermissionEvaluator,
     private readonly users: UsersService,
     private readonly grades: GradesService,
-    private readonly vn: VnGradebooksService,
     private readonly outbox: OutboxService,
     private readonly tenantContext: TenantContextService,
     private readonly tenantRepo: TenantsRepository,
@@ -190,23 +188,11 @@ export class GuardiansService {
     await this.auditView(guardianId, studentId, null, surface);
   }
 
-  /** Sổ điểm (đã qua cổng công bố) của con trong một khoá — cho phụ huynh có liên kết active. */
+  /** Điểm theo từng bài (đã qua cổng công bố) của con trong một khoá — cho phụ huynh có liên kết active. */
   async studentGradebook(guardianId: string, studentId: string, courseId: string) {
     await this.assertActiveLink(guardianId, studentId);
-    const view = await this.grades.getGradebookForGuardian(courseId, studentId);
+    const activities = await this.grades.listPublishedActivityGrades(courseId, studentId);
     await this.auditView(guardianId, studentId, courseId, 'gradebook');
-    return view;
-  }
-
-  /** Kết quả học kì VN (đã công bố) của con trong một sổ — cho phụ huynh có liên kết active. */
-  async studentVnTermResult(guardianId: string, studentId: string, courseId: string, bookId: string) {
-    await this.assertActiveLink(guardianId, studentId);
-    const book = await this.vn.getBook(bookId);
-    if (book.courseId !== courseId) {
-      throw new BadRequestException({ message: 'VN gradebook belongs to another course', code: 'grades.vn_book_course_mismatch' });
-    }
-    const computation = await this.vn.computeTermResultForGuardian(bookId, studentId);
-    await this.auditView(guardianId, studentId, book.courseId, 'vn_term_result');
-    return computation;
+    return { courseId, userId: studentId, activities };
   }
 }

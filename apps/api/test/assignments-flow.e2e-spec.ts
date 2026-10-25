@@ -88,8 +88,7 @@ describe('Assignment file submission (mod_assign)', () => {
 
   async function gradebookGrade(ctx: Ctx, itemName: string, userId: string): Promise<number | null> {
     const book = await getGradebook(app, ctx.teacher, ctx.course.id, userId);
-    const items = book.categories.flatMap((c) => c.items);
-    const item = items.find((i) => i.item.itemName === itemName);
+    const item = book.activities.find((i) => i.item.itemName === itemName);
     expect(item).toBeTruthy();
     return item?.grade?.finalGrade ?? null;
   }
