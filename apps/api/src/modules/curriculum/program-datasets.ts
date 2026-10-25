@@ -7,7 +7,7 @@ import { v5 as uuidv5 } from 'uuid';
  * Manifest + logic thuần của cơ chế nạp dữ liệu chương trình chuẩn
  * (K0a). Dataset là file bản ghi đã kiểm chứng nguyên văn với văn bản
  * ban hành kèm Thông tư 32/2018/TT-BGDĐT (xem hồ sơ kiểm chứng của dự
- * án: đủ 20 môn, 2.126 bản ghi, 0 chênh lệch chữ) và được vendor
+ * án: 19 môn có dữ liệu, 2.126 bản ghi, 0 chênh lệch chữ) và được vendor
  * nguyên văn tại thư mục `program-data/` cạnh file này — nạp dữ liệu là
  * chuyển các bản ghi đó vào cây chương trình, TUYỆT ĐỐI không sửa chữ,
  * kể cả lỗi in có thật trong PDF của Bộ.
@@ -65,8 +65,8 @@ export interface ProgramDatasetDef {
 }
 
 /**
- * Toàn bộ dataset đã kiểm chứng (20 môn, 21 file, 2.126 bản ghi —
- * GDPT-SEED, issue #161). Hai cặp file dùng CHUNG một môn đích (slug
+ * Toàn bộ dataset đã kiểm chứng (19 môn có dữ liệu, 21 file, 2.126 bản
+ * ghi — GDPT-SEED, issue #161; môn thứ 20 GDQP&AN chưa có dataset). Hai cặp file dùng CHUNG một môn đích (slug
  * giống nhau = resolve về đúng một môn ở tầng nạp):
  * - Tiếng Anh: văn bản "Làm quen lớp 1–2" + văn bản lớp 3–12;
  * - Lịch sử và Địa lí: văn bản Tiểu học + văn bản THCS (Lịch sử/Địa lí
