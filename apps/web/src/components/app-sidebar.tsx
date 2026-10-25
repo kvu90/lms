@@ -100,6 +100,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   });
   const unreadNotifications = unreadQuery.data?.unread ?? 0;
 
+  // Mục "Phụ huynh" (PH-1, issue #130) chỉ hiện khi tài khoản có ít
+  // nhất một liên kết giám hộ đang hiệu lực — người dùng thường không
+  // thấy bề mặt này.
+  const guardianQuery = useQuery({
+    queryKey: queryKeys.guardianMyStudents,
+    queryFn: () => apiJson<{ student: { id: string } }[]>('/api/v1/guardian-links/mine/students'),
+  });
+  const hasGuardianChildren = (guardianQuery.data?.length ?? 0) > 0;
+
   // Trạng thái mở của các nhóm collapse: đọc lười từ localStorage ở
   // lần render đầu, ghi lại mỗi lần người dùng thu/mở một nhóm.
   const [openGroups, setOpenGroups] = React.useState<string[]>(readStoredOpenGroups);
@@ -122,6 +131,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: t('app:navCalendar'), url: '/calendar', icon: IconCalendar },
     { title: t('app:navMessages'), url: '/messages', icon: IconMail },
     { title: t('app:navNotifications'), url: '/notifications', icon: IconBell, badgeCount: unreadNotifications },
+    ...(hasGuardianChildren
+      ? [{ title: t('app:navGuardian'), url: '/guardian', icon: IconUsers }]
+      : []),
     { title: t('app:navSearch'), url: '/search', icon: IconSearch },
     {
       groupId: 'learning',

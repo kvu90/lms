@@ -47,6 +47,29 @@ export class DashboardService {
     return teaching;
   }
 
+  /**
+   * Khoá một người dùng đang ghi danh hiệu lực kèm tên hiển thị — điểm vào
+   * dùng chung cho dashboard của chính chủ và bề mặt phụ huynh (PH-1 đọc
+   * dữ liệu của CON qua đúng tập khoá ghi danh này).
+   */
+  async enrolledCoursesFor(userId: string): Promise<{ courseIds: string[]; names: Map<string, string> }> {
+    const courseIds = await this.repo.enrolledCourseIds(userId, new Date());
+    const names = await this.repo.courseNames(courseIds);
+    return { courseIds, names };
+  }
+
+  /**
+   * Kết quả ĐÃ CÔNG BỐ mới của một học sinh kể từ mốc `since` — cùng cổng
+   * công bố PH-0 và cùng quy tắc thời điểm hiệu lực (max của lần sửa điểm
+   * và lần công bố) như khối "mới" của dashboard học sinh. Bề mặt phụ
+   * huynh (PH-1) dùng lại nguyên hàm này với mốc xem của phụ huynh để hai
+   * bề mặt không bao giờ lệch nhau về điều kiện hiển thị.
+   */
+  async publishedNewResultsFor(userId: string, since: Date): Promise<DashboardNewResultView[]> {
+    const { courseIds, names } = await this.enrolledCoursesFor(userId);
+    return this.buildNewResults(userId, courseIds, names, since);
+  }
+
   /** Toàn bộ khối đầu dashboard cho người gọi. */
   async getOverview(userId: string, days: number): Promise<DashboardOverviewView> {
     const now = new Date();

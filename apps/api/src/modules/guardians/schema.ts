@@ -2,6 +2,7 @@
 import {
   index,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -41,4 +42,26 @@ export const guardianLinks = pgTable('guardian_links', {
       uniqueIndex('guardian_links_active_pair_unique')
         .on(table.guardianUserId, table.studentUserId)
         .where(sql`${table.status} = 'active'`),
+  ]);
+
+/**
+ * Mốc xem trước của phụ huynh cho từng con (PH-1, issue #130): `last_seen_at`
+ * là mốc phía server để tính khối "kết quả mới ĐÃ CÔNG BỐ kể từ lần xem
+ * trước" của bề mặt phụ huynh — tách riêng theo cặp (phụ huynh, học sinh)
+ * vì mỗi phụ huynh có nhịp xem riêng cho từng con, không dùng chung mốc
+ * dashboard của học sinh (`user_dashboard_state` là của chính học sinh).
+ * Hàng tạo ở lần xem overview đầu tiên với mốc = thời điểm tạo (lần đầu
+ * không có gì tính là mới, đúng tiền lệ DASH1).
+ */
+export const guardianViewState = pgTable('guardian_view_state', {
+  guardianUserId: uuid('guardian_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentUserId: uuid('student_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      primaryKey({ columns: [table.guardianUserId, table.studentUserId] }),
+      // FK student_user_id cần index dẫn đầu riêng (PK dẫn đầu là guardian_user_id).
+      index('guardian_view_state_student_user_id_idx').on(table.studentUserId),
   ]);

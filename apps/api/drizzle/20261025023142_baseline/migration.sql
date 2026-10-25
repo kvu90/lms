@@ -760,6 +760,15 @@ CREATE TABLE "guardian_links" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "guardian_view_state" (
+	"guardian_user_id" uuid,
+	"student_user_id" uuid,
+	"last_seen_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "guardian_view_state_pkey" PRIMARY KEY("guardian_user_id","student_user_id")
+);
+--> statement-breakpoint
 CREATE TABLE "user_course_card_prefs" (
 	"user_id" uuid,
 	"course_id" uuid,
@@ -2417,6 +2426,7 @@ CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> 
 CREATE INDEX "guardian_links_guardian_user_id_idx" ON "guardian_links" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_student_user_id_idx" ON "guardian_links" ("student_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "guardian_links_active_pair_unique" ON "guardian_links" ("guardian_user_id","student_user_id") WHERE "status" = 'active';--> statement-breakpoint
+CREATE INDEX "guardian_view_state_student_user_id_idx" ON "guardian_view_state" ("student_user_id");--> statement-breakpoint
 CREATE INDEX "user_course_card_prefs_course_idx" ON "user_course_card_prefs" ("course_id");--> statement-breakpoint
 CREATE INDEX "question_category_idx" ON "question" ("category");--> statement-breakpoint
 CREATE INDEX "question_created_by_idx" ON "question" ("created_by");--> statement-breakpoint
@@ -2744,6 +2754,8 @@ ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_book_id_vn_gradebo
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_view_state" ADD CONSTRAINT "guardian_view_state_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_view_state" ADD CONSTRAINT "guardian_view_state_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_course_card_prefs" ADD CONSTRAINT "user_course_card_prefs_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "qtype_essay_options" ADD CONSTRAINT "qtype_essay_options_rP8Wa5wQJvJN_fkey" FOREIGN KEY ("question_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "qtype_multichoice_options" ADD CONSTRAINT "qtype_multichoice_options_wd17CNE0Cw44_fkey" FOREIGN KEY ("question_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint

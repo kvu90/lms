@@ -225,6 +225,27 @@ export class VnGradebooksService {
     return this.computeTermResultUnchecked(book, userId);
   }
 
+  /**
+   * Các sổ VN của một khoá cho bề mặt phụ huynh (PH-1): quyền đọc suy từ
+   * liên kết giám hộ do GuardiansService kiểm tra trước — hàm này không
+   * gác capability theo actor như listBooks (đường của giáo viên).
+   */
+  async listBooksForGuardian(courseId: string): Promise<VnBookRow[]> {
+    return this.repo.listVnBooks(courseId);
+  }
+
+  /** Bản chốt kì mới nhất của một học sinh trong một sổ (nhận xét tổng kỳ sống ở đây); null khi chưa chốt. */
+  async finalizedTermResultForGuardian(bookId: string, userId: string): Promise<VnTermResultRow | null> {
+    const rows = await this.repo.listVnTermResults(bookId, userId);
+    return rows.at(-1) ?? null;
+  }
+
+  /** Bản chốt năm mới nhất của một học sinh trong một khoá; null khi chưa chốt. */
+  async finalizedYearResultForGuardian(courseId: string, userId: string): Promise<VnTermResultRow | null> {
+    const rows = await this.repo.listVnYearResults(courseId, userId);
+    return rows.at(-1) ?? null;
+  }
+
   /** Lấy sổ VN; ném grades.vn_book_not_found khi vắng. */
   async getBook(bookId: string): Promise<VnBookRow> {
     const row = await this.repo.getVnBook(bookId);

@@ -38,4 +38,10 @@ export const queryKeys = {
   dashboardOverview: ['dashboard', 'overview'] as const,
   /** Pref thẻ khoá của chính người dùng (GET /dashboard/course-cards) — DASH1. */
   courseCards: ['dashboard', 'course-cards'] as const,
+  /** Các con đang liên kết giám hộ với chính người dùng (GET /guardian-links/mine/students) — PH-1. */
+  guardianMyStudents: ['guardian', 'my-students'] as const,
+  /** Tổng quan phụ huynh cho một con (GET /guardian/students/:id/overview) — PH-1. */
+  guardianOverview: (studentId: string) => ['guardian', 'overview', studentId] as const,
+  /** Kết quả đã công bố của một con (GET /guardian/students/:id/results) — PH-1. */
+  guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
 };

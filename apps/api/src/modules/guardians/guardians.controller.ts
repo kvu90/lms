@@ -3,6 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { createGuardianLinkSchema, type CreateGuardianLinkDto } from './dto/guardians.dto';
+import { GuardianViewService } from './guardian-view.service';
 import { GuardiansService } from './guardians.service';
 
 @ApiTags('guardians')
@@ -81,5 +82,38 @@ export class GuardianViewsController {
    */
   async vnResult(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.guardians.studentVnTermResult(actor.id, studentId, courseId, bookId);
+  }
+}
+
+@ApiTags('guardians')
+@Controller({ path: 'guardian', version: '1' })
+/**
+ * Bề mặt phụ huynh chỉ-xem PH-1 (issue #130): tổng quan 4 khối + kết quả
+ * học tập đã công bố theo môn cho một con. Chỉ có đường GET — mọi đường
+ * ghi tới các path này đều 404. Cổng liên kết trả 404 đồng nhất khi phụ
+ * huynh không có liên kết đang hiệu lực tới học sinh (kể cả học sinh
+ * không tồn tại): không lộ sự tồn tại của dữ liệu người khác.
+ */
+export class GuardianSurfaceController {
+  constructor(private readonly view: GuardianViewService) {}
+
+  @Get('students/:studentId/overview')
+  /**
+   * GET /guardian/students/:studentId/overview — 4 khối: tóm tắt tuần,
+   * kết quả mới đã công bố từ lần xem trước của phụ huynh, thông báo lớp,
+   * tiến độ % theo khoá. Đồng thời cập nhật mốc xem trước của phụ huynh.
+   */
+  async overview(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.view.overview(actor.id, studentId);
+  }
+
+  @Get('students/:studentId/results')
+  /**
+   * GET /guardian/students/:studentId/results — kết quả học tập ĐÃ CÔNG
+   * BỐ theo môn/khoá: ĐTB/mức + nhận xét tổng kỳ, kết quả năm, điểm tổng
+   * khoá đã qua cổng công bố. Không lời phê chi tiết, không bài nộp gốc.
+   */
+  async results(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.view.results(actor.id, studentId);
   }
 }
