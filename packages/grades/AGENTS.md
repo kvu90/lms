@@ -12,7 +12,8 @@
 
 - 1 issue = 1 feat = 1 PR. Engine thuần: không thêm phụ thuộc DB/Nest/HTTP vào
   package này dưới bất kỳ lý do nào.
-- Nghiệp vụ sổ điểm VN (TT 22, chốt/công bố) thuộc `apps/api` — không kéo vào đây.
+- Nghiệp vụ điểm theo hoạt động (công thức điểm của từng bài kiểm tra/bài tập, công
+  bố điểm của bài) thuộc `apps/api` — không kéo vào đây.
 
 ## Điều cấm package-specific
 
