@@ -1,5 +1,6 @@
 /** Các bảng của bounded context Dashboard việc cần làm (DASH1, issue #121) — định nghĩa Drizzle do module dashboard sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
+  index,
   pgTable,
   primaryKey,
   text,
@@ -39,4 +40,7 @@ export const userCourseCardPrefs = pgTable('user_course_card_prefs', {
 },
   (table) => [
     primaryKey({ columns: [table.userId, table.courseId] }),
+    // FK course_id cần index dẫn đầu riêng (PK dẫn đầu là user_id) —
+    // test nền tảng uuidv7 (6b) bắt mọi FK đơn cột phải có index bao phủ.
+    index('user_course_card_prefs_course_idx').on(table.courseId),
   ]);
