@@ -188,7 +188,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(await myStatus(token, course.id)).not.toBe('complete');
   });
 
-  it('role: assignments at ancestor contexts (system, category) also authorise marking; unrelated branches do not (issue #23 F1)', async () => {
+  it('role: assignments at ancestor contexts (system, class) also authorise marking; unrelated branches do not (issue #23 F1)', async () => {
     const { cat, course, instance } = await setupCourse();
     const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
     await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'role', roleId: teacherRoleId }]);
@@ -213,18 +213,32 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(unBySystem.status).toBeLessThan(300);
     expect(await myStatus(token, course.id)).not.toBe('complete');
 
-    // Same for an assignment at the course's CATEGORY context (the middle
-    // of the path): it covers every course in the category.
+    // Same for an assignment at the course's CLASS context (the middle
+    // of the path since CLASS-0, PR #200): context khoá neo dưới context
+    // lớp nên gán vai tại lớp phủ mọi khoá trong lớp.
+    const classMarker = await createUserViaApi(app, admin);
+    await assignRole(app, admin, classMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 45, course.classId!));
+    const classToken = (await login(app, classMarker.username, STRONG_PASSWORD)).accessToken;
+    const byClass = await mark(classToken, true);
+    expect(byClass.status).toBeLessThan(300);
+    expect(byClass.body.status).toBe('complete');
+    expect(await myStatus(token, course.id)).toBe('complete');
+    const unByClass = await mark(classToken, false);
+    expect(unByClass.status).toBeLessThan(300);
+    expect(await myStatus(token, course.id)).not.toBe('complete');
+
+    // Ngược lại, context DANH MỤC không còn nằm trên đường tổ tiên của
+    // khoá (CLASS-0 neo khoá dưới lớp, danh mục chỉ là phân loại hành
+    // chính): gán vai tại danh mục của chính khoá cũng KHÔNG còn quyền.
     const catMarker = await createUserViaApi(app, admin);
     await assignRole(app, admin, catMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 40, cat.id));
     const catToken = (await login(app, catMarker.username, STRONG_PASSWORD)).accessToken;
     const byCategory = await mark(catToken, true);
-    expect(byCategory.status).toBeLessThan(300);
-    expect(byCategory.body.status).toBe('complete');
-    expect(await myStatus(token, course.id)).toBe('complete');
+    expect(byCategory.status).toBe(403);
+    expect(byCategory.body.code).toBe('completion.role_marker_forbidden');
 
-    // But an assignment in an UNRELATED branch (a different category) is
-    // not on this course's path: still forbidden.
+    // And an assignment in an UNRELATED branch (a different category) is
+    // not on this course's path either: still forbidden.
     const otherCat = await createCategory(app, admin);
     const strayMarker = await createUserViaApi(app, admin);
     await assignRole(app, admin, strayMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 40, otherCat.id));
@@ -232,7 +246,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     const byStray = await mark(strayToken, false);
     expect(byStray.status).toBe(403);
     expect(byStray.body.code).toBe('completion.role_marker_forbidden');
-    expect(await myStatus(token, course.id)).toBe('complete');
+    expect(await myStatus(token, course.id)).not.toBe('complete');
   });
 
   it('unenrol: enrolled learners are not complete; leaving the course completes it', async () => {

@@ -118,8 +118,9 @@ describe('tenant isolation (TENANT-0, #168)', () => {
 
     const seedTenantContent = async (token: string, marker: string) => {
       const category = await must(await http(app).post('/api/v1/courses/categories').set(auth(token)).send({ name: `Danh mục ${marker}` }), 'create category') as { id: string };
+      const cls = await must(await http(app).post('/api/v1/classes').set(auth(token)).send({ name: `Lớp ${marker}` }), 'create class') as { id: string };
       const course = await must(await http(app).post('/api/v1/courses').set(auth(token)).send({
-        fullName: `Khoá ${marker}`, shortName: uniqueName('C').toUpperCase(), category: category.id,
+        fullName: `Khoá ${marker}`, shortName: uniqueName('C').toUpperCase(), category: category.id, classId: cls.id,
       }), 'create course') as { id: string };
       const cohort = await must(await http(app).post('/api/v1/cohorts').set(auth(token)).send({ name: `Cohort ${marker}`, categoryId: category.id }), 'create cohort') as { id: string };
       return { categoryId: category.id, courseId: course.id, cohortId: cohort.id };

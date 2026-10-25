@@ -239,6 +239,8 @@ export const createCourseSchema = z.strictObject({
   /** Môn × khối theo chương trình GDPT 2018 (K0a) — căn cứ chọn khung khi nạp khung vào khoá. */
   subjectId: uuidIdSchema.nullable().optional(),
   grade: z.number().int().min(1).max(12).nullable().optional(),
+  /** Lớp học chứa khoá (issue #184): khoá tạo trong lớp thì roster của lớp tự vật chất hoá xuống khoá. */
+  classId: uuidIdSchema.nullable().optional(),
   formatOptions: z.record(z.string(), z.string()).optional(),
   customFields: z.record(z.string(), z.string()).optional(),
 });
@@ -336,6 +338,8 @@ export const duplicateCourseSchema = z.strictObject({
   shortName: z.string().min(1),
   category: uuidIdSchema.optional(),
   startDate: z.string().optional(),
+  /** Lớp đích (issue #184): bỏ trống = giữ lớp của khoá nguồn (nhân bản khoá mẫu vào lớp là đường chính). */
+  classId: uuidIdSchema.nullable().optional(),
 });
 export type DuplicateCourse = z.infer<typeof duplicateCourseSchema>;
 

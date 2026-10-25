@@ -29,6 +29,18 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
   let courseId = '';
   let cmId = '';
 
+
+  // CLASS-0 đóng gói (PR #200): khoá dạy thật phải có class_id (CHECK
+  // course_class_required_check) — lớp fixture cho tenant worker-fixture,
+  // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
+  async function fixtureClassId(): Promise<string> {
+    const ownerId = '01980000-0000-7000-8000-00000000c1a5';
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    const cohId = (coh.rows[0] as { id: string }).id;
+    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    return (cls.rows[0] as { id: string }).id;
+  }
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
@@ -38,7 +50,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     // the worker's schema view intentionally only carries the tables its processors touch).
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}, ${await fixtureClassId()}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     const sectionRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
     const sectionId = (sectionRows.rows[0] as { id: string }).id;
@@ -132,7 +144,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
 
     // course (prerequisite): incomplete until the prerequisite course's
     // stored completion row is complete.
-    const prereqRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}) returning id`);
+    const prereqRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}, ${await fixtureClassId()}) returning id`);
     const prereqId = (prereqRows.rows[0] as { id: string }).id;
     await replaceCriteria([{ criteriaType: 'course', courseInstance: prereqId }]);
     await processor.process({ data: { courseId } } as never);

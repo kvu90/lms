@@ -75,6 +75,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
   let tree5: TreeNode[];
   let categoryId: string;
   let courseId: string;
+  let classId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -94,6 +95,14 @@ describe('K0a curriculum frame application (programme → course sections, ancho
     const teacher = await createUserViaApi(app, admin);
     await assignRole(app, admin, teacher.id, await roleIdByShortname(app, admin, 'coursecreator'), categoryCtxId);
     teacherToken = (await login(app, teacher.username, STRONG_PASSWORD)).accessToken;
+    // CLASS-0 (đóng gói PR #200): khoá dạy thật phải thuộc một lớp. GV
+    // coursecreator tại context danh mục không có class:create tại
+    // context tenant nên lớp do admin tạo, chủ lớp là chính GV này —
+    // chủ lớp có editingteacher tại context lớp nên tạo/sửa khoá trong
+    // lớp được như đường sản phẩm.
+    const cls = await http(app).post('/api/v1/classes').set(bearer(admin)).send({ name: uniqueName('cls'), ownerId: teacher.id });
+    expect(cls.status).toBe(201);
+    classId = cls.body.id as string;
     const plain = await createUserViaApi(app, admin);
     plainToken = (await login(app, plain.username, STRONG_PASSWORD)).accessToken;
 
@@ -110,7 +119,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
   it('teacher creates a grade-5 Toán course carrying subject × grade', async () => {
     const res = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Toán 5 — khung K0a', shortName: uniqueName('toan5'), category: categoryId,
-      subjectId, grade: 5,
+      subjectId, grade: 5, classId,
     });
     expect(res.status).toBe(201);
     expect(res.body.subjectId).toBe(subjectId);
@@ -119,7 +128,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
 
     const bogus = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Khoá neo môn ma', shortName: uniqueName('ghost'), category: categoryId,
-      subjectId: '01961e2a-7b3c-7def-8abc-0123456789ab', grade: 5,
+      subjectId: '01961e2a-7b3c-7def-8abc-0123456789ab', grade: 5, classId,
     });
     expect(bogus.status).toBe(400);
     expect(bogus.body.code).toBe('course.subject_not_found');

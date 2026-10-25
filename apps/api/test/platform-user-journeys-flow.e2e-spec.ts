@@ -71,7 +71,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     expect(none.body).toEqual([]);
   });
 
-  it('restore journey: merging into an existing course keeps the target identity and adds the source content; restoring as new copies exactly the source structure', async () => {
+  it('restore journey: merging into an existing course keeps the target identity and adds the source content; replacing into a fresh course copies exactly the source structure', async () => {
     const cat = await createCategory(app, admin);
     const source = await createCourse(app, admin, cat.id, { fullName: uniqueName('JourneySource') });
     const section = await createSection(app, admin, source.id, { name: 'Journey Week' });
@@ -95,9 +95,17 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     expect(targetModuleNames).toContain('Journey Reading');
 
     // Behat: restore thành khoá mới — đủ section của nguồn, không thừa
-    // ("Section 15" có, "Section 16" không).
-    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+    // ("Section 15" có, "Section 16" không). Từ CLASS-0 (PR #200),
+    // restore-as-new bị từ chối vì khoá mới phải thuộc một lớp
+    // (400 course.class_required); tương đương Behat đạt bằng replace
+    // vào một khoá đích trống.
+    const restoreNew = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
       .send({ backupJobId: backup.body.id, mode: 'new' });
+    expect(restoreNew.status).toBe(400);
+    expect(restoreNew.body.code).toBe('course.class_required');
+    const freshTarget = await createCourse(app, admin, cat.id, { fullName: uniqueName('JourneyFresh') });
+    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+      .send({ backupJobId: backup.body.id, mode: 'replace', targetCourseId: freshTarget.id });
     expect(restore.body.status).toBe('completed');
     const newContent = await http(app).get(`/api/v1/courses/${restore.body.targetCourseId}/content`).set('Authorization', `Bearer ${admin}`);
     expect((newContent.body.sections as unknown[]).length).toBe(sourceSections);

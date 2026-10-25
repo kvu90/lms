@@ -78,10 +78,13 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     // của nền multi-tenant (TENANT-0, issue #168) → 115, + 1 quyền
     // search:manage của đợt vá gác route ghi search (sổ #134, H2+H5)
     // → 116, − 3 quyền blog:create / blog:view / blog:manageentries
-    // khi gỡ hẳn tính năng Blog (issue #173) → 113, every one prefix-free,
+    // khi gỡ hẳn tính năng Blog (issue #173) → 113, + 8 quyền class:*
+    // của lớp học hạng nhất (CLASS-0, issue #184: create/view/update/
+    // delete/manageroster/assignwork/grade/share) → 121, every one
+    // prefix-free,
     // and the renamed defaults were re-seeded at the system context.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    expect(Number(defs.rows[0].n)).toBe(113);
+    expect(Number(defs.rows[0].n)).toBe(121);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],

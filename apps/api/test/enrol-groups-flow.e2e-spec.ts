@@ -151,9 +151,11 @@ describe('Enrol & groups/cohorts', () => {
     // Visible-members aggregate contains only her own membership.
     const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(visibleMembers.body).toEqual([{ groupId: gA.body.id, userId: alice.id }]);
-    // Admin (accessallgroups via manager/siteadmin) sees everything.
+    // Admin (accessallgroups via manager/siteadmin) sees everything —
+    // gồm cả nhóm "Cả lớp" tự sinh của CLASS-0 khi khoá nằm trong lớp
+    // (đóng gói PR #200: mọi khoá dạy thật đều thuộc một lớp).
     const adminList = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
-    expect((adminList.body as unknown[]).length).toBe(2);
+    expect((adminList.body as unknown[]).length).toBe(3);
   });
 
   it('cohort sync: adding a user to a cohort enrols them into linked courses; removing suspends by default and unenrols when configured', async () => {
@@ -412,9 +414,12 @@ describe('Enrol & groups/cohorts', () => {
 
   it('VISIBLE GROUPS: a student in group A sees BOTH groups and the members of group B, but write operations stay capability-gated (MoodleDocs Groups — visible groups are read-only for other groups)', async () => {
     const { course, bob, gA, gB, aliceLogin } = await setupTwoGroups(2); // VISIBLEGROUPS
-    // Group list contains both groups.
+    // Group list contains both groups — cộng nhóm "Cả lớp" tự sinh của
+    // CLASS-0 (khoá thuộc lớp thì có thêm nhóm này, PR #200).
+    const adminGroups = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
+    const classGroupId = (adminGroups.body as { id: string; name: string }[]).find((g) => g.name === 'Cả lớp')!.id;
     const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
-    expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+    expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id, classGroupId].sort());
     // Members of the OTHER group are readable in visible mode.
     const otherMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(otherMembers.status).toBe(200);
@@ -461,8 +466,10 @@ describe('Enrol & groups/cohorts', () => {
       const editingTeacherRole = await roleIdByShortname(app, admin, 'editingteacher');
       await assignRole(app, admin, teacher.id, editingTeacherRole, content.body.contextId);
       const teacherLogin = await login(app, teacher.username, STRONG_PASSWORD);
+      const adminGroups = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
+      const classGroupId = (adminGroups.body as { id: string; name: string }[]).find((g) => g.name === 'Cả lớp')!.id;
       const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
-      expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
+      expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id, classGroupId].sort());
       const membersB = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${teacherLogin.accessToken}`);
       expect(membersB.status).toBe(200);
       expect((membersB.body as unknown[]).length).toBe(1);

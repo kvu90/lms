@@ -27,6 +27,18 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
   let rootCatId = '';
   let courseItemId = '';
 
+
+  // CLASS-0 đóng gói (PR #200): khoá dạy thật phải có class_id (CHECK
+  // course_class_required_check) — lớp fixture cho tenant worker-fixture,
+  // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
+  async function fixtureClassId(): Promise<string> {
+    const ownerId = '01980000-0000-7000-8000-00000000c1a5';
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    const cohId = (coh.rows[0] as { id: string }).id;
+    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    return (cls.rows[0] as { id: string }).id;
+  }
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
@@ -34,7 +46,7 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat3-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker grades course', ${`wk3${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker grades course', ${`wk3${suffix}`}, ${await fixtureClassId()}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await context.close(); });
@@ -79,7 +91,7 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     const sfx = `${suffix}c`;
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat3c-${sfx}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId2 = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId2}, (select tenant_id from course_categories where id = ${catId2}), 'Worker calc course', ${`wk3c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId2}, (select tenant_id from course_categories where id = ${catId2}), 'Worker calc course', ${`wk3c${suffix}`}, ${await fixtureClassId()}) returning id`);
     const course2 = (courseRows.rows[0] as { id: string }).id;
     const [root2] = await db.insert(gradeCategories).values({ courseId: course2, parent: null, fullName: '', aggregation: 'natural', depth: 1 }).returning();
     const [courseItem2] = await db.insert(gradeItems).values({ courseId: course2, categoryId: root2.id, itemName: 'Course total', itemType: 'course', itemInstance: course2, gradeMax: 100 }).returning();

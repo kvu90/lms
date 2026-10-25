@@ -46,6 +46,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
   let curriculum5Id: string;
   let tree5: TreeNode[];
   let courseId: string;
+  let classId: string;
 
   async function applyFrame(nodeIds: string[], insertAtSection?: number) {
     return http(app).post(`/api/v1/courses/${courseId}/curriculum-frame`).set(bearer(teacherToken))
@@ -70,6 +71,11 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
     const teacher = await createUserViaApi(app, admin);
     await assignRole(app, admin, teacher.id, await roleIdByShortname(app, admin, 'coursecreator'), categoryCtxId);
     teacherToken = (await login(app, teacher.username, STRONG_PASSWORD)).accessToken;
+    // CLASS-0 (đóng gói PR #200): lớp do admin tạo, chủ lớp là GV này
+    // (xem spec curriculum-frame-apply — cùng lý do class:create).
+    const cls = await http(app).post('/api/v1/classes').set(bearer(admin)).send({ name: uniqueName('cls'), ownerId: teacher.id });
+    expect(cls.status).toBe(201);
+    classId = cls.body.id as string;
 
     const subjects = await http(app).get(`/api/v1/curriculum/subjects?contextId=${systemCtxId}`).set(bearer(admin));
     const subjectId = (subjects.body as { id: string; slug: string }[]).find((s) => s.slug === 'toan')!.id;
@@ -81,7 +87,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
 
     const res = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Toán 5 — nạp khung idempotent', shortName: uniqueName('toan5idem'), category: category.id,
-      subjectId, grade: 5,
+      subjectId, grade: 5, classId,
     });
     expect(res.status).toBe(201);
     courseId = res.body.id as string;

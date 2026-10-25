@@ -467,10 +467,12 @@ CREATE TABLE "course" (
 	"subject_id" uuid,
 	"grade" smallint,
 	"is_template" boolean DEFAULT false NOT NULL,
+	"class_id" uuid,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "course_grade_check" CHECK ("grade" is null or ("grade" between 1 and 12))
+	CONSTRAINT "course_grade_check" CHECK ("grade" is null or ("grade" between 1 and 12)),
+	CONSTRAINT "course_class_required_check" CHECK ("class_id" is not null or "is_template")
 );
 --> statement-breakpoint
 CREATE TABLE "course_categories" (
@@ -637,6 +639,23 @@ CREATE TABLE "groups_members" (
 	"component" text DEFAULT '' NOT NULL,
 	"item_id" uuid,
 	CONSTRAINT "groups_members_unique" UNIQUE("group_id","user_id","component","item_id")
+);
+--> statement-breakpoint
+CREATE TABLE "classes" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"code" text,
+	"school_year" text,
+	"owner_id" uuid NOT NULL,
+	"cohort_id" uuid NOT NULL UNIQUE,
+	"allow_self_report" boolean DEFAULT false NOT NULL,
+	"join_code" text,
+	"on_leave" text DEFAULT 'suspend' NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "enrol" (
@@ -2617,6 +2636,7 @@ CREATE INDEX "files_item_id_idx" ON "files" ("item_id");--> statement-breakpoint
 CREATE INDEX "files_user_id_idx" ON "files" ("user_id");--> statement-breakpoint
 CREATE INDEX "course_tenant_id_idx" ON "course" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "course_category_idx" ON "course" ("category");--> statement-breakpoint
+CREATE INDEX "course_class_id_idx" ON "course" ("class_id");--> statement-breakpoint
 CREATE INDEX "course_subject_id_idx" ON "course" ("subject_id");--> statement-breakpoint
 CREATE INDEX "course_categories_tenant_id_idx" ON "course_categories" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "course_categories_parent_idx" ON "course_categories" ("parent");--> statement-breakpoint
@@ -2640,6 +2660,10 @@ CREATE INDEX "cohort_members_user_id_idx" ON "cohort_members" ("user_id");--> st
 CREATE INDEX "groupings_groups_group_id_idx" ON "groupings_groups" ("group_id");--> statement-breakpoint
 CREATE INDEX "groups_members_user_id_idx" ON "groups_members" ("user_id");--> statement-breakpoint
 CREATE INDEX "groups_members_item_id_idx" ON "groups_members" ("item_id");--> statement-breakpoint
+CREATE INDEX "classes_tenant_id_idx" ON "classes" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "classes_owner_id_idx" ON "classes" ("owner_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "classes_tenant_code_unique" ON "classes" ("tenant_id","code") WHERE "code" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "classes_join_code_unique" ON "classes" ("join_code") WHERE "join_code" is not null;--> statement-breakpoint
 CREATE INDEX "enrol_course_id_idx" ON "enrol" ("course_id");--> statement-breakpoint
 CREATE INDEX "enrol_role_id_idx" ON "enrol" ("role_id");--> statement-breakpoint
 CREATE INDEX "enrol_custom_int1_idx" ON "enrol" ("custom_int1");--> statement-breakpoint
@@ -3006,6 +3030,7 @@ ALTER TABLE "custom_field_field" ADD CONSTRAINT "custom_field_field_category_id_
 ALTER TABLE "course" ADD CONSTRAINT "course_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "course" ADD CONSTRAINT "course_category_course_categories_id_fkey" FOREIGN KEY ("category") REFERENCES "course_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course" ADD CONSTRAINT "course_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "course" ADD CONSTRAINT "course_class_id_classes_id_fkey" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "course_categories" ADD CONSTRAINT "course_categories_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "course_format_options" ADD CONSTRAINT "course_format_options_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_modules" ADD CONSTRAINT "course_modules_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3030,6 +3055,9 @@ ALTER TABLE "groupings" ADD CONSTRAINT "groupings_course_id_course_id_fkey" FORE
 ALTER TABLE "groupings_groups" ADD CONSTRAINT "groupings_groups_grouping_id_groupings_id_fkey" FOREIGN KEY ("grouping_id") REFERENCES "groupings"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "groupings_groups" ADD CONSTRAINT "groupings_groups_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "groups_members" ADD CONSTRAINT "groups_members_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "classes" ADD CONSTRAINT "classes_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "classes" ADD CONSTRAINT "classes_owner_id_users_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "classes" ADD CONSTRAINT "classes_cohort_id_cohort_id_fkey" FOREIGN KEY ("cohort_id") REFERENCES "cohort"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "enrol" ADD CONSTRAINT "enrol_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_enrolments" ADD CONSTRAINT "user_enrolments_enrol_id_enrol_id_fkey" FOREIGN KEY ("enrol_id") REFERENCES "enrol"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_completion_crit_compl" ADD CONSTRAINT "course_completion_crit_compl_us1SEGOfYz6U_fkey" FOREIGN KEY ("criteria_id") REFERENCES "course_completion_criteria"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3295,3 +3323,9 @@ CREATE POLICY "tenant_isolation" ON "notifications" USING (current_setting('app.
 ALTER TABLE "notification_dispatch_log" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "notification_dispatch_log" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "notification_dispatch_log" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+--> statement-breakpoint
+-- CLASS-0 (issue #184): bảng `classes` mang tenant_id NOT NULL — cùng
+-- khuôn RLS tenant_isolation FAIL-CLOSED của TENANT-1 như các bảng trên.
+ALTER TABLE "classes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "classes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);

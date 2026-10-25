@@ -33,6 +33,18 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   const userSuspended = `01930000-0000-7000-8000-${String(930000 + suffix).padStart(12, '0')}`;
   const userPrefOff = `01940000-0000-7000-8000-${String(940000 + suffix).padStart(12, '0')}`;
 
+
+  // CLASS-0 đóng gói (PR #200): khoá dạy thật phải có class_id (CHECK
+  // course_class_required_check) — lớp fixture cho tenant worker-fixture,
+  // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
+  async function fixtureClassId(): Promise<string> {
+    const ownerId = '01980000-0000-7000-8000-00000000c1a5';
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    const cohId = (coh.rows[0] as { id: string }).id;
+    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    return (cls.rows[0] as { id: string }).id;
+  }
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
@@ -115,7 +127,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk-cat4-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker engagement course', ${`wk4c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker engagement course', ${`wk4c${suffix}`}, ${await fixtureClassId()}) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userId: userA, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
 
@@ -160,7 +172,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     const [field] = await db.insert(customFieldField).values({ categoryId: category.id, shortName, name: 'WK department', type: 'text' }).returning();
     await db.insert(customFieldData).values({ fieldId: field.id, instanceId: userA, value: 'Engineering' });
     // A completed course for userA (completed now).
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values ((select id from course_categories order by id limit 1), (select tenant_id from course_categories order by id limit 1), 'Worker leaf course', ${`wklc${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select id from course_categories order by id limit 1), (select tenant_id from course_categories order by id limit 1), 'Worker leaf course', ${`wklc${suffix}`}, ${await fixtureClassId()}) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userId: userA, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
 

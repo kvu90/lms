@@ -15,6 +15,7 @@ export * from './modules/custom-fields/schema';
 export * from './modules/files/schema';
 export * from './modules/courses/schema';
 export * from './modules/groups/schema';
+export * from './modules/classes/schema';
 export * from './modules/enrol/schema';
 export * from './modules/completion/schema';
 export * from './modules/grades/schema';

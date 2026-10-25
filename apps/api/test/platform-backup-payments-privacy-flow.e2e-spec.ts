@@ -27,7 +27,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
   });
   afterAll(async () => { await app.close(); });
 
-  it('backup DoD: backup a full course and restore it as a new course — checklist matches, ids are remapped, file is downloadable in the new course', async () => {
+  it('backup DoD: backup a full course and restore it into a fresh course — checklist matches, ids are remapped, file is downloadable in the new course', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const section0 = await getFirstSectionId(app, admin, course.id);
@@ -59,11 +59,21 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect((steps.body as { name: string }[]).map((s) => s.name)).toEqual(
       expect.arrayContaining(['courses', 'enrol', 'groups', 'grades', 'completion', 'files']));
 
-    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+    // CLASS-0 (đóng gói PR #200): restore-as-new tạo khoá dạy thật
+    // không lớp qua createCourse nên bị từ chối sạch 400
+    // course.class_required — đường khôi phục còn lại là vào khoá đích
+    // có sẵn (đã thuộc một lớp).
+    const restoreNew = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
       .send({ backupJobId: backup.body.id, mode: 'new' });
+    expect(restoreNew.status).toBe(400);
+    expect(restoreNew.body.code).toBe('course.class_required');
+    const freshTarget = await createCourse(app, admin, cat.id);
+    const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
+      .send({ backupJobId: backup.body.id, mode: 'replace', targetCourseId: freshTarget.id });
     expect(restore.status).toBeLessThan(300);
     expect(restore.body.status).toBe('completed');
     const newCourseId = restore.body.targetCourseId as string;
+    expect(newCourseId).toBe(freshTarget.id);
     expect(newCourseId).not.toBe(course.id);
 
     const checklist = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/checklist`).set('Authorization', `Bearer ${admin}`);
@@ -286,10 +296,14 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(contributors.calendar!.events!.length).toBeGreaterThanOrEqual(4);
     expect(contributors.calendar!.subscriptions).toHaveLength(1);
 
+    // CLASS-0 (PR #200): restore-as-new bị chặn (xem ca DoD ở trên) —
+    // khôi phục bằng replace vào một khoá đích trống có sẵn.
+    const freshTarget = await createCourse(app, admin, cat.id);
     const restore = await http(app).post('/api/v1/backup/restore').set('Authorization', `Bearer ${admin}`)
-      .send({ backupJobId: backup.body.id, mode: 'new' });
+      .send({ backupJobId: backup.body.id, mode: 'replace', targetCourseId: freshTarget.id });
     expect(restore.body.status).toBe('completed');
     const newCourseId = restore.body.targetCourseId as string;
+    expect(newCourseId).toBe(freshTarget.id);
     expect(newCourseId).not.toBe(course.id);
 
     const checklist = await http(app).get(`/api/v1/backup/jobs/${restore.body.id}/checklist`).set('Authorization', `Bearer ${admin}`);

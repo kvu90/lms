@@ -50,6 +50,28 @@ export interface EnrolChecker {
   isEnrolled(courseId: string, userId: string, opts?: { onlyActive?: boolean }): Promise<boolean>;
 }
 
+/**
+ * Neo lớp học cho đường tạo khoá (module classes cắm vào khi khởi tạo —
+ * issue #184, CLASS-0; cùng mẫu đăng ký như EnrolChecker để Courses không
+ * phụ thuộc Classes). Khi chưa có hook nào đăng ký (module classes chưa
+ * nạp), đường tạo khoá kèm `classId` bị từ chối tường minh.
+ */
+export interface CourseClassHook {
+  /**
+   * Phân giải lớp đích cho một khoá sắp tạo: kiểm lớp tồn tại, cùng tenant
+   * với danh mục đích và chưa lưu trữ (ném lỗi nghiệp vụ khi không đạt);
+   * trả context của lớp để làm cha context khoá + cổng capability.
+   */
+  resolveClass(classId: string, tenantId: string): Promise<{ classId: string; contextId: string }>;
+  /**
+   * Chạy sau khi khoá và context của nó đã tạo: vật chất hoá phía lớp —
+   * group "cả lớp" + enrol instance cohort trỏ vào backing cohort của lớp
+   * (backfill roster hiện có). Lỗi ở bước này KHÔNG được nuốt: khoá thuộc
+   * lớp mà thiếu instance cohort là trạng thái hỏng phải lộ ra ngay.
+   */
+  onCourseCreated(course: CourseRow): Promise<void>;
+}
+
 /** Một đơn vị khung chương trình chọn được để nạp vào khoá (K0a): node khung + toàn bộ YCCĐ trong subtree của nó. */
 export interface CurriculumFrameUnit {
   nodeId: string;
@@ -195,6 +217,13 @@ export class CoursesService {
    * Đăng ký hàm kiểm tra enrolment (module enrol cắm vào).
    */
   registerEnrolChecker(checker: EnrolChecker): void { this.enrolChecker = checker; }
+
+  /** Neo lớp học đã đăng ký (module classes cắm vào); xem CourseClassHook. */
+  private classHook?: CourseClassHook;
+  /**
+   * Đăng ký neo lớp học cho đường tạo khoá (module classes cắm vào).
+   */
+  registerClassHook(hook: CourseClassHook): void { this.classHook = hook; }
 
   // --- context helpers -----------------------------------------------------
   /**
@@ -384,12 +413,34 @@ export class CoursesService {
     fullName: string; shortName: string; category: string; idNumber?: string; summary?: string;
     format?: string; visible?: boolean; startDate?: string; endDate?: string; groupMode?: number; groupModeForce?: boolean;
     subjectId?: string | null; grade?: number | null;
+    /** Lớp học chứa khoá (issue #184): có lớp thì cổng tạo khoá + cha context neo vào lớp. */
+    classId?: string | null;
     formatOptions?: Record<string, string>; customFields?: Record<string, string>;
   }): Promise<CourseRow> {
     const category = await this.getCategory(input.category);
     const categoryCtxId = await this.categoryContextId(category.id);
-    // Creating a course requires the capability in the CATEGORY context (Moodle rule).
-    await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+    // Lớp học hạng nhất (issue #184): khoá tạo TRONG lớp thì capability
+    // `course:create` đánh giá tại context LỚP (cha của context khoá) thay
+    // cho context danh mục — quyền tại lớp (chủ lớp / vai classassigner)
+    // là căn cứ; danh mục lùi về phân loại hành chính. Không có lớp thì
+    // giữ nguyên cổng danh mục như trước.
+    let classRef: { classId: string; contextId: string } | undefined;
+    if (input.classId) {
+      if (!this.classHook) {
+        throw new BadRequestException({ message: 'Class-aware course creation is unavailable', code: 'course.class_unavailable' });
+      }
+      classRef = await this.classHook.resolveClass(input.classId, category.tenantId);
+      await this.evaluator.requireCapability(actorId, 'course:create', classRef.contextId);
+    } else {
+      // Lớp học hạng nhất (issue #184 — điều kiện cứng ở cửa sổ đóng gói
+      // CLASS-0, PR #200): một khoá dạy thật PHẢI thuộc đúng một lớp.
+      // createCourse luôn tạo khoá dạy thật (is_template=false; khoá mẫu
+      // được đánh dấu sau qua updateCourse) nên thiếu classId là từ chối
+      // sạch 4xx tại đây — lưới cứng ở DB là CHECK
+      // course_class_required_check. Đường khôi phục backup (mode=new)
+      // gọi createCourse không kèm lớp cũng bị chặn ở chính cổng này.
+      throw new BadRequestException({ message: 'A course must belong to a class: classId is required', code: 'course.class_required' });
+    }
     if (input.subjectId != null) await this.assertSubjectExists(input.subjectId);
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {
@@ -410,13 +461,19 @@ export class CoursesService {
         endDate: input.endDate ? new Date(input.endDate) : null,
         groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
         subjectId: input.subjectId ?? null, grade: input.grade ?? null,
+        classId: classRef?.classId ?? null,
       }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
       return row;
     });
-    await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, categoryCtxId);
+    // Khoá thuộc lớp: context khoá neo dưới context LỚP (thay vì danh mục)
+    // để quyền tại lớp chảy xuống khoá qua cây path (issue #184).
+    await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, classRef?.contextId ?? categoryCtxId);
     // Every course starts with section 0 (general), as in Moodle.
     await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true });
+    // Vật chất hoá phía lớp (group "cả lớp" + instance cohort + backfill
+    // roster) — hook của module classes; lỗi phải lộ ra, không nuốt.
+    if (classRef) await this.classHook!.onCourseCreated(created);
     if (input.formatOptions) {
       for (const [name, value] of Object.entries(input.formatOptions)) {
         await this.repo.setFormatOption(created.id, created.format, name, value);
@@ -539,6 +596,11 @@ export class CoursesService {
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(id));
+    // Hạ cờ mẫu của một khoá không lớp sẽ biến nó thành khoá dạy thật
+    // không lớp — từ chối sạch như mọi đường tạo khoá (issue #184).
+    if (input.isTemplate === false && !existing.classId) {
+      throw new BadRequestException({ message: 'A course without a class can only exist as a template', code: 'course.class_required' });
+    }
     if (input.shortName !== undefined && input.shortName.trim() !== existing.shortName) {
       if (await this.repo.getCourseByShortname(input.shortName.trim())) {
         throw new ConflictException({ message: `Course shortName ${input.shortName} is taken`, code: 'course.shortname_taken' });
@@ -1167,11 +1229,32 @@ export class CoursesService {
    */
   async duplicateCourse(actorId: string, sourceCourseId: string, input: {
     fullName: string; shortName: string; category?: string; startDate?: string;
+    /** Lớp đích (issue #184): mặc định giữ lớp của khoá nguồn — đây là đường "nhân bản khoá mẫu vào lớp" của wizard; đích cuối cùng không có lớp (gồm `null` tường minh) bị từ chối `course.class_required`. */
+    classId?: string | null;
   }): Promise<CourseRow> {
     const source = await this.assertCanCopyFrom(actorId, sourceCourseId);
     const targetCategory = input.category ? await this.getCategory(input.category) : await this.getCategory(source.category);
     const categoryCtxId = await this.categoryContextId(targetCategory.id);
-    await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+    // Lớp đích: tường minh qua input, mặc định là lớp của khoá nguồn
+    // (nhân bản trong cùng lớp). Có lớp đích thì cổng `course:create`
+    // neo vào context lớp như đường tạo khoá thường (issue #184).
+    const targetClassId = input.classId !== undefined ? input.classId : source.classId;
+    let classRef: { classId: string; contextId: string } | undefined;
+    if (targetClassId) {
+      if (!this.classHook) {
+        throw new BadRequestException({ message: 'Class-aware course creation is unavailable', code: 'course.class_unavailable' });
+      }
+      classRef = await this.classHook.resolveClass(targetClassId, targetCategory.tenantId);
+      await this.evaluator.requireCapability(actorId, 'course:create', classRef.contextId);
+    } else {
+      // Bản sao luôn là khoá dạy thật (isTemplate=false ở insert dưới):
+      // không có lớp đích — gồm cả `classId: null` tường minh và nhân bản
+      // từ khoá mẫu vốn không lớp — là từ chối sạch 4xx (issue #184, điều
+      // kiện cứng đóng gói CLASS-0). Muốn nhân bản vào lớp thì truyền
+      // classId đích; bỏ trống chỉ hợp lệ khi khoá nguồn đã thuộc một lớp
+      // (giữ nguyên lớp nguồn).
+      throw new BadRequestException({ message: 'A duplicated course must belong to a class: classId is required', code: 'course.class_required' });
+    }
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {
       throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });
@@ -1193,12 +1276,17 @@ export class CoursesService {
         startDate, endDate,
         groupMode: source.groupMode, groupModeForce: source.groupModeForce, sortOrder: siblings.length,
         subjectId: source.subjectId, grade: source.grade, isTemplate: false,
+        classId: classRef?.classId ?? null,
       }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId } });
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId } });
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId }, tenantId: targetCategory.tenantId });
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId }, tenantId: targetCategory.tenantId });
       return row;
     });
-    await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, categoryCtxId);
+    // Khoá thuộc lớp: context neo dưới context lớp như đường tạo thường.
+    await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, classRef?.contextId ?? categoryCtxId);
+    // Vật chất hoá phía lớp cho bản sao (group "cả lớp" + instance cohort
+    // + backfill roster của lớp đích) — issue #184.
+    if (classRef) await this.classHook!.onCourseCreated(created);
     const cmMap = new Map<string, string>();
     await this.repo.dbHandle.transaction(async (tx) => {
       const sourceSections = await this.repo.listSections(sourceCourseId);

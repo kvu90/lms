@@ -10,6 +10,7 @@ export * from './engagement.js';
 export * from './platform.js';
 export * from './site-config.js';
 export * from './tenants.js';
+export * from './classes.js';
 export * from './curriculum.js';
 export * from './books.js';
 export * from './dashboard.js';
