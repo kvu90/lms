@@ -328,6 +328,30 @@ export class QuestionBanksService {
     return bank;
   }
 
+  // --- riêng tư bank personal (issue #123) -------------------------------------
+  // Ngân hàng riêng của từng giáo viên là KHU VỰC RIÊNG ("của tôi"):
+  // cổng capability tại context bank KHÔNG đủ để gác vì context bank
+  // personal là con của context hệ thống — GV staff/manager kế thừa
+  // question:useall/question:copy/... xuống mọi bank personal của đồng
+  // nghiệp (bằng chứng phán quyết MCP-0 6391128869 + EB-1 6391268932).
+  // Mọi bề mặt đọc/gác qua lớp bank này phải cộng thêm phép kiểm tra
+  // chủ sở hữu dưới đây: bank personal chỉ chủ sở hữu vào được; site
+  // admin giữ toàn quyền như bất biến hiện hành (khớp bankLocalMatrixCaps
+  // của MB-1). Bank tổ/trường/khoá KHÔNG qua cổng này.
+
+  /** Bank có phải bank personal của NGƯỜI KHÁC đối với actor không (site admin thì không). */
+  async isForeignPersonalBank(actorId: string, bank: QuestionBankRow): Promise<boolean> {
+    if (bank.scope !== 'personal' || bank.ownerId === actorId) return false;
+    return !(await this.evaluator.isSiteAdmin(actorId));
+  }
+
+  /** 404 bank_not_found khi bank là bank personal của người khác — như bank không tồn tại (không oracle). */
+  private async assertNotForeignPersonalBank(actorId: string, bank: QuestionBankRow): Promise<void> {
+    if (await this.isForeignPersonalBank(actorId, bank)) {
+      throw new NotFoundException({ message: `Question bank ${bank.id} not found`, code: 'question.bank_not_found' });
+    }
+  }
+
   /** Bộ capability của actor tại context của bank. Bank ma trận (MB-1) đọc bộ quyền bank-local (vai chuyên dụng tại context bank — xem bankLocalMatrixCaps): use/copy/share/moderate mang nghĩa ma trận, các trường question:* không áp dụng để false. */
   async bankCapabilities(actorId: string, bank: QuestionBankRow): Promise<BankCapabilitiesView> {
     const at = async (cap: string) => this.evaluator.hasCapability(actorId, cap, bank.contextId);
@@ -357,8 +381,10 @@ export class QuestionBanksService {
     };
   }
 
-  /** Cổng "vào được bank": có quyền dùng câu tại context bank (sau đồng bộ thành viên). */
+  /** Cổng "vào được bank": có quyền dùng câu tại context bank (sau đồng bộ thành viên).
+   * Bank personal của người khác → 404 (issue #123) thay cho 403. */
   async assertCanUseBank(actorId: string, bank: QuestionBankRow): Promise<void> {
+    await this.assertNotForeignPersonalBank(actorId, bank);
     await this.syncMembership(bank);
     if (!(await this.evaluator.hasCapability(actorId, 'question:useall', bank.contextId))) {
       throw new ForbiddenException({ message: `No access to question bank ${bank.id}`, code: 'question.bank_forbidden' });
@@ -372,6 +398,7 @@ export class QuestionBanksService {
    * món vẫn MỘT nguồn duy nhất là context của bank (E-8).
    */
   async assertCanUseBankForKind(actorId: string, bank: QuestionBankRow): Promise<void> {
+    await this.assertNotForeignPersonalBank(actorId, bank);
     await this.syncMembership(bank);
     if (bank.bankKind === 'matrix') {
       const caps = await this.bankLocalMatrixCaps(actorId, bank);
@@ -415,6 +442,9 @@ export class QuestionBanksService {
   }> {
     const none = { view: false, manage: false, copy: false, share: false, moderate: false };
     if (await this.evaluator.isSiteAdmin(actorId)) return { view: true, manage: true, copy: true, share: true, moderate: true };
+    // Bank personal là khu vực riêng (issue #123): người không phải chủ
+    // sở hữu không có quyền bank-local nào, kể cả khi còn assignment sót.
+    if (bank.scope === 'personal' && bank.ownerId !== actorId) return none;
     const assignments = await this.roles.listAssignments({ userId: actorId, contextId: bank.contextId });
     if (!assignments.length) return none;
     const roleIds = new Set(assignments.map((a) => (a as { roleId: string }).roleId));
@@ -446,6 +476,10 @@ export class QuestionBanksService {
       // Hàng tồn từ trước khi có cổng: bank cá nhân của chính người
       // không đủ tư cách cũng không liệt kê cho họ nữa.
       if (bank.scope === 'personal' && bank.ownerId === actorId && !isStaff) continue;
+      // Riêng tư bank personal (issue #123): bank personal của NGƯỜI
+      // KHÁC không bao giờ xuất hiện trong danh sách — kể cả GV staff
+      // có question:useall kế thừa tại context bank đó.
+      if (await this.isForeignPersonalBank(actorId, bank)) continue;
       await this.syncMembership(bank);
       // Cổng vào theo loại món: bank câu hỏi dùng question:useall tại
       // context bank (kế thừa cây context như QB); bank ma trận (MB-1)
@@ -461,9 +495,11 @@ export class QuestionBanksService {
     return out;
   }
 
-  /** Chi tiết một bank (kèm đồng bộ + cổng vào bank theo loại món). */
+  /** Chi tiết một bank (kèm đồng bộ + cổng vào bank theo loại món).
+   * Bank personal của người khác → 404 như không tồn tại (issue #123). */
   async getBank(actorId: string, bankId: string): Promise<BankView> {
     const bank = await this.getBankOrThrow(bankId);
+    await this.assertNotForeignPersonalBank(actorId, bank);
     await this.assertCanUseBankForKind(actorId, bank);
     return this.bankView(actorId, bank);
   }
@@ -606,6 +642,10 @@ export class QuestionBanksService {
     if (!category) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const bank = await this.findBankForCategory(category);
     if (bank) await this.syncMembership(bank);
+    // Câu thuộc bank personal của người khác → 404 như chi tiết câu (issue #123).
+    if (bank && (await this.isForeignPersonalBank(actorId, bank))) {
+      throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    }
     const canUse = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId).catch(() => false);
     if (!canUse) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     return this.getAttribution(questionId);
@@ -691,6 +731,11 @@ export class QuestionBanksService {
     const bank = category ? await this.findBankForCategory(category) : null;
     const capCtx = bank?.contextId ?? category?.contextId;
     if (bank) await this.syncMembership(bank);
+    // Câu trong bank personal của người khác không phải nguồn copy của
+    // đồng nghiệp (issue #123) — dù question:copy kế thừa có đạt.
+    if (bank && (await this.isForeignPersonalBank(actorId, bank))) {
+      throw new ForbiddenException({ message: 'Question is not visible to you', code: 'question.copy_source_forbidden' });
+    }
     const isAdmin = await this.evaluator.isSiteAdmin(actorId);
     if (!isAdmin && capCtx) {
       const [canUse, canCopy] = await Promise.all([
@@ -723,6 +768,8 @@ export class QuestionBanksService {
     const targetBank = input.targetBankId
       ? await this.getBankOrThrow(input.targetBankId)
       : await this.ensurePersonalBank(actorId, 'question', { forCopy: true });
+    // Đích copy là bank personal của người khác → 404 như bank không có (issue #123).
+    await this.assertNotForeignPersonalBank(actorId, targetBank);
     await this.syncMembership(targetBank);
     let targetCategory: QCategoryRow;
     if (input.targetCategoryId) {
@@ -766,6 +813,11 @@ export class QuestionBanksService {
     const bank = await this.findBankForCategory(category);
     if (bank) await this.syncMembership(bank);
     if (q.createdBy === actorId || (await this.evaluator.isSiteAdmin(actorId))) return { q, category, bank };
+    // Câu thuộc bank personal của người khác: đồng nghiệp không govern
+    // được dù moderate/editall kế thừa tại context bank đó (issue #123).
+    if (bank && (await this.isForeignPersonalBank(actorId, bank))) {
+      throw new ForbiddenException({ message: 'Only the author or a bank moderator can govern this question', code: 'question.govern_forbidden' });
+    }
     const capCtx = bank?.contextId ?? category.contextId;
     const [moderate, editall] = await Promise.all([
       this.evaluator.hasCapability(actorId, 'question:moderate', capCtx),
@@ -1020,6 +1072,7 @@ export class QuestionBanksService {
   /** Hàng chờ đóng góp của một bank: người duyệt thấy tất cả; người khác chỉ thấy đề xuất của mình. */
   async listContributions(actorId: string, bankId: string, status?: string): Promise<(ContributionRow & { proposerName: string | null; questionName: string | null })[]> {
     const bank = await this.getBankOrThrow(bankId);
+    await this.assertNotForeignPersonalBank(actorId, bank);
     await this.syncMembership(bank);
     const canModerate = await this.evaluator.hasCapability(actorId, 'question:moderate', bank.contextId);
     const rows = await this.repo.listContributions({

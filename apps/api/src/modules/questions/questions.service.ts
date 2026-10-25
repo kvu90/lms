@@ -161,6 +161,17 @@ export class QuestionsService {
 
   /** Actor có quyền dùng ngân hàng tại context này không (không ném). */
   private async canUseBank(actorId: string, contextId: string): Promise<boolean> {
+    // Riêng tư bank personal (issue #123): context là context của một
+    // bank personal thì chỉ chủ sở hữu (và site admin như bất biến hệ
+    // thống) đọc được nội dung trong đó — capability kế thừa từ context
+    // hệ thống của GV staff/manager KHÔNG mở bank riêng của đồng nghiệp.
+    // Đây là cổng chung của mọi đường *ForViewer nên REST và MCP
+    // (get_question dùng getQuestionForViewer) giữ parity tuyệt đối.
+    const bank = await this.repo.getBankByContextId(contextId).catch(() => undefined);
+    if (bank && bank.scope === 'personal' && bank.ownerId !== actorId) {
+      const isAdmin = await this.evaluator.isSiteAdmin(actorId).catch(() => false);
+      if (!isAdmin) return false;
+    }
     return this.evaluator.hasCapability(actorId, 'question:useall', contextId).catch(() => false);
   }
 

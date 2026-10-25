@@ -57,6 +57,14 @@ export class QuestionsRepository {
     const [row] = await this.db.select().from(questionBanks).where(eq(questionBanks.id, id)); return row;
   }
   /**
+   * Bank sở hữu một context (context của bank trỏ thẳng về bank) — phục
+   * vụ cổng riêng tư bank personal (issue #123): category sống trong
+   * context của bank thì thuộc bank đó.
+   */
+  async getBankByContextId(contextId: string): Promise<(typeof questionBanks.$inferSelect) | undefined> {
+    const [row] = await this.db.select().from(questionBanks).where(eq(questionBanks.contextId, contextId)); return row;
+  }
+  /**
    * Liệt kê category trong context.
    */
   async listCategories(contextId?: string): Promise<QCategoryRow[]> {
