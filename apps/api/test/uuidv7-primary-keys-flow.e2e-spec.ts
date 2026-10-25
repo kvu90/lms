@@ -151,7 +151,13 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + classes (đợt CLASS-0 lớp học hạng nhất, issue #184 — PK id
     // uuidv7; course.class_id là FK thường, không phải PK) → trên cây
     // hợp nhất: 198 bảng tổng, 184 bảng có PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(184);
+    // − 8 bảng điểm của mô hình cũ (gỡ gradebook tổng hợp theo khoá +
+    // Sổ điểm VN, issue #224: grade_categories, grade_outcomes,
+    // grade_letters, scales, vn_gradebooks, vn_term_results,
+    // vn_activity_mappings, vn_candidate_actions — cả tám đều PK id
+    // uuidv7) → trên cây hợp nhất cuối: 190 bảng tổng, 176 bảng có PK
+    // mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(176);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -172,16 +178,17 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 186 bảng có cột `id`: 184 bảng PK uuidv7 như khuôn chung (gồm 2
+    // 178 bảng có cột `id`: 176 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, 3 bảng tenant của TENANT-0,
     // issue #168, bảng payment_provider_events của VietQR lát 1,
     // issue #189, và bảng classes của CLASS-0, issue #184; đã trừ 4
-    // bảng blog bị gỡ ở issue #173) + ĐÚNG
+    // bảng blog bị gỡ ở issue #173 và 8 bảng điểm của mô hình cũ bị gỡ
+    // ở issue #224) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(186);
+    expect(defaults.rows.length).toBe(178);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

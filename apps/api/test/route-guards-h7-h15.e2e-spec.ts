@@ -141,14 +141,13 @@ describe('Route guards đợt 4 (H7–H15, #134)', () => {
   });
 
   it('H14: assignments + completion criteria + grades structure + competency links theo khoá — người ngoài 403, người trong khoá 200', async () => {
+    // #224: bề mặt điểm tổng hợp (categories/letters/scales/outcomes)
+    // đã gỡ hẳn — danh sách chỉ còn các route điểm theo bài còn sống.
     const courseScoped = [
       `/api/v1/courses/${courseId}/assignments`,
       `/api/v1/courses/${courseId}/completion/criteria`,
-      `/api/v1/courses/${courseId}/grades/categories`,
       `/api/v1/courses/${courseId}/grades/items`,
-      `/api/v1/courses/${courseId}/grades/letters`,
-      `/api/v1/courses/${courseId}/grades/scales`,
-      `/api/v1/courses/${courseId}/grades/outcomes`,
+      `/api/v1/courses/${courseId}/grades/report`,
       `/api/v1/competencies/courses/${courseId}/links`,
     ];
     for (const path of courseScoped) {
@@ -157,11 +156,9 @@ describe('Route guards đợt 4 (H7–H15, #134)', () => {
       const allowed = await http(app).get(path).set('Authorization', `Bearer ${teacher}`);
       expect(allowed.status, path).toBe(200);
     }
-    // Outcome mức site: user thường 403, admin 200.
-    const siteDenied = await http(app).get('/api/v1/grades/outcomes').set('Authorization', `Bearer ${outsider}`);
-    expect(siteDenied.status).toBe(403);
-    const siteAllowed = await http(app).get('/api/v1/grades/outcomes').set('Authorization', `Bearer ${admin}`);
-    expect(siteAllowed.status).toBe(200);
+    // Route điểm tổng hợp mức site không còn tồn tại (404 kể cả admin).
+    const removed = await http(app).get('/api/v1/grades/outcomes').set('Authorization', `Bearer ${admin}`);
+    expect(removed.status).toBe(404);
     // Rule của framework: user thường 403, admin 200.
     const ruleDenied = await http(app).get(`/api/v1/competencies/frameworks/${frameworkId}/competencies/${competencyId}/rule`)
       .set('Authorization', `Bearer ${outsider}`);
