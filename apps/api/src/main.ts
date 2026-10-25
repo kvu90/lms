@@ -12,7 +12,8 @@ import { enableTrustedProxy } from './common/client-ip';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
 import { mountBetterAuth } from './modules/auth/better-auth/better-auth.mount';
 import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
-import { mountMcp, resolveMcpDeps } from './modules/mcp/mcp.mount';
+import { McpDepsService } from './modules/mcp/mcp-deps.service';
+import { mountMcp } from './modules/mcp/mcp.mount';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -32,7 +33,9 @@ async function bootstrap(): Promise<void> {
   // MCP server (issue #110, lát MCP-0): mount POST /mcp + PRM lên
   // express instance ngay tại đây — trước prefix/route/body parser của
   // Nest và trước SPA fallback phía dưới — như tiền lệ Better Auth.
-  mountMcp(app, resolveMcpDeps(app));
+  // Deps do McpModule inject đúng hệ module (issue #138): bootstrap chỉ
+  // lấy facade McpDepsService đã export từ container.
+  mountMcp(app, app.get(McpDepsService).createMountDeps());
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');

@@ -14,7 +14,6 @@ import {
 } from '@lms/contracts';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionsRepository } from '../questions/questions.repository';
 import type { QuestionsService } from '../questions/questions.service';
 import { mcpRequestHash, normalizeContentStrings, scanContent, type ContentViolation } from './mcp-content';
 import type { McpIdempotencyRepository } from './mcp-idempotency.repository';
@@ -23,7 +22,6 @@ import type { McpActor } from './mcp.context';
 export interface McpToolDeps {
   questions: QuestionsService;
   banks: QuestionBanksService;
-  questionsRepo: QuestionsRepository;
   idempotency: McpIdempotencyRepository;
   outbox: OutboxService;
   /** Origin công khai của API (PRM/`reviewUrl`); rỗng khi chưa cấu hình — reviewUrl khi đó là đường dẫn tương đối. */
@@ -180,8 +178,11 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       const categories: { id: string; name: string; parentId: string | null; questionCount: number }[] = [];
       for (const cat of all) {
         if (await deps.banks.categoryBelongsToBank(cat, bank)) {
-          const questions = await deps.questionsRepo.listQuestionsInCategory(cat.id);
-          categories.push({ id: cat.id, name: cat.name, parentId: cat.parent ?? null, questionCount: questions.length });
+          // Chỉ cần SỐ câu trong category: đi qua facade service
+          // (listQuestionIdsInCategory) thay vì repository — ranh giới
+          // đóng gói của QuestionsModule (issue #138, mục 8.1 của #134).
+          const questionIds = await deps.questions.listQuestionIdsInCategory(cat.id);
+          categories.push({ id: cat.id, name: cat.name, parentId: cat.parent ?? null, questionCount: questionIds.length });
         }
       }
       await auditCall(deps, actor, 'list_categories', { result: 'ok', bankId, count: categories.length });
