@@ -3,7 +3,7 @@ import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { QuizModule } from '../quiz/quiz.module';
-import { ExamPapersController } from './exam-papers.controller';
+import { ExamMatrixGenerateController, ExamPapersController } from './exam-papers.controller';
 import { ExamPapersRepository } from './exam-papers.repository';
 import { ExamPapersService } from './exam-papers.service';
 
@@ -16,7 +16,7 @@ import { ExamPapersService } from './exam-papers.service';
  */
 @Module({
   imports: [AccessModule, EventsModule, QuestionsModule, QuizModule],
-  controllers: [ExamPapersController],
+  controllers: [ExamPapersController, ExamMatrixGenerateController],
   providers: [ExamPapersRepository, ExamPapersService],
   exports: [ExamPapersService],
 })

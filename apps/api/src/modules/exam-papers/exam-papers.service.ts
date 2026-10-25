@@ -1,11 +1,11 @@
 import {
   BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type {
   ApproveExamPaperContribution, CopyExamPaper, CreateExamPaper, CreateExamPaperContribution,
-  DeployExamPaper, ExamPaperSlotInput, QuizView, RejectExamPaperContribution,
-  SetExamPaperSlots, SetExamPaperStatus, UpdateExamPaper,
+  DeployExamPaper, ExamPaperSlotInput, GenerateFromMatrix, MaterializeExamPaper, QuizView,
+  RejectExamPaperContribution, SetExamPaperSlots, SetExamPaperStatus, SwapExamPaperSlot, UpdateExamPaper,
 } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -16,8 +16,10 @@ import type { QuestionBankRow } from '../questions/question-banks.repository';
 import { QuizService } from '../quiz/quiz.service';
 import {
   ExamPapersRepository,
-  type ExamPaperContributionRow, type ExamPaperRow, type ExamPaperSlotRow, type ExamPaperVersionRow,
+  type ExamDeploymentRow, type ExamPaperContributionRow, type ExamPaperRow, type ExamPaperSlotRow, type ExamPaperVersionRow,
 } from './exam-papers.repository';
+import type { RecipeCellSpec, RecipeSpec } from './schema';
+import type { ExamMatrixCellRow } from '../quiz/quiz.repository';
 
 /** Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI context của bank đề (một nguồn quyền duy nhất là bank). */
 export const EXAM_CAPABILITIES = {
@@ -52,6 +54,30 @@ export interface ExamPaperSlotView {
   pinnedVersionNumber: number | null;
   maxMark: number;
   clusterId: string | null;
+  /** Ô ma trận nguồn (chỉ ở snapshot materialize từ recipe — neo swap-cùng-ô). */
+  matrixCellId: string | null;
+}
+
+/** Báo cáo tỉ lệ theo ô của một snapshot có nguồn recipe: kỳ vọng (từ recipeSpec đã ghim) vs thực tế (slots hiện tại). */
+export interface ExamPaperCellReport {
+  sourceCellId: string;
+  learningOutcomeId: string;
+  cognitiveLevel: string;
+  qtype: string;
+  expectedUnits: number;
+  actualUnits: number;
+  expectedScore: number;
+  actualScore: number;
+  /** Lệch = số đơn vị hoặc tổng điểm của ô khác kỳ vọng (UI báo ngay ô lệch). */
+  deviated: boolean;
+}
+
+/** Một lần triển khai kèm mã đề (EB-2, E-5). */
+export interface ExamDeploymentView {
+  id: string; paperId: string; paperVersionId: string; quizId: string;
+  variantCount: number;
+  variants: { code: string; seed: number }[];
+  createdBy: string; createdAt: string;
 }
 
 export interface ExamPaperView {
@@ -67,9 +93,13 @@ export interface ExamPaperView {
     subjectId: string | null; grade: number | null; examKind: string | null;
     totalScore: number; durationMinutes: number | null;
     tfScale: number[] | null; matrixId: string | null; matrixVersion: number | null;
+    /** Công thức recipe đã ghim (chỉ đề recipe + snapshot materialize từ recipe). */
+    recipeSpec: RecipeSpec | null;
     createdBy: string; createdAt: string;
   };
   slots: ExamPaperSlotView[];
+  /** Báo cáo lệch tỉ lệ theo ô (null khi đề không có nguồn recipe). */
+  cellReport: ExamPaperCellReport[] | null;
   /** Truy vết nguồn gốc cho UI hiển thị ghi công (null với đề gốc tự soạn). */
   attribution: { derivedFromPaperId: string; originalAuthorId: string | null; sourceBankId: string } | null;
   capabilities: ExamPaperCapabilitiesView;
@@ -276,7 +306,30 @@ export class ExamPapersService {
       pinnedVersionNumber: s.pinnedVersionNumber,
       maxMark: s.maxMark,
       clusterId: s.clusterId,
+      matrixCellId: s.matrixCellId,
     }));
+  }
+
+  /** Báo cáo lệch tỉ lệ theo ô: kỳ vọng từ recipeSpec đã ghim vs slots hiện tại (đơn vị truefalse tính theo chùm 4 slot). */
+  private cellReport(version: ExamPaperVersionRow, slots: ExamPaperSlotRow[]): ExamPaperCellReport[] | null {
+    const spec = version.recipeSpec;
+    if (!spec) return null;
+    return spec.cells.map((cell) => {
+      const mine = slots.filter((s) => s.matrixCellId === cell.sourceCellId);
+      const actualUnits = cell.qtype === 'truefalse' ? mine.length / 4 : mine.length;
+      const actualScore = mine.reduce((sum, s) => sum + s.maxMark, 0);
+      return {
+        sourceCellId: cell.sourceCellId,
+        learningOutcomeId: cell.learningOutcomeId,
+        cognitiveLevel: cell.cognitiveLevel,
+        qtype: cell.qtype,
+        expectedUnits: cell.questionCount,
+        actualUnits,
+        expectedScore: cell.cellScore,
+        actualScore,
+        deviated: actualUnits !== cell.questionCount || Math.abs(actualScore - cell.cellScore) > 1e-9,
+      };
+    });
   }
 
   async paperView(actorId: string, paper: ExamPaperRow): Promise<ExamPaperView> {
@@ -307,9 +360,11 @@ export class ExamPapersService {
         subjectId: version.subjectId, grade: version.grade, examKind: version.examKind,
         totalScore: version.totalScore, durationMinutes: version.durationMinutes,
         tfScale: version.tfScale, matrixId: version.matrixId, matrixVersion: version.matrixVersion,
+        recipeSpec: version.recipeSpec ?? null,
         createdBy: version.createdBy, createdAt: version.createdAt.toISOString(),
       },
       slots: await this.slotViews(slots),
+      cellReport: this.cellReport(version, slots),
       attribution,
       capabilities: { ...caps, edit: canEdit },
     };
@@ -401,12 +456,13 @@ export class ExamPapersService {
         durationMinutes: input.durationMinutes !== undefined ? input.durationMinutes : current.durationMinutes,
         tfScale: input.tfScale !== undefined ? input.tfScale : current.tfScale,
         matrixId: input.matrixId !== undefined ? input.matrixId : current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, recipeSpec: current.recipeSpec ?? null, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(currentSlots.map((s) => ({
         paperVersionId: version.id, position: s.position, section: s.section,
         questionId: s.questionId, pinnedVersionId: s.pinnedVersionId,
         pinnedVersionNumber: s.pinnedVersionNumber, maxMark: s.maxMark, clusterId: s.clusterId,
+        matrixCellId: s.matrixCellId,
       })), tx);
       await this.repo.updatePaper(paper.id, { latestVersion: next }, tx);
     });
@@ -417,11 +473,17 @@ export class ExamPapersService {
     return this.paperView(actorId, (await this.repo.getPaper(paper.id))!);
   }
 
-  /** Thay toàn bộ slots của đề = tạo paper version mới với đúng danh sách slot đã ghim. */
+  /** Thay toàn bộ slots của đề = tạo paper version mới với đúng danh sách slot đã ghim. Đề RECIPE bị chặn: không sửa tay trực tiếp — phải materialize xuống snapshot rồi sửa trên snapshot (EB-2, D.3). */
   async setSlots(actorId: string, paperId: string, input: SetExamPaperSlots): Promise<ExamPaperView> {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
     await this.assertCanEditPaper(actorId, paper, bank);
+    if (paper.kind === 'recipe') {
+      throw new BadRequestException({
+        message: 'A recipe paper cannot be edited directly; materialize it into a snapshot first',
+        code: 'exam.recipe_not_editable',
+      });
+    }
     const current = await this.currentVersion(paper);
     const slots = await this.resolveSlots(input.slots);
     const next = paper.latestVersion + 1;
@@ -431,7 +493,7 @@ export class ExamPapersService {
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
         totalScore: current.totalScore, durationMinutes: current.durationMinutes,
         tfScale: current.tfScale, matrixId: current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, recipeSpec: current.recipeSpec ?? null, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(slots.map((s, i) => ({ paperVersionId: version.id, position: i + 1, ...s })), tx);
       await this.repo.updatePaper(paper.id, { latestVersion: next }, tx);
@@ -455,12 +517,22 @@ export class ExamPapersService {
     await this.assertCanEditPaper(actorId, paper, bank);
     if (input.status === 'ready') {
       const version = await this.currentVersion(paper);
-      const slots = await this.repo.listSlots(version.id);
-      if (slots.length === 0) {
-        throw new BadRequestException({
-          message: 'A paper needs at least one question before it can be marked ready',
-          code: 'exam.ready_requires_slots',
-        });
+      if (paper.kind === 'recipe') {
+        // Recipe không có slots: "đủ dùng" = có công thức đã ghim (ô + matrix version).
+        if (!version.recipeSpec || version.recipeSpec.cells.length === 0) {
+          throw new BadRequestException({
+            message: 'A recipe paper needs a pinned matrix structure before it can be marked ready',
+            code: 'exam.ready_requires_recipe',
+          });
+        }
+      } else {
+        const slots = await this.repo.listSlots(version.id);
+        if (slots.length === 0) {
+          throw new BadRequestException({
+            message: 'A paper needs at least one question before it can be marked ready',
+            code: 'exam.ready_requires_slots',
+          });
+        }
       }
     }
     await this.repo.updatePaper(paper.id, { status: input.status });
@@ -542,12 +614,13 @@ export class ExamPapersService {
         subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
         totalScore: sourceVersion.totalScore, durationMinutes: sourceVersion.durationMinutes,
         tfScale: sourceVersion.tfScale, matrixId: sourceVersion.matrixId,
-        matrixVersion: sourceVersion.matrixVersion, createdBy: actorId,
+        matrixVersion: sourceVersion.matrixVersion, recipeSpec: sourceVersion.recipeSpec ?? null, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(sourceSlots.map((s) => ({
         paperVersionId: version.id, position: s.position, section: s.section,
         questionId: s.questionId, pinnedVersionId: s.pinnedVersionId,
         pinnedVersionNumber: s.pinnedVersionNumber, maxMark: s.maxMark, clusterId: s.clusterId,
+        matrixCellId: s.matrixCellId,
       })), tx);
       await this.repo.bumpCopyCount(source.id, tx);
     });
@@ -680,18 +753,55 @@ export class ExamPapersService {
     return (await this.repo.getContribution(contribution.id))!;
   }
 
+  // --- mã đề ở tầng triển khai (EB-2, E-5) ---------------------------------------
+
+  /** Sinh danh sách mã đề cho một lần triển khai: 001, 002… kèm seed hoán vị riêng từng mã (hạt giống suy xác định từ id lần triển khai để in lại khớp). */
+  private makeVariants(deploymentSeedSource: string, count: number): { code: string; seed: number }[] {
+    let h = 2166136261;
+    for (const ch of deploymentSeedSource) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return Array.from({ length: count }, (_, i) => ({
+      code: String(i + 1).padStart(3, '0'),
+      seed: (h + i * 2654435761) % 2147483647,
+    }));
+  }
+
+  private deploymentView(row: ExamDeploymentRow): ExamDeploymentView {
+    return {
+      id: row.id, paperId: row.paperId, paperVersionId: row.paperVersionId, quizId: row.quizId,
+      variantCount: row.variantCount, variants: row.variants ?? [],
+      createdBy: row.createdBy, createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  /** Các lần triển khai của một đề (mới nhất trước) kèm mã đề của từng lần — cổng xem như xem đề. */
+  async listDeployments(actorId: string, paperId: string): Promise<ExamDeploymentView[]> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanViewPaper(actorId, paper, bank);
+    const rows = await this.repo.listDeploymentsForPaper(paper.id);
+    return rows.map((r) => this.deploymentView(r));
+  }
+
   // --- triển khai vào quiz ---------------------------------------------------------
 
   /**
    * Triển khai đề vào một quiz: cổng exam:deploy tại bank của đề +
    * đề phải ở trạng thái ready (draft chưa chốt, hidden đã rút — đều
    * không triển khai mới được; quiz ĐÃ triển khai từ trước không bị
-   * ảnh hưởng khi đề chuyển hidden). Slots được chụp sang quiz qua
-   * QuizService.deployPaperSlots (cổng quiz:manage + đóng băng
-   * attempt ở phía quiz); page của slot suy từ thứ tự xuất hiện của
-   * section (mỗi phần một trang, không phần = trang 1).
+   * ảnh hưởng khi đề chuyển hidden).
+   *
+   * - Snapshot: chụp slots sang quiz qua QuizService.deployPaperSlots
+   *   (cổng quiz:manage + đóng băng attempt ở phía quiz); page của
+   *   slot suy từ thứ tự xuất hiện của section.
+   * - Recipe (EB-2): ghi slot theo Ô NGUỒN từ recipeSpec đã ghim
+   *   (QuizService.deployRecipeSlots) — câu rút tại attempt và pin ở
+   *   attempt như cơ chế per_student hiện có; cấu trúc (ô/số
+   *   câu/điểm) lấy từ bản chụp của recipe, không đọc lại ma trận.
+   *
+   * Mỗi lần triển khai ghi một dòng exam_deployments mang N mã đề
+   * (variant_code ở tầng triển khai — E-5).
    */
-  async deploy(actorId: string, paperId: string, input: DeployExamPaper): Promise<QuizView> {
+  async deploy(actorId: string, paperId: string, input: DeployExamPaper): Promise<QuizView & { deployment: ExamDeploymentView }> {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.deploy, bank.contextId);
@@ -702,28 +812,345 @@ export class ExamPapersService {
       });
     }
     const version = await this.currentVersion(paper);
-    const slots = await this.repo.listSlots(version.id);
-    if (slots.length === 0) {
-      throw new BadRequestException({ message: 'Cannot deploy an empty paper', code: 'exam.deploy_empty_paper' });
+    let view: QuizView;
+    if (paper.kind === 'recipe') {
+      const spec = version.recipeSpec;
+      if (!spec || !version.matrixId) {
+        throw new BadRequestException({ message: 'This recipe paper has no pinned matrix structure', code: 'exam.recipe_missing_spec' });
+      }
+      const slots: { matrixCellId: string; clusterId: string | null; maxMark: number; page: number }[] = [];
+      spec.cells.forEach((cell, idx) => {
+        const page = idx + 1;
+        const perUnit = cell.cellScore / cell.questionCount;
+        if (cell.qtype === 'truefalse') {
+          for (let u = 0; u < cell.questionCount; u++) {
+            const clusterId = randomUUID();
+            for (let k = 0; k < 4; k++) {
+              slots.push({ matrixCellId: cell.sourceCellId, clusterId, maxMark: perUnit / 4, page });
+            }
+          }
+        } else {
+          for (let u = 0; u < cell.questionCount; u++) {
+            slots.push({ matrixCellId: cell.sourceCellId, clusterId: null, maxMark: perUnit, page });
+          }
+        }
+      });
+      view = await this.quiz.deployRecipeSlots(actorId, input.quizId, {
+        paperId: paper.id, paperVersionId: version.id, matrixId: version.matrixId,
+        tfScale: version.tfScale, replace: input.replace ?? false, slots,
+      });
+    } else {
+      const slots = await this.repo.listSlots(version.id);
+      if (slots.length === 0) {
+        throw new BadRequestException({ message: 'Cannot deploy an empty paper', code: 'exam.deploy_empty_paper' });
+      }
+      const pageBySection = new Map<string, number>();
+      const mapped = slots.map((s) => {
+        if (!pageBySection.has(s.section)) pageBySection.set(s.section, pageBySection.size + 1);
+        return {
+          questionId: s.questionId,
+          pinnedVersionId: s.pinnedVersionId,
+          pinnedVersionNumber: s.pinnedVersionNumber,
+          maxMark: s.maxMark,
+          page: pageBySection.get(s.section)!,
+          clusterId: s.clusterId,
+        };
+      });
+      view = await this.quiz.deployPaperSlots(actorId, input.quizId, {
+        paperId: paper.id,
+        paperVersionId: version.id,
+        matrixId: version.matrixId,
+        tfScale: version.tfScale,
+        replace: input.replace ?? false,
+        slots: mapped,
+      });
     }
-    const pageBySection = new Map<string, number>();
-    const mapped = slots.map((s) => {
-      if (!pageBySection.has(s.section)) pageBySection.set(s.section, pageBySection.size + 1);
-      return {
-        questionId: s.questionId,
-        pinnedVersionId: s.pinnedVersionId,
-        pinnedVersionNumber: s.pinnedVersionNumber,
-        maxMark: s.maxMark,
-        page: pageBySection.get(s.section)!,
-        clusterId: s.clusterId,
-      };
+    const variantCount = input.variantCount ?? 1;
+    const deployment = await this.repo.insertDeployment({
+      paperId: paper.id, paperVersionId: version.id, quizId: input.quizId,
+      variantCount, variants: this.makeVariants(`${paper.id}:${version.id}:${input.quizId}:${Date.now()}`, variantCount),
+      createdBy: actorId,
     });
-    return this.quiz.deployPaperSlots(actorId, input.quizId, {
-      paperId: paper.id,
-      paperVersionId: version.id,
-      tfScale: version.tfScale,
-      replace: input.replace ?? false,
-      slots: mapped,
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_deployed_with_variants',
+      payload: { paperId: paper.id, paperVersionId: version.id, quizId: input.quizId, deploymentId: deployment.id, variantCount, actorId },
     });
+    return { ...view, deployment: this.deploymentView(deployment) };
+  }
+
+  // --- generate hai bước (EB-2, E-3) ------------------------------------------------
+
+  /**
+   * Sinh đề từ ma trận — HAI BƯỚC về mặt dữ liệu, MỘT thao tác cho
+   * giáo viên: (1) tạo exam_papers trong ngân hàng đề CÁ NHÂN của
+   * người sinh (snapshot khi fixed — bộ câu rút ngay và ghim; recipe
+   * khi per_student — chỉ ghim cấu trúc ô + matrix version), trạng
+   * thái ready; (2) deploy đề đó vào quiz mới tạo trong khoá. Trả
+   * QuizView như endpoint cũ + paperId nằm trong quiz (truy vết
+   * chính), matrix_id là truy vết phụ.
+   */
+  async generateFromMatrix(actorId: string, matrixId: string, input: GenerateFromMatrix): Promise<QuizView & { deployment: ExamDeploymentView }> {
+    const { matrix, cells } = await this.quiz.matrixForGeneration(actorId, matrixId);
+    const cellScale = cells.find((c) => c.tfScale !== null)?.tfScale ?? null;
+    const spec: RecipeSpec = {
+      drawMode: input.drawMode,
+      sourceBankScope: null,
+      sourceBankId: matrix.bankId ?? null,
+      cells: cells.map((c) => ({
+        sourceCellId: c.id, learningOutcomeId: c.learningOutcomeId,
+        cognitiveLevel: c.cognitiveLevel, qtype: c.qtype,
+        questionCount: c.questionCount, cellScore: c.cellScore,
+        minutes: c.minutes, tfScale: c.tfScale,
+      })),
+    };
+    if (matrix.bankId) {
+      const sourceBank = await this.banks.getBankOrThrow(matrix.bankId).catch(() => null);
+      spec.sourceBankScope = sourceBank?.scope ?? null;
+    }
+    // Rút bộ cố định TRƯỚC khi tạo bất kỳ thứ gì (fixed): thiếu câu là
+    // lỗi cứng 422 và không để lại đề/quiz rác.
+    const drawn = input.drawMode === 'fixed' ? await this.quiz.drawFixedSlots(actorId, cells) : null;
+
+    const bankRow = await this.banks.ensurePersonalBank(actorId, 'exam');
+    await this.ensureExamGrants(bankRow);
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bankRow.contextId);
+
+    // Ghim version ready cho từng câu đã rút (đúng kỷ luật ghim của
+    // đề: version tại thời điểm chụp) — phân giải trước khi ghi.
+    const drawnPinned = drawn ? await Promise.all(drawn.map(async (d) => {
+      const ready = await this.repo.resolveReadyVersion(d.questionId);
+      if (!ready) {
+        throw new BadRequestException({
+          message: `Question ${d.questionId} has no ready version; only ready questions can enter a paper`,
+          code: 'exam.slot_question_not_ready',
+        });
+      }
+      return { ...d, pinnedVersionId: ready.versionId, pinnedVersionNumber: ready.versionNumber };
+    })) : null;
+    let paper: ExamPaperRow | undefined;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      paper = await this.repo.insertPaper({
+        bankId: bankRow.id,
+        kind: input.drawMode === 'fixed' ? 'snapshot' : 'recipe',
+        status: 'ready', createdBy: actorId, latestVersion: 1,
+        derivedFromMatrixId: matrix.id,
+      }, tx);
+      const version = await this.repo.insertVersion({
+        paperId: paper.id, version: 1, name: input.name,
+        subjectId: matrix.subjectId, grade: null, examKind: null,
+        totalScore: matrix.totalScore, durationMinutes: null, tfScale: cellScale,
+        matrixId: matrix.id, matrixVersion: matrix.version,
+        recipeSpec: input.drawMode === 'per_student' ? spec : null,
+        createdBy: actorId,
+      }, tx);
+      if (drawnPinned) {
+        // Snapshot sinh từ ma trận: slot ghi matrixCellId nguồn để
+        // báo cáo tỉ lệ theo ô đối chiếu được với ma trận.
+        await this.repo.insertSlots(drawnPinned.map((d, i) => ({
+          paperVersionId: version.id, position: i + 1,
+          section: `Ô ${d.page}`,
+          questionId: d.questionId,
+          pinnedVersionId: d.pinnedVersionId, pinnedVersionNumber: d.pinnedVersionNumber,
+          maxMark: d.maxMark, clusterId: d.clusterId, matrixCellId: d.matrixCellId,
+        })), tx);
+      }
+    });
+    const totalMinutes = cells.reduce((sum, c) => sum + (c.minutes ?? 0), 0);
+    const timeLimitSeconds = input.timeLimitSeconds !== undefined && input.timeLimitSeconds !== null
+      ? input.timeLimitSeconds
+      : (totalMinutes > 0 ? totalMinutes * 60 : null);
+    const created = await this.quiz.createQuiz(actorId, input.courseId, {
+      sectionId: input.sectionId, name: input.name,
+      timeLimitSeconds, grade: matrix.totalScore, tfScale: cellScale,
+    });
+    try {
+      const deployed = await this.deploy(actorId, paper!.id, { quizId: created.id });
+      await this.outbox.enqueueStandalone({
+        aggregate: 'exam_paper', type: 'exam_paper_generated_from_matrix',
+        payload: { paperId: paper!.id, matrixId: matrix.id, matrixVersion: matrix.version, drawMode: input.drawMode, quizId: created.id, actorId },
+      });
+      return deployed;
+    } catch (err) {
+      await this.quiz.deleteQuiz(actorId, created.id).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  // --- materialize + swap-cùng-ô (EB-2, D.3) ------------------------------------------
+
+  /**
+   * Chụp một đề RECIPE thành một đề SNAPSHOT mới (materialize): rút
+   * một bộ câu cố định từ pool của các ô theo recipeSpec đã ghim
+   * (thiếu câu ở bất kỳ ô nào → 422 như generate, không chụp một
+   * phần). Snapshot mới nằm CÙNG bank với recipe, derived_from trỏ
+   * về recipe (+ matrix version qua version.matrixId/matrixVersion),
+   * giữ recipeSpec để báo cáo tỉ lệ + swap-cùng-ô; trạng thái draft
+   * để giáo viên sửa rồi mới ready. Recipe gốc KHÔNG đổi.
+   */
+  async materialize(actorId: string, paperId: string, input: MaterializeExamPaper): Promise<ExamPaperView> {
+    const recipe = await this.getPaperOrThrow(paperId);
+    if (recipe.kind !== 'recipe') {
+      throw new BadRequestException({ message: 'Only a recipe paper can be materialized', code: 'exam.materialize_requires_recipe' });
+    }
+    const bank = await this.bankOfPaper(recipe);
+    await this.assertCanEditPaper(actorId, recipe, bank);
+    const recipeVersion = await this.currentVersion(recipe);
+    const spec = recipeVersion.recipeSpec;
+    if (!spec || !recipeVersion.matrixId) {
+      throw new BadRequestException({ message: 'This recipe paper has no pinned matrix structure', code: 'exam.recipe_missing_spec' });
+    }
+    const pseudoCells = spec.cells.map((c) => ({
+      id: c.sourceCellId, matrixId: recipeVersion.matrixId!,
+      learningOutcomeId: c.learningOutcomeId, cognitiveLevel: c.cognitiveLevel, qtype: c.qtype,
+      questionCount: c.questionCount, cellScore: c.cellScore, minutes: c.minutes, tfScale: c.tfScale,
+      position: 0, createdAt: new Date(), updatedAt: new Date(),
+    })) as ExamMatrixCellRow[];
+    const drawn = await this.quiz.drawFixedSlots(actorId, pseudoCells);
+    let created: ExamPaperRow | undefined;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      created = await this.repo.insertPaper({
+        bankId: recipe.bankId, kind: 'snapshot', status: 'draft',
+        derivedFromPaperId: recipe.id, derivedFromMatrixId: recipeVersion.matrixId,
+        originalAuthorId: recipe.originalAuthorId ?? recipe.createdBy,
+        createdBy: actorId, latestVersion: 1,
+      }, tx);
+      const version = await this.repo.insertVersion({
+        paperId: created.id, version: 1,
+        name: input.name ?? `${recipeVersion.name} (bản chụp)`,
+        subjectId: recipeVersion.subjectId, grade: recipeVersion.grade, examKind: recipeVersion.examKind,
+        totalScore: recipeVersion.totalScore, durationMinutes: recipeVersion.durationMinutes,
+        tfScale: recipeVersion.tfScale, matrixId: recipeVersion.matrixId,
+        matrixVersion: recipeVersion.matrixVersion, recipeSpec: spec, createdBy: actorId,
+      }, tx);
+      const resolved = [];
+      for (const d of drawn) {
+        const ready = await this.repo.resolveReadyVersion(d.questionId);
+        if (!ready) {
+          throw new BadRequestException({
+            message: `Question ${d.questionId} has no ready version; only ready questions can enter a paper`,
+            code: 'exam.slot_question_not_ready',
+          });
+        }
+        resolved.push({
+          paperVersionId: version.id, section: `Ô ${d.page}`,
+          questionId: d.questionId, pinnedVersionId: ready.versionId, pinnedVersionNumber: ready.versionNumber,
+          maxMark: d.maxMark, clusterId: d.clusterId, matrixCellId: d.matrixCellId,
+        });
+      }
+      await this.repo.insertSlots(resolved.map((r, i) => ({ ...r, position: i + 1 })), tx);
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_materialized',
+      payload: { paperId: created!.id, recipeId: recipe.id, matrixId: recipeVersion.matrixId, matrixVersion: recipeVersion.matrixVersion, actorId },
+    });
+    return this.paperView(actorId, created!);
+  }
+
+  /**
+   * Đổi câu của một slot snapshot bằng SWAP-CÙNG-Ô: slot phải mang ô
+   * nguồn (snapshot materialize từ recipe); câu thay phải thuộc pool
+   * của chính ô đó (cùng YCCĐ + mức + dạng, bản ready) và chưa có
+   * trong đề. Tạo paper version mới (các slot khác giữ nguyên, điểm
+   * slot giữ nguyên) — version cũ + mọi lần triển khai trước bất biến.
+   */
+  async swapSlot(actorId: string, paperId: string, input: SwapExamPaperSlot): Promise<ExamPaperView> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanEditPaper(actorId, paper, bank);
+    if (paper.kind === 'recipe') {
+      throw new BadRequestException({
+        message: 'A recipe paper cannot be edited directly; materialize it into a snapshot first',
+        code: 'exam.recipe_not_editable',
+      });
+    }
+    const current = await this.currentVersion(paper);
+    const slots = await this.repo.listSlots(current.id);
+    const slot = slots.find((s) => s.position === input.position);
+    if (!slot) throw new NotFoundException({ message: `Paper slot ${input.position} not found`, code: 'exam.slot_not_found' });
+    if (!slot.matrixCellId) {
+      throw new BadRequestException({ message: 'This slot has no source matrix cell; same-cell swap only applies to slots materialized from a recipe', code: 'exam.swap_no_source_cell' });
+    }
+    if (slot.clusterId) {
+      throw new BadRequestException({ message: 'A cluster member cannot be swapped on its own', code: 'exam.swap_cluster_member' });
+    }
+    if (!(await this.quiz.cellPoolContains(slot.matrixCellId, input.questionId))) {
+      throw new BadRequestException({ message: 'The replacement question is not in the pool of this slot\'s matrix cell', code: 'exam.swap_candidate_out_of_cell' });
+    }
+    if (slots.some((s) => s.id !== slot.id && s.questionId === input.questionId)) {
+      throw new BadRequestException({ message: 'The replacement question is already in this paper', code: 'exam.swap_candidate_duplicate' });
+    }
+    const ready = await this.repo.resolveReadyVersion(input.questionId);
+    if (!ready) {
+      throw new BadRequestException({
+        message: `Question ${input.questionId} has no ready version; only ready questions can enter a paper`,
+        code: 'exam.slot_question_not_ready',
+      });
+    }
+    const next = paper.latestVersion + 1;
+    await this.repo.dbHandle.transaction(async (tx) => {
+      const version = await this.repo.insertVersion({
+        paperId: paper.id, version: next, name: current.name,
+        subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
+        totalScore: current.totalScore, durationMinutes: current.durationMinutes,
+        tfScale: current.tfScale, matrixId: current.matrixId,
+        matrixVersion: current.matrixVersion, recipeSpec: current.recipeSpec ?? null, createdBy: actorId,
+      }, tx);
+      await this.repo.insertSlots(slots.map((s) => ({
+        paperVersionId: version.id, position: s.position, section: s.section,
+        questionId: s.id === slot.id ? input.questionId : s.questionId,
+        pinnedVersionId: s.id === slot.id ? ready.versionId : s.pinnedVersionId,
+        pinnedVersionNumber: s.id === slot.id ? ready.versionNumber : s.pinnedVersionNumber,
+        maxMark: s.maxMark, clusterId: s.clusterId, matrixCellId: s.matrixCellId,
+      })), tx);
+      await this.repo.updatePaper(paper.id, { latestVersion: next }, tx);
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_slot_swapped',
+      payload: { paperId: paper.id, position: input.position, questionId: input.questionId, cellId: slot.matrixCellId, actorId },
+    });
+    return this.paperView(actorId, (await this.repo.getPaper(paper.id))!);
+  }
+
+  // --- in đề kèm mã đề (EB-2, E-5) ------------------------------------------------------
+
+  /**
+   * Bản in HTML của một đề SNAPSHOT theo một MÃ ĐỀ của một lần triển
+   * khai: thứ tự câu hoán vị xác định bằng seed của mã (in lại cùng
+   * mã cho cùng thứ tự — khớp bản chấm); đầu trang ghi rõ mã đề.
+   * Recipe không in trực tiếp (in qua snapshot/lần triển khai).
+   */
+  async printPaperHtml(actorId: string, paperId: string, deploymentId: string, variantCode: string): Promise<string> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanViewPaper(actorId, paper, bank);
+    const deployment = await this.repo.getDeployment(deploymentId);
+    if (!deployment || deployment.paperId !== paper.id) {
+      throw new NotFoundException({ message: `Deployment ${deploymentId} not found for this paper`, code: 'exam.deployment_not_found' });
+    }
+    const variant = (deployment.variants ?? []).find((v) => v.code === variantCode);
+    if (!variant) {
+      throw new NotFoundException({ message: `Variant ${variantCode} not found in this deployment`, code: 'exam.variant_not_found' });
+    }
+    const version = await this.repo.getVersion(deployment.paperVersionId);
+    if (!version) throw new NotFoundException({ message: 'Deployed paper version not found', code: 'exam.version_not_found' });
+    const slots = await this.repo.listSlots(version.id);
+    const views = await this.slotViews(slots);
+    // Hoán vị Fisher–Yates theo seed của mã đề (mulberry32).
+    let state = variant.seed >>> 0;
+    const rand = () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const ordered = [...views];
+    for (let i = ordered.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [ordered[i], ordered[j]] = [ordered[j]!, ordered[i]!];
+    }
+    const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const rows = ordered.map((v, i) => `<tr><td>${i + 1}</td><td>${esc(v.questionName ?? v.questionId)}</td><td>${esc(v.qtype ?? '')}</td><td>${v.maxMark}</td></tr>`).join('');
+    return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${esc(version.name)} — Mã đề ${esc(variant.code)}</title></head><body><h1>${esc(version.name)}</h1><p><strong>Mã đề: ${esc(variant.code)}</strong> · Tổng điểm: ${version.totalScore}${version.durationMinutes ? ` · Thời gian: ${version.durationMinutes} phút` : ''}</p><table border="1" cellspacing="0" cellpadding="6"><thead><tr><th>STT</th><th>Câu hỏi</th><th>Dạng</th><th>Điểm</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
   }
 }

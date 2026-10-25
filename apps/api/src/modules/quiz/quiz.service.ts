@@ -13,7 +13,7 @@ import { QuestionBanksService } from '../questions/question-banks.service';
 import { QuestionsService, type QuestionView, type UsageView } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateQuizOverrideDto, GenerateFromMatrixDto, SwapQuizSlotDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
+import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateQuizOverrideDto, SwapQuizSlotDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
 import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
 import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type QuizAttemptEventRow, type QuizAttemptRow, type QuizFeedbackRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
@@ -1380,102 +1380,137 @@ export class QuizService {
     return { deficits, pools };
   }
 
+  // --- Facade cho EB-2 (generate hai bước matrix → paper → deploy) -------------
+
   /**
-   * Sinh đề từ ma trận (mục C.3): thiếu câu ở BẤT KỲ ô nào → 422
-   * `quiz.matrix_insufficient_questions` kèm chi tiết từng ô, không
-   * sinh một phần. Đủ câu → tạo quiz bằng cơ chế Chặng 1 (course module
-   * + grade item, quyền khoá do đường đó kiểm), ghi matrix_id + chụp
-   * thang Đ–S hiệu lực vào quiz, rồi tạo slots: fixed rút câu ngay
-   * (không lặp trong toàn đề), per_student chỉ ghi ô nguồn để rút lúc
-   * bắt đầu từng lượt. Ô truefalse sinh 4 slot/chùm cùng cluster_id,
-   * mỗi slot mang điểm danh nghĩa = điểm chùm / 4. Tạo slots lỗi giữa
-   * chừng thì xoá quiz bù như createQuiz vẫn làm với cm.
+   * Đọc ma trận cho generate (cổng quiz:managematrix tại context của
+   * bank — E-8 qua requireMatrixCap) + các ô. EB-2: ExamPapersService
+   * là phía điều phối generate; QuizService chỉ còn là nguồn dữ liệu
+   * ma trận/pool và phía ghi slots vào quiz.
    */
-  async generateQuizFromMatrix(actorId: string, matrixId: string, input: GenerateFromMatrixDto): Promise<QuizView> {
+  async matrixForGeneration(actorId: string, matrixId: string): Promise<{ matrix: ExamMatrixRow; cells: ExamMatrixCellRow[] }> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
     const cells = await this.repo.listMatrixCells(matrix.id);
     if (!cells.length) {
       throw new BadRequestException({ message: 'This matrix has no cells yet', code: 'quiz.matrix_empty' });
     }
+    return { matrix, cells };
+  }
+
+  /**
+   * Rút MỘT bộ câu cố định cho các ô (cơ chế fixed của Chặng 3, tách
+   * ra dùng chung cho generate snapshot + materialize recipe ở
+   * EB-2): thiếu câu ở BẤT KỲ ô nào → 422
+   * `quiz.matrix_insufficient_questions` kèm chi tiết từng ô, không
+   * rút một phần. Không lặp câu trong toàn bộ; ô truefalse rút cả
+   * chùm 4 câu cùng cluster_id, mỗi slot mang điểm danh nghĩa =
+   * điểm chùm / 4. page = thứ tự của ô trong ma trận.
+   */
+  async drawFixedSlots(actorId: string, cells: ExamMatrixCellRow[]): Promise<{
+    questionId: string; matrixCellId: string; clusterId: string | null; maxMark: number; page: number;
+  }[]> {
     const { deficits, pools } = await this.matrixDeficits(actorId, cells);
     if (deficits.length) {
-      // Chi tiết từng ô đi qua mảng message → ProblemDetailsFilter đưa
-      // ra wire ở trường `errors` (filter không chuyển trường tự do).
       throw new UnprocessableEntityException({
         message: deficits.map((d) => `cell ${d.cellId} (outcome ${d.learningOutcomeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
         code: 'quiz.matrix_insufficient_questions',
       });
     }
-    const totalMinutes = cells.reduce((s, c) => s + (c.minutes ?? 0), 0);
-    const timeLimitSeconds = input.timeLimitSeconds !== undefined && input.timeLimitSeconds !== null
-      ? input.timeLimitSeconds
-      : (totalMinutes > 0 ? totalMinutes * 60 : null);
-    // Thang Đ–S hiệu lực của đề: thang riêng đầu tiên có đặt trong các
-    // ô (mọi chùm trong đề dùng chung một thang — mục C.4).
-    const cellScale = cells.find((c) => c.tfScale !== null)?.tfScale ?? null;
-    const created = await this.createQuiz(actorId, input.courseId, {
-      sectionId: input.sectionId, name: input.name,
-      timeLimitSeconds, grade: matrix.totalScore, tfScale: cellScale,
-    });
-    const quiz = await this.getQuiz(created.id);
-    try {
-      await this.repo.updateQuiz(quiz.id, { matrixId: matrix.id });
-      const chosen = new Set<string>();
-      let slotNo = 0;
-      let page = 0;
-      for (const cell of cells) {
-        page += 1;
-        const pool = pools.get(cell.id)!;
-        const perUnit = cell.cellScore / cell.questionCount;
-        if (cell.qtype === 'truefalse') {
-          const pickedClusters = input.drawMode === 'fixed' ? this.shuffled(pool.clusters).slice(0, cell.questionCount) : [];
-          for (let u = 0; u < cell.questionCount; u++) {
-            const clusterId = randomUUID();
-            const members = input.drawMode === 'fixed' ? pickedClusters[u]! : [];
-            for (let k = 0; k < 4; k++) {
-              const member = members[k];
-              await this.repo.insertSlot({
-                quizId: quiz.id, slot: ++slotNo, page,
-                questionId: member ? member.question.id : null,
-                categoryId: null,
-                matrixCellId: cell.id,
-                clusterId, maxMark: perUnit / 4,
-              });
-              if (member) chosen.add(member.question.id);
-            }
-          }
-        } else {
-          let picked: QuestionView[] = [];
-          if (input.drawMode === 'fixed') {
-            const fresh = this.shuffled(pool.candidates.filter((v) => !chosen.has(v.question.id)));
-            picked = fresh.slice(0, cell.questionCount);
-            if (picked.length < cell.questionCount) {
-              // Pool giao nhau giữa các ô: phần còn thiếu rút nốt từ pool
-              // của chính ô (chỉ tránh trùng trong nội bộ ô).
-              const rest = this.shuffled(pool.candidates.filter((v) => !picked.some((p) => p.question.id === v.question.id)));
-              picked = [...picked, ...rest.slice(0, cell.questionCount - picked.length)];
-            }
-          }
-          for (let u = 0; u < cell.questionCount; u++) {
-            const member = picked[u];
-            await this.repo.insertSlot({
-              quizId: quiz.id, slot: ++slotNo, page,
-              questionId: member ? member.question.id : null,
-              categoryId: null, matrixCellId: cell.id,
-              clusterId: null, maxMark: perUnit,
-            });
-            if (member) chosen.add(member.question.id);
+    const chosen = new Set<string>();
+    const out: { questionId: string; matrixCellId: string; clusterId: string | null; maxMark: number; page: number }[] = [];
+    let page = 0;
+    for (const cell of cells) {
+      page += 1;
+      const pool = pools.get(cell.id)!;
+      const perUnit = cell.cellScore / cell.questionCount;
+      if (cell.qtype === 'truefalse') {
+        const pickedClusters = this.shuffled(pool.clusters).slice(0, cell.questionCount);
+        for (let u = 0; u < cell.questionCount; u++) {
+          const clusterId = randomUUID();
+          const members = pickedClusters[u]!;
+          for (let k = 0; k < 4; k++) {
+            const member = members[k]!;
+            out.push({ questionId: member.question.id, matrixCellId: cell.id, clusterId, maxMark: perUnit / 4, page });
+            chosen.add(member.question.id);
           }
         }
+      } else {
+        const fresh = this.shuffled(pool.candidates.filter((v) => !chosen.has(v.question.id)));
+        let picked = fresh.slice(0, cell.questionCount);
+        if (picked.length < cell.questionCount) {
+          const rest = this.shuffled(pool.candidates.filter((v) => !picked.some((p) => p.question.id === v.question.id)));
+          picked = [...picked, ...rest.slice(0, cell.questionCount - picked.length)];
+        }
+        for (const member of picked) {
+          out.push({ questionId: member.question.id, matrixCellId: cell.id, clusterId: null, maxMark: perUnit, page });
+          chosen.add(member.question.id);
+        }
       }
-    } catch (err) {
-      await this.deleteQuiz(actorId, quiz.id).catch(() => undefined);
-      throw err;
     }
+    return out;
+  }
+
+  /** Câu có thuộc pool của ô hay không (pool thô theo YCCĐ + mức + dạng + ready — điểm neo swap-cùng-ô của EB-2 như swapSlot đã dùng). */
+  async cellPoolContains(cellId: string, questionId: string): Promise<boolean> {
+    const cell = await this.repo.getMatrixCell(cellId);
+    if (!cell) return false;
+    const candidates = await this.cellCandidates(cell);
+    return candidates.some((v) => v.question.id === questionId);
+  }
+
+  /**
+   * Triển khai một ĐỀ RECIPE (EB-2) vào quiz này: ghi các slot theo
+   * Ô NGUỒN (matrix_cell_id, chưa có câu — câu rút tại lúc bắt đầu
+   * từng lượt như per_student của Chặng 3, attempt pin câu đã rút),
+   * ghim quizzes.paper_id/paper_version_id + matrix_id truy vết phụ.
+   * Cùng cổng/giới hạn như deployPaperSlots: quiz:manage tại khoá,
+   * chưa có lượt thật, quiz đã có slots dựng tay thì phải replace.
+   */
+  async deployRecipeSlots(actorId: string, quizId: string, input: {
+    paperId: string;
+    paperVersionId: string;
+    matrixId: string;
+    tfScale?: number[] | null;
+    replace: boolean;
+    slots: { matrixCellId: string; clusterId: string | null; maxMark: number; page: number }[];
+  }): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    await this.assertNoRealAttempts(quiz);
+    const existing = await this.repo.listSlots(quiz.id);
+    if (existing.length > 0 && !quiz.paperId && !input.replace) {
+      throw new ConflictException({
+        message: 'This quiz already has manually built slots; confirm replace to deploy a bank paper over them',
+        code: 'exam.deploy_quiz_has_manual_slots',
+      });
+    }
+    await this.repo.dbHandle.transaction(async (tx) => {
+      for (const s of existing) await this.repo.deleteSlot(s.id, tx);
+      let n = 0;
+      for (const s of input.slots) {
+        n += 1;
+        await this.repo.insertSlot({
+          quizId: quiz.id,
+          slot: n,
+          page: s.page,
+          questionId: null,
+          categoryId: null,
+          matrixCellId: s.matrixCellId,
+          clusterId: s.clusterId,
+          maxMark: s.maxMark,
+        }, tx);
+      }
+      await this.repo.updateQuiz(quiz.id, {
+        paperId: input.paperId,
+        paperVersionId: input.paperVersionId,
+        matrixId: input.matrixId,
+        ...(input.tfScale ? { tfScale: input.tfScale } : {}),
+      }, tx);
+    });
     await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'quiz_generated_from_matrix',
-      payload: { quizId: quiz.id, courseId: quiz.course, matrixId: matrix.id, drawMode: input.drawMode, actorId },
+      aggregate: 'quiz', type: 'exam_paper_deployed',
+      payload: { quizId: quiz.id, courseId: quiz.course, paperId: input.paperId, paperVersionId: input.paperVersionId, kind: 'recipe', actorId },
     });
     return this.quizView(await this.getQuiz(quiz.id));
   }
@@ -1504,6 +1539,8 @@ export class QuizService {
   async deployPaperSlots(actorId: string, quizId: string, input: {
     paperId: string;
     paperVersionId: string;
+    /** Ma trận nguồn của đề (EB-2: truy vết phụ trên quiz bên cạnh paper_id chính); bỏ trống = giữ nguyên matrix_id hiện tại của quiz. */
+    matrixId?: string | null;
     tfScale?: number[] | null;
     replace: boolean;
     slots: {
@@ -1545,6 +1582,7 @@ export class QuizService {
       await this.repo.updateQuiz(quiz.id, {
         paperId: input.paperId,
         paperVersionId: input.paperVersionId,
+        ...(input.matrixId ? { matrixId: input.matrixId } : {}),
         ...(input.tfScale ? { tfScale: input.tfScale } : {}),
       }, tx);
     });

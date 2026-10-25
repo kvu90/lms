@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examPaperContributions, examPapers, examPaperSlots, examPaperVersions, question, questionBankEntries, questionVersions } from '../../db/schema';
+import { examDeployments, examPaperContributions, examPapers, examPaperSlots, examPaperVersions, question, questionBankEntries, questionVersions } from '../../db/schema';
 
 export type ExamPaperRow = typeof examPapers.$inferSelect;
 export type ExamPaperVersionRow = typeof examPaperVersions.$inferSelect;
 export type ExamPaperSlotRow = typeof examPaperSlots.$inferSelect;
 export type ExamPaperContributionRow = typeof examPaperContributions.$inferSelect;
+export type ExamDeploymentRow = typeof examDeployments.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
@@ -156,5 +157,23 @@ export class ExamPapersRepository {
     await (tx ?? this.db).update(examPapers)
       .set({ copyCount: sql`${examPapers.copyCount} + 1` })
       .where(eq(examPapers.id, paperId));
+  }
+
+  // --- triển khai + mã đề (EB-2) ------------------------------------------------
+
+  async insertDeployment(v: typeof examDeployments.$inferInsert, tx?: DbTx): Promise<ExamDeploymentRow> {
+    const [row] = await (tx ?? this.db).insert(examDeployments).values(v).returning();
+    return row!;
+  }
+
+  async getDeployment(id: string): Promise<ExamDeploymentRow | undefined> {
+    const [row] = await this.db.select().from(examDeployments).where(eq(examDeployments.id, id));
+    return row;
+  }
+
+  async listDeploymentsForPaper(paperId: string): Promise<ExamDeploymentRow[]> {
+    return this.db.select().from(examDeployments)
+      .where(eq(examDeployments.paperId, paperId))
+      .orderBy(desc(examDeployments.createdAt));
   }
 }
