@@ -2,7 +2,6 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RichTextDocument } from '@lms/contracts';
 import { RichTextView } from './RichTextView.js';
-import { plainTextExtensions } from './extensions.js';
 
 afterEach(() => {
   cleanup();
@@ -10,8 +9,10 @@ afterEach(() => {
 
 /**
  * Spec của package editor: trình hiển thị chỉ-đọc phải dựng đúng HTML của
- * lát văn bản thuần (paragraph + mark đậm), tài liệu rỗng không gây lỗi,
- * và bộ extension không lén chứa node ngoài lát (ảnh, bảng...).
+ * lát văn bản thuần (paragraph + mark đậm), tài liệu rỗng không gây lỗi.
+ * (Rà soát #219: ca liệt kê danh sách extension nội bộ đã bỏ — đó là chi
+ * tiết triển khai; luật "chỉ lát văn bản thuần" được khẳng định ở tầng
+ * nghiệp vụ bởi e2e question-types-stimulus: tài liệu ngoài lát bị từ chối.)
  */
 describe('RichTextView', () => {
   it('renders a paragraph with bold text to HTML', () => {
@@ -51,24 +52,5 @@ describe('RichTextView', () => {
     const { container } = render(<RichTextView value={document} />);
 
     expect(container).toBeEmptyDOMElement();
-  });
-});
-
-describe('plainTextExtensions', () => {
-  it('contains only the plain-text slice extensions', () => {
-    const names = plainTextExtensions.map((extension) => extension.name);
-
-    expect(names).toEqual([
-      'doc',
-      'paragraph',
-      'text',
-      'bold',
-      'italic',
-      'strike',
-      'code',
-      'underline',
-    ]);
-    expect(names).not.toContain('image');
-    expect(names).not.toContain('table');
   });
 });
