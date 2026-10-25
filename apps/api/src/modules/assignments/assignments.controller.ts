@@ -117,6 +117,16 @@ export class AssignmentsController {
   async listSubmissions(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.assignments.listSubmissionsForTeacher(actor.id, id);
   }
+
+  @Get(':id/results')
+  /**
+   * GET /assignments/:id/results — kết quả của MỘT bài tập cho giáo
+   * viên (issue #224, bộ thống kê Azota): tham gia (đã nộp/chưa nộp),
+   * điểm trung bình + phổ điểm của bài, bảng điểm từng học sinh.
+   */
+  async results(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assignments.getResults(actor.id, id);
+  }
   @Get(':id/submissions/:userId')
   /**
    * GET /assignments/:id/submissions/:userId — chi tiết một bài nộp để
