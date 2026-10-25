@@ -77,6 +77,18 @@ export class GradesService implements OnModuleInit {
   // --- items ---------------------------------------------------------------
 
   /**
+   * Kiểm tra idNumber không trùng với item khác trong cùng khoá học
+   * (idNumber là định danh duy nhất của item trong khoá khi không null).
+   */
+  private async assertIdnumberFree(courseId: string, idNumber: string | null | undefined, selfItemId?: string): Promise<void> {
+    if (!idNumber) return;
+    const existing = await this.repo.findItemByIdnumber(courseId, idNumber);
+    if (existing && existing.id !== selfItemId) {
+      throw new BadRequestException({ message: `idNumber ${idNumber} is already used in this course`, code: 'grades.idnumber_taken' });
+    }
+  }
+
+  /**
    * Tạo grade item: 'manual' (điểm nhập tay của một bài/đợt riêng) hoặc
    * 'mod' (gắn một course module — đường quiz/assignment tự gọi khi tạo
    * hoạt động). Mỗi cm chỉ có tối đa một item 'mod'.
@@ -84,7 +96,7 @@ export class GradesService implements OnModuleInit {
   async createItem(actorId: string, courseId: string, input: {
     itemName: string; itemType?: string; cmId?: string;
     gradeMax?: number; gradeMin?: number; gradePass?: number; hidden?: boolean;
-    multiplicator?: number; plusFactor?: number;
+    idNumber?: string; multiplicator?: number; plusFactor?: number;
   }): Promise<ItemRow> {
     await this.courses.getCourse(courseId);
     await this.requireCap(actorId, 'grade:manage', courseId);
@@ -106,9 +118,11 @@ export class GradesService implements OnModuleInit {
     const gradeMin = input.gradeMin ?? 0;
     const gradeMax = input.gradeMax ?? 100;
     if (gradeMax <= gradeMin) throw new BadRequestException({ message: 'gradeMax must be greater than gradeMin', code: 'grades.bad_range' });
+    await this.assertIdnumberFree(courseId, input.idNumber ?? null);
     const item = await this.repo.insertItem({
       courseId: courseId, itemName: input.itemName, itemType,
       itemModule, itemInstance: itemType === 'mod' ? input.cmId! : null,
+      idNumber: input.idNumber ?? null,
       gradeMax, gradeMin, gradePass: input.gradePass ?? 0,
       multiplicator: input.multiplicator ?? 1, plusFactor: input.plusFactor ?? 0,
       hidden: input.hidden ?? false,
@@ -134,17 +148,20 @@ export class GradesService implements OnModuleInit {
   }
 
   /**
-   * Cập nhật item (tên/thang điểm/ngưỡng đạt/ẩn/khoá) — đường
+   * Cập nhật item (tên/thang điểm/ngưỡng đạt/idNumber/ẩn/khoá) — đường
    * quiz/assignment gọi khi hoạt động đổi tên hoặc thang điểm.
    */
   async updateItem(actorId: string, itemId: string, input: {
     itemName?: string; gradeMax?: number; gradeMin?: number; gradePass?: number;
+    idNumber?: string | null;
     hidden?: boolean; locked?: boolean; multiplicator?: number; plusFactor?: number;
   }): Promise<ItemRow> {
     const item = await this.getItem(itemId);
     await this.requireCap(actorId, 'grade:manage', item.courseId);
+    if (input.idNumber !== undefined) await this.assertIdnumberFree(item.courseId, input.idNumber, itemId);
     const patch: Partial<ItemRow> = {};
     if (input.itemName !== undefined) patch.itemName = input.itemName;
+    if (input.idNumber !== undefined) patch.idNumber = input.idNumber;
     if (input.gradeMax !== undefined) patch.gradeMax = input.gradeMax;
     if (input.gradeMin !== undefined) patch.gradeMin = input.gradeMin;
     if (input.gradePass !== undefined) patch.gradePass = input.gradePass;

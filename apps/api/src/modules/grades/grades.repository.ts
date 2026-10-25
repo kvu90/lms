@@ -56,6 +56,15 @@ export class GradesRepository {
     return row;
   }
   /**
+   * Tìm grade item theo idNumber trong một khoá học (idNumber là định
+   * danh duy nhất của item trong khoá khi không null).
+   */
+  async findItemByIdnumber(courseId: string, idNumber: string): Promise<ItemRow | undefined> {
+    const [row] = await this.db.select().from(gradeItems)
+      .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.idNumber, idNumber)));
+    return row;
+  }
+  /**
    * Cập nhật item.
    */
   async updateItem(id: string, patch: Partial<ItemRow>): Promise<void> {

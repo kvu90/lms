@@ -36,6 +36,14 @@ export const gradeItems = pgTable(
     gradeMax: doublePrecision('grade_max').notNull().default(100),
     gradeMin: doublePrecision('grade_min').notNull().default(0),
     gradePass: doublePrecision('grade_pass').notNull().default(0),
+    /**
+     * Định danh của item trong khoá học (Moodle grade_items.idnumber);
+     * duy nhất trong một khoá học khi không null — phục vụ nhân bản
+     * module (bản sao trong cùng khoá phải bỏ idNumber để không vi phạm
+     * unique) và tích hợp ngoài. KHÔNG thuộc diện gỡ của quyết định
+     * 23:49 ngày 25/10/2026 (chỉ bỏ mô hình tổng hợp/sổ VN).
+     */
+    idNumber: text('id_number'),
     multiplicator: doublePrecision('multiplicator').notNull().default(1),
     plusFactor: doublePrecision('plus_factor').notNull().default(0),
     hidden: boolean('hidden').notNull().default(false),
@@ -53,7 +61,7 @@ export const gradeItems = pgTable(
   },
   (table) => [
       index('grade_items_item_instance_idx').on(table.itemInstance),
-      unique('grade_items_course_type_instance_unique').on(table.courseId, table.itemType, table.itemInstance, table.itemModule)],
+      unique('grade_items_course_id_number_unique').on(table.courseId, table.idNumber),unique('grade_items_course_type_instance_unique').on(table.courseId, table.itemType, table.itemInstance, table.itemModule)],
 );
 
 /**

@@ -26085,6 +26085,19 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "id_number",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "multiplicator",
       "type": "double precision",
       "typeSchema": null,
@@ -56053,6 +56066,18 @@
       "columns": [
         "item_id",
         "user_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
+      "name": "grade_items_course_id_number_unique",
+      "nameExplicit": true,
+      "columns": [
+        "course_id",
+        "id_number"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

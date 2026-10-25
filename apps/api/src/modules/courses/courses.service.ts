@@ -1168,7 +1168,7 @@ export class CoursesService {
         courseId: targetCourseId,
         itemName: item.itemName, itemType: item.itemType, itemModule: item.itemModule, itemInstance,
         gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-        multiplicator: item.multiplicator,
+        idNumber: item.idNumber, multiplicator: item.multiplicator,
         plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked, sortOrder: item.sortOrder,
         postingPolicy: item.postingPolicy,
       });
@@ -1397,7 +1397,7 @@ export class CoursesService {
             courseId: section.course, itemName: item.itemName,
             itemType: item.itemType, itemModule: item.itemModule, itemInstance: newCmId,
             gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-            multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
+            idNumber: null, multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
             sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
           });
         }
@@ -1434,7 +1434,7 @@ export class CoursesService {
           courseId: cm.course, itemName: item.itemName,
           itemType: item.itemType, itemModule: item.itemModule, itemInstance: created.id,
           gradeType: item.gradeType, gradeMax: item.gradeMax, gradeMin: item.gradeMin, gradePass: item.gradePass,
-          multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
+          idNumber: null, multiplicator: item.multiplicator, plusFactor: item.plusFactor, hidden: item.hidden, locked: item.locked,
           sortOrder: item.sortOrder, postingPolicy: item.postingPolicy,
         });
       }

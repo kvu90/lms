@@ -794,6 +794,7 @@ CREATE TABLE "grade_items" (
 	"grade_max" double precision DEFAULT 100 NOT NULL,
 	"grade_min" double precision DEFAULT 0 NOT NULL,
 	"grade_pass" double precision DEFAULT 0 NOT NULL,
+	"id_number" text,
 	"multiplicator" double precision DEFAULT 1 NOT NULL,
 	"plus_factor" double precision DEFAULT 0 NOT NULL,
 	"hidden" boolean DEFAULT false NOT NULL,
@@ -802,6 +803,7 @@ CREATE TABLE "grade_items" (
 	"posting_policy" text DEFAULT 'auto' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "grade_items_course_id_number_unique" UNIQUE("course_id","id_number"),
 	CONSTRAINT "grade_items_course_type_instance_unique" UNIQUE("course_id","item_type","item_instance","item_module")
 );
 --> statement-breakpoint

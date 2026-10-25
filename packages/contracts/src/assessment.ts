@@ -27,6 +27,7 @@ export const gradeItemSchema = z.object({
   sortOrder: z.number().int(),
   postingPolicy: z.string(),
   gradeType: z.string().optional(),
+  idNumber: z.string().nullable().optional(),
 });
 export type GradeItem = z.infer<typeof gradeItemSchema>;
 
@@ -279,6 +280,7 @@ export const createGradeItemSchema = z.strictObject({
   gradeMax: z.number().optional(),
   gradeMin: z.number().optional(),
   gradePass: z.number().optional(),
+  idNumber: z.string().min(1).optional(),
   multiplicator: z.number().optional(),
   plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
@@ -291,6 +293,7 @@ export const updateGradeItemSchema = z.strictObject({
   gradeMax: z.number().optional(),
   gradeMin: z.number().optional(),
   gradePass: z.number().optional(),
+  idNumber: z.string().min(1).nullable().optional(),
   multiplicator: z.number().optional(),
   plusFactor: z.number().optional(),
   hidden: z.boolean().optional(),
