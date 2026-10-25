@@ -29,6 +29,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     const jobs: Record<string, unknown>[] = [];
     const storedPrefs = new Map<string, string>();
     const repo = {
+      getUserDefaultTenantId: vi.fn(async () => null),
       insertNotification: vi.fn(async (v: Record<string, unknown>) => { inserted.push(v); return { id: 'notif-1', ...v }; }),
       insertDispatchLog: vi.fn(async (v: Record<string, unknown>) => { logs.push(v); return {}; }),
       hasStaffRoleAssignment: vi.fn(async () => opts.staffAssignment ?? false),
