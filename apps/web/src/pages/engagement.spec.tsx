@@ -81,7 +81,11 @@ describe('Notifications page', () => {
   // qua memory router như test Badges ở dưới.
   function renderNotificationsPage() {
     const router = createMemoryRouter([{ path: '/notifications', element: <NotificationsPage /> }], { initialEntries: ['/notifications'] });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     return router;
   }
 
@@ -202,7 +206,11 @@ describe('Notifications centre v2 (issue #51)', () => {
 
   function renderNotificationsPage() {
     const router = createMemoryRouter([{ path: '/notifications', element: <NotificationsPage /> }], { initialEntries: ['/notifications'] });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     return router;
   }
 
@@ -275,7 +283,11 @@ describe('Notifications centre v2 (issue #51)', () => {
       ],
       { initialEntries: ['/notifications'] },
     );
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     await userEvent.click(await screen.findByText('Điểm mới duy nhất'));
     // Đã gọi đánh dấu đọc cho đúng mục, và router đã sang trang điểm.

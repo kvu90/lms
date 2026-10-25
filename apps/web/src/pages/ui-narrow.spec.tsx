@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { BlogPage } from './blog';
 import { HealthPage } from './health';
 import { NotificationsPage } from './notifications';
@@ -125,9 +126,11 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
       return undefined;
     });
     const { container } = render(
-      <MemoryRouter>
-        <NotificationsPage />
-      </MemoryRouter>,
+      <TestProviders>
+        <MemoryRouter>
+          <NotificationsPage />
+        </MemoryRouter>
+      </TestProviders>,
     );
     expectNarrowShell(container);
     const header = container.querySelector('[data-slot="page-header"]');
