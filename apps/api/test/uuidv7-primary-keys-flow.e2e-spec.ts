@@ -100,6 +100,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // → 173 bảng tổng, 165 bảng có PK mặc định uuidv7().
     // + mcp_idempotency_keys (lát MCP-0 nền MCP server, issue #110)
     // → 174 bảng tổng, 166 bảng có PK mặc định uuidv7().
+    // + user_dashboard_state, user_course_card_prefs (đợt DASH1
+    // dashboard việc cần làm, issue #121 — hai bảng PK phức hợp theo
+    // (user, course), không cột id) → 176 bảng tổng, 166 bảng có PK
+    // mặc định uuidv7(). (Đếm lại trên baseline hợp nhất khi đóng gói
+    // PR #122 trên main 59806c3: snapshot hợp nhất = đúng hợp thực thể
+    // của baseline main và baseline branch.)
     expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(166);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);

@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import type { CourseCategoryTreeNode, Role, UserListResponse } from '@lms/contracts';
+import type { CourseCategoryTreeNode, DashboardOverviewView, Role, UserListResponse } from '@lms/contracts';
 import '../i18n';
 import { ApiError, apiJson } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { usePermissions, type CourseAccess } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
+import { displayCourseName, useCourseCardPrefs } from '#lib/course-cards';
 import { DashboardSkeleton } from '#components/dashboard-skeleton';
 import { SectionCards, type StatCard } from '#components/section-cards';
 import { Skeleton } from '@lms/ui/components/skeleton';
@@ -43,6 +44,164 @@ function SectionHeading({ title }: { title: string }) {
     <h2 className="px-4 text-lg font-semibold lg:px-6" data-testid="dashboard-section-title">
       {title}
     </h2>
+  );
+}
+
+/**
+ * Khối tổng hợp DASH1 dùng chung cho cả hai vai: đúng MỘT query
+ * `GET /dashboard/overview` (TanStack dedupe theo queryKey nên khối GV và
+ * khối HS trên cùng trang chỉ phát một request). Endpoint đồng thời cập
+ * nhật mốc xem trước phía server khi tính xong danh sách "mới".
+ */
+function useDashboardOverview() {
+  return useQuery({
+    queryKey: queryKeys.dashboardOverview,
+    queryFn: () => apiJson<DashboardOverviewView>('/api/v1/dashboard/overview?days=7'),
+  });
+}
+
+/** Nhãn ngày giờ ngắn theo ngôn ngữ giao diện. */
+function dateTimeLabel(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
+/**
+ * Khối "Việc cần làm" của học sinh (DASH1): hoạt động sắp đến hạn trong 7
+ * ngày (quá hạn tách lên đầu, có badge trạng thái) và điểm/phản hồi mới đã
+ * công bố kể từ lần xem trước. Dữ liệu đã qua cổng công bố PH-0 phía
+ * server — khối này không bao giờ thấy điểm chưa công bố.
+ */
+function StudentTodoBlock() {
+  const { t, i18n } = useTranslation('dashboard');
+  const overview = useDashboardOverview();
+  const data = overview.data;
+  if (overview.isPending) {
+    return (
+      <div className="px-4 lg:px-6" data-testid="dashboard-todo">
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+  if (!data) return null;
+  const statusLabel = (status: string) =>
+    status === 'overdue' ? t('todoOverdue') : status === 'in_progress' ? t('todoInProgress') : t('todoNotStarted');
+  return (
+    <Card data-testid="dashboard-todo">
+      <CardHeader>
+        <CardTitle>{t('todoTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div>
+          <h3 className="mb-2 text-sm font-medium">{t('todoDueTitle')}</h3>
+          {data.dueItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('todoEmpty')}</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {data.dueItems.map((item) => (
+                <li
+                  key={`${item.kind}-${item.cmId}`}
+                  className="flex flex-wrap items-center gap-2 text-sm"
+                  data-testid="todo-due-item"
+                >
+                  <Badge variant={item.status === 'overdue' ? 'destructive' : 'secondary'}>
+                    {statusLabel(item.status)}
+                  </Badge>
+                  <Link to={`/courses/${item.courseId}`} className="font-medium hover:underline">
+                    {item.name}
+                  </Link>
+                  <span className="text-muted-foreground">
+                    {item.kind === 'quiz' ? t('todoKindQuiz') : t('todoKindAssignment')} · {item.courseName} ·{' '}
+                    {t('todoDueAt', { date: dateTimeLabel(item.dueAt, i18n.language) })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {data.newResults.length > 0 && (
+          <div>
+            <h3 className="mb-2 text-sm font-medium">{t('todoNewResultsTitle')}</h3>
+            <ul className="flex flex-col gap-2">
+              {data.newResults.map((result, idx) => (
+                <li key={`${result.kind}-${result.itemId ?? result.courseId}-${idx}`} className="text-sm" data-testid="todo-new-result">
+                  <Link to={`/courses/${result.courseId}/grades`} className="font-medium hover:underline">
+                    {result.kind === 'grade_item'
+                      ? `${result.itemName ?? ''} — ${t('newResultGrade', { grade: result.finalGrade ?? '—', max: result.gradeMax ?? '—' })}`
+                      : result.kind === 'vn_term'
+                        ? t('newResultVnTerm')
+                        : t('newResultVnYear')}
+                  </Link>
+                  <span className="text-muted-foreground"> · {result.courseName}</span>
+                  {result.feedback && <span className="block text-muted-foreground">{result.feedback}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Khối "Hàng đợi chấm" của giáo viên (DASH1): số bài chờ chấm gộp theo
+ * khoá (bài nộp C2 chưa trả bài + lượt quiz chờ chấm tay) và bài chờ lâu
+ * nhất; bấm vào tới sổ điểm của khoá để xử lý hàng đợi.
+ */
+function TeacherGradingBlock() {
+  const { t, i18n } = useTranslation('dashboard');
+  const overview = useDashboardOverview();
+  const prefs = useCourseCardPrefs();
+  const data = overview.data;
+  if (overview.isPending) {
+    return (
+      <div className="px-4 lg:px-6" data-testid="dashboard-grading-queue">
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+  if (!data) return null;
+  return (
+    <Card data-testid="dashboard-grading-queue">
+      <CardHeader>
+        <CardTitle>{t('gradingQueueTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {data.gradingQueue.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('gradingQueueEmpty')}</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {data.gradingQueue.map((row) => (
+              <li key={row.courseId} className="flex flex-wrap items-center gap-2 text-sm" data-testid="grading-queue-row">
+                <Link to={`/courses/${row.courseId}/grades`} className="font-medium hover:underline">
+                  {displayCourseName(prefs.data?.get(row.courseId), row.courseName)}
+                </Link>
+                <Badge>{t('gradingPending', { count: row.pendingCount })}</Badge>
+                <span className="text-muted-foreground">
+                  {[
+                    row.assignmentPending > 0 ? t('gradingAssignmentPart', { count: row.assignmentPending }) : null,
+                    row.quizPending > 0 ? t('gradingQuizPart', { count: row.quizPending }) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {row.oldestPendingAt
+                    ? ` · ${t('gradingOldest', { date: dateTimeLabel(row.oldestPendingAt, i18n.language) })}`
+                    : ''}
+                </span>
+                <Button size="sm" variant="outline" render={<Link to={`/courses/${row.courseId}/grades`} />}>
+                  {t('viewGradingQueue')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -219,6 +378,7 @@ function AdminSection() {
 function TeacherSection() {
   const { t } = useTranslation('dashboard');
   const perms = usePermissions();
+  const prefs = useCourseCardPrefs();
   const teaching = perms.teaching;
 
   const rows = teaching.flatMap((c) => c.report?.rows ?? []);
@@ -270,7 +430,7 @@ function TeacherSection() {
     {
       id: 'course',
       header: t('colCourse'),
-      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullName}</Link>,
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{displayCourseName(prefs.data?.get(c.course.id), c.course.fullName)}</Link>,
       sortValue: (c) => c.course.fullName,
     },
     {
@@ -304,6 +464,7 @@ function TeacherSection() {
   return (
     <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-teacher">
       <SectionHeading title={t('teacherSection')} />
+      <TeacherGradingBlock />
       <SectionCards cards={cards} />
       <ChartAreaInteractive
         title={t('chartTeacherTitle')}
@@ -340,6 +501,7 @@ function TeacherSection() {
 function StudentSection() {
   const { t, i18n } = useTranslation(['dashboard', 'app']);
   const perms = usePermissions();
+  const prefs = useCourseCardPrefs();
   const learning = perms.learning;
   // Huy hiệu, thông báo và sự kiện lịch là ba query độc lập chạy SONG
   // SONG — trước đây một effect await lần lượt từng endpoint nên thẻ
@@ -431,7 +593,7 @@ function StudentSection() {
     {
       id: 'course',
       header: t('colCourse'),
-      cell: (c) => <Link to={`/courses/${c.course.id}`}>{c.course.fullName}</Link>,
+      cell: (c) => <Link to={`/courses/${c.course.id}`}>{displayCourseName(prefs.data?.get(c.course.id), c.course.fullName)}</Link>,
       sortValue: (c) => c.course.fullName,
     },
     {
@@ -468,6 +630,7 @@ function StudentSection() {
   return (
     <section className="flex flex-col gap-4 md:gap-6" data-testid="dashboard-student">
       <SectionHeading title={t('studentSection')} />
+      <StudentTodoBlock />
       <SectionCards cards={cards} />
       <ChartAreaInteractive
         title={t('chartStudentTitle')}

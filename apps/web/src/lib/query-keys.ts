@@ -34,4 +34,8 @@ export const queryKeys = {
   mySessions: ['auth', 'sessions'] as const,
   /** Trạng thái MFA TOTP của chính người dùng (GET /auth/mfa/status). */
   mfaStatus: ['auth', 'mfa', 'status'] as const,
+  /** Khối tổng hợp dashboard việc cần làm (GET /dashboard/overview) — DASH1. */
+  dashboardOverview: ['dashboard', 'overview'] as const,
+  /** Pref thẻ khoá của chính người dùng (GET /dashboard/course-cards) — DASH1. */
+  courseCards: ['dashboard', 'course-cards'] as const,
 };
