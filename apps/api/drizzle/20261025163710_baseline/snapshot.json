@@ -18724,6 +18724,67 @@
         "n|col|public.privacy_requests.id",
         "e|uniqueness|public.privacy_requests.id"
       ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "message",
+        "reply_to_message_id"
+      ],
+      "writes": [
+        "s|col|public.message.reply_to_message_id",
+        "n|col|public.message.reply_to_message_id",
+        "e|col|public.message.reply_to_message_id"
+      ],
+      "reads": [
+        "n|tbl|public.message",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "message",
+        "message_reply_to_message_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_reply_to_message_id_idx",
+        "n|idx|public.message_reply_to_message_id_idx",
+        "e|idx|public.message_reply_to_message_id_idx",
+        "n|rel|public.message_reply_to_message_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message",
+        "n|sch|public",
+        "n|col|public.message.reply_to_message_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "message"
+      ],
+      "writes": [
+        "s|fk|public.message.message_reply_to_message_id_message_id_fkey",
+        "n|fk|public.message.message_reply_to_message_id_message_id_fkey",
+        "e|fk|public.message.message_reply_to_message_id_message_id_fkey",
+        "n|con|public.message.message_reply_to_message_id_message_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.message",
+        "n|sch|public",
+        "n|tbl|public.message",
+        "n|sch|public",
+        "n|col|public.message.reply_to_message_id",
+        "n|col|public.message.id",
+        "e|uniqueness|public.message.id"
+      ]
     }
   ],
   "ddl": [
@@ -60960,6 +61021,57 @@
       "cacheSize": 1,
       "cycle": false,
       "entityType": "sequences"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "reply_to_message_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "message_reply_to_message_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "reply_to_message_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "message",
+      "name": "message_reply_to_message_id_message_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "reply_to_message_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "message",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
     }
   ]
 }

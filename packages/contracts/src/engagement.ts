@@ -5,6 +5,26 @@ import { uuidIdSchema } from './ids.js';
 
 /* ---- Messaging ---- */
 
+/**
+ * Tóm tắt TRÍCH DẪN của một tin gốc (lát M3, issue #229): server dựng
+ * sẵn theo quyền của TỪNG người nhận để client hiện khối trích dẫn
+ * trong bong bóng mà không phải gọi thêm. `excerpt` là nội dung rút
+ * gọn của tin gốc; khi tin gốc không còn hiển thị được với người nhận
+ * (đã xoá mềm / đã thu hồi / đã xoá cứng / chính người nhận đã
+ * xoá-phía-mình) thì `unavailable = true` và `excerpt` rỗng — client
+ * hiện "tin gốc đã bị xoá", TUYỆT ĐỐI không lộ nội dung qua khối này.
+ * `seq` của tin gốc là neo để client tải cửa sổ quanh vị trí tin gốc
+ * khi nó chưa nằm trong danh sách đang hiện.
+ */
+export const messageQuoteSchema = z.object({
+  id: uuidIdSchema,
+  seq: z.number().int(),
+  userIdFrom: uuidIdSchema,
+  excerpt: z.string(),
+  unavailable: z.boolean(),
+});
+export type MessageQuote = z.infer<typeof messageQuoteSchema>;
+
 export const messageSchema = z.object({
   id: uuidIdSchema,
   conversationId: uuidIdSchema,
@@ -34,6 +54,14 @@ export const messageSchema = z.object({
    */
   recalledAt: z.string().nullable(),
   recalledBy: uuidIdSchema.nullable(),
+  /**
+   * Trả lời trích dẫn (lát M3, issue #229): id của tin gốc được trích
+   * dẫn; null khi tin không trả lời tin nào (hoặc tin gốc đã bị xoá
+   * cứng — khoá ngoại set null). Khối tóm tắt trích dẫn ở `replyTo`.
+   */
+  replyToMessageId: uuidIdSchema.nullable(),
+  /** Tóm tắt trích dẫn dựng ở server theo quyền của người nhận; null khi tin không trích dẫn tin nào. */
+  replyTo: messageQuoteSchema.nullable(),
 });
 export type LmsMessage = z.infer<typeof messageSchema>;
 
@@ -315,6 +343,13 @@ export const sendMessageSchema = z.strictObject({
    * tin thứ hai.
    */
   clientMessageId: z.string().min(1).max(128).optional(),
+  /**
+   * Trả lời trích dẫn một tin cụ thể (lát M3, issue #229): id của tin
+   * GỐC trong ĐÚNG conversation đang gửi — server kiểm ở tầng service
+   * (tin không thuộc conversation này → 400, không lộ tồn tại). Phần
+   * trích dẫn KHÔNG tính vào trần độ dài của nội dung tin.
+   */
+  replyToMessageId: uuidIdSchema.optional(),
 });
 export type SendMessage = z.infer<typeof sendMessageSchema>;
 

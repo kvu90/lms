@@ -1084,3 +1084,188 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
     expect(await screen.findByText('Gửi thất bại')).toBeInTheDocument();
   });
 });
+
+/**
+ * Lát M3 (issue #229) — trả lời trích dẫn phía web: khối trích dẫn
+ * hiện trong bong bóng (kèm trạng thái tin gốc đã xoá), nút Trả lời
+ * mở chip ở ô soạn, gửi kèm replyToMessageId, và bấm khối trích dẫn
+ * của tin chưa tải thì trang xin cửa sổ quanh seq của tin gốc.
+ */
+const M3_ORIG = {
+  id: 'm3-orig', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'Câu gốc để trả lời',
+  createdAt: '2026-01-01T10:00:00.000Z', seq: 5, clientMessageId: null,
+  replyToMessageId: null, replyTo: null,
+};
+const M3_OLD = {
+  id: 'm3-old', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'Tin rất cũ ở đầu hội thoại',
+  createdAt: '2026-01-01T09:00:00.000Z', seq: 1, clientMessageId: null,
+  replyToMessageId: null, replyTo: null,
+};
+const M3_REPLY = {
+  id: 'm3-reply', conversationId: CONV_A, userIdFrom: ME_ID, fullMessage: 'Tôi trả lời câu gốc',
+  createdAt: '2026-01-01T10:01:00.000Z', seq: 6, clientMessageId: null,
+  replyToMessageId: M3_ORIG.id,
+  replyTo: { id: M3_ORIG.id, seq: 5, userIdFrom: OTHER_ID, excerpt: 'Câu gốc để trả lời', unavailable: false },
+};
+const M3_REPLY_DEAD = {
+  id: 'm3-reply-dead', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'Trả lời một tin đã mất',
+  createdAt: '2026-01-01T10:02:00.000Z', seq: 7, clientMessageId: null,
+  replyToMessageId: 'm3-gone',
+  replyTo: { id: 'm3-gone', seq: 2, userIdFrom: OTHER_ID, excerpt: '', unavailable: true },
+};
+const M3_REPLY_OLD = {
+  id: 'm3-reply-old', conversationId: CONV_A, userIdFrom: ME_ID, fullMessage: 'Trả lời tin rất cũ',
+  createdAt: '2026-01-01T10:03:00.000Z', seq: 8, clientMessageId: null,
+  replyToMessageId: M3_OLD.id,
+  replyTo: { id: M3_OLD.id, seq: 1, userIdFrom: OTHER_ID, excerpt: 'Tin rất cũ ở đầu hội thoại', unavailable: false },
+};
+
+function stubFetchM3(calls: RecordedCall[], detailMessages: unknown[]) {
+  const summary = {
+    id: CONV_A, type: 1, name: 'Hội thoại A', members: [ME_ID, OTHER_ID], unread: 0,
+    lastReadSeq: 8, lastMessageSeq: 8, lastMessage: detailMessages[detailMessages.length - 1] ?? null,
+  };
+  let sentSeq = 200;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, method, body });
+      const respond = (payload: unknown) =>
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET') return respond([summary]);
+      if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
+        return respond({ ...summary, messages: detailMessages, hasMoreBefore: false, memberReadMarkers: [] });
+      if (url.startsWith(`/api/v1/messages/conversations/${CONV_A}/messages?`) && method === 'GET')
+        return respond({ messages: [M3_OLD], hasMoreBefore: false });
+      const sendMatch = /^\/api\/v1\/messages\/conversations\/([^/]+)\/messages$/.exec(url);
+      if (sendMatch && method === 'POST') {
+        sentSeq += 1;
+        const replyToMessageId = (body as { replyToMessageId?: string })?.replyToMessageId ?? null;
+        return respond({
+          id: `m3-sent-${sentSeq}`,
+          conversationId: sendMatch[1],
+          userIdFrom: ME_ID,
+          fullMessage: (body as { text?: string })?.text ?? '',
+          createdAt: new Date().toISOString(),
+          seq: sentSeq,
+          clientMessageId: (body as { clientMessageId?: string })?.clientMessageId ?? null,
+          replyToMessageId,
+          replyTo: replyToMessageId === M3_ORIG.id ? M3_REPLY.replyTo : null,
+        });
+      }
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('hiện khối trích dẫn trong bong bóng; tin gốc đã xoá thì hiện dòng đã xoá, không lộ nội dung', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG, M3_REPLY, M3_REPLY_DEAD]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+
+    const quote = await screen.findByTestId(`quote-block-${M3_REPLY.id}`);
+    expect(quote).toHaveTextContent('Bạn Học');
+    expect(quote).toHaveTextContent('Câu gốc để trả lời');
+
+    const deadQuote = await screen.findByTestId(`quote-block-${M3_REPLY_DEAD.id}`);
+    expect(deadQuote).toHaveTextContent('Tin gốc đã bị xoá');
+    expect(deadQuote).not.toHaveTextContent('m3-gone');
+  });
+
+  it('bấm Trả lời thì hiện chip ở ô soạn; gửi đi kèm replyToMessageId và chip biến mất sau khi gửi', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG, M3_REPLY]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    // Thread đã dựng xong khi khối trích dẫn của tin trả lời hiện ra
+    // (text gốc xuất hiện 2 nơi: bong bóng + excerpt — dùng testid).
+    await screen.findByTestId(`quote-block-${M3_REPLY.id}`);
+
+    // Nút Trả lời của tin gốc (tin đầu tiên có nút này trong thread).
+    const replyButtons = await screen.findAllByRole('button', { name: 'Trả lời' });
+    await userEvent.click(replyButtons[0]);
+
+    const chip = await screen.findByTestId('reply-chip');
+    expect(chip).toHaveTextContent('Đang trả lời Bạn Học');
+    expect(chip).toHaveTextContent('Câu gốc để trả lời');
+
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'đồng ý với câu này');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+
+    await waitFor(() => {
+      const sendCall = calls.find((c) => c.method === 'POST' && /\/messages$/.test(c.url));
+      expect(sendCall?.body).toMatchObject({ text: 'đồng ý với câu này', replyToMessageId: M3_ORIG.id });
+    });
+    expect(screen.queryByTestId('reply-chip')).not.toBeInTheDocument();
+  });
+
+  it('huỷ chip trích dẫn thì gửi như tin thường (không replyToMessageId)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM3(calls, [M3_ORIG]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await screen.findAllByText('Câu gốc để trả lời');
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Trả lời' }))[0]);
+    await screen.findByTestId('reply-chip');
+    await userEvent.click(screen.getByRole('button', { name: 'Huỷ trả lời' }));
+    expect(screen.queryByTestId('reply-chip')).not.toBeInTheDocument();
+
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'tin thường thôi');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() => {
+      const sendCall = calls.find((c) => c.method === 'POST' && /\/messages$/.test(c.url));
+      expect(sendCall?.body).toMatchObject({ text: 'tin thường thôi' });
+      expect((sendCall?.body as { replyToMessageId?: string })?.replyToMessageId).toBeUndefined();
+    });
+  });
+
+  it('bấm khối trích dẫn của tin chưa tải thì xin cửa sổ quanh seq tin gốc và hiện tin gốc', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    // Chi tiết hội thoại chỉ chứa tin trả lời — tin gốc (seq 1) chưa tải.
+    stubFetchM3(calls, [M3_REPLY_OLD]);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const quote = await screen.findByTestId(`quote-block-${M3_REPLY_OLD.id}`);
+    await userEvent.click(quote);
+
+    // Trang xin cửa sổ kết thúc tại tin gốc: beforeSeq = seq gốc + 1.
+    await waitFor(() => {
+      expect(
+        calls.some((c) => c.method === 'GET' && c.url.includes(`/conversations/${CONV_A}/messages?beforeSeq=2&limit=50`)),
+      ).toBe(true);
+    });
+    // Tin gốc sau khi tải về hiện thành bong bóng riêng — cùng text
+    // lúc này có 2 nơi: excerpt trong khối trích dẫn + nội dung tin gốc.
+    await waitFor(() => {
+      expect(screen.getAllByText('Tin rất cũ ở đầu hội thoại')).toHaveLength(2);
+    });
+  });
+});

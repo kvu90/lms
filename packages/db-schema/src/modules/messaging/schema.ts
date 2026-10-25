@@ -9,6 +9,7 @@ import {
   timestamp,
   unique,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from '../tenants/schema';
@@ -105,6 +106,17 @@ export const message = pgTable('message', {
   seq: integer('seq').notNull(),
   clientMessageId: text('client_message_id'),
   /**
+   * Trả lời TRÍCH DẪN (lát M3, issue #229): tin này trả lời một tin
+   * gốc trong ĐÚNG conversation của nó (gác ở tầng service — trích
+   * dẫn chéo conversation bị từ chối, không lộ tồn tại). Tự tham
+   * chiếu tới `message.id`; tin gốc bị XOÁ CỨNG thì khoá ngoại
+   * `set null` — trích dẫn mất neo và tin hiển thị như tin thường,
+   * còn xoá mềm/thu hồi giữ nguyên dòng nên server dựng khối tóm tắt
+   * "tin gốc đã bị xoá" mà không lộ nội dung. Không có ràng buộc
+   * không-trùng: nhiều tin cùng trích dẫn một tin gốc là bình thường.
+   */
+  replyToMessageId: uuid('reply_to_message_id').references((): AnyPgColumn => message.id, { onDelete: 'set null' }),
+  /**
    * Dấu vết XOÁ MỀM (Lớp B, issue #33 — chính sách đã chốt thay tính
    * bất biến tuyệt đối): tin bị xoá chỉ được đánh dấu tại đây (ai xoá,
    * khi nào), dòng tin và nội dung giữ nguyên. Mọi đường đọc thường
@@ -130,6 +142,7 @@ export const message = pgTable('message', {
   (table) => [
       index('message_conversation_id_idx').on(table.conversationId),
       index('message_user_id_from_idx').on(table.userIdFrom),
+      index('message_reply_to_message_id_idx').on(table.replyToMessageId),
       index('message_conversation_seq_idx').on(table.conversationId, table.seq),
       unique('message_conversation_client_id_unique').on(table.conversationId, table.userIdFrom, table.clientMessageId),
   ]);

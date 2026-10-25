@@ -197,7 +197,13 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
         limit: SYNC_LIMIT_PER_CONVERSATION,
         viewerId: userId,
       });
-      if (missing.length) result[conversationId] = missing.map((row) => toWireMessage(blankRecalledContent(row)));
+      if (missing.length) {
+        // Khối trích dẫn (lát M3) dựng theo ĐÚNG người xin đồng bộ —
+        // cùng luật cá nhân hoá với đường đọc REST, kênh này không
+        // thành đường vòng lộ nội dung của tin gốc đã xoá/thu hồi.
+        const withQuotes = await this.repo.attachQuotes(missing, { privileged: false, viewerId: userId });
+        result[conversationId] = withQuotes.map((row) => toWireMessage(blankRecalledContent(row), row.replyTo));
+      }
     }
     return result;
   }

@@ -1,4 +1,4 @@
-import type { Dispatch, FormEvent, SetStateAction } from 'react';
+import { useEffect, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
@@ -9,12 +9,27 @@ import {
 } from '@lms/ui/components/message';
 import {
   MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem,
-  MessageScrollerProvider, MessageScrollerViewport,
+  MessageScrollerProvider, MessageScrollerViewport, useMessageScroller,
 } from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
-import type { ConversationView, MessageView } from './types';
-import { countMessageCharacters, initialsOf } from './utils';
+import type { ConversationView, MessageQuoteView, MessageView, ScrollerHandle } from './types';
+import { countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
+
+/**
+ * Cầu nối tới handle cuộn của MessageScroller: hook chỉ gọi được
+ * trong cây của Provider nên một component con không-render giữ
+ * handle vào ref của trang — nút trích dẫn ở bong bóng dùng ref này
+ * để nhảy tới tin gốc (lát M3).
+ */
+function ScrollerBridge({ bridgeRef }: { bridgeRef: RefObject<ScrollerHandle | null> }) {
+  const scroller = useMessageScroller();
+  useEffect(() => {
+    bridgeRef.current = scroller;
+    return () => { bridgeRef.current = null; };
+  }, [scroller, bridgeRef]);
+  return null;
+}
 
 interface ChatPanelProps {
   active: ConversationView | null;
@@ -46,6 +61,13 @@ interface ChatPanelProps {
   onNoteTyping: () => void;
   onSend: (event: FormEvent) => void;
   sendError: string | null;
+  /** Lát M3 (issue #229): đích trích đang chờ gửi + các thao tác trích dẫn. */
+  replyTarget: MessageView | null;
+  onStartReply: (message: MessageView) => void;
+  onCancelReply: () => void;
+  onJumpToQuote: (quote: MessageQuoteView) => void;
+  highlightedMessageId: string | null;
+  scrollerRef: RefObject<ScrollerHandle | null>;
 }
 
 /** Cột phải trang Tin nhắn: khung hội thoại đang mở (thành viên, luồng tin, soạn tin). */
@@ -55,6 +77,7 @@ export function ChatPanel({
   setSelectedForBulk, onBulkRemove, visibleMessages, nameOf, onRetrySend, onDeleteMessage,
   canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
   setDrafts, onNoteTyping, onSend, sendError,
+  replyTarget, onStartReply, onCancelReply, onJumpToQuote, highlightedMessageId, scrollerRef,
 }: ChatPanelProps) {
   const { t } = useTranslation('app');
   const unblockContact = onUnblockContact;
@@ -130,6 +153,7 @@ export function ChatPanel({
                 </div>
               ) : null}
               <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
+                <ScrollerBridge bridgeRef={scrollerRef} />
                 <MessageScroller className="h-[30rem] rounded-md border">
                   <MessageScrollerViewport aria-label={t('messagesListLabel')}>
                     <MessageScrollerContent className="gap-4 p-4">
@@ -148,7 +172,21 @@ export function ChatPanel({
                                 <Bubble
                                   variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
                                   align={mine ? 'end' : 'start'}
+                                  className={m.id === highlightedMessageId ? 'rounded-lg ring-2 ring-primary ring-offset-1' : undefined}
                                 >
+                                  {m.replyTo ? (
+                                    <button
+                                      type="button"
+                                      data-testid={`quote-block-${m.id}`}
+                                      className="mx-1 mt-1 max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
+                                      onClick={() => onJumpToQuote(m.replyTo!)}
+                                    >
+                                      <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
+                                      <span className="block truncate text-xs opacity-80">
+                                        {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
+                                      </span>
+                                    </button>
+                                  ) : null}
                                   <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
                                 </Bubble>
                                 <MessageFooter className="flex-wrap gap-2">
@@ -171,6 +209,11 @@ export function ChatPanel({
                                         {t('retrySend')}
                                       </Button>
                                     </span>
+                                  ) : null}
+                                  {!m.deletedAt && !m.localStatus ? (
+                                    <Button type="button" variant="outline" onClick={() => onStartReply(m)}>
+                                      {t('replyToMessage')}
+                                    </Button>
                                   ) : null}
                                   {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
                                     <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
@@ -225,6 +268,26 @@ export function ChatPanel({
                 <>
                   {active.enabled === false ? (
                     <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
+                  ) : null}
+                  {replyTarget ? (
+                    <div
+                      data-testid="reply-chip"
+                      className="flex items-center gap-2 rounded-md border-l-4 border-primary/60 bg-muted px-3 py-2"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        <span className="font-medium">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
+                        {': '}
+                        {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-label={t('cancelReply')}
+                        onClick={() => onCancelReply()}
+                      >
+                        ✕
+                      </Button>
+                    </div>
                   ) : null}
                   <form onSubmit={(e) => void send(e)} className="flex gap-2">
                     <Textarea
