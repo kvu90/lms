@@ -707,6 +707,9 @@ export class QuizService {
       if (info?.entryStatus === 'hidden') {
         throw new BadRequestException({ message: 'Question has been withdrawn from its bank and cannot be added to a quiz', code: 'quiz.slot_question_withdrawn' });
       }
+      if (info?.entryStatus === 'draft') {
+        throw new BadRequestException({ message: 'Question is still a draft (pending review) and cannot be added to a quiz; publish it first', code: 'quiz.slot_question_draft' });
+      }
       // Mặc định pinned chỉ khi câu thật sự nằm trong bank tổ/trường
       // (category gắn bank tường minh); category cũ suy bank theo
       // context giữ hành vi follow_latest như trước feat.

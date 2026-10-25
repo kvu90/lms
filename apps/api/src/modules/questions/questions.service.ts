@@ -916,6 +916,15 @@ export class QuestionsService {
     let slot = 1;
     for (const s of input.slots) {
       const view = await this.getQuestion(s.questionId);
+      void view;
+      // Câu còn draft (nạp qua MCP chờ duyệt) không được rút vào đề ở
+      // MỌI cổng dùng câu — cổng usage này trước đây không kiểm trạng
+      // thái nên draft lọt vào đề thật (MCP-0, issue #110). Câu hidden
+      // vẫn cho qua theo ngữ nghĩa QB-3: đề đã ghim giữ nguyên phục vụ.
+      const usageEntry = await this.repo.getEntryByQuestion(s.questionId);
+      if (usageEntry?.status === 'draft') {
+        throw new BadRequestException({ message: 'Draft questions cannot be used in a quiz until they are reviewed and published', code: 'question.usage_draft_question' });
+      }
       if (s.pinnedVersionId) {
         // Slot ghim cứng (QB-3): version mang sẵn trên attempt, startAttempt tôn trọng tuyệt đối.
         const pinned = await this.repo.getVersion(s.pinnedVersionId);
@@ -952,7 +961,10 @@ export class QuestionsService {
     const out: string[] = [];
     for (const r of rows) {
       const entry = await this.repo.getEntryByQuestion(r.id);
-      if (entry && entry.status !== 'hidden') out.push(r.id);
+      // Chỉ câu `ready` mới được rút ngẫu nhiên vào đề: draft (câu nạp
+      // qua MCP chờ duyệt — MCP-0, issue #110) và hidden (đã rút) đều
+      // bị loại; trước đây điều kiện chỉ loại hidden nên draft lọt.
+      if (entry && entry.status === 'ready') out.push(r.id);
     }
     return out;
   }
@@ -1165,13 +1177,15 @@ export class QuestionsService {
     // Kỷ luật version (QB-3): attempt đã mang version ghim cứng từ
     // createUsage (slot pinned của quiz) thì tôn trọng tuyệt đối; ngược
     // lại follow_latest — chỉ nhận version `ready` mới nhất (bỏ qua bản
-    // draft ở đầu), không có bản ready nào mới lùi về version mới nhất.
+    // draft ở đầu); không có bản ready nào thì lùi về version mới nhất
+    // TRỪ KHI câu đang ở draft: câu draft (nạp qua MCP chờ duyệt —
+    // MCP-0, issue #110) không có version nào được phép phục vụ.
     let pinnedVersionId = attempt.questionVersionId;
     if (!pinnedVersionId) {
       const { entry } = await this.getQuestion(attempt.questionId);
       const versions = await this.repo.listVersions(entry.id);
       const ready = versions.filter((v) => v.status === 'ready');
-      const chosen = ready.length ? ready[ready.length - 1]! : versions[versions.length - 1];
+      const chosen = ready.length ? ready[ready.length - 1]! : (entry.status === 'draft' ? undefined : versions[versions.length - 1]);
       if (!chosen) throw new NotFoundException({ message: `Question ${attempt.questionId} latest version missing`, code: 'question.version_missing' });
       pinnedVersionId = chosen.id;
     }
