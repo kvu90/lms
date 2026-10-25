@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { AssignmentPage } from './assignment';
 
 /**
@@ -79,7 +80,13 @@ function renderPage() {
     [{ path: '/courses/:id/assignments/:assignmentId', element: <AssignmentPage /> }],
     { initialEntries: [`/courses/${COURSE_ID}/assignments/${ASSIGNMENT_ID}`] },
   );
-  render(<RouterProvider router={router} />);
+  // Trang đã chuyển sang TanStack Query (F-01 đợt 1, #133): render qua
+  // TestProviders để có QueryClient như cây provider thật ở root.
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 afterEach(() => {

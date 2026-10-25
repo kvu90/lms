@@ -10,6 +10,8 @@ export const queryKeys = {
   capabilities: ['capabilities'] as const,
   /** Danh sách toàn bộ khoá học (GET /courses). */
   courses: ['courses'] as const,
+  /** Chi tiết một bài tập nộp tệp (trang assignment). */
+  assignmentDetail: (assignmentId: string) => ['assignments', assignmentId] as const,
   /** Dữ liệu điểm hiển thị theo từng khoá (báo cáo điểm + điểm theo bài của tôi) — tải lười tại bề mặt tiêu thụ qua lib/course-grade-data.ts. */
   courseAccess: (courseId: string) => ['course-access', courseId] as const,
   /** Danh sách người dùng cho khối quản trị (phân trang + tìm kiếm phía server). */
