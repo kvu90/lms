@@ -385,9 +385,12 @@ describe('Dashboard theo vai trò', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Người dùng & quyền' }));
     expect(await screen.findByText('Người dùng')).toBeInTheDocument();
     expect(screen.getByText('Vai trò')).toBeInTheDocument();
-    // Ngân hàng câu hỏi được phép với admin — nằm trong nhóm Học tập.
-    await userEvent.click(screen.getByRole('button', { name: 'Học tập' }));
-    expect(await screen.findByText('Ngân hàng câu hỏi')).toBeInTheDocument();
+    // Ngân hàng câu hỏi được phép với admin — nay là nút cha riêng
+    // ngay sau nhóm Học tập (mở lại #70): bấm nút cha mới thấy các
+    // mục con liên kết sâu của trang /questions.
+    await userEvent.click(await screen.findByRole('button', { name: 'Ngân hàng câu hỏi' }));
+    expect(await screen.findByText('Câu hỏi của tôi')).toBeInTheDocument();
+    expect(screen.getByText('Ngân hàng hệ thống')).toBeInTheDocument();
   });
 
   it('sidebar của student không có mục quản trị và không có ngân hàng câu hỏi', async () => {
