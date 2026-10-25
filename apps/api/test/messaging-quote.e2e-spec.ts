@@ -59,7 +59,7 @@ async function befriend(a: Person, b: Person): Promise<void> {
   const req = await http(app).post(`/api/v1/messages/contacts/${b.id}`)
     .set('Authorization', `Bearer ${a.token}`).send({});
   expect(req.status).toBe(201);
-  const accept = await http(app).post(`/api/v1/messages/contacts/${a.id}/accept`)
+  const accept = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/accept`)
     .set('Authorization', `Bearer ${b.token}`).send({});
   expect(accept.status).toBe(201);
 }
@@ -276,7 +276,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
   });
 
   it('8. realtime: message.new mang đủ dữ kiện trích dẫn cho phía nhận', async () => {
-    const socket: Socket = io(`${base}/messages`, {
+    const socket: Socket = io(`${base}/messaging`, {
       auth: { token: b.token }, transports: ['websocket'], reconnection: false,
     });
     sockets.push(socket);
