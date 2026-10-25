@@ -101,15 +101,35 @@ async function main(): Promise<void> {
       category = must(await call('POST', '/courses/categories', admin, { name: 'Danh mục mẫu' }), 'create category') as { id: string; name: string };
       console.log(`[seed] category created (#${category.id})`);
     }
-    const courses = must(await call('GET', '/courses', admin), 'list courses') as { items?: { id: string; shortName: string }[] } | { id: string; shortName: string }[];
+
+    // Lớp học hạng nhất (issue #184, CLASS-0): lớp tạo TRƯỚC, DEMO101
+    // nằm bên trong lớp mẫu của teacher1; học sinh vào khoá qua ROSTER
+    // của lớp (cohort sync vật chất hoá ghi danh) — seed chạy đúng
+    // đường sản phẩm thật để mọi lượt probe sau reset kiểm chứng luôn
+    // cả ghi danh cấp lớp. Admin tạo lớp hộ (ownerId = teacher1).
+    const DEMO_CLASS_CODE = 'LOP-MAU-10A1';
+    const classList = must(await call('GET', '/classes', admin), 'list classes') as { id: string; code: string | null }[];
+    let demoClass = classList.find((c) => c.code === DEMO_CLASS_CODE);
+    if (!demoClass) {
+      demoClass = must(await call('POST', '/classes', admin, {
+        name: 'Lớp mẫu 10A1', code: DEMO_CLASS_CODE, schoolYear: '2025–2026', ownerId: teacherId,
+        description: 'Lớp mẫu cho buổi review: chứa khoá DEMO101; học sinh vào khoá qua roster của lớp.',
+      }), 'create demo class') as { id: string; code: string | null };
+      console.log(`[seed] demo class "Lớp mẫu 10A1" created (#${demoClass.id}), owner teacher1`);
+    }
+    const classId = demoClass.id;
+
+    const courses = must(await call('GET', '/courses', admin), 'list courses') as { items?: { id: string; shortName: string; classId?: string | null }[] } | { id: string; shortName: string; classId?: string | null }[];
     const courseItems = Array.isArray(courses) ? courses : (courses.items ?? []);
     let course = courseItems.find((c) => c.shortName === COURSE_SHORTNAME);
     if (!course) {
       course = must(await call('POST', '/courses', admin, {
-        fullName: 'Khoá học mẫu: Làm quen với LMS', shortName: COURSE_SHORTNAME, category: category.id,
+        fullName: 'Khoá học mẫu: Làm quen với LMS', shortName: COURSE_SHORTNAME, category: category.id, classId,
         summary: 'Khoá học mẫu phục vụ buổi review: có section, module, điểm, huy hiệu và sự kiện lịch.',
-      }), 'create course') as { id: string; shortName: string };
-      console.log(`[seed] course created (#${course.id})`);
+      }), 'create course') as { id: string; shortName: string; classId?: string | null };
+      console.log(`[seed] course created (#${course.id}) inside demo class`);
+    } else if (course.classId !== classId) {
+      console.log(`[seed] WARNING: course ${COURSE_SHORTNAME} exists but is not in the demo class (classId=${course.classId ?? 'null'}) — roster enrolment will not reach it; reset the DB to rebuild the demo story`);
     }
     const courseId = course.id;
 
@@ -135,17 +155,15 @@ async function main(): Promise<void> {
     await ensureCm(week1, 'mod_resource', 'Tài liệu hướng dẫn học tập');
     await ensureCm(week2, 'mod_quiz', 'Bài kiểm tra thử');
 
-    const instances = must(await call('GET', `/courses/${courseId}/enrol/instances`, admin), 'list enrol instances') as { id: string; enrol: string }[];
-    let manual = instances.find((i) => i.enrol === 'manual');
-    if (!manual) {
-      manual = must(await call('POST', `/courses/${courseId}/enrol/instances`, admin, { method: 'manual' }), 'create manual instance') as { id: string; enrol: string };
-      console.log(`[seed] manual enrol instance created (#${manual.id})`);
-    }
-    const enrolments = must(await call('GET', `/courses/${courseId}/enrolments`, admin), 'list enrolments') as { userId: string; status: number }[];
+    // Ghi danh học sinh QUA LỚP (issue #184): thêm vào roster của lớp
+    // mẫu → instance cohort của DEMO101 (tự tạo khi khoá được tạo trong
+    // lớp) vật chất hoá thành ghi danh thật. Không còn instance manual
+    // + ghi danh tay như trước — đây là đường ghi danh chính của sản phẩm.
+    const roster = must(await call('GET', `/classes/${classId}/roster`, admin), 'list class roster') as { userId: string }[];
     for (const sid of studentIds) {
-      if (enrolments.some((e) => e.userId === sid && e.status !== 2)) { console.log(`[seed] student #${sid} already enrolled`); continue; }
-      must(await call('POST', `/courses/${courseId}/enrol/instances/${manual.id}/enrol`, admin, { userId: sid }), `enrol student ${sid}`);
-      console.log(`[seed] student #${sid} enrolled`);
+      if (roster.some((m) => m.userId === sid)) { console.log(`[seed] student #${sid} already in demo class roster`); continue; }
+      must(await call('POST', `/classes/${classId}/roster`, admin, { userId: sid }), `add student ${sid} to demo class roster`);
+      console.log(`[seed] student #${sid} added to demo class roster (cohort sync enrols into DEMO101)`);
     }
     // Giáo viên: gán role editingteacher tại context khoá học.
     const roles = must(await call('GET', '/access/roles', admin), 'list roles') as { id: string; shortName: string }[];
