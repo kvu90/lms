@@ -23,7 +23,10 @@ export class McpRateLimiter {
   ) {}
 
   static bucketForTool(toolName: string | undefined): McpRateBucket {
-    return toolName === 'create_question' ? 'create' : 'read';
+    // Mọi tool GHI dùng chung xô 'create' (hạn mức theo số lần gọi —
+    // submit_contribution gộp nhiều câu trong một call vẫn tính một
+    // lượt, phần số câu do cổng nghiệp vụ QB-4 + idempotency giữ).
+    return toolName === 'create_question' || toolName === 'submit_contribution' ? 'create' : 'read';
   }
 
   check(userId: string, bucket: McpRateBucket, now = Date.now()): McpRateDecision {
