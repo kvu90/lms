@@ -11,7 +11,7 @@
  *  - mã tô sai bị phát hiện 100% (số kiểm tra hỏng → không gán nhầm).
  */
 import { describe, expect, it } from 'vitest';
-import { computeSheetGeometry, studentCodeForIndex } from './sheet-layout';
+import { computeSheetGeometry, sbdCodeForIndex, studentCodeForIndex } from './sheet-layout';
 import { processSheetImage } from './omr';
 import { renderSheetRgba, seededRandom, simulatePhoto, type SlotFill } from './sheet-render';
 
@@ -146,5 +146,97 @@ describe('CAM-0 simulated acceptance set', () => {
     const missing = processSheetImage(simulatePhoto(broken, { seed: 4242 }), geometry);
     expect(missing.qualityOk).toBe(false);
     expect(missing.qualityReasons).toContain('missing_fiducials');
+  });
+});
+
+/**
+ * Mở rộng cho lát sửa flow (phiếu DÙNG CHUNG + mã đề + mã SBD 8 số):
+ * lưới mã đề đọc bằng đúng luật của lưới mã học sinh — chắc chắn mới
+ * kết luận, mơ hồ thì null (hàng chờ), tô mã nào đọc đúng mã đó (hệ
+ * thống không "sửa" mã đề về mã gần nhất); mã thí sinh 8 số đọc đúng
+ * và bắt sai một chữ số 100% như mã 4 số.
+ */
+describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
+  const FILLS_40 = () => {
+    const fills = new Map<number, SlotFill>();
+    for (let slot = 1; slot <= 40; slot++) fills.set(slot, { choice: slot % 4, style: 'full' });
+    return fills;
+  };
+
+  it('variant grid: a cleanly bubbled 4-digit exam code reads exactly', LONG, () => {
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40);
+    for (const [seed, variant] of [[1101, '1001'], [1102, '0241'], [1103, '9876']] as const) {
+      const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: null, variantCode: variant, fills: FILLS_40() });
+      const result = processSheetImage(simulatePhoto(sheet, { seed }), geometry);
+      expect(result.qualityOk).toBe(true);
+      expect(result.variantCode?.code).toBe(variant);
+    }
+  });
+
+  it('variant grid: one lightly-bubbled digit makes the whole code uncertain — never guessed', LONG, () => {
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40);
+    for (const lightDigit of [0, 2, 3]) {
+      const sheet = renderSheetRgba({
+        geometry, qrText: null, bubbleCode: null, variantCode: '1001', variantLightDigit: lightDigit, fills: FILLS_40(),
+      });
+      const result = processSheetImage(simulatePhoto(sheet, { seed: 1200 + lightDigit }), geometry);
+      expect(result.qualityOk).toBe(true);
+      expect(result.variantCode, `light digit ${lightDigit} must not be guessed`).toBeNull();
+    }
+    // Không tô cột nào của lưới mã đề → cũng null (phiếu cá nhân hoá/không dùng mã đề).
+    const blank = renderSheetRgba({ geometry, qrText: null, bubbleCode: null, variantCode: '', fills: FILLS_40() });
+    const blankResult = processSheetImage(simulatePhoto(blank, { seed: 1299 }), geometry);
+    expect(blankResult.variantCode).toBeNull();
+  });
+
+  it('variant grid: a wrong-but-clean code reads as-is (routing layer, not the engine, rejects it)', LONG, () => {
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40);
+    const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: null, variantCode: '9999', fills: FILLS_40() });
+    const result = processSheetImage(simulatePhoto(sheet, { seed: 1301 }), geometry);
+    expect(result.variantCode?.code).toBe('9999');
+  });
+
+  it('SBD identity: 8-digit codes read exactly; a single wrong digit is always detected', LONG, () => {
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
+    expect(geometry.codeDigits).toBe(8);
+    const fills = FILLS_40();
+    for (const index of [0, 4, 17, 42, 120, 999]) {
+      const code = sbdCodeForIndex(index);
+      expect(code).toMatch(/^\d{8}$/);
+      const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: code, fills });
+      const result = processSheetImage(simulatePhoto(sheet, { seed: 17000 + index }), geometry);
+      expect(result.bubbleCode?.code).toBe(code);
+      expect(result.bubbleCode?.checksumOk).toBe(true);
+    }
+    // Tô sai đúng 1 số ở các vị trí khác nhau (kể cả số kiểm tra) → phát hiện 100%.
+    for (const [index, pos] of [[3, 0], [25, 3], [88, 6], [7, 7]] as const) {
+      const good = sbdCodeForIndex(index);
+      const tampered = `${good.slice(0, pos)}${(Number(good[pos]) + 3) % 10}${good.slice(pos + 1)}`;
+      const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: tampered, fills });
+      const result = processSheetImage(simulatePhoto(sheet, { seed: 18000 + index * 10 + pos }), geometry);
+      const accepted = result.bubbleCode !== null && result.bubbleCode.checksumOk;
+      expect(accepted, `tampered SBD ${tampered} must not validate`).toBe(false);
+    }
+  });
+
+  it('shared sheet end-to-end: SBD code + variant code + answers all read from one photo', LONG, () => {
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
+    const fills = new Map<number, SlotFill>();
+    const truth = new Map<number, number | null>();
+    geometry.rows.forEach((row) => {
+      const choice = row.slot % row.centers.length;
+      fills.set(row.slot, { choice, style: 'full' });
+      truth.set(row.slot, choice);
+    });
+    const code = sbdCodeForIndex(23);
+    const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: code, variantCode: '1002', fills });
+    const result = processSheetImage(simulatePhoto(sheet, { seed: 19001 }), geometry);
+    expect(result.qualityOk).toBe(true);
+    expect(result.bubbleCode).toEqual({ code, checksumOk: true });
+    expect(result.variantCode?.code).toBe('1002');
+    for (const reading of result.readings) {
+      expect(reading.state).toBe('filled');
+      expect(reading.chosen).toBe(truth.get(reading.slot));
+    }
   });
 });

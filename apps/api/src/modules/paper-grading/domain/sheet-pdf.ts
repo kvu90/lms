@@ -2,10 +2,11 @@
  * Sinh PDF phiếu trả lời CAM-0 (issue #112) bằng pdf-lib: vẽ vector đúng
  * hình học template của `sheet-layout.ts` (MỘT nguồn sự thật cho PDF +
  * ảnh mô phỏng + engine OMR). Mỗi trang là một phiếu A4: 4 fiducial,
- * QR cá nhân hoá (hoặc QR lô cho phiếu trắng), vùng mã học sinh (phiếu
- * trắng in lưới ô tô 4×10; phiếu cá nhân hoá in sẵn tên + mã), lưới đáp
- * án theo layout đã ghim của lô. Font DejaVu đã vendor trong `assets/`
- * để chữ tiếng Việt in đúng dấu trên máy in trường học thông thường.
+ * QR (phiếu cá nhân hoá mang userId; phiếu dùng chung chỉ mang mã lô +
+ * mã đề), vùng mã (phiếu dùng chung in lưới ô tô mã học sinh + vùng
+ * ghi/tô mã đề; phiếu cá nhân hoá in sẵn tên + mã), lưới đáp án theo
+ * layout đã ghim của lô. Font DejaVu đã vendor trong `assets/` để chữ
+ * tiếng Việt in đúng dấu trên máy in trường học thông thường.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -15,10 +16,18 @@ import QRCode from 'qrcode';
 import type { PaperSlotLayout } from '@lms/contracts';
 import {
   ANSWER_TOP, CODE_BUBBLE_R, CODE_ORIGIN, FIDUCIAL_CENTERS, FIDUCIAL_SIZE, OPTION_LETTERS,
-  PX_PER_PT, QR_RECT, TEMPLATE_HEIGHT, TEMPLATE_WIDTH, computeSheetGeometry,
+  PX_PER_PT, QR_RECT, TEMPLATE_HEIGHT, TEMPLATE_WIDTH, VARIANT_ORIGIN, VARIANT_WRITE_BOX,
+  computeSheetGeometry,
 } from './sheet-layout';
 
-/** Tiền tố payload QR trên phiếu: `LMSQ1|<batchId>|<variantCode>|<userId|''>`. */
+/**
+ * Tiền tố payload QR trên phiếu: `LMSQ1|<batchId>|<lotCode>|<userId|''>`.
+ * lotCode là mã định danh của lô in: mã đề 4 số (examCode) với lô có
+ * mã đề số, ngược lại là variantCode. Phiếu DÙNG CHUNG không bao giờ
+ * mang userId — QR của phiếu chung chỉ định danh buổi/variant (lớp dự
+ * phòng định tuyến khi lưới tô mã đề không đọc được), định danh học
+ * sinh luôn đi qua lưới ô tô mã + roster.
+ */
 export const SHEET_QR_PREFIX = 'LMSQ1';
 
 export function sheetQrPayload(batchId: string, variantCode: string, userId: string | null): string {
@@ -74,6 +83,13 @@ function rect(page: PDFPage, xPx: number, yPx: number, wPx: number, hPx: number,
   page.drawRectangle({ x: px(xPx), y: PAGE_H_PT - px(yPx + hPx), width: px(wPx), height: px(hPx), color });
 }
 
+function outlineRect(page: PDFPage, xPx: number, yPx: number, wPx: number, hPx: number): void {
+  page.drawRectangle({
+    x: px(xPx), y: PAGE_H_PT - px(yPx + hPx), width: px(wPx), height: px(hPx),
+    borderColor: INK, borderWidth: 1.1,
+  });
+}
+
 function bubble(page: PDFPage, cxPx: number, cyPx: number, rPx: number, letter: string, ctx: Ctx): void {
   page.drawCircle({ x: px(cxPx), y: PAGE_H_PT - px(cyPx), size: px(rPx), borderColor: INK, borderWidth: 1.1 });
   if (letter) {
@@ -105,9 +121,13 @@ export interface SheetPageStudent { userId: string; displayName: string; code: s
 export interface SheetsPdfInput {
   quizName: string;
   variantCode: string;
+  /** Mã đề 4 số của lô (null với lô chưa có mã đề số) — QR của phiếu dùng chung mang mã này thay cho variantCode. */
+  examCode: string | null;
+  /** Số cột lưới mã học sinh của lô: 4 (tại lớp) hoặc 8 (thi thử SBD). */
+  codeDigits: number;
   batchId: string;
   layout: PaperSlotLayout[];
-  /** Một phần tử cho mỗi trang: học sinh (phiếu cá nhân hoá) hoặc null (phiếu trắng). */
+  /** Một phần tử cho mỗi trang: học sinh (phiếu cá nhân hoá) hoặc null (phiếu dùng chung). */
   pages: (SheetPageStudent | null)[];
 }
 
@@ -119,7 +139,7 @@ export async function generateSheetsPdf(input: SheetsPdfInput): Promise<Buffer> 
   const regular = await doc.embedFont(fonts.regular, { subset: true });
   const bold = await doc.embedFont(fonts.bold, { subset: true });
   const ctx: Ctx = { doc, regular, bold };
-  const geometry = computeSheetGeometry(input.layout.map((l) => l.optionCount));
+  const geometry = computeSheetGeometry(input.layout.map((l) => l.optionCount), input.codeDigits);
 
   for (const student of input.pages) {
     const page = doc.addPage([PAGE_W_PT, PAGE_H_PT]);
@@ -130,8 +150,14 @@ export async function generateSheetsPdf(input: SheetsPdfInput): Promise<Buffer> 
     // Đầu phiếu.
     text(page, ctx, 'PHIẾU TRẢ LỜI TRẮC NGHIỆM', 150, 54, 16, { bold: true });
     text(page, ctx, input.quizName, 150, 88, 12.5, { maxWidthPt: px(QR_RECT.x - 150 - 14) });
-    text(page, ctx, `Mã đề: ${input.variantCode}`, 150, 118, 11, { bold: true });
-    drawQr(page, sheetQrPayload(input.batchId, input.variantCode, student?.userId ?? null));
+    if (student) {
+      text(page, ctx, `Mã đề: ${input.variantCode}`, 150, 118, 11, { bold: true });
+      drawQr(page, sheetQrPayload(input.batchId, input.variantCode, student.userId));
+    } else {
+      // Phiếu dùng chung KHÔNG in sẵn mã đề: em ghi + tô mã đề theo đề thi được phát.
+      text(page, ctx, 'Mã đề: ghi và tô ở vùng MÃ ĐỀ bên dưới, theo đề thi em nhận.', 150, 118, 11, { bold: true });
+      drawQr(page, sheetQrPayload(input.batchId, input.examCode ?? input.variantCode, null));
+    }
 
     // Vùng học sinh (y 150..300).
     if (student) {
@@ -139,14 +165,26 @@ export async function generateSheetsPdf(input: SheetsPdfInput): Promise<Buffer> 
       text(page, ctx, `Mã học sinh: ${student.code} — phiếu này chỉ dành cho học sinh trên, không dùng chung.`, 64, 202, 10.5, { color: GRAY });
     } else {
       text(page, ctx, 'Họ và tên: …………………………………………………………', 64, 168, 12, { maxWidthPt: px(QR_RECT.x - 64 - 14) });
-      text(page, ctx, 'Tô kín MÃ HỌC SINH của em vào lưới mã ở dưới (3 số thứ tự + 1 số kiểm tra do giáo viên cấp).', 64, 202, 10.5, { color: GRAY });
+      text(page, ctx, input.codeDigits === 8
+        ? 'Tô kín SỐ BÁO DANH 8 số của em vào lưới MÃ HỌC SINH ở dưới (7 số thứ tự + 1 số kiểm tra do giáo viên cấp).'
+        : 'Tô kín MÃ HỌC SINH của em vào lưới mã ở dưới (3 số thứ tự + 1 số kiểm tra do giáo viên cấp).', 64, 202, 10.5, { color: GRAY });
     }
     text(page, ctx, 'Hướng dẫn: dùng bút chì 2B hoặc bút bi tô KÍN ô tròn của đáp án em chọn. Mỗi câu chỉ tô MỘT ô.', 64, 246, 9.5, { color: GRAY });
     text(page, ctx, 'Muốn đổi đáp án: xoá thật sạch ô cũ rồi tô ô mới. Không gấp, không làm nhàu phiếu, giữ phiếu phẳng và sạch.', 64, 268, 9.5, { color: GRAY });
 
-    // Lưới mã học sinh — chỉ phiếu trắng (phiếu cá nhân hoá định danh bằng QR).
+    // Vùng mã — chỉ phiếu dùng chung (phiếu cá nhân hoá định danh bằng QR).
     if (!student) {
-      text(page, ctx, 'MÃ HỌC SINH', CODE_ORIGIN.x - 130, CODE_ORIGIN.y - 16, 10, { bold: true });
+      // Vùng mã đề: nhãn + hàng ô ghi chữ số + lưới tô 4×10 bên dưới.
+      text(page, ctx, 'MÃ ĐỀ', VARIANT_ORIGIN.x, 300, 10, { bold: true });
+      const colXs = [...new Set(geometry.variantCodeCells.map((c) => c.x))].sort((a, b) => a - b);
+      for (const cx of colXs) {
+        outlineRect(page, cx - VARIANT_WRITE_BOX.width / 2, VARIANT_WRITE_BOX.top, VARIANT_WRITE_BOX.width, VARIANT_WRITE_BOX.height);
+      }
+      for (const cell of geometry.variantCodeCells) {
+        bubble(page, cell.x, cell.y, CODE_BUBBLE_R, String(cell.value), ctx);
+      }
+      // Lưới mã học sinh (4 hoặc 8 cột theo cấu hình lô).
+      text(page, ctx, 'MÃ HỌC SINH', CODE_ORIGIN.x, 300, 10, { bold: true });
       for (const cell of geometry.codeCells) {
         bubble(page, cell.x, cell.y, CODE_BUBBLE_R, String(cell.value), ctx);
       }

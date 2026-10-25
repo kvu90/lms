@@ -1,6 +1,7 @@
 /**
- * API chấm bài giấy (CAM-0, issue #112): lô phiếu + PDF phiếu dưới
- * `quizzes/:quizId/paper-batches`, hàng chờ phiếu đã quét dưới
+ * API chấm bài giấy (CAM-0, issue #112): lô IN phiếu + PDF phiếu dưới
+ * `quizzes/:quizId/paper-batches`, tải ảnh theo BUỔI (lô chụp) dưới
+ * `quizzes/:quizId/paper-scans`, hàng chờ phiếu đã quét dưới
  * `paper-scans`. Mọi route đều qua cổng `quiz:gradepaper` trong
  * PaperGradingService (controller không tự kiểm quyền).
  */
@@ -13,8 +14,8 @@ import { uuidIdSchema } from '@lms/contracts';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import {
-  assignPaperIdentitySchema, createPaperBatchSchema, resolvePaperReadingsSchema,
-  type AssignPaperIdentity, type CreatePaperBatch, type ResolvePaperReadings,
+  assignPaperBatchSchema, assignPaperIdentitySchema, createPaperBatchSchema, resolvePaperReadingsSchema,
+  type AssignPaperBatch, type AssignPaperIdentity, type CreatePaperBatch, type ResolvePaperReadings,
 } from './dto/paper-grading.dto';
 import { PaperGradingService } from './paper-grading.service';
 
@@ -54,7 +55,7 @@ export class PaperBatchesController {
   }
 
   @Get(':batchId/sheets.pdf')
-  /** GET …/sheets.pdf — tải PDF phiếu: mặc định mọi phiếu cá nhân hoá; ?studentId=… một phiếu; ?kind=blank&copies=n phiếu trắng. */
+  /** GET …/sheets.pdf — tải PDF phiếu: mặc định phiếu DÙNG CHUNG (?copies=n, mặc định bằng sĩ số); ?kind=personalized phiếu cá nhân hoá theo danh sách; ?studentId=… một phiếu cá nhân hoá. */
   async sheetsPdf(
     @Param('quizId', { schema: uuidIdSchema }) quizId: string,
     @Param('batchId', { schema: uuidIdSchema }) batchId: string,
@@ -86,6 +87,27 @@ export class PaperBatchesController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.paper.uploadScans(actor.id, quizId, batchId, files ?? []);
+  }
+}
+
+@ApiTags('paper-grading')
+@Controller({ path: 'quizzes/:quizId/paper-scans', version: '1' })
+export class PaperSessionScansController {
+  constructor(private readonly paper: PaperGradingService) {}
+
+  // Không đặt guard capability ở decorator: guard chạy trước interceptor
+  // multipart nên chưa biết ngữ cảnh — cổng quiz:gradepaper kiểm trong service.
+  @Post()
+  @UseInterceptors(FilesInterceptor('files', PAPER_UPLOAD_MAX_FILES, {
+    limits: { fileSize: PAPER_UPLOAD_MAX_BYTES },
+  }))
+  /** POST /quizzes/:quizId/paper-scans — tải ảnh theo BUỔI (một lô chụp): hệ thống định tuyến từng phiếu về lô in theo mã đề/QR; phiếu không định tuyến được vẫn được lưu chưa gắn lô vào hàng chờ. */
+  async uploadSession(
+    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
+    @UploadedFiles() files: { originalname: string; buffer: Buffer; mimetype: string }[],
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.paper.uploadSessionScans(actor.id, quizId, files ?? []);
   }
 }
 
@@ -125,13 +147,23 @@ export class PaperScansController {
   }
 
   @Post(':scanId/assign-identity')
-  /** POST /paper-scans/:scanId/assign-identity — hàng chờ gán định danh: giáo viên chọn đúng học sinh trong roster. */
+  /** POST /paper-scans/:scanId/assign-identity — hàng chờ gán định danh: giáo viên chọn đúng học sinh trong roster (ghi event log như biên bản). */
   async assignIdentity(
     @Param('scanId', { schema: uuidIdSchema }) scanId: string,
     @Body({ schema: assignPaperIdentitySchema }) dto: AssignPaperIdentity,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.paper.assignIdentity(actor.id, scanId, dto.studentId);
+  }
+
+  @Post(':scanId/assign-batch')
+  /** POST /paper-scans/:scanId/assign-batch — hàng chờ gán lô in: gắn phiếu chưa định tuyến được (hoặc sửa mã đề sai) về đúng lô in; hệ thống đọc lại phiếu theo layout của lô (ghi event log như biên bản). */
+  async assignBatch(
+    @Param('scanId', { schema: uuidIdSchema }) scanId: string,
+    @Body({ schema: assignPaperBatchSchema }) dto: AssignPaperBatch,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.paper.assignBatch(actor.id, scanId, dto.batchId);
   }
 
   @Post(':scanId/resolve-readings')

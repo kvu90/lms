@@ -2,6 +2,7 @@
 import {
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -14,19 +15,25 @@ import type { PaperQuality, PaperReading, PaperRosterEntry, PaperSlotLayout } fr
 import { quizzes, quizAttempts } from '../quiz/schema';
 
 /**
- * Một lô in phiếu trả lời (một MÃ ĐỀ) của một quiz. Layout là bản CHỤP
+ * Một lô IN phiếu trả lời (một MÃ ĐỀ) của một quiz. Layout là bản CHỤP
  * đề tại thời điểm sinh phiếu: từng slot mang question + version đã ghim
  * + thứ tự đáp án của version đó — phiếu in ra là đề thi, nên lúc ghi
  * điểm phải chấm đúng version đã in, không theo version mới nhất sau
- * này. Roster là bản chụp danh sách lớp tại thời điểm sinh lô: mã tô 4
- * ký tự (3 số thứ tự theo danh sách lớp đã sắp tên + 1 số kiểm tra) cho
- * phiếu trắng; học sinh ghi danh sau thời điểm sinh lô không có trong lô
- * này (sinh lô mới nếu cần thêm phiếu).
+ * này. Roster là bản chụp danh sách lớp tại thời điểm sinh lô: mã tô
+ * cho phiếu dùng chung (4 số tại lớp hoặc 8 số thi thử SBD, theo
+ * code_digits của lô) — roster chuyển vai từ "nguồn để in phiếu cá
+ * nhân hoá" thành "nguồn để khớp" khi định danh phiếu đã chụp. Học
+ * sinh ghi danh sau thời điểm sinh lô không có trong lô này (sinh lô
+ * mới nếu cần thêm phiếu). exam_code là mã đề 4 số giống Bộ của
+ * variant (khớp variant_code của tầng triển khai đề khi EB-2 nối
+ * vào); lô in khác lô chụp — một buổi chụp gồm nhiều lô in.
  */
 export const quizPaperBatches = pgTable('quiz_paper_batches', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
   variantCode: text('variant_code').notNull(),
+  examCode: text('exam_code'),
+  codeDigits: integer('code_digits').notNull().default(4),
   layout: jsonb('layout').$type<PaperSlotLayout[]>().notNull(),
   roster: jsonb('roster').$type<PaperRosterEntry[]>().notNull(),
   createdBy: uuid('created_by').notNull(),
@@ -36,6 +43,8 @@ export const quizPaperBatches = pgTable('quiz_paper_batches', {
   (table) => [
       index('quiz_paper_batches_quiz_idx').on(table.quizId),
       unique('quiz_paper_batches_quiz_variant_unique').on(table.quizId, table.variantCode),
+      unique('quiz_paper_batches_quiz_exam_code_unique').on(table.quizId, table.examCode),
+      check('quiz_paper_batches_code_digits_check', sql`${table.codeDigits} in (4, 8)`),
   ]);
 
 /**
@@ -54,16 +63,26 @@ export const quizPaperBatches = pgTable('quiz_paper_batches', {
  * không bao giờ tự chảy khi định danh chưa chắc chắn hoặc còn câu mơ
  * hồ chưa xác nhận. expires_at là mốc hết hạn giữ ảnh gốc theo cấu
  * hình mod_quiz/paperscanretentionmonths, vật hoá lúc tải lên.
+ *
+ * Lô in ↔ lô chụp: batch_id là LÔ IN phiếu thuộc về (định tuyến theo
+ * mã đề đọc được hoặc QR; NULL khi chưa định tuyến được — phiếu chờ
+ * giáo viên gán lô, hệ thống không đoán), session_id là LÔ CHỤP (một
+ * lượt tải ảnh của một buổi; mọi phiếu trong lượt mang cùng mã).
+ * variant_code_read là mã đề 4 số đọc chắc chắn từ lưới tô trên phiếu
+ * (null = không đọc được chắc chắn); khi nó khác exam_code của lô in
+ * thì phiếu bị chặn ghi attempt cho tới khi xử lý lại.
  */
 export const quizPaperScans = pgTable('quiz_paper_scans', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  batchId: uuid('batch_id').notNull().references(() => quizPaperBatches.id, { onDelete: 'cascade' }),
+  batchId: uuid('batch_id').references(() => quizPaperBatches.id, { onDelete: 'cascade' }),
+  sessionId: uuid('session_id'),
   quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
   fileId: uuid('file_id').notNull(),
   warpedFileId: uuid('warped_file_id'),
   studentId: uuid('student_id'),
   identitySource: text('identity_source'),
   identityCode: text('identity_code'),
+  variantCodeRead: text('variant_code_read'),
   status: text('status').notNull().default('needs_identity'),
   quality: jsonb('quality').$type<PaperQuality>(),
   readings: jsonb('readings').$type<PaperReading[]>().notNull().default([]),

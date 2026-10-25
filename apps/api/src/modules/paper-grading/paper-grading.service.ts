@@ -1,25 +1,34 @@
 /**
- * Dịch vụ chấm bài giấy bằng camera (CAM-0, issue #112): sinh lô phiếu
- * (ghim layout qua QuizService.resolvePaperLayout + chụp roster lớp),
- * sinh PDF phiếu, tiếp nhận ảnh chụp qua CỔNG CHẤT LƯỢNG (ảnh hỏng bị
- * từ chối ngay, không vào hàng chờ), đọc OMR xác định, hai hàng chờ
- * của giáo viên (gán định danh + xác nhận ca mơ hồ) và ghi attempt
- * "thi giấy" qua QuizService.recordPaperAttempt.
+ * Dịch vụ chấm bài giấy bằng camera (CAM-0, issue #112): sinh lô IN
+ * phiếu (ghim layout qua QuizService.resolvePaperLayout + chụp roster
+ * lớp + mã đề 4 số), sinh PDF phiếu (mặc định phiếu DÙNG CHUNG in
+ * hàng loạt; cá nhân hoá là tuỳ chọn hẹp), tiếp nhận ảnh chụp theo lô
+ * in hoặc theo BUỔI (lô chụp — định tuyến từng phiếu về lô in theo mã
+ * đề đọc từ lưới tô, QR làm lớp dự phòng) qua CỔNG CHẤT LƯỢNG (ảnh
+ * hỏng bị từ chối ngay, không vào hàng chờ), đọc OMR xác định, hai
+ * hàng chờ của giáo viên (gán lô/gán định danh + xác nhận ca mơ hồ)
+ * và ghi attempt "thi giấy" qua QuizService.recordPaperAttempt.
  *
  * Nguyên tắc cứng của lát: điểm KHÔNG BAO GIỜ tự chảy — phiếu chỉ
  * được ghi khi định danh chắc chắn (QR thuộc lô + có trong roster,
  * hoặc mã tô đúng số kiểm tra và khớp roster, hoặc giáo viên gán tay)
- * và mọi câu mơ hồ đã được giáo viên xác nhận. Mọi thao tác đều gác
- * bằng capability `quiz:gradepaper` tại context của hoạt động quiz,
- * giống hệt các đường chấm khác của Quiz.
+ * và mọi câu mơ hồ đã được giáo viên xác nhận. Mã đề cũng vậy: đọc
+ * không chắc chắn thì phiếu vào hàng chờ, hệ thống KHÔNG đoán mã đề
+ * và không chấm theo layout của mã đề khác. Mọi thao tác gán/sửa của
+ * giáo viên trong hàng chờ đều ghi event log qua outbox (biên bản sửa
+ * lỗi của lớp học). Mọi thao tác đều gác bằng capability
+ * `quiz:gradepaper` tại context của hoạt động quiz, giống hệt các
+ * đường chấm khác của Quiz.
  */
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException, ConflictException, Injectable, NotFoundException, UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   PAPER_SCAN_STATUSES, type CreatePaperBatch, type PaperBatch, type PaperReading,
-  type PaperScan, type PaperScanStatus, type ResolvePaperReadings,
+  type PaperRosterEntry, type PaperScan, type PaperScanStatus, type ResolvePaperReadings,
 } from '@lms/contracts';
+import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -29,8 +38,12 @@ import { QuizService } from '../quiz/quiz.service';
 import type { QuizRow } from '../quiz/quiz.repository';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { DEFAULT_OMR_THRESHOLDS, encodePng, processSheetImage, type OmrThresholds } from './domain/omr';
-import { computeSheetGeometry, studentCodeForIndex, studentIndexForCode } from './domain/sheet-layout';
+import { DEFAULT_OMR_THRESHOLDS, encodePng, processSheetImage, type OmrThresholds, type ProcessedSheet } from './domain/omr';
+import {
+  NAME_REGION, STUDENT_CODE_REGION, VARIANT_CODE_REGION,
+  codeForIndex, computeSheetGeometry,
+  type SheetGeometry,
+} from './domain/sheet-layout';
 import { generateSheetsPdf, parseSheetQr, type SheetPageStudent } from './domain/sheet-pdf';
 import { PaperGradingRepository, type PaperBatchRow, type PaperScanRow } from './paper-grading.repository';
 
@@ -56,6 +69,7 @@ export class PaperGradingService {
     private readonly config: SiteConfigService,
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
+    private readonly outbox: OutboxService,
   ) {}
 
   // --- helpers ---------------------------------------------------------------
@@ -103,26 +117,57 @@ export class PaperGradingService {
   private batchView(row: PaperBatchRow): PaperBatch {
     return {
       id: row.id, quizId: row.quizId, variantCode: row.variantCode,
+      examCode: row.examCode, codeDigits: row.codeDigits,
       layout: row.layout, roster: row.roster, createdBy: row.createdBy,
       createdAt: row.createdAt.toISOString(),
     };
   }
 
-  private scanView(row: PaperScanRow, batch: PaperBatchRow): PaperScan {
+  /** Hình học template của một lô in (theo layout đã ghim + cấu hình số cột lưới mã của lô). */
+  private geometryOf(batch: PaperBatchRow): SheetGeometry {
     const layout = this.sortedLayout(batch);
-    const geometry = computeSheetGeometry(layout.map((l) => l.optionCount));
-    const student = row.studentId ? batch.roster.find((r) => r.userId === row.studentId) : undefined;
+    return computeSheetGeometry(layout.map((l) => l.optionCount), batch.codeDigits);
+  }
+
+  /**
+   * Ứng viên gợi ý cho hàng chờ định danh của một phiếu: học sinh
+   * trong roster của lô in CHƯA khớp phiếu nào khác, giữ đúng thứ tự
+   * roster (thứ tự danh sách lớp — kiêm gợi ý theo thứ tự thu bài).
+   */
+  private candidatesFrom(rows: PaperScanRow[], self: PaperScanRow, batch: PaperBatchRow): PaperRosterEntry[] {
+    const held = new Set(rows
+      .filter((s) => s.batchId === batch.id && s.id !== self.id && s.studentId)
+      .map((s) => s.studentId!));
+    return batch.roster.filter((e) => !held.has(e.userId));
+  }
+
+  private scanView(row: PaperScanRow, batch: PaperBatchRow | null, candidates: PaperRosterEntry[]): PaperScan {
+    const layout = batch ? this.sortedLayout(batch) : [];
+    const geometry = batch ? this.geometryOf(batch) : null;
+    const student = row.studentId && batch ? batch.roster.find((r) => r.userId === row.studentId) : undefined;
     return {
-      id: row.id, quizId: row.quizId, batchId: row.batchId, status: row.status as PaperScanStatus,
+      id: row.id, quizId: row.quizId, batchId: row.batchId, sessionId: row.sessionId,
+      status: row.status as PaperScanStatus,
       studentId: row.studentId, studentName: student?.displayName ?? null,
       identitySource: row.identitySource as PaperScan['identitySource'],
       identityCode: row.identityCode,
+      variantCodeRead: row.variantCodeRead,
       fileId: row.fileId, warpedFileId: row.warpedFileId,
-      rows: geometry.rows.map((g, i) => ({ slot: layout[i]!.slot, centers: g.centers })),
+      rows: geometry ? geometry.rows.map((g, i) => ({ slot: layout[i]!.slot, centers: g.centers })) : [],
+      identityCandidates: candidates,
+      regions: { name: NAME_REGION, studentCode: STUDENT_CODE_REGION, variantCode: VARIANT_CODE_REGION },
       quality: row.quality, readings: row.readings, attemptId: row.attemptId,
       uploadedBy: row.uploadedBy,
       createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  /** View đầy đủ của một phiếu: tự nạp lô in (có thể chưa gắn) + ứng viên hàng chờ. */
+  private async scanViewFull(row: PaperScanRow): Promise<PaperScan> {
+    const batch = row.batchId ? (await this.repo.getBatch(row.batchId)) ?? null : null;
+    if (!batch) return this.scanView(row, null, []);
+    const rows = await this.repo.listScansForQuiz(row.quizId);
+    return this.scanView(row, batch, this.candidatesFrom(rows, row, batch));
   }
 
   private async omrThresholds(): Promise<OmrThresholds> {
@@ -141,11 +186,15 @@ export class PaperGradingService {
   // --- lô phiếu ---------------------------------------------------------------
 
   /**
-   * Sinh một lô phiếu (một mã đề): layout ghim qua QuizService (cổng
+   * Sinh một lô IN phiếu (một mã đề): layout ghim qua QuizService (cổng
    * quiz:gradepaper + chặn slot ngẫu nhiên/loại câu không in được nằm
    * ở đó), roster chụp từ danh sách ghi danh đang hiệu lực của khoá —
    * chỉ học sinh có quyền làm bài (quiz:attempt) mới có phiếu, sắp
-   * theo tên để đánh mã tô 001… cho phiếu trắng.
+   * theo tên để đánh mã tô theo thứ tự danh sách. Mã đề 4 số
+   * (examCode): giáo viên truyền hoặc hệ thống tự cấp dãy từ 1001 —
+   * học sinh ghi + tô mã này lên phiếu dùng chung, hệ thống khớp
+   * phiếu đã chụp về đúng lô theo mã đó. codeDigits chọn lưới mã học
+   * sinh: 4 (tại lớp) hoặc 8 (thi thử SBD).
    */
   async createBatch(actorId: string, quizId: string, input: CreatePaperBatch): Promise<PaperBatch> {
     const { quiz, layout } = await this.quiz.resolvePaperLayout(actorId, quizId);
@@ -157,6 +206,15 @@ export class PaperGradingService {
       }
     } else {
       variantCode = this.nextVariantCode(existing.map((b) => b.variantCode));
+    }
+    const codeDigits = input.codeDigits ?? 4;
+    let examCode = input.examCode ?? null;
+    if (examCode) {
+      if (existing.some((b) => b.examCode === examCode)) {
+        throw new ConflictException({ message: `Exam code ${examCode} already exists for this quiz`, code: 'paper.exam_code_exists' });
+      }
+    } else {
+      examCode = this.nextExamCode(existing.map((b) => b.examCode));
     }
 
     const cmCtx = await this.cmContextId(quiz);
@@ -177,9 +235,9 @@ export class PaperGradingService {
     if (students.length > 999) {
       throw new UnprocessableEntityException({ message: 'Paper roster supports at most 999 students per batch', code: 'paper.roster_too_large' });
     }
-    const roster = students.map((s, i) => ({ code: studentCodeForIndex(i), userId: s.userId, displayName: s.displayName }));
+    const roster = students.map((s, i) => ({ code: codeForIndex(i, codeDigits), userId: s.userId, displayName: s.displayName }));
 
-    const row = await this.repo.insertBatch({ quizId, variantCode, layout, roster, createdBy: actorId });
+    const row = await this.repo.insertBatch({ quizId, variantCode, examCode, codeDigits, layout, roster, createdBy: actorId });
     return this.batchView(row);
   }
 
@@ -191,6 +249,18 @@ export class PaperGradingService {
         if (!taken.has(candidate)) return candidate;
       }
     }
+  }
+
+  /** Mã đề số tự cấp cho lô mới: dãy 4 số bắt đầu từ 1001, tăng theo mã lớn nhất đã có của quiz. */
+  private nextExamCode(used: (string | null)[]): string {
+    let max = 1000;
+    for (const code of used) {
+      if (code && /^\d{4}$/.test(code)) max = Math.max(max, Number(code));
+    }
+    if (max + 1 > 9999) {
+      throw new UnprocessableEntityException({ message: 'Exam code space exhausted for this quiz', code: 'paper.exam_code_exhausted' });
+    }
+    return String(max + 1).padStart(4, '0');
   }
 
   async listBatches(actorId: string, quizId: string): Promise<PaperBatch[]> {
@@ -207,9 +277,13 @@ export class PaperGradingService {
   }
 
   /**
-   * Tải PDF phiếu của lô: mặc định mọi phiếu cá nhân hoá (mỗi học sinh
-   * một trang); `studentId` chọn một phiếu cá nhân hoá; `kind=blank`
-   * cho phiếu trắng ô-tô-mã (mặc định số bản bằng sĩ số roster).
+   * Tải PDF phiếu của lô: MẶC ĐỊNH là phiếu trắng DÙNG CHUNG theo
+   * buổi/lô (in hàng loạt một chồng, học sinh tự ghi + tô mã — số bản
+   * mặc định bằng sĩ số roster, giáo viên truyền `copies` để in thêm
+   * dự phòng). Cá nhân hoá là TUỲ CHỌN HẸP do giáo viên chủ động chọn
+   * (`kind=personalized` cho cả danh sách, hoặc `studentId` cho một
+   * học sinh — nhóm nhỏ/kiểm tra bù/hỗ trợ đặc biệt); `kind=blank`
+   * vẫn được chấp nhận như tên cũ của phiếu dùng chung.
    */
   async sheetsPdf(actorId: string, quizId: string, batchId: string, opts: { studentId?: string; kind?: string; copies?: number }): Promise<{ buffer: Buffer; fileName: string }> {
     const quiz = await this.quiz.getQuiz(quizId);
@@ -217,24 +291,25 @@ export class PaperGradingService {
     const batch = await this.getBatchRow(quizId, batchId);
     let pages: (SheetPageStudent | null)[];
     let suffix: string;
-    if (opts.kind === 'blank') {
-      const copies = Math.min(200, Math.max(1, opts.copies ?? Math.max(batch.roster.length, 1)));
-      pages = Array.from({ length: copies }, () => null);
-      suffix = 'trang';
-    } else if (opts.studentId) {
+    if (opts.studentId) {
       const entry = batch.roster.find((r) => r.userId === opts.studentId);
       if (!entry) throw new NotFoundException({ message: 'Student is not in this batch roster', code: 'paper.student_not_in_batch' });
       pages = [entry];
       suffix = entry.code;
-    } else {
+    } else if (opts.kind === 'personalized') {
       if (!batch.roster.length) {
-        throw new BadRequestException({ message: 'Batch roster is empty; print blank sheets instead', code: 'paper.empty_roster' });
+        throw new BadRequestException({ message: 'Batch roster is empty; print shared sheets instead', code: 'paper.empty_roster' });
       }
       pages = batch.roster;
       suffix = 'ca-nhan';
+    } else {
+      const copies = Math.min(200, Math.max(1, opts.copies ?? Math.max(batch.roster.length, 1)));
+      pages = Array.from({ length: copies }, () => null);
+      suffix = 'dung-chung';
     }
     const buffer = await generateSheetsPdf({
-      quizName: quiz.name, variantCode: batch.variantCode, batchId: batch.id,
+      quizName: quiz.name, variantCode: batch.variantCode, examCode: batch.examCode,
+      codeDigits: batch.codeDigits, batchId: batch.id,
       layout: this.sortedLayout(batch), pages,
     });
     return { buffer, fileName: `phieu-tra-loi-${batch.variantCode}-${suffix}.pdf` };
@@ -243,86 +318,177 @@ export class PaperGradingService {
   // --- tiếp nhận ảnh ------------------------------------------------------------
 
   /**
-   * Tiếp nhận một lượt tải ảnh chụp cho một lô: từng ảnh chạy qua
-   * cổng chất lượng NGAY tại đây — ảnh hỏng bị từ chối với lý do cụ
-   * thể và KHÔNG được lưu; ảnh đạt cổng được OMR đọc, định danh theo
-   * thứ tự tin cậy QR → ô tô mã (đúng số kiểm tra + khớp roster) →
-   * hàng chờ gán định danh. Trả kết quả theo từng tệp để giáo viên
-   * chụp lại đúng tờ bị từ chối.
+   * Định danh một phiếu đã đọc theo lô in đích: QR cá nhân hoá (phải
+   * thuộc đúng lô này + học sinh có trong roster) → ô tô mã (đúng số
+   * kiểm tra + mã có trong roster). Một học sinh đã có phiếu khác
+   * trong cùng lô giữ thì phiếu này KHÔNG tự nhận trùng — về hàng chờ
+   * cho giáo viên quyết (đúng nguyên tắc không đoán).
    */
-  async uploadScans(actorId: string, quizId: string, batchId: string, files: { originalname: string; buffer: Buffer; mimetype: string }[]): Promise<ScanUploadOutcome[]> {
-    const quiz = await this.quiz.getQuiz(quizId);
-    await this.requireGradePaper(actorId, quiz);
-    const batch = await this.getBatchRow(quizId, batchId);
-    if (!files.length) throw new BadRequestException({ message: 'No image files were uploaded', code: 'paper.no_files' });
+  private resolveIdentity(
+    processed: ProcessedSheet,
+    batch: PaperBatchRow,
+    claimed: Set<string>,
+  ): { studentId: string | null; identitySource: 'qr' | 'bubbles' | null; identityCode: string | null } {
+    const rosterByUserId = new Map(batch.roster.map((r) => [r.userId, r]));
+    let studentId: string | null = null;
+    let identitySource: 'qr' | 'bubbles' | null = null;
+    let identityCode: string | null = processed.bubbleCode?.code ?? null;
+    const qr = parseSheetQr(processed.qrText);
+    if (qr && qr.batchId === batch.id && qr.userId && rosterByUserId.has(qr.userId)) {
+      studentId = qr.userId;
+      identitySource = 'qr';
+      identityCode = rosterByUserId.get(qr.userId)!.code;
+    } else if (processed.bubbleCode?.checksumOk) {
+      const entry = batch.roster.find((r) => r.code === processed.bubbleCode!.code);
+      if (entry) {
+        studentId = entry.userId;
+        identitySource = 'bubbles';
+        identityCode = entry.code;
+      }
+    }
+    if (studentId && claimed.has(studentId)) {
+      return { studentId: null, identitySource: null, identityCode };
+    }
+    return { studentId, identitySource, identityCode };
+  }
 
+  /** Ánh xạ kết quả đọc của engine (số thứ tự hàng) về slot thật của layout đã ghim. */
+  private mapReadings(processed: ProcessedSheet, batch: PaperBatchRow): PaperReading[] {
     const layout = this.sortedLayout(batch);
-    const geometry = computeSheetGeometry(layout.map((l) => l.optionCount));
+    return processed.readings.map((r) => ({
+      slot: layout[r.slot - 1]!.slot,
+      densities: r.densities, chosen: r.chosen, state: r.state, margin: r.margin,
+      resolvedBy: r.resolvedBy,
+    }));
+  }
+
+  /**
+   * Tiếp nhận MỘT ảnh trong một lượt tải (một lô chụp): cổng chất
+   * lượng chạy ngay — ảnh hỏng bị từ chối kèm lý do, không lưu. Ảnh
+   * đạt cổng được định tuyến về LÔ IN theo thứ tự tin cậy: (1) mã đề
+   * đọc chắc chắn từ lưới tô → lô mang examCode đó; (2) QR (mang
+   * batchId của lô in) khi mã đề không chắc chắn; (3) lô neo của lượt
+   * tải theo-lô. Tải theo buổi không có lô neo: không định tuyến được
+   * thì phiếu vẫn được lưu CHƯA GẮN LÔ (readings để trống) vào hàng
+   * chờ gán lô — hệ thống không đoán lô. Khi lô đích khác lô dùng để
+   * đọc lượt đầu, ảnh được đọc lại bằng đúng hình học của lô đích.
+   */
+  private async ingestOne(
+    actorId: string,
+    quiz: QuizRow,
+    opts: {
+      anchor: PaperBatchRow | null;
+      batches: PaperBatchRow[];
+      sessionId: string;
+      thresholds: OmrThresholds;
+      expiresAt: Date;
+      cmCtx: string;
+      claimedByBatch: Map<string, Set<string>>;
+      file: { originalname: string; buffer: Buffer; mimetype: string };
+    },
+  ): Promise<ScanUploadOutcome> {
+    const fileName = (opts.file.originalname || 'scan').split(/[\\/]/).pop()!;
+    const routingBatch = opts.anchor ?? opts.batches[0]!;
+    let processed: ProcessedSheet;
+    try {
+      processed = processSheetImage(opts.file.buffer, this.geometryOf(routingBatch), opts.thresholds);
+    } catch {
+      return { fileName, stored: false, reasons: ['unreadable_image'] };
+    }
+    if (!processed.qualityOk) {
+      return { fileName, stored: false, reasons: processed.qualityReasons };
+    }
+
+    // Định tuyến về lô in: mã đề (lưới tô) → QR → lô neo.
+    let variantCodeRead = processed.variantCode?.code ?? null;
+    let target: PaperBatchRow | undefined;
+    if (variantCodeRead) {
+      target = opts.batches.find((b) => b.examCode === variantCodeRead);
+    }
+    if (!target) {
+      const qr = parseSheetQr(processed.qrText);
+      if (qr) target = opts.batches.find((b) => b.id === qr.batchId);
+    }
+    if (!target && opts.anchor) target = opts.anchor;
+
+    if (target && target.id !== routingBatch.id) {
+      // Đọc lại bằng hình học của lô đích (layout + số cột lưới mã có thể khác).
+      try {
+        processed = processSheetImage(opts.file.buffer, this.geometryOf(target), opts.thresholds);
+        variantCodeRead = processed.variantCode?.code ?? variantCodeRead;
+      } catch {
+        return { fileName, stored: false, reasons: ['unreadable_image'] };
+      }
+    }
+
+    let studentId: string | null = null;
+    let identitySource: 'qr' | 'bubbles' | null = null;
+    let identityCode: string | null = null;
+    let readings: PaperReading[] = [];
+    if (target) {
+      const claimed = opts.claimedByBatch.get(target.id) ?? new Set<string>();
+      const identity = this.resolveIdentity(processed, target, claimed);
+      studentId = identity.studentId;
+      identitySource = identity.identitySource;
+      identityCode = identity.identityCode;
+      if (studentId) claimed.add(studentId);
+      opts.claimedByBatch.set(target.id, claimed);
+      readings = this.mapReadings(processed, target);
+    }
+
+    const itemId = target?.id ?? quiz.id;
+    const original = await this.files.upload({
+      contextId: opts.cmCtx, component: PAPER_COMPONENT, fileArea: 'paper_scans', itemId,
+      fileName, data: opts.file.buffer, mimeType: opts.file.mimetype, userId: actorId,
+    });
+    const warped = await this.files.upload({
+      contextId: opts.cmCtx, component: PAPER_COMPONENT, fileArea: 'paper_warped', itemId,
+      fileName: `warped-${fileName.replace(/\.[^.]+$/, '')}.png`, data: encodePng(processed.warped),
+      mimeType: 'image/png', userId: actorId,
+    });
+    const scan = await this.repo.insertScan({
+      batchId: target?.id ?? null, sessionId: opts.sessionId, quizId: quiz.id,
+      fileId: original.id, warpedFileId: warped.id,
+      studentId, identitySource, identityCode, variantCodeRead,
+      status: this.statusFor(studentId, readings),
+      quality: processed.quality, readings, uploadedBy: actorId, expiresAt: opts.expiresAt,
+    });
+    return { fileName, stored: true, scan: await this.scanViewFull(scan) };
+  }
+
+  /** Chạy một lượt tải ảnh (một lô chụp): dùng chung cho cả đường theo-lô và theo-buổi. */
+  private async ingestUpload(
+    actorId: string,
+    quiz: QuizRow,
+    anchor: PaperBatchRow | null,
+    files: { originalname: string; buffer: Buffer; mimetype: string }[],
+  ): Promise<ScanUploadOutcome[]> {
+    if (!files.length) throw new BadRequestException({ message: 'No image files were uploaded', code: 'paper.no_files' });
+    const batches = await this.repo.listBatchesForQuiz(quiz.id);
+    if (!batches.length) {
+      throw new BadRequestException({ message: 'Quiz has no paper batches yet', code: 'paper.no_batches' });
+    }
     const thresholds = await this.omrThresholds();
     const retentionMonths = (await this.config.getValue<number>('mod_quiz', 'paperscanretentionmonths')) ?? 18;
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + retentionMonths);
     const cmCtx = await this.cmContextId(quiz);
-    const rosterByUserId = new Map(batch.roster.map((r) => [r.userId, r]));
-
+    const sessionId = randomUUID();
+    // Học sinh đã có phiếu giữ trong từng lô (mọi lượt trước) — phiếu mới không tự nhận trùng.
+    const claimedByBatch = new Map<string, Set<string>>();
+    for (const s of await this.repo.listScansForQuiz(quiz.id)) {
+      if (s.batchId && s.studentId) {
+        const set = claimedByBatch.get(s.batchId) ?? new Set<string>();
+        set.add(s.studentId);
+        claimedByBatch.set(s.batchId, set);
+      }
+    }
     const outcomes: ScanUploadOutcome[] = [];
     for (const file of files) {
-      const fileName = (file.originalname || 'scan').split(/[\\/]/).pop()!;
-      let processed: ReturnType<typeof processSheetImage>;
-      try {
-        processed = processSheetImage(file.buffer, geometry, thresholds);
-      } catch {
-        outcomes.push({ fileName, stored: false, reasons: ['unreadable_image'] });
-        continue;
-      }
-      if (!processed.qualityOk) {
-        outcomes.push({ fileName, stored: false, reasons: processed.qualityReasons });
-        continue;
-      }
-
-      // Định danh: QR (phải thuộc đúng lô này + học sinh có trong roster) → ô tô mã.
-      let studentId: string | null = null;
-      let identitySource: 'qr' | 'bubbles' | null = null;
-      let identityCode: string | null = processed.bubbleCode?.code ?? null;
-      const qr = parseSheetQr(processed.qrText);
-      if (qr && qr.batchId === batch.id && qr.userId && rosterByUserId.has(qr.userId)) {
-        studentId = qr.userId;
-        identitySource = 'qr';
-        identityCode = rosterByUserId.get(qr.userId)!.code;
-      } else if (processed.bubbleCode?.checksumOk) {
-        const idx = studentIndexForCode(processed.bubbleCode.code);
-        const entry = idx !== null ? batch.roster[idx] : undefined;
-        if (entry) {
-          studentId = entry.userId;
-          identitySource = 'bubbles';
-          identityCode = entry.code;
-        }
-      }
-
-      const original = await this.files.upload({
-        contextId: cmCtx, component: PAPER_COMPONENT, fileArea: 'paper_scans', itemId: batch.id,
-        fileName, data: file.buffer, mimeType: file.mimetype, userId: actorId,
-      });
-      const warped = await this.files.upload({
-        contextId: cmCtx, component: PAPER_COMPONENT, fileArea: 'paper_warped', itemId: batch.id,
-        fileName: `warped-${fileName.replace(/\.[^.]+$/, '')}.png`, data: encodePng(processed.warped),
-        mimeType: 'image/png', userId: actorId,
-      });
-      // reading.slot của engine là số thứ tự hàng (1..n theo layout đã sắp); đổi về slot thật của layout.
-      const readings: PaperReading[] = processed.readings.map((r) => ({
-        slot: layout[r.slot - 1]!.slot,
-        densities: r.densities, chosen: r.chosen, state: r.state, margin: r.margin,
-        resolvedBy: r.resolvedBy,
+      outcomes.push(await this.ingestOne(actorId, quiz, {
+        anchor, batches, sessionId, thresholds, expiresAt, cmCtx, claimedByBatch, file,
       }));
-      const scan = await this.repo.insertScan({
-        batchId: batch.id, quizId, fileId: original.id, warpedFileId: warped.id,
-        studentId, identitySource, identityCode,
-        status: this.statusFor(studentId, readings),
-        quality: processed.quality, readings, uploadedBy: actorId, expiresAt,
-      });
-      outcomes.push({ fileName, stored: true, scan: this.scanView(scan, batch) });
     }
-
     if (outcomes.length && outcomes.every((o) => !o.stored)) {
       const reasons = [...new Set(outcomes.flatMap((o) => o.reasons ?? []))];
       throw new UnprocessableEntityException({
@@ -333,6 +499,31 @@ export class PaperGradingService {
     return outcomes;
   }
 
+  /**
+   * Tiếp nhận một lượt tải ảnh chụp cho một lô IN: từng ảnh chạy qua
+   * cổng chất lượng ngay tại đây; định tuyến vẫn tôn trọng mã đề đọc
+   * được (phiếu lạc chồng được trả về đúng lô của mã đề đó), lô của
+   * URL là lô neo khi không tín hiệu nào định tuyến được.
+   */
+  async uploadScans(actorId: string, quizId: string, batchId: string, files: { originalname: string; buffer: Buffer; mimetype: string }[]): Promise<ScanUploadOutcome[]> {
+    const quiz = await this.quiz.getQuiz(quizId);
+    await this.requireGradePaper(actorId, quiz);
+    const anchor = await this.getBatchRow(quizId, batchId);
+    return this.ingestUpload(actorId, quiz, anchor, files);
+  }
+
+  /**
+   * Tiếp nhận một lượt tải ảnh theo BUỔI (lô chụp): một buổi gồm
+   * nhiều mã đề — giáo viên tải cả chồng phiếu đã thu một lượt, hệ
+   * thống định tuyến từng phiếu về lô in theo mã đề/QR; phiếu không
+   * định tuyến được vẫn được lưu chưa gắn lô để vào hàng chờ gán lô.
+   */
+  async uploadSessionScans(actorId: string, quizId: string, files: { originalname: string; buffer: Buffer; mimetype: string }[]): Promise<ScanUploadOutcome[]> {
+    const quiz = await this.quiz.getQuiz(quizId);
+    await this.requireGradePaper(actorId, quiz);
+    return this.ingestUpload(actorId, quiz, null, files);
+  }
+
   // --- hàng chờ -----------------------------------------------------------------
 
   async listScans(actorId: string, quizId: string, status?: string): Promise<PaperScan[]> {
@@ -341,22 +532,21 @@ export class PaperGradingService {
     if (status && !(PAPER_SCAN_STATUSES as readonly string[]).includes(status)) {
       throw new BadRequestException({ message: `Unknown paper scan status ${status}`, code: 'paper.bad_status' });
     }
-    const rows = await this.repo.listScansForQuiz(quizId, status);
-    const out: PaperScan[] = [];
-    for (const row of rows) {
-      const batch = await this.repo.getBatch(row.batchId);
-      if (batch) out.push(this.scanView(row, batch));
-    }
-    return out;
+    const rows = await this.repo.listScansForQuiz(quizId);
+    const batches = new Map((await this.repo.listBatchesForQuiz(quizId)).map((b) => [b.id, b]));
+    return rows
+      .filter((row) => !status || row.status === status)
+      .map((row) => {
+        const batch = row.batchId ? (batches.get(row.batchId) ?? null) : null;
+        return this.scanView(row, batch, batch ? this.candidatesFrom(rows, row, batch) : []);
+      });
   }
 
   async getScan(actorId: string, scanId: string): Promise<PaperScan> {
     const scan = await this.getScanRow(scanId);
     const quiz = await this.quiz.getQuiz(scan.quizId);
     await this.requireGradePaper(actorId, quiz);
-    const batch = await this.repo.getBatch(scan.batchId);
-    if (!batch) throw new NotFoundException({ message: 'Paper batch of this scan no longer exists', code: 'paper.batch_not_found' });
-    return this.scanView(scan, batch);
+    return this.scanViewFull(scan);
   }
 
   /** Ảnh gốc/ảnh đã nắn của phiếu — chỉ trả qua cổng quiz:gradepaper của chính quiz chứa phiếu. */
@@ -370,12 +560,20 @@ export class PaperGradingService {
     return { data, mimeType: file.mimeType ?? 'application/octet-stream', fileName: file.fileName };
   }
 
-  /** Hàng chờ gán định danh: giáo viên chọn đúng học sinh (phải có trong roster của lô). */
+  /**
+   * Hàng chờ gán định danh: giáo viên chọn đúng học sinh (phải có
+   * trong roster của lô in phiếu thuộc về). Mọi lần gán/sửa đều ghi
+   * event log qua outbox — ai gán, khi nào, từ mã/học sinh nào sang
+   * mã/học sinh nào — như biên bản sửa lỗi của Bộ.
+   */
   async assignIdentity(actorId: string, scanId: string, studentId: string): Promise<PaperScan> {
     const scan = await this.getScanRow(scanId);
     if (scan.status === 'recorded') throw new ConflictException({ message: 'Scan is already recorded as an attempt', code: 'paper.already_recorded' });
     const quiz = await this.quiz.getQuiz(scan.quizId);
     await this.requireGradePaper(actorId, quiz);
+    if (!scan.batchId) {
+      throw new BadRequestException({ message: 'Scan is not attached to a print batch yet; assign the batch first', code: 'paper.batch_required' });
+    }
     const batch = await this.repo.getBatch(scan.batchId);
     if (!batch) throw new NotFoundException({ message: 'Paper batch of this scan no longer exists', code: 'paper.batch_not_found' });
     const entry = batch.roster.find((r) => r.userId === studentId);
@@ -384,7 +582,84 @@ export class PaperGradingService {
       studentId, identitySource: 'manual', identityCode: entry.code,
       status: this.statusFor(studentId, scan.readings),
     });
-    return this.scanView(updated, batch);
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'paper_identity_assigned',
+      payload: {
+        actorId, quizId: scan.quizId, courseId: quiz.course, component: PAPER_COMPONENT,
+        scanId: scan.id, batchId: batch.id, studentId,
+        previousStudentId: scan.studentId, previousCode: scan.identityCode, newCode: entry.code,
+      },
+    });
+    return this.scanViewFull(updated);
+  }
+
+  /**
+   * Hàng chờ gán lô in: giáo viên gắn phiếu chưa định tuyến được (tải
+   * theo buổi mà mã đề + QR đều không định tuyến nổi) về đúng lô in —
+   * hoặc sửa một phiếu bị gắn sai mã đề sang lô đúng. Hệ thống đọc
+   * lại phiếu từ ảnh đã nắn bằng hình học của lô mới (đáp án + mã học
+   * sinh + mã đề), định danh lại từ đầu theo roster của lô mới; đọc
+   * lại không đạt cổng thì giữ nguyên kết quả đọc cũ và chỉ đổi lô.
+   * Thao tác ghi event log như một dòng biên bản (lô cũ → lô mới).
+   */
+  async assignBatch(actorId: string, scanId: string, batchId: string): Promise<PaperScan> {
+    const scan = await this.getScanRow(scanId);
+    if (scan.status === 'recorded') throw new ConflictException({ message: 'Scan is already recorded as an attempt', code: 'paper.already_recorded' });
+    const quiz = await this.quiz.getQuiz(scan.quizId);
+    await this.requireGradePaper(actorId, quiz);
+    const batch = await this.repo.getBatch(batchId);
+    if (!batch || batch.quizId !== scan.quizId) {
+      throw new NotFoundException({ message: `Paper batch ${batchId} not found`, code: 'paper.batch_not_found' });
+    }
+
+    let readings = scan.readings;
+    let studentId: string | null = null;
+    let identitySource: 'qr' | 'bubbles' | 'manual' | null = null;
+    let identityCode = scan.identityCode;
+    let variantCodeRead = scan.variantCodeRead;
+    let reread = false;
+    if (scan.warpedFileId) {
+      try {
+        const { data } = await this.files.readContent(scan.warpedFileId);
+        const processed = processSheetImage(data, this.geometryOf(batch), await this.omrThresholds());
+        if (processed.qualityOk) {
+          reread = true;
+          readings = this.mapReadings(processed, batch);
+          variantCodeRead = processed.variantCode?.code ?? variantCodeRead;
+          const claimed = new Set(
+            (await this.repo.listScansForQuiz(scan.quizId))
+              .filter((s) => s.batchId === batch.id && s.id !== scan.id && s.studentId)
+              .map((s) => s.studentId!),
+          );
+          const identity = this.resolveIdentity(processed, batch, claimed);
+          studentId = identity.studentId;
+          identitySource = identity.identitySource;
+          identityCode = identity.identityCode;
+        }
+      } catch {
+        // Đọc lại thất bại (ảnh đã nắn không còn/không đạt cổng): giữ kết quả cũ, chỉ đổi lô.
+      }
+    }
+    if (!reread) {
+      // Không đọc lại được: định danh cũ thuộc roster của lô trước — không mang sang lô mới.
+      identityCode = scan.batchId === batch.id ? scan.identityCode : null;
+      studentId = scan.batchId === batch.id ? scan.studentId : null;
+      identitySource = scan.batchId === batch.id ? (scan.identitySource as typeof identitySource) : null;
+    }
+    const updated = await this.repo.updateScan(scan.id, {
+      batchId: batch.id, readings, studentId, identitySource, identityCode, variantCodeRead,
+      status: this.statusFor(studentId, readings),
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'paper_batch_assigned',
+      payload: {
+        actorId, quizId: scan.quizId, courseId: quiz.course, component: PAPER_COMPONENT,
+        scanId: scan.id, batchId: batch.id, previousBatchId: scan.batchId,
+        previousVariantCodeRead: scan.variantCodeRead, variantCodeRead,
+        studentId, reread,
+      },
+    });
+    return this.scanViewFull(updated);
   }
 
   /** Hàng chờ ca mơ hồ: giáo viên quyết ô chọn cho từng câu đang ambiguous (chosen null = để trống). */
@@ -393,6 +668,9 @@ export class PaperGradingService {
     if (scan.status === 'recorded') throw new ConflictException({ message: 'Scan is already recorded as an attempt', code: 'paper.already_recorded' });
     const quiz = await this.quiz.getQuiz(scan.quizId);
     await this.requireGradePaper(actorId, quiz);
+    if (!scan.batchId) {
+      throw new BadRequestException({ message: 'Scan is not attached to a print batch yet; assign the batch first', code: 'paper.batch_required' });
+    }
     const batch = await this.repo.getBatch(scan.batchId);
     if (!batch) throw new NotFoundException({ message: 'Paper batch of this scan no longer exists', code: 'paper.batch_not_found' });
     const optionCountBySlot = new Map(batch.layout.map((l) => [l.slot, l.optionCount]));
@@ -414,7 +692,7 @@ export class PaperGradingService {
     const updated = await this.repo.updateScan(scan.id, {
       readings, status: this.statusFor(scan.studentId, readings),
     });
-    return this.scanView(updated, batch);
+    return this.scanViewFull(updated);
   }
 
   /**
@@ -431,8 +709,20 @@ export class PaperGradingService {
     }
     const quiz = await this.quiz.getQuiz(scan.quizId);
     await this.requireGradePaper(actorId, quiz);
+    if (!scan.batchId) {
+      throw new ConflictException({ message: 'Scan is not attached to a print batch', code: 'paper.scan_not_ready' });
+    }
     const batch = await this.repo.getBatch(scan.batchId);
     if (!batch) throw new NotFoundException({ message: 'Paper batch of this scan no longer exists', code: 'paper.batch_not_found' });
+    // Mã đề đọc được trên phiếu khác mã đề của lô = phiếu thuộc mã đề
+    // khác: không chấm theo layout của lô này (xử lý lại qua hàng chờ
+    // gán lô hoặc xoá và tải lại đúng buổi).
+    if (scan.variantCodeRead && batch.examCode && scan.variantCodeRead !== batch.examCode) {
+      throw new ConflictException({
+        message: `Sheet exam code ${scan.variantCodeRead} does not match batch exam code ${batch.examCode}`,
+        code: 'paper.variant_mismatch',
+      });
+    }
 
     const maxSlot = Math.max(...batch.layout.map((l) => l.slot));
     const responses: (string | null)[] = Array.from({ length: maxSlot }, () => null);
@@ -448,7 +738,7 @@ export class PaperGradingService {
       scanId: scan.id, batchId: batch.id, variantCode: batch.variantCode,
     });
     const updated = await this.repo.updateScan(scan.id, { status: 'recorded', attemptId: result.attemptId });
-    return { ...this.scanView(updated, batch), sumGrades: result.sumGrades };
+    return { ...(await this.scanViewFull(updated)), sumGrades: result.sumGrades };
   }
 
   /** Xoá một phiếu chưa ghi (sai/thừa) khỏi hàng chờ, kèm bản ghi file của nó. Phiếu đã ghi là bằng chứng điểm — không xoá. */

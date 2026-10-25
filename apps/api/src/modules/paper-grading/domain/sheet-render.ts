@@ -10,6 +10,7 @@ import QRCode from 'qrcode';
 import { PNG } from 'pngjs';
 import {
   CODE_BUBBLE_R, FIDUCIAL_CENTERS, FIDUCIAL_SIZE, QR_RECT, TEMPLATE_HEIGHT, TEMPLATE_WIDTH,
+  VARIANT_WRITE_BOX,
   type SheetGeometry,
 } from './sheet-layout';
 import { computeHomography } from './omr';
@@ -71,6 +72,10 @@ export interface RenderSheetInput {
   qrText: string | null;
   /** Mã học sinh tô sẵn ở lưới mã (phiếu trắng); null = để trống toàn bộ lưới. */
   bubbleCode: string | null;
+  /** Mã đề tô sẵn ở lưới mã đề (phiếu dùng chung); null/undefined = để trống lưới mã đề. */
+  variantCode?: string | null;
+  /** Cột (0-based) của lưới mã đề tô NHẠT thay vì tô kín — dựng ca mã đề mơ hồ cho bench. */
+  variantLightDigit?: number;
   /** Tô theo slot (1-based): lựa chọn + kiểu tô. */
   fills: ReadonlyMap<number, SlotFill>;
 }
@@ -115,6 +120,32 @@ export function renderSheetRgba(input: RenderSheetInput): RgbaImage {
     ringCircle(img, cell.x, cell.y, CODE_BUBBLE_R, 40);
     if (input.bubbleCode && Number(input.bubbleCode[cell.digitIndex]) === cell.value) {
       fillCircle(img, cell.x, cell.y, CODE_BUBBLE_R - 2, 15);
+    }
+  }
+  // Lưới mã đề + hàng ô ghi chữ số phía trên (khung tượng trưng): vòng
+  // tròn cho mọi ô; tô theo variantCode (một cột có thể tô nhạt để
+  // dựng ca mơ hồ). Phiếu dựng không truyền variantCode → lưới để
+  // trống như phiếu cá nhân hoá.
+  if (input.variantCode !== undefined) {
+    const colXs = new Map<number, number>();
+    for (const cell of geometry.variantCodeCells) colXs.set(cell.digitIndex, cell.x);
+    for (const [, cx] of colXs) {
+      const w = VARIANT_WRITE_BOX.width, h = VARIANT_WRITE_BOX.height;
+      for (let x = cx - w / 2; x <= cx + w / 2; x++) {
+        setPx(img, Math.round(x), VARIANT_WRITE_BOX.top, 90);
+        setPx(img, Math.round(x), VARIANT_WRITE_BOX.top + h, 90);
+      }
+      for (let y = VARIANT_WRITE_BOX.top; y <= VARIANT_WRITE_BOX.top + h; y++) {
+        setPx(img, Math.round(cx - w / 2), y, 90);
+        setPx(img, Math.round(cx + w / 2), y, 90);
+      }
+    }
+    for (const cell of geometry.variantCodeCells) {
+      ringCircle(img, cell.x, cell.y, CODE_BUBBLE_R, 40);
+      if (input.variantCode && Number(input.variantCode[cell.digitIndex]) === cell.value) {
+        const light = input.variantLightDigit === cell.digitIndex;
+        fillCircle(img, cell.x, cell.y, CODE_BUBBLE_R - 2, light ? 175 : 15);
+      }
     }
   }
   // Lưới đáp án.

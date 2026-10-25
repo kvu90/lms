@@ -11,8 +11,8 @@ import { PNG } from 'pngjs';
 import { decode as jpegDecode } from 'jpeg-js';
 import jsQR from 'jsqr';
 import {
-  CODE_DIGITS, FIDUCIAL_CENTERS, TEMPLATE_HEIGHT, TEMPLATE_WIDTH, studentCodeChecksumOk,
-  type SheetGeometry,
+  FIDUCIAL_CENTERS, TEMPLATE_HEIGHT, TEMPLATE_WIDTH, codeChecksumOk,
+  type CodeCellGeometry, type SheetGeometry,
 } from './sheet-layout';
 
 export interface GrayImage {
@@ -375,8 +375,10 @@ export interface ProcessedSheet {
   qualityReasons: string[];
   qrText: string | null;
   readings: SheetReading[];
-  /** Mã học sinh đọc từ lưới ô tô; null khi không có/không chắc chắn (còn kèm checksumOk). */
+  /** Mã học sinh đọc từ lưới ô tô; null khi không có/không chắc chắn (còn kèm checksumOk theo độ dài mã của lô). */
   bubbleCode: { code: string; checksumOk: boolean } | null;
+  /** Mã đề 4 số đọc từ lưới ô tô mã đề (phiếu dùng chung); null khi không tô/không chắc chắn — engine không đoán mã đề. Mã đề không có số kiểm tra: "chắc chắn" = mọi cột đều tô kín chắc chắn theo cùng luật hai tầng + phủ tâm. */
+  variantCode: { code: string } | null;
 }
 
 /** Đọc toàn bộ một ảnh phiếu: cổng chất lượng → nắn → QR + lưới mã + lưới đáp án. */
@@ -413,7 +415,7 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
       quality: { blurVariance: 0, glareRatio: 0, fiducialCount },
       qualityOk: false,
       qualityReasons: ['missing_fiducials'],
-      qrText: null, readings: [], bubbleCode: null,
+      qrText: null, readings: [], bubbleCode: null, variantCode: null,
     };
   }
   const warped = warpToTemplate(img, srcPoints);
@@ -469,30 +471,43 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
     };
   });
 
-  // Lưới mã học sinh (4 cột × 10 hàng): mỗi cột phải có đúng một ô thắng chắc chắn.
-  let bubbleCode: { code: string; checksumOk: boolean } | null = null;
-  {
-    const digitsByColumn: number[][] = Array.from({ length: CODE_DIGITS }, () => []);
-    const digitCenters: ({ x: number; y: number } | undefined)[][] = Array.from({ length: CODE_DIGITS }, () => []);
-    for (const cell of geometry.codeCells) {
+  /**
+   * Đọc một lưới mã (mã học sinh hoặc mã đề) bằng đúng luật của lưới
+   * đáp án: mỗi cột phải có đúng một ô thắng chắc chắn (hai tầng +
+   * phủ tâm). Bất kỳ cột nào không chắc chắn → cả mã là null (không
+   * đoán từng phần). Trả mã dạng chuỗi số giữ nguyên số 0 ở đầu.
+   */
+  const readCodeGrid = (cells: CodeCellGeometry[]): string | null => {
+    const digitCount = cells.reduce((max, c) => Math.max(max, c.digitIndex + 1), 0);
+    const digitsByColumn: number[][] = Array.from({ length: digitCount }, () => []);
+    const digitCenters: ({ x: number; y: number } | undefined)[][] = Array.from({ length: digitCount }, () => []);
+    for (const cell of cells) {
       digitsByColumn[cell.digitIndex]![cell.value] = densityAt(cell.x, cell.y, DISK7);
       digitCenters[cell.digitIndex]![cell.value] = { x: cell.x, y: cell.y };
     }
     let code = '';
-    let certain = true;
-    for (let d = 0; d < digitsByColumn.length; d++) {
+    for (let d = 0; d < digitCount; d++) {
       const densities = digitsByColumn[d]!;
       const decision = decideBubbles(densities, thresholds);
-      if (decision.state !== 'filled' || decision.chosen === null) { certain = false; break; }
+      if (decision.state !== 'filled' || decision.chosen === null) return null;
       // Số tô kiểu nét gạch/dấu ✓ cũng không được đoán: vào hàng chờ gán định danh.
       const center = digitCenters[d]![decision.chosen];
-      if (!center || !uniformFill(center.x, center.y, DISK7_QUADRANTS, densities[decision.chosen]!)) { certain = false; break; }
+      if (!center || !uniformFill(center.x, center.y, DISK7_QUADRANTS, densities[decision.chosen]!)) return null;
       code += String(decision.chosen);
     }
-    if (certain && code.length === CODE_DIGITS) {
-      bubbleCode = { code, checksumOk: studentCodeChecksumOk(code) };
-    }
-  }
+    return code.length === digitCount ? code : null;
+  };
+
+  // Lưới mã học sinh (4 hoặc 8 cột theo cấu hình lô): kèm số kiểm tra theo độ dài mã.
+  const studentCode = readCodeGrid(geometry.codeCells);
+  const bubbleCode = studentCode !== null
+    ? { code: studentCode, checksumOk: codeChecksumOk(studentCode) }
+    : null;
+
+  // Lưới mã đề 4 cột trên phiếu dùng chung: không có số kiểm tra, chỉ
+  // kết luận khi mọi cột chắc chắn; mơ hồ → null để phiếu vào hàng chờ.
+  const variantDigits = readCodeGrid(geometry.variantCodeCells);
+  const variantCode = variantDigits !== null ? { code: variantDigits } : null;
 
   // QR trên ảnh đã nắn (jsQR cần RGBA).
   let qrText: string | null = null;
@@ -513,6 +528,7 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
     qrText,
     readings,
     bubbleCode,
+    variantCode,
   };
 }
 
