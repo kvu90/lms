@@ -69,7 +69,13 @@ function readStoredOpenGroups(): string[] {
  *
  * - 6 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông báo,
  *   Tìm kiếm): các trang mọi người dùng đăng nhập đều tự phục vụ được.
- * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog.
+ * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog —
+ *   chỉ hiện khi người dùng có dấu chân học tập (issue #176, quy tắc
+ *   M+A: đang là học viên ở ≥1 khoá HOẶC có hiện vật học tập của chính
+ *   mình qua cờ hasLearnerFootprint). Ẩn điều hướng ≠ khoá trang: gõ
+ *   thẳng /badges hay /learning-plan vẫn vào được, API hai trang vốn
+ *   chỉ trả dữ liệu của chính người gọi. Mục Blog hiện vẫn nằm trong
+ *   nhóm này và đi theo cổng chung cho tới khi #171 tách Blog ra.
  * - Nhóm "Ngân hàng câu hỏi" thu/mở được NGAY SAU nhóm Học tập — chỉ
  *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank), học
  *   viên thuần không nhìn thấy nhóm này: 4 mục con liên kết sâu tới
@@ -138,16 +144,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ? [{ title: t('app:navGuardian'), url: '/guardian', icon: IconUsers }]
       : []),
     { title: t('app:navSearch'), url: '/search', icon: IconSearch },
-    {
-      groupId: 'learning',
-      title: t('app:navGroupLearning'),
-      icon: IconNotebook,
-      children: [
-        { title: t('app:navBadges'), url: '/badges', icon: IconAward },
-        { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
-        { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
-      ],
-    },
+    ...(perms.hasLearnerFootprint
+      ? [
+          {
+            groupId: 'learning',
+            title: t('app:navGroupLearning'),
+            icon: IconNotebook,
+            children: [
+              { title: t('app:navBadges'), url: '/badges', icon: IconAward },
+              { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
+              { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
+            ],
+          },
+        ]
+      : []),
     ...(perms.canUseQuestionBank
       ? [
           {

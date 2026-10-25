@@ -333,6 +333,13 @@ export const myAccessViewSchema = z.object({
   isSiteAdmin: z.boolean(),
   assignments: z.array(myRoleAssignmentSchema),
   contexts: z.array(myContextCapabilitiesSchema),
+  /**
+   * Cờ hiện vật học tập (issue #176): true khi người gọi có ít nhất một
+   * huy hiệu đã cấp chưa thu hồi hoặc một kế hoạch học tập của chính
+   * mình — cùng với `learning` suy từ gán vai, cờ này quyết định nhóm
+   * "Học tập" ở sidebar có hiện hay không (dấu chân học tập M+A).
+   */
+  hasLearnerArtifacts: z.boolean(),
 });
 export type MyAccessView = z.infer<typeof myAccessViewSchema>;
 

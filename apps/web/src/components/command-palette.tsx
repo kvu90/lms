@@ -35,7 +35,8 @@ function normalizeForSearch(text: string): string {
  *
  * Tôn trọng quyền theo đúng cây sidebar: danh sách màn hình dựng từ
  * CÙNG các cổng của AppSidebar (canUseQuestionBank cho Ngân hàng câu
- * hỏi, canAdminister cho hai nhóm quản trị) và khoá học lấy từ ảnh
+ * hỏi, canAdminister cho hai nhóm quản trị, hasLearnerFootprint cho
+ * Huy hiệu/Kế hoạch học tập theo issue #176) và khoá học lấy từ ảnh
  * chụp quyền (perms.courses — API /courses đã tự lọc theo người xem).
  * Mục không có quyền thì KHÔNG xuất hiện, không để kết quả dẫn tới
  * trang 403. Component tự chứa cả nút mở ở header lẫn lớp phủ, mount
@@ -60,8 +61,12 @@ export function CommandPalette() {
       { id: 'screen-notifications', title: t('app:navNotifications'), url: '/notifications', group: 'screens' },
       { id: 'screen-search', title: t('app:navSearch'), url: '/search', group: 'screens' },
       { id: 'screen-profile', title: t('app:navProfile'), url: '/profile', group: 'screens' },
-      { id: 'screen-badges', title: t('app:navBadges'), url: '/badges', group: 'screens' },
-      { id: 'screen-learning-plan', title: t('app:navLearningPlan'), url: '/learning-plan', group: 'screens' },
+      ...(perms.hasLearnerFootprint
+        ? ([
+            { id: 'screen-badges', title: t('app:navBadges'), url: '/badges', group: 'screens' },
+            { id: 'screen-learning-plan', title: t('app:navLearningPlan'), url: '/learning-plan', group: 'screens' },
+          ] as PaletteItem[])
+        : []),
       { id: 'screen-blog', title: t('app:navBlog'), url: '/blog', group: 'screens' },
       ...(perms.canUseQuestionBank
         ? [{ id: 'screen-questions', title: t('app:navQuestions'), url: '/questions', group: 'screens' } as PaletteItem]

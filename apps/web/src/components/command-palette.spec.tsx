@@ -44,8 +44,13 @@ function profileOf(id: string, username: string) {
   };
 }
 
-const ADMIN_ACCESS = { userId: ADMIN_ID, isSiteAdmin: true, assignments: [], contexts: [] };
-const STUDENT_ACCESS = { userId: STUDENT_ID, isSiteAdmin: false, assignments: [], contexts: [] };
+/**
+ * Fixture dùng chung có dấu chân học tập qua hiện vật (issue #176) để
+ * các test palette cũ không đổi hành vi; ca GV thuần không dấu chân
+ * khoá riêng ở describe cuối file.
+ */
+const ADMIN_ACCESS = { userId: ADMIN_ID, isSiteAdmin: true, assignments: [], contexts: [], hasLearnerArtifacts: true };
+const STUDENT_ACCESS = { userId: STUDENT_ID, isSiteAdmin: false, assignments: [], contexts: [], hasLearnerArtifacts: true };
 const TEACHER_ACCESS = {
   userId: TEACHER_ID,
   isSiteAdmin: false,
@@ -58,6 +63,7 @@ const TEACHER_ACCESS = {
       capabilities: ['question:add'],
     },
   ],
+  hasLearnerArtifacts: true,
 };
 
 const COURSE = {
@@ -212,5 +218,28 @@ describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
     expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
     expect(await screen.findByTestId('palette-item-screen-questions')).toHaveTextContent('Ngân hàng câu hỏi');
     expect(screen.queryByTestId('palette-item-screen-admin-users')).not.toBeInTheDocument();
+  });
+});
+
+describe('bảng lệnh Cmd+K — gác Huy hiệu/Kế hoạch theo dấu chân (issue #176)', () => {
+  it('GV thuần không dấu chân: không thấy hai mục Huy hiệu/Kế hoạch trong palette', async () => {
+    seedTokens();
+    stubFetch(profileOf(TEACHER_ID, 'teacher'), { ...TEACHER_ACCESS, hasLearnerArtifacts: false });
+    renderShell();
+
+    await openPaletteWithKeyboard();
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    expect(screen.queryByTestId('palette-item-screen-badges')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('palette-item-screen-learning-plan')).not.toBeInTheDocument();
+  });
+
+  it('người có dấu chân (hiện vật): thấy đủ hai mục Huy hiệu/Kế hoạch trong palette', async () => {
+    seedTokens();
+    stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS);
+    renderShell();
+
+    await openPaletteWithKeyboard();
+    expect(await screen.findByTestId('palette-item-screen-badges')).toBeInTheDocument();
+    expect(await screen.findByTestId('palette-item-screen-learning-plan')).toBeInTheDocument();
   });
 });

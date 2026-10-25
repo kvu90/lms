@@ -160,3 +160,65 @@ describe('Users: self-service capabilities view', () => {
     expect(res.status).toBe(401);
   });
 });
+
+/**
+ * Cờ hiện vật học tập trong ảnh chụp quyền (issue #176, nhánh A của dấu
+ * chân học tập): huy hiệu đã cấp chưa thu hồi HOẶC kế hoạch học tập của
+ * chính mình → true; chỉ có huy hiệu đã thu hồi hoặc không có gì → false.
+ * Hàng huy hiệu/kế hoạch chèn trực tiếp bằng SQL (như test outbox phía
+ * trên) để không phụ thuộc luồng cấp huy hiệu/tạo kế hoạch qua API.
+ */
+describe('Users: hasLearnerArtifacts in self-service capabilities view', () => {
+  let app: INestApplication;
+  let admin: string;
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
+  afterAll(async () => { await app.close(); });
+
+  async function capabilitiesOf(user: { id: string; username: string }): Promise<Record<string, unknown>> {
+    const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
+    const res = await http(app).get('/api/v1/users/me/capabilities').set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(200);
+    return res.body as Record<string, unknown>;
+  }
+
+  async function withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    try { return await fn(client); } finally { await client.end(); }
+  }
+
+  async function issueBadge(userId: string, revoked: boolean): Promise<void> {
+    await withClient(async (client) => {
+      const badge = await client.query('insert into badge (name) values ($1) returning id', [`badge-176-${Date.now()}-${Math.random()}`]);
+      await client.query(
+        'insert into badge_issued (badge_id, user_id, unique_hash, revoked) values ($1, $2, $3, $4)',
+        [badge.rows[0].id, userId, `hash-176-${Date.now()}-${Math.random()}`, revoked],
+      );
+    });
+  }
+
+  it('user không có hiện vật nào → false', async () => {
+    const user = await createUserViaApi(app, admin);
+    expect((await capabilitiesOf(user)).hasLearnerArtifacts).toBe(false);
+  });
+
+  it('user có huy hiệu đã cấp chưa thu hồi → true', async () => {
+    const user = await createUserViaApi(app, admin);
+    await issueBadge(user.id, false);
+    expect((await capabilitiesOf(user)).hasLearnerArtifacts).toBe(true);
+  });
+
+  it('user chỉ có huy hiệu đã thu hồi → false', async () => {
+    const user = await createUserViaApi(app, admin);
+    await issueBadge(user.id, true);
+    expect((await capabilitiesOf(user)).hasLearnerArtifacts).toBe(false);
+  });
+
+  it('user có kế hoạch học tập của chính mình → true', async () => {
+    const user = await createUserViaApi(app, admin);
+    await withClient(async (client) => {
+      await client.query('insert into learning_plans (name, user_id) values ($1, $2)', ['Kế hoạch 176', user.id]);
+    });
+    expect((await capabilitiesOf(user)).hasLearnerArtifacts).toBe(true);
+  });
+});

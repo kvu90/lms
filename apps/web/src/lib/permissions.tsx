@@ -67,6 +67,15 @@ export interface PermissionsState {
   teaching: CourseAccess[];
   /** Các khoá người dùng thuộc về (định nghĩa #33 bên dưới) với tư cách học viên. */
   learning: CourseAccess[];
+  /**
+   * Dấu chân học tập (issue #176, quy tắc M+A): true khi người dùng đang
+   * là học viên ở ít nhất một khoá (learning.length > 0) HOẶC có hiện vật
+   * học tập của chính mình (cờ server hasLearnerArtifacts). Nhóm "Học
+   * tập" ở sidebar và hai mục Huy hiệu/Kế hoạch ở bảng lệnh gác bằng cờ
+   * này; chưa đăng nhập hoặc chưa có ảnh chụp thì false (nhóm vắng mặt
+   * cho tới khi snapshot khẳng định, đúng mẫu các nhóm quản trị).
+   */
+  hasLearnerFootprint: boolean;
 }
 
 const PermissionsContext = createContext<PermissionsState | null>(null);
@@ -238,6 +247,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         courses: [],
         teaching: [],
         learning: [],
+        hasLearnerFootprint: false,
       };
     }
     const access = accessSnapshot;
@@ -281,6 +291,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       courses,
       teaching,
       learning,
+      hasLearnerFootprint: learning.length > 0 || (access?.hasLearnerArtifacts ?? false),
     };
   }, [
     user,
