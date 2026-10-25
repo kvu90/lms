@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "36aa00e6-2b33-4b9a-9993-60e571e3ae10",
+  "id": "d5743a07-e2d9-4028-bc19-ca0c55ee5b02",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -2115,6 +2115,46 @@
         "n|rel|public.quizzes",
         "n|type|public.quizzes",
         "n|rel|public.quizzes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_paper_batches"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_paper_batches",
+        "n|tbl|public.quiz_paper_batches",
+        "e|tbl|public.quiz_paper_batches",
+        "n|rel|public.quiz_paper_batches",
+        "n|type|public.quiz_paper_batches",
+        "n|rel|public.quiz_paper_batches_pkey",
+        "n|rel|public.quiz_paper_batches_quiz_variant_unique",
+        "n|rel|public.quiz_paper_batches_quiz_exam_code_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_paper_scans"
+      ],
+      "writes": [
+        "s|tbl|public.quiz_paper_scans",
+        "n|tbl|public.quiz_paper_scans",
+        "e|tbl|public.quiz_paper_scans",
+        "n|rel|public.quiz_paper_scans",
+        "n|type|public.quiz_paper_scans",
+        "n|rel|public.quiz_paper_scans_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -7822,6 +7862,127 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.paper_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_batches",
+        "quiz_paper_batches_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_batches_quiz_idx",
+        "n|idx|public.quiz_paper_batches_quiz_idx",
+        "e|idx|public.quiz_paper_batches_quiz_idx",
+        "n|rel|public.quiz_paper_batches_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_batches",
+        "n|sch|public",
+        "n|col|public.quiz_paper_batches.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_scans",
+        "quiz_paper_scans_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_scans_quiz_idx",
+        "n|idx|public.quiz_paper_scans_quiz_idx",
+        "e|idx|public.quiz_paper_scans_quiz_idx",
+        "n|rel|public.quiz_paper_scans_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_scans",
+        "quiz_paper_scans_batch_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_scans_batch_idx",
+        "n|idx|public.quiz_paper_scans_batch_idx",
+        "e|idx|public.quiz_paper_scans_batch_idx",
+        "n|rel|public.quiz_paper_scans_batch_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.batch_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_scans",
+        "quiz_paper_scans_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_scans_status_idx",
+        "n|idx|public.quiz_paper_scans_status_idx",
+        "e|idx|public.quiz_paper_scans_status_idx",
+        "n|rel|public.quiz_paper_scans_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.quiz_id",
+        "n|col|public.quiz_paper_scans.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_scans",
+        "quiz_paper_scans_student_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_scans_student_idx",
+        "n|idx|public.quiz_paper_scans_student_idx",
+        "e|idx|public.quiz_paper_scans_student_idx",
+        "n|rel|public.quiz_paper_scans_student_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.student_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quiz_paper_scans",
+        "quiz_paper_scans_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.quiz_paper_scans_attempt_idx",
+        "n|idx|public.quiz_paper_scans_attempt_idx",
+        "e|idx|public.quiz_paper_scans_attempt_idx",
+        "n|rel|public.quiz_paper_scans_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.attempt_id"
       ]
     },
     {
@@ -14900,6 +15061,98 @@
       "statementTarget": [
         "table",
         "public",
+        "quiz_paper_batches"
+      ],
+      "writes": [
+        "s|fk|public.quiz_paper_batches.quiz_paper_batches_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_paper_batches.quiz_paper_batches_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_paper_batches.quiz_paper_batches_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_paper_batches.quiz_paper_batches_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_batches",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_paper_batches.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_paper_scans"
+      ],
+      "writes": [
+        "s|fk|public.quiz_paper_scans.quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey",
+        "n|fk|public.quiz_paper_scans.quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey",
+        "e|fk|public.quiz_paper_scans.quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey",
+        "n|con|public.quiz_paper_scans.quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|tbl|public.quiz_paper_batches",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.batch_id",
+        "n|col|public.quiz_paper_batches.id",
+        "e|uniqueness|public.quiz_paper_batches.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_paper_scans"
+      ],
+      "writes": [
+        "s|fk|public.quiz_paper_scans.quiz_paper_scans_quiz_id_quizzes_id_fkey",
+        "n|fk|public.quiz_paper_scans.quiz_paper_scans_quiz_id_quizzes_id_fkey",
+        "e|fk|public.quiz_paper_scans.quiz_paper_scans_quiz_id_quizzes_id_fkey",
+        "n|con|public.quiz_paper_scans.quiz_paper_scans_quiz_id_quizzes_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.quiz_id",
+        "n|col|public.quizzes.id",
+        "e|uniqueness|public.quizzes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quiz_paper_scans"
+      ],
+      "writes": [
+        "s|fk|public.quiz_paper_scans.quiz_paper_scans_attempt_id_quiz_attempts_id_fkey",
+        "n|fk|public.quiz_paper_scans.quiz_paper_scans_attempt_id_quiz_attempts_id_fkey",
+        "e|fk|public.quiz_paper_scans.quiz_paper_scans_attempt_id_quiz_attempts_id_fkey",
+        "n|con|public.quiz_paper_scans.quiz_paper_scans_attempt_id_quiz_attempts_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quiz_paper_scans",
+        "n|sch|public",
+        "n|tbl|public.quiz_attempts",
+        "n|sch|public",
+        "n|col|public.quiz_paper_scans.attempt_id",
+        "n|col|public.quiz_attempts.id",
+        "e|uniqueness|public.quiz_attempts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "assign_annotations"
       ],
       "writes": [
@@ -17363,6 +17616,18 @@
     {
       "schema": "public",
       "name": "quizzes",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_paper_batches",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "quiz_paper_scans",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -31740,6 +32005,370 @@
     },
     {
       "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "variant_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "exam_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "code_digits",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "4",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "layout",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "roster",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "batch_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "session_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "file_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "warped_file_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "student_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "identity_source",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "identity_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "variant_code_read",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'needs_identity'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quality",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "readings",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "attempt_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "uploaded_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "id",
       "type": "uuid",
@@ -45870,6 +46499,139 @@
     },
     {
       "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_batch_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "batch_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_student_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "student_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_idx",
       "nameExplicit": true,
@@ -52272,6 +53034,74 @@
     },
     {
       "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "batch_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quiz_paper_batches",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_quiz_id_quizzes_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "quiz_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quizzes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_attempt_id_quiz_attempts_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "attempt_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "quiz_attempts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "assign_annotations_submission_id_assign_submissions_id_fkey",
       "nameExplicit": false,
@@ -54758,6 +55588,26 @@
     },
     {
       "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "assign_annotations",
       "name": "assign_annotations_pkey",
       "columns": [
@@ -56122,6 +56972,30 @@
     },
     {
       "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_quiz_variant_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "variant_code"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_quiz_exam_code_unique",
+      "nameExplicit": true,
+      "columns": [
+        "quiz_id",
+        "exam_code"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "assign_grades",
       "name": "assign_grades_assignment_user_unique",
       "nameExplicit": true,
@@ -56957,6 +57831,27 @@
       "table": "quizzes",
       "name": "quizzes_exam_kind_check",
       "value": "\"exam_kind\" is null or \"exam_kind\" in ('regular', 'periodic', 'mock')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_batches",
+      "name": "quiz_paper_batches_code_digits_check",
+      "value": "\"code_digits\" in (4, 8)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_status_check",
+      "value": "\"status\" in ('needs_identity', 'needs_review', 'ready', 'recorded')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "quiz_paper_scans",
+      "name": "quiz_paper_scans_identity_source_check",
+      "value": "\"identity_source\" is null or \"identity_source\" in ('qr', 'bubbles', 'manual')",
       "entityType": "checks"
     },
     {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, PaperSlotLayout, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -27,6 +27,7 @@ export const QUIZ_CAPABILITIES = {
   viewMatrix: 'quiz:viewmatrix',
   manageMatrix: 'quiz:managematrix',
   grade: 'quiz:grade',
+  gradePaper: 'quiz:gradepaper',
   viewReports: 'quiz:viewreports',
   preview: 'quiz:preview',
 } as const;
@@ -2741,6 +2742,123 @@ export class QuizService {
       // thành công ở tầng quiz, lỗi ghi điểm chỉ được log cảnh báo tại
       // đây (đúng ý đồ của hàm này) chứ không truyền ra response.
       this.logger.warn(`quiz ${quiz.id}: could not record grade ${value} for user ${userId} on item ${item.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // --- CAM-0: chấm bài giấy bằng camera (issue #112) -----------------------------
+
+  /**
+   * Phân giải layout phiếu in cho một quiz (cổng quiz:gradepaper): mọi
+   * slot phải là câu CỐ ĐỊNH thuộc loại trắc nghiệm/đúng-sai — phiếu
+   * giấy là một đề cố định, slot ngẫu nhiên theo category/ma trận
+   * không in được. Mỗi slot được GHIM vào đúng version sẽ in (slot
+   * pinned dùng version đã ghim; slot follow_latest ghim version mới
+   * nhất tại thời điểm sinh phiếu) kèm đáp án của version đó theo thứ
+   * tự in, để lúc ghi điểm chấm đúng bản đã phát cho học sinh.
+   */
+  async resolvePaperLayout(actorId: string, quizId: string): Promise<{ quiz: QuizRow; layout: PaperSlotLayout[] }> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.gradePaper);
+    const slots = await this.repo.listSlots(quiz.id);
+    if (!slots.length) throw new BadRequestException({ message: 'This quiz has no questions yet', code: 'quiz.no_questions' });
+    if (slots.length > 60) {
+      throw new UnprocessableEntityException({ message: 'A paper answer sheet supports at most 60 questions', code: 'paper.too_many_questions' });
+    }
+    const layout: PaperSlotLayout[] = [];
+    for (const slot of slots) {
+      if (!slot.questionId) {
+        throw new UnprocessableEntityException({ message: 'Paper sheets need a fixed paper: every slot must pin a specific question (no random category/matrix slots)', code: 'paper.requires_fixed_slots' });
+      }
+      const view = await this.questions.getQuestion(slot.questionId);
+      const qtype = view.question.qtype;
+      if (qtype !== 'multichoice' && qtype !== 'truefalse') {
+        throw new UnprocessableEntityException({ message: `Question type ${qtype} cannot be printed on an OMR answer sheet`, code: 'paper.unsupported_qtype' });
+      }
+      const pinnedId = slot.versionMode === 'pinned' ? slot.pinnedVersionId : null;
+      const content = pinnedId && pinnedId !== view.latestVersion.id
+        ? await this.questions.getVersionContent(slot.questionId, pinnedId)
+        : { version: view.latestVersion, answers: view.answers, options: view.options };
+      let answerIds: string[];
+      if (qtype === 'truefalse') {
+        // Options view của truefalse là { trueAnswer, falseAnswer } (xem
+        // QuestionsService.optionsView) — trỏ thẳng vào 2 dòng đáp án
+        // đúng/sai của version.
+        const tf = content.options as { trueAnswer?: string; falseAnswer?: string } | null;
+        if (!tf?.trueAnswer || !tf?.falseAnswer) throw new UnprocessableEntityException({ message: 'True/false question is missing its true/false answer mapping', code: 'paper.bad_truefalse' });
+        // Thứ tự in của câu đúng/sai: ô 1 = Đ (trueanswer), ô 2 = S (falseanswer).
+        answerIds = [tf.trueAnswer, tf.falseAnswer];
+      } else {
+        if (content.answers.length < 2 || content.answers.length > 5) {
+          throw new UnprocessableEntityException({ message: 'A printed multichoice question needs 2–5 answers', code: 'paper.bad_option_count' });
+        }
+        answerIds = content.answers.map((a) => a.id);
+      }
+      layout.push({
+        slot: slot.slot, questionId: slot.questionId, versionId: content.version.id,
+        qtype, optionCount: answerIds.length, answerIds, maxMark: slot.maxMark,
+        clusterId: slot.clusterId ?? null,
+      });
+    }
+    return { quiz, layout };
+  }
+
+  /**
+   * Ghi một phiếu giấy đã được giáo viên xác nhận thành attempt của
+   * học sinh (cổng quiz:gradepaper, kiểm tại resolvePaperLayout của lô
+   * — hàm này tin layout do module paper-grading truyền vào sau khi đã
+   * kiểm quyền). Attempt là attempt THẬT của học sinh: usage dựng từ
+   * đúng các version đã ghim trên phiếu, đáp án nộp qua engine như
+   * attempt online, chốt bằng đúng đường finalizeAttempt (điểm chảy
+   * vào sổ điểm như thường). appliedSettings mang dấu nguồn giấy
+   * {source: 'paper-scan', scanId, batchId, variantCode} để báo cáo
+   * phân biệt được lượt thi giấy. responses[i] là chuỗi đáp án theo
+   * ngữ nghĩa engine cho slot i (multichoice: answerId đã chọn;
+   * truefalse: 'true'/'false'; null: để trống).
+   */
+  async recordPaperAttempt(actorId: string, quizId: string, input: {
+    studentId: string;
+    layout: PaperSlotLayout[];
+    responses: (string | null)[];
+    scanId: string;
+    batchId: string;
+    variantCode: string;
+  }): Promise<{ attemptId: string; state: string; sumGrades: number | null }> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.gradePaper);
+    const existing = await this.repo.listAttemptsForUser(quiz.id, input.studentId, true);
+    const attemptNumber = existing.length + 1;
+    const now = new Date();
+    const usage = await this.questions.createUsage(input.studentId, {
+      component: QUIZ_COMPONENT, instanceId: quiz.id, contextId: await this.cmContextId(quiz),
+      slots: input.layout.map((s) => ({ questionId: s.questionId, maxMark: s.maxMark, pinnedVersionId: s.versionId })),
+    });
+    try {
+      await this.questions.startUsage(input.studentId, usage.usage.id);
+      const row = await this.repo.insertAttempt({
+        quizId: quiz.id, userId: input.studentId, attemptNumber, usageId: usage.usage.id,
+        state: 'inprogress', preview: false, timeStart: now, makeup: false,
+        appliedSettings: { source: 'paper-scan', scanId: input.scanId, batchId: input.batchId, variantCode: input.variantCode },
+      });
+      await this.outbox.enqueueStandalone({
+        aggregate: 'quiz', type: 'quiz_attempt_started',
+        payload: { quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: input.studentId, attemptNumber, preview: false, actorId },
+      });
+      const usageView = await this.questions.getUsage(usage.usage.id);
+      for (const s of input.layout) {
+        const response = input.responses[s.slot - 1] ?? null;
+        if (response === null) continue;
+        const qa = usageView.attempts.find((a) => a.slot === s.slot);
+        if (!qa) throw new BadRequestException({ message: `Usage is missing slot ${s.slot}`, code: 'paper.slot_missing' });
+        await this.questions.submitResponse(input.studentId, qa.id, response);
+      }
+      await this.finalizeAttempt(quiz, row, false);
+      const updated = await this.getAttemptRow(row.id);
+      return { attemptId: updated.id, state: updated.state, sumGrades: updated.sumGrades };
+    } catch (err) {
+      // Cùng kỷ luật dọn dẹp với startAttempt: attempt chưa thành hình
+      // thì xoá usage mồ côi (hàng attempt, nếu đã chèn, cascade theo).
+      await this.questions.deleteUsage(usage.usage.id).catch(() => undefined);
+      throw err;
     }
   }
 

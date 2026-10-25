@@ -28,6 +28,7 @@ import { QuestionsModule } from './modules/questions/questions.module';
 import { McpModule } from './modules/mcp/mcp.module';
 import { ExamPapersModule } from './modules/exam-papers/exam-papers.module';
 import { QuizModule } from './modules/quiz/quiz.module';
+import { PaperGradingModule } from './modules/paper-grading/paper-grading.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { ContentModule } from './modules/content/content.module';
 import { CurriculumModule } from './modules/curriculum/curriculum.module';
@@ -134,6 +135,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     McpModule,
     ExamPapersModule,
     QuizModule,
+    PaperGradingModule,
     AssignmentsModule,
     ContentModule,
     CurriculumModule,

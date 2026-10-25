@@ -133,7 +133,11 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // oauth_client_assertion.id là TEXT do provider tự cấp bằng hàm
     // băm xác định; allowlist tường minh của hai cột này nằm ở test
     // (1b) ngay dưới.
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(181);
+    // + quiz_paper_batches, quiz_paper_scans (CAM-0 chấm bài giấy bằng
+    // camera, issue #112 — lô phiếu in/chụp + từng phiếu đã quét, cả hai
+    // PK id uuidv7) → trên cây hợp nhất với main 27f67cc (MCP-1 #164 đã
+    // merge): 197 bảng tổng, 183 bảng có PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(183);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -148,12 +152,13 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 183 bảng có cột `id`: 181 bảng PK uuidv7 như khuôn chung + ĐÚNG
+    // 185 bảng có cột `id`: 183 bảng PK uuidv7 như khuôn chung (gồm 2
+    // bảng giấy của CAM-0, issue #112) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(183);
+    expect(defaults.rows.length).toBe(185);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

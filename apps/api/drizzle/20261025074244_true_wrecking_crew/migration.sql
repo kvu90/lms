@@ -1448,6 +1448,45 @@ CREATE TABLE "quizzes" (
 	CONSTRAINT "quizzes_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'periodic', 'mock'))
 );
 --> statement-breakpoint
+CREATE TABLE "quiz_paper_batches" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"variant_code" text NOT NULL,
+	"exam_code" text,
+	"code_digits" integer DEFAULT 4 NOT NULL,
+	"layout" jsonb NOT NULL,
+	"roster" jsonb NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_paper_batches_quiz_variant_unique" UNIQUE("quiz_id","variant_code"),
+	CONSTRAINT "quiz_paper_batches_quiz_exam_code_unique" UNIQUE("quiz_id","exam_code"),
+	CONSTRAINT "quiz_paper_batches_code_digits_check" CHECK ("code_digits" in (4, 8))
+);
+--> statement-breakpoint
+CREATE TABLE "quiz_paper_scans" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"batch_id" uuid,
+	"session_id" uuid,
+	"quiz_id" uuid NOT NULL,
+	"file_id" uuid NOT NULL,
+	"warped_file_id" uuid,
+	"student_id" uuid,
+	"identity_source" text,
+	"identity_code" text,
+	"variant_code_read" text,
+	"status" text DEFAULT 'needs_identity' NOT NULL,
+	"quality" jsonb,
+	"readings" jsonb DEFAULT '[]' NOT NULL,
+	"attempt_id" uuid,
+	"uploaded_by" uuid NOT NULL,
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_paper_scans_status_check" CHECK ("status" in ('needs_identity', 'needs_review', 'ready', 'recorded')),
+	CONSTRAINT "quiz_paper_scans_identity_source_check" CHECK ("identity_source" is null or "identity_source" in ('qr', 'bubbles', 'manual'))
+);
+--> statement-breakpoint
 CREATE TABLE "assign_annotations" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"submission_id" uuid NOT NULL,
@@ -2724,6 +2763,12 @@ CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "quizzes_paper_idx" ON "quizzes" ("paper_id");--> statement-breakpoint
 CREATE INDEX "quizzes_paper_version_idx" ON "quizzes" ("paper_version_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_batches_quiz_idx" ON "quiz_paper_batches" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_quiz_idx" ON "quiz_paper_scans" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_batch_idx" ON "quiz_paper_scans" ("batch_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_status_idx" ON "quiz_paper_scans" ("quiz_id","status");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_student_idx" ON "quiz_paper_scans" ("student_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_attempt_idx" ON "quiz_paper_scans" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
@@ -3054,6 +3099,10 @@ ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "quiz_paper_batches" ADD CONSTRAINT "quiz_paper_batches_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "quiz_paper_batches"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint

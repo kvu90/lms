@@ -73,10 +73,11 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     // (105 + 6 quyền exam:* của Ngân hàng đề EB-1, issue #113:
     // exam:view, exam:edit, exam:copy, exam:share, exam:moderate,
     // exam:deploy) + 1 quyền moderation:manage của vòng đời tin nhắn
-    // theo vai (issue #124) → 112, every one prefix-free,
+    // theo vai (issue #124) → 112, + 1 quyền quiz:gradepaper của CAM-0
+    // (issue #112) → 113, every one prefix-free,
     // and the renamed defaults were re-seeded at the system context.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    expect(Number(defs.rows[0].n)).toBe(112);
+    expect(Number(defs.rows[0].n)).toBe(113);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],

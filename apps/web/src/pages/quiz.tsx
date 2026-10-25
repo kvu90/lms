@@ -289,6 +289,11 @@ export function QuizPage() {
                 {t('quizViewResults')}
               </Button>
             ) : null}
+            {permissions.grade ? (
+              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/quizzes/${quizId}/paper`} />}>
+                {t('paperTitle')}
+              </Button>
+            ) : null}
           </div>
           {data.myGrade !== null ? (
             <p className="text-sm font-medium">{t('quizMyGrade', { grade: data.myGrade, max: quiz.grade })}</p>

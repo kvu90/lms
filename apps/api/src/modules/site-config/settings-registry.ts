@@ -45,6 +45,18 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // chỉ dời điểm đọc này, KHÔNG đổi máy trạng thái bộ hồ sơ. EB-3
   // không xây UI/API cấu hình riêng cho công tắc này.
   { component: 'exam', name: 'requireboardapproval', type: 'boolean', defaultValue: false },
+  // Chấm bài giấy bằng camera (CAM-0, issue #112): ngưỡng quyết định hai
+  // tầng của OMR — mật độ mực chuẩn hoá 0..1 của một ô; ô trên
+  // omrfilldensity = đã tô, dưới omrblankdensity = trống, ở giữa là MƠ
+  // HỒ (hàng chờ giáo viên, không tự quyết); omrminmargin là chênh mật
+  // độ tối thiểu giữa ô đậm nhất và ô nhì để ô thắng được coi là chắc
+  // chắn. paperscanretentionmonths là số tháng giữ ảnh gốc phiếu quét
+  // (mặc định theo đề xuất research: hết năm học + 1 học kỳ ≈ 18 tháng;
+  // mốc xoá được vật hoá vào từng phiếu lúc tải lên).
+  { component: 'mod_quiz', name: 'omrfilldensity', type: 'number', defaultValue: 0.42 },
+  { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16 },
+  { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1 },
+  { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18 },
 ];
 
 /**
