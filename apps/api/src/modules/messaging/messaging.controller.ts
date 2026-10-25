@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -50,6 +50,17 @@ export class MessagingController {
    */
   async listMessages(@Param('id', { schema: uuidIdSchema }) id: string, @Query({ schema: listMessagesQueryServerSchema }) query: ListMessagesQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.listConversationMessages(actor.id, id, query);
+  }
+  @Get('conversations/:id/search')
+  /**
+   * GET /messages/conversations/:id/search — tìm nội dung tin TRONG
+   * một conversation (lát M4, issue #237): chỉ thành viên của chính
+   * conversation đó, kết quả chỉ chứa tin còn hiển thị được với người
+   * tìm. Tìm kiếm tin CHỈ tồn tại ở bề mặt này — không có index nội
+   * dung tin vào search toàn cục.
+   */
+  async searchMessages(@Param('id', { schema: uuidIdSchema }) id: string, @Query({ schema: searchMessagesQueryServerSchema }) query: SearchMessagesQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.searchConversationMessages(actor.id, id, query);
   }
   @Post('conversations/:id/messages')
   /**

@@ -9,6 +9,7 @@ import {
   richTextDocumentSchema, richTextInputSchema, toRichTextDocument, extractRichTextPlainText, emptyRichTextDocument,
   createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema,
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
+  searchMessagesQuerySchema, messageSearchResultSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -48,6 +49,20 @@ describe('engagement contracts', () => {
     });
     expect(pref.popupEnabled).toBe(true);
     expect(pref.group).toBe('people');
+  });
+
+  it('khoá hình dạng tìm tin trong conversation (M4): q bắt buộc có độ dài xác định, trần kết quả 50', () => {
+    // Tìm tin chỉ tồn tại trong bề mặt nhắn tin: q rỗng bị schema
+    // chặn ngay (tầng service còn chặn q toàn khoảng trắng bằng 400).
+    expect(searchMessagesQuerySchema.parse({ q: 'học bài' })).toEqual({ q: 'học bài' });
+    expect(() => searchMessagesQuerySchema.parse({ q: '' })).toThrow();
+    expect(() => searchMessagesQuerySchema.parse({ q: 'x'.repeat(201) })).toThrow();
+    expect(() => searchMessagesQuerySchema.parse({ q: 'ok', limit: 51 })).toThrow();
+    const result = messageSearchResultSchema.parse({
+      id: '01900000-0000-7000-8000-000000000001', conversationId: '01900000-0000-7000-8000-000000000002',
+      userIdFrom: '01900000-0000-7000-8000-000000000003', seq: 7, excerpt: '…học bài…', createdAt: new Date().toISOString(),
+    });
+    expect(result.seq).toBe(7);
   });
 
   it('parses calendar events, badges and rejects impossible shapes', () => {

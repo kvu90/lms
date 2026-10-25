@@ -11,6 +11,7 @@ import {
   notifyUserSchema,
   readNotificationGroupSchema,
   reportConversationSchema,
+  searchMessagesQuerySchema,
   sendMessageSchema,
   setNotificationCourseOverrideSchema,
   setNotificationPreferenceSchema,
@@ -35,7 +36,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQuerySchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -61,6 +62,17 @@ export const listMessagesQueryServerSchema = listMessagesQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ListMessagesQueryDto = z.infer<typeof listMessagesQueryServerSchema>;
+
+/**
+ * Schema phía server cho query tìm tin trong conversation (lát M4):
+ * `limit` ép kiểu từ query string như các schema server khác; `q`
+ * giữ nguyên chuỗi — tầng service cắt khoảng trắng và từ chối truy
+ * vấn rỗng bằng 400 xác định (schema chỉ chặn chuỗi rỗng hẳn).
+ */
+export const searchMessagesQueryServerSchema = searchMessagesQuerySchema.extend({
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+export type SearchMessagesQueryDto = z.infer<typeof searchMessagesQueryServerSchema>;
 
 /**
  * Schema phía server cho query phân trang roster thành viên khoá —

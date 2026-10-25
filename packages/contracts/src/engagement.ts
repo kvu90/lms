@@ -368,6 +368,37 @@ export const listMessagesQuerySchema = z.strictObject({
 export type ListMessagesQuery = z.infer<typeof listMessagesQuerySchema>;
 
 /**
+ * Tìm nội dung tin TRONG MỘT conversation (lát M4, issue #237): chỉ
+ * tồn tại bên trong bề mặt nhắn tin — nội dung tin KHÔNG được index
+ * vào search toàn cục của hệ (chốt ở hồ sơ rà soát hoàn thiện nhắn
+ * tin). `q` là chuỗi con khớp không phân biệt hoa thường; tầng service
+ * cắt khoảng trắng hai đầu và từ chối truy vấn rỗng bằng 400 xác định.
+ */
+export const searchMessagesQuerySchema = z.strictObject({
+  q: z.string().min(1).max(200),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+export type SearchMessagesQuery = z.infer<typeof searchMessagesQuerySchema>;
+
+/**
+ * Một kết quả tìm tin trong conversation (lát M4): `excerpt` là đoạn
+ * nội dung quanh chỗ khớp do server rút gọn — kết quả CHỈ chứa tin
+ * còn hiển thị được với chính người tìm theo luật bề mặt đọc (đã xoá
+ * mềm/thu hồi/ẩn-phía-mình/phía bị chặn không bao giờ xuất hiện, kể
+ * cả qua excerpt). `seq` + `id` là neo để client nhảy tới đúng tin
+ * bằng cơ chế cửa sổ quanh seq của lát M3.
+ */
+export const messageSearchResultSchema = z.object({
+  id: uuidIdSchema,
+  conversationId: uuidIdSchema,
+  userIdFrom: uuidIdSchema,
+  seq: z.number().int(),
+  excerpt: z.string(),
+  createdAt: z.string(),
+});
+export type MessageSearchResult = z.infer<typeof messageSearchResultSchema>;
+
+/**
  * Bật/tắt chat của một conversation (Lớp B, issue #33): nhóm lớp mặc
  * định chat hai chiều; giáo viên phụ trách (hoặc người tạo nhóm tự do,
  * hoặc quản trị viên) tắt được — học sinh dừng gửi, người có thẩm quyền

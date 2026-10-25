@@ -10,7 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type NotificationRow, type ReportRow } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository, searchExcerptOf, type ConversationRow, type MessageRow, type MessageWithQuoteRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
@@ -1525,6 +1525,49 @@ export class MessagingService {
       hasMoreBefore: messages.length > 0 && query.afterSeq === undefined
         ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate, canModerate ? undefined : userId)
         : false,
+    };
+  }
+
+  /**
+   * Tìm nội dung tin TRONG một conversation (lát M4, issue #237):
+   * cùng cổng với các đường đọc tin — chỉ thành viên, hội thoại 1–1
+   * đang bị chặn hành xử như không tồn tại, người có thẩm quyền kiểm
+   * duyệt tìm theo tầm nhìn truy vết. Kết quả mang excerpt quanh chỗ
+   * khớp + seq để client nhảy tới đúng tin; kết quả chỉ chứa tin còn
+   * hiển thị được với chính người tìm (luật chi tiết ở repository).
+   * Truy vấn rỗng sau khi cắt khoảng trắng → 400 xác định
+   * `messaging.search_query_empty` (schema route chỉ chặn chuỗi
+   * rỗng hẳn; truy vấn toàn khoảng trắng lọt tới đây).
+   */
+  async searchConversationMessages(userId: string, conversationId: string, query: {
+    q: string; limit?: number;
+  }): Promise<{ results: { id: string; conversationId: string; userIdFrom: string; seq: number; excerpt: string; createdAt: Date }[] }> {
+    const q = query.q.trim();
+    if (q.length === 0) {
+      throw new BadRequestException({ message: 'Search query must not be empty', code: 'messaging.search_query_empty' });
+    }
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    await this.assertConversationMember(userId, conversation);
+    await this.assertDirectConversationVisible(userId, conversation);
+    const canModerate = await this.canModerateConversation(userId, conversation);
+    const rows = await this.repo.searchMessages(conversationId, {
+      query: q,
+      limit: query.limit,
+      privileged: canModerate,
+      viewerId: canModerate ? undefined : userId,
+      excludedAuthorIds: canModerate ? undefined : await this.repo.listBlockedCounterpartIds(userId),
+    });
+    return {
+      results: rows.map((row) => ({
+        id: row.id,
+        conversationId: row.conversationId,
+        userIdFrom: row.userIdFrom,
+        seq: row.seq,
+        excerpt: searchExcerptOf(row.fullMessage, q),
+        createdAt: row.createdAt,
+      })),
     };
   }
 

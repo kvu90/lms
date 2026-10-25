@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
 import { useTranslation } from 'react-i18next';
 import type {
   ContactRequestView,
@@ -52,6 +54,19 @@ export function ConversationSidebar({
   const sendContactRequestTo = onSendContactRequest;
   const respondContactRequest = onRespondContactRequest;
   const unblockContact = onUnblockContact;
+  /**
+   * Lọc danh sách hội thoại theo TÊN HIỂN THỊ (lát M4, issue #237):
+   * lọc ngay tại client trên danh sách đã tải — tên hiển thị là đúng
+   * chuỗi người dùng thấy (tên hội thoại hoặc tên các thành viên),
+   * khớp chuỗi con không phân biệt hoa thường.
+   */
+  const [conversationFilter, setConversationFilter] = useState('');
+  const labelOf = (c: ConversationView) =>
+    c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') });
+  const filterNeedle = conversationFilter.trim().toLocaleLowerCase('vi');
+  const visibleConversations = filterNeedle
+    ? conversations.filter((c) => labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle))
+    : conversations;
   return (
       <Card>
         <CardHeader>
@@ -61,15 +76,25 @@ export function ConversationSidebar({
         </CardHeader>
         <CardContent className="space-y-3">
           {error ? <p role="alert">{error}</p> : null}
+          <Input
+            type="search"
+            aria-label={t('conversationSearchLabel')}
+            placeholder={t('conversationSearchPlaceholder')}
+            value={conversationFilter}
+            onChange={(e) => setConversationFilter(e.target.value)}
+          />
+          {filterNeedle && visibleConversations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('conversationSearchNoResults')}</p>
+          ) : null}
           <ul className="space-y-1">
-            {conversations.map((c) => (
+            {visibleConversations.map((c) => (
               <li key={c.id}>
                 <Button
                   type="button"
                   variant={active?.id === c.id ? 'default' : 'outline'}
                   onClick={() => void open(c)}
                 >
-                  {c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') })}
+                  {labelOf(c)}
                   {(c.unread ?? 0) > 0 ? t('unreadSuffix', { count: c.unread }) : ''}
                 </Button>
                 {c.lastMessage ? (
