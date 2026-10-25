@@ -24,16 +24,33 @@ export type LoginState = 'loggedin' | 'loggedoff';
 /**
  * Phân loại 3 nhóm cho trang cài đặt thông báo (hồ sơ chuẩn thông báo
  * 2026-10-24, mục D.1): Học tập / Lớp & mọi người / Hệ thống. Nhãn hiển
- * thị + mô tả từng loại thuộc lát N3; ở đây chỉ đăng ký nhóm để hợp
- * đồng preferences mang theo.
+ * thị + mô tả từng loại nằm ngay trong registry provider (NB-2).
  */
 export type MessageProviderGroup = 'learning' | 'people' | 'system';
+
+/** Tần suất gửi email của một loại thông báo (mô hình tuỳ chọn v2, NB-2). */
+export type EmailFrequency = 'immediate' | 'daily' | 'off';
 
 export interface MessageProviderDefinition {
   name: string;
   component: string;
   channels: MessageChannel[];
   group: MessageProviderGroup;
+  /**
+   * Nhãn + mô tả 1 dòng vi/en (NB-2, issue #174): registry ở API là
+   * nguồn sự thật DUY NHẤT — trang cài đặt web hiển thị nguyên văn,
+   * không tự chế bảng nhãn, nên không còn khoá thô nào trên trang.
+   */
+  label: { vi: string; en: string };
+  description: { vi: string; en: string };
+  /** Loại chỉ giáo viên mới nhận được — trang cài đặt gắn nhãn theo vai. */
+  teacherOnly?: boolean;
+  /**
+   * Loại bắt buộc theo chính sách P2 (issue #174): kênh trong-app
+   * KHÔNG tắt được (API từ chối khi đặt tắt + notify() luôn phát);
+   * kênh ngoài vẫn là quyền cá nhân tuyệt đối.
+   */
+  mandatoryInApp?: boolean;
 }
 
 /**
@@ -50,14 +67,36 @@ export interface MessageProviderDefinition {
  * conversation khi còn chưa đọc).
  */
 export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
-  { name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'course_completed', component: 'core_completion', channels: ['popup'], group: 'learning' },
-  { name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning' },
+  {
+    name: 'grade_updated', component: 'core_grades', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Điểm số thay đổi', en: 'Grade updated' },
+    description: { vi: 'Khi một mục điểm của bạn được chấm hoặc cập nhật.', en: 'When one of your grade items is graded or updated.' },
+  },
+  {
+    name: 'course_completed', component: 'core_completion', channels: ['popup'], group: 'learning',
+    label: { vi: 'Hoàn thành khoá học', en: 'Course completed' },
+    description: { vi: 'Khi bạn hoàn thành một khoá học.', en: 'When you complete a course.' },
+  },
+  {
+    // Chính sách P2 (issue #174): sắp hết hạn ghi danh là một trong
+    // hai loại bắt buộc — trong-app không tắt được.
+    name: 'enrol_expiry_warning', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning', mandatoryInApp: true,
+    label: { vi: 'Sắp hết hạn ghi danh', en: 'Enrolment expiring soon' },
+    description: { vi: 'Khi thời hạn ghi danh khoá học của bạn sắp hết.', en: 'When your course enrolment is about to expire.' },
+  },
+  {
+    name: 'enrol_welcome', component: 'core_enrol', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Chào mừng ghi danh', en: 'Enrolment welcome' },
+    description: { vi: 'Khi bạn được ghi danh vào một khoá học mới.', en: 'When you are enrolled in a new course.' },
+  },
   // Nhắc hạn nộp tự động 24 giờ (lát N5, issue #50): worker quét hạn
   // nộp phát sự kiện outbox activity_due_reminder, consumer biến thành
   // thông báo — bật mặc định (quyết định đã chốt trong issue #50).
-  { name: 'activity_due_soon', component: 'core_course', channels: ['popup', 'email'], group: 'learning' },
+  {
+    name: 'activity_due_soon', component: 'core_course', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Hoạt động sắp đến hạn', en: 'Activity due soon' },
+    description: { vi: 'Nhắc trước 24 giờ khi bài tập hoặc bài kiểm tra sắp đến hạn nộp.', en: 'A reminder 24 hours before an assignment or quiz is due.' },
+  },
   // Vòng đời Bài tập + Quiz hai chiều (NB-1, issue #174): consumer sự
   // kiện assignment_created/submitted/returned + quiz_created/
   // quiz_attempt_finished biến thành thông báo — assignment_assigned/
@@ -66,32 +105,98 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   // sinh nhận xác nhận đã nộp; giáo viên nhận bản GỘP theo bài tập —
   // chính sách P5), quiz_attempt_finished cho GIÁO VIÊN khi lượt làm
   // kết thúc ở trạng thái cần chấm tay (gộp theo quiz như P5).
-  { name: 'assignment_assigned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'assignment_submitted', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'assignment_returned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'quiz_available', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'quiz_attempt_finished', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning' },
+  {
+    name: 'assignment_assigned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Bài tập mới', en: 'New assignment' },
+    description: { vi: 'Khi giáo viên giao một bài tập mới trong khoá của bạn.', en: 'When a teacher assigns new work in your course.' },
+  },
+  {
+    name: 'assignment_submitted', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Bài nộp', en: 'Submission' },
+    description: { vi: 'Xác nhận khi bạn nộp bài; giáo viên nhận bản gộp số bài chờ chấm theo bài tập.', en: 'Your submission receipt; teachers get the grouped pending count per assignment.' },
+  },
+  {
+    name: 'assignment_returned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Bài đã được trả', en: 'Assignment returned' },
+    description: { vi: 'Khi giáo viên trả bài kèm lời phê cho bạn.', en: 'When a teacher returns your work with feedback.' },
+  },
+  {
+    name: 'quiz_available', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Bài kiểm tra mới', en: 'New quiz' },
+    description: { vi: 'Khi một bài kiểm tra mới được mở trong khoá của bạn.', en: 'When a new quiz opens in your course.' },
+  },
+  {
+    name: 'quiz_attempt_finished', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning', teacherOnly: true,
+    label: { vi: 'Lượt làm bài cần chấm', en: 'Attempt needs grading' },
+    description: { vi: 'Khi học sinh kết thúc lượt làm bài có câu cần chấm tay.', en: 'When a student finishes an attempt that needs manual grading.' },
+  },
   // Digest phụ huynh (PH-2, issue #159): worker quét cửa sổ phát sự
   // kiện guardian_digest_due, GuardianDigestConsumer (module Guardians)
   // tổng hợp dữ liệu ĐÃ CÔNG BỐ rồi gọi notify() — nội dung chỉ là số
   // lượng mục + link sâu, kênh ngoài dùng bản tối thiểu hoá, tuyệt đối
   // không điểm số (luật kênh ngoài của notify + research phụ huynh).
-  { name: 'guardian_digest', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning' },
+  {
+    name: 'guardian_digest', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Tổng hợp cho phụ huynh', en: 'Guardian digest' },
+    description: { vi: 'Bản tổng hợp tiến độ học tập gửi cho phụ huynh theo lịch.', en: 'The scheduled learning-progress digest for guardians.' },
+  },
   // Đẩy riêng quá hạn ≥7 ngày cho phụ huynh (PH-2, research mục
   // 5.3.6): đúng một lần cho từng (phụ huynh, con, hoạt động), dedupe
   // bền ở guardian_digests phía worker.
-  { name: 'guardian_overdue_alert', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning' },
-  { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'], group: 'people' },
-  { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'], group: 'people' },
+  {
+    name: 'guardian_overdue_alert', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning',
+    label: { vi: 'Cảnh báo quá hạn cho phụ huynh', en: 'Guardian overdue alert' },
+    description: { vi: 'Khi con bạn có hoạt động quá hạn từ 7 ngày trở lên.', en: 'When your child has an activity overdue by 7 days or more.' },
+  },
+  {
+    name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'], group: 'people',
+    label: { vi: 'Huy hiệu mới', en: 'New badge' },
+    description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
+  },
+  {
+    name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'], group: 'people',
+    label: { vi: 'Yêu cầu duyệt năng lực', en: 'Competency review requested' },
+    description: { vi: 'Khi có người yêu cầu bạn duyệt bằng chứng năng lực.', en: 'When someone asks you to review competency evidence.' },
+  },
   // Lớp B (issue #33): yêu cầu kết bạn mới — phía nhận được thông báo qua pipeline sẵn có.
-  { name: 'contact_request', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
+  {
+    name: 'contact_request', component: 'core_message', channels: ['popup', 'email'], group: 'people',
+    label: { vi: 'Yêu cầu kết bạn', en: 'Contact request' },
+    description: { vi: 'Khi có người gửi yêu cầu kết bạn cho bạn.', en: 'When someone sends you a contact request.' },
+  },
   // Lớp B (issue #33): một conversation bị báo cáo — giáo viên phụ trách + quản trị viên nhận được.
-  { name: 'conversation_reported', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
+  {
+    name: 'conversation_reported', component: 'core_message', channels: ['popup', 'email'], group: 'people', teacherOnly: true,
+    label: { vi: 'Hội thoại bị báo cáo', en: 'Conversation reported' },
+    description: { vi: 'Khi một hội thoại trong khoá bạn phụ trách bị báo cáo.', en: 'When a conversation in a course you teach is reported.' },
+  },
   // Tin nhắn mới (issue #49): consumer sự kiện message_sent tạo thông báo
   // tóm tắt theo conversation — nội dung tin KHÔNG bao giờ nằm trong thông báo.
-  { name: 'message_new', component: 'core_message', channels: ['popup', 'email'], group: 'people' },
-  { name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'], group: 'system' },
-  { name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'], group: 'system' },
+  {
+    name: 'message_new', component: 'core_message', channels: ['popup', 'email'], group: 'people',
+    label: { vi: 'Tin nhắn mới', en: 'New message' },
+    description: { vi: 'Khi bạn nhận được tin nhắn mới (nội dung tin không nằm trong thông báo).', en: 'When you receive a new message (the message text is never included).' },
+  },
+  {
+    name: 'calendar_reminder', component: 'core_calendar', channels: ['popup', 'email'], group: 'system',
+    label: { vi: 'Nhắc sự kiện lịch', en: 'Calendar reminder' },
+    description: { vi: 'Nhắc trước các sự kiện lịch bạn đã đặt.', en: 'Reminders for calendar events you created.' },
+  },
+  {
+    name: 'report_scheduled', component: 'core_reportbuilder', channels: ['popup', 'email'], group: 'system',
+    label: { vi: 'Báo cáo định kỳ', en: 'Scheduled report' },
+    description: { vi: 'Khi báo cáo định kỳ của bạn đã chạy xong.', en: 'When one of your scheduled reports has finished.' },
+  },
+  {
+    // Chính sách P2 (issue #174): loại thứ hai bắt buộc — thông báo
+    // quản trị/an toàn. Nơi phát thật là POST /notifications/send
+    // (sendSystemNotification, chỉ site admin): trước NB-2 admin phải
+    // mượn tên provider khác để gửi thông báo chính thức; nay có
+    // provider riêng đúng nghĩa và bị khoá trong-app theo P2.
+    name: 'admin_announcement', component: 'core_admin', channels: ['popup', 'email'], group: 'system', mandatoryInApp: true,
+    label: { vi: 'Thông báo quản trị & an toàn', en: 'Administrative & safety notices' },
+    description: { vi: 'Thông báo chính thức từ quản trị hệ thống, gồm cả cảnh báo an toàn tài khoản.', en: 'Official notices from system administrators, including account-safety alerts.' },
+  },
 ];
 
 export function providerByName(name: string): MessageProviderDefinition | undefined {
@@ -150,9 +255,47 @@ function notificationItemView(row: NotificationRow): NotificationItem {
   };
 }
 
-/** Preference key stored in user_preferences: provider × channel × login state. */
+/** Preference key stored in user_preferences: provider × channel × login state (mô hình CŨ — chỉ còn để suy giá trị tương đương và cho kênh push). */
 export function preferenceName(provider: string, channel: MessageChannel, state: LoginState): string {
   return `message_provider_${provider}_${channel}_${state}`;
+}
+
+/**
+ * Khoá tuỳ chọn v2 (NB-2, issue #174): một khoá cho popup ('1'/'0')
+ * và một khoá cho tần suất email ('immediate'/'daily'/'off') theo
+ * provider — KHÔNG còn trục loggedin/loggedoff. Khoá cũ không bị
+ * đụng: khi chưa có khoá v2, giá trị hiệu lực được SUY từ khoá cũ
+ * (hàng loggedin trước, loggedoff sau) ở hậu trường.
+ */
+export function preferenceNameV2(provider: string, kind: 'popup' | 'email'): string {
+  return `message_provider_${provider}_${kind}_v2`;
+}
+
+/**
+ * Kênh email đã gửi thật hay chưa: false cho tới khi SMTP nối ở NB-5
+ * (issue #174). Trang cài đặt đọc cờ này từ API để ghi chú trung thực
+ * "chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở" thay vì công tắc
+ * trần như kênh thật; tuỳ chọn vẫn lưu và có hiệu lực chặn ngay.
+ */
+export const EMAIL_CHANNEL_AVAILABLE = false;
+
+/** Tần suất email mặc định theo nhóm (chính sách P1: học tập = tổng hợp ngày, tin nhắn = ngay). */
+function defaultEmailFrequency(group: MessageProviderGroup): EmailFrequency {
+  return group === 'learning' ? 'daily' : 'immediate';
+}
+
+/** Một dòng tuỳ chọn v2 của một provider cho một user (hình dạng hợp đồng ở @lms/contracts). */
+export interface NotificationPreferenceView {
+  provider: string;
+  component: string;
+  group: MessageProviderGroup;
+  label: { vi: string; en: string };
+  description: { vi: string; en: string };
+  teacherOnly: boolean;
+  mandatoryInApp: boolean;
+  popupEnabled: boolean;
+  emailFrequency: EmailFrequency | null;
+  emailAvailable: boolean;
 }
 
 export interface NotifyResult {
@@ -287,6 +430,8 @@ export class MessagingService {
 
   /**
    * Kênh có đang bật cho provider này theo tuỳ chọn của user (phân biệt logged-in/logged-off) hay không.
+   * CHỈ còn dùng cho kênh push (chưa có mô hình v2 — push ẩn khỏi trang
+   * cài đặt cho tới khi có app native) và làm nền suy giá trị cũ.
    */
   async isChannelEnabled(userId: string, provider: string, channel: MessageChannel, state: LoginState): Promise<boolean> {
     const value = await this.users.getPreference(userId, preferenceName(provider, channel, state));
@@ -294,36 +439,91 @@ export class MessagingService {
   }
 
   /**
-   * Tuỳ chọn notification của user theo provider/kênh.
+   * Giá trị bật/tắt của mô hình CŨ cho một (provider × kênh): hàng
+   * loggedin là hàng notify() vẫn dùng trên thực tế (mọi nơi phát đều
+   * để loggedIn mặc định true), nên suy tương đương lấy loggedin
+   * trước, loggedoff sau; cả hai chưa đặt → undefined (dùng mặc định).
    */
-  async getPreferences(userId: string): Promise<{
-    provider: string; component: string; group: MessageProviderGroup; channel: MessageChannel; state: LoginState; enabled: boolean;
-  }[]> {
-    const out: { provider: string; component: string; group: MessageProviderGroup; channel: MessageChannel; state: LoginState; enabled: boolean }[] = [];
-    for (const provider of MESSAGE_PROVIDERS) {
-      for (const channel of provider.channels) {
-        for (const state of ['loggedin', 'loggedoff'] as LoginState[]) {
-          out.push({
-            provider: provider.name, component: provider.component, group: provider.group, channel, state,
-            enabled: await this.isChannelEnabled(userId, provider.name, channel, state),
-          });
-        }
+  private async legacyChannelValue(userId: string, provider: string, channel: MessageChannel): Promise<boolean | undefined> {
+    for (const state of ['loggedin', 'loggedoff'] as LoginState[]) {
+      const value = await this.users.getPreference(userId, preferenceName(provider, channel, state));
+      if (value !== undefined && value !== null) return value !== '0';
+    }
+    return undefined;
+  }
+
+  /**
+   * Giá trị tuỳ chọn v2 HIỆU LỰC của một provider cho một user: khoá
+   * v2 đã đặt thì dùng thẳng; chưa có thì suy từ dữ liệu cũ (không phá
+   * user_preferences hiện có — khoá cũ giữ nguyên, chỉ đọc). Loại bắt
+   * buộc (P2) luôn bật ở kênh trong-app bất kể giá trị đã lưu.
+   */
+  async resolveNotificationPreference(userId: string, provider: MessageProviderDefinition): Promise<{ popupEnabled: boolean; emailFrequency: EmailFrequency | null }> {
+    let popupEnabled: boolean;
+    const popupV2 = await this.users.getPreference(userId, preferenceNameV2(provider.name, 'popup'));
+    if (popupV2 !== undefined && popupV2 !== null) popupEnabled = popupV2 !== '0';
+    else popupEnabled = (await this.legacyChannelValue(userId, provider.name, 'popup')) ?? true;
+    if (provider.mandatoryInApp) popupEnabled = true;
+
+    let emailFrequency: EmailFrequency | null = null;
+    if (provider.channels.includes('email')) {
+      const emailV2 = await this.users.getPreference(userId, preferenceNameV2(provider.name, 'email'));
+      if (emailV2 === 'immediate' || emailV2 === 'daily' || emailV2 === 'off') emailFrequency = emailV2;
+      else {
+        const legacy = await this.legacyChannelValue(userId, provider.name, 'email');
+        emailFrequency = legacy === undefined ? defaultEmailFrequency(provider.group) : legacy ? defaultEmailFrequency(provider.group) : 'off';
       }
     }
+    return { popupEnabled, emailFrequency };
+  }
+
+  /** Một dòng tuỳ chọn v2 đầy đủ (nhãn/mô tả từ registry + giá trị hiệu lực của user). */
+  private async preferenceView(userId: string, provider: MessageProviderDefinition): Promise<NotificationPreferenceView> {
+    const resolved = await this.resolveNotificationPreference(userId, provider);
+    return {
+      provider: provider.name, component: provider.component, group: provider.group,
+      label: provider.label, description: provider.description,
+      teacherOnly: provider.teacherOnly ?? false, mandatoryInApp: provider.mandatoryInApp ?? false,
+      popupEnabled: resolved.popupEnabled, emailFrequency: resolved.emailFrequency,
+      emailAvailable: EMAIL_CHANNEL_AVAILABLE,
+    };
+  }
+
+  /**
+   * Tuỳ chọn notification v2 của user: một dòng cho mỗi provider đã
+   * đăng ký (NB-2 — không còn ma trận provider × kênh × trạng thái).
+   */
+  async getPreferences(userId: string): Promise<NotificationPreferenceView[]> {
+    const out: NotificationPreferenceView[] = [];
+    for (const provider of MESSAGE_PROVIDERS) out.push(await this.preferenceView(userId, provider));
     return out;
   }
 
   /**
-   * Đặt tuỳ chọn một provider/kênh.
+   * Đặt tuỳ chọn v2 cho MỘT provider (popup và/hoặc tần suất email).
+   * Ghi khoá v2 mới; khoá cũ không bị xoá hay ghi đè. Tắt popup của
+   * loại bắt buộc (P2) bị từ chối — kênh ngoài của loại bắt buộc vẫn
+   * tắt được tuyệt đối qua emailFrequency='off'.
    */
-  async setPreference(userId: string, input: { provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }): Promise<{ provider: string; channel: MessageChannel; state: LoginState; enabled: boolean }> {
+  async setPreference(userId: string, input: { provider: string; popupEnabled?: boolean; emailFrequency?: EmailFrequency }): Promise<NotificationPreferenceView> {
     const provider = providerByName(input.provider);
     if (!provider) throw new BadRequestException({ message: `Unknown message provider ${input.provider}`, code: 'messaging.unknown_provider' });
-    if (!provider.channels.includes(input.channel)) {
-      throw new BadRequestException({ message: `Provider ${input.provider} has no channel ${input.channel}`, code: 'messaging.unknown_channel' });
+    if (input.popupEnabled === undefined && input.emailFrequency === undefined) {
+      throw new BadRequestException({ message: 'Nothing to update: provide popupEnabled and/or emailFrequency', code: 'messaging.preference_empty' });
     }
-    await this.users.setPreference(userId, preferenceName(input.provider, input.channel, input.state), input.enabled ? '1' : '0');
-    return { ...input };
+    if (input.emailFrequency !== undefined && !provider.channels.includes('email')) {
+      throw new BadRequestException({ message: `Provider ${input.provider} has no channel email`, code: 'messaging.unknown_channel' });
+    }
+    if (input.popupEnabled === false && provider.mandatoryInApp) {
+      throw new BadRequestException({ message: `Provider ${input.provider} is mandatory in-app and cannot be turned off`, code: 'messaging.preference_mandatory' });
+    }
+    if (input.popupEnabled !== undefined) {
+      await this.users.setPreference(userId, preferenceNameV2(input.provider, 'popup'), input.popupEnabled ? '1' : '0');
+    }
+    if (input.emailFrequency !== undefined) {
+      await this.users.setPreference(userId, preferenceNameV2(input.provider, 'email'), input.emailFrequency);
+    }
+    return this.preferenceView(userId, provider);
   }
 
   // --- notifications -----------------------------------------------------------
@@ -366,10 +566,14 @@ export class MessagingService {
     const state: LoginState = (input.loggedIn ?? true) ? 'loggedin' : 'loggedoff';
     const channels: Record<string, string> = {};
     let notificationId: string | null = null;
+    // Tuỳ chọn v2 (NB-2) quyết định popup + email ngay tại lần phát này
+    // — đổi tuỳ chọn có hiệu lực ở lần phát KẾ TIẾP, không cần chờ gì.
+    // `state` chỉ còn quyết định kênh push (mô hình cũ, ẩn khỏi UI).
+    const resolved = await this.resolveNotificationPreference(userId, provider);
 
     // In-app (popup) is the only REAL channel: the notification row IS the delivery.
     if (provider.channels.includes('popup')) {
-      if (await this.isChannelEnabled(userId, providerName, 'popup', state)) {
+      if (resolved.popupEnabled) {
         const notification = await this.repo.insertNotification({
           userIdFrom: input.fromUserId ?? null, userIdTo: userId,
           subject: input.subject, fullMessage: input.body, smallMessage: input.body.slice(0, 200),
@@ -400,8 +604,15 @@ export class MessagingService {
 
     // External channels are ports: a BullMQ job carries the dispatch to the
     // worker, which only LOGS it. Disabled-by-preference ⇒ no job at all.
+    // Email theo tần suất v2: 'off' chặn ngay tại đây; 'immediate' và
+    // 'daily' đều xếp hàng job như nhau CHO TỚI NB-5 — động cơ gom
+    // cửa sổ/digest ngày thuộc NB-5 (gửi thật chờ SMTP), lát này chỉ
+    // lưu tần suất + áp luật tắt. Push giữ luật cũ theo trạng thái.
     for (const channel of provider.channels.filter((c) => c !== 'popup')) {
-      if (await this.isChannelEnabled(userId, providerName, channel, state)) {
+      const channelEnabled = channel === 'email'
+        ? resolved.emailFrequency !== 'off'
+        : await this.isChannelEnabled(userId, providerName, channel, state);
+      if (channelEnabled) {
         const dedupeKey = `dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
           userId, provider: providerName, channel,

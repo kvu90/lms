@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, courseGroupingSchema, enrolInstanceSchema,
-  gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, messagePreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
+  gradebookSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, notificationPreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
   paymentWebhookSchema, restoreCourseSchema,
@@ -41,8 +41,12 @@ describe('engagement contracts', () => {
       eventType: 'badge_awarded', timeRead: null, createdAt: new Date().toISOString(),
     });
     expect(notif.timeRead).toBeNull();
-    const pref = messagePreferenceSchema.parse({ provider: 'badge_awarded', component: 'core_badges', group: 'people', channel: 'popup', state: 'loggedin', enabled: true });
-    expect(pref.enabled).toBe(true);
+    const pref = notificationPreferenceSchema.parse({
+      provider: 'badge_awarded', component: 'core_badges', group: 'people',
+      label: { vi: 'Huy hiệu mới', en: 'New badge' }, description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
+      teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
+    });
+    expect(pref.popupEnabled).toBe(true);
     expect(pref.group).toBe('people');
   });
 
