@@ -62,10 +62,16 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // chắn. paperscanretentionmonths là số tháng giữ ảnh gốc phiếu quét
   // (mặc định theo đề xuất research: hết năm học + 1 học kỳ ≈ 18 tháng;
   // mốc xoá được vật hoá vào từng phiếu lúc tải lên).
-  { component: 'mod_quiz', name: 'omrfilldensity', type: 'number', defaultValue: 0.42 },
-  { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16 },
-  { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1 },
-  { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18 },
+  // TENANT-0 (#168, đóng gói lại lên main 3aee4454): 4 setting CAM-0
+  // thêm ở main chưa có scope trong khi SiteSettingDefinition bắt
+  // buộc scope — gán 'platform' để giữ nguyên hành vi cũ (một giá trị
+  // toàn cục do platform đặt, tenant đọc qua fallback platform; bề
+  // mặt tenant từ chối ghi đè). Không chọn 'both' để khỏi mở thêm
+  // quyền ghi đè theo tenant ngoài phạm vi đóng gói.
+  { component: 'mod_quiz', name: 'omrfilldensity', type: 'number', defaultValue: 0.42, scope: 'platform' },
+  { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16, scope: 'platform' },
+  { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1, scope: 'platform' },
+  { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18, scope: 'platform' },
 ];
 
 /**

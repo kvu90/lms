@@ -122,7 +122,6 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + exam_dossiers, exam_dossier_reviews (EB-3 duyệt bộ hồ sơ đề,
     // issue #165 — bộ hồ sơ ghim version + một dòng cho mỗi mốc duyệt)
     // → 187 bảng tổng, 175 bảng có PK mặc định uuidv7().
-<<<<<<< HEAD
     // + 8 bảng OAuth của lát MCP-1 (issue #163: jwks + oauth_client,
     // oauth_resource, oauth_client_resource, oauth_access_token,
     // oauth_refresh_token, oauth_consent, oauth_client_assertion) →
@@ -157,7 +156,6 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-<<<<<<< HEAD
     // 188 bảng có cột `id`: 186 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, và 3 bảng tenant của TENANT-0,
     // issue #168) + ĐÚNG

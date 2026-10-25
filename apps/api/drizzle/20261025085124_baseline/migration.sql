@@ -188,6 +188,16 @@ CREATE TABLE "account" (
 	CONSTRAINT "account_user_id_provider_id_unique" UNIQUE("user_id","provider_id")
 );
 --> statement-breakpoint
+CREATE TABLE "jwks" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"public_key" text NOT NULL,
+	"private_key" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone,
+	"alg" text,
+	"crv" text
+);
+--> statement-breakpoint
 CREATE TABLE "session" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"expires_at" timestamp with time zone NOT NULL,
@@ -227,6 +237,128 @@ CREATE TABLE "login_attempts" (
 	"success" boolean NOT NULL,
 	"ip" text,
 	"attempted_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_access_token" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"token" text UNIQUE,
+	"client_id" text NOT NULL,
+	"session_id" uuid,
+	"user_id" uuid,
+	"reference_id" text,
+	"authorization_code_id" text,
+	"resources" text[],
+	"requested_user_info_claims" text[],
+	"refresh_id" uuid,
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone,
+	"revoked" timestamp with time zone,
+	"confirmation" jsonb,
+	"scopes" text[] NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid(),
+	"client_id" text NOT NULL UNIQUE,
+	"client_secret" text,
+	"client_discovery_id" text,
+	"disabled" boolean DEFAULT false NOT NULL,
+	"skip_consent" boolean,
+	"enable_end_session" boolean,
+	"subject_type" text,
+	"scopes" text[],
+	"client_credentials_scopes" text[] DEFAULT '{}'::text[] NOT NULL,
+	"user_id" uuid,
+	"created_at" timestamp with time zone,
+	"updated_at" timestamp with time zone,
+	"name" text,
+	"uri" text,
+	"icon" text,
+	"contacts" text[],
+	"tos" text,
+	"policy" text,
+	"software_id" text,
+	"software_version" text,
+	"software_statement" text,
+	"redirect_uris" text[] NOT NULL,
+	"post_logout_redirect_uris" text[],
+	"backchannel_logout_uri" text,
+	"backchannel_logout_session_required" boolean,
+	"token_endpoint_auth_method" text,
+	"application_type" text,
+	"jwks" text,
+	"jwks_uri" text,
+	"grant_types" text[],
+	"response_types" text[],
+	"require_pkce" boolean,
+	"dpop_bound_access_tokens" boolean DEFAULT false NOT NULL,
+	"reference_id" text,
+	"metadata" jsonb
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client_assertion" (
+	"id" text PRIMARY KEY,
+	"expires_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client_resource" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"client_id" text NOT NULL,
+	"resource_id" text NOT NULL,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone,
+	CONSTRAINT "oauth_client_resource_client_resource_unique" UNIQUE("client_id","resource_id")
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_consent" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"client_id" text NOT NULL,
+	"user_id" uuid,
+	"reference_id" text,
+	"resources" text[],
+	"requested_user_info_claims" text[],
+	"scopes" text[] NOT NULL,
+	"created_at" timestamp with time zone,
+	"updated_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_refresh_token" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"token" text NOT NULL UNIQUE,
+	"client_id" text NOT NULL,
+	"session_id" uuid,
+	"user_id" uuid NOT NULL,
+	"reference_id" text,
+	"authorization_code_id" text,
+	"resources" text[],
+	"requested_user_info_claims" text[],
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone,
+	"revoked" timestamp with time zone,
+	"rotated_at" timestamp with time zone,
+	"rotation_replay_response" text,
+	"rotation_replay_expires_at" timestamp with time zone,
+	"auth_time" timestamp with time zone,
+	"confirmation" jsonb,
+	"scopes" text[] NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_resource" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"identifier" text NOT NULL UNIQUE,
+	"name" text NOT NULL,
+	"access_token_ttl" integer,
+	"refresh_token_ttl" integer,
+	"signing_algorithm" text,
+	"signing_key_id" text,
+	"allowed_scopes" text[],
+	"custom_claims" jsonb,
+	"dpop_bound_access_tokens_required" boolean DEFAULT false NOT NULL,
+	"disabled" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone,
+	"updated_at" timestamp with time zone,
+	"policy_version" integer DEFAULT 1 NOT NULL,
+	"metadata" jsonb
 );
 --> statement-breakpoint
 CREATE TABLE "refresh_token_family" (
@@ -1359,6 +1491,45 @@ CREATE TABLE "quizzes" (
 	CONSTRAINT "quizzes_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'periodic', 'mock'))
 );
 --> statement-breakpoint
+CREATE TABLE "quiz_paper_batches" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"quiz_id" uuid NOT NULL,
+	"variant_code" text NOT NULL,
+	"exam_code" text,
+	"code_digits" integer DEFAULT 4 NOT NULL,
+	"layout" jsonb NOT NULL,
+	"roster" jsonb NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_paper_batches_quiz_variant_unique" UNIQUE("quiz_id","variant_code"),
+	CONSTRAINT "quiz_paper_batches_quiz_exam_code_unique" UNIQUE("quiz_id","exam_code"),
+	CONSTRAINT "quiz_paper_batches_code_digits_check" CHECK ("code_digits" in (4, 8))
+);
+--> statement-breakpoint
+CREATE TABLE "quiz_paper_scans" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"batch_id" uuid,
+	"session_id" uuid,
+	"quiz_id" uuid NOT NULL,
+	"file_id" uuid NOT NULL,
+	"warped_file_id" uuid,
+	"student_id" uuid,
+	"identity_source" text,
+	"identity_code" text,
+	"variant_code_read" text,
+	"status" text DEFAULT 'needs_identity' NOT NULL,
+	"quality" jsonb,
+	"readings" jsonb DEFAULT '[]' NOT NULL,
+	"attempt_id" uuid,
+	"uploaded_by" uuid NOT NULL,
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "quiz_paper_scans_status_check" CHECK ("status" in ('needs_identity', 'needs_review', 'ready', 'recorded')),
+	CONSTRAINT "quiz_paper_scans_identity_source_check" CHECK ("identity_source" is null or "identity_source" in ('qr', 'bubbles', 'manual'))
+);
+--> statement-breakpoint
 CREATE TABLE "assign_annotations" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"submission_id" uuid NOT NULL,
@@ -2456,6 +2627,19 @@ CREATE INDEX "account_user_id_idx" ON "account" ("user_id");--> statement-breakp
 CREATE INDEX "session_user_id_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "two_factor_user_id_idx" ON "two_factor" ("user_id");--> statement-breakpoint
 CREATE INDEX "login_attempts_user_id_idx" ON "login_attempts" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_client_id_idx" ON "oauth_access_token" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_session_id_idx" ON "oauth_access_token" ("session_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_user_id_idx" ON "oauth_access_token" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_refresh_id_idx" ON "oauth_access_token" ("refresh_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_user_id_idx" ON "oauth_client" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_client_discovery_id_idx" ON "oauth_client" ("client_discovery_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_resource_client_id_idx" ON "oauth_client_resource" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_resource_resource_id_idx" ON "oauth_client_resource" ("resource_id");--> statement-breakpoint
+CREATE INDEX "oauth_consent_client_id_idx" ON "oauth_consent" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_consent_user_id_idx" ON "oauth_consent" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_client_id_idx" ON "oauth_refresh_token" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_session_id_idx" ON "oauth_refresh_token" ("session_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_user_id_idx" ON "oauth_refresh_token" ("user_id");--> statement-breakpoint
 CREATE INDEX "refresh_token_family_user_id_idx" ON "refresh_token_family" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_oauth_links_user_id_idx" ON "user_oauth_links" ("user_id");--> statement-breakpoint
 CREATE INDEX "user_totp_user_id_idx" ON "user_totp" ("user_id");--> statement-breakpoint
@@ -2638,6 +2822,12 @@ CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
 CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "quizzes_paper_idx" ON "quizzes" ("paper_id");--> statement-breakpoint
 CREATE INDEX "quizzes_paper_version_idx" ON "quizzes" ("paper_version_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_batches_quiz_idx" ON "quiz_paper_batches" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_quiz_idx" ON "quiz_paper_scans" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_batch_idx" ON "quiz_paper_scans" ("batch_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_status_idx" ON "quiz_paper_scans" ("quiz_id","status");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_student_idx" ON "quiz_paper_scans" ("student_id");--> statement-breakpoint
+CREATE INDEX "quiz_paper_scans_attempt_idx" ON "quiz_paper_scans" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
@@ -2828,6 +3018,18 @@ ALTER TABLE "account" ADD CONSTRAINT "account_user_id_users_id_fkey" FOREIGN KEY
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "login_attempts" ADD CONSTRAINT "login_attempts_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey" FOREIGN KEY ("refresh_id") REFERENCES "oauth_refresh_token"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_client" ADD CONSTRAINT "oauth_client_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_dn2L1gs9Dolm_fkey" FOREIGN KEY ("resource_id") REFERENCES "oauth_resource"("identifier") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "refresh_token_family" ADD CONSTRAINT "refresh_token_family_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_oauth_links" ADD CONSTRAINT "user_oauth_links_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_totp" ADD CONSTRAINT "user_totp_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2967,6 +3169,10 @@ ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "quiz_paper_batches" ADD CONSTRAINT "quiz_paper_batches_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "quiz_paper_batches"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3047,7 +3253,6 @@ ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_mtO4LF7j
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
--- =====================================================================
 -- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
 -- cơ sở dữ liệu (hồ sơ mục 2.1/3.2). Mọi bảng mang tenant_id ở lát này
 -- đều ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
