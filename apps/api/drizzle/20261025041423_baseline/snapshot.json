@@ -2,7 +2,11 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
+<<<<<<<< HEAD:apps/api/drizzle/20261025041423_baseline/snapshot.json
   "id": "290769e4-bd55-4e1a-ba42-22fefcfc1f76",
+========
+  "id": "f3894ca1-6153-47a9-ad73-6a8374f7c060",
+>>>>>>>> a6d5762 (PH-2 chặng 1 (issue #159): bảng guardian_digests + contracts tần suất digest + view subset phía worker):apps/api/drizzle/20261025034819_baseline/snapshot.json
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1199,6 +1203,25 @@
         "n|rel|public.vn_term_results",
         "n|type|public.vn_term_results",
         "n|rel|public.vn_term_results_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_digests"
+      ],
+      "writes": [
+        "s|tbl|public.guardian_digests",
+        "n|tbl|public.guardian_digests",
+        "e|tbl|public.guardian_digests",
+        "n|rel|public.guardian_digests",
+        "n|type|public.guardian_digests",
+        "n|rel|public.guardian_digests_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -5483,6 +5506,66 @@
         "n|tbl|public.vn_term_results",
         "n|sch|public",
         "n|col|public.vn_term_results.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_digests",
+        "guardian_digests_dedupe_key_unique"
+      ],
+      "writes": [
+        "s|idx|public.guardian_digests_dedupe_key_unique",
+        "n|idx|public.guardian_digests_dedupe_key_unique",
+        "e|idx|public.guardian_digests_dedupe_key_unique",
+        "n|rel|public.guardian_digests_dedupe_key_unique"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|col|public.guardian_digests.dedupe_key"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_digests",
+        "guardian_digests_guardian_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_digests_guardian_user_id_idx",
+        "n|idx|public.guardian_digests_guardian_user_id_idx",
+        "e|idx|public.guardian_digests_guardian_user_id_idx",
+        "n|rel|public.guardian_digests_guardian_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|col|public.guardian_digests.guardian_user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_digests",
+        "guardian_digests_student_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_digests_student_user_id_idx",
+        "n|idx|public.guardian_digests_student_user_id_idx",
+        "e|idx|public.guardian_digests_student_user_id_idx",
+        "n|rel|public.guardian_digests_student_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|col|public.guardian_digests.student_user_id"
       ]
     },
     {
@@ -12386,6 +12469,52 @@
       "statementTarget": [
         "table",
         "public",
+        "guardian_digests"
+      ],
+      "writes": [
+        "s|fk|public.guardian_digests.guardian_digests_guardian_user_id_users_id_fkey",
+        "n|fk|public.guardian_digests.guardian_digests_guardian_user_id_users_id_fkey",
+        "e|fk|public.guardian_digests.guardian_digests_guardian_user_id_users_id_fkey",
+        "n|con|public.guardian_digests.guardian_digests_guardian_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_digests.guardian_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_digests"
+      ],
+      "writes": [
+        "s|fk|public.guardian_digests.guardian_digests_student_user_id_users_id_fkey",
+        "n|fk|public.guardian_digests.guardian_digests_student_user_id_users_id_fkey",
+        "e|fk|public.guardian_digests.guardian_digests_student_user_id_users_id_fkey",
+        "n|con|public.guardian_digests.guardian_digests_student_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_digests.student_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "guardian_links"
       ],
       "writes": [
@@ -15970,6 +16099,12 @@
     {
       "schema": "public",
       "name": "vn_term_results",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "guardian_digests",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -23687,6 +23822,227 @@
     {
       "schema": "public",
       "table": "vn_term_results",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "student_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "window_start",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "window_end",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "activity_cm_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "dedupe_key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'queued'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "new_results_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "announcements_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "overdue_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "upcoming_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "notification_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "sent_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -40547,6 +40903,69 @@
     },
     {
       "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_dedupe_key_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dedupe_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_guardian_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_student_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "student_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "guardian_links",
       "name": "guardian_links_guardian_user_id_idx",
       "nameExplicit": true,
@@ -47367,6 +47786,40 @@
     },
     {
       "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_guardian_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "guardian_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_student_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "student_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "guardian_links",
       "name": "guardian_links_guardian_user_id_users_id_fkey",
       "nameExplicit": false,
@@ -50432,6 +50885,16 @@
       "schema": "public",
       "table": "vn_term_results",
       "name": "vn_term_results_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_pkey",
       "columns": [
         "id"
       ],
