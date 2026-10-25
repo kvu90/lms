@@ -9,6 +9,8 @@ import {
   round1, VN_COMMENT_EVALUATIONS_PER_TERM, type VnAssessmentMode, type VnClassification, type VnCommentResult,
   type VnSubjectLevelInput, type VnTerm,
 } from './domain/vn-gradebook';
+import { EnrolService } from '../enrol/enrol.service';
+import { UsersService } from '../users/users.service';
 import { GradesService } from './grades.service';
 import {
   GradesRepository, type GradeRow, type ItemRow, type VnActivityMappingRow, type VnBookRow,
@@ -43,6 +45,48 @@ export interface VnTermComputation {
   awaitingMakeupRoles: string[];
   columns: VnColumnScore[];
   dtbHk: number | null;
+}
+
+/** Một học sinh trong lưới sổ VN phía giáo viên: tính trực tiếp từ cột + bản chốt mới nhất + cờ công bố + cờ lệch nguồn. */
+export interface VnStudentGridRow {
+  userId: string;
+  /** Tên hiển thị (họ + tên) của học sinh; rơi về username rồi userId khi thiếu dữ liệu người dùng. */
+  userName: string;
+  /** Tính trực tiếp từ điểm cột hiện tại; null với sổ môn chỉ-nhận-xét (không có cột điểm). */
+  computation: VnTermComputation | null;
+  /** Bản chốt kì mới nhất của học sinh trong sổ; null khi chưa chốt lần nào. */
+  snapshot: VnTermResultRow | null;
+  /** Kết quả kì của học sinh đã được công bố (PH-0) hay chưa. */
+  published: boolean;
+  /**
+   * Bản chốt LỆCH NGUỒN: điểm cột hiện tại không còn khớp dữ liệu tại thời
+   * điểm chốt (ĐTB tính lại khác bản chốt, thiếu cột, hoặc một cột đã bị sửa
+   * sau khi chốt — đối chiếu qua lịch sử thay đổi điểm). Chỉ có nghĩa khi đã
+   * có bản chốt; bản chốt vẫn giữ nguyên giá trị cũ cho tới khi chốt lại.
+   */
+  sourceDiverged: boolean;
+}
+
+/** Lưới sổ VN cho trang giáo viên: cấu trúc sổ + một dòng cho mỗi học sinh đã ghi danh. */
+export interface VnBookGrid {
+  book: VnBookRow;
+  items: ItemRow[];
+  students: VnStudentGridRow[];
+}
+
+/** Một học sinh chặn cả lượt chốt cả lớp, kèm lý do và các vai trò cột liên quan. */
+export interface VnFinalizeBlockedStudent {
+  userId: string;
+  /** awaiting_makeup = còn cột chờ kiểm tra bù (Điều 7.4); incomplete = thiếu cột điểm. */
+  reason: 'awaiting_makeup' | 'incomplete';
+  roles: string[];
+}
+
+/** Kết quả chốt cả lớp: mọi bản chốt mới được ghi trong cùng một transaction. */
+export interface VnFinalizeBookResult {
+  bookId: string;
+  finalizedCount: number;
+  results: VnTermResultRow[];
 }
 
 /** Khai vai trò điểm của hoạt động vào sổ, kèm mô tả hoạt động nguồn và cột đích để truy vết về bài làm. */
@@ -145,6 +189,8 @@ export class VnGradebooksService {
     private readonly contexts: ContextsService,
     private readonly curriculum: CurriculumService,
     private readonly outbox: OutboxService,
+    private readonly enrol: EnrolService,
+    private readonly users: UsersService,
   ) {}
 
   private async requireCap(actorId: string, capability: string, courseId: string): Promise<void> {
@@ -540,6 +586,122 @@ export class VnGradebooksService {
       dtbHk: computation.dtbHk, dtbYear: null, commentResult: null,
       comment: comment ?? null, version: (previous?.version ?? 0) + 1,
     });
+  }
+
+  /** Học sinh đã ghi danh của khoá (khớp nguồn danh sách của báo cáo điểm GV — mọi ghi danh, khử trùng theo user). */
+  private async enrolledStudentIds(courseId: string): Promise<string[]> {
+    const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
+    return [...new Set(enrolments.map((e) => e.userId))];
+  }
+
+  /**
+   * Bản chốt có lệch nguồn hay không: đối chiếu bản chốt mới nhất với dữ
+   * liệu cột HIỆN TẠI. Lệch khi (a) tính lại không còn đủ cột hoặc ĐTBmhk
+   * khác bản chốt, hoặc (b) một cột bị sửa sau thời điểm chốt dù ĐTB làm
+   * tròn không đổi — giá trị cột tại thời điểm chốt khôi phục từ lịch sử
+   * thay đổi điểm (mọi đường ghi điểm cột đều qua GradesService.setGrade
+   * nên lịch sử là đầy đủ cho các cột của sổ).
+   */
+  private async snapshotDiverged(items: ItemRow[], userId: string, snapshot: VnTermResultRow, computation: VnTermComputation): Promise<boolean> {
+    if (snapshot.dtbHk == null) return false;
+    if (!computation.complete || computation.dtbHk !== snapshot.dtbHk) return true;
+    const history = await this.repo.listHistoryForUserItems(items.map((i) => i.id), userId);
+    for (const column of computation.columns) {
+      const entries = history.filter((h) => h.itemId === column.itemId);
+      let snapshotValue: number | null;
+      const before = entries.filter((h) => h.updatedAt.getTime() <= snapshot.createdAt.getTime());
+      if (before.length > 0) snapshotValue = before[before.length - 1]!.finalGrade;
+      else if (entries.length > 0) snapshotValue = null; // Cột chỉ được ghi sau khi chốt.
+      else snapshotValue = column.grade; // Chưa từng ghi qua setGrade → coi như không đổi.
+      if (snapshotValue === null || column.grade === null) {
+        if (snapshotValue !== column.grade) return true;
+      } else if (Math.abs(snapshotValue - column.grade) > 1e-9) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Lưới sổ VN cho trang giáo viên (issue #183): cấu trúc sổ + một dòng cho
+   * mỗi học sinh đã ghi danh — điểm từng cột và ĐTB tính trực tiếp, bản chốt
+   * mới nhất, trạng thái công bố và cờ lệch nguồn của bản chốt. Gác
+   * `grade:viewall` tại context khoá như listBooks.
+   */
+  async getBookGrid(actorId: string, bookId: string): Promise<VnBookGrid> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:viewall', book.courseId);
+    const items = await this.repo.listItemsByVnBook(book.id);
+    const userIds = await this.enrolledStudentIds(book.courseId);
+    const users = await this.users.getUsersByIds(userIds);
+    const nameById = new Map(users.map((u) => [u.id, [u.lastName, u.firstName].filter(Boolean).join(' ').trim() || u.username]));
+    const publications = await this.repo.listPublications(book.courseId);
+    const students: VnStudentGridRow[] = [];
+    for (const userId of userIds) {
+      const snapshot = (await this.latestTermResult(bookId, userId)) ?? null;
+      let published = false;
+      for (const p of publications) {
+        if (p.scope === 'vn_term' && p.bookId === book.id && p.userId === userId) published = p.action === 'publish';
+      }
+      if (book.assessmentMode !== 'score') {
+        students.push({ userId, userName: nameById.get(userId) ?? userId, computation: null, snapshot, published, sourceDiverged: false });
+        continue;
+      }
+      const computation = await this.computeTermResultUnchecked(book, userId);
+      const sourceDiverged = snapshot ? await this.snapshotDiverged(items, userId, snapshot, computation) : false;
+      students.push({ userId, userName: nameById.get(userId) ?? userId, computation, snapshot, published, sourceDiverged });
+    }
+    return { book, items, students };
+  }
+
+  /**
+   * Chốt kết quả học kì cho TOÀN BỘ học sinh của sổ trong một thao tác
+   * nguyên tử (issue #183): tính trước cho mọi học sinh; chỉ cần MỘT học
+   * sinh bị chặn — còn cột chờ kiểm tra bù (Điều 7.4) hoặc thiếu cột điểm —
+   * là cả lượt bị từ chối với mã grades.vn_finalize_book_blocked kèm danh
+   * sách học sinh bị chặn và lý do, KHÔNG bản chốt nào được ghi (không chốt
+   * dở). Khi không ai bị chặn, mọi bản chốt được ghi trong một transaction.
+   * Đường chốt lẻ finalizeTermResult giữ nguyên.
+   */
+  async finalizeBookResults(actorId: string, bookId: string, comment?: string): Promise<VnFinalizeBookResult> {
+    const book = await this.getBook(bookId);
+    await this.requireCap(actorId, 'grade:edit', book.courseId);
+    if (book.assessmentMode !== 'score') {
+      throw new BadRequestException({ message: 'Comment-only subjects have no score columns to finalize (Điều 5.3a)', code: 'grades.vn_comment_book' });
+    }
+    const userIds = await this.enrolledStudentIds(book.courseId);
+    const ready: { userId: string; dtbHk: number; version: number }[] = [];
+    const blocked: VnFinalizeBlockedStudent[] = [];
+    for (const userId of userIds) {
+      const computation = await this.computeTermResultUnchecked(book, userId);
+      if (computation.awaitingMakeupRoles.length > 0) {
+        blocked.push({ userId, reason: 'awaiting_makeup', roles: computation.awaitingMakeupRoles });
+        continue;
+      }
+      if (!computation.complete || computation.dtbHk === null) {
+        blocked.push({ userId, reason: 'incomplete', roles: computation.missingRoles });
+        continue;
+      }
+      const previous = await this.latestTermResult(bookId, userId);
+      ready.push({ userId, dtbHk: computation.dtbHk, version: (previous?.version ?? 0) + 1 });
+    }
+    if (blocked.length > 0) {
+      throw new BadRequestException({
+        message: `Cannot finalize gradebook: ${blocked.length} student(s) blocked`,
+        code: 'grades.vn_finalize_book_blocked',
+        blocked,
+      });
+    }
+    const results = await this.repo.dbHandle.transaction(async (tx) => {
+      const rows: VnTermResultRow[] = [];
+      for (const r of ready) {
+        rows.push(await this.repo.insertVnTermResult({
+          bookId, courseId: book.courseId, userId: r.userId, scope: 'term',
+          dtbHk: r.dtbHk, dtbYear: null, commentResult: null,
+          comment: comment ?? null, version: r.version,
+        }, tx as never));
+      }
+      return rows;
+    });
+    return { bookId, finalizedCount: results.length, results };
   }
 
   /**

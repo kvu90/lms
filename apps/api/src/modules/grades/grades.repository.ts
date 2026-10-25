@@ -311,10 +311,22 @@ export class GradesRepository {
     return this.db.select().from(gradeItems).where(eq(gradeItems.vnBookId, bookId)).orderBy(asc(gradeItems.sortOrder), asc(gradeItems.id));
   }
   /**
-   * Chèn bản chốt kết quả sổ VN.
+   * Chèn bản chốt kết quả sổ VN (tx tuỳ chọn — chốt cả lớp ghi mọi bản chốt trong một transaction).
    */
-  async insertVnTermResult(v: typeof vnTermResults.$inferInsert): Promise<VnTermResultRow> {
-    const [row] = await this.db.insert(vnTermResults).values(v).returning(); return row!;
+  async insertVnTermResult(v: typeof vnTermResults.$inferInsert, tx?: DbTx): Promise<VnTermResultRow> {
+    const [row] = await (tx ?? this.db).insert(vnTermResults).values(v).returning(); return row!;
+  }
+  /**
+   * Mọi dòng lịch sử thay đổi điểm của một học sinh trên một tập item, theo
+   * thứ tự thời gian tăng dần — đầu vào đối chiếu "bản chốt lệch nguồn" của
+   * sổ VN: giá trị tại thời điểm chốt khôi phục từ dòng lịch sử mới nhất
+   * không muộn hơn thời điểm bản chốt được tạo.
+   */
+  async listHistoryForUserItems(itemIds: string[], userId: string): Promise<(typeof gradeGradesHistory.$inferSelect)[]> {
+    if (!itemIds.length) return [];
+    return this.db.select().from(gradeGradesHistory)
+      .where(and(inArray(gradeGradesHistory.itemId, itemIds), eq(gradeGradesHistory.userId, userId)))
+      .orderBy(asc(gradeGradesHistory.updatedAt), asc(gradeGradesHistory.id));
   }
   /**
    * Các bản chốt của một sổ cho một học sinh, mới nhất cuối danh sách.
