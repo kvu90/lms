@@ -63,10 +63,14 @@ describe('Shared question bank (feat #70)', () => {
     return u;
   }
 
-  async function myPersonalBank(token: string): Promise<BankBody> {
-    const res = await http(app).get('/api/v1/question-banks').set(bearer(token));
+  async function myPersonalBank(user: { id: string; token: string }): Promise<BankBody> {
+    const res = await http(app).get('/api/v1/question-banks').set(bearer(user.token));
     expect(res.status).toBe(200);
-    const bank = (res.body as BankBody[]).find((b) => b.scope === 'personal');
+    // Phải lọc theo ownerId của chính người gọi: listBanks còn liệt kê bank
+    // cá nhân của người khác cho giáo viên có vai tại hệ thống (phạm vi siết
+    // riêng tư của #123) và danh sách sắp theo createdAt — lấy bank personal
+    // đầu tiên sẽ trúng bank của người tạo sớm nhất trong DB dùng chung.
+    const bank = (res.body as BankBody[]).find((b) => b.scope === 'personal' && b.ownerId === user.id);
     expect(bank).toBeTruthy();
     return bank!;
   }
@@ -102,7 +106,7 @@ describe('Shared question bank (feat #70)', () => {
   it('QB-1/QB-2: bank cá nhân + copy deep copy truy vết, độc lập hai chiều, người ngoài bị chặn', async () => {
     const alice = await mkStaffUser();
     const bob = await mkUser();
-    const bank = await myPersonalBank(alice.token);
+    const bank = await myPersonalBank(alice);
     expect(bank.ownerId).toBe(alice.id);
     expect(bank.capabilities.add).toBe(true);
     expect(bank.defaultCategoryId).toBeTruthy();
@@ -157,7 +161,7 @@ describe('Shared question bank (feat #70)', () => {
 
   it('bank_kind: bank đa loại — bank đề cá nhân tách hẳn bank câu hỏi, unique theo (scope, kind)', async () => {
     const carol = await mkStaffUser();
-    const questionBank = await myPersonalBank(carol.token);
+    const questionBank = await myPersonalBank(carol);
     expect((questionBank as BankBody & { bankKind: string }).bankKind ?? 'question').toBe('question');
 
     // Tạo bank cá nhân loại exam: phải là bank KHÁC, không đụng bank câu hỏi.
@@ -192,7 +196,7 @@ describe('Shared question bank (feat #70)', () => {
 
   it('source: nguồn ngoài hệ thống (book/exam/manual/import) là truy vết nội bộ — copy kế thừa, bề mặt attempt không lộ', async () => {
     const dave = await mkStaffUser();
-    const bank = await myPersonalBank(dave.token);
+    const bank = await myPersonalBank(dave);
 
     // Tạo câu khai nguồn sách: phía quản trị (GET câu hỏi) thấy đủ cặp nguồn.
     const res = await http(app).post('/api/v1/questions').set(bearer(dave.token)).send({
@@ -361,7 +365,7 @@ describe('Shared question bank (feat #70)', () => {
 
   it('QB-2 (điểm chặn 2 phán quyết PR #83): học sinh không đọc được attribution', async () => {
     const { teacher, student } = await mkCourseWithTeacherAndStudent();
-    const bank = await myPersonalBank(teacher.token);
+    const bank = await myPersonalBank(teacher);
     const q = await createQuestion(teacher.token, bank.defaultCategoryId!, 'Câu có truy vết', 'Thân câu có truy vết?');
     const asTeacher = await http(app).get(`/api/v1/questions/${q.question.id}/attribution`).set(bearer(teacher.token));
     expect(asTeacher.status).toBe(200);
@@ -457,7 +461,7 @@ describe('Shared question bank (feat #70)', () => {
     const bank = bankRes.body as BankBody;
 
     // Member soạn câu ở bank cá nhân rồi đề xuất lên bank tổ.
-    const memberBank = await myPersonalBank(member.token);
+    const memberBank = await myPersonalBank(member);
     const mine = await createQuestion(member.token, memberBank.defaultCategoryId!, 'Câu đóng góp', 'Nội dung câu đóng góp?');
     const propose = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions`).set(bearer(member.token))
       .send({ questionId: mine.question.id, note: 'Câu này dùng tốt cho cả tổ' });
