@@ -162,6 +162,7 @@ function renderBank() {
   const router = createMemoryRouter(
     [
       { path: '/questions', element: <QuestionsPage /> },
+      { path: '/questions/stimuli', element: <QuestionsPage area="stimuli" /> },
       { path: '/questions/new', element: <QuestionNewPage /> },
       { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
     ],
@@ -172,6 +173,7 @@ function renderBank() {
       <RouterProvider router={router} />
     </TestProviders>,
   );
+  return router;
 }
 
 /** §9: tạo mới là màn riêng — từ danh sách bấm "Câu hỏi mới" sang màn editor rồi chờ form hiện. */
@@ -487,8 +489,11 @@ describe('Stimulus in the question bank UI', () => {
   it('creates a stimulus and attaches it to a new question', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    renderBank();
+    const router = renderBank();
 
+    // Ngữ liệu là trang riêng /questions/stimuli (chuẩn đường dẫn
+    // #221, lát R1) — tạo ngữ liệu ở đó trước.
+    await router.navigate('/questions/stimuli');
     await screen.findByText('General');
     await userEvent.type(screen.getByLabelText('Ngữ liệu mới'), 'Đoạn văn về thủ đô Hà Nội.');
     await userEvent.click(screen.getByRole('button', { name: 'Tạo ngữ liệu' }));
@@ -498,6 +503,8 @@ describe('Stimulus in the question bank UI', () => {
     expect(stimulusCall?.body).toEqual({ categoryId: CATEGORY_ID, content: 'Đoạn văn về thủ đô Hà Nội.' });
     expect(await screen.findByTestId(`stimulus-row-${STIMULUS_ID}`)).toHaveTextContent('Đoạn văn về thủ đô Hà Nội.');
 
+    // Quay về trang câu hỏi để tạo câu hỏi gắn ngữ liệu vừa tạo.
+    await router.navigate('/questions');
     await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu kèm ngữ liệu');
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Theo đoạn văn, thủ đô là gì?');
