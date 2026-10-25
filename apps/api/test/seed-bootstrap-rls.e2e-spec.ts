@@ -30,7 +30,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  */
 
 const ADMIN_URL =
-  process.env.LMS_TEST_DATABASE_URL ?? 'postgres://lms:lms@localhost:5432/lms_test_api';
+  process.env.DATABASE_URL ??
+  process.env.LMS_TEST_DATABASE_URL ??
+  'postgres://postgres:postgres@localhost:5432/lms_test_api';
 const SCRATCH_DB = 'lms_test_seed_rls';
 const APP_ROLE = 'lms_seed_rls_app';
 const APP_ROLE_PASSWORD = 'seed-rls-test-only';
