@@ -182,6 +182,20 @@ export class PrivacyService {
     if (!row) throw new NotFoundException({ message: `Privacy request ${id} not found`, code: 'privacy.request_not_found' });
     return row;
   }
+  /**
+   * Đọc một privacy request qua HTTP (H15, rà soát #134): chỉ chủ thể của
+   * request (userId), người đã gửi request hộ, hoặc người có
+   * `privacy:manage` tại system mới đọc được — người ngoài nhận đúng 404
+   * như request không tồn tại, không lộ metadata (userId, loại, trạng
+   * thái) của yêu cầu quyền riêng tư của người khác.
+   */
+  async getRequestFor(actorId: string, id: string): Promise<PrivacyRequestRow> {
+    const row = await this.getRequest(id);
+    if (row.userId === actorId || row.requestedBy === actorId) return row;
+    const sys = await this.contexts.ensureSystemContext();
+    if (await this.evaluator.hasCapability(actorId, 'privacy:manage', sys.id)) return row;
+    throw new NotFoundException({ message: `Privacy request ${id} not found`, code: 'privacy.request_not_found' });
+  }
   async listRequestsFor(actorId: string): Promise<PrivacyRequestRow[]> {
     const sys = await this.contexts.ensureSystemContext();
     if (await this.evaluator.hasCapability(actorId, 'privacy:manage', sys.id)) return this.repo.listRequests();
@@ -242,4 +256,9 @@ export class PrivacyService {
     return this.getRequest(id);
   }
   async listExportFiles(requestId: string) { return this.repo.listExportFiles(requestId); }
+  /** Danh sách file xuất qua HTTP: qua cùng cổng sở hữu như getRequestFor (H15). */
+  async listExportFilesFor(actorId: string, requestId: string) {
+    await this.getRequestFor(actorId, requestId);
+    return this.repo.listExportFiles(requestId);
+  }
 }

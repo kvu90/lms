@@ -124,8 +124,8 @@ export class CalendarController {
   /**
    * GET /calendar/subscriptions — subscription của tôi.
    */
-  async listSubscriptions() {
-    return this.calendar.listSubscriptions();
+  async listSubscriptions(@CurrentUser() actor: AuthenticatedUser) {
+    return this.calendar.listSubscriptions(actor.id);
   }
   @Post('subscriptions/:id/import')
   /**

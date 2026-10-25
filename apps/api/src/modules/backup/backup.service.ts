@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -630,9 +630,48 @@ export class BackupService {
     if (!row) throw new NotFoundException({ message: `Backup job ${id} not found`, code: 'backup.job_not_found' });
     return row;
   }
-  async listJobs(): Promise<JobRow[]> { return this.repo.listJobs(); }
-  async listSteps(jobId: string) { return this.repo.listSteps(jobId); }
-  async listMappings(jobId: string) { return this.repo.listMappings(jobId); }
+
+  /**
+   * Cổng đọc job (H7, rà soát #134): các đường đọc job/steps/mappings/
+   * checklist trước đây không gác gì trong khi create/restore đã đòi
+   * capability — nay người đọc phải có `backup:backupcourse` hoặc
+   * `backup:restorecourse` tại context của khoá thuộc job (job site-scope
+   * thì tại context hệ thống), đúng khuôn hai đường ghi.
+   */
+  private async jobReadContextId(job: JobRow): Promise<string> {
+    if (job.scope === 'course' && job.courseId) return this.courses.courseContextId(job.courseId);
+    return (await this.contexts.ensureSystemContext()).id;
+  }
+  private async canReadJob(actorId: string, job: JobRow): Promise<boolean> {
+    const ctxId = await this.jobReadContextId(job);
+    if (await this.evaluator.hasCapability(actorId, 'backup:backupcourse', ctxId)) return true;
+    return this.evaluator.hasCapability(actorId, 'backup:restorecourse', ctxId);
+  }
+  private async assertJobReadable(actorId: string, job: JobRow): Promise<void> {
+    if (await this.canReadJob(actorId, job)) return;
+    throw new ForbiddenException({ message: 'You cannot view this backup job', code: 'backup.job_forbidden' });
+  }
+  /** Chi tiết job qua HTTP: qua cổng đọc job (H7). */
+  async getJobForRead(actorId: string, id: string): Promise<JobRow> {
+    const job = await this.getJob(id);
+    await this.assertJobReadable(actorId, job);
+    return job;
+  }
+  /** Danh sách job qua HTTP: chỉ các job người gọi qua được cổng đọc (H7). */
+  async listJobs(actorId: string): Promise<JobRow[]> {
+    const rows = await this.repo.listJobs();
+    const out: JobRow[] = [];
+    for (const row of rows) if (await this.canReadJob(actorId, row)) out.push(row);
+    return out;
+  }
+  async listSteps(actorId: string, jobId: string) {
+    await this.assertJobReadable(actorId, await this.getJob(jobId));
+    return this.repo.listSteps(jobId);
+  }
+  async listMappings(actorId: string, jobId: string) {
+    await this.assertJobReadable(actorId, await this.getJob(jobId));
+    return this.repo.listMappings(jobId);
+  }
 
   /**
    * Tạo và chạy backup job (API twin của worker processor): ghi bước cho từng
@@ -802,8 +841,9 @@ export class BackupService {
    * `target` là số bản ghi MỚI mà job đã tạo theo từng itemType trong
    * backup_id_mappings, `source` là tổng hiện có trừ đi phần mới tạo đó.
    */
-  async restoreChecklist(restoreJobId: string): Promise<Record<string, { source: number; target: number }>> {
+  async restoreChecklist(actorId: string, restoreJobId: string): Promise<Record<string, { source: number; target: number }>> {
     const job = await this.getJob(restoreJobId);
+    await this.assertJobReadable(actorId, job);
     const db = this.repo.dbHandle;
     if (job.scope === 'site' || !job.targetCourseId) {
       const mappings = await this.repo.listMappings(job.id);

@@ -21,13 +21,13 @@ export class BackupController {
     return this.backup.restore(actor.id, dto.backupJobId, dto.mode, dto.targetCourseId);
   }
   @Get('jobs')
-  async jobs() { return this.backup.listJobs(); }
+  async jobs(@CurrentUser() actor: AuthenticatedUser) { return this.backup.listJobs(actor.id); }
   @Get('jobs/:id')
-  async job(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.getJob(id); }
+  async job(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.backup.getJobForRead(actor.id, id); }
   @Get('jobs/:id/steps')
-  async steps(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.listSteps(id); }
+  async steps(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.backup.listSteps(actor.id, id); }
   @Get('jobs/:id/mappings')
-  async mappings(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.listMappings(id); }
+  async mappings(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.backup.listMappings(actor.id, id); }
   @Get('jobs/:id/checklist')
-  async checklist(@Param('id', { schema: uuidIdSchema }) id: string) { return this.backup.restoreChecklist(id); }
+  async checklist(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.backup.restoreChecklist(actor.id, id); }
 }

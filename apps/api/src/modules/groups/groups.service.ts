@@ -377,23 +377,41 @@ export class GroupsService implements OnModuleInit {
     return row;
   }
   /**
-   * Lấy cohort; ném groups.cohort_not_found khi vắng (kể cả khi cohort thuộc tenant khác — 404 đồng nhất).
+   * Lấy cohort; ném groups.cohort_not_found khi vắng (kể cả khi cohort
+   * thuộc tenant khác — 404 đồng nhất). Khi có `actorId` (đường HTTP —
+   * H10 của rà soát #134), người xem phải qua cùng cổng
+   * `requireCohortViewer` như đường đọc thành viên: không có
+   * `cohort:view`/`cohort:manage` tại context của cohort thì nhận đúng
+   * 404 như cohort không tồn tại. Không truyền `actorId` là đường nội bộ
+   * giữa các module, giữ nguyên hành vi.
    */
-  async getCohort(id: string): Promise<CohortRow> {
+  async getCohort(id: string, actorId?: string): Promise<CohortRow> {
     const row = await this.repo.getCohort(id);
     const active = this.tenantContext.currentTenantId();
     if (!row || (active !== undefined && row.tenantId !== active)) {
       throw new NotFoundException({ message: `Cohort ${id} not found`, code: 'cohort.not_found' });
     }
+    if (actorId !== undefined) await this.requireCohortViewer(actorId, row);
     return row;
   }
   /**
-   * Liệt kê cohort (trong request: chỉ cohort của tenant hiệu lực).
+   * Liệt kê cohort mà người gọi được xem: chỉ cohort của tenant hiệu lực
+   * (TENANT-0) mà người gọi có `cohort:view` hoặc `cohort:manage` tại
+   * context của chính cohort đó (H10, rà soát #134) — trước đây mọi user
+   * đã đăng nhập liệt kê được cohort của toàn site dù registry đã có
+   * sẵn `cohort:view`.
    */
-  async listCohorts(): Promise<CohortRow[]> {
+  async listCohorts(actorId: string): Promise<CohortRow[]> {
     const all = await this.repo.listCohorts();
     const active = this.tenantContext.currentTenantId();
-    return active ? all.filter((c) => c.tenantId === active) : all;
+    const scoped = active ? all.filter((c) => c.tenantId === active) : all;
+    const out: CohortRow[] = [];
+    for (const row of scoped) {
+      const canView = await this.evaluator.hasCapability(actorId, 'cohort:view', row.contextId);
+      const canManage = canView ? false : await this.evaluator.hasCapability(actorId, 'cohort:manage', row.contextId);
+      if (canView || canManage) out.push(row);
+    }
+    return out;
   }
   /**
    * Cập nhật cohort.
