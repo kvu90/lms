@@ -32,9 +32,10 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk5-cat-${suffix}`}, '') returning id`);
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk5-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     // Chuỗi context phải hợp lệ theo bất biến của cây context: path gồm
     // các id UUID thật và kết thúc bằng id của chính context — tài liệu
@@ -128,7 +129,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
     const catId = (catRows.rows[0] as { category: string }).category;
-    const targetRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
+    const targetRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
     const targetId = (targetRows.rows[0] as { id: string }).id;
     const [job] = await db.insert(backupJobs).values({ type: 'restore', courseId: courseId, targetCourseId: targetId, mode: 'new', userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(RestoreProcessor);
