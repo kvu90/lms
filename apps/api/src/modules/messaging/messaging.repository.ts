@@ -3,9 +3,9 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  context, course, courseGroups, enrol, gradeGrades, gradeItems, groupsMembers,
+  assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
-  notificationDispatchLog, notifications, role, roleAssignments, userEnrolments, users,
+  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, userEnrolments, users,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -1156,6 +1156,123 @@ export class MessagingRepository {
   async getCourseFullName(courseId: string): Promise<string | undefined> {
     const [row] = await this.db.select({ fullName: course.fullName }).from(course).where(eq(course.id, courseId));
     return row?.fullName;
+  }
+
+  // --- thông tin hoạt động cho consumer NB-1 (issue #174) ---------------------
+  // Đọc thẳng bảng assignments/quizzes/course_modules/course qua barrel
+  // schema, cùng kỷ luật "đọc bảng dùng chung, không import module
+  // khác" như các helper phía trên. Trạng thái hiển thị của module
+  // (visible/deletionInProgress) + của khoá là cổng phát: học sinh
+  // không thấy hoạt động thì không nhận thông báo về nó — cùng ngữ
+  // nghĩa worker nhắc hạn dùng cho quiz.
+
+  /**
+   * Thông tin tối thiểu của một bài tập để consumer quyết định phát
+   * assignment_assigned/assignment_submitted/assignment_returned và
+   * dựng nội dung: tên, khoá, trạng thái hiển thị của khoá + module.
+   */
+  async getAssignmentNotifyInfo(assignmentId: string): Promise<{
+    name: string; courseId: string; courseVisible: boolean; cmVisible: boolean | null; cmDeletionInProgress: boolean | null;
+  } | undefined> {
+    const [row] = await this.db.select({
+      name: assignments.name, courseId: assignments.course, courseVisible: course.visible,
+      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
+    }).from(assignments)
+      .innerJoin(course, eq(course.id, assignments.course))
+      .leftJoin(courseModules, eq(courseModules.id, assignments.cmId))
+      .where(eq(assignments.id, assignmentId));
+    return row;
+  }
+
+  /** Như trên cho một quiz (assignment → quiz_available / quiz_attempt_finished). */
+  async getQuizNotifyInfo(quizId: string): Promise<{
+    name: string; courseId: string; courseVisible: boolean; cmVisible: boolean | null; cmDeletionInProgress: boolean | null;
+  } | undefined> {
+    const [row] = await this.db.select({
+      name: quizzes.name, courseId: quizzes.course, courseVisible: course.visible,
+      cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
+    }).from(quizzes)
+      .innerJoin(course, eq(course.id, quizzes.course))
+      .leftJoin(courseModules, eq(courseModules.id, quizzes.cmId))
+      .where(eq(quizzes.id, quizId));
+    return row;
+  }
+
+  /**
+   * Mọi user có ghi danh đang hiệu lực trong khoá (instance đang bật +
+   * ghi danh ACTIVE + trong cửa sổ thời gian) — nghịch đảo của
+   * activeCourseIds ở trên, cùng ngữ nghĩa EnrolService.isEnrolled;
+   * đối tượng nhận thông báo "hoạt động mới" của NB-1.
+   */
+  async listActiveEnrolledUserIds(courseId: string): Promise<string[]> {
+    const now = new Date();
+    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
+      .where(and(
+        eq(enrol.courseId, courseId),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
+      ));
+    return [...new Set(rows.map((r) => r.userId))];
+  }
+
+  /**
+   * Số bài nộp của một bài tập đang CHỜ CHẤM tại thời điểm gọi: bản
+   * nộp ở trạng thái submitted mà gói chấm của đúng lần nộp đó chưa
+   * được trả bài (assign_grades khớp attempt_number, status khác
+   * 'released' hoặc chưa có gói chấm) — con số trong nội dung thông
+   * báo gộp assignment_submitted cho giáo viên (P5, issue #174).
+   */
+  async countAssignmentSubmissionsAwaitingGrading(assignmentId: string): Promise<number> {
+    const rows = await this.db.select({ id: assignSubmissions.id }).from(assignSubmissions)
+      .leftJoin(assignGrades, and(
+        eq(assignGrades.assignmentId, assignSubmissions.assignmentId),
+        eq(assignGrades.userId, assignSubmissions.userId),
+        eq(assignGrades.attemptNumber, assignSubmissions.attemptNumber),
+      ))
+      .where(and(
+        eq(assignSubmissions.assignmentId, assignmentId),
+        eq(assignSubmissions.status, 'submitted'),
+        or(isNull(assignGrades.id), ne(assignGrades.status, 'released')),
+      ));
+    return rows.length;
+  }
+
+  /** Số lượt làm của một quiz đang ở trạng thái cần chấm tay (không tính lượt preview của giáo viên). */
+  async countQuizAttemptsNeedingGrading(quizId: string): Promise<number> {
+    const rows = await this.db.select({ id: quizAttempts.id }).from(quizAttempts)
+      .where(and(
+        eq(quizAttempts.quizId, quizId),
+        eq(quizAttempts.state, 'needsgrading'),
+        eq(quizAttempts.preview, false),
+      ));
+    return rows.length;
+  }
+
+  /**
+   * Bản notification CHƯA ĐỌC đại diện cho một (user, loại, ngữ cảnh)
+   * — căn cứ GỘP của NB-1 như hasUnreadNotification nhưng trả cả dòng
+   * để consumer CẬP NHẬT nội dung (số lượng chờ chấm mới nhất) thay vì
+   * sinh bản mới (P5: một thông báo gộp cập nhật số lượng).
+   */
+  async getUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<NotificationRow | undefined> {
+    const [row] = await this.db.select().from(notifications)
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), eq(notifications.eventType, eventType),
+        eq(notifications.contextUrl, contextUrl), isNull(notifications.timeRead),
+      ))
+      .orderBy(desc(notifications.createdAt))
+      .limit(1);
+    return row;
+  }
+
+  /** Cập nhật nội dung một notification đang tồn tại (chỉ dùng cho bản gộp chưa đọc của NB-1). */
+  async updateNotificationContent(id: string, subject: string, fullMessage: string): Promise<void> {
+    await this.db.update(notifications)
+      .set({ subject, fullMessage, smallMessage: fullMessage.slice(0, 200) })
+      .where(eq(notifications.id, id));
   }
 
   /**

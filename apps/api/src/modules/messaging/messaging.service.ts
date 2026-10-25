@@ -58,6 +58,19 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   // nộp phát sự kiện outbox activity_due_reminder, consumer biến thành
   // thông báo — bật mặc định (quyết định đã chốt trong issue #50).
   { name: 'activity_due_soon', component: 'core_course', channels: ['popup', 'email'], group: 'learning' },
+  // Vòng đời Bài tập + Quiz hai chiều (NB-1, issue #174): consumer sự
+  // kiện assignment_created/submitted/returned + quiz_created/
+  // quiz_attempt_finished biến thành thông báo — assignment_assigned/
+  // assignment_returned/quiz_available cho HỌC SINH (bài mới giao, bài
+  // được trả, quiz mới mở), assignment_submitted cho cả hai phía (học
+  // sinh nhận xác nhận đã nộp; giáo viên nhận bản GỘP theo bài tập —
+  // chính sách P5), quiz_attempt_finished cho GIÁO VIÊN khi lượt làm
+  // kết thúc ở trạng thái cần chấm tay (gộp theo quiz như P5).
+  { name: 'assignment_assigned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'assignment_submitted', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'assignment_returned', component: 'mod_assign', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'quiz_available', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning' },
+  { name: 'quiz_attempt_finished', component: 'mod_quiz', channels: ['popup', 'email'], group: 'learning' },
   // Digest phụ huynh (PH-2, issue #159): worker quét cửa sổ phát sự
   // kiện guardian_digest_due, GuardianDigestConsumer (module Guardians)
   // tổng hợp dữ liệu ĐÃ CÔNG BỐ rồi gọi notify() — nội dung chỉ là số
