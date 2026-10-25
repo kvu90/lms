@@ -48,6 +48,13 @@ export const queryKeys = {
     ['notifications', 'items', eventType, contextUrl, day] as const,
   /** Tuỳ chọn nhận tin nhắn/thông báo của chính người dùng (GET /messages/preferences). */
   messagePreferences: ['messages', 'preferences'] as const,
+  /**
+   * Số conversation tin nhắn chưa đọc của chính người dùng (GET
+   * /messages/unread-count) — nguồn của huy hiệu trên mục Tin nhắn ở
+   * sidebar (lát M1, issue #204). Trang tin nhắn làm mới khoá này mỗi
+   * lần tự đếm lại số chưa đọc từ kênh realtime của chính trang.
+   */
+  messageUnreadCount: ['messages', 'unread-count'] as const,
   /** Sự kiện lịch trong một khoảng ngày (ISO string đầu/cuối khoảng). */
   calendarEvents: (from: string, to: string) => ['calendar', 'events', from, to] as const,
   /** Gốc khoá lịch — tiền tố làm mới mọi truy vấn lịch sau đột biến. */

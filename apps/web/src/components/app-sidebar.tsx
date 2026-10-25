@@ -90,6 +90,17 @@ function readStoredOpenGroups(): string[] {
  *   /notifications/unread-count, sau đó được stream SSE đẩy cập nhật
  *   thời gian thực (không polling) — đây là chỗ duy nhất báo tin chưa
  *   đọc trong khung đã đăng nhập, header không còn chuông thông báo.
+ * - Mục Tin nhắn mang huy hiệu SỐ CONVERSATION chưa đọc (lát M1,
+ *   issue #204): nguồn GET /messages/unread-count (trường
+ *   `conversations` — phía server đếm bằng countUnreadConversations,
+ *   đã loại conversation 1–1 bị ẩn vì quan hệ chặn; hội thoại tắt
+ *   tiếng sẽ bị loại tại đúng hàm đếm này khi lát M5 tạo trạng thái
+ *   tắt tiếng). Chiến lược làm tươi ở lát này là react-query
+ *   refetchInterval 30 giây + refetch khi cửa sổ được focus, KHÔNG mở
+ *   thêm socket ở vỏ app — đánh đổi đã chốt trong hồ sơ audit: ngoài
+ *   trang tin nhắn số có thể trễ tối đa 30 giây, trong trang tin nhắn
+ *   vẫn realtime qua socket của chính trang (trang còn chủ động làm
+ *   mới truy vấn này mỗi lần tự đếm lại).
  * - Thu sidebar là thu về rail icon (`collapsible="icon"` + SidebarRail)
  *   thay vì mất hẳn điều hướng như `offcanvas` trước đây; trạng thái
  *   thu/mở của từng nhóm lưu ở localStorage, trạng thái sidebar toàn
@@ -108,6 +119,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
   });
   const unreadNotifications = unreadQuery.data?.unread ?? 0;
+
+  // Số conversation tin nhắn chưa đọc cho huy hiệu ở mục Tin nhắn
+  // (lát M1, issue #204): làm tươi mỗi 30 giây và khi cửa sổ được
+  // focus lại; đang tải hoặc lỗi thì coi như 0 (không hiện huy hiệu).
+  const messageUnreadQuery = useQuery({
+    queryKey: queryKeys.messageUnreadCount,
+    queryFn: () => apiJson<{ conversations: number; notifications: number }>('/api/v1/messages/unread-count'),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const unreadConversations = messageUnreadQuery.data?.conversations ?? 0;
 
   // Mục "Phụ huynh" (PH-1, issue #130) chỉ hiện khi tài khoản có ít
   // nhất một liên kết giám hộ đang hiệu lực — người dùng thường không
@@ -138,7 +160,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     { title: t('dashboard:itemDashboard'), url: '/', icon: IconLayoutDashboard },
     { title: t('app:navCourses'), url: '/courses', icon: IconBook },
     { title: t('app:navCalendar'), url: '/calendar', icon: IconCalendar },
-    { title: t('app:navMessages'), url: '/messages', icon: IconMail },
+    { title: t('app:navMessages'), url: '/messages', icon: IconMail, badgeCount: unreadConversations },
     { title: t('app:navNotifications'), url: '/notifications', icon: IconBell, badgeCount: unreadNotifications },
     ...(hasGuardianChildren
       ? [{ title: t('app:navGuardian'), url: '/guardian', icon: IconUsers }]
