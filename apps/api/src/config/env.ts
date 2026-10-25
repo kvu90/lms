@@ -120,6 +120,16 @@ export const envSchema = z.object({
   // Danh sách origin tin cậy bổ sung (phân tách bằng dấu phẩy) cho các
   // endpoint đổi trạng thái của Better Auth (kiểm tra Origin của nó).
   BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
+  // Email hệ thống qua Resend (issue #7 chặng 2.5; quyết định 26/10:
+  // gửi qua Resend thay SMTP): API key của Resend. Trống = mailer chạy
+  // chế độ ghi log (không gửi mail thật) và app VẪN boot bình thường —
+  // luồng reset mật khẩu/OTP vẫn ghi yêu cầu vào outbox đầy đủ, chỉ
+  // khâu gửi cuối là bị bỏ qua có khai báo (fail-soft, xem MailModule).
+  RESEND_API_KEY: z.string().min(1).optional(),
+  // Địa chỉ gửi (trường From) cho mọi mail hệ thống qua Resend — phải
+  // thuộc domain đã xác minh DNS trên Resend. Trống = không gửi được
+  // mail nào (mailer khai báo lý do ở log, không crash).
+  MAIL_FROM: z.string().min(1).optional(),
   // Máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): cờ RIÊNG với
   // BETTER_AUTH_ENABLED — bật thì instance Better Auth compose thêm
   // jwt()/mcp()/cimd() và trở thành AS phát access token cho `/mcp`

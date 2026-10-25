@@ -26,6 +26,7 @@ import { APIError, betterAuth } from 'better-auth';
 import { jwt, username } from 'better-auth/plugins';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
+import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
 import { betterAuthSchema } from './better-auth.schema';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
@@ -73,6 +74,16 @@ export interface BetterAuthFactoryDeps {
   trustedOrigins: string[];
   passwordService: PasswordService;
   /**
+   * Cổng gửi mail auth (issue #7 chặng 2.5, lát BA-2): có giá trị thì
+   * factory nối `sendResetPassword` vào cổng này và đăng ký plugin
+   * `emailOTP` (qua đúng một dòng gọi factory trong module mail) để
+   * mã OTP cũng đi qua cổng. `null`/thiếu = instance không có đường
+   * gửi mail: endpoint reset của Better Auth tự từ chối
+   * (RESET_PASSWORD_DISABLED) và bề mặt OTP không tồn tại — đúng
+   * hành vi "chưa nối mail thì không mở luồng", không gửi đi đâu cả.
+   */
+  authMail?: AuthMailPort | null;
+  /**
    * Cấu hình máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): có
    * giá trị thì factory compose thêm `jwt()` + `mcp()` + `cimd()` —
    * instance trở thành AS phát access token cho `/mcp`. `null`/thiếu
@@ -102,6 +113,25 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       // Thu hồi mọi phiên còn lại khi đặt lại mật khẩu (chốt trong issue;
       // luồng reset thi công ở Giai đoạn 2, cấu hình đặt sẵn từ nền này).
       revokeSessionsOnPasswordReset: true,
+      // Chặng 2.5 (lát BA-2): callback gửi mail reset CHỈ ghi yêu
+      // cầu vào outbox qua cổng mail (AuthMailService lo phần đó) —
+      // không gửi đồng bộ trong request như khuyến nghị chống timing
+      // attack của Better Auth. Chưa nối cổng mail thì không khai
+      // callback này: endpoint reset tự từ chối thay vì nhận yêu cầu
+      // rồi để mất.
+      ...(deps.authMail
+        ? {
+            sendResetPassword: async ({
+              user,
+              url,
+            }: {
+              user: { id: string; email: string };
+              url: string;
+            }): Promise<void> => {
+              await deps.authMail!.sendPasswordResetEmail({ userId: user.id, email: user.email, url });
+            },
+          }
+        : {}),
       password: {
         hash: async (password: string): Promise<string> => {
           const violations = deps.passwordService.validatePolicy(password);
@@ -118,6 +148,8 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     },
     plugins: [
       username({ displayUsername: false }),
+      // Lát BA-2 (issue #7 chặng 2.5): đăng nhập bằng email OTP — plugin dựng từ factory trong module mail, mã gửi qua cổng mail (outbox → Resend).
+      ...(deps.authMail ? [createEmailOtpPlugin(deps.authMail)] : []),
       // ── Lát MCP-1 (issue #163): máy chủ OAuth cho MCP ──────────────
       // Chỉ compose khi cờ MCP_AS_ENABLED bật (service truyền mcpAs).
       // CIMD (client_id là URL tài liệu metadata, hồ sơ

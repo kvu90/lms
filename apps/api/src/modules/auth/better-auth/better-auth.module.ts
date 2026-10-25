@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MailModule } from '../../mail/mail.module';
 import { UsersModule } from '../../users/users.module';
 import { BetterAuthService } from './better-auth.service';
 import { CredentialBridgeService } from './credential-bridge.service';
@@ -11,7 +12,7 @@ import { CredentialBridgeService } from './credential-bridge.service';
  * AppModule đăng ký toàn cục trước JwtAuthGuard.
  */
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, MailModule],
   providers: [BetterAuthService, CredentialBridgeService],
   exports: [BetterAuthService, CredentialBridgeService],
 })
