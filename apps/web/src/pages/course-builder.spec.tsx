@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -307,6 +307,32 @@ describe('Course completion criteria (teacher with completion:manage)', () => {
     );
     const put = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT');
     expect(put?.body).toEqual({ method: 2, criteria: [{ criteriaType: 'module', moduleInstance: MODULE_ID }] });
+  });
+
+  it('does not offer the course-grade criterion (the per-activity model has no course total); the date criterion still saves', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseBuilder();
+
+    const box = await screen.findByTestId('completion-criteria');
+    await userEvent.click(within(box).getByRole('button', { name: 'Thêm tiêu chí' }));
+
+    const typeSelect = within(box).getByLabelText('Loại tiêu chí') as HTMLSelectElement;
+    expect(Array.from(typeSelect.options).map((o) => o.value)).toEqual(['module', 'date']);
+    // Tiêu chí mới thêm mặc định là hoàn thành hoạt động, không còn loại điểm tổng khoá.
+    expect(typeSelect.value).toBe('module');
+
+    await userEvent.selectOptions(typeSelect, 'date');
+    fireEvent.change(within(box).getByLabelText('Ngày'), { target: { value: '2027-01-31' } });
+    await userEvent.click(within(box).getByRole('button', { name: 'Lưu tiêu chí hoàn thành' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT'),
+      ).toBe(true),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/completion/criteria` && c.method === 'PUT');
+    expect(put?.body).toEqual({ method: 1, criteria: [{ criteriaType: 'date', date: '2027-01-31' }] });
   });
 });
 
