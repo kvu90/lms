@@ -3129,6 +3129,8 @@ CREATE TABLE "class_join_requests" (
 --> statement-breakpoint
 ALTER TABLE "classes" ADD COLUMN "join_auto_approve" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 CREATE INDEX "class_join_requests_class_id_idx" ON "class_join_requests" ("class_id");--> statement-breakpoint
+CREATE INDEX "class_join_requests_tenant_id_idx" ON "class_join_requests" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "class_join_requests_decided_by_idx" ON "class_join_requests" ("decided_by");--> statement-breakpoint
 CREATE INDEX "class_join_requests_user_id_idx" ON "class_join_requests" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "class_join_requests_pending_unique" ON "class_join_requests" ("class_id","user_id") WHERE "status" = 'pending';--> statement-breakpoint
 ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint

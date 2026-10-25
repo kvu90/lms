@@ -44,8 +44,10 @@ export const classJoinRequests = pgTable('class_join_requests', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
+      index('class_join_requests_tenant_id_idx').on(table.tenantId),
       index('class_join_requests_class_id_idx').on(table.classId),
       index('class_join_requests_user_id_idx').on(table.userId),
+      index('class_join_requests_decided_by_idx').on(table.decidedBy),
       uniqueIndex('class_join_requests_pending_unique').on(table.classId, table.userId).where(sql`${table.status} = 'pending'`),
   ]);
 

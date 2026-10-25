@@ -16510,6 +16510,46 @@
         "index",
         "public",
         "class_join_requests",
+        "class_join_requests_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.class_join_requests_tenant_id_idx",
+        "n|idx|public.class_join_requests_tenant_id_idx",
+        "e|idx|public.class_join_requests_tenant_id_idx",
+        "n|rel|public.class_join_requests_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.class_join_requests",
+        "n|sch|public",
+        "n|col|public.class_join_requests.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "class_join_requests",
+        "class_join_requests_decided_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.class_join_requests_decided_by_idx",
+        "n|idx|public.class_join_requests_decided_by_idx",
+        "e|idx|public.class_join_requests_decided_by_idx",
+        "n|rel|public.class_join_requests_decided_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.class_join_requests",
+        "n|sch|public",
+        "n|col|public.class_join_requests.decided_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "class_join_requests",
         "class_join_requests_pending_unique"
       ],
       "writes": [
@@ -55968,6 +56008,48 @@
       "columns": [
         {
           "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "class_join_requests",
+      "name": "class_join_requests_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "class_join_requests",
+      "name": "class_join_requests_decided_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "decided_by",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
