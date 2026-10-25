@@ -87,6 +87,9 @@ export class PaymentsRepository {
       .returning();
     return row;
   }
+  async getProviderEvent(id: string): Promise<ProviderEventRow | undefined> {
+    const [row] = await this.db.select().from(paymentProviderEvents).where(eq(paymentProviderEvents.id, id)); return row;
+  }
   async getProviderEventByTx(provider: string, externalTransactionId: string): Promise<ProviderEventRow | undefined> {
     const [row] = await this.db.select().from(paymentProviderEvents)
       .where(and(eq(paymentProviderEvents.provider, provider), eq(paymentProviderEvents.externalTransactionId, externalTransactionId)));

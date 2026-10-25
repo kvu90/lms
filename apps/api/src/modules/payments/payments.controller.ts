@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
@@ -6,7 +7,7 @@ import { Public } from '../../common/public.decorator';
 import { createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, type CreateAccountDto, type CreatePaymentDto, type RefundDto, type WebhookDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
 
-/** Controller thanh toán: accounts, payments, webhook (public, idempotent), refunds. */
+/** Controller thanh toán: accounts, payments, webhook (public, idempotent), refunds, IPN SePay. */
 @ApiTags('payments')
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
@@ -45,5 +46,21 @@ export class PaymentsController {
   @Post('webhook')
   async webhook(@Body({ schema: paymentWebhookSchema }) dto: WebhookDto, @Headers() headers: Record<string, string | string[] | undefined>) {
     return this.payments.handleWebhook({ gateway: dto.gateway, externalTransactionId: dto.externalTransactionId, paymentId: dto.paymentId, status: dto.status }, headers);
+  }
+  /**
+   * IPN SePay (lát 1 VietQR, #189): không dùng JWT — cổng là allowlist IP +
+   * header `Authorization: Apikey …` kiểm trong service sau khi định tuyến
+   * theo bank_account_xid. Thân IPN là định dạng của SePay nên KHÔNG qua
+   * zod schema của hệ thống; handler chỉ ghi sự kiện rồi trả {success:true},
+   * matching chạy bất đồng bộ ở SepayIpnConsumer.
+   */
+  @Public()
+  @Post('ipn/sepay')
+  async sepayIpn(@Req() req: Request) {
+    return this.payments.handleSepayIpn({
+      ip: req.ip,
+      authorization: req.headers.authorization,
+      body: (req as { body?: unknown }).body,
+    });
   }
 }
