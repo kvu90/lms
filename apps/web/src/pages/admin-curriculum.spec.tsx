@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -65,6 +65,67 @@ const TREE = {
   ],
 };
 
+function lessonNode(id: string, parentId: string, title: string, position: number, outcomeTexts: string[]) {
+  return {
+    id,
+    curriculumId: 'curr-5',
+    parentId,
+    title,
+    kind: 'lesson',
+    position,
+    durationPeriods: null,
+    durationPercent: null,
+    outcomes: outcomeTexts.map((content, i) => ({
+      id: `${id}-outcome-${i + 1}`,
+      content,
+      position: i + 1,
+      sourceKind: 'program',
+      sourceRef: 'Thông tư 32/2018/TT-BGDĐT · trang 5 · TOAN-0001',
+      derivedFromId: null,
+    })),
+    children: [],
+  };
+}
+
+/** Cây lớn cho ca phân trang: mạch A 12 dòng + mạch B 3 dòng = 15 dòng Nội dung (trang chứa 10 dòng). */
+const BIG_TREE = {
+  curriculum: { id: 'curr-5', subjectId: 'subj-toan', grade: 5 },
+  subject: SUBJECT,
+  nodes: [
+    {
+      id: 'strand-a',
+      curriculumId: 'curr-5',
+      parentId: null,
+      title: 'Số và phép tính',
+      kind: 'strand',
+      position: 1,
+      durationPeriods: null,
+      durationPercent: null,
+      outcomes: [],
+      children: Array.from({ length: 12 }, (_, i) =>
+        lessonNode(`lesson-a${i + 1}`, 'strand-a', `Nội dung A${i + 1}`, i + 1, [
+          `Yêu cầu cần đạt A${i + 1}.`,
+          ...(i === 0 ? ['Yêu cầu cần đạt A1 bổ sung.'] : []),
+        ]),
+      ),
+    },
+    {
+      id: 'strand-b',
+      curriculumId: 'curr-5',
+      parentId: null,
+      title: 'Hình học và đo lường',
+      kind: 'strand',
+      position: 2,
+      durationPeriods: null,
+      durationPercent: null,
+      outcomes: [],
+      children: Array.from({ length: 3 }, (_, i) =>
+        lessonNode(`lesson-b${i + 1}`, 'strand-b', `Nội dung B${i + 1}`, i + 1, [`Yêu cầu cần đạt B${i + 1}.`]),
+      ),
+    },
+  ],
+};
+
 interface RecordedCall {
   url: string;
   method: string;
@@ -72,7 +133,7 @@ interface RecordedCall {
 }
 
 /** Stub fetch ghi lại lời gọi; `forbidden` mô phỏng người không có curriculum:manage (403 mọi lời gọi curriculum). */
-function stubFetch(calls: RecordedCall[], forbidden = false) {
+function stubFetch(calls: RecordedCall[], forbidden = false, tree: unknown = TREE) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -93,7 +154,7 @@ function stubFetch(calls: RecordedCall[], forbidden = false) {
       if (url === '/api/v1/access/contexts') return respond([{ id: 'ctx-sys', contextLevel: 10 }]);
       if (url.startsWith('/api/v1/curriculum/subjects?')) return respond([SUBJECT]);
       if (url.startsWith('/api/v1/curriculum/curricula?')) return respond([{ id: 'curr-5', subjectId: 'subj-toan', grade: 5 }]);
-      if (url === '/api/v1/curriculum/curricula/curr-5/tree') return respond(TREE);
+      if (url === '/api/v1/curriculum/curricula/curr-5/tree') return respond(tree);
       return respond({}, 404);
     }),
   );
@@ -182,5 +243,70 @@ describe('Admin curriculum pages', () => {
     const row = screen.getByText('Đọc, viết được các số có nhiều chữ số').closest('tr');
     expect(row).not.toBeNull();
     expect(row!.textContent).toContain('Đọc, viết được các số có nhiều chữ số.');
+  });
+
+  it('paginates the tree: one page of content rows at a time, next page shows the following rows', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, false, BIG_TREE);
+    renderTree();
+
+    // Trang 1: đúng 10 dòng đầu của mạch A; dòng 11 và mạch B chưa hiện.
+    expect(await screen.findByText('Nội dung A1')).toBeInTheDocument();
+    expect(screen.getByText('Nội dung A10')).toBeInTheDocument();
+    expect(screen.queryByText('Nội dung A11')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hình học và đo lường')).not.toBeInTheDocument();
+    expect(screen.getByText('Trang 1 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trang trước' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
+
+    // Trang 2: phần còn của mạch A + toàn bộ mạch B; dòng của trang 1 không còn.
+    expect(await screen.findByText('Nội dung A11')).toBeInTheDocument();
+    expect(screen.getByText('Nội dung A12')).toBeInTheDocument();
+    expect(screen.getByText('Nội dung B3')).toBeInTheDocument();
+    expect(screen.queryByText('Nội dung A1')).not.toBeInTheDocument();
+    expect(screen.getByText('Trang 2 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trang sau' })).toBeDisabled();
+    // Chuyển trang là việc phía client: cây chỉ được tải đúng một lần.
+    expect(calls.filter((c) => c.url === '/api/v1/curriculum/curricula/curr-5/tree')).toHaveLength(1);
+  });
+
+  it('repeats a strand heading with (tiếp) when the strand spans pages, and row actions still work on page 2', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, false, BIG_TREE);
+    renderTree();
+
+    expect(await screen.findByText('Nội dung A1')).toBeInTheDocument();
+    expect(screen.queryByText('(tiếp)')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
+
+    // Mạch A bắt đầu ở trang 1, sang trang 2 phải lặp lại tiêu đề kèm dấu (tiếp) như văn bản in.
+    expect(await screen.findByText('(tiếp)')).toBeInTheDocument();
+    expect(screen.getByText('Số và phép tính')).toBeInTheDocument();
+    expect(screen.getByText('Hình học và đo lường')).toBeInTheDocument();
+    // Thao tác tại dòng ở trang 2 còn nguyên: Sửa node trỏ đúng màn sửa của node đó.
+    const row = screen.getByText('Nội dung A11').closest('tr');
+    expect(row).not.toBeNull();
+    const editLinks = within(row!).getAllByRole('link', { name: 'Sửa' });
+    expect(editLinks[0]).toHaveAttribute('href', '/admin/curriculum/nodes/lesson-a11/edit');
+  });
+
+  it('renders every outcome as its own dash-bulleted item in the outcomes cell', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, false, BIG_TREE);
+    renderTree();
+
+    const row = (await screen.findByText('Nội dung A1')).closest('tr');
+    expect(row).not.toBeNull();
+    const items = within(row!).getAllByRole('listitem');
+    // Hai YCCĐ của dòng A1 = hai mục riêng, mỗi mục mở đầu bằng gạch đầu dòng như nguyên văn của Bộ.
+    const outcomeItems = items.filter((li) => li.textContent?.includes('Yêu cầu cần đạt A1'));
+    expect(outcomeItems).toHaveLength(2);
+    for (const li of outcomeItems) {
+      expect(li.textContent?.trimStart().startsWith('–')).toBe(true);
+    }
+    expect(outcomeItems[0]!.textContent).toContain('Yêu cầu cần đạt A1.');
+    expect(outcomeItems[1]!.textContent).toContain('Yêu cầu cần đạt A1 bổ sung.');
   });
 });

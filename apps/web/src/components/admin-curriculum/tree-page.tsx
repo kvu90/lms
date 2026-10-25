@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -9,12 +9,66 @@ import { fetchTree, type CurriculumTree, type CurriculumTreeNode } from '#lib/cu
 import { flattenProgramRows, ProgramGroupTable, type ProgramRow } from './program-group-table';
 import { errorText } from './shared';
 
+/**
+ * Số dòng Nội dung trên một trang đọc cây chương trình. Văn bản in của
+ * Bộ trình bày bảng Nội dung | Yêu cầu cần đạt liên tục và ngắt trang
+ * theo khổ giấy (mỗi trang in chứa chừng chục dòng nội dung); bản số
+ * hoá giữ đúng nhịp đọc đó: 10 dòng/trang, mạch bị cắt qua trang thì
+ * lặp lại tiêu đề kèm dấu (tiếp). Phân trang chạy hoàn toàn phía
+ * client — cây đã tải một lần, chuyển trang không gọi lại server.
+ */
+export const PROGRAM_PAGE_SIZE = 10;
+
+/** Một nhóm trình bày: một mạch nội dung (hoặc nhóm không tên khi gốc cây không phải mạch) + các dòng của nó. */
+interface ProgramGroup {
+  key: string;
+  title: string | null;
+  groupNode: CurriculumTreeNode | null;
+  rows: ProgramRow[];
+}
+
+/** Dựng các nhóm trình bày từ cây, giữ đúng thứ tự + đường đi như bản không phân trang. */
+export function buildProgramGroups(tree: CurriculumTree): ProgramGroup[] {
+  const groups: ProgramGroup[] = [];
+  for (const root of tree.nodes) {
+    const rows: ProgramRow[] = [];
+    if (root.kind === 'strand') {
+      // Node gốc là mạch nội dung → một bảng mang tên mạch.
+      if (root.outcomes.length > 0) rows.push({ node: root, path: [] });
+      for (const child of root.children) flattenProgramRows(child, [], rows);
+      groups.push({ key: root.id, title: root.title, groupNode: root, rows });
+    } else {
+      // Node gốc khác (dataset không mang mạch) → bảng không tiêu đề nhóm.
+      flattenProgramRows(root, [], rows);
+      groups.push({ key: root.id, title: null, groupNode: null, rows });
+    }
+  }
+  return groups;
+}
+
+/** Danh sách số trang hiển thị ở nút phân trang: gọn khi nhiều trang (1 … quanh trang hiện tại … cuối). */
+function pageNumberItems(total: number, current: number): (number | 'gap')[] {
+  if (total <= 12) return Array.from({ length: total }, (_, i) => i + 1);
+  const wanted = new Set([1, 2, total - 1, total, current - 1, current, current + 1]);
+  const nums = [...wanted].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: (number | 'gap')[] = [];
+  let prev = 0;
+  for (const n of nums) {
+    if (prev > 0 && n - prev > 1) out.push('gap');
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
+
 export function AdminCurriculumTreePage() {
   const { t } = useTranslation('app');
   const { curriculumId } = useParams();
   const [tree, setTree] = useState<CurriculumTree | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const groupsTopRef = useRef<HTMLDivElement>(null);
 
   const reload = useCallback(async () => {
     if (!curriculumId) return;
@@ -69,6 +123,42 @@ export function AdminCurriculumTreePage() {
       </PageShell>
     );
   }
+
+  // Phân trang theo dòng Nội dung trên toàn cây: các mạch giữ nguyên
+  // thứ tự, trang cắt đến đâu thì mạch đang dở được trình bày tiếp ở
+  // trang sau với tiêu đề lặp lại kèm dấu (tiếp). Mạch chưa có dòng nào
+  // vẫn hiện tiêu đề (giữ nút Thêm node con) ở trang chứa vị trí của nó.
+  const groups = buildProgramGroups(tree);
+  const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
+  const totalPages = Math.max(1, Math.ceil(totalRows / PROGRAM_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PROGRAM_PAGE_SIZE;
+  const pageEnd = pageStart + PROGRAM_PAGE_SIZE;
+  const segments: { group: ProgramGroup; rows: ProgramRow[]; continued: boolean }[] = [];
+  let cursor = 0;
+  for (const group of groups) {
+    const start = cursor;
+    const end = start + group.rows.length;
+    cursor = end;
+    if (group.rows.length === 0) {
+      const attachIndex = Math.min(start, Math.max(totalRows - 1, 0));
+      if (Math.floor(attachIndex / PROGRAM_PAGE_SIZE) + 1 === currentPage) {
+        segments.push({ group, rows: [], continued: false });
+      }
+      continue;
+    }
+    const from = Math.max(start, pageStart);
+    const to = Math.min(end, pageEnd);
+    if (from < to) {
+      segments.push({ group, rows: group.rows.slice(from - start, to - start), continued: start < pageStart });
+    }
+  }
+
+  function goToPage(next: number) {
+    setPage(Math.max(1, Math.min(next, totalPages)));
+    groupsTopRef.current?.scrollIntoView?.({ block: 'start' });
+  }
+
   return (
     <PageShell>
       <PageHeader
@@ -88,40 +178,49 @@ export function AdminCurriculumTreePage() {
           {t('curriculumBackToList')}
         </Link>
       </div>
-      <div className="flex flex-col gap-4">
-        {tree.nodes.map((root) => {
-          // Node gốc là mạch nội dung → một bảng mang tên mạch; node gốc
-          // khác (dataset không mang mạch) → bảng không tiêu đề nhóm.
-          const rows: ProgramRow[] = [];
-          if (root.kind === 'strand') {
-            if (root.outcomes.length > 0) rows.push({ node: root, path: [] });
-            for (const child of root.children) flattenProgramRows(child, [], rows);
-            return (
-              <ProgramGroupTable
-                key={root.id}
-                title={root.title}
-                groupNode={root}
-                rows={rows}
-                curriculumId={tree.curriculum.id}
-                onDeleteNode={(n) => void deleteNode(n)}
-                onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
-              />
-            );
-          }
-          flattenProgramRows(root, [], rows);
-          return (
-            <ProgramGroupTable
-              key={root.id}
-              title={null}
-              groupNode={null}
-              rows={rows}
-              curriculumId={tree.curriculum.id}
-              onDeleteNode={(n) => void deleteNode(n)}
-              onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
-            />
-          );
-        })}
+      <div className="flex flex-col gap-4" ref={groupsTopRef}>
+        {segments.map(({ group, rows, continued }) => (
+          <ProgramGroupTable
+            key={`${group.key}-${continued ? 'cont' : 'start'}`}
+            title={group.title}
+            groupNode={group.groupNode}
+            rows={rows}
+            curriculumId={tree.curriculum.id}
+            onDeleteNode={(n) => void deleteNode(n)}
+            onDeleteOutcome={(n, id) => void deleteOutcome(n, id)}
+            continued={continued}
+          />
+        ))}
       </div>
+      {totalPages > 1 ? (
+        <nav aria-label={t('curriculumPaginationLabel')} className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)}>
+            {t('curriculumPagePrevious')}
+          </Button>
+          {pageNumberItems(totalPages, currentPage).map((item, i) =>
+            item === 'gap' ? (
+              <span key={`gap-${i}`} className="text-sm text-muted-foreground">…</span>
+            ) : (
+              <Button
+                key={item}
+                type="button"
+                variant={item === currentPage ? 'default' : 'outline'}
+                size="sm"
+                aria-current={item === currentPage ? 'page' : undefined}
+                onClick={() => goToPage(item)}
+              >
+                {item}
+              </Button>
+            ),
+          )}
+          <Button type="button" variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => goToPage(currentPage + 1)}>
+            {t('curriculumPageNext')}
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {t('curriculumPageStatus', { current: currentPage, total: totalPages })}
+          </span>
+        </nav>
+      ) : null}
     </PageShell>
   );
 }
