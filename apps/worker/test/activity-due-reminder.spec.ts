@@ -49,7 +49,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     // Sau gộp Đề (#226): hoạt động được nhắc là LẦN GHIM (exam_pins)
     // — dựng tối thiểu bank → đề → version → pin bằng SQL như các
     // fixture khác của suite worker.
-    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by) values ('N5 bank', 'exam', 'platform', gen_random_uuid(), ${uid(900)}) returning id`);
+    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by) values ('N5 bank', 'exam', 'personal', ${uid(900)}, ${uid(900)}) returning id`);
     const bankId = (bankRows.rows[0] as { id: string }).id;
     const examRows = await db.execute(sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${uid(900)}, 'ready') returning id`);
     const examId = (examRows.rows[0] as { id: string }).id;
