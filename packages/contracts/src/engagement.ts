@@ -56,20 +56,37 @@ export const notificationSchema = z.object({
 });
 export type LmsNotification = z.infer<typeof notificationSchema>;
 
+/** Tần suất gửi email của một loại thông báo (mô hình tuỳ chọn v2, NB-2 issue #174). */
+export const emailFrequencySchema = z.enum(['immediate', 'daily', 'off']);
+export type EmailFrequency = z.infer<typeof emailFrequencySchema>;
+
 /**
- * Một dòng tuỳ chọn notification mà API trả về (MessagingService.getPreferences):
- * một dòng cho mỗi (provider × channel × state), `enabled` là trạng thái của dòng đó.
+ * Một dòng tuỳ chọn notification v2 mà API trả về
+ * (MessagingService.getPreferences): MỘT dòng cho mỗi provider — trục
+ * loggedin/loggedoff của mô hình cũ đã bỏ. Nhãn + mô tả vi/en lấy từ
+ * registry ở API (nguồn sự thật duy nhất; web không tự chế bảng nhãn).
+ * `emailFrequency` là null khi provider không có kênh email;
+ * `emailAvailable` cho biết kênh email đã gửi thật hay chưa (false cho
+ * tới khi SMTP nối ở NB-5 — cài đặt vẫn lưu và áp dụng khi kênh mở).
+ * Kênh push không xuất hiện ở đây: chưa có app native nên ẩn hẳn khỏi
+ * trang cài đặt, chỉ còn trong registry provider.
  */
-export const messagePreferenceSchema = z.object({
+export const notificationPreferenceSchema = z.object({
   provider: z.string(),
   component: z.string(),
   /** Phân loại 3 nhóm của provider (hồ sơ chuẩn thông báo D.1): học tập / lớp & mọi người / hệ thống. */
   group: z.enum(['learning', 'people', 'system']),
-  channel: z.enum(['popup', 'email', 'push']),
-  state: z.enum(['loggedin', 'loggedoff']),
-  enabled: z.boolean(),
+  label: z.object({ vi: z.string(), en: z.string() }),
+  description: z.object({ vi: z.string(), en: z.string() }),
+  /** Loại chỉ giáo viên mới nhận được — web gắn nhãn theo vai. */
+  teacherOnly: z.boolean(),
+  /** Loại bắt buộc (chính sách P2): kênh trong-app không tắt được. */
+  mandatoryInApp: z.boolean(),
+  popupEnabled: z.boolean(),
+  emailFrequency: emailFrequencySchema.nullable(),
+  emailAvailable: z.boolean(),
 });
-export type MessagePreference = z.infer<typeof messagePreferenceSchema>;
+export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 
 /* ---- Trung tâm thông báo v2 (lát N2, issue #51) ---- */
 
@@ -559,13 +576,18 @@ export type MessagingSyncRequest = Record<string, number>;
 export type MessagingSyncResult = Record<string, LmsMessage[]>;
 
 /** Payload đặt tuỳ chọn kênh nhận cho một message provider. */
-export const setMessagePreferenceSchema = z.strictObject({
+/**
+ * Đặt tuỳ chọn v2 cho MỘT provider: ít nhất một trong hai trường phải
+ * có mặt (API kiểm tra thêm và trả 400 `messaging.preference_empty`).
+ * Tắt popup của loại bắt buộc bị API từ chối 400
+ * `messaging.preference_mandatory`.
+ */
+export const setNotificationPreferenceSchema = z.strictObject({
   provider: z.string().min(1),
-  channel: z.enum(['popup', 'email', 'push']),
-  state: z.enum(['loggedin', 'loggedoff']),
-  enabled: z.boolean(),
+  popupEnabled: z.boolean().optional(),
+  emailFrequency: emailFrequencySchema.optional(),
 });
-export type SetMessagePreference = z.infer<typeof setMessagePreferenceSchema>;
+export type SetNotificationPreference = z.infer<typeof setNotificationPreferenceSchema>;
 
 /** Payload phát thông báo hệ thống tới một người dùng. */
 export const notifyUserSchema = z.strictObject({

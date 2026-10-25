@@ -185,18 +185,31 @@ describe('Notification providers wired (N1, issue #49)', () => {
     const { token } = await setupStudentInCourse();
     const res = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
+    // Mô hình v2 (NB-2, issue #174): một dòng cho mỗi provider kèm
+    // nhãn/mô tả từ registry — không còn trường channel/state.
+    const rows = res.body as { provider: string; group: string; label: { vi: string; en: string }; description: { vi: string; en: string } }[];
+    for (const row of rows) {
+      expect(row.label.vi.length).toBeGreaterThan(0);
+      expect(row.label.en.length).toBeGreaterThan(0);
+      expect(row.description.vi.length).toBeGreaterThan(0);
+      expect(row).not.toHaveProperty('state');
+      expect(row).not.toHaveProperty('channel');
+    }
     const groups = new Map<string, string>();
-    for (const row of res.body as { provider: string; group: string }[]) groups.set(row.provider, row.group);
+    for (const row of rows) groups.set(row.provider, row.group);
     // Tập provider hiện tại = đúng các provider đã nối dây (N1). Thêm
     // provider mới mà chưa nối dây sẽ làm test này đỏ — đó là chủ đích:
     // không để công tắc giả quay lại trang cài đặt.
     expect([...groups.keys()].sort()).toEqual([
-      'activity_due_soon', 'assignment_assigned', 'assignment_returned', 'assignment_submitted', 'badge_awarded',
+      'activity_due_soon', 'admin_announcement', 'assignment_assigned', 'assignment_returned', 'assignment_submitted', 'badge_awarded',
       'calendar_reminder', 'competency_review_requested', 'contact_request',
       'conversation_reported', 'course_completed', 'enrol_expiry_warning', 'enrol_welcome',
       'grade_updated', 'guardian_digest', 'guardian_overdue_alert', 'message_new', 'quiz_attempt_finished',
       'quiz_available', 'report_scheduled',
     ]);
+    // NB-2: admin_announcement là provider thông báo quản trị/an toàn
+    // (loại bắt buộc thứ hai của P2), phát qua POST /notifications/send.
+    expect(groups.get('admin_announcement')).toBe('system');
     expect(groups.get('grade_updated')).toBe('learning');
     expect(groups.get('course_completed')).toBe('learning');
     expect(groups.get('enrol_expiry_warning')).toBe('learning');
@@ -323,10 +336,10 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
     expect(notif.subject).toContain('Bài tập NB-1 số 1');
 
-    // HS2 tắt popup của assignment_assigned (trạng thái loggedin là
-    // trạng thái notify() dùng cho consumer) → bài tập sau không báo.
+    // HS2 tắt popup của assignment_assigned (mô hình v2, NB-2) →
+    // bài tập sau không báo nữa.
     const pref = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${ctx.student2Token}`)
-      .send({ provider: 'assignment_assigned', channel: 'popup', state: 'loggedin', enabled: false });
+      .send({ provider: 'assignment_assigned', popupEnabled: false });
     expect(pref.status).toBeLessThan(300);
     const assignment2 = await createAssignment(ctx, 'Bài tập NB-1 số 2');
     const notif2 = await waitForNotification(ctx.studentToken, 'assignment_assigned', 20000,

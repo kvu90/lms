@@ -52,19 +52,29 @@ export interface NotificationGroupsPage {
   nextCursor: string | null;
 }
 
-export type PreferenceChannel = 'popup' | 'email' | 'push';
-export type PreferenceState = 'loggedin' | 'loggedoff';
+/** Tần suất gửi email của một loại thông báo (mô hình tuỳ chọn v2, NB-2 issue #174). */
+export type EmailFrequency = 'immediate' | 'daily' | 'off';
 
 /**
- * Một dòng tuỳ chọn đúng như API trả: mỗi (provider × channel × state)
- * là một bản ghi độc lập kèm cờ `enabled` của chính nó.
+ * Một dòng tuỳ chọn v2 đúng như API trả: MỘT dòng cho mỗi provider.
+ * Nhãn + mô tả vi/en đến từ registry ở API (nguồn sự thật duy nhất) —
+ * web chọn theo ngôn ngữ giao diện, không tự chế bảng nhãn.
+ * `emailFrequency` null = provider không có kênh email;
+ * `emailAvailable` false = kênh email chưa gửi thật (chưa có SMTP) —
+ * trang hiện ghi chú trung thực, cài đặt vẫn lưu và áp dụng khi mở.
+ * Kênh push không có ở đây: ẩn hẳn cho tới khi có app native.
  */
-export interface PreferenceRow {
+export interface NotificationPreferenceView {
   provider: string;
   component: string;
-  channel: PreferenceChannel;
-  state: PreferenceState;
-  enabled: boolean;
+  group: NotificationGroupFilter;
+  label: { vi: string; en: string };
+  description: { vi: string; en: string };
+  teacherOnly: boolean;
+  mandatoryInApp: boolean;
+  popupEnabled: boolean;
+  emailFrequency: EmailFrequency | null;
+  emailAvailable: boolean;
 }
 
 /** Khoá định danh một dòng gộp trong cache/trạng thái hiển thị. */
@@ -72,9 +82,9 @@ export function notificationGroupKey(g: Pick<NotificationGroupView, 'eventType' 
   return `${g.eventType}|${g.contextUrl ?? ''}|${g.day}`;
 }
 
-/** Khoá định danh một dòng tuỳ chọn. */
-export function preferenceKey(row: Pick<PreferenceRow, 'provider' | 'channel' | 'state'>): string {
-  return `${row.provider}|${row.channel}|${row.state}`;
+/** Khoá định danh một dòng tuỳ chọn v2 (một dòng cho mỗi provider). */
+export function preferenceKey(row: Pick<NotificationPreferenceView, 'provider'>): string {
+  return row.provider;
 }
 
 function groupsUrl(group: string, unreadOnly: boolean, cursor?: string): string {
@@ -214,45 +224,45 @@ export function useClearReadNotifications() {
   });
 }
 
-/** Toàn bộ dòng tuỳ chọn nhận tin của chính người dùng (GET /messages/preferences). */
+/** Toàn bộ dòng tuỳ chọn v2 của chính người dùng (GET /messages/preferences). */
 export function useMessagePreferences() {
   return useQuery({
     queryKey: queryKeys.messagePreferences,
-    queryFn: () => apiJson<PreferenceRow[]>('/api/v1/messages/preferences'),
+    queryFn: () => apiJson<NotificationPreferenceView[]>('/api/v1/messages/preferences'),
   });
 }
 
+/** Một thay đổi tuỳ chọn v2 cho một provider: popup và/hoặc tần suất email. */
+export interface PreferencePatch {
+  popupEnabled?: boolean;
+  emailFrequency?: EmailFrequency;
+}
+
 /**
- * Bật/tắt đúng một dòng tuỳ chọn (PUT /messages/preferences) với cập nhật
- * lạc quan trên cache: đổi ngay dòng đó, server trả về thì chốt theo bản
- * server, lỗi thì hoàn lại đúng dòng đó (các dòng khác không bị đụng) —
- * cùng hành vi trang cũ tự chế, nay nằm trong tầng dữ liệu dùng chung.
+ * Đặt tuỳ chọn v2 cho đúng một provider (PUT /messages/preferences)
+ * với cập nhật lạc quan trên cache: áp patch ngay lên dòng đó, server
+ * trả về dòng đầy đủ thì chốt theo bản server, lỗi thì hoàn lại toàn
+ * bộ danh sách trước đó — cùng hành vi trang cũ, nay theo mô hình v2.
  */
 export function useSetMessagePreference() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { row: PreferenceRow; enabled: boolean }) =>
-      apiJson<PreferenceRow>('/api/v1/messages/preferences', {
+    mutationFn: (input: { provider: string; patch: PreferencePatch }) =>
+      apiJson<NotificationPreferenceView>('/api/v1/messages/preferences', {
         method: 'PUT',
-        body: JSON.stringify({
-          provider: input.row.provider,
-          channel: input.row.channel,
-          state: input.row.state,
-          enabled: input.enabled,
-        }),
+        body: JSON.stringify({ provider: input.provider, ...input.patch }),
       }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.messagePreferences });
-      const previous = queryClient.getQueryData<PreferenceRow[]>(queryKeys.messagePreferences);
-      const key = preferenceKey(input.row);
-      queryClient.setQueryData<PreferenceRow[]>(queryKeys.messagePreferences, (old) =>
-        old?.map((p) => (preferenceKey(p) === key ? { ...p, enabled: input.enabled } : p)),
+      const previous = queryClient.getQueryData<NotificationPreferenceView[]>(queryKeys.messagePreferences);
+      queryClient.setQueryData<NotificationPreferenceView[]>(queryKeys.messagePreferences, (old) =>
+        old?.map((p) => (p.provider === input.provider ? { ...p, ...input.patch } : p)),
       );
-      return { previous, key };
+      return { previous };
     },
-    onSuccess: (saved, _input, context) => {
-      queryClient.setQueryData<PreferenceRow[]>(queryKeys.messagePreferences, (old) =>
-        old?.map((p) => (preferenceKey(p) === context.key ? { ...p, enabled: saved.enabled } : p)),
+    onSuccess: (saved) => {
+      queryClient.setQueryData<NotificationPreferenceView[]>(queryKeys.messagePreferences, (old) =>
+        old?.map((p) => (p.provider === saved.provider ? saved : p)),
       );
     },
     onError: (_error, _input, context) => {

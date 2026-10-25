@@ -12,7 +12,7 @@ import {
   readNotificationGroupSchema,
   reportConversationSchema,
   sendMessageSchema,
-  setMessagePreferenceSchema,
+  setNotificationPreferenceSchema,
   updateConversationSchema,
   updateReportStatusSchema,
   type BulkRemoveMessages,
@@ -24,7 +24,7 @@ import {
   type ReadNotificationGroup,
   type ReportConversation,
   type SendMessage,
-  type SetMessagePreference,
+  type SetNotificationPreference,
   type UpdateConversation,
   type UpdateReportStatus,
 } from '@lms/contracts';
@@ -33,11 +33,11 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setMessagePreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, sendMessageSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
-export type SetPreferenceDto = SetMessagePreference;
+export type SetPreferenceDto = SetNotificationPreference;
 export type NotifyDto = NotifyUser;
 export type UpdateConversationDto = UpdateConversation;
 export type ReportConversationDto = ReportConversation;

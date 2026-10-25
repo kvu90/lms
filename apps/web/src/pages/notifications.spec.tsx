@@ -78,20 +78,32 @@ function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: bool
         return respond({});
       }
       if (url === '/api/v1/messages/preferences' && method === 'GET') {
+        // Mô hình v2 (NB-2): một dòng mỗi provider, nhãn từ registry.
         return respond([
-          { provider: 'core', component: 'core', channel: 'popup', state: 'loggedin', enabled: state.prefEnabled },
-          { provider: 'core', component: 'core', channel: 'popup', state: 'loggedoff', enabled: false },
+          {
+            provider: 'grade_updated', component: 'core_grades', group: 'learning',
+            label: { vi: 'Điểm số thay đổi', en: 'Grade updated' },
+            description: { vi: 'Khi một mục điểm của bạn được chấm hoặc cập nhật.', en: 'When one of your grade items is graded or updated.' },
+            teacherOnly: false, mandatoryInApp: false, popupEnabled: state.prefEnabled, emailFrequency: 'daily', emailAvailable: false,
+          },
+          {
+            provider: 'enrol_expiry_warning', component: 'core_enrol', group: 'learning',
+            label: { vi: 'Sắp hết hạn ghi danh', en: 'Enrolment expiring soon' },
+            description: { vi: 'Khi thời hạn ghi danh khoá học của bạn sắp hết.', en: 'When your course enrolment is about to expire.' },
+            teacherOnly: false, mandatoryInApp: true, popupEnabled: true, emailFrequency: 'daily', emailAvailable: false,
+          },
         ]);
       }
       if (url === '/api/v1/messages/preferences' && method === 'PUT') {
-        const body = JSON.parse(String(init?.body)) as { enabled: boolean };
-        state.prefEnabled = body.enabled;
+        const body = JSON.parse(String(init?.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
+        if (body.provider === 'grade_updated' && body.popupEnabled !== undefined) state.prefEnabled = body.popupEnabled;
         return respond({
-          provider: 'core',
-          component: 'core',
-          channel: 'popup',
-          state: 'loggedin',
-          enabled: body.enabled,
+          provider: body.provider, component: 'core_grades', group: 'learning',
+          label: { vi: 'Điểm số thay đổi', en: 'Grade updated' },
+          description: { vi: 'Khi một mục điểm của bạn được chấm hoặc cập nhật.', en: 'When one of your grade items is graded or updated.' },
+          teacherOnly: false, mandatoryInApp: false,
+          popupEnabled: body.provider === 'grade_updated' ? state.prefEnabled : true,
+          emailFrequency: body.emailFrequency ?? 'daily', emailAvailable: false,
         });
       }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
@@ -142,14 +154,14 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     ).toBeGreaterThan(1);
   });
 
-  it('preference toggle PUTs exactly one row and keeps the saved value', async () => {
+  it('preference toggle PUTs exactly one provider patch and keeps the saved value', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { unread: 0, allRead: true, prefEnabled: true };
     stubFetch(calls, state);
     renderPage();
 
-    const checkbox = await screen.findByLabelText('core popup đã đăng nhập');
+    const checkbox = await screen.findByLabelText('Điểm số thay đổi — Trong ứng dụng');
     expect(checkbox).toBeChecked();
     await userEvent.click(checkbox);
 
@@ -157,7 +169,29 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
       expect(calls.some((c) => c.url === '/api/v1/messages/preferences' && c.method === 'PUT')).toBe(true),
     );
     const put = calls.find((c) => c.url === '/api/v1/messages/preferences' && c.method === 'PUT');
-    expect(put?.body).toEqual({ provider: 'core', channel: 'popup', state: 'loggedin', enabled: false });
-    await waitFor(() => expect(screen.getByLabelText('core popup đã đăng nhập')).not.toBeChecked());
+    expect(put?.body).toEqual({ provider: 'grade_updated', popupEnabled: false });
+    await waitFor(() => expect(screen.getByLabelText('Điểm số thay đổi — Trong ứng dụng')).not.toBeChecked());
+  });
+
+  it('settings show registry labels only — no raw keys, no push, mandatory type locked on (NB-2)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    const state = { unread: 0, allRead: true, prefEnabled: true };
+    stubFetch(calls, state);
+    renderPage();
+
+    expect(await screen.findByText('Điểm số thay đổi')).toBeInTheDocument();
+    expect(screen.getByText('Sắp hết hạn ghi danh')).toBeInTheDocument();
+    // Không khoá thô / không trục trạng thái / không kênh push.
+    expect(screen.queryByText('grade_updated')).not.toBeInTheDocument();
+    expect(screen.queryByText('enrol_expiry_warning')).not.toBeInTheDocument();
+    expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/push/i)).not.toBeInTheDocument();
+    // Loại bắt buộc (P2): công tắc trong-app bị khoá ở trạng thái bật.
+    const mandatoryToggle = screen.getByLabelText('Sắp hết hạn ghi danh — Trong ứng dụng');
+    expect(mandatoryToggle).toBeChecked();
+    expect(mandatoryToggle).toBeDisabled();
+    // Email chưa khả dụng phải có ghi chú trung thực.
+    expect(screen.getAllByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở').length).toBeGreaterThan(0);
   });
 });
