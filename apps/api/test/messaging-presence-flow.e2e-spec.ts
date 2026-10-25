@@ -68,23 +68,32 @@ describe('Messaging presence TTL refresh (issue #33, F2)', () => {
       socket.once('connect_error', (err) => { clearTimeout(timer); reject(err); });
     });
 
-    const key = `${PRESENCE_KEY_PREFIX}${user.id}`;
+    // TENANT-1 (#196): khoá presence mang đoạn tenant —
+    // `lms:messaging:presence:{tenantId}:{userId}` — nên test tìm
+    // khoá của đúng user theo mẫu thay vì dựng khoá cứng như trước.
+    const keyPattern = `${PRESENCE_KEY_PREFIX}*:${user.id}`;
+    const findKey = async (): Promise<string | null> => (await redis.keys(keyPattern))[0] ?? null;
     // Presence được ghi khi nối (chờ gateway xử lý xong).
     const deadline = Date.now() + 5000;
-    while ((await redis.exists(key)) !== 1 && Date.now() < deadline) await sleep(100);
-    expect(await redis.exists(key)).toBe(1);
+    let key = await findKey();
+    while (key === null && Date.now() < deadline) {
+      await sleep(100);
+      key = await findKey();
+    }
+    expect(key).not.toBeNull();
+    const presenceKey = key!;
 
     // Mô phỏng TTL gốc đã trôi qua: rút hạn khoá xuống 1.2s trong lúc
     // socket VẪN nối. Có gia hạn → khoá được nới lại trước khi hết;
     // không có → khoá chết ở 1.2s và user bị coi là offline.
-    await redis.pexpire(key, 1200);
+    await redis.pexpire(presenceKey, 1200);
     await sleep(2600);
-    expect(await redis.exists(key)).toBe(1);
-    expect(await redis.pttl(key)).toBeGreaterThan(0);
+    expect(await redis.exists(presenceKey)).toBe(1);
+    expect(await redis.pttl(presenceKey)).toBeGreaterThan(0);
 
     // Ngắt nối: presence bị gỡ và vòng gia hạn không hồi sinh nó.
     socket.disconnect();
     await sleep(700);
-    expect(await redis.exists(key)).toBe(0);
+    expect(await redis.exists(presenceKey)).toBe(0);
   });
 });

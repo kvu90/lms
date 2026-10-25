@@ -48,6 +48,7 @@ describe('tenant isolation (TENANT-0, #168)', () => {
   let linkA = '';
   let linkB = '';
   let teacherId = '';
+  let teacherUsername = '';
   let memberAOnlyUsername = '';
   let teacherTokenA = '';
   let teacherRefreshA = '';
@@ -73,6 +74,7 @@ describe('tenant isolation (TENANT-0, #168)', () => {
 
     const teacher = await createUserViaApi(app, adminZero);
     teacherId = teacher.id;
+    teacherUsername = teacher.username;
     const memberAOnly = await createUserViaApi(app, adminZero);
     memberAOnlyUsername = memberAOnly.username;
     const memberAOnlyId = memberAOnly.id;
@@ -87,6 +89,23 @@ describe('tenant isolation (TENANT-0, #168)', () => {
     // Admin tự thêm mình vào cả hai tenant để chuyển phiên làm việc.
     for (const uid of [teacherId, memberAOnlyId, guardianAUser.id, studentAUser.id, adminId]) await addMember(tenantA, uid);
     for (const uid of [teacherId, guardianBUser.id, studentBUser.id, adminId]) await addMember(tenantB, uid);
+
+    // TENANT-1 (#196, điểm N2): trong cây tenant KHÔNG còn lối tắt
+    // site admin — admin muốn làm việc trong tenant A/B phải có vai
+    // thật neo tại context tenant như mọi người. Phía platform gán
+    // vai manager cho admin tại context của cả hai tenant TRƯỚC khi
+    // gieo nội dung (đúng mô hình vận hành: tenant admin giữ vai
+    // manager tại context tenant).
+    const allContexts = await must(await http(app).get('/api/v1/access/contexts').set(auth(adminZero)), 'list contexts') as { id: string; contextLevel: number; instanceId: string }[];
+    const tenantCtxA = allContexts.find((c) => c.contextLevel === 20 && c.instanceId === tenantA);
+    const tenantCtxB = allContexts.find((c) => c.contextLevel === 20 && c.instanceId === tenantB);
+    if (!tenantCtxA || !tenantCtxB) throw new Error('tenant contexts missing');
+    const managerRole = await roleIdByShortname(app, adminZero, 'manager');
+    for (const ctx of [tenantCtxA, tenantCtxB]) {
+      await must(await http(app).post('/api/v1/access/assignments').set(auth(adminZero)).send({
+        userId: adminId, roleId: managerRole, contextId: ctx.id,
+      }), 'assign admin manager in tenant');
+    }
 
     const switchTo = async (token: string, tenantId: string): Promise<string> => {
       const pair = await must(await http(app).post(`/api/v1/auth/switch-tenant/${tenantId}`).set(auth(token)), 'switch tenant') as { accessToken: string };
@@ -129,10 +148,6 @@ describe('tenant isolation (TENANT-0, #168)', () => {
     bankSchoolB = (await schoolBankOf(adminB)).id;
 
     // Vai manager của giáo viên CHỈ ở context tenant A (tiêu chí 4).
-    const contexts = await must(await http(app).get('/api/v1/access/contexts').set(auth(adminZero)), 'list contexts') as { id: string; contextLevel: number; instanceId: string }[];
-    const tenantCtxA = contexts.find((c) => c.contextLevel === 20 && c.instanceId === tenantA);
-    if (!tenantCtxA) throw new Error('tenant A context missing');
-    const managerRole = await roleIdByShortname(app, adminZero, 'manager');
     await must(await http(app).post('/api/v1/access/assignments').set(auth(adminZero)).send({
       userId: teacherId, roleId: managerRole, contextId: tenantCtxA.id,
     }), 'assign manager in tenant A');
@@ -259,5 +274,93 @@ describe('tenant isolation (TENANT-0, #168)', () => {
       await pg.query(`DROP ROLE IF EXISTS ${role}`).catch(() => undefined);
       await pg.end();
     }
+  });
+
+  it('(7) N2 (TENANT-1): site admin là thành viên nhưng KHÔNG có vai trong cây tenant → bị chặn như người thường', async () => {
+    // Một site admin thứ hai: manager tại context HỆ THỐNG (quyền
+    // platform đầy đủ) + thành viên của tenant A, nhưng không một gán
+    // vai nào neo trong cây A.
+    const support = await createUserViaApi(app, adminZero);
+    const contexts = await must(await http(app).get('/api/v1/access/contexts').set(auth(adminZero)), 'list contexts') as { id: string; contextLevel: number; instanceId: string | null }[];
+    const systemCtx = contexts.find((c) => c.contextLevel === 10);
+    if (!systemCtx) throw new Error('system context missing');
+    const managerRole = await roleIdByShortname(app, adminZero, 'manager');
+    await must(await http(app).post('/api/v1/access/assignments').set(auth(adminZero)).send({
+      userId: support.id, roleId: managerRole, contextId: systemCtx.id,
+    }), 'assign support system manager');
+    await must(await http(app).post(`/api/v1/tenants/${tenantA}/members`).set(auth(adminZero)).send({ userId: support.id }), 'add support to tenant A');
+
+    const supportLogin = await login(app, support.username, STRONG_PASSWORD);
+    const pair = await must(await http(app).post(`/api/v1/auth/switch-tenant/${tenantA}`).set(auth(supportLogin.accessToken)), 'support switch to A') as { accessToken: string };
+    // Trong cây A: lối tắt site admin đã tắt — các bề mặt check
+    // capability TẠI context trong cây (category:manage tại context
+    // tenant/context danh mục) chặn thẳng tay dù actor là site
+    // admin, vì không có vai neo tại chỗ.
+    const createCat = await http(app).post('/api/v1/courses/categories').set(auth(pair.accessToken)).send({ name: 'Danh mục N2 không được phép' });
+    expect(createCat.status).toBe(403);
+    const patchCat = await http(app).patch(`/api/v1/courses/categories/${categoryA}`).set(auth(pair.accessToken)).send({ name: 'Đổi tên trái phép' });
+    expect(patchCat.status).toBe(403);
+    // Ngoài cây tenant, cùng tài khoản vẫn là site admin nguyên vẹn:
+    // quản trị tenant từ phía platform (nhánh platform của
+    // assertTenantViewer, thiết kế TENANT-0) vẫn mở như cũ.
+    const tenants = await http(app).get('/api/v1/tenants').set(auth(supportLogin.accessToken));
+    expect(tenants.status).toBe(200);
+    const membersFromPlatform = await http(app).get(`/api/v1/tenants/${tenantA}/members`).set(auth(supportLogin.accessToken));
+    expect(membersFromPlatform.status).toBe(200);
+  });
+
+  it('(8) fail-closed + N3 (TENANT-1): SQL thô không GUC hoặc GUC rỗng → 0 dòng, không lỗi; notifications cách ly theo GUC', async () => {
+    const pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+    const marker = `tenant_spec_${Date.now().toString(36)}`;
+    // Hai notification của cùng giáo viên, mỗi cái thuộc một tenant.
+    await pg.query(
+      `insert into notifications (user_id_to, subject, full_message, small_message, component, event_type, tenant_id)
+       values ($1, $2, 'x', 'x', 'core_spec', 'tenant_spec', $3), ($1, $4, 'x', 'x', 'core_spec', 'tenant_spec', $5)`,
+      [teacherId, `${marker}-A`, tenantA, `${marker}-B`, tenantB],
+    );
+    const role = `tenant_spec_fc_${Date.now().toString(36)}`;
+    try {
+      await pg.query(`CREATE ROLE ${role} NOLOGIN`);
+      await pg.query(`GRANT SELECT ON course, notifications TO ${role}`);
+      await pg.query('BEGIN');
+      await pg.query(`SET ROLE ${role}`);
+      // Không đặt GUC nào: fail-closed — 0 dòng, KHÔNG lỗi.
+      const noGuc = await pg.query<{ id: string }>('SELECT id FROM course WHERE id = ANY($1)', [[courseA, courseB]]);
+      expect(noGuc.rows).toEqual([]);
+      const noGucNotif = await pg.query<{ subject: string }>(
+        `SELECT subject FROM notifications WHERE event_type = 'tenant_spec' AND subject LIKE $1`, [`${marker}%`]);
+      expect(noGucNotif.rows).toEqual([]);
+      // GUC rỗng '': N3 — không được ném lỗi ép kiểu uuid, vẫn 0 dòng.
+      await pg.query(`SELECT set_config('app.tenant_id', '', true)`);
+      const emptyGuc = await pg.query<{ id: string }>('SELECT id FROM course WHERE id = ANY($1)', [[courseA, courseB]]);
+      expect(emptyGuc.rows).toEqual([]);
+      // GUC tenant A: chỉ notification của A lộ ra ở tầng SQL.
+      await pg.query(`SELECT set_config('app.tenant_id', $1, true)`, [tenantA]);
+      const notifA = await pg.query<{ subject: string }>(
+        `SELECT subject FROM notifications WHERE event_type = 'tenant_spec' AND subject LIKE $1`, [`${marker}%`]);
+      expect(notifA.rows.map((r) => r.subject)).toEqual([`${marker}-A`]);
+      await pg.query('COMMIT');
+    } finally {
+      await pg.query('ROLLBACK').catch(() => undefined);
+      await pg.query(`DROP ROLE IF EXISTS ${role}`).catch(() => undefined);
+      await pg.end();
+    }
+  });
+
+  it('(9) notifications chéo tenant ở bề mặt API (TENANT-1): phiên A chỉ thấy thông báo của A, phiên B chỉ thấy của B', async () => {
+    // Dùng lại hai notification đã gieo ở ca (8) cho giáo viên.
+    const teacherLogin = await login(app, teacherUsername, STRONG_PASSWORD);
+    const itemsIn = async (token: string) => {
+      const res = await must(await http(app).get('/api/v1/notifications/items?eventType=tenant_spec&limit=50').set(auth(token)), 'notification items') as { items: { subject: string }[] };
+      return res.items.map((i) => i.subject);
+    };
+    const inA = await itemsIn(teacherLogin.accessToken);
+    expect(inA.some((s) => s.endsWith('-A'))).toBe(true);
+    expect(inA.some((s) => s.endsWith('-B'))).toBe(false);
+    const pairB = await must(await http(app).post(`/api/v1/auth/switch-tenant/${tenantB}`).set(auth(teacherLogin.accessToken)), 'teacher switch to B') as { accessToken: string };
+    const inB = await itemsIn(pairB.accessToken);
+    expect(inB.some((s) => s.endsWith('-B'))).toBe(true);
+    expect(inB.some((s) => s.endsWith('-A'))).toBe(false);
   });
 });

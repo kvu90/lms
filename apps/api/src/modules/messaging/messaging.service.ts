@@ -644,7 +644,10 @@ export class MessagingService {
      * nguồn (khoá/conversation/liên kết giám hộ) thì truyền tường minh;
      * không truyền thì lấy ngữ cảnh ALS của luồng, cuối cùng là tenant
      * mặc định của người nhận theo membership active. Mọi dedupe_key
-     * dispatch mang tiền tố tenant.
+     * dispatch mang tiền tố tenant, nối bằng dấu '-' — dedupe_key của
+     * kênh ngoài đồng thời là jobId BullMQ, mà BullMQ cấm ký tự ':'
+     * trong custom jobId (bài học TENANT-1: tiền tố '{tenant}:' làm
+     * queue.add ném lỗi giữa notify, digest kẹt trạng thái queued).
      */
     tenantId?: string | null;
   }): Promise<NotifyResult> {
@@ -660,7 +663,7 @@ export class MessagingService {
       // Suspended users receive nothing (report §2#12). Nothing is stored.
       await this.repo.insertDispatchLog({
         userId: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended', tenantId,
-        subject: input.subject, dedupeKey: `${tenantKey}:skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
+        subject: input.subject, dedupeKey: `${tenantKey}-skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
       }).catch(() => undefined);
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'suspended' };
     }
@@ -700,13 +703,13 @@ export class MessagingService {
         await this.repo.insertDispatchLog({
           notificationId: notification.id, userId: userId, provider: providerName, channel: 'popup',
           status: 'delivered', subject: input.subject, tenantId,
-          dedupeKey: `${tenantKey}:popup-${notification.id}`,
+          dedupeKey: `${tenantKey}-popup-${notification.id}`,
         });
       } else {
         channels.popup = 'skipped-preference';
         await this.repo.insertDispatchLog({
           userId: userId, provider: providerName, channel: 'popup', status: 'skipped-preference', tenantId,
-          subject: input.subject, dedupeKey: `${tenantKey}:popup-off-${providerName}-${userId}-${randomUUID()}`,
+          subject: input.subject, dedupeKey: `${tenantKey}-popup-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }
@@ -728,7 +731,7 @@ export class MessagingService {
         ? resolved.emailFrequency !== 'off'
         : await this.isChannelEnabled(userId, providerName, channel, state);
       if (channelEnabled) {
-        const dedupeKey = `${tenantKey}:dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
+        const dedupeKey = `${tenantKey}-dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
           userId, provider: providerName, channel, tenantId,
           // Kênh ngoài chỉ nhận bản tối thiểu hoá khi caller cung cấp
@@ -742,7 +745,7 @@ export class MessagingService {
         channels[channel] = 'skipped-preference';
         await this.repo.insertDispatchLog({
           userId: userId, provider: providerName, channel, status: 'skipped-preference', tenantId,
-          subject: input.subject, dedupeKey: `${tenantKey}:${channel}-off-${providerName}-${userId}-${randomUUID()}`,
+          subject: input.subject, dedupeKey: `${tenantKey}-${channel}-off-${providerName}-${userId}-${randomUUID()}`,
         });
       }
     }

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
+import { tenantAls } from '../tenants/tenant-als';
 import {
   assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
@@ -1107,6 +1108,18 @@ export class MessagingRepository {
   }
 
   /**
+   * Tenant hiệu lực cho các đường ĐỌC/GHI phía user của notification
+   * (TENANT-1, #196 — lọc tầng ứng dụng, lớp phòng thủ thứ nhất; RLS
+   * fail-closed là lưới cứng phía sau): đang trong ngữ cảnh một
+   * tenant → chỉ notification của tenant đó; ngữ cảnh platform hoặc
+   * đường nền (consumer quét xuyên tenant) → undefined = không lọc
+   * thêm ở tầng này.
+   */
+  private userTenantScope(): string | undefined {
+    return tenantAls.getStore()?.tenantId;
+  }
+
+  /**
    * Chèn notification trong ứng dụng.
    */
   async insertNotification(v: typeof notifications.$inferInsert, tx?: DbTx): Promise<NotificationRow> {
@@ -1116,24 +1129,36 @@ export class MessagingRepository {
    * Số notification chưa đọc (đếm bằng count(*) ở DB).
    */
   async countUnreadNotifications(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(notifications)
-      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead)));
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      ));
     return row?.value ?? 0;
   }
   /**
    * Đánh dấu một notification đã đọc.
    */
   async markNotificationRead(id: string, userIdTo: string): Promise<boolean> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
+      .where(and(
+        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length > 0;
   }
   /**
    * Đánh dấu mọi notification đã đọc.
    */
   async markAllNotificationsRead(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
-      .where(and(eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead))).returning();
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length;
   }
 
@@ -1152,6 +1177,8 @@ export class MessagingRepository {
     limit: number;
   }): Promise<NotificationGroupAggregateRow[]> {
     const where = [sql`user_id_to = ${userIdTo}`];
+    const tenantScope = this.userTenantScope();
+    if (tenantScope) where.push(sql`tenant_id = ${tenantScope}`);
     if (opts.eventTypes && opts.eventTypes.length > 0) {
       where.push(sql`event_type in (${sql.join(opts.eventTypes.map((t) => sql`${t}`), sql`, `)})`);
     }
@@ -1188,7 +1215,11 @@ export class MessagingRepository {
   /** Lấy các notification theo đúng tập id (điểm neo `latest` của các dòng gộp). */
   async listNotificationsByIds(ids: string[]): Promise<NotificationRow[]> {
     if (ids.length === 0) return [];
-    return this.db.select().from(notifications).where(inArray(notifications.id, ids));
+    const tenantId = this.userTenantScope();
+    return this.db.select().from(notifications).where(and(
+      inArray(notifications.id, ids),
+      tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+    ));
   }
 
   /**
@@ -1199,6 +1230,8 @@ export class MessagingRepository {
    */
   async listNotificationItems(userIdTo: string, opts: NotificationItemsOptions): Promise<NotificationRow[]> {
     const conditions = [eq(notifications.userIdTo, userIdTo)];
+    const tenantId = this.userTenantScope();
+    if (tenantId) conditions.push(eq(notifications.tenantId, tenantId));
     if (opts.eventType) conditions.push(eq(notifications.eventType, opts.eventType));
     if (opts.eventTypes && opts.eventTypes.length > 0) conditions.push(inArray(notifications.eventType, opts.eventTypes));
     if (opts.source === null) {
@@ -1224,11 +1257,13 @@ export class MessagingRepository {
    * của trung tâm v2: chỉ các mục chưa đọc thuộc đúng khoá mới đổi.
    */
   async markNotificationGroupRead(userIdTo: string, key: { eventType: string; sourceKey: string; day: string }): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.update(notifications).set({ timeRead: new Date() })
       .where(and(
         eq(notifications.userIdTo, userIdTo),
         eq(notifications.eventType, key.eventType),
         isNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
         sql`coalesce(nullif(${notifications.contextUrl}, ''), '') = ${key.sourceKey}`,
         sql`to_char(((${notifications.createdAt}) at time zone 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') = ${key.day}`,
       )).returning();
@@ -1237,15 +1272,23 @@ export class MessagingRepository {
 
   /** Xoá MỘT notification của đúng chủ sở hữu; false khi không tồn tại hoặc không phải của họ. */
   async deleteNotification(id: string, userIdTo: string): Promise<boolean> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.delete(notifications)
-      .where(and(eq(notifications.id, id), eq(notifications.userIdTo, userIdTo))).returning();
+      .where(and(
+        eq(notifications.id, id), eq(notifications.userIdTo, userIdTo),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length > 0;
   }
 
   /** Dọn mọi notification ĐÃ ĐỌC của user (trung tâm v2); trả số mục đã xoá. */
   async deleteReadNotifications(userIdTo: string): Promise<number> {
+    const tenantId = this.userTenantScope();
     const rows = await this.db.delete(notifications)
-      .where(and(eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead))).returning();
+      .where(and(
+        eq(notifications.userIdTo, userIdTo), isNotNull(notifications.timeRead),
+        tenantId ? eq(notifications.tenantId, tenantId) : undefined,
+      )).returning();
     return rows.length;
   }
 
