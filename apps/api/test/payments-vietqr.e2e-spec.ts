@@ -147,7 +147,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     expect(wrongKey.status).toBe(401);
 
     const unknownTx = `sepay-tx-unknownacct-${Date.now()}`;
-    const unknown = await postIpn(ipnBody({ transaction_id: unknownTx, bank_account_xid: 'xid-khong-ton-tai', content: `TT ${payment.paymentCode}` }));
+    const unknown = await postIpn(ipnBody({ transaction_id: unknownTx, bank_account_xid: 'xid-khong-ton-tai', account_number: '999999999999', content: `TT ${payment.paymentCode}` }));
     expect(unknown.status).toBe(401);
 
     const allowTx = `sepay-tx-allowlist-${Date.now()}`;
@@ -257,10 +257,10 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     const { instance, buyerToken } = await createFeeCourse(sepayAccountId);
     // Phẫu thuật fixture: chuyển khoá sang tenant khác trong DB — account giữ nguyên tenant cũ.
     const tenants = await pg.query(`select id from tenants`);
-    const courseRow = await pg.query('select tenant_id from courses where id = (select course_id from enrol_instances where id = $1)', [instance.id]);
+    const courseRow = await pg.query('select tenant_id from course where id = (select course_id from enrol where id = $1)', [instance.id]);
     const otherTenant = (tenants.rows as { id: string }[]).find((t) => t.id !== courseRow.rows[0].tenant_id);
     expect(otherTenant).toBeTruthy();
-    await pg.query('update courses set tenant_id = $1 where id = (select course_id from enrol_instances where id = $2)', [otherTenant!.id, instance.id]);
+    await pg.query('update course set tenant_id = $1 where id = (select course_id from enrol where id = $2)', [otherTenant!.id, instance.id]);
     const res = await http(app).post(`/api/v1/payments/fee/${instance.id}`).set('Authorization', `Bearer ${buyerToken}`).send({});
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toContain('payment.account_tenant_mismatch');
