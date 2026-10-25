@@ -123,6 +123,17 @@ export const envSchema = z.object({
   MCP_RATE_READ_PER_HOUR: z.coerce.number().int().positive().default(300),
   MCP_RATE_CREATE_PER_HOUR: z.coerce.number().int().positive().default(120),
   MCP_RATE_PUBLISH_PER_HOUR: z.coerce.number().int().positive().default(10),
+  // Webhook thanh toán (PaymentsModule, vá H1 issue #134): shared secret
+  // để gateway 'manual' xác thực webhook qua header
+  // `x-payment-webhook-secret`. Chỉ đọc từ biến môi trường — KHÔNG lưu
+  // vào site settings/DB vì API cấu hình site trả giá trị về cho quản
+  // trị (cùng lý do với secret OAuth ở trên). Tuỳ chọn ở tầng schema
+  // nhưng FAIL-CLOSED ở tầng hành vi: chưa đặt secret thì
+  // ManualPaymentGateway.verify luôn trả false và POST /payments/webhook
+  // bị từ chối — không có đường nào bỏ qua verify khi "chưa có gateway
+  // thật". Gateway thật sau này xác thực bằng chữ ký của chính gateway
+  // qua cùng cổng verify này.
+  PAYMENT_WEBHOOK_SECRET: z.string().min(32).optional(),
   // Bootstrap admin (seeded on first boot when no site admin exists)
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin123!'),

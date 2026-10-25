@@ -129,7 +129,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(payment.body.amount).toBe(50000);
     expect(payment.body.currency).toBe('VND');
     const txId = `tx-${Date.now()}`;
-    const hook = await http(app).post('/api/v1/payments/webhook').send({ gateway: 'manual', externalTransactionId: txId, paymentId: payment.body.id, status: 'succeeded' });
+    const hook = await http(app).post('/api/v1/payments/webhook').set('x-payment-webhook-secret', process.env.PAYMENT_WEBHOOK_SECRET ?? '').send({ gateway: 'manual', externalTransactionId: txId, paymentId: payment.body.id, status: 'succeeded' });
     expect(hook.status).toBeLessThan(300);
     expect(hook.body.status).toBe('succeeded');
     const after = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${buyerToken}`);
@@ -138,7 +138,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     const mine = (enrolments.body as { userId: string }[]).filter((e) => e.userId === buyer.id);
     expect(mine).toHaveLength(1);
     // Replay webhook cùng external tx ⇒ duplicate, enrolment vẫn đúng 1, outbox payment_succeeded chỉ 1 (kiểm qua số enrolment + duplicate flag).
-    const replay = await http(app).post('/api/v1/payments/webhook').send({ gateway: 'manual', externalTransactionId: txId, paymentId: payment.body.id, status: 'succeeded' });
+    const replay = await http(app).post('/api/v1/payments/webhook').set('x-payment-webhook-secret', process.env.PAYMENT_WEBHOOK_SECRET ?? '').send({ gateway: 'manual', externalTransactionId: txId, paymentId: payment.body.id, status: 'succeeded' });
     expect(replay.body.duplicate).toBe(true);
     const enrolments2 = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((enrolments2.body as { userId: string }[]).filter((e) => e.userId === buyer.id)).toHaveLength(1);

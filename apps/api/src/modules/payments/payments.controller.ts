@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
@@ -35,10 +35,15 @@ export class PaymentsController {
   async refund(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.refund(actor.id, id, dto);
   }
-  /** Webhook của gateway — không dùng JWT, tính đúng đắn dựa trên idempotency theo external tx id. */
+  /**
+   * Webhook của gateway — không dùng JWT. Tính đúng đắn dựa trên XÁC THỰC
+   * của gateway (service gọi gateway.verify TRƯỚC mọi xử lý — với 'manual'
+   * là shared-secret header `x-payment-webhook-secret`), sau đó mới tới
+   * idempotency theo external tx id (vá H1, issue #134).
+   */
   @Public()
   @Post('webhook')
-  async webhook(@Body({ schema: paymentWebhookSchema }) dto: WebhookDto) {
-    return this.payments.handleWebhook({ gateway: dto.gateway, externalTransactionId: dto.externalTransactionId, paymentId: dto.paymentId, status: dto.status });
+  async webhook(@Body({ schema: paymentWebhookSchema }) dto: WebhookDto, @Headers() headers: Record<string, string | string[] | undefined>) {
+    return this.payments.handleWebhook({ gateway: dto.gateway, externalTransactionId: dto.externalTransactionId, paymentId: dto.paymentId, status: dto.status }, headers);
   }
 }
