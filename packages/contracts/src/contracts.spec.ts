@@ -140,7 +140,7 @@ describe('assessment contracts', () => {
       courseId: '01900000-0000-7000-8000-000000000010',
       items: [item],
       publications: { [item.id]: { policy: 'manual', published: false } },
-      rows: [{ userId: '01900000-0000-7000-8000-000000000007', grades: { [item.id]: 70 } }],
+      rows: [{ userId: '01900000-0000-7000-8000-000000000007', displayName: 'Nguyễn Văn A', grades: { [item.id]: 70 } }],
     });
     expect(grid.rows[0]?.grades[item.id]).toBe(70);
     expect(grid.publications[item.id]?.published).toBe(false);

@@ -77,8 +77,6 @@ export const queryKeys = {
   dashboardOverview: ['dashboard', 'overview'] as const,
   /** Pref thẻ khoá của chính người dùng (GET /dashboard/course-cards) — DASH1. */
   courseCards: ['dashboard', 'course-cards'] as const,
-  /** Kết quả VN của CHÍNH học sinh trong một khoá qua cổng công bố (GET /courses/:courseId/grades/vn-results/mine) — issue #180. */
-  myVnResults: (courseId: string) => ['grades', 'vn-results', 'mine', courseId] as const,
   /** Các con đang liên kết giám hộ với chính người dùng (GET /guardian-links/mine/students) — PH-1. */
   guardianMyStudents: ['guardian', 'my-students'] as const,
   /** Tổng quan phụ huynh cho một con (GET /guardian/students/:id/overview) — PH-1. */

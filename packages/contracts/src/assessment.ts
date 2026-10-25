@@ -79,6 +79,7 @@ export const courseActivityGridSchema = z.object({
   publications: z.record(z.string(), gradePublicationStateSchema),
   rows: z.array(z.object({
     userId: uuidIdSchema,
+    displayName: z.string(),
     grades: z.record(z.string(), z.number().nullable()),
   })),
 });

@@ -256,7 +256,7 @@ export function GuardianPage() {
                           {overview.newResults.map((r, idx) => (
                             <li key={`${r.courseId}-${r.itemId ?? r.kind}-${idx}`} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                               <span className="font-medium">
-                                {r.kind === 'grade_item' ? r.itemName : r.kind === 'vn_year' ? t('newResultVnYear') : t('newResultVnTerm')}
+                                {r.itemName}
                               </span>
                               <span className="text-muted-foreground">{r.courseName}</span>
                               {r.finalGrade !== null && r.gradeMax !== null && (
@@ -344,45 +344,17 @@ export function GuardianPage() {
                           <CardTitle className="text-base">{course.courseName}</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-2 text-sm">
-                          {course.terms.map((term) => (
-                            <div key={term.bookId} className="flex flex-col gap-0.5 border-b pb-2 last:border-0">
-                              <span className="font-medium">{term.term === 'hk1' ? t('termHk1') : t('termHk2')}</span>
-                              {term.dtbHk !== null && (
-                                <span>
-                                  {t('dtbLabel')}: <span className="font-medium">{scoreLabel(term.dtbHk, locale)}</span>
-                                </span>
-                              )}
-                              {term.commentResult && (
-                                <span>
-                                  {t('commentResultLabel')}: <span className="font-medium">{term.commentResult}</span>
-                                </span>
-                              )}
-                              {term.comment && (
-                                <span className="text-muted-foreground">
-                                  {t('commentLabel')}: {term.comment}
-                                </span>
-                              )}
+                          {course.activities.map((activity) => (
+                            <div key={activity.itemId} className="flex flex-wrap items-baseline gap-2 border-b pb-2 last:border-0">
+                              <span className="font-medium">{activity.itemName}</span>
+                              <span className="ml-auto font-medium">
+                                {activity.finalGrade !== null
+                                  ? t('newResultGrade', { grade: scoreLabel(activity.finalGrade, locale), max: scoreLabel(activity.gradeMax, locale) })
+                                  : '—'}
+                              </span>
+                              {activity.feedback && <span className="w-full text-muted-foreground">{activity.feedback}</span>}
                             </div>
                           ))}
-                          {course.year && (
-                            <div className="flex flex-col gap-0.5 border-b pb-2 last:border-0">
-                              <span className="font-medium">{t('yearLabel')}</span>
-                              {course.year.dtbYear !== null && (
-                                <span>
-                                  {t('dtbYearLabel')}: <span className="font-medium">{scoreLabel(course.year.dtbYear, locale)}</span>
-                                </span>
-                              )}
-                              {course.year.comment && <span className="text-muted-foreground">{course.year.comment}</span>}
-                            </div>
-                          )}
-                          {course.courseTotal && course.courseTotal.finalGrade !== null && (
-                            <span>
-                              {t('courseTotalLabel')}:{' '}
-                              <span className="font-medium">
-                                {t('newResultGrade', { grade: scoreLabel(course.courseTotal.finalGrade, locale), max: scoreLabel(course.courseTotal.gradeMax, locale) })}
-                              </span>
-                            </span>
-                          )}
                         </CardContent>
                       </Card>
                     ))

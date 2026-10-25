@@ -55,18 +55,22 @@ const PROFILES: Record<string, ReturnType<typeof profile>> = {
 const GRADEBOOK = {
   courseId: COURSE_ID,
   userId: STUDENT_ID,
-  categories: [],
-  courseTotal: {
-    item: { id: '01900000-0000-7000-8000-000000000090', gradeMax: 10 },
-    grade: { finalGrade: 8.5, letter: 'A' },
-  },
+  activities: [
+    {
+      item: { id: '01900000-0000-7000-8000-000000000090', itemName: 'Kiểm tra 1', gradeMax: 10 },
+      grade: { finalGrade: 8.5 },
+      publication: { policy: 'auto', published: true },
+    },
+  ],
 };
 
 const REPORT = {
   courseId: COURSE_ID,
+  items: [{ id: '01900000-0000-7000-8000-000000000090', itemName: 'Kiểm tra 1', gradeMax: 10 }],
+  publications: { '01900000-0000-7000-8000-000000000090': { policy: 'auto', published: true } },
   rows: [
-    { userId: STUDENT_ID, finalGrade: 8.5, letter: 'A' },
-    { userId: '01900000-0000-7000-8000-0000000000a4', finalGrade: null, letter: null },
+    { userId: STUDENT_ID, displayName: 'Trần Minh Quân', grades: { '01900000-0000-7000-8000-000000000090': 8.5 } },
+    { userId: '01900000-0000-7000-8000-0000000000a4', displayName: 'Bạn Học Khác', grades: { '01900000-0000-7000-8000-000000000090': null } },
   ],
 };
 
@@ -366,8 +370,9 @@ describe('Dashboard theo vai trò', () => {
     stubFetch(baseHandler('student'));
     renderApp(false);
     expect(await screen.findByText('Học tập của tôi')).toBeInTheDocument();
-    // Điểm trung bình từ điểm tổng 8.5/10 trong sổ điểm cá nhân.
-    expect(await screen.findByText('85.0%')).toBeInTheDocument();
+    // Điểm trung bình từ điểm bài 8.5/10 đã công bố của học sinh — hiện ở
+    // cả thẻ thống kê lẫn cột điểm của khoá trong bảng (cùng một giá trị).
+    expect((await screen.findAllByText('85.0%')).length).toBeGreaterThanOrEqual(1);
     // Bảng khoá học của tôi có khoá đã ghi danh.
     expect(await screen.findByText('Khoá học mẫu')).toBeInTheDocument();
     expect(screen.queryByText('Quản trị hệ thống')).not.toBeInTheDocument();

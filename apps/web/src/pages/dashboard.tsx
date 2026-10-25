@@ -137,18 +137,10 @@ function StudentTodoBlock() {
               {data.newResults.map((result, idx) => (
                 <li key={`${result.kind}-${result.itemId ?? result.courseId}-${idx}`} className="text-sm" data-testid="todo-new-result">
                   <Link
-                    to={
-                      result.kind === 'grade_item'
-                        ? `/courses/${result.courseId}/grades`
-                        : `/courses/${result.courseId}/grades#vn-results`
-                    }
+                    to={`/courses/${result.courseId}/grades`}
                     className="font-medium hover:underline"
                   >
-                    {result.kind === 'grade_item'
-                      ? `${result.itemName ?? ''} — ${t('newResultGrade', { grade: result.finalGrade ?? '—', max: result.gradeMax ?? '—' })}`
-                      : result.kind === 'vn_term'
-                        ? t('newResultVnTerm')
-                        : t('newResultVnYear')}
+                    {`${result.itemName ?? ''} — ${t('newResultGrade', { grade: result.finalGrade ?? '—', max: result.gradeMax ?? '—' })}`}
                   </Link>
                   <span className="text-muted-foreground"> · {result.courseName}</span>
                   {result.feedback && <span className="block text-muted-foreground">{result.feedback}</span>}
@@ -394,9 +386,9 @@ function AdminSection() {
 
 /**
  * Khối giảng dạy: dựng hoàn toàn từ dữ liệu PermissionsProvider đã dò theo
- * từng khoá (báo cáo điểm toàn lớp). Thẻ "chưa có điểm" là hàng đợi chấm
- * thật — học viên trong báo cáo chưa có điểm tổng. Biểu đồ phân bố điểm
- * chuẩn hoá theo điểm tối đa của từng khoá (đọc từ sổ điểm của khoá đó).
+ * từng khoá (lưới điểm theo bài toàn lớp). Thẻ "chưa có điểm" là hàng đợi
+ * chấm thật — học viên chưa có điểm ở bất kỳ bài nào. Biểu đồ phân bố
+ * điểm tính theo từng ô của lưới, chuẩn hoá theo điểm tối đa của bài đó.
  */
 function TeacherSection() {
   const { t } = useTranslation('dashboard');
@@ -405,7 +397,7 @@ function TeacherSection() {
   const teaching = perms.teaching;
 
   const rows = teaching.flatMap((c) => c.report?.rows ?? []);
-  const graded = rows.filter((r) => r.finalGrade !== null).length;
+  const graded = rows.filter((r) => Object.values(r.grades).some((g) => g !== null)).length;
   const cards: StatCard[] = [
     {
       id: 'teacher-courses',
@@ -437,13 +429,16 @@ function TeacherSection() {
     ];
     const counts = buckets.map(() => 0);
     for (const access of teaching) {
-      const max = access.gradebook?.courseTotal?.item.gradeMax;
-      if (!max || max <= 0) continue;
+      const maxByItem = new Map((access.report?.items ?? []).map((i) => [i.id, i.gradeMax]));
       for (const row of access.report?.rows ?? []) {
-        if (row.finalGrade === null) continue;
-        const pct = (row.finalGrade / max) * 100;
-        const idx = buckets.findIndex((b) => pct >= b.min && pct < b.max);
-        if (idx >= 0) counts[idx] = (counts[idx] ?? 0) + 1;
+        for (const [itemId, grade] of Object.entries(row.grades)) {
+          if (grade === null) continue;
+          const max = maxByItem.get(itemId);
+          if (!max || max <= 0) continue;
+          const pct = (grade / max) * 100;
+          const idx = buckets.findIndex((b) => pct >= b.min && pct < b.max);
+          if (idx >= 0) counts[idx] = (counts[idx] ?? 0) + 1;
+        }
       }
     }
     return buckets.map((b, i) => ({ label: b.label, value: counts[i]! }));
@@ -465,8 +460,8 @@ function TeacherSection() {
     {
       id: 'ungraded',
       header: t('colUngraded'),
-      cell: (c) => String((c.report?.rows ?? []).filter((r) => r.finalGrade === null).length),
-      sortValue: (c) => (c.report?.rows ?? []).filter((r) => r.finalGrade === null).length,
+      cell: (c) => String((c.report?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length),
+      sortValue: (c) => (c.report?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length,
     },
     {
       id: 'actions',
@@ -554,16 +549,17 @@ function StudentSection() {
   const unread = notificationsQuery.data ? notificationsQuery.data.unread : null;
   const events = eventsQuery.data ?? [];
 
-  const gradedTotals: { grade: number; max: number }[] = [];
+  const activityPcts: number[] = [];
   for (const access of learning) {
-    const total = access.gradebook?.courseTotal;
-    if (total?.grade?.finalGrade !== null && total?.grade?.finalGrade !== undefined && total.item.gradeMax > 0) {
-      gradedTotals.push({ grade: total.grade.finalGrade, max: total.item.gradeMax });
+    for (const activity of access.gradebook?.activities ?? []) {
+      if (activity.grade?.finalGrade !== null && activity.grade?.finalGrade !== undefined && activity.item.gradeMax > 0) {
+        activityPcts.push((activity.grade.finalGrade / activity.item.gradeMax) * 100);
+      }
     }
   }
   const average =
-    gradedTotals.length > 0
-      ? gradedTotals.reduce((sum, entry) => sum + (entry.grade / entry.max) * 100, 0) / gradedTotals.length
+    activityPcts.length > 0
+      ? activityPcts.reduce((sum, pct) => sum + pct, 0) / activityPcts.length
       : null;
 
   // Lưới thẻ luôn đủ 4 ô: thẻ huy hiệu/thông báo giữ ô ở trạng thái
@@ -580,7 +576,7 @@ function StudentSection() {
       id: 'student-average',
       label: t('statAverageGrade'),
       value: average === null ? '—' : `${average.toFixed(1)}%`,
-      footer: t('statAverageFooter', { count: gradedTotals.length }),
+      footer: t('statAverageFooter', { count: activityPcts.length }),
     },
     {
       id: 'student-badges',
@@ -623,16 +619,18 @@ function StudentSection() {
       id: 'mygrade',
       header: t('colMyGrade'),
       cell: (c) => {
-        const total = c.gradebook?.courseTotal;
-        if (!total?.grade) return '—';
-        return `${total.grade.finalGrade ?? '—'} / ${total.item.gradeMax}`;
+        const pcts = (c.gradebook?.activities ?? [])
+          .filter((a) => a.grade?.finalGrade !== null && a.grade?.finalGrade !== undefined && a.item.gradeMax > 0)
+          .map((a) => (a.grade!.finalGrade! / a.item.gradeMax) * 100);
+        if (!pcts.length) return '—';
+        return `${(pcts.reduce((x, y) => x + y, 0) / pcts.length).toFixed(1)}%`;
       },
-      sortValue: (c) => c.gradebook?.courseTotal?.grade?.finalGrade ?? -1,
-    },
-    {
-      id: 'letter',
-      header: t('app:letter'),
-      cell: (c) => c.gradebook?.courseTotal?.grade?.letter ?? '',
+      sortValue: (c) => {
+        const pcts = (c.gradebook?.activities ?? [])
+          .filter((a) => a.grade?.finalGrade !== null && a.grade?.finalGrade !== undefined && a.item.gradeMax > 0)
+          .map((a) => (a.grade!.finalGrade! / a.item.gradeMax) * 100);
+        return pcts.length ? pcts.reduce((x, y) => x + y, 0) / pcts.length : -1;
+      },
     },
     {
       id: 'actions',

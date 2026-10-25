@@ -517,7 +517,7 @@ export class GradesService implements OnModuleInit {
     courseId: string;
     items: ItemRow[];
     publications: Record<string, GradePublicationState>;
-    rows: { userId: string; grades: Record<string, number | null> }[];
+    rows: { userId: string; displayName: string; grades: Record<string, number | null> }[];
   }> {
     await this.requireCap(viewerId, 'grade:viewall', courseId);
     const items = await this.repo.listItems(courseId);
@@ -526,10 +526,17 @@ export class GradesService implements OnModuleInit {
     const userIds = [...new Set(enrolments.map((e) => e.userId))];
     const grades = await this.repo.listGradesForCourse(courseId);
     const gradeByUserItem = new Map(grades.map((g) => [`${g.userId}:${g.itemId}`, g.finalGrade ?? null]));
+    const nameById = new Map<string, string>();
+    if (userIds.length) {
+      for (const u of await this.users.getUsersByIds(userIds)) {
+        const full = `${u.firstName} ${u.lastName}`.trim();
+        nameById.set(u.id, full || u.username);
+      }
+    }
     const rows = userIds.map((userId) => {
       const cells: Record<string, number | null> = {};
       for (const item of items) cells[item.id] = gradeByUserItem.get(`${userId}:${item.id}`) ?? null;
-      return { userId, grades: cells };
+      return { userId, displayName: nameById.get(userId) ?? userId, grades: cells };
     });
     const publications: Record<string, GradePublicationState> = {};
     for (const [id, state] of publicationByItem) publications[id] = state;
