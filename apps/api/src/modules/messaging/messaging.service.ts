@@ -509,7 +509,7 @@ export class MessagingService {
     // không tắt được chúng — SiteConfigService từ chối đặt false).
     if (!(await this.isProviderEnabledBySitePolicy(provider))) {
       await this.repo.insertDispatchLog({
-        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled',
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled', tenantId,
         subject: input.subject, dedupeKey: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
       });
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'admin-disabled' };
