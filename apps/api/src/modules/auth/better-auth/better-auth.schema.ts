@@ -15,7 +15,7 @@
  * firstname + lastname là việc của tầng hiển thị/Giai đoạn 2, không đổi
  * mô hình dữ liệu nghiệp vụ).
  */
-import { boolean, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 export const betterAuthUsers = pgTable('users', {
@@ -69,10 +69,159 @@ export const betterAuthVerification = pgTable('verification', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Các bảng OAuth của lát MCP-1 (issue #163): định nghĩa vật lý ở
+ * `packages/db-schema` (mục OAuth trong modules/auth/schema.ts), ở đây
+ * chỉ là lớp ánh xạ field cho adapter — property là TÊN FIELD của
+ * model Better Auth, chuỗi trong ngoặc là TÊN CỘT vật lý.
+ *
+ * Điểm khác khuôn GĐ1 duy nhất: model `oauthClient` KHÔNG có property
+ * `id` riêng — field `clientId` ánh xạ thẳng xuống cột `id` (text,
+ * khoá chính) theo tài liệu plugin + ADR-017; model
+ * `oauthClientAssertion` thì `id` là text do provider tự cấp.
+ */
+export const betterAuthJwks = pgTable('jwks', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  alg: text('alg'),
+  crv: text('crv'),
+});
+
+export const betterAuthOAuthClient = pgTable('oauth_client', {
+  clientId: text('id').primaryKey(),
+  clientSecret: text('client_secret'),
+  clientDiscoveryId: text('client_discovery_id'),
+  disabled: boolean('disabled').notNull().default(false),
+  skipConsent: boolean('skip_consent'),
+  enableEndSession: boolean('enable_end_session'),
+  subjectType: text('subject_type'),
+  scopes: text('scopes').array(),
+  clientCredentialsScopes: text('client_credentials_scopes').array().notNull().default(sql`'{}'::text[]`),
+  userId: uuid('user_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+  name: text('name'),
+  uri: text('uri'),
+  icon: text('icon'),
+  contacts: text('contacts').array(),
+  tos: text('tos'),
+  policy: text('policy'),
+  softwareId: text('software_id'),
+  softwareVersion: text('software_version'),
+  softwareStatement: text('software_statement'),
+  redirectUris: text('redirect_uris').array().notNull(),
+  postLogoutRedirectUris: text('post_logout_redirect_uris').array(),
+  backchannelLogoutUri: text('backchannel_logout_uri'),
+  backchannelLogoutSessionRequired: boolean('backchannel_logout_session_required'),
+  tokenEndpointAuthMethod: text('token_endpoint_auth_method'),
+  applicationType: text('application_type'),
+  jwks: text('jwks'),
+  jwksUri: text('jwks_uri'),
+  grantTypes: text('grant_types').array(),
+  responseTypes: text('response_types').array(),
+  requirePKCE: boolean('require_pkce'),
+  dpopBoundAccessTokens: boolean('dpop_bound_access_tokens').notNull().default(false),
+  referenceId: text('reference_id'),
+  metadata: jsonb('metadata'),
+});
+
+export const betterAuthOAuthResource = pgTable('oauth_resource', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  identifier: text('identifier').notNull().unique(),
+  name: text('name').notNull(),
+  accessTokenTtl: integer('access_token_ttl'),
+  refreshTokenTtl: integer('refresh_token_ttl'),
+  signingAlgorithm: text('signing_algorithm'),
+  signingKeyId: text('signing_key_id'),
+  allowedScopes: text('allowed_scopes').array(),
+  customClaims: jsonb('custom_claims'),
+  dpopBoundAccessTokensRequired: boolean('dpop_bound_access_tokens_required').notNull().default(false),
+  disabled: boolean('disabled').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+  policyVersion: integer('policy_version').notNull().default(1),
+  metadata: jsonb('metadata'),
+});
+
+export const betterAuthOAuthClientResource = pgTable('oauth_client_resource', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  clientId: text('client_id').notNull(),
+  resourceId: text('resource_id').notNull(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+});
+
+export const betterAuthOAuthRefreshToken = pgTable('oauth_refresh_token', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  token: text('token').notNull().unique(),
+  clientId: text('client_id').notNull(),
+  sessionId: uuid('session_id'),
+  userId: uuid('user_id').notNull(),
+  referenceId: text('reference_id'),
+  authorizationCodeId: text('authorization_code_id'),
+  resources: text('resources').array(),
+  requestedUserInfoClaims: text('requested_user_info_claims').array(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  revoked: timestamp('revoked', { withTimezone: true }),
+  rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+  rotationReplayResponse: text('rotation_replay_response'),
+  rotationReplayExpiresAt: timestamp('rotation_replay_expires_at', { withTimezone: true }),
+  authTime: timestamp('auth_time', { withTimezone: true }),
+  confirmation: jsonb('confirmation'),
+  scopes: text('scopes').array().notNull(),
+});
+
+export const betterAuthOAuthAccessToken = pgTable('oauth_access_token', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  token: text('token').unique(),
+  clientId: text('client_id').notNull(),
+  sessionId: uuid('session_id'),
+  userId: uuid('user_id'),
+  referenceId: text('reference_id'),
+  authorizationCodeId: text('authorization_code_id'),
+  resources: text('resources').array(),
+  requestedUserInfoClaims: text('requested_user_info_claims').array(),
+  refreshId: uuid('refresh_id'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  revoked: timestamp('revoked', { withTimezone: true }),
+  confirmation: jsonb('confirmation'),
+  scopes: text('scopes').array().notNull(),
+});
+
+export const betterAuthOAuthConsent = pgTable('oauth_consent', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  clientId: text('client_id').notNull(),
+  userId: uuid('user_id'),
+  referenceId: text('reference_id'),
+  resources: text('resources').array(),
+  requestedUserInfoClaims: text('requested_user_info_claims').array(),
+  scopes: text('scopes').array().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+});
+
+export const betterAuthOAuthClientAssertion = pgTable('oauth_client_assertion', {
+  id: text('id').primaryKey(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
 /** Schema object theo đúng hình adapter của Better Auth yêu cầu (khoá là tên model). */
 export const betterAuthSchema = {
   user: betterAuthUsers,
   session: betterAuthSession,
   account: betterAuthAccount,
   verification: betterAuthVerification,
+  jwks: betterAuthJwks,
+  oauthClient: betterAuthOAuthClient,
+  oauthResource: betterAuthOAuthResource,
+  oauthClientResource: betterAuthOAuthClientResource,
+  oauthAccessToken: betterAuthOAuthAccessToken,
+  oauthRefreshToken: betterAuthOAuthRefreshToken,
+  oauthConsent: betterAuthOAuthConsent,
+  oauthClientAssertion: betterAuthOAuthClientAssertion,
 };

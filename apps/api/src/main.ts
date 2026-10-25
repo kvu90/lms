@@ -21,13 +21,15 @@ async function bootstrap(): Promise<void> {
   // thật — xem common/client-ip.ts.
   enableTrustedProxy(app);
 
-  // Better Auth (issue #7): chỉ khi cờ BETTER_AUTH_ENABLED bật (mặc định
-  // tắt — hành vi live không đổi) mới mount handler của nó tại
-  // /api/v1/auth/*, lên express instance TRƯỚC khi Nest đăng ký route và
-  // body parser của nó (xem better-auth.mount.ts). Cờ tắt thì nhánh này
-  // không chạy và đường auth hiện tại xử lý mọi request như trước.
+  // Better Auth (issue #7): chỉ khi instance tồn tại — cờ
+  // BETTER_AUTH_ENABLED (GĐ1) HOẶC cờ MCP_AS_ENABLED (AS cho MCP của
+  // issue #163) bật; cả hai mặc định tắt, hành vi live không đổi — mới
+  // mount handler của nó tại /api/v1/auth/*, lên express instance TRƯỚC
+  // khi Nest đăng ký route và body parser của nó (xem
+  // better-auth.mount.ts). Cả hai cờ tắt thì nhánh này không chạy và
+  // đường auth hiện tại xử lý mọi request như trước.
   const betterAuth = app.get(BetterAuthService);
-  if (betterAuth.enabled) {
+  if (betterAuth.auth) {
     mountBetterAuth(app, betterAuth.requireAuth());
   }
   // MCP server (issue #110, lát MCP-0): mount POST /mcp + PRM lên

@@ -104,6 +104,25 @@ export const envSchema = z.object({
   // Danh sách origin tin cậy bổ sung (phân tách bằng dấu phẩy) cho các
   // endpoint đổi trạng thái của Better Auth (kiểm tra Origin của nó).
   BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
+  // Máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): cờ RIÊNG với
+  // BETTER_AUTH_ENABLED — bật thì instance Better Auth compose thêm
+  // jwt()/mcp()/cimd() và trở thành AS phát access token cho `/mcp`
+  // (không chờ cutover GĐ2 của #7). Bật mà thiếu BETTER_AUTH_SECRET
+  // thì app từ chối boot như trên. Mặc định TẮT: tắt thì không có bề
+  // mặt OAuth nào và MCP chạy qua cầu auth cũ như MCP-0.
+  MCP_AS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  // Origin công khai của MCP server (PRM + aud của token). Trống = suy
+  // từ BETTER_AUTH_URL/PORT như McpDepsService đã làm từ MCP-0.
+  MCP_PUBLIC_BASE_URL: z.string().min(1).optional(),
+  // Trần rate-limit của MCP (cửa sổ 1 giờ, đếm trong tiến trình như
+  // MCP-0): đọc / tạo câu / publish — publish siết riêng 10 lần/giờ
+  // theo hồ sơ 3.3 vì nó đổi trạng thái phát hành hàng loạt.
+  MCP_RATE_READ_PER_HOUR: z.coerce.number().int().positive().default(300),
+  MCP_RATE_CREATE_PER_HOUR: z.coerce.number().int().positive().default(120),
+  MCP_RATE_PUBLISH_PER_HOUR: z.coerce.number().int().positive().default(10),
   // Bootstrap admin (seeded on first boot when no site admin exists)
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin123!'),
