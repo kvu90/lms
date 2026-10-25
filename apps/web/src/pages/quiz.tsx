@@ -4,10 +4,9 @@ import {
   extractRichTextPlainText,
   type CourseGroup,
   type CourseRosterMember,
-  type QuestionCategory,
   type QuestionView,
   type QuizAttemptSummary,
-  type QuizOverrideView,
+  type ExamPinOverrideView as QuizOverrideView,
   type QuizView,
   type RichTextDocument,
 } from '@lms/contracts';
@@ -25,7 +24,7 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson, ApiError } from '#lib/api';
 
-/** Hình dạng trả về của GET /quizzes/:id (trang thông tin theo người xem). */
+/** Hình dạng trả về của GET /exam-pins/:id (trang thông tin theo người xem). */
 interface QuizForUser {
   quiz: QuizView;
   myAttempts: QuizAttemptSummary[];
@@ -58,14 +57,15 @@ function toLocalInput(iso: string | null): string {
 }
 
 /**
- * Trang hoạt động Quiz: thông tin đề cho mọi người xem được; học sinh
- * bắt đầu/tiếp tục lượt làm và xem điểm của mình; giáo viên có quyền
- * manage thì cài đặt đề và dựng đề (slots) ngay tại trang; giáo viên có
- * viewreports đi tiếp sang trang kết quả lớp.
+ * Trang LẦN GHIM đề (sau gộp Đề #226, route /courses/:id/exams/:pinId):
+ * thông tin lần tổ chức cho mọi người xem được; học sinh bắt đầu/tiếp
+ * tục lượt làm và xem điểm của mình; giáo viên có quyền manage thì sửa
+ * CẤU HÌNH TỔ CHỨC của lần ghim tại trang — nội dung đề (slots) thuộc
+ * về ĐỀ ở ngân hàng, tại đây chỉ xem bản đã ghim + nâng version đề.
  */
 export function QuizPage() {
   const { t } = useTranslation('app');
-  const { id: courseId, quizId } = useParams();
+  const { id: courseId, pinId: quizId } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState<QuizForUser | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,20 +83,10 @@ export function QuizPage() {
   const [grade, setGrade] = useState('10');
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
 
-  // Dựng đề: ngân hàng câu hỏi + lựa chọn đang soạn.
-  const [categories, setCategories] = useState<QuestionCategory[]>([]);
-  /** Danh mục đã tải xong hay chưa — hai form dựng đề chỉ render khi đã có danh sách, để ô chọn danh mục không bao giờ mở ra rỗng rồi đua với lượt tải (điểm chặn 5, PR #83). */
-  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
-  const [bankQuestions, setBankQuestions] = useState<QuestionView[]>([]);
-  const [pickCategoryId, setPickCategoryId] = useState('');
-  const [pickQuestionId, setPickQuestionId] = useState('');
-  const [pickMaxMark, setPickMaxMark] = useState('');
-  const [randomCategoryId, setRandomCategoryId] = useState('');
-  const [randomMaxMark, setRandomMaxMark] = useState('1');
-  /** Tên câu/category của các slot hiện có (tra từ ngân hàng để hiển thị). */
+  /** Tên câu của các slot đã ghim (tra từ ngân hàng để hiển thị). */
   const [slotNames, setSlotNames] = useState<Record<string, string>>({});
-  /** Giá trị điểm đang sửa theo slot id. */
-  const [slotMarks, setSlotMarks] = useState<Record<string, string>>({});
+  /** Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — nạp khi có quyền manage. */
+  const [examInfo, setExamInfo] = useState<{ name: string; version: number; currentVersionId: string; status: string } | null>(null);
 
   // Ghi đè (chỉ người có quiz:manageoverrides dùng): danh sách + dữ liệu chọn đích + form tạo/sửa dùng chung.
   const [overrides, setOverrides] = useState<QuizOverrideView[]>([]);
@@ -116,7 +106,7 @@ export function QuizPage() {
   const [ovError, setOvError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const fresh = await apiJson<QuizForUser>(`/api/v1/quizzes/${quizId}`);
+    const fresh = await apiJson<QuizForUser>(`/api/v1/exam-pins/${quizId}`);
     setData(fresh);
     setName(fresh.quiz.name);
     setIntro(fresh.quiz.intro);
@@ -127,7 +117,6 @@ export function QuizPage() {
     setGradeMethod(fresh.quiz.gradeMethod);
     setGrade(String(fresh.quiz.grade));
     setShuffleAnswers(fresh.quiz.shuffleAnswers);
-    setSlotMarks(Object.fromEntries(fresh.quiz.slots.map((s) => [s.id, String(s.maxMark)])));
     // Tra tên cho slot cố định/slot ngẫu nhiên để bảng dựng đề đọc được.
     const names: Record<string, string> = {};
     await Promise.all(
@@ -147,23 +136,23 @@ export function QuizPage() {
     void reload().catch(() => setError(t('quizLoadFailed')));
   }, [reload, t]);
 
+  // Nạp thông tin đề nguồn (để hiện version + nút nâng version) và
+  // danh sách nhóm của khoá (hiện tên nhóm đích của lần ghim).
   useEffect(() => {
-    if (!data?.permissions.manage) return;
-    void apiJson<QuestionCategory[]>('/api/v1/questions/categories')
-      .then(setCategories)
-      .catch(() => undefined)
-      .finally(() => setCategoriesLoaded(true));
-  }, [data?.permissions.manage]);
-
-  useEffect(() => {
-    if (!pickCategoryId) { setBankQuestions([]); return; }
-    void apiJson<QuestionView[]>(`/api/v1/questions/categories/${pickCategoryId}/questions`)
-      .then(setBankQuestions)
-      .catch(() => setBankQuestions([]));
-  }, [pickCategoryId]);
+    if (!data?.permissions.manage || !data.quiz.examId) return;
+    void apiJson<{ version: { id: string; version: number; name: string }; paper: { status: string } }>(`/api/v1/exams/${data.quiz.examId}`)
+      .then((view) => setExamInfo({
+        name: view.version.name, version: view.version.version,
+        currentVersionId: view.version.id, status: view.paper.status,
+      }))
+      .catch(() => setExamInfo(null));
+    void apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`)
+      .then(setGroups)
+      .catch(() => undefined);
+  }, [data?.permissions.manage, data?.quiz.examId, courseId]);
 
   const reloadOverrides = useCallback(async () => {
-    const rows = await apiJson<QuizOverrideView[]>(`/api/v1/quizzes/${quizId}/overrides`);
+    const rows = await apiJson<QuizOverrideView[]>(`/api/v1/exam-pins/${quizId}/overrides`);
     setOverrides(rows);
   }, [quizId]);
 
@@ -251,11 +240,11 @@ export function QuizPage() {
     if (editingOverride) {
       const target = editingOverride;
       await actOverride(() =>
-        apiJson(`/api/v1/quizzes/${quizId}/overrides/${target.id}`, { method: 'PATCH', body: JSON.stringify(fields) }),
+        apiJson(`/api/v1/exam-pin-overrides/${target.id}`, { method: 'PATCH', body: JSON.stringify(fields) }),
       );
     } else {
       await actOverride(() =>
-        apiJson(`/api/v1/quizzes/${quizId}/overrides`, {
+        apiJson(`/api/v1/exam-pins/${quizId}/overrides`, {
           method: 'POST',
           body: JSON.stringify({ ...(ovTargetKind === 'user' ? { userId: ovUserId } : { groupId: ovGroupId }), ...fields }),
         }),
@@ -265,7 +254,7 @@ export function QuizPage() {
 
   async function removeOverride(ov: QuizOverrideView) {
     if (editingOverride?.id === ov.id) resetOverrideForm();
-    await actOverride(() => apiJson(`/api/v1/quizzes/${quizId}/overrides/${ov.id}`, { method: 'DELETE' }));
+    await actOverride(() => apiJson(`/api/v1/exam-pin-overrides/${ov.id}`, { method: 'DELETE' }));
   }
 
   /** Chạy một thao tác rồi nạp lại trang; lỗi hiện qua i18n. */
@@ -285,7 +274,7 @@ export function QuizPage() {
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
     await act(() =>
-      apiJson(`/api/v1/quizzes/${quizId}`, {
+      apiJson(`/api/v1/exam-pins/${quizId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: name.trim(),
@@ -302,36 +291,10 @@ export function QuizPage() {
     );
   }
 
-  async function addFixedSlot(event: FormEvent) {
-    event.preventDefault();
-    if (!pickQuestionId) return;
-    await act(() =>
-      apiJson(`/api/v1/quizzes/${quizId}/slots`, {
-        method: 'POST',
-        body: JSON.stringify({
-          questionId: pickQuestionId,
-          ...(pickMaxMark.trim() ? { maxMark: Number(pickMaxMark) } : {}),
-        }),
-      }),
-    );
-    setPickMaxMark('');
-  }
-
-  async function addRandomSlot(event: FormEvent) {
-    event.preventDefault();
-    if (!randomCategoryId) return;
-    await act(() =>
-      apiJson(`/api/v1/quizzes/${quizId}/slots`, {
-        method: 'POST',
-        body: JSON.stringify({ categoryId: randomCategoryId, maxMark: Number(randomMaxMark) || 1 }),
-      }),
-    );
-  }
-
   async function startAttempt(preview: boolean) {
     setActionError(null);
     try {
-      const view = await apiJson<{ attempt: { id: string } }>(`/api/v1/quizzes/${quizId}/attempts`, {
+      const view = await apiJson<{ attempt: { id: string } }>(`/api/v1/exam-pins/${quizId}/attempts`, {
         method: 'POST',
         body: JSON.stringify({ preview }),
       });
@@ -428,12 +391,12 @@ export function QuizPage() {
               </Button>
             ) : null}
             {permissions.viewReports ? (
-              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/quizzes/${quizId}/results`} />}>
+              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/exams/${quizId}/results`} />}>
                 {t('quizViewResults')}
               </Button>
             ) : null}
             {permissions.grade ? (
-              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/quizzes/${quizId}/paper`} />}>
+              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/exams/${quizId}/paper`} />}>
                 {t('paperTitle')}
               </Button>
             ) : null}
@@ -463,10 +426,46 @@ export function QuizPage() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle>{t('quizBuildTitle')}</CardTitle>
-              <CardDescription>{t('quizBuildDescription', { total: quiz.sumGrades })}</CardDescription>
+              <CardTitle>{t('pinExamTitle')}</CardTitle>
+              <CardDescription>{t('pinExamDescription', { total: quiz.sumGrades })}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-1 text-sm">
+                <p>
+                  {t('pinExamSourceLine')}:{' '}
+                  <span className="font-medium">{examInfo?.name ?? quiz.name}</span>
+                  {quiz.targetGroupId ? (
+                    <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
+                      {t('pinExamGroupLine', { group: groups.find((g) => g.id === quiz.targetGroupId)?.name ?? '' })}
+                    </span>
+                  ) : (
+                    <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('pinExamWholeCourse')}</span>
+                  )}
+                </p>
+                <p className="text-muted-foreground">{t('pinExamFrozenNote')}</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button type="button" variant="outline" render={<Link to={`/exams/${quiz.examId}/edit`} />}>
+                    {t('pinExamOpenEditor')}
+                  </Button>
+                  {examInfo && examInfo.currentVersionId !== quiz.examVersionId ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() =>
+                        void act(() =>
+                          apiJson(`/api/v1/exam-pins/${quizId}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ examVersionId: examInfo.currentVersionId }),
+                          }),
+                        )
+                      }
+                    >
+                      {t('pinExamUpgradeVersion', { version: examInfo.version })}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
               <ul className="space-y-2">
                 {quiz.slots.map((s) => (
                   <li key={s.id} data-testid={`slot-${s.id}`} className="flex flex-wrap items-center gap-2 text-sm">
@@ -484,168 +483,11 @@ export function QuizPage() {
                         </span>
                       ) : null}
                     </span>
-                    {s.hasNewerVersion && s.latestVersion !== null ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          void act(() =>
-                            apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}/upgrade-version`, { method: 'POST', body: '{}' }),
-                          )
-                        }
-                      >
-                        {t('slotUpgradeVersion', { version: s.latestVersion })}
-                      </Button>
-                    ) : null}
-                    <Label htmlFor={`slot-mark-${s.id}`}>{t('quizSlotMark')}</Label>
-                    <Input
-                      id={`slot-mark-${s.id}`}
-                      className="w-24"
-                      value={slotMarks[s.id] ?? ''}
-                      onChange={(e) => setSlotMarks((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void act(() =>
-                          apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}`, {
-                            method: 'PATCH',
-                            body: JSON.stringify({ maxMark: Number(slotMarks[s.id]) || s.maxMark }),
-                          }),
-                        )
-                      }
-                    >
-                      {t('quizSlotSaveMark')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || s.slot === 1}
-                      onClick={() =>
-                        void act(() =>
-                          apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}`, {
-                            method: 'PATCH',
-                            body: JSON.stringify({ slot: s.slot - 1 }),
-                          }),
-                        )
-                      }
-                    >
-                      {t('quizSlotMoveUp')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || s.slot === quiz.slots.length}
-                      onClick={() =>
-                        void act(() =>
-                          apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}`, {
-                            method: 'PATCH',
-                            body: JSON.stringify({ slot: s.slot + 1 }),
-                          }),
-                        )
-                      }
-                    >
-                      {t('quizSlotMoveDown')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void act(() => apiJson(`/api/v1/quizzes/${quizId}/slots/${s.id}`, { method: 'DELETE' }))
-                      }
-                    >
-                      {t('quizSlotRemove')}
-                    </Button>
+                    <span className="text-muted-foreground">{t('pinExamSlotMark', { mark: s.maxMark })}</span>
                   </li>
                 ))}
                 {quiz.slots.length === 0 ? <li className="text-sm text-muted-foreground">{t('quizNoQuestions')}</li> : null}
               </ul>
-
-              {categoriesLoaded && (<form onSubmit={(e) => void addFixedSlot(e)} className="space-y-2">
-                <h4 className="text-sm font-medium">{t('quizAddFixedSlot')}</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Select
-                    items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
-                    value={pickCategoryId === '' ? null : pickCategoryId}
-                    onValueChange={(v) => { setPickCategoryId(v ?? ''); setPickQuestionId(''); }}
-                  >
-                    <SelectTrigger aria-label={t('quizPickCategory')} className="w-52">
-                      <SelectValue placeholder={t('quizPickCategory')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    items={Object.fromEntries(
-                      bankQuestions.map((q) => [q.question.id, `${q.question.name} (${q.question.qtype})`]),
-                    )}
-                    value={pickQuestionId === '' ? null : pickQuestionId}
-                    onValueChange={(v) => setPickQuestionId(v ?? '')}
-                  >
-                    <SelectTrigger aria-label={t('quizPickQuestion')} className="w-52">
-                      <SelectValue placeholder={t('quizPickQuestion')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bankQuestions.map((q) => (
-                        <SelectItem key={q.question.id} value={q.question.id}>
-                          {q.question.name} ({q.question.qtype})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    aria-label={t('quizSlotMark')}
-                    className="w-24"
-                    placeholder={t('quizSlotMarkPlaceholder')}
-                    value={pickMaxMark}
-                    onChange={(e) => setPickMaxMark(e.target.value)}
-                  />
-                  <Button type="submit" variant="outline" disabled={busy || !pickQuestionId}>
-                    {t('quizAddSlot')}
-                  </Button>
-                </div>
-              </form>)}
-
-              {categoriesLoaded && (<form onSubmit={(e) => void addRandomSlot(e)} className="space-y-2">
-                <h4 className="text-sm font-medium">{t('quizAddRandomSlot')}</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Select
-                    items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
-                    value={randomCategoryId === '' ? null : randomCategoryId}
-                    onValueChange={(v) => setRandomCategoryId(v ?? '')}
-                  >
-                    <SelectTrigger aria-label={t('quizPickCategory')} className="w-52">
-                      <SelectValue placeholder={t('quizPickCategory')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    aria-label={t('quizSlotMark')}
-                    className="w-24"
-                    value={randomMaxMark}
-                    onChange={(e) => setRandomMaxMark(e.target.value)}
-                  />
-                  <Button type="submit" variant="outline" disabled={busy || !randomCategoryId}>
-                    {t('quizAddRandomSubmit')}
-                  </Button>
-                </div>
-              </form>)}
             </CardContent>
           </Card>
 

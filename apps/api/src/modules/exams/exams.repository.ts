@@ -3,16 +3,15 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  context, course, examDeployments, examDossierReviews, examDossiers, examMatrices,
-  examPaperContributions, examPapers, examPaperSlots, examPaperVersions, question,
+  context, course, examDossierReviews, examDossiers, examMatrices, examPins,
+  examContributions, exams, examSlots, examVersions, question,
   questionBankEntries, questionVersions, role, roleAssignments,
 } from '../../db/schema';
 
-export type ExamPaperRow = typeof examPapers.$inferSelect;
-export type ExamPaperVersionRow = typeof examPaperVersions.$inferSelect;
-export type ExamPaperSlotRow = typeof examPaperSlots.$inferSelect;
-export type ExamPaperContributionRow = typeof examPaperContributions.$inferSelect;
-export type ExamDeploymentRow = typeof examDeployments.$inferSelect;
+export type ExamRow = typeof exams.$inferSelect;
+export type ExamVersionRow = typeof examVersions.$inferSelect;
+export type ExamSlotRow = typeof examSlots.$inferSelect;
+export type ExamContributionRow = typeof examContributions.$inferSelect;
 export type ExamDossierRow = typeof examDossiers.$inferSelect;
 export type ExamDossierReviewRow = typeof examDossierReviews.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -22,69 +21,83 @@ export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
  * (exam_papers) + version nội dung bất biến (exam_paper_versions) +
  * slots ghim version câu (exam_paper_slots) + đề xuất đóng góp
  * (exam_paper_contributions). Mọi truy vấn là truy vấn thuần; cổng
- * quyền và vòng đời nằm ở ExamPapersService.
+ * quyền và vòng đời nằm ở ExamsService.
  */
 @Injectable()
-export class ExamPapersRepository {
+export class ExamsRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
 
   get dbHandle(): Database { return this.db; }
 
-  async insertPaper(v: typeof examPapers.$inferInsert, tx?: DbTx): Promise<ExamPaperRow> {
-    const [row] = await (tx ?? this.db).insert(examPapers).values(v).returning();
+  async insertPaper(v: typeof exams.$inferInsert, tx?: DbTx): Promise<ExamRow> {
+    const [row] = await (tx ?? this.db).insert(exams).values(v).returning();
     return row!;
   }
 
-  async getPaper(id: string): Promise<ExamPaperRow | undefined> {
-    const [row] = await this.db.select().from(examPapers).where(eq(examPapers.id, id));
+  /** Các lần ghim của một đề (kèm tên khoá + số version đã ghim) — bề mặt thay cho danh sách deployments cũ. */
+  async listPinsOfExam(examId: string): Promise<{ id: string; courseId: string; courseName: string; examVersionId: string; versionNumber: number; name: string | null; variantCount: number; variants: { code: string }[]; targetGroupId: string | null; createdAt: Date }[]> {
+    return this.db.select({
+      id: examPins.id, courseId: examPins.courseId, courseName: course.fullName,
+      examVersionId: examPins.examVersionId, versionNumber: examVersions.version,
+      name: examPins.name, variantCount: examPins.variantCount, variants: examPins.variants,
+      targetGroupId: examPins.targetGroupId, createdAt: examPins.createdAt,
+    }).from(examPins)
+      .innerJoin(course, eq(course.id, examPins.courseId))
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .where(eq(examPins.examId, examId))
+      .orderBy(desc(examPins.createdAt));
+  }
+
+  async getPaper(id: string): Promise<ExamRow | undefined> {
+    const [row] = await this.db.select().from(exams).where(eq(exams.id, id));
     return row;
   }
 
-  async listPapersInBank(bankId: string): Promise<ExamPaperRow[]> {
-    return this.db.select().from(examPapers)
-      .where(eq(examPapers.bankId, bankId))
-      .orderBy(desc(examPapers.updatedAt), asc(examPapers.id));
+  async listPapersInBank(bankId: string): Promise<ExamRow[]> {
+    return this.db.select().from(exams)
+      .where(eq(exams.bankId, bankId))
+      .orderBy(desc(exams.updatedAt), asc(exams.id));
   }
 
-  async updatePaper(id: string, patch: Partial<ExamPaperRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(examPapers).set({ ...patch, updatedAt: new Date() }).where(eq(examPapers.id, id));
+  async updatePaper(id: string, patch: Partial<ExamRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(exams).set({ ...patch, updatedAt: new Date() }).where(eq(exams.id, id));
   }
 
   async deletePaper(id: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(examPapers).where(eq(examPapers.id, id));
+    await (tx ?? this.db).delete(exams).where(eq(exams.id, id));
   }
 
-  async insertVersion(v: typeof examPaperVersions.$inferInsert, tx?: DbTx): Promise<ExamPaperVersionRow> {
-    const [row] = await (tx ?? this.db).insert(examPaperVersions).values(v).returning();
+  async insertVersion(v: typeof examVersions.$inferInsert, tx?: DbTx): Promise<ExamVersionRow> {
+    const [row] = await (tx ?? this.db).insert(examVersions).values(v).returning();
     return row!;
   }
 
-  async getVersion(id: string): Promise<ExamPaperVersionRow | undefined> {
-    const [row] = await this.db.select().from(examPaperVersions).where(eq(examPaperVersions.id, id));
+  async getVersion(id: string): Promise<ExamVersionRow | undefined> {
+    const [row] = await this.db.select().from(examVersions).where(eq(examVersions.id, id));
     return row;
   }
 
-  async getVersionByNumber(paperId: string, version: number): Promise<ExamPaperVersionRow | undefined> {
-    const [row] = await this.db.select().from(examPaperVersions)
-      .where(and(eq(examPaperVersions.paperId, paperId), eq(examPaperVersions.version, version)));
+  async getVersionByNumber(paperId: string, version: number): Promise<ExamVersionRow | undefined> {
+    const [row] = await this.db.select().from(examVersions)
+      .where(and(eq(examVersions.examId, paperId), eq(examVersions.version, version)));
     return row;
   }
 
-  async listVersions(paperId: string): Promise<ExamPaperVersionRow[]> {
-    return this.db.select().from(examPaperVersions)
-      .where(eq(examPaperVersions.paperId, paperId))
-      .orderBy(desc(examPaperVersions.version));
+  async listVersions(paperId: string): Promise<ExamVersionRow[]> {
+    return this.db.select().from(examVersions)
+      .where(eq(examVersions.examId, paperId))
+      .orderBy(desc(examVersions.version));
   }
 
-  async insertSlots(rows: (typeof examPaperSlots.$inferInsert)[], tx?: DbTx): Promise<void> {
+  async insertSlots(rows: (typeof examSlots.$inferInsert)[], tx?: DbTx): Promise<void> {
     if (rows.length === 0) return;
-    await (tx ?? this.db).insert(examPaperSlots).values(rows);
+    await (tx ?? this.db).insert(examSlots).values(rows);
   }
 
-  async listSlots(paperVersionId: string): Promise<ExamPaperSlotRow[]> {
-    return this.db.select().from(examPaperSlots)
-      .where(eq(examPaperSlots.paperVersionId, paperVersionId))
-      .orderBy(asc(examPaperSlots.position));
+  async listSlots(examVersionId: string): Promise<ExamSlotRow[]> {
+    return this.db.select().from(examSlots)
+      .where(eq(examSlots.examVersionId, examVersionId))
+      .orderBy(asc(examSlots.position));
   }
 
   /** Thông tin hiển thị của các câu trong slots: tên + qtype + trạng thái entry trong bank câu hỏi của chúng. */
@@ -100,18 +113,18 @@ export class ExamPapersRepository {
    * undefined khi câu không có entry nào ở trạng thái ready
    * (draft/hidden đều không được đưa vào đề).
    */
-  async resolveReadyVersion(questionId: string): Promise<{ versionId: string; versionNumber: number } | undefined> {
+  async resolveReadyVersion(questionId: string): Promise<{ versionId: string; versionNumber: number; defaultMark: number } | undefined> {
     const entries = await this.db.select({
       latestVersion: questionBankEntries.latestVersion,
       status: questionBankEntries.status,
     }).from(questionBankEntries).where(eq(questionBankEntries.questionId, questionId));
     const entry = entries.find((e) => e.status === 'ready');
     if (!entry) return undefined;
-    const [ver] = await this.db.select({ id: questionVersions.id, version: questionVersions.version })
+    const [ver] = await this.db.select({ id: questionVersions.id, version: questionVersions.version, defaultMark: questionVersions.defaultMark })
       .from(questionVersions)
       .where(and(eq(questionVersions.questionId, questionId), eq(questionVersions.version, entry.latestVersion)));
     if (!ver) return undefined;
-    return { versionId: ver.id, versionNumber: ver.version };
+    return { versionId: ver.id, versionNumber: ver.version, defaultMark: ver.defaultMark };
   }
 
   /** Trạng thái entry của các câu (để hiển thị trong chi tiết đề: câu đã rút khỏi ngân hàng vẫn đọc được trong version đã chụp). */
@@ -127,60 +140,42 @@ export class ExamPapersRepository {
     return !!row;
   }
 
-  async insertContribution(v: typeof examPaperContributions.$inferInsert, tx?: DbTx): Promise<ExamPaperContributionRow> {
-    const [row] = await (tx ?? this.db).insert(examPaperContributions).values(v).returning();
+  async insertContribution(v: typeof examContributions.$inferInsert, tx?: DbTx): Promise<ExamContributionRow> {
+    const [row] = await (tx ?? this.db).insert(examContributions).values(v).returning();
     return row!;
   }
 
-  async getContribution(id: string): Promise<ExamPaperContributionRow | undefined> {
-    const [row] = await this.db.select().from(examPaperContributions).where(eq(examPaperContributions.id, id));
+  async getContribution(id: string): Promise<ExamContributionRow | undefined> {
+    const [row] = await this.db.select().from(examContributions).where(eq(examContributions.id, id));
     return row;
   }
 
-  async listContributionsForBank(targetBankId: string): Promise<ExamPaperContributionRow[]> {
-    return this.db.select().from(examPaperContributions)
-      .where(eq(examPaperContributions.targetBankId, targetBankId))
-      .orderBy(desc(examPaperContributions.createdAt));
+  async listContributionsForBank(targetBankId: string): Promise<ExamContributionRow[]> {
+    return this.db.select().from(examContributions)
+      .where(eq(examContributions.targetBankId, targetBankId))
+      .orderBy(desc(examContributions.createdAt));
   }
 
-  async findPendingContribution(paperId: string, targetBankId: string): Promise<ExamPaperContributionRow | undefined> {
-    const [row] = await this.db.select().from(examPaperContributions)
+  async findPendingContribution(paperId: string, targetBankId: string): Promise<ExamContributionRow | undefined> {
+    const [row] = await this.db.select().from(examContributions)
       .where(and(
-        eq(examPaperContributions.paperId, paperId),
-        eq(examPaperContributions.targetBankId, targetBankId),
-        eq(examPaperContributions.status, 'pending'),
+        eq(examContributions.examId, paperId),
+        eq(examContributions.targetBankId, targetBankId),
+        eq(examContributions.status, 'pending'),
       ));
     return row;
   }
 
-  async updateContribution(id: string, patch: Partial<ExamPaperContributionRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(examPaperContributions).set({ ...patch, updatedAt: new Date() })
-      .where(eq(examPaperContributions.id, id));
+  async updateContribution(id: string, patch: Partial<ExamContributionRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examContributions).set({ ...patch, updatedAt: new Date() })
+      .where(eq(examContributions.id, id));
   }
 
   /** Tăng copy_count của đề nguồn sau một lần copy thành công. */
   async bumpCopyCount(paperId: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(examPapers)
-      .set({ copyCount: sql`${examPapers.copyCount} + 1` })
-      .where(eq(examPapers.id, paperId));
-  }
-
-  // --- triển khai + mã đề (EB-2) ------------------------------------------------
-
-  async insertDeployment(v: typeof examDeployments.$inferInsert, tx?: DbTx): Promise<ExamDeploymentRow> {
-    const [row] = await (tx ?? this.db).insert(examDeployments).values(v).returning();
-    return row!;
-  }
-
-  async getDeployment(id: string): Promise<ExamDeploymentRow | undefined> {
-    const [row] = await this.db.select().from(examDeployments).where(eq(examDeployments.id, id));
-    return row;
-  }
-
-  async listDeploymentsForPaper(paperId: string): Promise<ExamDeploymentRow[]> {
-    return this.db.select().from(examDeployments)
-      .where(eq(examDeployments.paperId, paperId))
-      .orderBy(desc(examDeployments.createdAt));
+    await (tx ?? this.db).update(exams)
+      .set({ copyCount: sql`${exams.copyCount} + 1` })
+      .where(eq(exams.id, paperId));
   }
 
   // --- bộ hồ sơ duyệt đề (EB-3) --------------------------------------------------
@@ -228,7 +223,7 @@ export class ExamPapersRepository {
   /** Bộ hồ sơ ĐANG HIỆU LỰC chờ duyệt (pending/pending_board) của cùng một đề vào cùng bank đích — nộp trùng bị chặn 409. */
   async findActiveDossier(paperId: string, targetBankId: string, excludeId?: string): Promise<ExamDossierRow | undefined> {
     const conds = [
-      eq(examDossiers.paperId, paperId),
+      eq(examDossiers.examId, paperId),
       eq(examDossiers.targetBankId, targetBankId),
       inArray(examDossiers.status, ['pending', 'pending_board']),
     ];

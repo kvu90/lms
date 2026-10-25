@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
 import { createCategory, createCm, createCourse, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from './exam-pin-helpers';
 
 /**
  * K1 (issue #68): wizard tạo khoá — nhân bản khoá theo bảng Re-run,
@@ -33,10 +34,12 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     // Hạn mở của module: 2026-03-10 → kỳ vọng lùi đúng delta của ngày bắt đầu mới.
     await http(app).patch(`/api/v1/courses/${source.id}/modules/${page.id}`).set('Authorization', `Bearer ${admin}`)
       .send({ openAt: '2026-03-10T00:00:00.000Z' }).expect(200);
-    const quizRes = await http(app).post(`/api/v1/courses/${source.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: s1.id, name: 'Kiểm tra tuần 1', timeOpen: '2026-03-12T00:00:00.000Z', timeClose: '2026-03-13T00:00:00.000Z', grade: 10 });
-    expect(quizRes.status).toBe(201);
-    const sourceQuiz = quizRes.body;
+    const kQuestion = await createReadyQuestion(app, admin, 'Câu tuần 1');
+    const kDraft = await createExamDraft(app, admin, 'Kiểm tra tuần 1', 10);
+    await addExamSlot(app, admin, kDraft, { questionId: kQuestion });
+    const sourceQuiz = await pinExam(app, admin, source.id, kDraft, {
+      sectionId: s1.id, timeOpen: '2026-03-12T00:00:00.000Z', timeClose: '2026-03-13T00:00:00.000Z',
+    });
     // Chính sách điểm: một item thủ công trong sổ điểm của khoá nguồn.
     const itemRes = await http(app).post(`/api/v1/courses/${source.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Bài tập về nhà', itemType: 'manual', gradeMax: 20 });
@@ -72,7 +75,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const copiedQuizCm = copiedS1.modules.find((m: { component: string }) => m.component === 'mod_quiz');
     expect(copiedQuizCm.instanceId).toBeTruthy();
     expect(copiedQuizCm.instanceId).not.toBe(sourceQuiz.id); // instance quiz mới, không dùng chung
-    const quizzesRes = await http(app).get(`/api/v1/courses/${copy.id}/quizzes`).set('Authorization', `Bearer ${admin}`);
+    const quizzesRes = await http(app).get(`/api/v1/courses/${copy.id}/exam-pins`).set('Authorization', `Bearer ${admin}`);
     expect(quizzesRes.body).toHaveLength(1);
     expect(String(quizzesRes.body[0].timeOpen).slice(0, 10)).toBe('2026-09-17'); // 2026-03-12 + 189 ngày
     expect(String(quizzesRes.body[0].timeClose).slice(0, 10)).toBe('2026-09-18');

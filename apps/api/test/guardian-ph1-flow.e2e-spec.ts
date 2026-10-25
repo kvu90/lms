@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OutboxRelayService } from '../src/infra/events/outbox-relay.service';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 /**
@@ -101,13 +102,10 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
       answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
       options: { single: true },
     });
-    const res = await http(app).post(`/api/v1/courses/${courseId}/quizzes`).set('Authorization', `Bearer ${teacher}`)
-      .send({ sectionId, name: 'Quiz PH1', ...overrides });
-    expect([200, 201]).toContain(res.status);
-    const slot = await http(app).post(`/api/v1/quizzes/${res.body.id}/slots`).set('Authorization', `Bearer ${teacher}`)
-      .send({ questionId: qRes.body.question.id });
-    expect([200, 201]).toContain(slot.status);
-    return res.body as { id: string; cmId: string };
+    const draft = await createExamDraft(app, teacher, 'Quiz PH1');
+    await addExamSlot(app, teacher, draft, { questionId: qRes.body.question.id });
+    const pin = await pinExam(app, teacher, courseId, draft, { sectionId, ...overrides });
+    return pin as unknown as { id: string; cmId: string };
   }
 
   async function createAssignment(courseId: string, sectionId: string, teacher: string, overrides: Record<string, unknown>) {

@@ -40,7 +40,7 @@ function useWarpedUrl(scanId: string): string | null {
   useEffect(() => {
     let live = true;
     let objectUrl: string | null = null;
-    void apiFetch(`/api/v1/paper-scans/${scanId}/image/warped`)
+    void apiFetch(`/api/v1/exam-scans/${scanId}/image/warped`)
       .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('image failed'))))
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);
@@ -119,7 +119,7 @@ function RegionCrop({ scanId, region, label }: { scanId: string; region: { x: nu
 }
 
 export default function QuizPaperPage() {
-  const { id: courseId, quizId } = useParams();
+  const { id: courseId, pinId: quizId } = useParams();
   const { t } = useTranslation('app');
   const [batches, setBatches] = useState<PaperBatch[] | null>(null);
   const [scans, setScans] = useState<PaperScan[] | null>(null);
@@ -140,8 +140,8 @@ export default function QuizPaperPage() {
 
   const reload = useCallback(async () => {
     const [batchList, scanList] = await Promise.all([
-      apiJson<PaperBatch[]>(`/api/v1/quizzes/${quizId}/paper-batches`),
-      apiJson<PaperScan[]>(`/api/v1/paper-scans?quizId=${quizId}`),
+      apiJson<PaperBatch[]>(`/api/v1/exam-batches?pinId=${quizId}`),
+      apiJson<PaperScan[]>(`/api/v1/exam-scans?pinId=${quizId}`),
     ]);
     setBatches(batchList);
     setScans(scanList);
@@ -172,7 +172,7 @@ export default function QuizPaperPage() {
       const body: Record<string, unknown> = { codeDigits: Number(codeDigits) };
       if (variant.trim()) body.variantCode = variant.trim();
       if (/^\d{4}$/.test(examCode.trim())) body.examCode = examCode.trim();
-      const created = await apiJson<PaperBatch>(`/api/v1/quizzes/${quizId}/paper-batches`, {
+      const created = await apiJson<PaperBatch>(`/api/v1/exam-batches?pinId=${quizId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -196,7 +196,7 @@ export default function QuizPaperPage() {
       if (kind === 'one' && studentId) params.set('studentId', studentId);
       const query = params.toString();
       const res = await apiFetch(
-        `/api/v1/quizzes/${quizId}/paper-batches/${selectedBatch.id}/sheets.pdf${query ? `?${query}` : ''}`,
+        `/api/v1/exam-batches/${selectedBatch.id}/sheets?format=pdf${query ? `&${query}` : ''}`,
       );
       if (!res.ok) throw new Error('pdf failed');
       const blob = await res.blob();
@@ -215,7 +215,7 @@ export default function QuizPaperPage() {
       const form = new FormData();
       for (const file of files) form.append('files', file);
       // Tải theo BUỔI (lô chụp): máy tự khớp mã đề về đúng lô in.
-      const res = await apiFetch(`/api/v1/quizzes/${quizId}/paper-scans`, {
+      const res = await apiFetch(`/api/v1/exam-scans?pinId=${quizId}`, {
         method: 'POST',
         body: form,
       });
@@ -236,7 +236,7 @@ export default function QuizPaperPage() {
     const studentId = identityChoice[scan.id];
     if (!studentId) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/paper-scans/${scan.id}/assign-identity`, {
+      await apiJson(`/api/v1/exam-scans/${scan.id}/assign-identity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId }),
@@ -249,7 +249,7 @@ export default function QuizPaperPage() {
     const batchId = batchChoice[scan.id];
     if (!batchId) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/paper-scans/${scan.id}/assign-batch`, {
+      await apiJson(`/api/v1/exam-scans/${scan.id}/assign-batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ batchId }),
@@ -270,7 +270,7 @@ export default function QuizPaperPage() {
     const ambiguous = scan.readings.filter((r) => r.state === 'ambiguous');
     if (ambiguous.some((r) => !(r.slot in picks))) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/paper-scans/${scan.id}/resolve-readings`, {
+      await apiJson(`/api/v1/exam-scans/${scan.id}/resolve-readings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ readings: ambiguous.map((r) => ({ slot: r.slot, chosen: picks[r.slot] ?? null })) }),
@@ -281,7 +281,7 @@ export default function QuizPaperPage() {
 
   async function record(scan: PaperScan) {
     await runAction(async () => {
-      const result = await apiJson<PaperScan & { sumGrades: number }>(`/api/v1/paper-scans/${scan.id}/record`, {
+      const result = await apiJson<PaperScan & { sumGrades: number }>(`/api/v1/exam-scans/${scan.id}/record`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -293,7 +293,7 @@ export default function QuizPaperPage() {
 
   async function remove(scan: PaperScan) {
     await runAction(async () => {
-      await apiJson(`/api/v1/paper-scans/${scan.id}`, { method: 'DELETE' });
+      await apiJson(`/api/v1/exam-scans/${scan.id}`, { method: 'DELETE' });
       await reload();
     });
   }
@@ -316,7 +316,7 @@ export default function QuizPaperPage() {
       <PageHeader
         title={t('paperTitle')}
         actions={
-          <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/quizzes/${quizId}`} />}>
+          <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/exams/${quizId}`} />}>
             {t('paperBack')}
           </Button>
         }

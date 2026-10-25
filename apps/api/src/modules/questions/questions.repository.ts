@@ -7,7 +7,7 @@ import {
   question, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
   questionBankEntries, questionBanks, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
   questionUsages, questionVersions,
-  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, quizAttempts, stimuli, subjects,
+  qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, examAttempts, stimuli, subjects,
 } from '../../db/schema';
 
 export type QCategoryRow = typeof questionCategories.$inferSelect;
@@ -21,7 +21,7 @@ export type TruefalseOptionsRow = typeof questionTruefalse.$inferSelect;
 export type ShortanswerOptionsRow = typeof qtypeShortanswerOptions.$inferSelect;
 export type EssayOptionsRow = typeof qtypeEssayOptions.$inferSelect;
 export type UsageRow = typeof questionUsages.$inferSelect;
-export type QuizAttemptLinkRow = typeof quizAttempts.$inferSelect;
+export type QuizAttemptLinkRow = typeof examAttempts.$inferSelect;
 export type AttemptRow = typeof questionAttempts.$inferSelect;
 export type StepRow = typeof questionAttemptSteps.$inferSelect;
 export type QuestionSubjectLinkRow = typeof questionSubjects.$inferSelect;
@@ -286,7 +286,7 @@ export class QuestionsRepository {
    * HTTP biết usage này thuộc về một lượt quiz (issue #60).
    */
   async findQuizAttemptByUsageId(usageId: string): Promise<QuizAttemptLinkRow | undefined> {
-    const [row] = await this.db.select().from(quizAttempts).where(eq(quizAttempts.usageId, usageId));
+    const [row] = await this.db.select().from(examAttempts).where(eq(examAttempts.usageId, usageId));
     return row;
   }
   /**

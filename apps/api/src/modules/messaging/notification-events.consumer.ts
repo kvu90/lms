@@ -21,13 +21,14 @@ const BATCH_SIZE = 100;
  * này: bộ đầu của lát N1 (issue #49) — grade_updated /
  * course_completed / enrol_expiry_warning + tin nhắn mới
  * (message_new) + nhắc hạn nộp (activity_due_soon, lát N5 issue #50) —
- * và bộ vòng đời Bài tập/Quiz của NB-1 (issue #174): assignment_created /
- * assignment_submitted / assignment_returned / quiz_created /
- * exam_paper_deployed / quiz_attempt_finished. Sự kiện do CẢ API lẫn worker phát (chấm lại
+ * và bộ vòng đời Bài tập/Đề của NB-1 (issue #174): assignment_created /
+ * assignment_submitted / assignment_returned / exam_pinned (hợp nhất
+ * quiz_created + exam_paper_deployed sau feat gộp Đề #226) /
+ * quiz_attempt_finished. Sự kiện do CẢ API lẫn worker phát (chấm lại
  * điểm, quét hết hạn ghi danh chạy ở worker) nên đường nối phải đọc
  * outbox đã commit thay vì lắng nghe EventEmitter trong một tiến trình.
  */
-const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent', 'activity_due_reminder', 'assignment_created', 'assignment_submitted', 'assignment_returned', 'quiz_created', 'exam_paper_deployed', 'quiz_attempt_finished'] as const;
+const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent', 'activity_due_reminder', 'assignment_created', 'assignment_submitted', 'assignment_returned', 'exam_pinned', 'quiz_attempt_finished'] as const;
 
 /** Các loại grade item KHÔNG sinh thông báo điểm: tổng khoá, tổng hạng mục, item công thức (điểm thành phần đã báo riêng). */
 const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
@@ -69,14 +70,10 @@ const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
  *    hữu bài nộp (nội dung không chứa điểm/mức — điểm đi đường
  *    grade_updated riêng, contextUrl khác nhau để không trùng hiển
  *    thị: trả bài trỏ về trang bài tập, điểm trỏ về trang điểm);
- *    `quiz_created` → `quiz_available` cho học sinh đang ghi danh
- *    (cùng cổng hiển thị);
- *    `exam_paper_deployed` → cùng `quiz_available` như trên: triển
- *    khai đề vào quiz có sẵn phát sự kiện này với payload cùng hình
- *    (quizId/courseId/actorId) ở quiz.service — rẽ về cùng handler;
- *    đường sinh đề từ ma trận tạo quiz qua createQuiz (đã có
- *    `quiz_created`) rồi mới triển khai, sự kiện sau chỉ CẬP NHẬT
- *    bản chưa đọc theo cơ chế gộp, không nhân bản thông báo;
+ *    `exam_pinned` → `quiz_available` cho học sinh đang ghi danh
+ *    (cùng cổng hiển thị): MỘT sự kiện duy nhất khi ghim đề vào khoá
+ *    (feat gộp Đề #226 hợp nhất quiz_created + exam_paper_deployed);
+ *    loại thông báo phía người dùng vẫn tên `quiz_available`;
  *    `quiz_attempt_finished` → bản GỘP `quiz_attempt_finished` cho
  *    giáo viên khi lượt làm cần chấm tay (needsGrading, không phải
  *    preview) — gộp theo quiz như P5.
@@ -272,8 +269,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     if (type === 'assignment_created') return this.handleAssignmentCreated(payload);
     if (type === 'assignment_submitted') return this.handleAssignmentSubmitted(payload);
     if (type === 'assignment_returned') return this.handleAssignmentReturned(payload);
-    if (type === 'quiz_created') return this.handleQuizCreated(payload);
-    if (type === 'exam_paper_deployed') return this.handleQuizCreated(payload);
+    if (type === 'exam_pinned') return this.handlePinCreated(payload);
     if (type === 'quiz_attempt_finished') return this.handleQuizAttemptFinished(payload);
   }
 
@@ -336,13 +332,14 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     const courseId = typeof payload.courseId === 'string' ? payload.courseId : null;
     const timeClose = typeof payload.timeClose === 'string' ? payload.timeClose : null;
     if (!userId || !courseId || !timeClose) return;
-    // Hai loại hoạt động dùng chung sự kiện (NB-1, issue #174): quiz
-    // mang quizId, bài tập mang assignmentId + activityType 'assign';
-    // sự kiện đời cũ không có activityType thì hiểu là quiz.
+    // Hai loại hoạt động dùng chung sự kiện (NB-1, issue #174): hoạt
+    // động đề mang pinId (sau gộp Đề #226), bài tập mang assignmentId
+    // + activityType 'assign'; sự kiện không có activityType thì hiểu
+    // là hoạt động đề.
     const isAssign = payload.activityType === 'assign';
-    const quizId = typeof payload.quizId === 'string' ? payload.quizId : null;
+    const pinId = typeof payload.pinId === 'string' ? payload.pinId : null;
     const assignmentId = typeof payload.assignmentId === 'string' ? payload.assignmentId : null;
-    if (!isAssign && !quizId) return;
+    if (!isAssign && !pinId) return;
     if (isAssign && !assignmentId) return;
     const courseName = (await this.repo.getCourseFullName(courseId)) ?? '';
     const activityName = typeof payload.activityName === 'string' && payload.activityName ? payload.activityName : courseName;
@@ -356,7 +353,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.activityDueSoonBody', { activity: activityName, course: courseName, datetime: dateText }),
       contextUrl: isAssign
         ? `/courses/${courseId}/assignments/${assignmentId}`
-        : `/courses/${courseId}/quizzes/${quizId}`,
+        : `/courses/${courseId}/exams/${pinId}`,
       courseId,
       tenantId: await this.tenantIdOf(payload, courseId),
     });
@@ -460,15 +457,15 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       this.t('platform.assignmentReturnedBody', { assignment: info.name, course: courseName }), courseId);
   }
 
-  private async handleQuizCreated(payload: Record<string, unknown>): Promise<void> {
-    const quizId = typeof payload.quizId === 'string' ? payload.quizId : null;
+  private async handlePinCreated(payload: Record<string, unknown>): Promise<void> {
+    const pinId = typeof payload.pinId === 'string' ? payload.pinId : null;
     const courseId = typeof payload.courseId === 'string' ? payload.courseId : null;
     const actorId = typeof payload.actorId === 'string' ? payload.actorId : null;
-    if (!quizId || !courseId) return;
-    const info = await this.repo.getQuizNotifyInfo(quizId);
+    if (!pinId || !courseId) return;
+    const info = await this.repo.getPinNotifyInfo(pinId);
     if (!info || !this.isVisibleToStudents(info)) return;
     const courseName = (await this.repo.getCourseFullName(courseId)) ?? '';
-    const contextUrl = `/courses/${courseId}/quizzes/${quizId}`;
+    const contextUrl = `/courses/${courseId}/exams/${pinId}`;
     const studentIds = await this.repo.listActiveEnrolledUserIds(courseId);
     for (const studentId of studentIds) {
       if (studentId === actorId) continue;
@@ -479,19 +476,19 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
   }
 
   private async handleQuizAttemptFinished(payload: Record<string, unknown>): Promise<void> {
-    const quizId = typeof payload.quizId === 'string' ? payload.quizId : null;
+    const pinId = typeof payload.pinId === 'string' ? payload.pinId : null;
     const courseId = typeof payload.courseId === 'string' ? payload.courseId : null;
     const userId = typeof payload.userId === 'string' ? payload.userId : null;
     // Chỉ báo khi lượt làm kết thúc ở trạng thái CẦN CHẤM TAY và
     // không phải lượt preview của giáo viên — lượt tự chấm hết thì
     // học sinh đã có điểm qua grade_updated, giáo viên không việc gì.
-    if (!quizId || !courseId) return;
+    if (!pinId || !courseId) return;
     if (payload.needsGrading !== true || payload.preview === true) return;
-    const info = await this.repo.getQuizNotifyInfo(quizId);
+    const info = await this.repo.getPinNotifyInfo(pinId);
     if (!info) return;
     const courseName = (await this.repo.getCourseFullName(courseId)) ?? '';
-    const contextUrl = `/courses/${courseId}/quizzes/${quizId}/results`;
-    const awaiting = await this.repo.countQuizAttemptsNeedingGrading(quizId);
+    const contextUrl = `/courses/${courseId}/exams/${pinId}/results`;
+    const awaiting = await this.repo.countPinAttemptsNeedingGrading(pinId);
     const staffIds = await this.repo.listCourseStaffUserIds(courseId);
     for (const staffId of staffIds) {
       if (staffId === userId) continue;

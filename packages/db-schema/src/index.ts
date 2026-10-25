@@ -23,7 +23,7 @@ export * from './modules/guardians/schema';
 export * from './modules/dashboard/schema';
 export * from './modules/questions/schema';
 export * from './modules/mcp/schema';
-export * from './modules/exam-papers/schema';
+export * from './modules/exams/schema';
 export * from './modules/quiz/schema';
 export * from './modules/paper-grading/schema';
 export * from './modules/assignments/schema';

@@ -5,6 +5,7 @@ import {
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
  * Issue #141 — kiểm chứng lệnh của Lão gia: phân quyền đọc câu hỏi phải
@@ -175,26 +176,25 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
   }
 
   async function createQuizWithSlots(teacherToken: string, courseId: string, sectionId: string, name: string, questionIds: string[]): Promise<string> {
-    const res = await http(app).post(`/api/v1/courses/${courseId}/quizzes`).set(bearer(teacherToken))
-      .send({ sectionId, name, grade: 10 });
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
-    const quizId = res.body.id as string;
+    // Hành trình gộp Đề (#226): soạn đề trong bank của giáo viên →
+    // ready → ghim vào khoá; trả id của lần ghim.
+    const draft = await createExamDraft(app, teacherToken, name, 10);
     for (const questionId of questionIds) {
-      const slot = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(teacherToken)).send({ questionId });
-      expect(slot.status, JSON.stringify(slot.body)).toBeLessThan(300);
+      await addExamSlot(app, teacherToken, draft, { questionId });
     }
-    return quizId;
+    const pin = await pinExam(app, teacherToken, courseId, draft, { sectionId });
+    return pin.id as string;
   }
 
   /** Chạy trọn một lượt của học sinh ghi danh cho một nguồn bank và khẳng định đọc được trọn vẹn. */
   async function playAndAssertReadable(
     ctx: SourceCtx, quizId: string, marker: string, mcId: string, tfId: string,
   ): Promise<AttemptViewBody> {
-    const info = await http(app).get(`/api/v1/quizzes/${quizId}`).set(bearer(ctx.student.token));
+    const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set(bearer(ctx.student.token));
     expect(info.status).toBe(200);
     expect(info.body.canAttempt).toBe(true);
 
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(ctx.student.token)).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set(bearer(ctx.student.token)).send({});
     expect(start.status, JSON.stringify(start.body)).toBe(201);
     let view = start.body as AttemptViewBody;
     expect(view.questions).toHaveLength(2);
@@ -261,13 +261,13 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlots(ctx.teacher.token, ctx.courseId, ctx.sectionId, 'Quiz cong hoat dong 141', [ctx.q.school.mc]);
     // Học sinh ghi danh làm một lượt để có attempt thật.
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(ctx.student.token)).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set(bearer(ctx.student.token)).send({});
     expect(start.status).toBe(201);
     const attemptId = (start.body as AttemptViewBody).attempt.id;
 
-    const infoOut = await http(app).get(`/api/v1/quizzes/${quizId}`).set(bearer(ctx.outsider.token));
+    const infoOut = await http(app).get(`/api/v1/exam-pins/${quizId}`).set(bearer(ctx.outsider.token));
     expect(infoOut.status).toBe(403);
-    const startOut = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(ctx.outsider.token)).send({});
+    const startOut = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set(bearer(ctx.outsider.token)).send({});
     expect(startOut.status).toBe(403);
     const readOut = await http(app).get(`/api/v1/quiz-attempts/${attemptId}`).set(bearer(ctx.outsider.token));
     expect(readOut.status).toBe(403);

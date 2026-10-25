@@ -3,14 +3,17 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
  * Quiz Chặng 3 (issue #30) — ma trận đề + sinh slots + chấm Đ–S chùm +
  * bản đặc tả, đối chiếu hồ sơ thiết kế mục C:
  *  - ma trận neo Chương trình GDPT 2018 (môn → chương trình → node →
  *    YCCĐ), preset chụp lúc tạo, lệch tỉ lệ chỉ cảnh báo;
- *  - generate khoá cứng 422 khi thiếu câu ở bất kỳ ô nào; fixed rút
- *    không lặp, per_student rút theo ô lúc bắt đầu lượt;
+ *  - generate khoá cứng 422 khi thiếu câu ở bất kỳ ô nào; generate
+ *    rút MỘT bộ câu cố định ghim cứng vào slots của exam version
+ *    (bỏ hẳn drawMode/per_student theo chốt #226) — hai học sinh làm
+ *    cùng một pin nhận cùng một bộ câu;
  *  - chùm Đ–S (1 stimulus + 4 câu truefalse) chấm theo thang lũy tiến
  *    QĐ 764 mặc định [0,10,25,50,100]% — KHÔNG cộng tuyến tính;
  *  - bản đặc tả theo Mẫu 2 CV 7991 + xuất xlsx/docx.
@@ -147,8 +150,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
   }
 
   async function createMatrix(ctx: Ctx, body: Record<string, unknown> = {}) {
+    // presetKind đã bỏ hẳn (chốt #226): ma trận luôn theo khuôn CV
+    // 7991 — thân cũ còn truyền presetKind thì lược bỏ tại đây.
+    const { presetKind: _presetKind, ...rest } = body;
     const r = await http(app).post('/api/v1/exam-matrices').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Ma trận giữa kỳ', subjectId: ctx.subjectId, curriculumId: ctx.curriculumId, ...body });
+      .send({ name: 'Ma trận giữa kỳ', subjectId: ctx.subjectId, curriculumId: ctx.curriculumId, ...rest });
     if (r.status !== 201 && r.status !== 200) throw new Error(`matrix failed: ${r.status} ${JSON.stringify(r.body)}`);
     return r.body;
   }
@@ -163,7 +169,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     return r.body as AttemptViewBody;
   }
   async function playClusterQuiz(token: string, quizId: string, correctCount: number, tfIds: string[]): Promise<AttemptViewBody> {
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
     if (start.status !== 201 && start.status !== 200) throw new Error(`start failed: ${start.status} ${JSON.stringify(start.body)}`);
     let view = start.body as AttemptViewBody;
     // Thứ tự đúng của chùm trong setup: [true, false, true, false] — trả đúng correctCount câu đầu.
@@ -230,7 +236,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(tfCell.available).toBe(1); // đúng 1 chùm 4 câu
 
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thiếu câu', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thiếu câu' });
     expect(gen.status).toBe(422);
     expect(gen.body.code).toBe('quiz.matrix_insufficient_questions');
     // Chi tiết từng ô thiếu đi kèm trên wire (trường errors của problem details).
@@ -250,7 +256,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4, minutes: 10,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề giữa kỳ', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề giữa kỳ' });
     expect(gen.status === 200 || gen.status === 201).toBe(true);
     const quiz = gen.body as QuizBody;
     expect(quiz.matrixId).toBe(matrix.id);
@@ -277,7 +283,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm' });
     const quiz = gen.body as QuizBody;
     // 2/4 ý đúng → thang QĐ 764 cho 25% × 4 = 1 điểm (tuyến tính sẽ là 2).
     const two = await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
@@ -287,11 +293,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const three = await playClusterQuiz(ctx.student2, quiz.id, 3, ctx.tfClusterQuestions);
     expect(three.attempt.sumGrades).toBeCloseTo(2, 6);
     // Điểm bài đã ghi: thang grade của quiz = 4 nên điểm = sumGrades.
-    const info = await http(app).get(`/api/v1/quizzes/${quiz.id}`).set('Authorization', `Bearer ${ctx.student}`);
+    const info = await http(app).get(`/api/v1/exam-pins/${quiz.id}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(info.body.myGrade).toBeCloseTo(1, 6);
   });
 
-  it('generate per_student: slots carry only the cell; swap retargets the source cell; each attempt draws from the cell pools; swap freezes after a real attempt', async () => {
+  it('generate draws ONE fixed set for the whole pin: slots carry pinned questions + source cells; two students receive the same set; exam swap makes a new version; the pin version freezes after a real attempt', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     const cellARes = await addCell(matrix.id, {
@@ -299,47 +305,53 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 2, cellScore: 2,
     });
     const cellA = (cellARes.body.cells as { id: string; qtype: string }[]).find((c) => c.qtype === 'multichoice')!.id;
-    const cellBRes = await addCell(matrix.id, {
+    await addCell(matrix.id, {
       learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice',
       questionCount: 1, cellScore: 1,
     });
-    const cellB = (cellBRes.body.cells as { id: string }[]).find((c) => c.id !== cellA)!.id;
     await addCell(matrix.id, {
       learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 1,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề per-student', drawMode: 'per_student' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề cố định' });
     expect(gen.status === 200 || gen.status === 201).toBe(true);
-    const quiz = gen.body as QuizBody;
-    expect(quiz.slots.every((s) => s.questionId === null)).toBe(true);
+    const quiz = gen.body as QuizBody & { examId: string };
+    // Mọi slot đều đã ghim câu cụ thể ngay từ lúc sinh đề (không còn
+    // slot chỉ mang ô chờ rút lúc attempt).
     expect(quiz.slots).toHaveLength(7);
+    expect(quiz.slots.every((x) => x.questionId !== null)).toBe(true);
+    const mcFromA = quiz.slots.filter((x) => x.matrixCellId === cellA);
+    expect(mcFromA).toHaveLength(2);
+    for (const x of mcFromA) expect(ctx.mcPool).toContain(x.questionId);
 
-    // Đổi ô nguồn của một slot per-student (A → B) trước khi có lượt thật.
-    const slotA = quiz.slots.find((s) => s.matrixCellId === cellA)!;
-    const swap = await http(app).post(`/api/v1/quizzes/${quiz.id}/slots/${slotA.id}/swap`).set('Authorization', `Bearer ${admin}`)
-      .send({ matrixCellId: cellB });
+    // Swap-cùng-ô trên ĐỀ: thay câu của slot đầu ô A bằng câu còn lại
+    // của pool ô A → version đề mới; pin vẫn chỉ version cũ cho tới
+    // khi được nâng.
+    const slotA = mcFromA[0]!;
+    const spare = ctx.mcPool.find((q) => !mcFromA.some((x) => x.questionId === q))!;
+    const swap = await http(app).post(`/api/v1/exams/${quiz.examId}/swap`).set('Authorization', `Bearer ${admin}`)
+      .send({ position: slotA.slot, questionId: spare });
     expect(swap.status === 200 || swap.status === 201).toBe(true);
-    const swappedSlot = (swap.body.slots as SlotBody[]).find((s) => s.id === slotA.id)!;
-    expect(swappedSlot.matrixCellId).toBe(cellB);
 
-    const start = await http(app).post(`/api/v1/quizzes/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
-    expect(start.status === 200 || start.status === 201).toBe(true);
-    const view = start.body as AttemptViewBody;
-    expect(view.questions).toHaveLength(7);
-    const mcDrawn = view.questions.filter((q) => ctx.mcPool.includes(q.questionId));
-    expect(mcDrawn).toHaveLength(1); // ô A còn 1 slot sau swap
-    const mcHieuDrawn = view.questions.filter((q) => ctx.mcPoolHieu.includes(q.questionId));
-    expect(mcHieuDrawn).toHaveLength(2); // ô B có 2 slot (gốc + slot vừa swap sang), rút không trùng
-    expect(new Set(mcHieuDrawn.map((q) => q.questionId)).size).toBe(2);
-    const tfDrawn = view.questions.filter((q) => ctx.tfClusterQuestions.includes(q.questionId));
-    expect(tfDrawn).toHaveLength(4); // cả chùm được rút cho một lượt
+    // Hai học sinh làm cùng pin nhận CÙNG một bộ câu (bộ đã ghim của
+    // version pin đang giữ — chưa gồm câu vừa swap ở version mới).
+    const start1 = await http(app).post(`/api/v1/exam-pins/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect(start1.status === 200 || start1.status === 201).toBe(true);
+    const view1 = start1.body as AttemptViewBody;
+    expect(view1.questions).toHaveLength(7);
+    const start2 = await http(app).post(`/api/v1/exam-pins/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.student2}`).send({});
+    expect(start2.status === 200 || start2.status === 201).toBe(true);
+    const view2 = start2.body as AttemptViewBody;
+    expect(view2.questions.map((q) => q.questionId).sort()).toEqual(view1.questions.map((q) => q.questionId).sort());
+    expect(view1.questions.map((q) => q.questionId)).not.toContain(spare);
 
-    // Đã có lượt thật → swap bị đóng băng.
-    const frozen = await http(app).post(`/api/v1/quizzes/${quiz.id}/slots/${slotA.id}/swap`).set('Authorization', `Bearer ${admin}`)
-      .send({ matrixCellId: cellA });
+    // Đã có lượt thật → nâng pin lên version mới bị khoá.
+    const newVersionId = (swap.body.version as { id: string }).id;
+    const frozen = await http(app).patch(`/api/v1/exam-pins/${quiz.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ examVersionId: newVersionId });
     expect(frozen.status).toBe(400);
-    expect(frozen.body.code).toBe('quiz.slots_frozen');
+    expect(frozen.body.code).toBe('exam.pin_locked');
   });
 
   it('specification follows the matrix and the generated quiz; exports produce real files', async () => {
@@ -354,7 +366,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề đặc tả', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề đặc tả' });
     const quiz = gen.body as QuizBody;
 
     const spec = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification`).set('Authorization', `Bearer ${admin}`);
@@ -367,17 +379,18 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(spec.body.totals.totalQuestions).toBe(6);
     expect(spec.body.quiz).toBeNull();
 
-    const specWithQuiz = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification?quizId=${quiz.id}`).set('Authorization', `Bearer ${admin}`);
+    const specWithQuiz = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification?pinId=${quiz.id}`).set('Authorization', `Bearer ${admin}`);
     expect(specWithQuiz.status).toBe(200);
     expect(JSON.stringify(specWithQuiz.body)).toContain('slotNumbers":[1,2]');
-    // quizId của đề không thuộc ma trận → 400.
-    const other = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.sectionId, name: 'Đề lạ' });
-    const mismatch = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification?quizId=${other.body.id}`).set('Authorization', `Bearer ${admin}`);
+    // pinId của lần ghim không thuộc ma trận → 400.
+    const otherDraft = await createExamDraft(app, admin, 'Đề lạ');
+    await addExamSlot(app, admin, otherDraft, { questionId: ctx.mcPool[0]! });
+    const other = await pinExam(app, admin, ctx.courseId, otherDraft, { sectionId: ctx.sectionId });
+    const mismatch = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification?pinId=${other.id}`).set('Authorization', `Bearer ${admin}`);
     expect(mismatch.status).toBe(400);
     expect(mismatch.body.code).toBe('quiz.spec_quiz_mismatch');
 
-    const xlsx = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification/export?format=xlsx&quizId=${quiz.id}`)
+    const xlsx = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification/export?format=xlsx&pinId=${quiz.id}`)
       .set('Authorization', `Bearer ${admin}`).responseType('arraybuffer');
     expect(xlsx.status).toBe(200);
     expect(xlsx.headers['content-type']).toContain('spreadsheetml');
@@ -391,23 +404,22 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(pdf.body.code).toBe('quiz.spec_export_format');
   });
 
-  it('hand-made cluster: grouping 4 TF slots of one stimulus applies the quiz tf scale', async () => {
+  it('hand-made cluster: grouping 4 TF slots of one stimulus applies the exam tf scale', async () => {
     const ctx = await setup();
-    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.sectionId, name: 'Đề tay chùm', grade: 4 });
-    const quizId = quizRes.body.id as string;
-    const slotIds: string[] = [];
+    // Gom chùm ngay khi soạn đề: 4 slot mang cùng clusterId (một UUID
+    // do người soạn đặt qua setSlots của đề).
+    const clusterId = '11111111-1111-4111-8111-111111111111';
+    const draft = await createExamDraft(app, admin, 'Đề tay chùm', 4);
     for (const q of ctx.tfClusterQuestions) {
-      const s = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`)
-        .send({ questionId: q, maxMark: 1 });
-      slotIds.push((s.body.slots as SlotBody[]).find((x) => x.questionId === q)!.id);
+      draft.slots.push({ questionId: q, maxMark: 1, clusterId } as never);
     }
-    const clustered = await http(app).post(`/api/v1/quizzes/${quizId}/slots/cluster`).set('Authorization', `Bearer ${admin}`)
-      .send({ slotIds });
-    expect(clustered.status === 200 || clustered.status === 201).toBe(true);
-    expect(new Set((clustered.body.slots as SlotBody[]).map((s) => s.clusterId)).size).toBe(1);
+    const putRes = await http(app).put(`/api/v1/exams/${draft.examId}/slots`).set('Authorization', `Bearer ${admin}`)
+      .send({ slots: draft.slots });
+    expect(putRes.status === 200 || putRes.status === 201).toBe(true);
+    expect(new Set((putRes.body.slots as SlotBody[]).map((x) => x.clusterId)).size).toBe(1);
+    const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId });
     // 1/4 ý đúng → thang mặc định QĐ 764: 10% × 4 = 0,4 (tuyến tính = 1).
-    const one = await playClusterQuiz(ctx.student, quizId, 1, ctx.tfClusterQuestions);
+    const one = await playClusterQuiz(ctx.student, pin.id as string, 1, ctx.tfClusterQuestions);
     expect(one.attempt.sumGrades).toBeCloseTo(0.4, 6);
   });
 
@@ -456,7 +468,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm review', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm review' });
     const quiz = gen.body as QuizBody;
     const played = await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
     const view = await http(app).get(`/api/v1/quiz-attempts/${played.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
@@ -482,13 +494,12 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const essay = await ctx.mkQuestion({
       qtype: 'essay', name: 'Tự luận', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
     });
-    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.sectionId, name: 'Đề tự luận', grade: 2 });
-    const quizId = quizRes.body.id as string;
-    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionId: essay });
+    const draft = await createExamDraft(app, admin, 'Đề tự luận', 2);
+    await addExamSlot(app, admin, draft, { questionId: essay });
+    const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId });
+    const quizId = pin.id as string;
     const playEssay = async (token: string, text: string): Promise<string> => {
-      const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+      const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
       const view = start.body as AttemptViewBody;
       const q = view.questions[0]!;
       await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set('Authorization', `Bearer ${token}`)
@@ -499,12 +510,12 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     };
     const a1 = await playEssay(ctx.student, 'Bài của học sinh 1');
     const a2 = await playEssay(ctx.student2, 'Bài của học sinh 2');
-    const queue = await http(app).get(`/api/v1/quizzes/${quizId}/grade-by-question/${essay}`).set('Authorization', `Bearer ${admin}`);
+    const queue = await http(app).get(`/api/v1/exam-pins/${quizId}/grade-by-question/${essay}`).set('Authorization', `Bearer ${admin}`);
     expect(queue.status).toBe(200);
     expect(queue.body).toHaveLength(2);
     expect((queue.body as { response: string | null }[]).map((r) => r.response).sort())
       .toEqual(['Bài của học sinh 1', 'Bài của học sinh 2']);
-    const graded = await http(app).post(`/api/v1/quizzes/${quizId}/grade-by-question`).set('Authorization', `Bearer ${admin}`)
+    const graded = await http(app).post(`/api/v1/exam-pins/${quizId}/grade-by-question`).set('Authorization', `Bearer ${admin}`)
       .send({ questionId: essay, grades: [{ attemptId: a1, mark: 2 }, { attemptId: a2, mark: 1 }] });
     expect(graded.status === 200 || graded.status === 201).toBe(true);
     const summaries = graded.body as { id: string; state: string; sumGrades: number | null }[];
@@ -515,17 +526,16 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
 
   it('overall feedback bands (Q-c layer 4): the finished attempt view carries the band matching its percent', async () => {
     const ctx = await setup();
-    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.sectionId, name: 'Đề feedback', grade: 10 });
-    const quizId = quizRes.body.id as string;
-    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionId: ctx.mcPool[0] });
-    const band1 = await http(app).post(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
+    const draft = await createExamDraft(app, admin, 'Đề feedback', 10);
+    await addExamSlot(app, admin, draft, { questionId: ctx.mcPool[0]! });
+    const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId });
+    const quizId = pin.id as string;
+    const band1 = await http(app).post(`/api/v1/exam-pins/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
       .send({ minPercent: 0, maxPercent: 50, feedback: 'Cần ôn lại kiến thức nền.' });
     expect(band1.status === 200 || band1.status === 201).toBe(true);
-    await http(app).post(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
+    await http(app).post(`/api/v1/exam-pins/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
       .send({ minPercent: 50, maxPercent: 100, feedback: 'Làm tốt, tiếp tục phát huy.' });
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
     const view = start.body as AttemptViewBody;
     const q = view.questions[0]!;
     // Đáp án đúng của câu MC trong pool: đáp án có fraction 1 — lấy qua view của giáo viên.
@@ -535,7 +545,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       .send({ questionAttemptId: q.questionAttemptId, response: rightId });
     const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
     expect((submit.body as { overallFeedback: string | null }).overallFeedback).toBe('Làm tốt, tiếp tục phát huy.');
-    const bands = await http(app).get(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`);
+    const bands = await http(app).get(`/api/v1/exam-pins/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`);
     expect(bands.body).toHaveLength(2);
   });
 
@@ -547,11 +557,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thống kê chùm', drawMode: 'fixed' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thống kê chùm' });
     const quiz = gen.body as QuizBody;
     await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
     await playClusterQuiz(ctx.student2, quiz.id, 4, ctx.tfClusterQuestions);
-    const stats = await http(app).get(`/api/v1/quizzes/${quiz.id}/cluster-statistics`).set('Authorization', `Bearer ${admin}`);
+    const stats = await http(app).get(`/api/v1/exam-pins/${quiz.id}/cluster-statistics`).set('Authorization', `Bearer ${admin}`);
     expect(stats.status).toBe(200);
     expect(stats.body).toHaveLength(1);
     const cluster = stats.body[0] as {

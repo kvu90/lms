@@ -18,7 +18,7 @@ import { createCategory, createCourse, getFirstSectionId } from './course-enrolm
  *  - bật cấp duyệt 2 (BGH): duyệt cấp 1 chỉ sang pending_board, đề
  *    chưa vào bank; tổ trưởng không qua được cổng cấp 2; BGH duyệt
  *    mới hiệu lực; tắt cấp 2 → một cấp đủ;
- *  - đặc tả sinh từ paperId khớp cấu trúc ma trận (quizId chỉ là
+ *  - đặc tả sinh từ examId khớp cấu trúc ma trận (pinId chỉ là
  *    tham số phụ), xuất xlsx/docx mở được;
  *  - đề định kỳ ready ở bank trường: GV khác khối bị chặn 403 ở mọi
  *    bề mặt nội dung, GV dạy đúng khối xem được, mọi lần xem thành
@@ -30,16 +30,16 @@ const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 interface User { id: string; username: string; token: string }
 interface BankBody { id: string; scope: string; bankKind: string; ownerId: string | null }
 interface PaperBody {
-  paper: { id: string; bankId: string; status: string; derivedFromPaperId: string | null; createdBy: string };
+  paper: { id: string; bankId: string; status: string; derivedFromExamId: string | null; createdBy: string };
   version: { id: string; version: number; matrixId: string | null; matrixVersion: number | null };
   slots: { position: number; questionId: string; matrixCellId: string | null }[];
 }
 interface DossierReview { level: number; reviewerId: string; decision: string; reason: string | null }
 interface DossierBody {
-  id: string; paperId: string; targetBankId: string; proposerId: string; status: string;
-  paperVersionId: string | null; paperVersionNumber: number | null;
+  id: string; examId: string; targetBankId: string; proposerId: string; status: string;
+  examVersionId: string | null; examVersionNumber: number | null;
   matrixId: string | null; matrixVersion: number | null;
-  boardApprovalRequired: boolean; resultPaperId: string | null;
+  boardApprovalRequired: boolean; resultExamId: string | null;
   reviews: DossierReview[];
 }
 interface SpecCell { cognitiveLevel: string; questionCount: number; slotNumbers: number[] | null }
@@ -140,7 +140,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     systemQuestionId = poolA[0]!;
 
     const matrixRes = await http(app).post('/api/v1/exam-matrices').set(bearer(admin))
-      .send({ name: 'Ma trận giữa kỳ EB-3', subjectId, curriculumId, presetKind: 'custom', totalScore: 4 });
+      .send({ name: 'Ma trận giữa kỳ EB-3', subjectId, curriculumId, totalScore: 4 });
     const matrix = matrixRes.body as { id: string; version: number };
     matrixId = matrix.id;
     matrixVersion = matrix.version;
@@ -151,24 +151,24 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       .send({ learningOutcomeId: outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1, minutes: 5 });
     if (cellB.status !== 201 && cellB.status !== 200) throw new Error(`cellB failed: ${cellB.status}`);
 
-    // Generate fixed (admin) → đề ready gắn ma trận trong bank cá nhân admin.
+    // Generate (admin) → đề ready gắn ma trận trong bank cá nhân admin.
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id, { grade: 10 });
     const sectionId = await getFirstSectionId(app, admin, course.id);
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set(bearer(admin))
-      .send({ courseId: course.id, sectionId, name: 'Đề giữa kỳ mẫu', drawMode: 'fixed' });
+      .send({ courseId: course.id, sectionId, name: 'Đề giữa kỳ mẫu' });
     if (gen.status !== 201 && gen.status !== 200) throw new Error(`generate failed: ${gen.status} ${JSON.stringify(gen.body)}`);
-    const generatedPaperId = (gen.body as { paperId: string }).paperId;
+    const generatedPaperId = (gen.body as { examId: string }).examId;
 
     // Bank đề trường + bản copy của đề mẫu vào bank trường (ready).
     const schoolRes = await http(app).post('/api/v1/question-banks').set(bearer(admin))
       .send({ name: uniqueName('Ngân hàng đề trường EB3'), scope: 'school', bankKind: 'exam' });
     schoolBank = schoolRes.body as BankBody;
-    const copyToSchool = await http(app).post(`/api/v1/exam-papers/${generatedPaperId}/copy`).set(bearer(admin))
+    const copyToSchool = await http(app).post(`/api/v1/exams/${generatedPaperId}/copy`).set(bearer(admin))
       .send({ targetBankId: schoolBank.id });
     if (copyToSchool.status !== 201 && copyToSchool.status !== 200) throw new Error(`copy to school failed: ${copyToSchool.status} ${JSON.stringify(copyToSchool.body)}`);
     schoolCopyId = (copyToSchool.body as PaperBody).paper.id;
-    const readyRes = await http(app).post(`/api/v1/exam-papers/${schoolCopyId}/status`).set(bearer(admin)).send({ status: 'ready' });
+    const readyRes = await http(app).post(`/api/v1/exams/${schoolCopyId}/status`).set(bearer(admin)).send({ status: 'ready' });
     if (readyRes.status !== 201 && readyRes.status !== 200) throw new Error(`school copy ready failed: ${readyRes.status}`);
 
     // Bank đề tổ: cohort (leader + 2 thành viên) + bank team với leader là tổ trưởng.
@@ -192,17 +192,17 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
 
   /** Bản copy cá nhân (ready, giữ matrixId + matrixCellId) của đề mẫu — "đề của tôi" để lập bộ hồ sơ. */
   async function mkMemberPaper(): Promise<PaperBody> {
-    const copy = await http(app).post(`/api/v1/exam-papers/${schoolCopyId}/copy`).set(bearer(member.token)).send({});
+    const copy = await http(app).post(`/api/v1/exams/${schoolCopyId}/copy`).set(bearer(member.token)).send({});
     expect(copy.status, JSON.stringify(copy.body)).toBe(201);
     const paper = copy.body as PaperBody;
     expect(paper.version.matrixId).toBe(matrixId);
-    const ready = await http(app).post(`/api/v1/exam-papers/${paper.paper.id}/status`).set(bearer(member.token)).send({ status: 'ready' });
+    const ready = await http(app).post(`/api/v1/exams/${paper.paper.id}/status`).set(bearer(member.token)).send({ status: 'ready' });
     expect(ready.status, JSON.stringify(ready.body)).toBe(201);
     return ready.body as PaperBody;
   }
 
-  async function createDossier(token: string, paperId: string, targetBankId: string) {
-    return http(app).post(`/api/v1/exam-papers/${paperId}/dossiers`).set(bearer(token)).send({ targetBankId, note: 'Bộ hồ sơ giữa kỳ tổ Toán' });
+  async function createDossier(token: string, examId: string, targetBankId: string) {
+    return http(app).post(`/api/v1/exams/${examId}/dossiers`).set(bearer(token)).send({ targetBankId, note: 'Bộ hồ sơ giữa kỳ tổ Toán' });
   }
 
   async function outboxCount(type: string, key: string, value: string): Promise<number> {
@@ -216,31 +216,31 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const dossier = created.body as DossierBody;
     expect(dossier.status).toBe('draft');
-    expect(dossier.paperVersionId).toBeNull();
+    expect(dossier.examVersionId).toBeNull();
     expect(dossier.boardApprovalRequired).toBe(false);
 
-    const submitted = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
+    const submitted = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
     const pending = submitted.body as DossierBody;
     expect(pending.status).toBe('pending');
     // Ghim đúng phiên bản đề + phiên bản ma trận tại lúc nộp.
-    expect(pending.paperVersionId).toBe(paper.version.id);
-    expect(pending.paperVersionNumber).toBe(paper.version.version);
+    expect(pending.examVersionId).toBe(paper.version.id);
+    expect(pending.examVersionNumber).toBe(paper.version.version);
     expect(pending.matrixId).toBe(matrixId);
     expect(pending.matrixVersion).toBe(matrixVersion);
     expect(await outboxCount('exam_dossier_submitted', 'dossierId', dossier.id)).toBeGreaterThanOrEqual(1);
 
     // Hàng chờ: tổ trưởng thấy bộ; thành viên khác của tổ chỉ thấy bộ của mình (rỗng ở đây).
-    const queue = await http(app).get(`/api/v1/exam-papers/banks/${teamBank.id}/dossiers`).set(bearer(leader.token));
+    const queue = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(leader.token));
     expect(queue.status).toBe(200);
     expect((queue.body as DossierBody[]).map((d) => d.id)).toContain(dossier.id);
-    const queueOther = await http(app).get(`/api/v1/exam-papers/banks/${teamBank.id}/dossiers`).set(bearer(member2.token));
+    const queueOther = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(member2.token));
     expect((queueOther.body as DossierBody[]).map((d) => d.id)).not.toContain(dossier.id);
-    const directOther = await http(app).get(`/api/v1/exam-papers/dossiers/${dossier.id}`).set(bearer(member2.token));
+    const directOther = await http(app).get(`/api/v1/exams/dossiers/${dossier.id}`).set(bearer(member2.token));
     expect(directOther.status).toBe(404);
 
     // Tổ trưởng mở bản đặc tả ĐÃ CHỤP ngay trong hàng chờ: đúng cấu trúc ma trận + vị trí câu của đề.
-    const spec = await http(app).get(`/api/v1/exam-papers/dossiers/${dossier.id}/specification`).set(bearer(leader.token));
+    const spec = await http(app).get(`/api/v1/exams/dossiers/${dossier.id}/specification`).set(bearer(leader.token));
     expect(spec.status, JSON.stringify(spec.body)).toBe(200);
     const specBody = spec.body as SpecBody;
     expect(specBody.matrix.id).toBe(matrixId);
@@ -251,7 +251,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     // Lần mở đặc tả của người duyệt có audit.
     expect(await outboxCount('exam_dossier_spec_viewed', 'dossierId', dossier.id)).toBeGreaterThanOrEqual(1);
     // Xuất bản đặc tả của bộ hồ sơ ra xlsx mở được (file zip PK).
-    const exported = await http(app).get(`/api/v1/exam-papers/dossiers/${dossier.id}/specification/export`)
+    const exported = await http(app).get(`/api/v1/exams/dossiers/${dossier.id}/specification/export`)
       .query({ format: 'xlsx' }).set(bearer(leader.token))
       .buffer(true).parse((res, cb) => {
         const chunks: Buffer[] = [];
@@ -262,23 +262,23 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect((exported.body as Buffer).subarray(0, 2).toString()).toBe('PK');
 
     // Thành viên thường không duyệt được.
-    const memberApprove = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/approve`).set(bearer(member2.token)).send({});
+    const memberApprove = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/approve`).set(bearer(member2.token)).send({});
     expect(memberApprove.status).toBe(403);
 
     // Tổ trưởng duyệt → đề hiện ở bank tổ ở trạng thái ready, truy vết đủ.
-    const approved = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
+    const approved = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
     expect(approved.status, JSON.stringify(approved.body)).toBe(201);
     const done = approved.body as DossierBody;
     expect(done.status).toBe('approved');
-    expect(done.resultPaperId).toBeTruthy();
+    expect(done.resultExamId).toBeTruthy();
     expect(done.reviews).toHaveLength(1);
     expect(done.reviews[0]).toMatchObject({ level: 1, reviewerId: leader.id, decision: 'approved' });
-    const inBank = await http(app).get(`/api/v1/exam-papers/banks/${teamBank.id}/papers`).set(bearer(leader.token));
-    const landed = (inBank.body as { id: string; status: string; derivedFromPaperId: string | null }[])
-      .find((p) => p.id === done.resultPaperId);
+    const inBank = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
+    const landed = (inBank.body as { id: string; status: string; derivedFromExamId: string | null }[])
+      .find((p) => p.id === done.resultExamId);
     expect(landed).toBeTruthy();
     expect(landed!.status).toBe('ready');
-    expect(landed!.derivedFromPaperId).toBe(paper.paper.id);
+    expect(landed!.derivedFromExamId).toBe(paper.paper.id);
     expect(await outboxCount('exam_dossier_approved', 'dossierId', dossier.id)).toBeGreaterThanOrEqual(1);
   }, 120_000);
 
@@ -286,14 +286,14 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const paper = await mkMemberPaper();
     const created = await createDossier(member.token, paper.paper.id, teamBank.id);
     const dossier = created.body as DossierBody;
-    await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
+    await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
 
-    const noReason = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/reject`).set(bearer(leader.token)).send({});
+    const noReason = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/reject`).set(bearer(leader.token)).send({});
     expect(noReason.status).toBe(400);
-    const emptyReason = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/reject`).set(bearer(leader.token)).send({ reason: '  ' });
+    const emptyReason = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/reject`).set(bearer(leader.token)).send({ reason: '  ' });
     expect(emptyReason.status).toBe(400);
 
-    const rejected = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/reject`).set(bearer(leader.token))
+    const rejected = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/reject`).set(bearer(leader.token))
       .send({ reason: 'Ô nhận biết thừa 1 câu so với ma trận đã thống nhất' });
     expect(rejected.status, JSON.stringify(rejected.body)).toBe(201);
     const body = rejected.body as DossierBody;
@@ -302,14 +302,14 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(body.reviews[0]).toMatchObject({ level: 1, reviewerId: leader.id, decision: 'rejected' });
 
     // Người đóng góp thấy lý do trong danh sách bộ hồ sơ của mình.
-    const mine = await http(app).get('/api/v1/exam-papers/dossiers/mine').set(bearer(member.token));
+    const mine = await http(app).get('/api/v1/exams/dossiers/mine').set(bearer(member.token));
     const mineDossier = (mine.body as DossierBody[]).find((d) => d.id === dossier.id);
     expect(mineDossier?.status).toBe('rejected');
     expect(mineDossier?.reviews[0]?.reason).toContain('thừa 1 câu');
     expect(await outboxCount('exam_dossier_rejected', 'dossierId', dossier.id)).toBeGreaterThanOrEqual(1);
 
     // Bộ đã đóng không duyệt tiếp được.
-    const again = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
+    const again = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
     expect(again.status).toBe(409);
   }, 120_000);
 
@@ -321,42 +321,42 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       const created = await createDossier(member.token, paper.paper.id, teamBank.id);
       const dossier = created.body as DossierBody;
       expect(dossier.boardApprovalRequired).toBe(true);
-      await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
+      await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/submit`).set(bearer(member.token)).send({});
 
-      const level1 = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
+      const level1 = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/approve`).set(bearer(leader.token)).send({});
       expect(level1.status, JSON.stringify(level1.body)).toBe(201);
       const pendingBoard = level1.body as DossierBody;
       expect(pendingBoard.status).toBe('pending_board');
-      expect(pendingBoard.resultPaperId).toBeNull();
+      expect(pendingBoard.resultExamId).toBeNull();
       expect(pendingBoard.reviews).toHaveLength(1);
       // Chưa hiệu lực: đề chưa vào bank tổ.
-      const inBankBefore = await http(app).get(`/api/v1/exam-papers/banks/${teamBank.id}/papers`).set(bearer(leader.token));
-      expect((inBankBefore.body as { derivedFromPaperId: string | null }[]).some((p) => p.derivedFromPaperId === paper.paper.id)).toBe(false);
+      const inBankBefore = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
+      expect((inBankBefore.body as { derivedFromExamId: string | null }[]).some((p) => p.derivedFromExamId === paper.paper.id)).toBe(false);
 
       // Tổ trưởng không qua được cổng cấp 2 (không có exam:moderate tại context hệ thống).
-      const leaderBoard = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/board-approve`).set(bearer(leader.token)).send({});
+      const leaderBoard = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/board-approve`).set(bearer(leader.token)).send({});
       expect(leaderBoard.status).toBe(403);
       expect((leaderBoard.body as { code?: string }).code).toBe('exam.dossier_board_forbidden');
 
       // BGH (site admin) duyệt cấp 2 → hiệu lực, đủ hai dòng vết độc lập.
-      const board = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier.id}/board-approve`).set(bearer(admin)).send({});
+      const board = await http(app).post(`/api/v1/exams/dossiers/${dossier.id}/board-approve`).set(bearer(admin)).send({});
       expect(board.status, JSON.stringify(board.body)).toBe(201);
       const done = board.body as DossierBody;
       expect(done.status).toBe('approved');
-      expect(done.resultPaperId).toBeTruthy();
+      expect(done.resultExamId).toBeTruthy();
       expect(done.reviews.map((r) => [r.level, r.decision])).toEqual([[1, 'approved'], [2, 'approved']]);
-      const inBankAfter = await http(app).get(`/api/v1/exam-papers/banks/${teamBank.id}/papers`).set(bearer(leader.token));
-      expect((inBankAfter.body as { id: string }[]).map((p) => p.id)).toContain(done.resultPaperId);
+      const inBankAfter = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/exams`).set(bearer(leader.token));
+      expect((inBankAfter.body as { id: string }[]).map((p) => p.id)).toContain(done.resultExamId);
 
       // Từ chối ở cấp 2: vẫn bắt buộc lý do, vết cấp 1 giữ nguyên.
       const paper2 = await mkMemberPaper();
       const created2 = await createDossier(member.token, paper2.paper.id, teamBank.id);
       const dossier2 = created2.body as DossierBody;
-      await http(app).post(`/api/v1/exam-papers/dossiers/${dossier2.id}/submit`).set(bearer(member.token)).send({});
-      await http(app).post(`/api/v1/exam-papers/dossiers/${dossier2.id}/approve`).set(bearer(leader.token)).send({});
-      const noReason = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier2.id}/board-reject`).set(bearer(admin)).send({});
+      await http(app).post(`/api/v1/exams/dossiers/${dossier2.id}/submit`).set(bearer(member.token)).send({});
+      await http(app).post(`/api/v1/exams/dossiers/${dossier2.id}/approve`).set(bearer(leader.token)).send({});
+      const noReason = await http(app).post(`/api/v1/exams/dossiers/${dossier2.id}/board-reject`).set(bearer(admin)).send({});
       expect(noReason.status).toBe(400);
-      const boardRejected = await http(app).post(`/api/v1/exam-papers/dossiers/${dossier2.id}/board-reject`).set(bearer(admin))
+      const boardRejected = await http(app).post(`/api/v1/exams/dossiers/${dossier2.id}/board-reject`).set(bearer(admin))
         .send({ reason: 'Chưa đúng kế hoạch kiểm tra của trường' });
       expect(boardRejected.status).toBe(201);
       const rejectedBody = boardRejected.body as DossierBody;
@@ -368,9 +368,9 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     }
   }, 120_000);
 
-  it('TC4: đặc tả sinh từ paperId khớp cấu trúc ma trận; quizId chỉ là tham số phụ; xuất xlsx + docx', async () => {
+  it('TC4: đặc tả sinh từ examId khớp cấu trúc ma trận; pinId chỉ là tham số phụ; xuất xlsx + docx', async () => {
     const paper = await mkMemberPaper();
-    const spec = await http(app).get(`/api/v1/exam-papers/${paper.paper.id}/specification`).set(bearer(member.token));
+    const spec = await http(app).get(`/api/v1/exams/${paper.paper.id}/specification`).set(bearer(member.token));
     expect(spec.status, JSON.stringify(spec.body)).toBe(200);
     const body = spec.body as SpecBody;
     expect(body.paper?.id).toBe(paper.paper.id);
@@ -392,26 +392,24 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
       .find((c) => c.contextLevel === 50 && c.instanceId === course.id)!;
     await assignRole(app, admin, member.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set(bearer(member.token))
-      .send({ sectionId, name: 'Giữa kỳ EB-3', grade: 10 });
-    expect(quizRes.status, JSON.stringify(quizRes.body)).toBe(201);
-    const quizId = (quizRes.body as { id: string }).id;
-    const deploy = await http(app).post(`/api/v1/exam-papers/${otherQuizPaper.paper.id}/deploy`).set(bearer(member.token)).send({ quizId });
-    expect(deploy.status, JSON.stringify(deploy.body)).toBe(201);
+    const pinRes = await http(app).post(`/api/v1/courses/${course.id}/exam-pins`).set(bearer(member.token))
+      .send({ sectionId, examId: otherQuizPaper.paper.id, name: 'Giữa kỳ EB-3' });
+    expect(pinRes.status, JSON.stringify(pinRes.body)).toBe(201);
+    const quizId = (pinRes.body as { id: string }).id;
 
-    const mismatch = await http(app).get(`/api/v1/exam-papers/${paper.paper.id}/specification`).query({ quizId }).set(bearer(member.token));
+    const mismatch = await http(app).get(`/api/v1/exams/${paper.paper.id}/specification`).query({ pinId: quizId }).set(bearer(member.token));
     expect(mismatch.status).toBe(400);
-    expect((mismatch.body as { code?: string }).code).toBe('quiz.spec_quiz_mismatch');
+    expect((mismatch.body as { code?: string }).code).toBe('exam.spec_pin_mismatch');
 
-    // Đúng quiz của đề: đặc tả ghi nhận lần triển khai, cấu trúc không đổi.
-    const withQuiz = await http(app).get(`/api/v1/exam-papers/${otherQuizPaper.paper.id}/specification`).query({ quizId }).set(bearer(member.token));
+    // Đúng pin của đề: đặc tả ghi nhận lần ghim, cấu trúc không đổi.
+    const withQuiz = await http(app).get(`/api/v1/exams/${otherQuizPaper.paper.id}/specification`).query({ pinId: quizId }).set(bearer(member.token));
     expect(withQuiz.status).toBe(200);
     expect((withQuiz.body as SpecBody).quiz?.id).toBe(quizId);
     expect((withQuiz.body as SpecBody).totals.totalQuestions).toBe(4);
 
-    // Xuất xlsx + docx từ paperId: cả hai đều là file zip (PK) mở được.
+    // Xuất xlsx + docx từ examId: cả hai đều là file zip (PK) mở được.
     for (const format of ['xlsx', 'docx']) {
-      const exported = await http(app).get(`/api/v1/exam-papers/${paper.paper.id}/specification/export`)
+      const exported = await http(app).get(`/api/v1/exams/${paper.paper.id}/specification/export`)
         .query({ format }).set(bearer(member.token))
         .buffer(true).parse((res, cb) => {
           const chunks: Buffer[] = [];
@@ -428,11 +426,11 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
   it('TC5: đề định kỳ ready ở bank trường — GV khác khối bị chặn, GV đúng khối xem được và có audit', async () => {
     // Đề giữa kỳ khối 10 (admin soạn trong bank trường) + đề thường xuyên làm đối chứng.
     const mkSchoolPaper = async (examKind: string): Promise<string> => {
-      const created = await http(app).post(`/api/v1/exam-papers/banks/${schoolBank.id}/papers`).set(bearer(admin))
+      const created = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(admin))
         .send({ name: `Đề ${examKind} EB-3`, examKind, grade: 10, slots: [{ questionId: systemQuestionId }] });
       expect(created.status, JSON.stringify(created.body)).toBe(201);
       const id = (created.body as PaperBody).paper.id;
-      const ready = await http(app).post(`/api/v1/exam-papers/${id}/status`).set(bearer(admin)).send({ status: 'ready' });
+      const ready = await http(app).post(`/api/v1/exams/${id}/status`).set(bearer(admin)).send({ status: 'ready' });
       expect(ready.status).toBe(201);
       return id;
     };
@@ -466,39 +464,39 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     // Luồng vào bank thật: người dùng mở bank trước (bước này đồng bộ
     // tư cách thành viên bank trường cho staff) rồi mới mở đề.
     for (const viewer of [teacher10, teacher11, plainStaff]) {
-      const list = await http(app).get(`/api/v1/exam-papers/banks/${schoolBank.id}/papers`).set(bearer(viewer.token));
+      const list = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(viewer.token));
       expect(list.status).toBe(200);
     }
 
     // GV đúng khối xem được nội dung; lần xem có audit tra được.
-    const okView = await http(app).get(`/api/v1/exam-papers/${periodicId}`).set(bearer(teacher10.token));
+    const okView = await http(app).get(`/api/v1/exams/${periodicId}`).set(bearer(teacher10.token));
     expect(okView.status, JSON.stringify(okView.body)).toBe(200);
     const audit = await pg.query(
       `select count(*)::int as n from outbox_events where type = 'exam_paper_content_viewed'
-       and payload->>'paperId' = $1 and payload->>'actorId' = $2 and payload->>'surface' = 'detail'`,
+       and payload->>'examId' = $1 and payload->>'actorId' = $2 and payload->>'surface' = 'detail'`,
       [periodicId, teacher10.id],
     );
     expect((audit.rows[0] as { n: number }).n).toBeGreaterThanOrEqual(1);
 
     // GV khác khối + GV không dạy khối nào: bị chặn ở bề mặt chi tiết.
     for (const viewer of [teacher11, plainStaff]) {
-      const blocked = await http(app).get(`/api/v1/exam-papers/${periodicId}`).set(bearer(viewer.token));
+      const blocked = await http(app).get(`/api/v1/exams/${periodicId}`).set(bearer(viewer.token));
       expect(blocked.status).toBe(403);
       expect((blocked.body as { code?: string }).code).toBe('exam.periodic_view_forbidden');
     }
     // … và ở bề mặt in + đặc tả (cổng áp dụng trước mọi xử lý nội dung).
-    const blockedPrint = await http(app).get(`/api/v1/exam-papers/${periodicId}/print`)
-      .query({ deploymentId: '00000000-0000-4000-8000-000000000000', variantCode: '001' }).set(bearer(teacher11.token));
+    const blockedPrint = await http(app).get(`/api/v1/exams/${periodicId}/print`)
+      .query({ pinId: '00000000-0000-4000-8000-000000000000', variantCode: '001' }).set(bearer(teacher11.token));
     expect(blockedPrint.status).toBe(403);
-    const blockedSpec = await http(app).get(`/api/v1/exam-papers/${periodicId}/specification`).set(bearer(teacher11.token));
+    const blockedSpec = await http(app).get(`/api/v1/exams/${periodicId}/specification`).set(bearer(teacher11.token));
     expect(blockedSpec.status).toBe(403);
     // GV đúng khối qua được cổng đặc tả — chỉ dừng ở "đề không gắn ma trận".
-    const specNoMatrix = await http(app).get(`/api/v1/exam-papers/${periodicId}/specification`).set(bearer(teacher10.token));
+    const specNoMatrix = await http(app).get(`/api/v1/exams/${periodicId}/specification`).set(bearer(teacher10.token));
     expect(specNoMatrix.status).toBe(400);
     expect((specNoMatrix.body as { code?: string }).code).toBe('exam.spec_requires_matrix');
 
     // Đối chứng: đề thường xuyên ready cùng bank — GV khác khối vẫn xem bình thường (cổng chỉ áp cho diện định kỳ).
-    const regularView = await http(app).get(`/api/v1/exam-papers/${regularId}`).set(bearer(teacher11.token));
+    const regularView = await http(app).get(`/api/v1/exams/${regularId}`).set(bearer(teacher11.token));
     expect(regularView.status).toBe(200);
   }, 120_000);
 });

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { QuestionsService } from '../src/modules/questions/questions.service';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
  * Issue #60 — cổng chủ sở hữu cho các route thao tác question usage thô:
@@ -81,19 +82,16 @@ describe('Question usage owner gate (issue #60)', () => {
     // khẳng định đáp án lộ qua luồng quiz ngay sau khi nộp nên ghim
     // tường minh bitmask 4368 (gồm cửa sổ ngay-sau-nộp); cửa sổ "đang
     // làm" (0x10000) vẫn tắt nên đáp án vẫn ẩn trong lúc làm như cũ.
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set('Authorization', `Bearer ${teacher}`)
-      .send({ sectionId, name: 'Gate quiz', grade: 10, gradeMethod: 'highest', reviewRightAnswer: 4368 });
-    expect(quizRes.status).toBe(201);
-    const quizId = quizRes.body.id as string;
-    const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${teacher}`)
-      .send({ questionId });
-    expect(slotRes.status).toBeLessThan(300);
+    const draft = await createExamDraft(app, teacher, 'Gate quiz', 10);
+    await addExamSlot(app, teacher, draft, { questionId });
+    const pin = await pinExam(app, teacher, course.id, draft, { sectionId, reviewRightAnswer: 4368 });
+    const quizId = pin.id as string;
     return { quizId, questionId, tokenA, tokenB, userIdA };
   }
 
   /** Học sinh bắt đầu lượt quiz và trả lời 'true' qua kênh quiz; trả view hiện tại. */
   async function startAndAnswer(token: string, quizId: string): Promise<QuizView> {
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
     expect(start.status).toBe(201);
     const view = start.body as QuizView;
     expect(view.attempt.state).toBe('inprogress');

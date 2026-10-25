@@ -17,14 +17,14 @@ import { course } from '../courses/schema';
 import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
 import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
-import { examPapers, examPaperVersions } from '../exam-papers/schema';
+import { examVersions, exams } from '../exams/schema';
 import { tenants } from '../tenants/schema';
 
 /**
  * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
  * lưu trữ, tái sử dụng — neo theo Chương trình GDPT 2018 (môn + chương
  * trình), KHÔNG neo SGK. preset_kind: 'cv7991_periodic' (kiểm tra định
- * kỳ theo CV 7991) | 'qd764_graduation' (tốt nghiệp theo QĐ 764) |
+ * kỳ theo CV 7991) — khuôn duy nhất, không còn lựa chọn preset |
  * 'custom'. target_*_percents là tỉ lệ % ĐIỂM mục tiêu CHỤP lúc tạo từ
  * preset (sửa preset về sau không đổi ma trận đã tạo); lệch tỉ lệ chỉ
  * CẢNH BÁO, không khoá cứng. level_set: 'three' (Biết/Hiểu/Vận dụng)
@@ -60,7 +60,7 @@ export const examMatrices = pgTable('exam_matrices', {
   isTemplate: boolean('is_template').notNull().default(false),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
   version: integer('version').notNull().default(1),
-  presetKind: text('preset_kind').notNull().default('custom'),
+  presetKind: text('preset_kind').notNull().default('cv7991_periodic'),
   targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
   targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
   levelSet: text('level_set').notNull().default('three'),
@@ -76,7 +76,7 @@ export const examMatrices = pgTable('exam_matrices', {
       index('exam_matrices_subject_idx').on(table.subjectId),
       index('exam_matrices_curriculum_idx').on(table.curriculumId),
       index('exam_matrices_bank_idx').on(table.bankId),
-      check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic', 'qd764_graduation', 'custom')`),
+      check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic')`),
       check('exam_matrices_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
       check('exam_matrices_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
   ]);
@@ -145,42 +145,52 @@ export const examMatrixContributions = pgTable('exam_matrix_contributions', {
       check('exam_matrix_contributions_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`),
   ]);
 
+/** Một biến thể mã đề của một lần ghim: mã in trên đề + seed hoán vị thứ tự câu/đáp án khi in (kế thừa từ exam_deployments). */
+export interface ExamVariant {
+  code: string;
+  seed: number;
+}
+
+
 /**
- * Hoạt động Quiz trong khoá học (Moodle `quiz`): instance của một course
- * module (course_modules trỏ instance_id về đây, component 'mod_quiz';
- * cột cm_id là bản sao tiện tra cứu — nguồn sự thật của quan hệ cm vẫn là
- * course_modules.instance_id). grade là thang điểm của BÀI (điểm các slot
- * cộng lại rồi quy về thang này khi ghi sổ điểm). attempts_allowed = 0
- * nghĩa là không giới hạn (như Moodle). time_limit tính bằng giây.
- * grade_method: highest | average | first | last (Moodle grademethod).
- *
- * Chặng 2 (quy tắc thi, issue #30): password_hash là mật khẩu vào thi
- * ĐÃ BĂM argon2 (Moodle lưu plaintext — sai lệch có chủ đích vì bảo mật,
- * xem hồ sơ thiết kế mục B.1); subnet là danh sách IP/CIDR cách nhau dấu
- * phẩy (định dạng Moodle quiz.subnet); delay1/delay2 là độ trễ bắt buộc
- * (giây) sau lượt chốt thứ 1 / từ lượt thứ 3 (Moodle quiz.delay1/delay2).
- * Bảy cột review_* là bitmask tuỳ chọn xem lại của Moodle trên bốn cửa
- * sổ: DURING=0x10000, IMMEDIATELY_AFTER=0x01000, LATER_WHILE_OPEN=0x00100,
- * AFTER_CLOSE=0x00010 (hằng số mod_quiz display options); giá trị mặc
- * định của cột là mặc định của form cài đặt Moodle cho quiz mới.
+ * Một LẦN GHIM một exam version vào một khoá (feat #226 — hợp nhất
+ * quizzes + exam_deployments): đây chính là "Bài kiểm tra" hiển thị
+ * trong khoá. GHIM đúng một exam version (exam_version_id bất biến
+ * sau khi đã có attempt thật — luật đóng băng exam.pin_locked ở tầng
+ * service); toàn bộ cấu hình của lần tổ chức sống ở đây (giờ mở/đóng,
+ * giới hạn, số lượt, mật khẩu, subnet, bộ review, preset luật thi,
+ * mã đề) — thang điểm đọc từ total_score của exam version đã ghim,
+ * KHÔNG giữ bản sao ở pin. cm_id là instance của course module
+ * (component 'mod_quiz' giữ nguyên theo ngoại lệ tên kỹ thuật).
+ * attempts_allowed = 0 nghĩa là không giới hạn. time_limit tính
+ * bằng giây. grade_method: highest | average | first | last.
+ * password_hash đã băm argon2. results_published_at: mốc công bố
+ * điểm của bài (nghiệp vụ công bố cấp bài của #224 sống ở đây).
  */
-export const quizzes = pgTable('quizzes', {
+export const examPins = pgTable('exam_pins', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  course: uuid('course').notNull().references(() => course.id, { onDelete: 'cascade' }),
+  examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
+  examVersionId: uuid('exam_version_id').notNull().references(() => examVersions.id, { onDelete: 'cascade' }),
+  courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
   cmId: uuid('cm_id'),
-  name: text('name').notNull(),
+  /**
+   * Nhóm đích của lần ghim (chốt bổ sung 26/10): null = ghim toàn
+   * khoá; có giá trị = chỉ học sinh thuộc nhóm đó mới thấy và làm
+   * được bài. Nhóm dùng thực thể course_groups sẵn có của khoá —
+   * validate nhóm thuộc đúng khoá này ở service.
+   */
+  targetGroupId: uuid('target_group_id').references(() => courseGroups.id, { onDelete: 'set null' }),
+  /** Tên hiển thị ghi đè trong khoá; null = dùng tên của exam version đã ghim. */
+  name: text('name'),
   intro: text('intro').notNull().default(''),
   timeOpen: timestamp('time_open', { withTimezone: true }),
   timeClose: timestamp('time_close', { withTimezone: true }),
   timeLimit: integer('time_limit'),
   attemptsAllowed: integer('attempts_allowed').notNull().default(0),
   gradeMethod: text('grade_method').notNull().default('highest'),
-  grade: doublePrecision('grade').notNull().default(10),
   shuffleAnswers: boolean('shuffle_answers').notNull().default(false),
   passwordHash: text('password_hash'),
   subnet: text('subnet'),
-  delay1: integer('delay1'),
-  delay2: integer('delay2'),
   reviewAttempt: integer('review_attempt').notNull().default(69904),
   reviewCorrectness: integer('review_correctness').notNull().default(4368),
   reviewMarks: integer('review_marks').notNull().default(4368),
@@ -188,49 +198,31 @@ export const quizzes = pgTable('quizzes', {
   reviewGeneralFeedback: integer('review_general_feedback').notNull().default(4368),
   reviewRightAnswer: integer('review_right_answer').notNull().default(272),
   reviewOverallFeedback: integer('review_overall_feedback').notNull().default(4368),
-  /** Ma trận nguồn khi đề được sinh từ ma trận (Chặng 3); null với đề dựng tay. */
-  matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   /**
-   * Nguồn đề của quiz (EB-1, issue #113): triển khai đề vào quiz ghim tại
-   * paper version đã chốt (paper_version_id); FK 'set null' như matrix_id
-   * — xoá đề không vỡ quiz đã thi vì slots đã chụp riêng sang quiz_slots
-   * và attempt đọc từ đó. paper_id null = quiz dựng tay.
+   * PRESET luật thi đã áp lúc tạo ('regular' thường xuyên | 'periodic'
+   * định kỳ | 'mock' thi thử tốt nghiệp) — chỉ ghi lại để truy vết;
+   * giá trị hiệu lực nằm ở từng trường cấu hình cụ thể. Khác hẳn
+   * exam_kind của exam_versions (loại kiểm tra của NỘI DUNG đề).
    */
-  paperId: uuid('paper_id').references(() => examPapers.id, { onDelete: 'set null' }),
-  paperVersionId: uuid('paper_version_id').references(() => examPaperVersions.id, { onDelete: 'set null' }),
-  /** Thang chấm Đ–S chùm (mảng 5 tỉ lệ % cho 0..4 ý đúng); null = mặc định QĐ 764 [0,10,25,50,100]. */
-  tfScale: jsonb('tf_scale').$type<number[]>(),
-  /**
-   * Hình thức kiểm tra theo TT 22 (preset quy tắc thi — hồ sơ tổ chức
-   * thi trực tuyến VN mục 5.1): 'regular' thường xuyên | 'periodic'
-   * định kỳ | 'mock' thi thử tốt nghiệp. Chọn preset lúc tạo là điền
-   * sẵn quy tắc (số lượt, bitmask review, giám sát, trễ vào thi), giáo
-   * viên vẫn sửa từng trường sau đó. exam_kind cũng là nguồn nhãn loại
-   * điểm TT 22 (hệ số) cho grade item khi triển khai đề (điểm nối EB).
-   */
-  examKind: text('exam_kind'),
-  /**
-   * Số phút tối đa được vào thi muộn tính từ time_open hiệu lực
-   * (preset thi thử = 15 theo Điều 21 TT 24/2024: đến chậm quá 15 phút
-   * không được dự thi); null = không áp giới hạn vào muộn.
-   */
+  preset: text('preset'),
+  /** Số phút tối đa được vào thi muộn từ time_open hiệu lực (preset thi thử = 15 theo TT 24/2024); null = không áp. */
   lateEntryMinutes: integer('late_entry_minutes'),
-  /**
-   * Bật ghi nhận sự kiện giám sát trong lúc làm bài (thoát fullscreen,
-   * mất focus...) — CHỈ ghi nhận + báo cáo, không tự kết luận gian lận
-   * (theo tài liệu chính chủ Azota). Preset định kỳ/thi thử bật sẵn.
-   */
+  /** Bật ghi nhận sự kiện giám sát lúc làm bài — CHỈ ghi nhận + báo cáo, không tự kết luận gian lận. */
   monitorEvents: boolean('monitor_events').notNull().default(false),
+  variantCount: integer('variant_count').notNull().default(1),
+  variants: jsonb('variants').$type<ExamVariant[]>().notNull(),
+  resultsPublishedAt: timestamp('results_published_at', { withTimezone: true }),
+  createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quizzes_course_idx').on(table.course),
-      index('quizzes_cm_id_idx').on(table.cmId),
-      index('quizzes_matrix_idx').on(table.matrixId),
-      index('quizzes_paper_idx').on(table.paperId),
-      index('quizzes_paper_version_idx').on(table.paperVersionId),
-      check('quizzes_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'periodic', 'mock')`),
+      index('exam_pins_course_idx').on(table.courseId),
+      index('exam_pins_cm_id_idx').on(table.cmId),
+      index('exam_pins_exam_idx').on(table.examId),
+      index('exam_pins_exam_version_idx').on(table.examVersionId),
+      index('exam_pins_target_group_idx').on(table.targetGroupId),
+      check('exam_pins_preset_check', sql`${table.preset} is null or ${table.preset} in ('regular', 'periodic', 'mock')`),
   ]);
 
 /**
@@ -240,9 +232,9 @@ export const quizzes = pgTable('quizzes', {
  * tối đa một override cho một quiz (partial unique index). user_id theo
  * quy ước repo không FK cứng (nhất quán quiz_attempts.user_id).
  */
-export const quizOverrides = pgTable('quiz_overrides', {
+export const examPinOverrides = pgTable('exam_pin_overrides', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  pinId: uuid('pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
   groupId: uuid('group_id').references(() => courseGroups.id, { onDelete: 'cascade' }),
   userId: uuid('user_id'),
   timeOpen: timestamp('time_open', { withTimezone: true }),
@@ -260,88 +252,13 @@ export const quizOverrides = pgTable('quiz_overrides', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quiz_overrides_quiz_idx').on(table.quizId),
-      index('quiz_overrides_group_idx').on(table.groupId),
-      check('quiz_overrides_exactly_one_target', sql`(${table.groupId} is null) <> (${table.userId} is null)`),
-      unique('quiz_overrides_quiz_group_unique').on(table.quizId, table.groupId),
-      unique('quiz_overrides_quiz_user_unique').on(table.quizId, table.userId),
+      index('exam_pin_overrides_pin_idx').on(table.pinId),
+      index('exam_pin_overrides_group_idx').on(table.groupId),
+      check('exam_pin_overrides_exactly_one_target', sql`(${table.groupId} is null) <> (${table.userId} is null)`),
+      unique('exam_pin_overrides_pin_group_unique').on(table.pinId, table.groupId),
+      unique('exam_pin_overrides_pin_user_unique').on(table.pinId, table.userId),
   ]);
 
-
-/**
- * Một vị trí trong đề (Moodle `quiz_slots`). Hai dạng slot:
- *  - câu cố định: question_id trỏ câu trong ngân hàng (version được pin
- *    lúc lượt làm bắt đầu qua question engine như mọi usage khác);
- *  - slot ngẫu nhiên: category_id trỏ question category, câu cụ thể được
- *    rút ngẫu nhiên khi mỗi lượt làm bắt đầu và ghi vào attempt của engine.
- * max_mark là ĐIỂM CỦA SLOT TRONG ĐỀ NÀY: khởi tạo từ default_mark của
- * phiên bản câu lúc thêm slot nhưng sống độc lập sau đó — cùng một câu ở
- * hai đề khác nhau có thể mang hai max_mark khác nhau. page là trang hiển
- * thị của slot khi làm bài (Moodle quiz_slots.page).
- */
-/**
- * Một vị trí câu trong đề. Đúng MỘT trong ba nguồn (ràng buộc check):
- * question_id (câu cố định), category_id (rút ngẫu nhiên theo category)
- * hoặc matrix_cell_id (nguồn ô ma trận — Chặng 3: đề cố định thì
- * question_id được điền kèm lúc generate; đề per_student chỉ giữ
- * matrix_cell_id và câu được rút lúc bắt đầu từng lượt). cluster_id
- * gom 4 slot truefalse của cùng một chùm Đ–S (cùng stimulus): điểm của
- * chùm tính theo thang lũy tiến ở tầng quiz, không cộng tuyến tính.
- */
-export const quizSlots = pgTable(
-  'quiz_slots',
-  {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
-    slot: integer('slot').notNull(),
-    page: integer('page').notNull().default(1),
-    questionId: uuid('question_id').references(() => question.id, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id').references(() => questionCategories.id, { onDelete: 'cascade' }),
-    matrixCellId: uuid('matrix_cell_id').references(() => examMatrixCells.id, { onDelete: 'cascade' }),
-    clusterId: uuid('cluster_id'),
-    maxMark: doublePrecision('max_mark').notNull().default(1),
-    /**
-     * Kỷ luật version của slot (feat Ngân hàng câu hỏi chung, QB-3):
-     * 'pinned' = slot ghim cứng vào pinned_version_id (mặc định khi thêm
-     * câu từ bank tổ/trường); 'follow_latest' = mỗi lượt làm lấy version
-     * ready mới nhất (hành vi cũ). pinned_version_number là bản sao số
-     * version để hiển thị "đang ghim v[n] · đã có v[m]" không cần join.
-     */
-    versionMode: text('version_mode').notNull().default('follow_latest'),
-    pinnedVersionId: uuid('pinned_version_id'),
-    pinnedVersionNumber: integer('pinned_version_number'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-      index('quiz_slots_question_id_idx').on(table.questionId),
-      index('quiz_slots_category_id_idx').on(table.categoryId),
-      index('quiz_slots_matrix_cell_id_idx').on(table.matrixCellId),
-      index('quiz_slots_cluster_id_idx').on(table.clusterId),
-      unique('quiz_slots_quiz_slot_unique').on(table.quizId, table.slot),
-      check('quiz_slots_source_rule', sql`(${table.questionId} is not null or ${table.categoryId} is not null or ${table.matrixCellId} is not null) and not (${table.categoryId} is not null and (${table.questionId} is not null or ${table.matrixCellId} is not null))`),
-  ],
-);
-
-/**
- * Nhật ký nâng version đã ghim của slot (QB-3): mỗi lần giáo viên bấm
- * "Nâng lên v[m]" ghi một dòng (slot, câu, từ version nào lên version
- * nào, ai nâng, khi nào) — truy vết đầy đủ cho đề dùng câu của bank chung.
- */
-export const quizSlotVersionEvents = pgTable('quiz_slot_version_events', {
-  id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
-  slotId: uuid('slot_id').notNull().references(() => quizSlots.id, { onDelete: 'cascade' }),
-  questionId: uuid('question_id').notNull(),
-  fromVersion: integer('from_version'),
-  toVersion: integer('to_version').notNull(),
-  actorId: uuid('actor_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-},
-  (table) => [
-      index('quiz_slot_version_events_slot_idx').on(table.slotId),
-      index('quiz_slot_version_events_quiz_idx').on(table.quizId),
-  ]);
 
 /**
  * Một lượt làm bài của một học sinh (Moodle `quiz_attempts`): gắn đúng một
@@ -354,11 +271,11 @@ export const quizSlotVersionEvents = pgTable('quiz_slot_version_events', {
  * preview = lượt xem trước của giáo viên: không đếm vào attempts_allowed,
  * không ghi điểm, không tính completion.
  */
-export const quizAttempts = pgTable(
-  'quiz_attempts',
+export const examAttempts = pgTable(
+  'exam_attempts',
   {
     id: uuid('id').primaryKey().default(sql`uuidv7()`),
-    quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+    pinId: uuid('pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
     userId: uuid('user_id').notNull(),
     attemptNumber: integer('attempt_number').notNull(),
     usageId: uuid('usage_id').notNull().references(() => questionUsages.id, { onDelete: 'cascade' }),
@@ -385,8 +302,8 @@ export const quizAttempts = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-      index('quiz_attempts_quiz_id_idx').on(table.quizId),
-      index('quiz_attempts_user_id_idx').on(table.userId),unique('quiz_attempts_usage_unique').on(table.usageId),unique('quiz_attempts_quiz_user_number_unique').on(table.quizId, table.userId, table.attemptNumber)],
+      index('exam_attempts_pin_id_idx').on(table.pinId),
+      index('exam_attempts_user_id_idx').on(table.userId),unique('exam_attempts_usage_unique').on(table.usageId),unique('exam_attempts_pin_user_number_unique').on(table.pinId, table.userId, table.attemptNumber)],
 );
 
 /**
@@ -396,9 +313,9 @@ export const quizAttempts = pgTable(
  * [min_percent, max_percent) nào thì học sinh nhận nhận xét của dải đó,
  * qua cổng review_overall_feedback như các khía cạnh khác.
  */
-export const quizFeedbacks = pgTable('quiz_feedbacks', {
+export const examPinFeedbacks = pgTable('exam_pin_feedbacks', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  pinId: uuid('pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
   minPercent: doublePrecision('min_percent').notNull(),
   maxPercent: doublePrecision('max_percent').notNull(),
   feedback: text('feedback').notNull(),
@@ -406,8 +323,8 @@ export const quizFeedbacks = pgTable('quiz_feedbacks', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quiz_feedbacks_quiz_idx').on(table.quizId),
-      check('quiz_feedbacks_range_check', sql`${table.minPercent} >= 0 and ${table.maxPercent} <= 100 and ${table.minPercent} < ${table.maxPercent}`),
+      index('exam_pin_feedbacks_pin_idx').on(table.pinId),
+      check('exam_pin_feedbacks_range_check', sql`${table.minPercent} >= 0 and ${table.maxPercent} <= 100 and ${table.minPercent} < ${table.maxPercent}`),
   ]);
 
 /**
@@ -417,13 +334,13 @@ export const quizFeedbacks = pgTable('quiz_feedbacks', {
  * CHỈ GHI NHẬN để giáo viên xem lại sau thi — hệ thống không tự kết
  * luận gian lận, không tự huỳ/trừ điểm (theo tài liệu chính chủ Azota).
  */
-export const quizAttemptEvents = pgTable('quiz_attempt_events', {
+export const examAttemptEvents = pgTable('exam_attempt_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  attemptId: uuid('attempt_id').notNull().references(() => quizAttempts.id, { onDelete: 'cascade' }),
+  attemptId: uuid('attempt_id').notNull().references(() => examAttempts.id, { onDelete: 'cascade' }),
   type: text('type').notNull(),
   data: jsonb('data').$type<Record<string, unknown>>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quiz_attempt_events_attempt_idx').on(table.attemptId),
+      index('exam_attempt_events_attempt_idx').on(table.attemptId),
   ]);

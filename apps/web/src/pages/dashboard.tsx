@@ -114,7 +114,7 @@ function StudentTodoBlock() {
                   <Link
                     to={
                       item.kind === 'quiz'
-                        ? `/courses/${item.courseId}/quizzes/${item.activityId}`
+                        ? `/courses/${item.courseId}/exams/${item.activityId}`
                         : `/courses/${item.courseId}/assignments/${item.activityId}`
                     }
                     className="font-medium hover:underline"
@@ -195,9 +195,9 @@ function TeacherGradingBlock() {
                   {row.assignmentPending > 0 && row.quizPending > 0 ? ' · ' : null}
                   {row.quizPending > 0 ? t('gradingQuizPart', { count: row.quizPending }) : null}
                   {(row.assignmentPending > 0 || row.quizPending > 0) && row.paperPending > 0 ? ' · ' : null}
-                  {row.paperPending > 0 && row.paperQuizId ? (
+                  {row.paperPending > 0 && row.paperPinId ? (
                     <Link
-                      to={`/courses/${row.courseId}/quizzes/${row.paperQuizId}/paper`}
+                      to={`/courses/${row.courseId}/exams/${row.paperPinId}/paper`}
                       className="font-medium text-foreground hover:underline"
                       data-testid="grading-paper-link"
                     >

@@ -155,9 +155,17 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // Sổ điểm VN, issue #224: grade_categories, grade_outcomes,
     // grade_letters, scales, vn_gradebooks, vn_term_results,
     // vn_activity_mappings, vn_candidate_actions — cả tám đều PK id
-    // uuidv7) → trên cây hợp nhất cuối: 190 bảng tổng, 176 bảng có PK
-    // mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(176);
+    // uuidv7) → 190 bảng tổng, 176 bảng có PK mặc định uuidv7().
+    // − 8 bảng của mô hình quiz cũ + triển khai (feat gộp Đề #226:
+    // quizzes, quiz_slots, quiz_slot_version_events, quiz_overrides,
+    // quiz_attempts, quiz_feedbacks, quiz_attempt_events,
+    // exam_deployments) + 5 bảng mới của mô hình ghim (exam_pins,
+    // exam_attempts, exam_attempt_events, exam_pin_overrides,
+    // exam_pin_feedbacks); các bảng đổi tên exams/exam_versions/
+    // exam_slots/exam_contributions/exam_batches/exam_scans giữ
+    // nguyên số → trên cây hợp nhất cuối: 187 bảng tổng, 173 bảng có
+    // PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(173);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -178,17 +186,18 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 178 bảng có cột `id`: 176 bảng PK uuidv7 như khuôn chung (gồm 2
+    // 175 bảng có cột `id`: 173 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, 3 bảng tenant của TENANT-0,
     // issue #168, bảng payment_provider_events của VietQR lát 1,
     // issue #189, và bảng classes của CLASS-0, issue #184; đã trừ 4
-    // bảng blog bị gỡ ở issue #173 và 8 bảng điểm của mô hình cũ bị gỡ
-    // ở issue #224) + ĐÚNG
+    // bảng blog bị gỡ ở issue #173, 8 bảng điểm của mô hình cũ bị gỡ ở
+    // issue #224 và trừ ròng 3 bảng của feat gộp Đề #226: −8 bảng
+    // quiz/triển khai cũ +5 bảng họ pin mới) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(178);
+    expect(defaults.rows.length).toBe(175);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

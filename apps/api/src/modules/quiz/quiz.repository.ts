@@ -2,174 +2,148 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examMatrices, examMatrixCells, examMatrixContributions, quizAttemptEvents, quizAttempts, quizFeedbacks, quizOverrides, quizSlotVersionEvents, quizSlots, quizzes } from '../../db/schema';
+import { examAttemptEvents, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examPinFeedbacks, examPinOverrides, examPins, examSlots, examVersions, exams } from '../../db/schema';
 
-export type QuizRow = typeof quizzes.$inferSelect;
-export type QuizSlotRow = typeof quizSlots.$inferSelect;
-export type QuizAttemptRow = typeof quizAttempts.$inferSelect;
-export type QuizSlotVersionEventRow = typeof quizSlotVersionEvents.$inferSelect;
-export type QuizOverrideRow = typeof quizOverrides.$inferSelect;
+export type ExamPinRow = typeof examPins.$inferSelect;
+export type ExamAttemptRow = typeof examAttempts.$inferSelect;
+export type ExamPinOverrideRow = typeof examPinOverrides.$inferSelect;
 export type ExamMatrixRow = typeof examMatrices.$inferSelect;
 export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
 export type ExamMatrixContributionRow = typeof examMatrixContributions.$inferSelect;
-export type QuizFeedbackRow = typeof quizFeedbacks.$inferSelect;
-export type QuizAttemptEventRow = typeof quizAttemptEvents.$inferSelect;
+export type ExamPinFeedbackRow = typeof examPinFeedbacks.$inferSelect;
+export type ExamAttemptEventRow = typeof examAttemptEvents.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**
- * Kho dữ liệu của hoạt động Quiz: bản ghi quiz (instance của course
- * module), các slot của đề và các lượt làm. Điểm của câu trong lượt làm
- * sống ở question engine (question_attempts) — kho này chỉ giữ tầng hoạt
- * động: slot nào mang câu nào với max_mark bao nhiêu, lượt làm nào gắn
- * usage nào và tổng điểm đã chốt của lượt.
+ * Kho dữ liệu của lần ghim đề (exam_pins) và các lượt làm: bản ghi pin
+ * (instance của course module), các override/feedback của pin và các
+ * lượt làm neo vào pin. Nội dung đề của lượt làm đọc thẳng từ
+ * exam_slots của exam version đã ghim — kho này không giữ bản chụp
+ * slots nào (feat #226). Điểm của câu trong lượt làm sống ở question
+ * engine (question_attempts) — kho này chỉ giữ tầng tổ chức: pin nào
+ * ghim đề nào, lượt làm nào gắn usage nào và tổng điểm đã chốt.
  */
 export class QuizRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
   get dbHandle(): Database { return this.db; }
 
   /**
-   * Chèn bản ghi quiz.
+   * Chèn bản ghi lần ghim.
    */
-  async insertQuiz(v: typeof quizzes.$inferInsert, tx?: DbTx): Promise<QuizRow> {
-    const [row] = await (tx ?? this.db).insert(quizzes).values(v).returning(); return row!;
+  async insertPin(v: typeof examPins.$inferInsert, tx?: DbTx): Promise<ExamPinRow> {
+    const [row] = await (tx ?? this.db).insert(examPins).values(v).returning(); return row!;
   }
   /**
-   * Lấy quiz theo id.
+   * Lấy lần ghim theo id.
    */
-  async getQuiz(id: string): Promise<QuizRow | undefined> {
-    const [row] = await this.db.select().from(quizzes).where(eq(quizzes.id, id)); return row;
+  async getPin(id: string): Promise<ExamPinRow | undefined> {
+    const [row] = await this.db.select().from(examPins).where(eq(examPins.id, id)); return row;
   }
   /**
-   * Các quiz trong một khoá học.
+   * Các lần ghim trong một khoá học.
    */
-  async listQuizzesInCourse(courseId: string): Promise<QuizRow[]> {
-    return this.db.select().from(quizzes).where(eq(quizzes.course, courseId)).orderBy(asc(quizzes.createdAt), asc(quizzes.id));
+  async listPinsInCourse(courseId: string): Promise<ExamPinRow[]> {
+    return this.db.select().from(examPins).where(eq(examPins.courseId, courseId)).orderBy(asc(examPins.createdAt), asc(examPins.id));
   }
   /**
-   * Cập nhật quiz.
+   * Cập nhật lần ghim.
    */
-  async updateQuiz(id: string, patch: Partial<QuizRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(quizzes).set({ ...patch, updatedAt: new Date() }).where(eq(quizzes.id, id));
+  async updatePin(id: string, patch: Partial<ExamPinRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examPins).set({ ...patch, updatedAt: new Date() }).where(eq(examPins.id, id));
   }
   /**
-   * Xoá quiz (slots và attempts cascade theo khoá ngoại).
+   * Xoá lần ghim (attempts/overrides/feedbacks cascade theo khoá ngoại).
    */
-  async deleteQuiz(id: string): Promise<void> {
-    await this.db.delete(quizzes).where(eq(quizzes.id, id));
-  }
-
-  /**
-   * Chèn một slot vào đề.
-   */
-  async insertSlot(v: typeof quizSlots.$inferInsert, tx?: DbTx): Promise<QuizSlotRow> {
-    const [row] = await (tx ?? this.db).insert(quizSlots).values(v).returning(); return row!;
-  }
-  /**
-   * Lấy một slot.
-   */
-  async getSlot(id: string): Promise<QuizSlotRow | undefined> {
-    const [row] = await this.db.select().from(quizSlots).where(eq(quizSlots.id, id)); return row;
-  }
-  /**
-   * Các slot của đề theo thứ tự hiển thị.
-   */
-  async listSlots(quizId: string): Promise<QuizSlotRow[]> {
-    return this.db.select().from(quizSlots).where(eq(quizSlots.quizId, quizId)).orderBy(asc(quizSlots.slot));
-  }
-  /**
-   * Cập nhật một slot.
-   */
-  async updateSlot(id: string, patch: Partial<QuizSlotRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(quizSlots).set({ ...patch, updatedAt: new Date() }).where(eq(quizSlots.id, id));
-  }
-  /**
-   * Xoá một slot.
-   */
-  async deleteSlot(id: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(quizSlots).where(eq(quizSlots.id, id));
-  }
-  /**
-   * Ghi nhật ký nâng version đã ghim của slot (QB-3).
-   */
-  async insertSlotVersionEvent(v: typeof quizSlotVersionEvents.$inferInsert): Promise<QuizSlotVersionEventRow> {
-    const [row] = await this.db.insert(quizSlotVersionEvents).values(v).returning(); return row!;
-  }
-  /**
-   * Nhật ký nâng version của một slot theo thời gian.
-   */
-  async listSlotVersionEvents(slotId: string): Promise<QuizSlotVersionEventRow[]> {
-    return this.db.select().from(quizSlotVersionEvents)
-      .where(eq(quizSlotVersionEvents.slotId, slotId)).orderBy(asc(quizSlotVersionEvents.createdAt));
+  async deletePin(id: string): Promise<void> {
+    await this.db.delete(examPins).where(eq(examPins.id, id));
   }
 
   /**
    * Chèn một lượt làm.
    */
-  async insertAttempt(v: typeof quizAttempts.$inferInsert, tx?: DbTx): Promise<QuizAttemptRow> {
-    const [row] = await (tx ?? this.db).insert(quizAttempts).values(v).returning(); return row!;
+  // --- tham chieu de da ghim (chi doc: dinh danh/noi dung de song o module exams) ---
+
+  async getExam(id: string) {
+    const [row] = await this.db.select().from(exams).where(eq(exams.id, id)).limit(1);
+    return row;
+  }
+
+  async getExamVersion(id: string) {
+    const [row] = await this.db.select().from(examVersions).where(eq(examVersions.id, id)).limit(1);
+    return row;
+  }
+
+  /** Slots cua mot exam version theo thu tu position (nguon cau cua pin snapshot). */
+  async listExamSlots(examVersionId: string) {
+    return this.db.select().from(examSlots).where(eq(examSlots.examVersionId, examVersionId)).orderBy(asc(examSlots.position));
+  }
+
+  async insertAttempt(v: typeof examAttempts.$inferInsert, tx?: DbTx): Promise<ExamAttemptRow> {
+    const [row] = await (tx ?? this.db).insert(examAttempts).values(v).returning(); return row!;
   }
   /**
    * Lấy một lượt làm.
    */
-  async getAttempt(id: string): Promise<QuizAttemptRow | undefined> {
-    const [row] = await this.db.select().from(quizAttempts).where(eq(quizAttempts.id, id)); return row;
+  async getAttempt(id: string): Promise<ExamAttemptRow | undefined> {
+    const [row] = await this.db.select().from(examAttempts).where(eq(examAttempts.id, id)); return row;
   }
   /**
-   * Các lượt làm của một quiz (mọi học sinh), mới nhất theo số lượt.
+   * Các lượt làm của một lần ghim (mọi học sinh), mới nhất theo số lượt.
    */
-  async listAttempts(quizId: string): Promise<QuizAttemptRow[]> {
-    return this.db.select().from(quizAttempts).where(eq(quizAttempts.quizId, quizId)).orderBy(asc(quizAttempts.userId), asc(quizAttempts.attemptNumber));
+  async listAttempts(pinId: string): Promise<ExamAttemptRow[]> {
+    return this.db.select().from(examAttempts).where(eq(examAttempts.pinId, pinId)).orderBy(asc(examAttempts.userId), asc(examAttempts.attemptNumber));
   }
   /**
-   * Các lượt làm của một học sinh trong một quiz (kể cả preview khi `includePreview`).
+   * Các lượt làm của một học sinh trong một lần ghim (kể cả preview khi `includePreview`).
    */
-  async listAttemptsForUser(quizId: string, userId: string, includePreview = false): Promise<QuizAttemptRow[]> {
+  async listAttemptsForUser(pinId: string, userId: string, includePreview = false): Promise<ExamAttemptRow[]> {
     const conds = includePreview
-      ? and(eq(quizAttempts.quizId, quizId), eq(quizAttempts.userId, userId))
-      : and(eq(quizAttempts.quizId, quizId), eq(quizAttempts.userId, userId), eq(quizAttempts.preview, false));
-    return this.db.select().from(quizAttempts).where(conds).orderBy(asc(quizAttempts.attemptNumber));
+      ? and(eq(examAttempts.pinId, pinId), eq(examAttempts.userId, userId))
+      : and(eq(examAttempts.pinId, pinId), eq(examAttempts.userId, userId), eq(examAttempts.preview, false));
+    return this.db.select().from(examAttempts).where(conds).orderBy(asc(examAttempts.attemptNumber));
   }
   /**
    * Cập nhật một lượt làm.
    */
-  async updateAttempt(id: string, patch: Partial<QuizAttemptRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(quizAttempts).set({ ...patch, updatedAt: new Date() }).where(eq(quizAttempts.id, id));
+  async updateAttempt(id: string, patch: Partial<ExamAttemptRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examAttempts).set({ ...patch, updatedAt: new Date() }).where(eq(examAttempts.id, id));
   }
 
-  // --- overrides (Chặng 2) ------------------------------------------------------
+  // --- overrides ---------------------------------------------------------------
 
   /**
    * Chèn một ghi đè cài đặt thi.
    */
-  async insertOverride(v: typeof quizOverrides.$inferInsert, tx?: DbTx): Promise<QuizOverrideRow> {
-    const [row] = await (tx ?? this.db).insert(quizOverrides).values(v).returning(); return row!;
+  async insertOverride(v: typeof examPinOverrides.$inferInsert, tx?: DbTx): Promise<ExamPinOverrideRow> {
+    const [row] = await (tx ?? this.db).insert(examPinOverrides).values(v).returning(); return row!;
   }
   /**
    * Lấy một ghi đè.
    */
-  async getOverride(id: string): Promise<QuizOverrideRow | undefined> {
-    const [row] = await this.db.select().from(quizOverrides).where(eq(quizOverrides.id, id)); return row;
+  async getOverride(id: string): Promise<ExamPinOverrideRow | undefined> {
+    const [row] = await this.db.select().from(examPinOverrides).where(eq(examPinOverrides.id, id)); return row;
   }
   /**
-   * Mọi ghi đè của một quiz (theo nhóm và theo người dùng).
+   * Mọi ghi đè của một lần ghim (theo nhóm và theo người dùng).
    */
-  async listOverrides(quizId: string): Promise<QuizOverrideRow[]> {
-    return this.db.select().from(quizOverrides).where(eq(quizOverrides.quizId, quizId)).orderBy(asc(quizOverrides.createdAt), asc(quizOverrides.id));
+  async listOverrides(pinId: string): Promise<ExamPinOverrideRow[]> {
+    return this.db.select().from(examPinOverrides).where(eq(examPinOverrides.pinId, pinId)).orderBy(asc(examPinOverrides.createdAt), asc(examPinOverrides.id));
   }
   /**
-   * Mốc đóng MUỘN NHẤT của cả đợt thi: max giữa time_close của quiz và
-   * time_close của MỌI override đang tồn tại (null = có ít nhất một
-   * tầng không đặt mốc đóng → đợt chưa đóng hẳn). Dùng cho cửa sổ
-   * review "sau khi đóng" khi các ca thi lệch nhau vì override —
-   * chống lộ đáp án cho ca sau (hồ sơ thi trực tuyến VN, điểm 5.1.4).
+   * Mốc đóng MUỘN NHẤT của cả đợt thi: max giữa time_close của lần
+   * ghim và time_close của MỌI override đang tồn tại (null = có ít
+   * nhất một tầng không đặt mốc đóng → đợt chưa đóng hẳn). Dùng cho
+   * cửa sổ review "sau khi đóng" khi các ca thi lệch nhau vì
+   * override — chống lộ đáp án cho ca sau (hồ sơ thi trực tuyến VN,
+   * điểm 5.1.4).
    */
-  async sessionLatestClose(quizId: string): Promise<{ hasUnbounded: boolean; latest: Date | null }> {
-    const quizRows = await this.db.select({ timeClose: quizzes.timeClose }).from(quizzes).where(eq(quizzes.id, quizId));
-    const base = quizRows[0]?.timeClose ?? null;
-    const overrides = await this.listOverrides(quizId);
-    // Override có time_close null = kế thừa mốc của quiz (đã tính);
-    // đợt chỉ "chưa đóng hẳn" khi chính quiz không có mốc đóng.
+  async sessionLatestClose(pinId: string): Promise<{ hasUnbounded: boolean; latest: Date | null }> {
+    const pinRows = await this.db.select({ timeClose: examPins.timeClose }).from(examPins).where(eq(examPins.id, pinId));
+    const base = pinRows[0]?.timeClose ?? null;
+    const overrides = await this.listOverrides(pinId);
+    // Override có time_close null = kế thừa mốc của lần ghim (đã tính);
+    // đợt chỉ "chưa đóng hẳn" khi chính lần ghim không có mốc đóng.
     const hasUnbounded = base === null;
     let latest = base;
     for (const o of overrides) {
@@ -182,14 +156,14 @@ export class QuizRepository {
   /**
    * Cập nhật một ghi đè.
    */
-  async updateOverride(id: string, patch: Partial<QuizOverrideRow>, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).update(quizOverrides).set({ ...patch, updatedAt: new Date() }).where(eq(quizOverrides.id, id));
+  async updateOverride(id: string, patch: Partial<ExamPinOverrideRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examPinOverrides).set({ ...patch, updatedAt: new Date() }).where(eq(examPinOverrides.id, id));
   }
   /**
    * Xoá một ghi đè.
    */
   async deleteOverride(id: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(quizOverrides).where(eq(quizOverrides.id, id));
+    await (tx ?? this.db).delete(examPinOverrides).where(eq(examPinOverrides.id, id));
   }
 
   // --- ma trận đề (Chặng 3) -------------------------------------------------------
@@ -310,28 +284,33 @@ export class QuizRepository {
 
   // --- dải nhận xét tổng quát + nhật ký sự kiện lượt làm -------------------------
 
-  /** Các dải nhận xét tổng quát của một quiz theo mốc % tăng dần. */
-  async listFeedbacks(quizId: string): Promise<QuizFeedbackRow[]> {
-    return this.db.select().from(quizFeedbacks).where(eq(quizFeedbacks.quizId, quizId)).orderBy(asc(quizFeedbacks.minPercent), asc(quizFeedbacks.id));
+  /** Các dải nhận xét tổng quát của một lần ghim theo mốc % tăng dần. */
+  async listFeedbacks(pinId: string): Promise<ExamPinFeedbackRow[]> {
+    return this.db.select().from(examPinFeedbacks).where(eq(examPinFeedbacks.pinId, pinId)).orderBy(asc(examPinFeedbacks.minPercent), asc(examPinFeedbacks.id));
   }
 
   /** Chèn một dải nhận xét tổng quát. */
-  async insertFeedback(v: typeof quizFeedbacks.$inferInsert, tx?: DbTx): Promise<QuizFeedbackRow> {
-    const [row] = await (tx ?? this.db).insert(quizFeedbacks).values(v).returning(); return row!;
+  async insertFeedback(v: typeof examPinFeedbacks.$inferInsert, tx?: DbTx): Promise<ExamPinFeedbackRow> {
+    const [row] = await (tx ?? this.db).insert(examPinFeedbacks).values(v).returning(); return row!;
   }
 
   /** Xoá một dải nhận xét tổng quát. */
   async deleteFeedback(id: string, tx?: DbTx): Promise<void> {
-    await (tx ?? this.db).delete(quizFeedbacks).where(eq(quizFeedbacks.id, id));
+    await (tx ?? this.db).delete(examPinFeedbacks).where(eq(examPinFeedbacks.id, id));
   }
 
   /** Ghi một sự kiện giám sát của lượt làm (chỉ ghi nhận). */
-  async insertAttemptEvent(v: typeof quizAttemptEvents.$inferInsert, tx?: DbTx): Promise<QuizAttemptEventRow> {
-    const [row] = await (tx ?? this.db).insert(quizAttemptEvents).values(v).returning(); return row!;
+  async getFeedback(id: string): Promise<ExamPinFeedbackRow | undefined> {
+    const [row] = await this.db.select().from(examPinFeedbacks).where(eq(examPinFeedbacks.id, id)).limit(1);
+    return row;
+  }
+
+  async insertAttemptEvent(v: typeof examAttemptEvents.$inferInsert, tx?: DbTx): Promise<ExamAttemptEventRow> {
+    const [row] = await (tx ?? this.db).insert(examAttemptEvents).values(v).returning(); return row!;
   }
 
   /** Nhật ký sự kiện của một lượt làm theo thời gian ghi. */
-  async listAttemptEvents(attemptId: string): Promise<QuizAttemptEventRow[]> {
-    return this.db.select().from(quizAttemptEvents).where(eq(quizAttemptEvents.attemptId, attemptId)).orderBy(asc(quizAttemptEvents.createdAt), asc(quizAttemptEvents.id));
+  async listAttemptEvents(attemptId: string): Promise<ExamAttemptEventRow[]> {
+    return this.db.select().from(examAttemptEvents).where(eq(examAttemptEvents.attemptId, attemptId)).orderBy(asc(examAttemptEvents.createdAt), asc(examAttemptEvents.id));
   }
 }

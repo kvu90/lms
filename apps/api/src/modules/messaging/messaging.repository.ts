@@ -6,7 +6,7 @@ import { tenantAls } from '../tenants/tenant-als';
 import {
   assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
-  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
+  notificationDispatchLog, notifications, examAttempts, examPins, examVersions, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -1546,16 +1546,17 @@ export class MessagingRepository {
   }
 
   /** Như trên cho một quiz (assignment → quiz_available / quiz_attempt_finished). */
-  async getQuizNotifyInfo(quizId: string): Promise<{
+  async getPinNotifyInfo(pinId: string): Promise<{
     name: string; courseId: string; courseVisible: boolean; cmVisible: boolean | null; cmDeletionInProgress: boolean | null;
   } | undefined> {
     const [row] = await this.db.select({
-      name: quizzes.name, courseId: quizzes.course, courseVisible: course.visible,
+      name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, courseId: examPins.courseId, courseVisible: course.visible,
       cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(quizzes)
-      .innerJoin(course, eq(course.id, quizzes.course))
-      .leftJoin(courseModules, eq(courseModules.id, quizzes.cmId))
-      .where(eq(quizzes.id, quizId));
+    }).from(examPins)
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .innerJoin(course, eq(course.id, examPins.courseId))
+      .leftJoin(courseModules, eq(courseModules.id, examPins.cmId))
+      .where(eq(examPins.id, pinId));
     return row;
   }
 
@@ -1588,13 +1589,13 @@ export class MessagingRepository {
     return rows.length;
   }
 
-  /** Số lượt làm của một quiz đang ở trạng thái cần chấm tay (không tính lượt preview của giáo viên). */
-  async countQuizAttemptsNeedingGrading(quizId: string): Promise<number> {
-    const rows = await this.db.select({ id: quizAttempts.id }).from(quizAttempts)
+  /** Số lượt làm của một lần ghim đang ở trạng thái cần chấm tay (không tính lượt preview của giáo viên). */
+  async countPinAttemptsNeedingGrading(pinId: string): Promise<number> {
+    const rows = await this.db.select({ id: examAttempts.id }).from(examAttempts)
       .where(and(
-        eq(quizAttempts.quizId, quizId),
-        eq(quizAttempts.state, 'needsgrading'),
-        eq(quizAttempts.preview, false),
+        eq(examAttempts.pinId, pinId),
+        eq(examAttempts.state, 'needsgrading'),
+        eq(examAttempts.preview, false),
       ));
     return rows.length;
   }

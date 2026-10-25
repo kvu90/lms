@@ -16,6 +16,7 @@ import {
   STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { createExamDraft } from './exam-pin-helpers';
 
 /**
  * Lát MCP-0 (issue #110) — nền MCP server + nhập câu hỏi nháp bằng AI.
@@ -370,7 +371,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(essay.structured!.questionStatus).toBe('draft');
   });
 
-  it('cổng draft 3: slot quiz chặn draft (quiz.slot_question_draft), ready thì thêm được', async () => {
+  it('cổng draft 3: slot đề chặn câu chưa ready (exam.slot_question_not_ready), ready thì thêm được', async () => {
     // Khoá + quiz do teacherA quản (editingteacher tại context khoá).
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
@@ -382,28 +383,29 @@ describe('MCP server (MCP-0, issue #110)', () => {
     await assignRole(app, admin, teacherA.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
     await enrolUser(app, admin, course.id, instance.id, student.id);
 
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set(bearer(teacherA.token))
-      .send({ sectionId, name: uniqueName('mcpQuiz'), grade: 10, gradeMethod: 'highest' });
-    expect(quizRes.status).toBe(201);
-    const quizId = quizRes.body.id as string;
+    const draft0 = await createExamDraft(app, teacherA.token, uniqueName('mcpExam'));
 
     const draftRes = await callTool(app, teacherA.token, 'create_question', {
       bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpSlotDraft'),
-      questionText: 'Câu draft cho slot quiz.',
+      questionText: 'Câu draft cho slot đề.',
       idempotencyKey: uniqueName('key'),
     });
     const draftQ = draftRes.structured!.questionId as string;
 
-    const denied = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(teacherA.token)).send({ questionId: draftQ });
+    // Soạn slot đề với câu còn draft: bị chặn ở cổng resolve (chưa có
+    // version ready nào để ghim) — mã cổng của họ Đề sau gộp (#226).
+    draft0.slots.push({ questionId: draftQ });
+    const denied = await http(app).put(`/api/v1/exams/${draft0.examId}/slots`).set(bearer(teacherA.token)).send({ slots: draft0.slots });
     expect(denied.status).toBe(400);
-    expect(JSON.stringify(denied.body)).toContain('quiz.slot_question_draft');
+    expect(JSON.stringify(denied.body)).toContain('exam.slot_question_not_ready');
 
     await banks.setQuestionStatus(draftQ, 'ready');
-    const allowed = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(teacherA.token)).send({ questionId: draftQ });
+    const allowed = await http(app).put(`/api/v1/exams/${draft0.examId}/slots`).set(bearer(teacherA.token)).send({ slots: draft0.slots });
     expect(allowed.status).toBeLessThan(300);
+    void course; void sectionId;
   });
 
-  it('cổng draft 2 (đường quiz): slot ngẫu nhiên trên category chỉ có draft → quiz.random_slot_empty', async () => {
+  it('cổng draft 2 (đường đề): slot theo category đã bỏ hẳn — soạn slot bắt buộc câu cụ thể (#226)', async () => {
     // Category riêng trong bank personal của teacherA, chỉ chứa 1 draft.
     const bankRow = await sqlOne<{ context_id: string }>('select context_id from question_banks where id = $1', [bankA]);
     const catRes = await http(app).post('/api/v1/questions/categories').set(bearer(teacherA.token))
@@ -418,24 +420,14 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(draftRes.isError).toBe(false);
     expect(await questions.listUsableQuestionIdsInCategory(poolCat)).toEqual([]);
 
-    const cat = await createCategory(app, admin);
-    const course = await createCourse(app, admin, cat.id);
-    const sectionId = await getFirstSectionId(app, admin, course.id);
-    const instance = await createEnrolInstance(app, admin, course.id);
-    const contexts = await http(app).get('/api/v1/access/contexts').set(bearer(admin));
-    const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
-      .find((c) => c.contextLevel === 50 && c.instanceId === course.id)!;
-    await assignRole(app, admin, teacherA.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
-    await enrolUser(app, admin, course.id, instance.id, student.id);
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set(bearer(teacherA.token))
-      .send({ sectionId, name: uniqueName('mcpQuizRandom'), grade: 10, gradeMethod: 'highest' });
-    expect(quizRes.status).toBeLessThan(300);
-    const quizId = quizRes.body.id as string;
-    const slot = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(teacherA.token)).send({ categoryId: poolCat, maxMark: 2 });
-    expect(slot.status).toBeLessThan(300);
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(student.token)).send({});
-    expect(start.status).toBe(400);
-    expect(JSON.stringify(start.body)).toContain('quiz.random_slot_empty');
+    // Mô hình gộp Đề: slot của đề luôn là câu CỤ THỂ đã ghim version —
+    // không còn slot ngẫu nhiên theo category ở bề mặt soạn đề (rút
+    // ngẫu nhiên chỉ qua sinh đề từ ma trận, xem quiz-matrix-flow).
+    // Gửi slot chỉ có categoryId → schema chặn 400.
+    const draft0 = await createExamDraft(app, teacherA.token, uniqueName('mcpExamCat'));
+    const slot = await http(app).put(`/api/v1/exams/${draft0.examId}/slots`).set(bearer(teacherA.token))
+      .send({ slots: [{ categoryId: poolCat, maxMark: 2 }] });
+    expect(slot.status).toBe(400);
   });
 
   it('cổng draft 4: startAttempt follow_latest không lùi về version của câu draft', async () => {

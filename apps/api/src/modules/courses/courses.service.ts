@@ -5,7 +5,7 @@ import {
   course as courseTable, courseModules as courseModulesTable, courseSectionAnchorOutcomes, courseSectionAnchors,
   courseSections as courseSectionsTable,
   courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeItems,
-  quizzes, quizSlots,
+  examPins,
 } from '../../db/schema';
 import type { Database } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -1061,10 +1061,13 @@ export class CoursesService {
 
   /**
    * Sao chép một course module sang khoá/section đích trong cùng
-   * transaction: instance của quiz được nhân bản sâu (bảng quiz + toàn
-   * bộ slot, KHÔNG chép lượt làm bài); các component khác hiện không có
-   * bảng instance riêng do module sở hữu tạo qua API nên giữ nguyên
-   * `instanceId` (thực tế là null). Trả cm mới và ghi map id.
+   * transaction: instance của hoạt động đề (mod_quiz) được nhân bản
+   * thành một LẦN GHIM mới vào khoá đích trỏ CÙNG exam + exam version
+   * (slots nằm trên version — dùng chung, không chép; KHÔNG chép lượt
+   * làm bài; nhóm đích KHÔNG mang theo vì nhóm thuộc khoá nguồn); các
+   * component khác hiện không có bảng instance riêng do module sở hữu
+   * tạo qua API nên giữ nguyên `instanceId` (thực tế là null). Trả cm
+   * mới và ghi map id.
    */
   private async copyCmRow(
     tx: DbTx, source: CmRow, targetCourseId: string, targetSectionId: string,
@@ -1073,21 +1076,24 @@ export class CoursesService {
     const db = tx as unknown as Database;
     let instanceId = source.instanceId;
     if (source.component === QUIZ_COMPONENT_NAME && source.instanceId) {
-      const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, source.instanceId));
-      if (quiz) {
-        const [newQuiz] = await db.insert(quizzes).values({
-          course: targetCourseId, cmId: null, name: quiz.name, intro: quiz.intro,
-          timeOpen: this.shiftDate(quiz.timeOpen, deltaMs), timeClose: this.shiftDate(quiz.timeClose, deltaMs),
-          timeLimit: quiz.timeLimit, attemptsAllowed: quiz.attemptsAllowed, gradeMethod: quiz.gradeMethod,
-          grade: quiz.grade, shuffleAnswers: quiz.shuffleAnswers,
+      const [pin] = await db.select().from(examPins).where(eq(examPins.id, source.instanceId));
+      if (pin) {
+        const [newPin] = await db.insert(examPins).values({
+          examId: pin.examId, examVersionId: pin.examVersionId, courseId: targetCourseId, cmId: null,
+          name: pin.name, intro: pin.intro,
+          timeOpen: this.shiftDate(pin.timeOpen, deltaMs), timeClose: this.shiftDate(pin.timeClose, deltaMs),
+          timeLimit: pin.timeLimit, attemptsAllowed: pin.attemptsAllowed, gradeMethod: pin.gradeMethod,
+          shuffleAnswers: pin.shuffleAnswers,
+          passwordHash: pin.passwordHash, subnet: pin.subnet,
+          reviewAttempt: pin.reviewAttempt, reviewCorrectness: pin.reviewCorrectness,
+          reviewMarks: pin.reviewMarks, reviewSpecificFeedback: pin.reviewSpecificFeedback,
+          reviewGeneralFeedback: pin.reviewGeneralFeedback, reviewRightAnswer: pin.reviewRightAnswer,
+          reviewOverallFeedback: pin.reviewOverallFeedback,
+          preset: pin.preset, lateEntryMinutes: pin.lateEntryMinutes, monitorEvents: pin.monitorEvents,
+          variantCount: pin.variantCount, variants: pin.variants,
+          resultsPublishedAt: null, createdBy: pin.createdBy,
         }).returning();
-        const slots = await db.select().from(quizSlots).where(eq(quizSlots.quizId, quiz.id)).orderBy(asc(quizSlots.slot));
-        for (const s of slots) {
-          await db.insert(quizSlots).values({
-            quizId: newQuiz!.id, slot: s.slot, page: s.page, questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
-          });
-        }
-        instanceId = newQuiz!.id;
+        instanceId = newPin!.id;
       }
     }
     const [created] = await db.insert(courseModulesTable).values({
@@ -1103,7 +1109,7 @@ export class CoursesService {
     const newCm = created as CmRow;
     cmMap.set(source.id, newCm.id);
     if (source.component === QUIZ_COMPONENT_NAME && instanceId && instanceId !== source.instanceId) {
-      await db.update(quizzes).set({ cmId: newCm.id }).where(eq(quizzes.id, instanceId));
+      await db.update(examPins).set({ cmId: newCm.id }).where(eq(examPins.id, instanceId));
     }
     // Context module cho cm mới (như createCm) — contexts nằm ngoài tx
     // của courses trong luồng tạo thường; ở đây tạo sau khi tx commit

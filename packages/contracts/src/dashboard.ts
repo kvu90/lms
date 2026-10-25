@@ -79,10 +79,10 @@ export interface DashboardGradingQueueView {
   paperPending: number;
   /**
    * Quiz có phiếu giấy chờ LÂU NHẤT của khoá — đích deep-link tới bề mặt
-   * rà soát CAM-0 (/courses/:courseId/quizzes/:paperQuizId/paper);
+   * rà soát CAM (/courses/:courseId/exams/:paperPinId/paper);
    * null khi paperPending = 0.
    */
-  paperQuizId: string | null;
+  paperPinId: string | null;
   /** Bài chờ lâu nhất (ISO, tính cả phiếu giấy); null khi hàng đợi rỗng. */
   oldestPendingAt: string | null;
 }

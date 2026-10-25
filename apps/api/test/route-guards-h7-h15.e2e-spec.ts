@@ -7,6 +7,7 @@ import {
 import {
   createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId,
 } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from './exam-pin-helpers';
 import { courseContextId } from './engagement-helpers';
 
 /**
@@ -79,10 +80,11 @@ describe('Route guards đợt 4 (H7–H15, #134)', () => {
     outsider = (await login(app, outsiderUser.username, STRONG_PASSWORD)).accessToken;
 
     const sectionId = await getFirstSectionId(app, admin, courseId);
-    const quiz = await http(app).post(`/api/v1/courses/${courseId}/quizzes`)
-      .set('Authorization', `Bearer ${admin}`).send({ sectionId, name: 'Guard quiz', grade: 10 });
-    expect(quiz.status).toBeLessThan(300);
-    quizId = quiz.body.id as string;
+    const gQuestion = await createReadyQuestion(app, admin, 'Guard question');
+    const gDraft = await createExamDraft(app, admin, 'Guard quiz', 10);
+    await addExamSlot(app, admin, gDraft, { questionId: gQuestion });
+    const quiz = await pinExam(app, admin, courseId, gDraft, { sectionId });
+    quizId = quiz.id as string;
 
     const cohort = await http(app).post('/api/v1/cohorts')
       .set('Authorization', `Bearer ${admin}`).send({ name: `Guard cohort ${Date.now()}` });
@@ -130,13 +132,13 @@ describe('Route guards đợt 4 (H7–H15, #134)', () => {
     expect(flatten(adminTree.body as Node[])).toContain(hiddenCategoryId);
   });
 
-  it('H9: danh sách quiz của khoá — người ngoài 403, học sinh + giáo viên 200', async () => {
-    const denied = await http(app).get(`/api/v1/courses/${courseId}/quizzes`).set('Authorization', `Bearer ${outsider}`);
+  it('H9: danh sách lần ghim của khoá — người ngoài 403, học sinh + giáo viên 200', async () => {
+    const denied = await http(app).get(`/api/v1/courses/${courseId}/exam-pins`).set('Authorization', `Bearer ${outsider}`);
     expect(denied.status).toBe(403);
-    const asStudent = await http(app).get(`/api/v1/courses/${courseId}/quizzes`).set('Authorization', `Bearer ${student}`);
+    const asStudent = await http(app).get(`/api/v1/courses/${courseId}/exam-pins`).set('Authorization', `Bearer ${student}`);
     expect(asStudent.status).toBe(200);
     expect((asStudent.body as { id: string }[]).map((q) => q.id)).toContain(quizId);
-    const asTeacher = await http(app).get(`/api/v1/courses/${courseId}/quizzes`).set('Authorization', `Bearer ${teacher}`);
+    const asTeacher = await http(app).get(`/api/v1/courses/${courseId}/exam-pins`).set('Authorization', `Bearer ${teacher}`);
     expect(asTeacher.status).toBe(200);
   });
 

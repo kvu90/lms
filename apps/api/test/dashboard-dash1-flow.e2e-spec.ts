@@ -12,6 +12,7 @@ import {
   STRONG_PASSWORD,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 /**
@@ -30,7 +31,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     previousSeenAt: string | null;
     dueItems: { courseId: string; cmId: string; activityId: string; kind: string; name: string; dueAt: string; status: string }[];
     newResults: { courseId: string; kind: string; itemId: string | null; itemName: string | null; finalGrade: number | null; feedback: string | null; changedAt: string }[];
-    gradingQueue: { courseId: string; pendingCount: number; assignmentPending: number; quizPending: number; paperPending: number; paperQuizId: string | null; oldestPendingAt: string | null }[];
+    gradingQueue: { courseId: string; pendingCount: number; assignmentPending: number; quizPending: number; paperPending: number; paperPinId: string | null; oldestPendingAt: string | null }[];
   }
 
   beforeAll(async () => {
@@ -89,13 +90,10 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
       answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
       options: { single: true },
     });
-    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ sectionId: ctx.sectionId, name: 'Quiz dash', ...overrides });
-    if (res.status !== 201 && res.status !== 200) throw new Error(`create quiz failed: ${res.status} ${JSON.stringify(res.body)}`);
-    const slot = await http(app).post(`/api/v1/quizzes/${res.body.id}/slots`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ questionId: qRes.body.question.id });
-    if (slot.status !== 201 && slot.status !== 200) throw new Error(`add slot failed: ${slot.status} ${JSON.stringify(slot.body)}`);
-    return res.body;
+    const draft = await createExamDraft(app, ctx.teacher, 'Quiz dash');
+    await addExamSlot(app, ctx.teacher, draft, { questionId: qRes.body.question.id });
+    const pin = await pinExam(app, ctx.teacher, ctx.course.id, draft, { sectionId: ctx.sectionId, ...overrides });
+    return pin as unknown as { id: string; cmId: string };
   }
 
   async function createAssignment(ctx: Ctx, overrides: Record<string, unknown>): Promise<{ id: string; cmId: string }> {
@@ -134,7 +132,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     expect(due.some((d) => d.cmId === farAssign.cmId)).toBe(false);
 
     // Bắt đầu làm quiz → in_progress.
-    const start = await http(app).post(`/api/v1/quizzes/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
     expect(start.status).toBe(201);
     view = await overview(ctx.studentToken);
     due = view.dueItems.filter((d) => d.courseId === ctx.course.id);
@@ -248,7 +246,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     const uploader = ctx.student.id;
     const insertScan = async (quizId: string, status: string, createdAt: string) => {
       await pg.query(
-        `INSERT INTO quiz_paper_scans (quiz_id, file_id, status, uploaded_by, created_at, updated_at)
+        `INSERT INTO exam_scans (exam_pin_id, file_id, status, uploaded_by, created_at, updated_at)
          VALUES ($1, gen_random_uuid(), $2, $3, $4, $4)`,
         [quizId, status, uploader, createdAt],
       );
@@ -271,7 +269,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     // quiz A (phiếu chờ lâu nhất); mốc chờ lâu nhất lấy từ phiếu giấy.
     expect(queue).toMatchObject({
       pendingCount: 3, assignmentPending: 0, quizPending: 0,
-      paperPending: 3, paperQuizId: quizA.id,
+      paperPending: 3, paperPinId: quizA.id,
     });
     expect(new Date(queue!.oldestPendingAt!).getTime()).toBe(new Date(threeHoursAgo).getTime());
 
@@ -285,8 +283,8 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     // Xử lý hết phiếu chờ (chuyển sang recorded) → đếm về 0, khoá biến
     // mất khỏi hàng đợi vì không còn việc chờ nào khác.
     await pg.query(
-      `UPDATE quiz_paper_scans SET status = 'recorded'
-       WHERE quiz_id = ANY($1) AND status IN ('needs_review', 'needs_identity')`,
+      `UPDATE exam_scans SET status = 'recorded'
+       WHERE exam_pin_id = ANY($1) AND status IN ('needs_review', 'needs_identity')`,
       [[quizA.id, quizB.id]],
     );
     view = await overview(ctx.teacher);

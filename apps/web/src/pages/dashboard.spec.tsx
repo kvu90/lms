@@ -264,7 +264,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
             : [],
         gradingQueue:
           role === 'teacher'
-            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 5, assignmentPending: 2, quizPending: 1, paperPending: 2, paperQuizId: 'quiz-paper-1', oldestPendingAt: past }]
+            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 5, assignmentPending: 2, quizPending: 1, paperPending: 2, paperPinId: 'quiz-paper-1', oldestPendingAt: past }]
             : [],
       });
     }
@@ -330,7 +330,7 @@ describe('Dashboard theo vai trò', () => {
     expect(items[1]).toHaveTextContent('Quiz sắp đến hạn');
     // ĐX-5 (issue #179): việc cần làm trỏ thẳng tới trang hoạt động, không về trang khoá chung.
     expect(items[0].querySelector('a')?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/assignments/a-overdue`);
-    expect(items[1].querySelector('a')?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/quizzes/q-soon`);
+    expect(items[1].querySelector('a')?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/exams/q-soon`);
     // Điểm mới đã công bố hiện kèm điểm số.
     const fresh = screen.getByTestId('todo-new-result');
     expect(fresh).toHaveTextContent('Điểm kiểm tra');
@@ -352,7 +352,7 @@ describe('Dashboard theo vai trò', () => {
     // bề mặt rà soát phiếu của đúng quiz có phiếu chờ lâu nhất.
     const paperLink = screen.getByTestId('grading-paper-link');
     expect(paperLink).toHaveTextContent('2 phiếu giấy chờ xử lý');
-    expect(paperLink.getAttribute('href')).toBe(`/courses/${COURSE_ID}/quizzes/quiz-paper-1/paper`);
+    expect(paperLink.getAttribute('href')).toBe(`/courses/${COURSE_ID}/exams/quiz-paper-1/paper`);
   });
 
   it('admin thấy khối quản trị hệ thống, không thấy khối giảng dạy/học tập', async () => {

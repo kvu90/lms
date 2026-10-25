@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
  * Quiz Chặng 2 (issue #30) — quy tắc thi + ghi đè, đối chiếu hồ sơ thiết
@@ -87,19 +88,25 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     };
   }
 
+  /** Tạo pin kèm một slot qua hành trình gộp Đề (#226): soạn đề → ready → ghim. `examKind` của thân cũ ánh xạ sang `preset` của pin. */
+  async function createPinWithSlot(ctx: Ctx, body: Record<string, unknown>): Promise<Record<string, any>> {
+    const { examKind, name, ...rest } = body;
+    const draft = await createExamDraft(app, ctx.teacher, (name as string) ?? 'Stage2 quiz');
+    await addExamSlot(app, ctx.teacher, draft, { questionId: ctx.qMc });
+    return pinExam(app, ctx.teacher, ctx.courseId, draft, {
+      sectionId: ctx.sectionId,
+      ...(examKind !== undefined ? { preset: examKind } : {}),
+      ...rest,
+    });
+  }
+
   async function createQuizWithSlot(ctx: Ctx, body: Record<string, unknown>): Promise<string> {
-    const res = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ sectionId: ctx.sectionId, name: 'Stage2 quiz', ...body });
-    if (res.status !== 201 && res.status !== 200) throw new Error(`create quiz failed: ${res.status} ${JSON.stringify(res.body)}`);
-    const quizId = res.body.id as string;
-    const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ questionId: ctx.qMc });
-    if (slotRes.status !== 201 && slotRes.status !== 200) throw new Error(`add slot failed: ${slotRes.status} ${JSON.stringify(slotRes.body)}`);
-    return quizId;
+    const pin = await createPinWithSlot(ctx, body);
+    return pin.id as string;
   }
 
   async function startAttempt(token: string, quizId: string, body: Record<string, unknown> = {}) {
-    return http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send(body);
+    return http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send(body);
   }
 
   async function finishAttemptCorrectly(ctx: Ctx, token: string, quizId: string): Promise<AttemptViewBody> {
@@ -124,21 +131,24 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const wrong = await startAttempt(ctx.student, quizId, { password: 'nope' });
     expect(wrong.status).toBe(403);
     expect(wrong.body.code).toBe('quiz.password_incorrect');
-    const info = await http(app).get(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
+    const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(info.body.quiz.hasPassword).toBe(true);
     expect(info.body.effective.passwordRequired).toBe(true);
     expect(JSON.stringify(info.body)).not.toContain('secret1');
     const ok = await startAttempt(ctx.student, quizId, { password: 'secret1' });
     expect(ok.status === 200 || ok.status === 201).toBe(true);
     // Mật khẩu lưu dạng băm argon2, không phải dạng rõ.
-    const rows = await pg.query('SELECT password_hash FROM quizzes WHERE id = $1', [quizId]);
+    const rows = await pg.query('SELECT password_hash FROM exam_pins WHERE id = $1', [quizId]);
     expect(rows.rows[0].password_hash).toMatch(/^\$argon2/);
   });
 
   it('subnet gate: denied outside the list, allowed inside, invalid list rejected, re-checked on response', async () => {
     const ctx = await setup();
-    const bad = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ sectionId: ctx.sectionId, name: 'Bad subnet', subnet: 'not-an-ip' });
+    const badDraft = await createExamDraft(app, ctx.teacher, 'Bad subnet');
+    await addExamSlot(app, ctx.teacher, badDraft, { questionId: ctx.qMc });
+    await http(app).post(`/api/v1/exams/${badDraft.examId}/status`).set('Authorization', `Bearer ${ctx.teacher}`).send({ status: 'ready' });
+    const bad = await http(app).post(`/api/v1/courses/${ctx.courseId}/exam-pins`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ sectionId: ctx.sectionId, examId: badDraft.examId, subnet: 'not-an-ip' });
     expect(bad.status).toBe(400);
     expect(bad.body.code).toBe('quiz.subnet_invalid');
 
@@ -152,7 +162,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(start.status === 200 || start.status === 201).toBe(true);
     const view = start.body as AttemptViewBody;
     // Giáo viên thu hẹp subnet giữa chừng: nộp đáp án từ IP ngoài danh sách bị chặn.
-    const patch = await http(app).patch(`/api/v1/quizzes/${allowedQuiz}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const patch = await http(app).patch(`/api/v1/exam-pins/${allowedQuiz}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ subnet: '10.99.0.0/16' });
     expect(patch.status).toBe(200);
     const q = view.questions.find((x) => x.slot === 1)!;
@@ -162,19 +172,16 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(ans.body.code).toBe('quiz.subnet_denied');
   });
 
-  it('delay1: next attempt blocked until the delay elapses, lifted when the setting is cleared', async () => {
+  it('no inter-attempt delay in the pin model: a finished attempt never blocks the next one', async () => {
     const ctx = await setup();
-    const quizId = await createQuizWithSlot(ctx, { delay1Seconds: 3600 });
+    // delay1/delay2 của quiz cũ đã bỏ hẳn khỏi mô hình pin (hồ sơ gộp
+    // #226): làm xong một lượt thì bắt đầu lượt mới được ngay, không
+    // có mốc chờ và nextAttemptAt luôn null.
+    const quizId = await createQuizWithSlot(ctx, {});
     await finishAttemptCorrectly(ctx, ctx.student, quizId);
-    const blocked = await startAttempt(ctx.student, quizId);
-    expect(blocked.status).toBe(403);
-    expect(blocked.body.code).toBe('quiz.delay_not_elapsed');
-    const info = await http(app).get(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
-    expect(info.body.attemptBlockedReason).toBe('delay_not_elapsed');
-    expect(typeof info.body.effective.nextAttemptAt).toBe('string');
-    const patch = await http(app).patch(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ delay1Seconds: null });
-    expect(patch.status).toBe(200);
+    const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
+    expect(info.body.attemptBlockedReason).toBeNull();
+    expect(info.body.effective.nextAttemptAt).toBeNull();
     const ok = await startAttempt(ctx.student, quizId);
     expect(ok.status === 200 || ok.status === 201).toBe(true);
   });
@@ -188,24 +195,24 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(blocked.body.code).toBe('quiz.not_yet_open');
 
     // Học sinh không có quyền tạo override.
-    const forbidden = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.student}`)
+    const forbidden = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.student}`)
       .send({ userId: ctx.studentId, timeOpen: null });
     expect(forbidden.status).toBe(403);
     // Hai đích cùng lúc bị từ chối.
-    const ambiguous = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const ambiguous = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, groupId: ctx.studentId, timeOpen: null });
     expect(ambiguous.status).toBe(400);
     expect(ambiguous.body.code).toBe('quiz.override_target');
 
     // Mở cửa sổ riêng cho một học sinh = cửa sổ kiểm tra bù → reason
     // bắt buộc theo quy tắc của chính Chặng 2 (quiz.override_reason_required).
-    const created = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const created = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, timeOpen: new Date(Date.now() - 60_000).toISOString(), reason: 'Kiểm tra bù — mở cửa sổ riêng cho học sinh' });
     expect(created.status === 200 || created.status === 201).toBe(true);
     expect(created.body.userId).toBe(ctx.studentId);
     expect(created.body.hasPassword).toBe(false);
     // Trùng đích bị từ chối.
-    const dup = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const dup = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, timeOpen: null });
     expect(dup.status).toBe(400);
     expect(dup.body.code).toBe('quiz.override_exists');
@@ -217,9 +224,9 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(stillBlocked.body.code).toBe('quiz.not_yet_open');
 
     // Xoá override thì cửa sổ gốc quay lại hiệu lực.
-    const del = await http(app).delete(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const del = await http(app).delete(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(del.status).toBe(200);
-    const info = await http(app).get(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
+    const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(info.body.effective.timeOpen).toBe(future.slice(0, 19) + '.000Z' === future ? future : info.body.effective.timeOpen);
     expect(new Date(info.body.effective.timeOpen).getTime()).toBe(new Date(future).getTime());
   });
@@ -234,7 +241,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const member = await http(app).post(`/api/v1/courses/${ctx.courseId}/groups/${groupId}/members`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId });
     expect(member.status === 200 || member.status === 201).toBe(true);
-    const ovr = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const ovr = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ groupId, attempts: 1 });
     expect(ovr.status === 200 || ovr.status === 201).toBe(true);
     expect(ovr.body.groupName).toBe('Lop A');
@@ -247,7 +254,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const other = await startAttempt(ctx.student2, quizId);
     expect(other.status === 200 || other.status === 201).toBe(true);
 
-    const userOvr = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const userOvr = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, attempts: 3 });
     expect(userOvr.status === 200 || userOvr.status === 201).toBe(true);
     const ok = await startAttempt(ctx.student, quizId);
@@ -260,7 +267,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const start = await startAttempt(ctx.student, quizId);
     expect(start.status === 200 || start.status === 201).toBe(true);
     const attemptId = (start.body as AttemptViewBody).attempt.id;
-    const ovr = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const ovr = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, timeClose: new Date(Date.now() - 60_000).toISOString() });
     expect(ovr.status === 200 || ovr.status === 201).toBe(true);
     const view = await http(app).get(`/api/v1/quiz-attempts/${attemptId}`).set('Authorization', `Bearer ${ctx.student}`);
@@ -300,22 +307,19 @@ describe('Quiz access rules + overrides (stage 2)', () => {
 
   it('exam-kind presets fill the rule fields; explicit fields win over the preset', async () => {
     const ctx = await setup();
-    const mock = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ sectionId: ctx.sectionId, name: 'Thi thử', examKind: 'mock' });
-    expect(mock.status === 200 || mock.status === 201).toBe(true);
-    expect(mock.body.examKind).toBe('mock');
-    expect(mock.body.lateEntryMinutes).toBe(15); // Điều 21 TT 24/2024
-    expect(mock.body.monitorEvents).toBe(true);
-    expect(mock.body.attemptsAllowed).toBe(1);
-    expect(mock.body.reviewRightAnswer).toBe(16); // chỉ sau khi đóng
-    expect(mock.body.reviewMarks).toBe(16);
+    const mock = await createPinWithSlot(ctx, { name: 'Thi thử', preset: 'mock' });
+    expect(mock.preset).toBe('mock');
+    expect(mock.lateEntryMinutes).toBe(15); // Điều 21 TT 24/2024
+    expect(mock.monitorEvents).toBe(true);
+    expect(mock.attemptsAllowed).toBe(1);
+    expect(mock.reviewRightAnswer).toBe(16); // chỉ sau khi đóng
+    expect(mock.reviewMarks).toBe(16);
 
-    const regular = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${ctx.teacher}`)
-      .send({ sectionId: ctx.sectionId, name: 'Thường xuyên', examKind: 'regular', lateEntryMinutes: 5 });
-    expect(regular.body.examKind).toBe('regular');
-    expect(regular.body.lateEntryMinutes).toBe(5); // trường gửi kèm thắng preset
-    expect(regular.body.monitorEvents).toBe(false);
-    expect(regular.body.reviewRightAnswer).toBe(4368); // ngay sau nộp
+    const regular = await createPinWithSlot(ctx, { name: 'Thường xuyên', preset: 'regular', lateEntryMinutes: 5 });
+    expect(regular.preset).toBe('regular');
+    expect(regular.lateEntryMinutes).toBe(5); // trường gửi kèm thắng preset
+    expect(regular.monitorEvents).toBe(false);
+    expect(regular.reviewRightAnswer).toBe(4368); // ngay sau nộp
   });
 
   it('late entry: starting after timeOpen + lateEntryMinutes is refused even while the window is open', async () => {
@@ -326,7 +330,7 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const start = await startAttempt(ctx.student, quizId);
     expect(start.status).toBe(403);
     expect(start.body.code).toBe('quiz.late_entry_closed');
-    const info = await http(app).get(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
+    const info = await http(app).get(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(info.body.canAttempt).toBe(false);
   });
 
@@ -340,11 +344,11 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     expect(early.status).toBe(403);
     expect(early.body.code).toBe('quiz.not_yet_open');
     // Thiếu reason khi mở cửa sổ riêng cho một người → bị từ chối.
-    const noReason = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const noReason = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, timeOpen: new Date(Date.now() - 60_000).toISOString(), timeClose: laterClose });
     expect(noReason.status).toBe(400);
     expect(noReason.body.code).toBe('quiz.override_reason_required');
-    const ov = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const ov = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, timeOpen: new Date(Date.now() - 60_000).toISOString(), timeClose: laterClose, reason: 'Kiểm tra bù — vắng có lý do (TT 22 Đ7)' });
     expect(ov.status === 200 || ov.status === 201).toBe(true);
     expect(ov.body.reason).toContain('Kiểm tra bù');
@@ -363,29 +367,29 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     const ctx = await setup();
     const quizId = await createQuizWithSlot(ctx, {});
     // Override lành tính lúc tạo: chỉ đổi số lượt — không cần reason.
-    const created = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const created = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.studentId, attempts: 3 });
     expect(created.status === 200 || created.status === 201).toBe(true);
     // PATCH cộng giờ mà không bổ sung reason → bị từ chối như đường tạo
     // (trước vòng fix này PATCH trả 200 — vòng qua cổng reason).
-    const patched = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const patched = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: 3600 });
     expect(patched.status).toBe(400);
     expect(patched.body.code).toBe('quiz.override_reason_required');
     // PATCH kèm reason → chấp nhận; trạng thái hợp nhất mang cả hai thay đổi.
-    const withReason = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const withReason = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: 3600, reason: 'Cộng giờ theo KHGD cá nhân (HS hoà nhập)' });
     expect(withReason.status).toBe(200);
     expect(withReason.body.timeLimitSeconds).toBe(3600);
     expect(withReason.body.attempts).toBe(3);
     expect(withReason.body.reason).toContain('KHGD');
     // Gỡ reason trong khi override vẫn còn cộng giờ → cũng bị từ chối.
-    const strip = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const strip = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ reason: null });
     expect(strip.status).toBe(400);
     expect(strip.body.code).toBe('quiz.override_reason_required');
     // Gỡ luôn phần cộng giờ thì reason không còn bắt buộc nữa.
-    const cleared = await http(app).patch(`/api/v1/quizzes/${quizId}/overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const cleared = await http(app).patch(`/api/v1/exam-pin-overrides/${created.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeLimitSeconds: null, reason: null });
     expect(cleared.status).toBe(200);
     expect(cleared.body.timeLimitSeconds).toBeNull();
@@ -406,21 +410,21 @@ describe('Quiz access rules + overrides (stage 2)', () => {
     await http(app).post(`/api/v1/courses/${ctx.courseId}/groups/${groupId}/members`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ userId: ctx.student2Id });
     const lateClose = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
-    const gov = await http(app).post(`/api/v1/quizzes/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const gov = await http(app).post(`/api/v1/exam-pins/${quizId}/overrides`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ groupId, timeClose: lateClose });
     expect(gov.status === 200 || gov.status === 201).toBe(true);
     // Đóng cửa sổ gốc của quiz về quá khứ: theo mốc riêng của học sinh
     // thì đã "sau khi đóng", nhưng cả đợt còn ca muộn chưa thi.
-    const patch = await http(app).patch(`/api/v1/quizzes/${quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const patch = await http(app).patch(`/api/v1/exam-pins/${quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ timeClose: new Date(Date.now() - 60_000).toISOString() });
     expect(patch.status).toBe(200);
     // Già hoá time_finish qua cửa sổ "ngay sau nộp" (2 phút) để cửa sổ
     // xét theo mốc đóng của đợt, không theo mốc nộp.
-    await pg.query(`UPDATE quiz_attempts SET time_finish = now() - interval '10 minutes' WHERE id = $1`, [submitted.attempt.id]);
+    await pg.query(`UPDATE exam_attempts SET time_finish = now() - interval '10 minutes' WHERE id = $1`, [submitted.attempt.id]);
     const view1 = await http(app).get(`/api/v1/quiz-attempts/${submitted.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(view1.body.questions[0].rightAnswer).toBeNull(); // chưa lộ đáp án
     // Gỡ override ca muộn → đợt đóng hẳn → đáp án hiện.
-    await http(app).delete(`/api/v1/quizzes/${quizId}/overrides/${gov.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    await http(app).delete(`/api/v1/exam-pin-overrides/${gov.body.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     const view2 = await http(app).get(`/api/v1/quiz-attempts/${submitted.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     expect(view2.body.questions[0].rightAnswer).not.toBeNull();
   });

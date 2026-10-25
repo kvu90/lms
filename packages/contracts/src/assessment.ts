@@ -510,7 +510,7 @@ export type TfScale = z.infer<typeof tfScaleSchema>;
  */
 export const quizSlotViewSchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   slot: z.number().int(),
   page: z.number().int(),
   questionId: uuidIdSchema.nullable(),
@@ -542,6 +542,8 @@ export const quizViewSchema = z.object({
   id: uuidIdSchema,
   courseId: uuidIdSchema,
   cmId: uuidIdSchema.nullable(),
+  /** Nhóm đích của lần ghim: null = ghim toàn khoá. */
+  targetGroupId: uuidIdSchema.nullable(),
   name: z.string(),
   intro: z.string(),
   timeOpen: z.string().nullable(),
@@ -555,9 +557,6 @@ export const quizViewSchema = z.object({
   hasPassword: z.boolean(),
   /** Danh sách IP/CIDR được phép (định dạng Moodle `quiz.subnet`), null = không giới hạn. */
   subnet: z.string().nullable(),
-  /** Độ trễ bắt buộc (giây) sau lượt chốt thứ 1 / từ lượt thứ 3; null = không trễ. */
-  delay1Seconds: z.number().int().nullable(),
-  delay2Seconds: z.number().int().nullable(),
   /** Bảy bitmask tuỳ chọn xem lại kiểu Moodle (cửa sổ: trong lúc làm / ngay sau nộp / sau đó khi đề mở / sau khi đóng). */
   reviewAttempt: z.number().int(),
   reviewCorrectness: z.number().int(),
@@ -568,27 +567,29 @@ export const quizViewSchema = z.object({
   reviewOverallFeedback: z.number().int(),
   /** Ma trận nguồn khi đề sinh từ ma trận (Chặng 3); null với đề dựng tay. */
   matrixId: uuidIdSchema.nullable(),
-  /** Đề ngân hàng đã triển khai vào quiz này (EB-1); null với quiz dựng tay hoặc sinh từ ma trận. */
-  paperId: uuidIdSchema.nullable(),
-  /** Paper version đã ghim lúc triển khai đề (EB-1); sửa đề về sau không đổi quiz này. */
-  paperVersionId: uuidIdSchema.nullable(),
+  /** Đề đã ghim cho pin này (thực thể Đề hợp nhất — sửa đề về sau không đổi pin). */
+  examId: uuidIdSchema,
+  /** Exam version đã ghim lúc tạo pin. */
+  examVersionId: uuidIdSchema,
   /** Thang Đ–S chùm hiệu lực của đề; null = mặc định QĐ 764 [0, 10, 25, 50, 100]. */
   tfScale: tfScaleSchema.nullable(),
   /** Hình thức kiểm tra TT 22 đã chọn preset: regular (thường xuyên) | periodic (định kỳ) | mock (thi thử); null = không theo preset. */
-  examKind: z.enum(['regular', 'periodic', 'mock']).nullable(),
+  preset: z.enum(['regular', 'periodic', 'mock']).nullable(),
   /** Phút vào thi muộn tối đa từ mốc mở hiệu lực (preset thi thử = 15, Điều 21 TT 24/2024); null = không áp. */
   lateEntryMinutes: z.number().int().nullable(),
   /** Có ghi nhận sự kiện giám sát trong lúc làm bài hay không (chỉ ghi nhận, không tự kết luận gian lận). */
   monitorEvents: z.boolean(),
   slots: z.array(quizSlotViewSchema),
   sumGrades: z.number(),
+  /** Mã đề của lần ghim (hoán vị in ấn CAM của cùng một bộ câu): mã 3 chữ số + seed xáo trộn. */
+  variants: z.array(z.object({ code: z.string(), seed: z.number() })),
 });
 export type QuizView = z.infer<typeof quizViewSchema>;
 
 /** Tóm tắt một lượt làm quiz trong danh sách (của học sinh hoặc của cả lớp). */
 export const quizAttemptSummarySchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   userId: uuidIdSchema,
   attemptNumber: z.number().int(),
   usageId: uuidIdSchema,
@@ -607,14 +608,12 @@ export const quizAttemptSummarySchema = z.object({
 export type QuizAttemptSummary = z.infer<typeof quizAttemptSummarySchema>;
 
 /** Các trường quy tắc thi dùng chung cho tạo/sửa quiz (Chặng 2): mật khẩu dạng rõ ở biên API, tầng nghiệp vụ băm trước khi lưu. */
-const quizAccessRuleFields = {
+const pinAccessRuleFields = {
   /** Mật khẩu vào thi; `null` = gỡ mật khẩu (khi sửa) / không đặt (khi tạo). */
   password: z.string().min(1).nullable().optional(),
   subnet: z.string().min(1).nullable().optional(),
-  delay1Seconds: z.number().int().min(0).nullable().optional(),
-  delay2Seconds: z.number().int().min(0).nullable().optional(),
   /** Hình thức kiểm tra: khi tạo, chọn preset điền sẵn quy tắc theo bảng preset (trường gửi kèm thắng preset); khi sửa chỉ đổi nhãn. */
-  examKind: z.enum(['regular', 'periodic', 'mock']).nullable().optional(),
+  preset: z.enum(['regular', 'periodic', 'mock']).nullable().optional(),
   lateEntryMinutes: z.number().int().min(0).nullable().optional(),
   monitorEvents: z.boolean().optional(),
   reviewAttempt: z.number().int().min(0).optional(),
@@ -624,46 +623,18 @@ const quizAccessRuleFields = {
   reviewGeneralFeedback: z.number().int().min(0).optional(),
   reviewRightAnswer: z.number().int().min(0).optional(),
   reviewOverallFeedback: z.number().int().min(0).optional(),
+  /** Nhóm đích của lần ghim: null/bỏ trống = toàn khoá; có giá trị = chỉ thành viên nhóm đó thấy/làm được (nhóm phải thuộc đúng khoá của lần ghim). */
+  targetGroupId: uuidIdSchema.nullable().optional(),
 };
 
-/** Payload tạo quiz trong một section của khoá học (kèm course module + grade item ở tầng nghiệp vụ). */
-export const createQuizSchema = z.strictObject({
-  sectionId: uuidIdSchema,
-  name: z.string().min(1),
-  intro: z.string().optional(),
-  timeOpen: z.string().nullable().optional(),
-  timeClose: z.string().nullable().optional(),
-  timeLimitSeconds: z.number().int().positive().nullable().optional(),
-  attemptsAllowed: z.number().int().min(0).optional(),
-  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
-  grade: z.number().positive().optional(),
-  shuffleAnswers: z.boolean().optional(),
-  /** Thang Đ–S chùm của đề (Chặng 3); `null` = dùng mặc định QĐ 764. */
-  tfScale: tfScaleSchema.nullable().optional(),
-  ...quizAccessRuleFields,
-});
-export type CreateQuiz = z.infer<typeof createQuizSchema>;
 
-/** Payload sửa cài đặt quiz (mọi trường tuỳ chọn; `timeOpen`/`timeClose`/`timeLimitSeconds` nhận `null` để gỡ). */
-export const updateQuizSchema = z.strictObject({
-  name: z.string().min(1).optional(),
-  intro: z.string().optional(),
-  timeOpen: z.string().nullable().optional(),
-  timeClose: z.string().nullable().optional(),
-  timeLimitSeconds: z.number().int().positive().nullable().optional(),
-  attemptsAllowed: z.number().int().min(0).optional(),
-  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
-  grade: z.number().positive().optional(),
-  shuffleAnswers: z.boolean().optional(),
-  tfScale: tfScaleSchema.nullable().optional(),
-  ...quizAccessRuleFields,
-});
-export type UpdateQuiz = z.infer<typeof updateQuizSchema>;
+
+
 
 /** Một ghi đè cài đặt thi (Moodle `quiz_overrides`): đúng một đích — nhóm (`groupId`) hoặc người dùng (`userId`); trường null = kế thừa. */
-export const quizOverrideViewSchema = z.object({
+export const examPinOverrideViewSchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   groupId: uuidIdSchema.nullable(),
   groupName: z.string().nullable(),
   userId: uuidIdSchema.nullable(),
@@ -676,10 +647,10 @@ export const quizOverrideViewSchema = z.object({
   /** Lý do của ghi đè (truy vết quyết định: cộng giờ KHGD cá nhân, mở cửa sổ bù...). */
   reason: z.string().nullable(),
 });
-export type QuizOverrideView = z.infer<typeof quizOverrideViewSchema>;
+export type ExamPinOverrideView = z.infer<typeof examPinOverrideViewSchema>;
 
 /** Payload tạo ghi đè: đúng một trong `groupId`/`userId` (tầng nghiệp vụ kiểm tra); mật khẩu dạng rõ, băm khi lưu. */
-export const createQuizOverrideSchema = z.strictObject({
+export const createExamPinOverrideSchema = z.strictObject({
   groupId: uuidIdSchema.optional(),
   userId: uuidIdSchema.optional(),
   timeOpen: z.string().nullable().optional(),
@@ -689,10 +660,10 @@ export const createQuizOverrideSchema = z.strictObject({
   password: z.string().min(1).nullable().optional(),
   reason: z.string().min(1).nullable().optional(),
 });
-export type CreateQuizOverride = z.infer<typeof createQuizOverrideSchema>;
+export type CreateExamPinOverride = z.infer<typeof createExamPinOverrideSchema>;
 
 /** Payload sửa ghi đè (mọi trường tuỳ chọn; `null` ở các trường ghi đè = quay về kế thừa). */
-export const updateQuizOverrideSchema = z.strictObject({
+export const updateExamPinOverrideSchema = z.strictObject({
   timeOpen: z.string().nullable().optional(),
   timeClose: z.string().nullable().optional(),
   timeLimitSeconds: z.number().int().positive().nullable().optional(),
@@ -700,25 +671,25 @@ export const updateQuizOverrideSchema = z.strictObject({
   password: z.string().min(1).nullable().optional(),
   reason: z.string().min(1).nullable().optional(),
 });
-export type UpdateQuizOverride = z.infer<typeof updateQuizOverrideSchema>;
+export type UpdateExamPinOverride = z.infer<typeof updateExamPinOverrideSchema>;
 
 /** Một dải nhận xét tổng quát theo khoảng % điểm (tầng feedback thứ tư, Moodle `quiz_feedback`). */
-export const quizFeedbackViewSchema = z.object({
+export const examPinFeedbackViewSchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   minPercent: z.number(),
   maxPercent: z.number(),
   feedback: z.string(),
 });
-export type QuizFeedbackView = z.infer<typeof quizFeedbackViewSchema>;
+export type ExamPinFeedbackView = z.infer<typeof examPinFeedbackViewSchema>;
 
 /** Payload tạo dải nhận xét tổng quát: [minPercent, maxPercent) trên thang % điểm của bài. */
-export const createQuizFeedbackSchema = z.strictObject({
+export const createExamPinFeedbackSchema = z.strictObject({
   minPercent: z.number().min(0).max(100),
   maxPercent: z.number().min(0).max(100),
   feedback: z.string().min(1),
 });
-export type CreateQuizFeedback = z.infer<typeof createQuizFeedbackSchema>;
+export type CreateExamPinFeedback = z.infer<typeof createExamPinFeedbackSchema>;
 
 /** Sự kiện giám sát client được phép báo (chỉ ghi nhận — hệ thống không tự kết luận gian lận). */
 export const QUIZ_ATTEMPT_EVENT_TYPES = ['fullscreen_exit', 'focus_lost', 'disconnect_long'] as const;
@@ -748,8 +719,8 @@ export type GradeQuizQuestion = z.infer<typeof gradeQuizQuestionSchema>;
 /** Bộ mức nhận thức trên cặp câu×YCCĐ (Curriculum Chặng 2): Biết / Hiểu / Vận dụng / Vận dụng cao. */
 export const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
 
-/** Loại preset của ma trận: định kỳ theo CV 7991, tốt nghiệp theo QĐ 764, hoặc tự đặt. */
-export const MATRIX_PRESET_KINDS = ['cv7991_periodic', 'qd764_graduation', 'custom'] as const;
+/** Khuôn ma trận DUY NHẤT: đặc tả theo CV 7991 (chốt 26/10 — bỏ hẳn cơ chế chọn preset; preset_kind ở tầng dữ liệu chỉ còn một giá trị này). */
+export const MATRIX_PRESET_KINDS = ['cv7991_periodic'] as const;
 
 /** Một ô ma trận = YCCĐ × mức × dạng câu (riêng truefalse, `questionCount` là số CHÙM 4 câu). */
 export const examMatrixCellViewSchema = z.object({
@@ -792,12 +763,11 @@ export const examMatrixViewSchema = z.object({
 });
 export type ExamMatrixView = z.infer<typeof examMatrixViewSchema>;
 
-/** Payload tạo ma trận; tỉ lệ mục tiêu không gửi thì chụp từ preset (custom = để trống). */
+/** Payload tạo ma trận; tỉ lệ mục tiêu không gửi thì chụp từ hằng tỉ lệ tham chiếu CV 7991. Giáo viên KHÔNG chọn preset (đã bỏ hẳn). */
 export const createExamMatrixSchema = z.strictObject({
   name: z.string().min(1),
   subjectId: uuidIdSchema,
   curriculumId: uuidIdSchema,
-  presetKind: z.enum(MATRIX_PRESET_KINDS).optional(),
   targetFormPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   levelSet: z.enum(['three', 'four']).optional(),
@@ -815,7 +785,6 @@ export type CreateExamMatrix = z.infer<typeof createExamMatrixSchema>;
 /** Payload sửa ma trận (không đổi môn/chương trình neo). */
 export const updateExamMatrixSchema = z.strictObject({
   name: z.string().min(1).optional(),
-  presetKind: z.enum(MATRIX_PRESET_KINDS).optional(),
   targetFormPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   levelSet: z.enum(['three', 'four']).optional(),
@@ -911,42 +880,11 @@ export const generateFromMatrixSchema = z.strictObject({
   courseId: uuidIdSchema,
   sectionId: uuidIdSchema,
   name: z.string().min(1),
-  drawMode: z.enum(['fixed', 'per_student']),
   timeLimitSeconds: z.number().int().positive().nullable().optional(),
 });
 export type GenerateFromMatrix = z.infer<typeof generateFromMatrixSchema>;
 
-/** Payload đổi câu của slot: slot cố định đổi `questionId` (ứng viên cùng ô); slot per-student đổi ô nguồn `matrixCellId`. */
-export const swapQuizSlotSchema = z.strictObject({
-  questionId: uuidIdSchema.optional(),
-  matrixCellId: uuidIdSchema.optional(),
-});
-export type SwapQuizSlot = z.infer<typeof swapQuizSlotSchema>;
 
-/** Payload gom/gỡ chùm Đ–S cho đề dựng tay: đúng 4 slot truefalse cùng một stimulus khi gom. */
-export const clusterQuizSlotsSchema = z.strictObject({
-  slotIds: z.array(uuidIdSchema).min(1),
-});
-export type ClusterQuizSlots = z.infer<typeof clusterQuizSlotsSchema>;
-
-/** Payload thêm slot vào đề: đúng một trong `questionId` (câu cố định) hoặc `categoryId` (slot ngẫu nhiên); `maxMark` bỏ trống thì lấy điểm mặc định của câu (slot cố định). `versionMode` (QB-3): bỏ trống thì câu từ bank tổ/trường mặc định `pinned`, còn lại `follow_latest`. */
-export const addQuizSlotSchema = z.strictObject({
-  questionId: uuidIdSchema.optional(),
-  categoryId: uuidIdSchema.optional(),
-  maxMark: z.number().positive().optional(),
-  page: z.number().int().positive().optional(),
-  versionMode: z.enum(['pinned', 'follow_latest']).optional(),
-});
-export type AddQuizSlot = z.infer<typeof addQuizSlotSchema>;
-
-/** Payload sửa một slot: đổi điểm, trang, vị trí (số thứ tự) trong đề hoặc chế độ version (QB-3 — chuyển sang `pinned` sẽ ghim vào version hiện tại). */
-export const updateQuizSlotSchema = z.strictObject({
-  maxMark: z.number().positive().optional(),
-  page: z.number().int().positive().optional(),
-  slot: z.number().int().positive().optional(),
-  versionMode: z.enum(['pinned', 'follow_latest']).optional(),
-});
-export type UpdateQuizSlot = z.infer<typeof updateQuizSlotSchema>;
 
 /** Payload bắt đầu lượt làm quiz; `preview` dành cho giáo viên xem trước đề (không tính lượt, không ghi điểm); `password` là mật khẩu vào thi khi đề/override yêu cầu. */
 export const startQuizAttemptSchema = z.strictObject({
@@ -1437,8 +1375,8 @@ export const createGuardianLinkSchema = z.strictObject({
 export type CreateGuardianLink = z.infer<typeof createGuardianLinkSchema>;
 // --- Ngân hàng đề (feat issue #113: EB-1) ---------------------------------------
 
-/** Hai dạng tồn tại của một đề: snapshot (bản chụp câu cụ thể, ghim version) / recipe (công thức theo ma trận — EB-2). Lát EB-1 chỉ snapshot sống. */
-export const EXAM_PAPER_KINDS = ['snapshot', 'recipe'] as const;
+/** Dạng tồn tại DUY NHẤT của một đề: snapshot — bản chụp câu cụ thể, ghim version (dạng recipe/công thức đã bỏ hẳn, chốt 26/10). */
+export const EXAM_PAPER_KINDS = ['snapshot'] as const;
 
 /** Loại kiểm tra của đề theo nghiệp vụ VN: thường xuyên / giữa kỳ / cuối kỳ / thi thử / ôn tập. */
 export const EXAM_PAPER_EXAM_KINDS = ['regular', 'midterm', 'final', 'mock', 'practice'] as const;
@@ -1452,16 +1390,16 @@ export const EXAM_PAPER_STATUSES = ['draft', 'ready', 'hidden'] as const;
  * ready mới nhất — kỷ luật QB-3). `section` là tên phần (Phần I/II…)
  * để chia phần trong đề; `clusterId` gom các slot truefalse cùng chùm Đ–S.
  */
-export const examPaperSlotInputSchema = z.strictObject({
+export const examSlotInputSchema = z.strictObject({
   questionId: uuidIdSchema,
   maxMark: z.number().positive().optional(),
   section: z.string().max(200).optional(),
   clusterId: uuidIdSchema.nullable().optional(),
 });
-export type ExamPaperSlotInput = z.infer<typeof examPaperSlotInputSchema>;
+export type ExamSlotInput = z.infer<typeof examSlotInputSchema>;
 
 /** Payload tạo đề snapshot trong một bank đề (bankKind='exam'): metadata + danh sách slot tuỳ chọn (rỗng = đề trắng). */
-export const createExamPaperSchema = z.strictObject({
+export const createExamSchema = z.strictObject({
   name: z.string().min(1),
   subjectId: uuidIdSchema.nullable().optional(),
   grade: z.number().int().min(1).max(12).nullable().optional(),
@@ -1470,12 +1408,12 @@ export const createExamPaperSchema = z.strictObject({
   durationMinutes: z.number().int().positive().nullable().optional(),
   tfScale: z.array(z.number()).length(5).nullable().optional(),
   matrixId: uuidIdSchema.nullable().optional(),
-  slots: z.array(examPaperSlotInputSchema).max(500).optional(),
+  slots: z.array(examSlotInputSchema).max(500).optional(),
 });
-export type CreateExamPaper = z.infer<typeof createExamPaperSchema>;
+export type CreateExam = z.infer<typeof createExamSchema>;
 
 /** Payload sửa metadata của đề — mỗi lần sửa tạo một paper version mới (slots giữ nguyên từ version hiện tại nếu không gửi kèm). */
-export const updateExamPaperSchema = z.strictObject({
+export const updateExamSchema = z.strictObject({
   name: z.string().min(1).optional(),
   subjectId: uuidIdSchema.nullable().optional(),
   grade: z.number().int().min(1).max(12).nullable().optional(),
@@ -1485,71 +1423,95 @@ export const updateExamPaperSchema = z.strictObject({
   tfScale: z.array(z.number()).length(5).nullable().optional(),
   matrixId: uuidIdSchema.nullable().optional(),
 });
-export type UpdateExamPaper = z.infer<typeof updateExamPaperSchema>;
+export type UpdateExam = z.infer<typeof updateExamSchema>;
 
 /** Payload thay toàn bộ danh sách slot của đề — tạo paper version mới với đúng danh sách này. */
-export const setExamPaperSlotsSchema = z.strictObject({
-  slots: z.array(examPaperSlotInputSchema).max(500),
+export const setExamSlotsSchema = z.strictObject({
+  slots: z.array(examSlotInputSchema).max(500),
 });
-export type SetExamPaperSlots = z.infer<typeof setExamPaperSlotsSchema>;
+export type SetExamSlots = z.infer<typeof setExamSlotsSchema>;
 
 /** Payload đổi trạng thái vòng đời của đề. */
-export const setExamPaperStatusSchema = z.strictObject({
+export const setExamStatusSchema = z.strictObject({
   status: z.enum(EXAM_PAPER_STATUSES),
 });
-export type SetExamPaperStatus = z.infer<typeof setExamPaperStatusSchema>;
+export type SetExamStatus = z.infer<typeof setExamStatusSchema>;
 
 /** Payload copy một đề sang bank đích (mặc định ngân hàng đề cá nhân của người copy): deep copy slots, question + pinned version giữ nguyên. */
-export const copyExamPaperSchema = z.strictObject({
+export const copyExamSchema = z.strictObject({
   targetBankId: uuidIdSchema.optional(),
   name: z.string().min(1).optional(),
 });
-export type CopyExamPaper = z.infer<typeof copyExamPaperSchema>;
+export type CopyExam = z.infer<typeof copyExamSchema>;
 
 /** Payload đề xuất đóng góp một đề vào bank đích (khuôn QB-4, chỉ mode 'new': duyệt đạt thì deep copy vào bank đích). */
-export const createExamPaperContributionSchema = z.strictObject({
-  paperId: uuidIdSchema,
+export const createExamContributionSchema = z.strictObject({
+  examId: uuidIdSchema,
   note: z.string().optional(),
 });
-export type CreateExamPaperContribution = z.infer<typeof createExamPaperContributionSchema>;
+export type CreateExamContribution = z.infer<typeof createExamContributionSchema>;
 
 /** Payload duyệt đề xuất đóng góp đề (không tham số — bản copy vào bank đích mang tên + truy vết của đề nguồn). */
-export const approveExamPaperContributionSchema = z.strictObject({});
-export type ApproveExamPaperContribution = z.infer<typeof approveExamPaperContributionSchema>;
+export const approveExamContributionSchema = z.strictObject({});
+export type ApproveExamContribution = z.infer<typeof approveExamContributionSchema>;
 
 /** Payload từ chối đề xuất đóng góp đề: lý do bắt buộc. */
-export const rejectExamPaperContributionSchema = z.strictObject({
+export const rejectExamContributionSchema = z.strictObject({
   reason: z.string().min(1),
 });
-export type RejectExamPaperContribution = z.infer<typeof rejectExamPaperContributionSchema>;
+export type RejectExamContribution = z.infer<typeof rejectExamContributionSchema>;
 
 /**
- * Payload triển khai một đề (paper version hiện tại) vào một quiz: slots
- * của đề được chụp sang `quiz_slots` của quiz và quiz ghim paper
- * version. Quiz đã có slots dựng tay thì phải `replace: true` tường minh.
+ * Payload GHIM một đề vào khoá (thực thể hợp nhất thay quiz +
+ * deployment): đúng một nguồn đề — `examId` (+ `examVersionId` tuỳ
+ * chọn, bỏ trống = version hiện tại) của một đề ready trong bank,
+ * hoặc `newExam` để TẠO ĐỀ MỚI trong bank đề cá nhân của giáo viên
+ * rồi ghim ngay trong cùng một thao tác. Cấu hình lần tổ chức (giờ
+ * mở/đóng, thời lượng, số lượt, mật khẩu, luật xem lại, mã đề)
+ * thuộc về PIN — không thuộc đề.
  */
-export const deployExamPaperSchema = z.strictObject({
-  quizId: uuidIdSchema,
-  replace: z.boolean().optional(),
-  /**
-   * Số mã đề (variant) sinh cho lần triển khai này ở tầng deployment
-   * (EB-2, điểm E-5): mỗi mã 001, 002… kèm seed hoán vị để in/chấm
-   * khớp. Bỏ trống = 1 mã duy nhất.
-   */
-  variantCount: z.number().int().min(1).max(50).optional(),
-});
-export type DeployExamPaper = z.infer<typeof deployExamPaperSchema>;
-
-/**
- * Payload chụp (materialize) một đề RECIPE xuống SNAPSHOT (EB-2, điểm
- * D.3): recipe không sửa tay trực tiếp — sửa là chụp thành snapshot
- * mới (derived_from trỏ về recipe + matrix version) rồi sửa trên
- * snapshot. `name` bỏ trống thì lấy tên recipe kèm hậu tố "bản chụp".
- */
-export const materializeExamPaperSchema = z.strictObject({
+export const createExamPinSchema = z.strictObject({
+  sectionId: uuidIdSchema,
+  examId: uuidIdSchema.optional(),
+  examVersionId: uuidIdSchema.optional(),
+  newExam: createExamSchema.optional(),
+  /** Tên hiển thị ghi đè trong khoá; bỏ trống = dùng tên exam version. */
   name: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attemptsAllowed: z.number().int().min(0).optional(),
+  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
+  shuffleAnswers: z.boolean().optional(),
+  /** Số mã đề sinh cho lần ghim này (mỗi mã 001, 002… kèm seed hoán vị để in/chấm khớp); bỏ trống = 1. */
+  variantCount: z.number().int().min(1).max(50).optional(),
+  ...pinAccessRuleFields,
 });
-export type MaterializeExamPaper = z.infer<typeof materializeExamPaperSchema>;
+export type CreateExamPin = z.infer<typeof createExamPinSchema>;
+
+/**
+ * Payload sửa cấu hình tổ chức của một pin (mọi trường tuỳ chọn;
+ * `timeOpen`/`timeClose`/`timeLimitSeconds` nhận `null` để gỡ). Đổi
+ * `examVersionId` bị khoá khi pin đã có lượt làm thật
+ * (`exam.pin_locked`); đổi số mã đề cũng vậy.
+ */
+export const updateExamPinSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  intro: z.string().optional(),
+  timeOpen: z.string().nullable().optional(),
+  timeClose: z.string().nullable().optional(),
+  timeLimitSeconds: z.number().int().positive().nullable().optional(),
+  attemptsAllowed: z.number().int().min(0).optional(),
+  gradeMethod: z.enum(QUIZ_GRADE_METHODS).optional(),
+  shuffleAnswers: z.boolean().optional(),
+  examVersionId: uuidIdSchema.optional(),
+  variantCount: z.number().int().min(1).max(50).optional(),
+  ...pinAccessRuleFields,
+});
+export type UpdateExamPin = z.infer<typeof updateExamPinSchema>;
+
+
 
 /**
  * Payload đổi câu của một slot snapshot BẰNG SWAP-CÙNG-Ô (EB-2, điểm
@@ -1558,11 +1520,11 @@ export type MaterializeExamPaper = z.infer<typeof materializeExamPaperSchema>;
  * slot giữ nguyên nên tỉ lệ ô chỉ lệch khi cấu trúc bị sửa bằng đường
  * khác — báo cáo lệch tỉ lệ đi kèm chi tiết đề.
  */
-export const swapExamPaperSlotSchema = z.strictObject({
+export const swapExamSlotSchema = z.strictObject({
   position: z.number().int().positive(),
   questionId: uuidIdSchema,
 });
-export type SwapExamPaperSlot = z.infer<typeof swapExamPaperSlotSchema>;
+export type SwapExamSlot = z.infer<typeof swapExamSlotSchema>;
 
 // --- Bộ hồ sơ duyệt đề (feat issue #165: EB-3) ----------------------------------
 
@@ -1620,22 +1582,22 @@ export type ExamDossierReviewView = z.infer<typeof examDossierReviewViewSchema>;
  */
 export const examDossierViewSchema = z.object({
   id: z.string(),
-  paperId: z.string(),
-  paperName: z.string().nullable(),
+  examId: z.string(),
+  examName: z.string().nullable(),
   sourceBankId: z.string().nullable(),
   targetBankId: z.string(),
   proposerId: z.string(),
   proposerName: z.string().nullable(),
   note: z.string(),
   status: z.enum(EXAM_DOSSIER_STATUSES),
-  paperVersionId: z.string().nullable(),
-  paperVersionNumber: z.number().nullable(),
+  examVersionId: z.string().nullable(),
+  examVersionNumber: z.number().nullable(),
   matrixId: z.string().nullable(),
   matrixName: z.string().nullable(),
   matrixVersion: z.number().nullable(),
   /** Cấu hình cấp duyệt 2 (BGH) hiệu lực tại lúc đọc — khi true và bộ đang `pending`, duyệt cấp 1 chỉ đưa bộ sang `pending_board`. */
   boardApprovalRequired: z.boolean(),
-  resultPaperId: z.string().nullable(),
+  resultExamId: z.string().nullable(),
   reviews: z.array(examDossierReviewViewSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -1682,7 +1644,7 @@ export type PaperRosterEntry = z.infer<typeof paperRosterEntrySchema>;
 /** Một lô IN phiếu (một mã đề) của một quiz: layout đã ghim + roster tại thời điểm sinh. Lô in khác lô chụp: một buổi chụp gồm nhiều lô in (mỗi mã đề một lô), phiếu được định tuyến về lô in theo mã đề đọc từ phiếu. */
 export const paperBatchSchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   variantCode: z.string(),
   /** Mã đề 4 số giống Bộ của variant này (giao diện khớp variant_code của tầng triển khai đề); học sinh ghi + tô mã này lên phiếu dùng chung. Null với các lô sinh trước khi có mã đề số. */
   examCode: z.string().nullable(),
@@ -1748,7 +1710,7 @@ export type PaperScanRegions = z.infer<typeof paperScanRegionsSchema>;
 
 export const paperScanSchema = z.object({
   id: uuidIdSchema,
-  quizId: uuidIdSchema,
+  pinId: uuidIdSchema,
   /** Lô in mà phiếu thuộc về (theo mã đề đọc được / QR / giáo viên gán); null khi phiếu chưa định tuyến được về lô in nào — phiếu nằm ở hàng chờ gán lô. */
   batchId: uuidIdSchema.nullable(),
   /** Lô chụp (một lượt tải ảnh của một buổi) chứa phiếu này; mọi phiếu trong cùng lượt tải mang cùng mã. */

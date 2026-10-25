@@ -1101,15 +1101,20 @@ CREATE TABLE "mcp_idempotency_keys" (
 	CONSTRAINT "mcp_idempotency_keys_user_key_unique" UNIQUE("user_id","key")
 );
 --> statement-breakpoint
-CREATE TABLE "exam_deployments" (
+CREATE TABLE "exam_contributions" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"paper_id" uuid NOT NULL,
-	"paper_version_id" uuid NOT NULL,
-	"quiz_id" uuid NOT NULL,
-	"variant_count" integer DEFAULT 1 NOT NULL,
-	"variants" jsonb NOT NULL,
-	"created_by" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"exam_id" uuid NOT NULL,
+	"target_bank_id" uuid NOT NULL,
+	"proposer_id" uuid NOT NULL,
+	"note" text DEFAULT '' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"content_hash" text DEFAULT '' NOT NULL,
+	"near_duplicate_of" uuid,
+	"reject_reason" text,
+	"reviewer_id" uuid,
+	"result_exam_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "exam_dossier_reviews" (
@@ -1126,41 +1131,25 @@ CREATE TABLE "exam_dossier_reviews" (
 --> statement-breakpoint
 CREATE TABLE "exam_dossiers" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"paper_id" uuid NOT NULL,
+	"exam_id" uuid NOT NULL,
 	"target_bank_id" uuid NOT NULL,
 	"proposer_id" uuid NOT NULL,
 	"note" text DEFAULT '' NOT NULL,
 	"status" text DEFAULT 'draft' NOT NULL,
-	"paper_version_id" uuid,
-	"paper_version_number" integer,
+	"exam_version_id" uuid,
+	"exam_version_number" integer,
 	"matrix_id" uuid,
 	"matrix_version" integer,
 	"spec_snapshot" jsonb,
-	"result_paper_id" uuid,
+	"result_exam_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "exam_dossiers_status_check" CHECK ("status" in ('draft', 'pending', 'pending_board', 'approved', 'rejected'))
 );
 --> statement-breakpoint
-CREATE TABLE "exam_paper_contributions" (
+CREATE TABLE "exam_slots" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"paper_id" uuid NOT NULL,
-	"target_bank_id" uuid NOT NULL,
-	"proposer_id" uuid NOT NULL,
-	"note" text DEFAULT '' NOT NULL,
-	"status" text DEFAULT 'pending' NOT NULL,
-	"content_hash" text DEFAULT '' NOT NULL,
-	"near_duplicate_of" uuid,
-	"reject_reason" text,
-	"reviewer_id" uuid,
-	"result_paper_id" uuid,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "exam_paper_slots" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"paper_version_id" uuid NOT NULL,
+	"exam_version_id" uuid NOT NULL,
 	"position" integer NOT NULL,
 	"section" text DEFAULT '' NOT NULL,
 	"question_id" uuid NOT NULL,
@@ -1170,12 +1159,12 @@ CREATE TABLE "exam_paper_slots" (
 	"cluster_id" uuid,
 	"matrix_cell_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_paper_slots_version_position_unique" UNIQUE("paper_version_id","position")
+	CONSTRAINT "exam_slots_version_position_unique" UNIQUE("exam_version_id","position")
 );
 --> statement-breakpoint
-CREATE TABLE "exam_paper_versions" (
+CREATE TABLE "exam_versions" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"paper_id" uuid NOT NULL,
+	"exam_id" uuid NOT NULL,
 	"version" integer NOT NULL,
 	"name" text NOT NULL,
 	"subject_id" uuid,
@@ -1186,20 +1175,19 @@ CREATE TABLE "exam_paper_versions" (
 	"tf_scale" jsonb,
 	"matrix_id" uuid,
 	"matrix_version" integer,
-	"recipe_spec" jsonb,
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_paper_versions_paper_version_unique" UNIQUE("paper_id","version"),
-	CONSTRAINT "exam_paper_versions_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'midterm', 'final', 'mock', 'practice'))
+	CONSTRAINT "exam_versions_paper_version_unique" UNIQUE("exam_id","version"),
+	CONSTRAINT "exam_versions_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'midterm', 'final', 'mock', 'practice'))
 );
 --> statement-breakpoint
-CREATE TABLE "exam_papers" (
+CREATE TABLE "exams" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"tenant_id" uuid,
 	"bank_id" uuid NOT NULL,
 	"kind" text DEFAULT 'snapshot' NOT NULL,
 	"status" text DEFAULT 'draft' NOT NULL,
-	"derived_from_paper_id" uuid,
+	"derived_from_exam_id" uuid,
 	"derived_from_matrix_id" uuid,
 	"original_author_id" uuid,
 	"created_by" uuid NOT NULL,
@@ -1207,8 +1195,34 @@ CREATE TABLE "exam_papers" (
 	"copy_count" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_papers_kind_check" CHECK ("kind" in ('snapshot', 'recipe')),
-	CONSTRAINT "exam_papers_status_check" CHECK ("status" in ('draft', 'ready', 'hidden'))
+	CONSTRAINT "exams_kind_check" CHECK ("kind" in ('snapshot')),
+	CONSTRAINT "exams_status_check" CHECK ("status" in ('draft', 'ready', 'hidden'))
+);
+--> statement-breakpoint
+CREATE TABLE "exam_attempt_events" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"attempt_id" uuid NOT NULL,
+	"type" text NOT NULL,
+	"data" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "exam_attempts" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"pin_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"attempt_number" integer NOT NULL,
+	"usage_id" uuid NOT NULL CONSTRAINT "exam_attempts_usage_unique" UNIQUE,
+	"state" text DEFAULT 'inprogress' NOT NULL,
+	"preview" boolean DEFAULT false NOT NULL,
+	"makeup" boolean DEFAULT false NOT NULL,
+	"applied_settings" jsonb,
+	"time_start" timestamp with time zone DEFAULT now() NOT NULL,
+	"time_finish" timestamp with time zone,
+	"sum_grades" double precision,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_attempts_pin_user_number_unique" UNIQUE("pin_id","user_id","attempt_number")
 );
 --> statement-breakpoint
 CREATE TABLE "exam_matrices" (
@@ -1223,7 +1237,7 @@ CREATE TABLE "exam_matrices" (
 	"is_template" boolean DEFAULT false NOT NULL,
 	"derived_from_matrix_id" uuid,
 	"version" integer DEFAULT 1 NOT NULL,
-	"preset_kind" text DEFAULT 'custom' NOT NULL,
+	"preset_kind" text DEFAULT 'cv7991_periodic' NOT NULL,
 	"target_form_percents" jsonb,
 	"target_level_percents" jsonb,
 	"level_set" text DEFAULT 'three' NOT NULL,
@@ -1233,7 +1247,7 @@ CREATE TABLE "exam_matrices" (
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_matrices_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic', 'qd764_graduation', 'custom')),
+	CONSTRAINT "exam_matrices_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic')),
 	CONSTRAINT "exam_matrices_level_set_check" CHECK ("level_set" in ('three', 'four')),
 	CONSTRAINT "exam_matrices_status_check" CHECK ("status" in ('draft', 'ready', 'hidden'))
 );
@@ -1273,46 +1287,20 @@ CREATE TABLE "exam_matrix_contributions" (
 	CONSTRAINT "exam_matrix_contributions_status_check" CHECK ("status" in ('pending', 'approved', 'rejected'))
 );
 --> statement-breakpoint
-CREATE TABLE "quiz_attempt_events" (
+CREATE TABLE "exam_pin_feedbacks" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"attempt_id" uuid NOT NULL,
-	"type" text NOT NULL,
-	"data" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "quiz_attempts" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
-	"user_id" uuid NOT NULL,
-	"attempt_number" integer NOT NULL,
-	"usage_id" uuid NOT NULL CONSTRAINT "quiz_attempts_usage_unique" UNIQUE,
-	"state" text DEFAULT 'inprogress' NOT NULL,
-	"preview" boolean DEFAULT false NOT NULL,
-	"makeup" boolean DEFAULT false NOT NULL,
-	"applied_settings" jsonb,
-	"time_start" timestamp with time zone DEFAULT now() NOT NULL,
-	"time_finish" timestamp with time zone,
-	"sum_grades" double precision,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_attempts_quiz_user_number_unique" UNIQUE("quiz_id","user_id","attempt_number")
-);
---> statement-breakpoint
-CREATE TABLE "quiz_feedbacks" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
+	"pin_id" uuid NOT NULL,
 	"min_percent" double precision NOT NULL,
 	"max_percent" double precision NOT NULL,
 	"feedback" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_feedbacks_range_check" CHECK ("min_percent" >= 0 and "max_percent" <= 100 and "min_percent" < "max_percent")
+	CONSTRAINT "exam_pin_feedbacks_range_check" CHECK ("min_percent" >= 0 and "max_percent" <= 100 and "min_percent" < "max_percent")
 );
 --> statement-breakpoint
-CREATE TABLE "quiz_overrides" (
+CREATE TABLE "exam_pin_overrides" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
+	"pin_id" uuid NOT NULL,
 	"group_id" uuid,
 	"user_id" uuid,
 	"time_open" timestamp with time zone,
@@ -1323,58 +1311,28 @@ CREATE TABLE "quiz_overrides" (
 	"reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_overrides_quiz_group_unique" UNIQUE("quiz_id","group_id"),
-	CONSTRAINT "quiz_overrides_quiz_user_unique" UNIQUE("quiz_id","user_id"),
-	CONSTRAINT "quiz_overrides_exactly_one_target" CHECK (("group_id" is null) <> ("user_id" is null))
+	CONSTRAINT "exam_pin_overrides_pin_group_unique" UNIQUE("pin_id","group_id"),
+	CONSTRAINT "exam_pin_overrides_pin_user_unique" UNIQUE("pin_id","user_id"),
+	CONSTRAINT "exam_pin_overrides_exactly_one_target" CHECK (("group_id" is null) <> ("user_id" is null))
 );
 --> statement-breakpoint
-CREATE TABLE "quiz_slot_version_events" (
+CREATE TABLE "exam_pins" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
-	"slot_id" uuid NOT NULL,
-	"question_id" uuid NOT NULL,
-	"from_version" integer,
-	"to_version" integer NOT NULL,
-	"actor_id" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "quiz_slots" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
-	"slot" integer NOT NULL,
-	"page" integer DEFAULT 1 NOT NULL,
-	"question_id" uuid,
-	"category_id" uuid,
-	"matrix_cell_id" uuid,
-	"cluster_id" uuid,
-	"max_mark" double precision DEFAULT 1 NOT NULL,
-	"version_mode" text DEFAULT 'follow_latest' NOT NULL,
-	"pinned_version_id" uuid,
-	"pinned_version_number" integer,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_slots_quiz_slot_unique" UNIQUE("quiz_id","slot"),
-	CONSTRAINT "quiz_slots_source_rule" CHECK (("question_id" is not null or "category_id" is not null or "matrix_cell_id" is not null) and not ("category_id" is not null and ("question_id" is not null or "matrix_cell_id" is not null)))
-);
---> statement-breakpoint
-CREATE TABLE "quizzes" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"course" uuid NOT NULL,
+	"exam_id" uuid NOT NULL,
+	"exam_version_id" uuid NOT NULL,
+	"course_id" uuid NOT NULL,
 	"cm_id" uuid,
-	"name" text NOT NULL,
+	"target_group_id" uuid,
+	"name" text,
 	"intro" text DEFAULT '' NOT NULL,
 	"time_open" timestamp with time zone,
 	"time_close" timestamp with time zone,
 	"time_limit" integer,
 	"attempts_allowed" integer DEFAULT 0 NOT NULL,
 	"grade_method" text DEFAULT 'highest' NOT NULL,
-	"grade" double precision DEFAULT 10 NOT NULL,
 	"shuffle_answers" boolean DEFAULT false NOT NULL,
 	"password_hash" text,
 	"subnet" text,
-	"delay1" integer,
-	"delay2" integer,
 	"review_attempt" integer DEFAULT 69904 NOT NULL,
 	"review_correctness" integer DEFAULT 4368 NOT NULL,
 	"review_marks" integer DEFAULT 4368 NOT NULL,
@@ -1382,21 +1340,21 @@ CREATE TABLE "quizzes" (
 	"review_general_feedback" integer DEFAULT 4368 NOT NULL,
 	"review_right_answer" integer DEFAULT 272 NOT NULL,
 	"review_overall_feedback" integer DEFAULT 4368 NOT NULL,
-	"matrix_id" uuid,
-	"paper_id" uuid,
-	"paper_version_id" uuid,
-	"tf_scale" jsonb,
-	"exam_kind" text,
+	"preset" text,
 	"late_entry_minutes" integer,
 	"monitor_events" boolean DEFAULT false NOT NULL,
+	"variant_count" integer DEFAULT 1 NOT NULL,
+	"variants" jsonb NOT NULL,
+	"results_published_at" timestamp with time zone,
+	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quizzes_exam_kind_check" CHECK ("exam_kind" is null or "exam_kind" in ('regular', 'periodic', 'mock'))
+	CONSTRAINT "exam_pins_preset_check" CHECK ("preset" is null or "preset" in ('regular', 'periodic', 'mock'))
 );
 --> statement-breakpoint
-CREATE TABLE "quiz_paper_batches" (
+CREATE TABLE "exam_batches" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"quiz_id" uuid NOT NULL,
+	"exam_pin_id" uuid NOT NULL,
 	"variant_code" text NOT NULL,
 	"exam_code" text,
 	"code_digits" integer DEFAULT 4 NOT NULL,
@@ -1405,16 +1363,16 @@ CREATE TABLE "quiz_paper_batches" (
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_paper_batches_quiz_variant_unique" UNIQUE("quiz_id","variant_code"),
-	CONSTRAINT "quiz_paper_batches_quiz_exam_code_unique" UNIQUE("quiz_id","exam_code"),
-	CONSTRAINT "quiz_paper_batches_code_digits_check" CHECK ("code_digits" in (4, 8))
+	CONSTRAINT "exam_batches_quiz_variant_unique" UNIQUE("exam_pin_id","variant_code"),
+	CONSTRAINT "exam_batches_quiz_exam_code_unique" UNIQUE("exam_pin_id","exam_code"),
+	CONSTRAINT "exam_batches_code_digits_check" CHECK ("code_digits" in (4, 8))
 );
 --> statement-breakpoint
-CREATE TABLE "quiz_paper_scans" (
+CREATE TABLE "exam_scans" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"batch_id" uuid,
 	"session_id" uuid,
-	"quiz_id" uuid NOT NULL,
+	"exam_pin_id" uuid NOT NULL,
 	"file_id" uuid NOT NULL,
 	"warped_file_id" uuid,
 	"student_id" uuid,
@@ -1429,8 +1387,8 @@ CREATE TABLE "quiz_paper_scans" (
 	"expires_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "quiz_paper_scans_status_check" CHECK ("status" in ('needs_identity', 'needs_review', 'ready', 'recorded')),
-	CONSTRAINT "quiz_paper_scans_identity_source_check" CHECK ("identity_source" is null or "identity_source" in ('qr', 'bubbles', 'manual'))
+	CONSTRAINT "exam_scans_status_check" CHECK ("status" in ('needs_identity', 'needs_review', 'ready', 'recorded')),
+	CONSTRAINT "exam_scans_identity_source_check" CHECK ("identity_source" is null or "identity_source" in ('qr', 'bubbles', 'manual'))
 );
 --> statement-breakpoint
 CREATE TABLE "assign_annotations" (
@@ -1788,6 +1746,7 @@ CREATE TABLE "message" (
 	"small_message" text DEFAULT '' NOT NULL,
 	"seq" integer NOT NULL,
 	"client_message_id" text,
+	"reply_to_message_id" uuid,
 	"deleted_at" timestamp with time zone,
 	"deleted_by" uuid,
 	"recalled_at" timestamp with time zone,
@@ -2615,32 +2574,32 @@ CREATE INDEX "question_versions_stimulus_id_idx" ON "question_versions" ("stimul
 CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statement-breakpoint
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
 CREATE INDEX "mcp_idempotency_keys_expires_idx" ON "mcp_idempotency_keys" ("expires_at");--> statement-breakpoint
-CREATE INDEX "exam_deployments_paper_idx" ON "exam_deployments" ("paper_id");--> statement-breakpoint
-CREATE INDEX "exam_deployments_paper_version_idx" ON "exam_deployments" ("paper_version_id");--> statement-breakpoint
-CREATE INDEX "exam_deployments_quiz_idx" ON "exam_deployments" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_target_bank_idx" ON "exam_contributions" ("target_bank_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_paper_idx" ON "exam_contributions" ("exam_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_proposer_idx" ON "exam_contributions" ("proposer_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_status_idx" ON "exam_contributions" ("status");--> statement-breakpoint
 CREATE INDEX "exam_dossier_reviews_dossier_idx" ON "exam_dossier_reviews" ("dossier_id");--> statement-breakpoint
 CREATE INDEX "exam_dossiers_target_bank_idx" ON "exam_dossiers" ("target_bank_id");--> statement-breakpoint
-CREATE INDEX "exam_dossiers_paper_idx" ON "exam_dossiers" ("paper_id");--> statement-breakpoint
-CREATE INDEX "exam_dossiers_paper_version_idx" ON "exam_dossiers" ("paper_version_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_paper_idx" ON "exam_dossiers" ("exam_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_paper_version_idx" ON "exam_dossiers" ("exam_version_id");--> statement-breakpoint
 CREATE INDEX "exam_dossiers_matrix_idx" ON "exam_dossiers" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_dossiers_proposer_idx" ON "exam_dossiers" ("proposer_id");--> statement-breakpoint
 CREATE INDEX "exam_dossiers_status_idx" ON "exam_dossiers" ("status");--> statement-breakpoint
-CREATE INDEX "exam_paper_contributions_target_bank_idx" ON "exam_paper_contributions" ("target_bank_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_contributions_paper_idx" ON "exam_paper_contributions" ("paper_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_contributions_proposer_idx" ON "exam_paper_contributions" ("proposer_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_contributions_status_idx" ON "exam_paper_contributions" ("status");--> statement-breakpoint
-CREATE INDEX "exam_paper_slots_version_idx" ON "exam_paper_slots" ("paper_version_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_slots_question_idx" ON "exam_paper_slots" ("question_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_slots_cluster_idx" ON "exam_paper_slots" ("cluster_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_slots_matrix_cell_idx" ON "exam_paper_slots" ("matrix_cell_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_versions_paper_idx" ON "exam_paper_versions" ("paper_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_versions_subject_idx" ON "exam_paper_versions" ("subject_id");--> statement-breakpoint
-CREATE INDEX "exam_paper_versions_matrix_idx" ON "exam_paper_versions" ("matrix_id");--> statement-breakpoint
-CREATE INDEX "exam_papers_tenant_id_idx" ON "exam_papers" ("tenant_id");--> statement-breakpoint
-CREATE INDEX "exam_papers_bank_id_idx" ON "exam_papers" ("bank_id");--> statement-breakpoint
-CREATE INDEX "exam_papers_status_idx" ON "exam_papers" ("status");--> statement-breakpoint
-CREATE INDEX "exam_papers_created_by_idx" ON "exam_papers" ("created_by");--> statement-breakpoint
-CREATE INDEX "exam_papers_derived_from_idx" ON "exam_papers" ("derived_from_paper_id");--> statement-breakpoint
+CREATE INDEX "exam_slots_version_idx" ON "exam_slots" ("exam_version_id");--> statement-breakpoint
+CREATE INDEX "exam_slots_question_idx" ON "exam_slots" ("question_id");--> statement-breakpoint
+CREATE INDEX "exam_slots_cluster_idx" ON "exam_slots" ("cluster_id");--> statement-breakpoint
+CREATE INDEX "exam_slots_matrix_cell_idx" ON "exam_slots" ("matrix_cell_id");--> statement-breakpoint
+CREATE INDEX "exam_versions_paper_idx" ON "exam_versions" ("exam_id");--> statement-breakpoint
+CREATE INDEX "exam_versions_subject_idx" ON "exam_versions" ("subject_id");--> statement-breakpoint
+CREATE INDEX "exam_versions_matrix_idx" ON "exam_versions" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "exams_tenant_id_idx" ON "exams" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "exams_bank_id_idx" ON "exams" ("bank_id");--> statement-breakpoint
+CREATE INDEX "exams_status_idx" ON "exams" ("status");--> statement-breakpoint
+CREATE INDEX "exams_created_by_idx" ON "exams" ("created_by");--> statement-breakpoint
+CREATE INDEX "exams_derived_from_idx" ON "exams" ("derived_from_exam_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_events_attempt_idx" ON "exam_attempt_events" ("attempt_id");--> statement-breakpoint
+CREATE INDEX "exam_attempts_pin_id_idx" ON "exam_attempts" ("pin_id");--> statement-breakpoint
+CREATE INDEX "exam_attempts_user_id_idx" ON "exam_attempts" ("user_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_tenant_id_idx" ON "exam_matrices" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
@@ -2651,29 +2610,20 @@ CREATE INDEX "exam_matrix_contributions_target_bank_idx" ON "exam_matrix_contrib
 CREATE INDEX "exam_matrix_contributions_matrix_idx" ON "exam_matrix_contributions" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_contributions_proposer_idx" ON "exam_matrix_contributions" ("proposer_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_contributions_status_idx" ON "exam_matrix_contributions" ("status");--> statement-breakpoint
-CREATE INDEX "quiz_attempt_events_attempt_idx" ON "quiz_attempt_events" ("attempt_id");--> statement-breakpoint
-CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
-CREATE INDEX "quiz_feedbacks_quiz_idx" ON "quiz_feedbacks" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_overrides_quiz_idx" ON "quiz_overrides" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_overrides_group_idx" ON "quiz_overrides" ("group_id");--> statement-breakpoint
-CREATE INDEX "quiz_slot_version_events_slot_idx" ON "quiz_slot_version_events" ("slot_id");--> statement-breakpoint
-CREATE INDEX "quiz_slot_version_events_quiz_idx" ON "quiz_slot_version_events" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_slots_question_id_idx" ON "quiz_slots" ("question_id");--> statement-breakpoint
-CREATE INDEX "quiz_slots_category_id_idx" ON "quiz_slots" ("category_id");--> statement-breakpoint
-CREATE INDEX "quiz_slots_matrix_cell_id_idx" ON "quiz_slots" ("matrix_cell_id");--> statement-breakpoint
-CREATE INDEX "quiz_slots_cluster_id_idx" ON "quiz_slots" ("cluster_id");--> statement-breakpoint
-CREATE INDEX "quizzes_course_idx" ON "quizzes" ("course");--> statement-breakpoint
-CREATE INDEX "quizzes_cm_id_idx" ON "quizzes" ("cm_id");--> statement-breakpoint
-CREATE INDEX "quizzes_matrix_idx" ON "quizzes" ("matrix_id");--> statement-breakpoint
-CREATE INDEX "quizzes_paper_idx" ON "quizzes" ("paper_id");--> statement-breakpoint
-CREATE INDEX "quizzes_paper_version_idx" ON "quizzes" ("paper_version_id");--> statement-breakpoint
-CREATE INDEX "quiz_paper_batches_quiz_idx" ON "quiz_paper_batches" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_paper_scans_quiz_idx" ON "quiz_paper_scans" ("quiz_id");--> statement-breakpoint
-CREATE INDEX "quiz_paper_scans_batch_idx" ON "quiz_paper_scans" ("batch_id");--> statement-breakpoint
-CREATE INDEX "quiz_paper_scans_status_idx" ON "quiz_paper_scans" ("quiz_id","status");--> statement-breakpoint
-CREATE INDEX "quiz_paper_scans_student_idx" ON "quiz_paper_scans" ("student_id");--> statement-breakpoint
-CREATE INDEX "quiz_paper_scans_attempt_idx" ON "quiz_paper_scans" ("attempt_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_feedbacks_pin_idx" ON "exam_pin_feedbacks" ("pin_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_overrides_pin_idx" ON "exam_pin_overrides" ("pin_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_overrides_group_idx" ON "exam_pin_overrides" ("group_id");--> statement-breakpoint
+CREATE INDEX "exam_pins_course_idx" ON "exam_pins" ("course_id");--> statement-breakpoint
+CREATE INDEX "exam_pins_cm_id_idx" ON "exam_pins" ("cm_id");--> statement-breakpoint
+CREATE INDEX "exam_pins_exam_idx" ON "exam_pins" ("exam_id");--> statement-breakpoint
+CREATE INDEX "exam_pins_exam_version_idx" ON "exam_pins" ("exam_version_id");--> statement-breakpoint
+CREATE INDEX "exam_pins_target_group_idx" ON "exam_pins" ("target_group_id");--> statement-breakpoint
+CREATE INDEX "exam_batches_pin_idx" ON "exam_batches" ("exam_pin_id");--> statement-breakpoint
+CREATE INDEX "exam_scans_pin_idx" ON "exam_scans" ("exam_pin_id");--> statement-breakpoint
+CREATE INDEX "exam_scans_batch_idx" ON "exam_scans" ("batch_id");--> statement-breakpoint
+CREATE INDEX "exam_scans_status_idx" ON "exam_scans" ("exam_pin_id","status");--> statement-breakpoint
+CREATE INDEX "exam_scans_student_idx" ON "exam_scans" ("student_id");--> statement-breakpoint
+CREATE INDEX "exam_scans_attempt_idx" ON "exam_scans" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_submission_id_idx" ON "assign_annotations" ("submission_id");--> statement-breakpoint
 CREATE INDEX "assign_annotations_file_id_idx" ON "assign_annotations" ("file_id");--> statement-breakpoint
 CREATE INDEX "assign_feedback_messages_grade_id_idx" ON "assign_feedback_messages" ("grade_id");--> statement-breakpoint
@@ -2727,6 +2677,7 @@ CREATE INDEX "books_subject_id_idx" ON "books" ("subject_id");--> statement-brea
 CREATE INDEX "books_kind_idx" ON "books" ("kind");--> statement-breakpoint
 CREATE INDEX "message_conversation_id_idx" ON "message" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_user_id_from_idx" ON "message" ("user_id_from");--> statement-breakpoint
+CREATE INDEX "message_reply_to_message_id_idx" ON "message" ("reply_to_message_id");--> statement-breakpoint
 CREATE INDEX "message_conversation_seq_idx" ON "message" ("conversation_id","seq");--> statement-breakpoint
 CREATE INDEX "message_contact_requests_user_id_to_idx" ON "message_contact_requests" ("user_id_to");--> statement-breakpoint
 CREATE INDEX "message_contacts_contact_id_idx" ON "message_contacts" ("contact_id");--> statement-breakpoint
@@ -2958,23 +2909,24 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_1NDKL1LfCtcc_f
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_stimuli_id_fkey" FOREIGN KEY ("stimulus_id") REFERENCES "stimuli"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_deployments" ADD CONSTRAINT "exam_deployments_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_deployments" ADD CONSTRAINT "exam_deployments_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_exam_id_exams_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_dossier_reviews" ADD CONSTRAINT "exam_dossier_reviews_dossier_id_exam_dossiers_id_fkey" FOREIGN KEY ("dossier_id") REFERENCES "exam_dossiers"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_exam_id_exams_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_exam_version_id_exam_versions_id_fkey" FOREIGN KEY ("exam_version_id") REFERENCES "exam_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "exam_paper_contributions" ADD CONSTRAINT "exam_paper_contributions_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_paper_contributions" ADD CONSTRAINT "exam_paper_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_paper_slots" ADD CONSTRAINT "exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_paper_slots" ADD CONSTRAINT "exam_paper_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_paper_slots" ADD CONSTRAINT "exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey" FOREIGN KEY ("matrix_cell_id") REFERENCES "exam_matrix_cells"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "exam_papers" ADD CONSTRAINT "exam_papers_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "exam_papers" ADD CONSTRAINT "exam_papers_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_slots" ADD CONSTRAINT "exam_slots_exam_version_id_exam_versions_id_fkey" FOREIGN KEY ("exam_version_id") REFERENCES "exam_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_slots" ADD CONSTRAINT "exam_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_slots" ADD CONSTRAINT "exam_slots_matrix_cell_id_exam_matrix_cells_id_fkey" FOREIGN KEY ("matrix_cell_id") REFERENCES "exam_matrix_cells"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_exam_id_exams_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exams" ADD CONSTRAINT "exams_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "exams" ADD CONSTRAINT "exams_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_events" ADD CONSTRAINT "exam_attempt_events_attempt_id_exam_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "exam_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempts" ADD CONSTRAINT "exam_attempts_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempts" ADD CONSTRAINT "exam_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2983,26 +2935,17 @@ ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_attempt_events" ADD CONSTRAINT "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_feedbacks" ADD CONSTRAINT "quiz_feedbacks_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_overrides" ADD CONSTRAINT "quiz_overrides_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slot_version_events" ADD CONSTRAINT "quiz_slot_version_events_slot_id_quiz_slots_id_fkey" FOREIGN KEY ("slot_id") REFERENCES "quiz_slots"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_slots" ADD CONSTRAINT "quiz_slots_matrix_cell_id_exam_matrix_cells_id_fkey" FOREIGN KEY ("matrix_cell_id") REFERENCES "exam_matrix_cells"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "quizzes" ADD CONSTRAINT "quizzes_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
-ALTER TABLE "quiz_paper_batches" ADD CONSTRAINT "quiz_paper_batches_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_batch_id_quiz_paper_batches_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "quiz_paper_batches"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "quiz_paper_scans" ADD CONSTRAINT "quiz_paper_scans_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_pin_feedbacks" ADD CONSTRAINT "exam_pin_feedbacks_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pin_overrides" ADD CONSTRAINT "exam_pin_overrides_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pin_overrides" ADD CONSTRAINT "exam_pin_overrides_group_id_course_groups_id_fkey" FOREIGN KEY ("group_id") REFERENCES "course_groups"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pins" ADD CONSTRAINT "exam_pins_exam_id_exams_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pins" ADD CONSTRAINT "exam_pins_exam_version_id_exam_versions_id_fkey" FOREIGN KEY ("exam_version_id") REFERENCES "exam_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pins" ADD CONSTRAINT "exam_pins_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pins" ADD CONSTRAINT "exam_pins_target_group_id_course_groups_id_fkey" FOREIGN KEY ("target_group_id") REFERENCES "course_groups"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_batches" ADD CONSTRAINT "exam_batches_exam_pin_id_exam_pins_id_fkey" FOREIGN KEY ("exam_pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_scans" ADD CONSTRAINT "exam_scans_batch_id_exam_batches_id_fkey" FOREIGN KEY ("batch_id") REFERENCES "exam_batches"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_scans" ADD CONSTRAINT "exam_scans_exam_pin_id_exam_pins_id_fkey" FOREIGN KEY ("exam_pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_scans" ADD CONSTRAINT "exam_scans_attempt_id_exam_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "exam_attempts"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_submission_id_assign_submissions_id_fkey" FOREIGN KEY ("submission_id") REFERENCES "assign_submissions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_annotations" ADD CONSTRAINT "assign_annotations_file_id_files_id_fkey" FOREIGN KEY ("file_id") REFERENCES "files"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "assign_feedback_messages" ADD CONSTRAINT "assign_feedback_messages_grade_id_assign_grades_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "assign_grades"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3047,6 +2990,7 @@ ALTER TABLE "book_records" ADD CONSTRAINT "book_records_book_id_books_id_fkey" F
 ALTER TABLE "book_records" ADD CONSTRAINT "book_records_node_id_book_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "book_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "books" ADD CONSTRAINT "books_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_reply_to_message_id_message_id_fkey" FOREIGN KEY ("reply_to_message_id") REFERENCES "message"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_reports" ADD CONSTRAINT "message_conversation_reports_Pp9sKN3GPtqe_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversations" ADD CONSTRAINT "message_conversations_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -3087,7 +3031,8 @@ ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_ma
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;-- TENANT-0 (issue #168) + TENANT-1 (issue #196): ROW LEVEL SECURITY —
+ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
+-- TENANT-0 (issue #168) + TENANT-1 (issue #196): ROW LEVEL SECURITY —
 -- cổng cách ly cứng ở tầng cơ sở dữ liệu. Mọi bảng mang tenant_id đều
 -- ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
 --   * Phiên platform tường minh (GUC app.platform = 'on', chỉ mã vận
@@ -3135,9 +3080,9 @@ CREATE POLICY "tenant_isolation" ON "question_banks" USING (current_setting('app
 ALTER TABLE "exam_matrices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "exam_matrices" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "exam_matrices" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
-ALTER TABLE "exam_papers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "exam_papers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "exam_papers" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+ALTER TABLE "exams" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "exams" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "exams" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "learning_outcomes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
@@ -3162,6 +3107,3 @@ CREATE POLICY "tenant_isolation" ON "notification_dispatch_log" USING (current_s
 ALTER TABLE "classes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "classes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
-ALTER TABLE "message" ADD COLUMN "reply_to_message_id" uuid;--> statement-breakpoint
-CREATE INDEX "message_reply_to_message_id_idx" ON "message" ("reply_to_message_id");--> statement-breakpoint
-ALTER TABLE "message" ADD CONSTRAINT "message_reply_to_message_id_message_id_fkey" FOREIGN KEY ("reply_to_message_id") REFERENCES "message"("id") ON DELETE SET NULL;

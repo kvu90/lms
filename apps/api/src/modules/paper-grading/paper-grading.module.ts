@@ -6,7 +6,7 @@ import { FilesModule } from '../files/files.module';
 import { QuizModule } from '../quiz/quiz.module';
 import { SiteConfigModule } from '../site-config/site-config.module';
 import { UsersModule } from '../users/users.module';
-import { PaperBatchesController, PaperScansController, PaperSessionScansController } from './paper-grading.controller';
+import { ExamBatchesController, ExamScansController } from './paper-grading.controller';
 import { PaperGradingRepository } from './paper-grading.repository';
 import { PaperGradingService } from './paper-grading.service';
 
@@ -21,7 +21,7 @@ import { PaperGradingService } from './paper-grading.service';
  */
 @Module({
   imports: [AccessModule, QuizModule, EnrolModule, UsersModule, FilesModule, SiteConfigModule, EventsModule],
-  controllers: [PaperBatchesController, PaperSessionScansController, PaperScansController],
+  controllers: [ExamBatchesController, ExamScansController],
   providers: [PaperGradingRepository, PaperGradingService],
   exports: [PaperGradingService],
 })

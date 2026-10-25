@@ -4,13 +4,13 @@ import type { Job } from 'bullmq';
 import { and, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { assignments, assignSubmissions, course, courseModules, enrol, outboxEvents, quizAttempts, quizzes, userEnrolments } from '@lms/db-schema';
+import { assignments, assignSubmissions, course, courseModules, enrol, examAttempts, examPins, examVersions, outboxEvents, userEnrolments } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
 
-export interface ActivityDueReminderPair { userId: string; quizId?: string; assignmentId?: string }
+export interface ActivityDueReminderPair { userId: string; pinId?: string; assignmentId?: string }
 export interface ActivityDueReminderResult { checkedAt: string; reminded: ActivityDueReminderPair[] }
 
 /**
@@ -36,9 +36,10 @@ const SUBMITTED_ATTEMPT_STATES = ['needsgrading', 'finished'];
  *
  * Hai loại hoạt động có hạn nộp (NB-1, issue #174 — trước đây chỉ có
  * Quiz, docblock cũ giữ tiền đề "mod_assign chưa tồn tại" đã sai từ
- * khi lát Bài tập landing): quiz theo `quizzes.time_close`, bài tập
- * theo `assignments.due_date`. Sự kiện mang `activityType` ('quiz' |
- * 'assign') + id của đúng loại đó (quizId | assignmentId) để consumer
+ * khi lát Bài tập landing): hoạt động đề theo `exam_pins.time_close`
+ * (sau gộp Đề #226, pin mang vai trò của quiz), bài tập theo
+ * `assignments.due_date`. Sự kiện mang `activityType` ('quiz' |
+ * 'assign') + id của đúng loại đó (pinId | assignmentId) để consumer
  * rẽ nhánh contextUrl theo loại.
  *
  * "Chưa nộp": quiz = chưa có attempt hoàn tất (needsgrading/finished,
@@ -76,37 +77,38 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + ACTIVITY_DUE_REMINDER_WINDOW_HOURS * 3600_000);
     const due = await this.db.select({
-      quizId: quizzes.id, quizName: quizzes.name, timeClose: quizzes.timeClose, courseId: quizzes.course,
+      pinId: examPins.id, pinName: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, timeClose: examPins.timeClose, courseId: examPins.courseId,
       tenantId: course.tenantId,
       cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
-    }).from(quizzes)
-      .innerJoin(course, eq(course.id, quizzes.course))
-      .leftJoin(courseModules, eq(courseModules.id, quizzes.cmId))
+    }).from(examPins)
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .innerJoin(course, eq(course.id, examPins.courseId))
+      .leftJoin(courseModules, eq(courseModules.id, examPins.cmId))
       .where(and(
         eq(course.visible, true),
-        gt(quizzes.timeClose, now),
-        lte(quizzes.timeClose, windowEnd),
+        gt(examPins.timeClose, now),
+        lte(examPins.timeClose, windowEnd),
       ));
     const reminded: ActivityDueReminderPair[] = [];
     for (const row of due) {
       if (!row.timeClose) continue;
       // Module bị ẩn hoặc đang xoá: học sinh không thấy/không vào
-      // được hoạt động — nhắc cũng vô ích (cmId null = quiz không gắn
+      // được hoạt động — nhắc cũng vô ích (cmId null = pin không gắn
       // module thì coi như hiện, theo cột cm_id chỉ là bản sao tra cứu).
       if (row.cmVisible === false || row.cmDeletionInProgress === true) continue;
       const students = await this.enrolledStudentIds(row.courseId, now);
       for (const userId of students) {
-        if (await this.hasSubmitted(row.quizId, userId)) continue;
-        if (await this.alreadyReminded(userId, row.quizId, row.timeClose)) continue;
+        if (await this.hasSubmitted(row.pinId, userId)) continue;
+        if (await this.alreadyReminded(userId, row.pinId, row.timeClose)) continue;
         await this.db.insert(outboxEvents).values({
           aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
           payload: {
-            userId, courseId: row.courseId, quizId: row.quizId, tenantId: row.tenantId,
-            activityType: 'quiz', activityName: row.quizName,
+            userId, courseId: row.courseId, pinId: row.pinId, tenantId: row.tenantId,
+            activityType: 'quiz', activityName: row.pinName,
             timeClose: row.timeClose.toISOString(),
           },
         });
-        reminded.push({ userId, quizId: row.quizId });
+        reminded.push({ userId, pinId: row.pinId });
       }
     }
     // Bài tập (NB-1, issue #174): cùng cửa sổ/dedupe theo
@@ -164,31 +166,31 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     return [...new Set(rows.map((r) => r.userId))];
   }
 
-  /** Đã nộp = tồn tại attempt không-preview ở trạng thái đã hoàn tất cho (quiz, học sinh). */
-  private async hasSubmitted(quizId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: quizAttempts.id }).from(quizAttempts)
+  /** Đã nộp = tồn tại attempt không-preview ở trạng thái đã hoàn tất cho (pin, học sinh). */
+  private async hasSubmitted(pinId: string, userId: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: examAttempts.id }).from(examAttempts)
       .where(and(
-        eq(quizAttempts.quizId, quizId),
-        eq(quizAttempts.userId, userId),
-        eq(quizAttempts.preview, false),
-        inArray(quizAttempts.state, SUBMITTED_ATTEMPT_STATES),
+        eq(examAttempts.pinId, pinId),
+        eq(examAttempts.userId, userId),
+        eq(examAttempts.preview, false),
+        inArray(examAttempts.state, SUBMITTED_ATTEMPT_STATES),
       ))
       .limit(1);
     return row !== undefined;
   }
 
   /**
-   * Chống trùng bền: sự kiện nhắc cho đúng (userId, quizId, timeClose)
+   * Chống trùng bền: sự kiện nhắc cho đúng (userId, pinId, timeClose)
    * đã tồn tại trong outbox thì không phát lại — job chạy lại sau 5
    * phút hay worker khởi động lại đều không spam; mốc hạn đổi thì bộ
    * ba khác đi và được nhắc lại.
    */
-  private async alreadyReminded(userId: string, quizId: string, timeClose: Date): Promise<boolean> {
+  private async alreadyReminded(userId: string, pinId: string, timeClose: Date): Promise<boolean> {
     const [row] = await this.db.select({ id: outboxEvents.id }).from(outboxEvents)
       .where(and(
         eq(outboxEvents.type, 'activity_due_reminder'),
         sql`${outboxEvents.payload}->>'userId' = ${userId}`,
-        sql`${outboxEvents.payload}->>'quizId' = ${quizId}`,
+        sql`${outboxEvents.payload}->>'pinId' = ${pinId}`,
         sql`${outboxEvents.payload}->>'timeClose' = ${timeClose.toISOString()}`,
       ))
       .limit(1);

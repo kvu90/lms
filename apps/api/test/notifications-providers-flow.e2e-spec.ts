@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from './exam-pin-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 /**
@@ -120,17 +121,17 @@ describe('Notification providers wired (N1, issue #49)', () => {
 
   it('activity_due_soon: the outbox event the worker due-date sweep emits becomes a real notification deep-linking to the quiz (N5, issue #50)', async () => {
     const { course, student, token } = await setupStudentInCourse();
-    const quizId = '01900000-0000-7000-8000-000000000050';
+    const pinId = '01900000-0000-7000-8000-000000000050';
     const timeClose = new Date(Date.now() + 12 * 3600_000);
     // Đúng hình dạng sự kiện mà ActivityDueReminderProcessor phát
     // (kiểm chứng phía phát ở suite worker activity-due-reminder):
     // aggregate activity, payload mang activityName + mốc hạn.
     await pg.query(
       `insert into outbox_events (aggregate, type, payload) values ('activity', 'activity_due_reminder', $1::jsonb)`,
-      [JSON.stringify({ userId: student.id, courseId: course.id, quizId, activityType: 'quiz', activityName: 'Bài kiểm tra chương 1', timeClose: timeClose.toISOString() })],
+      [JSON.stringify({ userId: student.id, courseId: course.id, pinId, activityType: 'quiz', activityName: 'Bài kiểm tra chương 1', timeClose: timeClose.toISOString() })],
     );
     const notif = await waitForNotification(token, 'activity_due_soon');
-    expect(notif.contextUrl).toBe(`/courses/${course.id}/quizzes/${quizId}`);
+    expect(notif.contextUrl).toBe(`/courses/${course.id}/exams/${pinId}`);
     expect(notif.subject).toContain('Bài kiểm tra chương 1');
     expect(notif.fullMessage).toContain('Bài kiểm tra chương 1');
     expect(notif.fullMessage).toContain(course.fullName ?? '');
@@ -317,6 +318,10 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     return { course, sectionId, teacherId: teacherUser.id, teacherToken, student, studentToken, student2, student2Token };
   }
 
+  async function seedQuestion(ctx: ClassCtx): Promise<string> {
+    return createReadyQuestion(app, ctx.teacherToken, 'Câu NB-1');
+  }
+
   async function createAssignment(ctx: ClassCtx, name: string, overrides: Record<string, unknown> = {}): Promise<{ id: string }> {
     const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/assignments`).set('Authorization', `Bearer ${ctx.teacherToken}`)
       .send({ sectionId: ctx.sectionId, name, grade: 10, ...overrides });
@@ -410,56 +415,58 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     expect(gradeNotif.contextUrl).toBe(`/courses/${ctx.course.id}/grades`);
   });
 
-  it('quiz_created: enrolled students are notified about the new quiz', async () => {
+  it('exam_pinned: enrolled students are notified about the newly pinned exam', async () => {
     const ctx = await setupClass();
-    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
-      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra NB-1' });
-    expect(res.status).toBeLessThan(300);
-    const quizId = (res.body as { id: string }).id;
+    const draft = await createExamDraft(app, ctx.teacherToken, 'Kiểm tra NB-1');
+    const qid = await seedQuestion(ctx);
+    await addExamSlot(app, ctx.teacherToken, draft, { questionId: qid });
+    const pin = await pinExam(app, ctx.teacherToken, ctx.course.id, draft, { sectionId: ctx.sectionId });
+    const pinId = pin.id as string;
     const notif = await waitForNotification(ctx.studentToken, 'quiz_available');
-    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/quizzes/${quizId}`);
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/exams/${pinId}`);
     expect(notif.subject).toContain('Kiểm tra NB-1');
   });
 
-  it('exam_paper_deployed: deploying a paper into the quiz also surfaces quiz_available (grouped, no duplicate while unread)', async () => {
+  it('exam_pinned: re-pinning the same exam surfaces quiz_available grouped (no duplicate while unread)', async () => {
     const ctx = await setupClass();
-    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
-      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra triển khai đề NB-1' });
-    expect(res.status).toBeLessThan(300);
-    const quizId = (res.body as { id: string }).id;
+    const draft = await createExamDraft(app, ctx.teacherToken, 'Kiểm tra triển khai đề NB-1');
+    const qid = await seedQuestion(ctx);
+    await addExamSlot(app, ctx.teacherToken, draft, { questionId: qid });
+    const pin = await pinExam(app, ctx.teacherToken, ctx.course.id, draft, { sectionId: ctx.sectionId });
+    const pinId = pin.id as string;
+    const pinUrl = `/courses/${ctx.course.id}/exams/${pinId}`;
 
-    // quiz_created đã sinh bản quiz_available đầu tiên; HS đọc xong.
+    // Sự kiện ghim đầu tiên đã sinh bản quiz_available; HS đọc xong.
     const first = await waitForNotification(ctx.studentToken, 'quiz_available',
-      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+      20000, (n) => n.contextUrl === pinUrl);
     const read = await http(app).post(`/api/v1/notifications/${first.id}/read`).set('Authorization', `Bearer ${ctx.studentToken}`);
     expect(read.status).toBeLessThan(300);
 
-    // Đúng hình dạng sự kiện quiz.service phát khi triển khai đề vào
-    // quiz có sẵn (deployPaperSlots/deployRecipeSlots).
+    // Đúng hình dạng sự kiện quiz.service phát khi ghim đề (lần ghim
+    // thứ hai của cùng đề vào cùng khoá — sự kiện hợp nhất #226).
     await pg.query(
-      `insert into outbox_events (aggregate, type, payload) values ('quiz', 'exam_paper_deployed', $1::jsonb)`,
+      `insert into outbox_events (aggregate, type, payload) values ('exam', 'exam_pinned', $1::jsonb)`,
       [JSON.stringify({
-        quizId, courseId: ctx.course.id,
-        paperId: '00000000-0000-4000-8000-000000000001', paperVersionId: '00000000-0000-4000-8000-000000000002',
-        kind: 'recipe', actorId: ctx.teacherId,
+        examId: draft, examVersionId: pin.versionId, pinId, courseId: ctx.course.id, actorId: ctx.teacherId,
       })],
     );
-    // Bản cũ đã đọc → sự kiện triển khai sinh bản MỚI (nếu consumer bỏ
-    // qua exam_paper_deployed thì chờ này hết hạn và ca kiểm đỏ).
+    // Bản cũ đã đọc → sự kiện ghim sinh bản MỚI (nếu consumer bỏ qua
+    // exam_pinned thì chờ này hết hạn và ca kiểm đỏ).
     const second = await waitForNotification(ctx.studentToken, 'quiz_available',
-      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}` && n.id !== first.id && n.timeRead === null);
+      20000, (n) => n.contextUrl === pinUrl && n.id !== first.id && n.timeRead === null);
     expect(second.subject).toContain('Kiểm tra triển khai đề NB-1');
-    const all = (await notificationsOf(ctx.studentToken)).filter((n) => n.eventType === 'quiz_available' && n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+    const all = (await notificationsOf(ctx.studentToken)).filter((n) => n.eventType === 'quiz_available' && n.contextUrl === pinUrl);
     expect(all).toHaveLength(2);
     expect(all.filter((n) => n.timeRead === null)).toHaveLength(1);
   });
 
   it('quiz_attempt_finished: teachers get one grouped notification only for manual-grading, non-preview attempts', async () => {
     const ctx = await setupClass();
-    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
-      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra chấm tay NB-1' });
-    expect(res.status).toBeLessThan(300);
-    const quizId = (res.body as { id: string }).id;
+    const draft = await createExamDraft(app, ctx.teacherToken, 'Kiểm tra chấm tay NB-1');
+    const qid = await seedQuestion(ctx);
+    await addExamSlot(app, ctx.teacherToken, draft, { questionId: qid });
+    const pin = await pinExam(app, ctx.teacherToken, ctx.course.id, draft, { sectionId: ctx.sectionId });
+    const quizId = pin.id as string;
 
     // Một lượt làm thật ở trạng thái needsgrading (chèn đúng khuôn
     // suite worker) để số lượng chờ chấm trong nội dung gộp là 1.
@@ -467,7 +474,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
       `insert into question_usages (component, user_id) values ('mod_quiz', $1) returning id`, [ctx.student.id]);
     const usageId = (usageRows.rows[0] as { id: string }).id;
     const attemptRows = await pg.query(
-      `insert into quiz_attempts (quiz_id, user_id, attempt_number, usage_id, state, preview) values ($1, $2, 1, $3, 'needsgrading', false) returning id`,
+      `insert into exam_attempts (pin_id, user_id, attempt_number, usage_id, state, preview) values ($1, $2, 1, $3, 'needsgrading', false) returning id`,
       [quizId, ctx.student.id, usageId]);
     const attemptId = (attemptRows.rows[0] as { id: string }).id;
 
@@ -475,7 +482,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
       await pg.query(
         `insert into outbox_events (aggregate, type, payload) values ('quiz', 'quiz_attempt_finished', $1::jsonb)`,
         [JSON.stringify({
-          quizId, courseId: ctx.course.id, attemptId, usageId, userId: ctx.student.id,
+          pinId: quizId, courseId: ctx.course.id, attemptId, usageId, userId: ctx.student.id,
           attemptNumber: 1, preview: false, sumGrades: 0, needsGrading: true,
           closedDueToTimeLimit: false, actorId: ctx.student.id, ...overrides,
         })],
@@ -485,7 +492,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     await emitFinished({});
     const notif = await waitForNotification(ctx.teacherToken, 'quiz_attempt_finished',
       20000, (n) => n.fullMessage.includes('1 lượt làm bài'));
-    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/quizzes/${quizId}/results`);
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/exams/${quizId}/results`);
 
     // Sự kiện trùng (cùng trạng thái) + lượt tự chấm hết + lượt
     // preview: không sinh thêm bản nào cho GV.
