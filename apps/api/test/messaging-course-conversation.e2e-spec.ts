@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
@@ -249,5 +250,47 @@ describe('Messaging — chat lớp cấp khoá (issue #33)', () => {
     expect(groupConv.body.itemType).toBe('groups');
     const groupSend = await send(s2.token, groupConv.body.id as string, 'tin trong nhóm con');
     expect(groupSend.status).toBe(201);
+  });
+
+  it('7. đua ensure song song: 6 lượt mở đồng thời của một khoá MỚI chỉ tạo đúng một conversation cấp khoá (khẳng định ở DB)', async () => {
+    // Khoá C hoàn toàn mới (chưa ai mở chat) với 5 thành viên ghi danh.
+    const categoryC = await createCategory(app, admin);
+    const courseCRes = await createCourse(app, admin, categoryC.id);
+    const courseC = courseCRes.id;
+    const instanceC = await createEnrolInstance(app, admin, courseC);
+    const membersC: Person[] = [];
+    for (let i = 0; i < 5; i++) {
+      const p = await person();
+      await enrolUser(app, admin, courseC, instanceC.id, p.id);
+      membersC.push(p);
+    }
+
+    // 6 lượt ensure bắn ĐỒNG THỜI (luân phiên 5 thành viên): trước
+    // bản vá, probe của đội đánh giá trên head a41a216 đo được 4
+    // conversation trùng cho cùng một khoá vì find nằm ngoài
+    // transaction và insert không có điểm đồng bộ nào.
+    const racers = [membersC[0]!, membersC[1]!, membersC[2]!, membersC[3]!, membersC[4]!, membersC[0]!];
+    const results = await Promise.all(racers.map((p) => ensure(p.token, courseC)));
+    for (const r of results) expect(r.status).toBe(200);
+    const ids = new Set(results.map((r) => (r.body as CourseConversationBody).id));
+    expect(ids.size).toBe(1);
+    for (const r of results) {
+      for (const p of membersC) expect((r.body as CourseConversationBody).members).toContain(p.id);
+    }
+
+    // Khẳng định ở mức DB — bất biến của lát: mỗi khoá đúng MỘT
+    // conversation cấp khoá, không phải chỉ "các response trùng id".
+    const pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+    try {
+      const counted = await pg.query<{ n: number }>(
+        `select count(*)::int as n from message_conversations
+         where component = 'core_course' and item_type = 'course' and item_id = $1`,
+        [courseC],
+      );
+      expect(counted.rows[0]!.n).toBe(1);
+    } finally {
+      await pg.end();
+    }
   });
 });

@@ -997,7 +997,10 @@ export class MessagingService {
    * 404 cùng mã như khoá không tồn tại (không rò tồn tại). Thẩm quyền
    * quản lý (bật/tắt) theo staff khoá — người tạo bản ghi (có thể là
    * một học viên mở lần đầu) KHÔNG thành quản lý, đúng luật conversation
-   * gắn cấu trúc.
+   * gắn cấu trúc. Đua ensure song song: transaction tạo giữ
+   * `pg_advisory_xact_lock` theo courseId rồi re-check trong cùng
+   * transaction — schema không có unique nên khoá này là điểm đồng bộ
+   * giữ bất biến một khoá/một conversation (phán quyết 6395599464).
    */
   async ensureCourseConversation(actorId: string, courseId: string): Promise<ConversationRow & { members: string[] }> {
     const course = await this.repo.getCourseSummary(courseId);
@@ -1009,16 +1012,24 @@ export class MessagingService {
     if (existing) return { ...existing, members: await this.syncCourseConversationMembers(existing) };
     const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
     const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
-    const conversation = await this.repo.dbHandle.transaction(async (tx) => {
+    const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+      // Khoá advisory TRƯỚC, re-check SAU — trong cùng transaction:
+      // lượt ensure song song đến sau phải chờ lượt trước commit xong
+      // mới qua được khoá, và re-check lúc đó thấy conversation đã
+      // tồn tại nên không insert trùng.
+      await this.repo.acquireCourseConversationLock(tx as never, courseId);
+      const rechecked = await this.repo.findCourseConversation(courseId, tx as never);
+      if (rechecked) return { conversation: rechecked, created: false as const };
       const created = await this.repo.insertConversation({
         type: 2, name: course.fullName,
         component: 'core_course', itemType: 'course', itemId: courseId,
         contextId: courseCtx?.id ?? null, createdBy: actorId,
       }, tx as never);
       for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
-      return created;
+      return { conversation: created, created: true as const };
     });
-    return { ...conversation, members: memberIds };
+    if (!ensured.created) return { ...ensured.conversation, members: await this.syncCourseConversationMembers(ensured.conversation) };
+    return { ...ensured.conversation, members: memberIds };
   }
 
   // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
