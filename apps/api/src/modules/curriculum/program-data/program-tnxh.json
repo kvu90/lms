@@ -13,7 +13,20 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Giới thiệu được bản thân và các thành viên trong gia đình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được bản thân và các thành viên trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giới thiệu được bản thân và các thành viên trong gia đình.",
    "source": {
@@ -36,8 +49,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được ví dụ về bản thân và các thành viên trong gia đình làm công việc nhà và chia sẻ thời gian nghỉ ngơi, vui chơi cùng nhau.",
-    "Thể hiện được tình cảm và cách ứng xử phù hợp với các thành viên trong gia đình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ví dụ về bản thân và các thành viên trong gia đình làm công việc nhà và chia sẻ thời gian nghỉ ngơi, vui chơi cùng nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được tình cảm và cách ứng xử phù hợp với các thành viên trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được ví dụ về bản thân và các thành viên trong gia đình làm công việc nhà và chia sẻ thời gian nghỉ ngơi, vui chơi cùng nhau. – Thể hiện được tình cảm và cách ứng xử phù hợp với các thành viên trong gia đình.",
    "source": {
@@ -61,11 +100,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được địa chỉ nơi gia đình đang ở.",
-    "Nêu được một số đặc điểm của ngôi nhà hoặc căn hộ nơi gia đình đang ở, các phòng trong ngôi nhà hoặc căn hộ và một số đặc điểm xung quanh nơi ở.",
-    "Đặt được câu hỏi để tìm hiểu về một số đồ dùng, thiết bị trong gia đình.",
-    "Chỉ ra hoặc nêu được tên đồ dùng, thiết bị trong nhà nếu sử dụng không cẩn thận có thể làm bản thân hoặc người khác gặp nguy hiểm.",
-    "Nêu được cách sử dụng an toàn một số đồ dùng trong gia đình và lựa chọn được cách xử lí tình huống khi bản thân hoặc người nhà có nguy cơ bị thương hoặc đã bị thương do sử dụng một số đồ dùng không cẩn thận."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được địa chỉ nơi gia đình đang ở."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đặc điểm của ngôi nhà hoặc căn hộ nơi gia đình đang ở, các phòng trong ngôi nhà hoặc căn hộ và một số đặc điểm xung quanh nơi ở."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đặt được câu hỏi để tìm hiểu về một số đồ dùng, thiết bị trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra hoặc nêu được tên đồ dùng, thiết bị trong nhà nếu sử dụng không cẩn thận có thể làm bản thân hoặc người khác gặp nguy hiểm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được cách sử dụng an toàn một số đồ dùng trong gia đình và lựa chọn được cách xử lí tình huống khi bản thân hoặc người nhà có nguy cơ bị thương hoặc đã bị thương do sử dụng một số đồ dùng không cẩn thận."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được địa chỉ nơi gia đình đang ở. – Nêu được một số đặc điểm của ngôi nhà hoặc căn hộ nơi gia đình đang ở, các phòng trong ngôi nhà hoặc căn hộ và một số đặc điểm xung quanh nơi ở. – Đặt được câu hỏi để tìm hiểu về một số đồ dùng, thiết bị trong gia đình. – Chỉ ra hoặc nêu được tên đồ dùng, thiết bị trong nhà nếu sử dụng không cẩn thận có thể làm bản thân hoặc người khác gặp nguy hiểm. – Nêu được cách sử dụng an toàn một số đồ dùng trong gia đình và lựa chọn được cách xử lí tình huống khi bản thân hoặc người nhà có nguy cơ bị thương hoặc đã bị thương do sử dụng một số đồ dùng không cẩn thận.",
    "source": {
@@ -88,8 +192,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được sự cần thiết phải sắp xếp đồ dùng cá nhân gọn gàng, ngăn nắp.",
-    "Làm được một số việc phù hợp để giữ nhà ở gọn gàng, ngăn nắp."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự cần thiết phải sắp xếp đồ dùng cá nhân gọn gàng, ngăn nắp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một số việc phù hợp để giữ nhà ở gọn gàng, ngăn nắp."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được sự cần thiết phải sắp xếp đồ dùng cá nhân gọn gàng, ngăn nắp. – Làm được một số việc phù hợp để giữ nhà ở gọn gàng, ngăn nắp.",
    "source": {
@@ -112,10 +242,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nói được tên trường, địa chỉ của trường, tên lớp học.",
-    "Xác định được vị trí của lớp học, các phòng chức năng, một số khu vực khác của nhà trường như sân chơi, bãi tập, vườn trường, khu vệ sinh,...",
-    "Kể được tên một số đồ dùng, thiết bị có trong lớp học.",
-    "Thực hiện được việc giữ gìn và sử dụng cẩn thận, đúng cách các đồ dùng, thiết bị của lớp học và trường học."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói được tên trường, địa chỉ của trường, tên lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí của lớp học, các phòng chức năng, một số khu vực khác của nhà trường như sân chơi, bãi tập, vườn trường, khu vệ sinh,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số đồ dùng, thiết bị có trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc giữ gìn và sử dụng cẩn thận, đúng cách các đồ dùng, thiết bị của lớp học và trường học."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nói được tên trường, địa chỉ của trường, tên lớp học. – Xác định được vị trí của lớp học, các phòng chức năng, một số khu vực khác của nhà trường như sân chơi, bãi tập, vườn trường, khu vệ sinh,... – Kể được tên một số đồ dùng, thiết bị có trong lớp học. – Thực hiện được việc giữ gìn và sử dụng cẩn thận, đúng cách các đồ dùng, thiết bị của lớp học và trường học.",
    "source": {
@@ -138,8 +320,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được các thành viên trong lớp học, trường học và nhiệm vụ của một số thành viên.",
-    "Thể hiện được tình cảm và cách ứng xử phù hợp với bạn bè, giáo viên và các thành viên khác trong nhà trường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các thành viên trong lớp học, trường học và nhiệm vụ của một số thành viên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được tình cảm và cách ứng xử phù hợp với bạn bè, giáo viên và các thành viên khác trong nhà trường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được các thành viên trong lớp học, trường học và nhiệm vụ của một số thành viên. – Thể hiện được tình cảm và cách ứng xử phù hợp với bạn bè, giáo viên và các thành viên khác trong nhà trường.",
    "source": {
@@ -158,36 +366,26 @@
    "level": "Tiểu học",
    "stream": null,
    "section": "Trường Học",
-   "topic": "Hoạt động chính của học sinh ở",
+   "topic": "Hoạt động chính của học sinh ở lớp học và trường học",
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên các hoạt động chính trong lớp học và trường học; nêu được cảm nhận của"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên các hoạt động chính trong lớp học và trường học; nêu được cảm nhận của bản thân khi tham gia các hoạt động đó."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "– Kể được tên các hoạt động chính trong lớp học và trường học; nêu được cảm nhận của",
-   "source": {
-    "document": "Chương trình môn Tự nhiên và Xã hội, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
-    "file": "ct-tnxh-official.pdf",
-    "portal": "data.moet.gov.vn (share 0pMcjGE1wMl8PhV)",
-    "pdf_pages": [
-     9
-    ]
-   }
-  },
-  {
-   "id": "TNXH-0008",
-   "subject": "Tự nhiên và Xã hội",
-   "grade": 1,
-   "level": "Tiểu học",
-   "stream": null,
-   "section": "Trường Học",
-   "topic": "lớp học và trường học",
-   "content": "",
-   "kind": "requirement",
-   "outcomes": [
-    "bản thân khi tham gia các hoạt động đó."
-   ],
-   "outcome_text": "bản thân khi tham gia các hoạt động đó.",
+   "outcome_text": "– Kể được tên các hoạt động chính trong lớp học và trường học; nêu được cảm nhận của bản thân khi tham gia các hoạt động đó.",
    "source": {
     "document": "Chương trình môn Tự nhiên và Xã hội, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tnxh-official.pdf",
@@ -208,8 +406,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nói được về hoạt động vui chơi trong giờ nghỉ; biết lựa chọn và chơi những trò chơi an toàn.",
-    "Làm được những việc phù hợp để giữ lớp học sạch đẹp."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói được về hoạt động vui chơi trong giờ nghỉ; biết lựa chọn và chơi những trò chơi an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được những việc phù hợp để giữ lớp học sạch đẹp."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nói được về hoạt động vui chơi trong giờ nghỉ; biết lựa chọn và chơi những trò chơi an toàn. – Làm được những việc phù hợp để giữ lớp học sạch đẹp.",
    "source": {
@@ -232,8 +456,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Giới thiệu được một cách đơn giản về quang cảnh làng xóm, đường phố qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video.",
-    "Bày tỏ được sự gắn bó, tình cảm của bản thân với làng xóm hoặc khu phố của mình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được một cách đơn giản về quang cảnh làng xóm, đường phố qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bày tỏ được sự gắn bó, tình cảm của bản thân với làng xóm hoặc khu phố của mình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giới thiệu được một cách đơn giản về quang cảnh làng xóm, đường phố qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video. – Bày tỏ được sự gắn bó, tình cảm của bản thân với làng xóm hoặc khu phố của mình.",
    "source": {
@@ -256,12 +506,90 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được một số công việc của người dân trong cộng đồng và đóng góp của công việc đó cho xã hội qua quan sát cuộc sống hằng ngày và tranh ảnh hoặc video.",
-    "Nhận biết được bất kì công việc nào đem lại lợi ích cho cộng đồng đều đáng quý.",
-    "Nêu được một số việc học sinh có thể làm để đóng góp cho cộng đồng địa phương.",
-    "Giới thiệu được tên, thời gian diễn ra một lễ hội truyền thống có sự tham gia của học sinh, gia đình và người dân ở cộng đồng.",
-    "Kể được một số công việc của các thành viên trong gia đình và người dân cho lễ hội đó.",
-    "Nêu được cảm xúc khi tham gia lễ hội đó."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số công việc của người dân trong cộng đồng và đóng góp của công việc đó cho xã hội qua quan sát cuộc sống hằng ngày và tranh ảnh hoặc video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được bất kì công việc nào đem lại lợi ích cho cộng đồng đều đáng quý."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số việc học sinh có thể làm để đóng góp cho cộng đồng địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được tên, thời gian diễn ra một lễ hội truyền thống có sự tham gia của học sinh, gia đình và người dân ở cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được một số công việc của các thành viên trong gia đình và người dân cho lễ hội đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được cảm xúc khi tham gia lễ hội đó."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được một số công việc của người dân trong cộng đồng và đóng góp của công việc đó cho xã hội qua quan sát cuộc sống hằng ngày và tranh ảnh hoặc video. – Nhận biết được bất kì công việc nào đem lại lợi ích cho cộng đồng đều đáng quý. – Nêu được một số việc học sinh có thể làm để đóng góp cho cộng đồng địa phương. – Giới thiệu được tên, thời gian diễn ra một lễ hội truyền thống có sự tham gia của học sinh, gia đình và người dân ở cộng đồng. – Kể được một số công việc của các thành viên trong gia đình và người dân cho lễ hội đó. – Nêu được cảm xúc khi tham gia lễ hội đó.",
    "source": {
@@ -285,9 +613,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nhận biết được một số tình huống nguy hiểm, các rủi ro có thể xảy ra trên đường và nêu được cách phòng tránh thông qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video.",
-    "Nói được tên và ý nghĩa của một số biển báo và đèn hiệu giao thông.",
-    "Thực hành đi bộ qua đường theo sơ đồ: đoạn đường không có đèn tín hiệu giao thông; đoạn đường có đèn tín hiệu giao thông."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số tình huống nguy hiểm, các rủi ro có thể xảy ra trên đường và nêu được cách phòng tránh thông qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói được tên và ý nghĩa của một số biển báo và đèn hiệu giao thông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành đi bộ qua đường theo sơ đồ: đoạn đường không có đèn tín hiệu giao thông; đoạn đường có đèn tín hiệu giao thông."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nhận biết được một số tình huống nguy hiểm, các rủi ro có thể xảy ra trên đường và nêu được cách phòng tránh thông qua quan sát thực tế cuộc sống hằng ngày và tranh ảnh hoặc video. – Nói được tên và ý nghĩa của một số biển báo và đèn hiệu giao thông. – Thực hành đi bộ qua đường theo sơ đồ: đoạn đường không có đèn tín hiệu giao thông; đoạn đường có đèn tín hiệu giao thông.",
    "source": {
@@ -310,10 +677,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu tên và đặt được câu hỏi để tìm hiểu về một số đặc điểm bên ngoài nổi bật của cây và con vật thường gặp.",
-    "Vẽ hoặc sử dụng được sơ đồ có sẵn để chỉ và nói (hoặc viết) được tên các bộ phận bên ngoài của một số cây và con vật.",
-    "Phân biệt được một số cây theo nhu cầu sử dụng của con người (cây bóng mát, cây ăn quả, cây hoa,...).",
-    "Phân biệt được một số con vật theo ích lợi hoặc tác hại của chúng đối với con người."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu tên và đặt được câu hỏi để tìm hiểu về một số đặc điểm bên ngoài nổi bật của cây và con vật thường gặp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ hoặc sử dụng được sơ đồ có sẵn để chỉ và nói (hoặc viết) được tên các bộ phận bên ngoài của một số cây và con vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được một số cây theo nhu cầu sử dụng của con người (cây bóng mát, cây ăn quả, cây hoa,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được một số con vật theo ích lợi hoặc tác hại của chúng đối với con người."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu tên và đặt được câu hỏi để tìm hiểu về một số đặc điểm bên ngoài nổi bật của cây và con vật thường gặp. – Vẽ hoặc sử dụng được sơ đồ có sẵn để chỉ và nói (hoặc viết) được tên các bộ phận bên ngoài của một số cây và con vật. – Phân biệt được một số cây theo nhu cầu sử dụng của con người (cây bóng mát, cây ăn quả, cây hoa,...). – Phân biệt được một số con vật theo ích lợi hoặc tác hại của chúng đối với con người.",
    "source": {
@@ -336,9 +755,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được việc làm phù hợp để chăm sóc, bảo vệ cây trồng và vật nuôi.",
-    "Làm được một số việc phù hợp để chăm sóc, bảo vệ cây trồng ở trường hoặc ở nhà và đối xử tốt với vật nuôi.",
-    "Có ý thức giữ an toàn cho bản thân khi tiếp xúc với một số cây, con vật và chia sẻ với những người xung quanh cùng thực hiện."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được việc làm phù hợp để chăm sóc, bảo vệ cây trồng và vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một số việc phù hợp để chăm sóc, bảo vệ cây trồng ở trường hoặc ở nhà và đối xử tốt với vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức giữ an toàn cho bản thân khi tiếp xúc với một số cây, con vật và chia sẻ với những người xung quanh cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được việc làm phù hợp để chăm sóc, bảo vệ cây trồng và vật nuôi. – Làm được một số việc phù hợp để chăm sóc, bảo vệ cây trồng ở trường hoặc ở nhà và đối xử tốt với vật nuôi. – Có ý thức giữ an toàn cho bản thân khi tiếp xúc với một số cây, con vật và chia sẻ với những người xung quanh cùng thực hiện.",
    "source": {
@@ -361,10 +819,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được tên, hoạt động các bộ phận bên ngoài của cơ thể; phân biệt được con trai và con gái.",
-    "Nêu được tên, chức năng của các giác quan.",
-    "Giải thích được ở mức độ đơn giản tại sao cần phải bảo vệ các giác quan.",
-    "Thực hiện được việc làm để bảo vệ các giác quan trong cuộc sống hằng ngày, đặc biệt biết cách phòng tránh cận thị học đường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được tên, hoạt động các bộ phận bên ngoài của cơ thể; phân biệt được con trai và con gái."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên, chức năng của các giác quan."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được ở mức độ đơn giản tại sao cần phải bảo vệ các giác quan."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc làm để bảo vệ các giác quan trong cuộc sống hằng ngày, đặc biệt biết cách phòng tránh cận thị học đường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được tên, hoạt động các bộ phận bên ngoài của cơ thể; phân biệt được con trai và con gái. – Nêu được tên, chức năng của các giác quan. – Giải thích được ở mức độ đơn giản tại sao cần phải bảo vệ các giác quan. – Thực hiện được việc làm để bảo vệ các giác quan trong cuộc sống hằng ngày, đặc biệt biết cách phòng tránh cận thị học đường.",
    "source": {
@@ -387,12 +897,90 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được những việc cần làm để giữ vệ sinh cơ thể và ích lợi của việc làm đó; thực hiện đúng các quy tắc giữ vệ sinh cơ thể; tự đánh giá được việc thực hiện giữ vệ sinh cơ thể.",
-    "Nêu được số bữa cần ăn trong ngày và tên một số thức ăn, đồ uống giúp cho cơ thể khoẻ mạnh và an toàn qua quan sát tranh ảnh và (hoặc) video; tự nhận xét được thói quen ăn uống của bản thân.",
-    "Xác định được các hoạt động vận động và nghỉ ngơi có lợi cho sức khoẻ qua quan sát tranh ảnh và (hoặc) video; liên hệ với những hoạt động hằng ngày của bản thân và đưa ra được hoạt động nào cần dành nhiều thời gian để cơ thể khoẻ mạnh.",
-    "Nhận biết được vùng riêng tư của cơ thể cần được bảo vệ.",
-    "Thực hành nói không và tránh xa người có hành vi động chạm hay đe doạ đến sự an toàn của bản thân.",
-    "Thực hành nói với người lớn tin cậy để được giúp đỡ khi cần."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những việc cần làm để giữ vệ sinh cơ thể và ích lợi của việc làm đó; thực hiện đúng các quy tắc giữ vệ sinh cơ thể; tự đánh giá được việc thực hiện giữ vệ sinh cơ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được số bữa cần ăn trong ngày và tên một số thức ăn, đồ uống giúp cho cơ thể khoẻ mạnh và an toàn qua quan sát tranh ảnh và (hoặc) video; tự nhận xét được thói quen ăn uống của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các hoạt động vận động và nghỉ ngơi có lợi cho sức khoẻ qua quan sát tranh ảnh và (hoặc) video; liên hệ với những hoạt động hằng ngày của bản thân và đưa ra được hoạt động nào cần dành nhiều thời gian để cơ thể khoẻ mạnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được vùng riêng tư của cơ thể cần được bảo vệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành nói không và tránh xa người có hành vi động chạm hay đe doạ đến sự an toàn của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành nói với người lớn tin cậy để được giúp đỡ khi cần."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được những việc cần làm để giữ vệ sinh cơ thể và ích lợi của việc làm đó; thực hiện đúng các quy tắc giữ vệ sinh cơ thể; tự đánh giá được việc thực hiện giữ vệ sinh cơ thể. – Nêu được số bữa cần ăn trong ngày và tên một số thức ăn, đồ uống giúp cho cơ thể khoẻ mạnh và an toàn qua quan sát tranh ảnh và (hoặc) video; tự nhận xét được thói quen ăn uống của bản thân. – Xác định được các hoạt động vận động và nghỉ ngơi có lợi cho sức khoẻ qua quan sát tranh ảnh và (hoặc) video; liên hệ với những hoạt động hằng ngày của bản thân và đưa ra được hoạt động nào cần dành nhiều thời gian để cơ thể khoẻ mạnh. – Nhận biết được vùng riêng tư của cơ thể cần được bảo vệ. – Thực hành nói không và tránh xa người có hành vi động chạm hay đe doạ đến sự an toàn của bản thân. – Thực hành nói với người lớn tin cậy để được giúp đỡ khi cần.",
    "source": {
@@ -415,10 +1003,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được bầu trời ban ngày và ban đêm qua quan sát thực tế, tranh ảnh hoặc video.",
-    "So sánh được ở mức độ đơn giản bầu trời ban ngày và ban đêm; bầu trời ban đêm vào các ngày khác nhau (nhìn thấy hay không nhìn thấy Mặt Trăng và các vì sao).",
-    "Nêu được ví dụ về vai trò của Mặt Trời đối với Trái Đất (sưởi ấm và chiếu sáng).",
-    "Có ý thức bảo vệ mắt, không nhìn trực tiếp vào Mặt Trời và chia sẻ với những người xung quanh cùng thực hiện."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được bầu trời ban ngày và ban đêm qua quan sát thực tế, tranh ảnh hoặc video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được ở mức độ đơn giản bầu trời ban ngày và ban đêm; bầu trời ban đêm vào các ngày khác nhau (nhìn thấy hay không nhìn thấy Mặt Trăng và các vì sao)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ví dụ về vai trò của Mặt Trời đối với Trái Đất (sưởi ấm và chiếu sáng)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức bảo vệ mắt, không nhìn trực tiếp vào Mặt Trời và chia sẻ với những người xung quanh cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được bầu trời ban ngày và ban đêm qua quan sát thực tế, tranh ảnh hoặc video. – So sánh được ở mức độ đơn giản bầu trời ban ngày và ban đêm; bầu trời ban đêm vào các ngày khác nhau (nhìn thấy hay không nhìn thấy Mặt Trăng và các vì sao). – Nêu được ví dụ về vai trò của Mặt Trời đối với Trái Đất (sưởi ấm và chiếu sáng). – Có ý thức bảo vệ mắt, không nhìn trực tiếp vào Mặt Trời và chia sẻ với những người xung quanh cùng thực hiện.",
    "source": {
@@ -441,9 +1081,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được một số hiện tượng thời tiết: nắng, mưa, nóng, lạnh, gió,... ở mức độ đơn giản.",
-    "Nêu được sự cần thiết phải theo dõi dự báo thời tiết hằng ngày.",
-    "Thực hiện được việc sử dụng trang phục phù hợp với thời tiết: nắng, mưa, nóng, lạnh để giữ cho cơ thể khoẻ mạnh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số hiện tượng thời tiết: nắng, mưa, nóng, lạnh, gió,... ở mức độ đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự cần thiết phải theo dõi dự báo thời tiết hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc sử dụng trang phục phù hợp với thời tiết: nắng, mưa, nóng, lạnh để giữ cho cơ thể khoẻ mạnh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được một số hiện tượng thời tiết: nắng, mưa, nóng, lạnh, gió,... ở mức độ đơn giản. – Nêu được sự cần thiết phải theo dõi dự báo thời tiết hằng ngày. – Thực hiện được việc sử dụng trang phục phù hợp với thời tiết: nắng, mưa, nóng, lạnh để giữ cho cơ thể khoẻ mạnh.",
    "source": {
@@ -466,10 +1145,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được các thành viên trong gia đình hai thế hệ, ba thế hệ và (hoặc) bốn thế hệ.",
-    "Vẽ, viết hoặc cắt dán ảnh gia đình có hai thế hệ, ba thế hệ vào sơ đồ cho trước.",
-    "Nói được sự cần thiết của việc chia sẻ, dành thời gian quan tâm, chăm sóc yêu thương nhau giữa các thế hệ trong gia đình.",
-    "Thể hiện được sự quan tâm, chăm sóc yêu thương của bản thân với các thế hệ trong gia đình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các thành viên trong gia đình hai thế hệ, ba thế hệ và (hoặc) bốn thế hệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ, viết hoặc cắt dán ảnh gia đình có hai thế hệ, ba thế hệ vào sơ đồ cho trước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói được sự cần thiết của việc chia sẻ, dành thời gian quan tâm, chăm sóc yêu thương nhau giữa các thế hệ trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự quan tâm, chăm sóc yêu thương của bản thân với các thế hệ trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được các thành viên trong gia đình hai thế hệ, ba thế hệ và (hoặc) bốn thế hệ. – Vẽ, viết hoặc cắt dán ảnh gia đình có hai thế hệ, ba thế hệ vào sơ đồ cho trước. – Nói được sự cần thiết của việc chia sẻ, dành thời gian quan tâm, chăm sóc yêu thương nhau giữa các thế hệ trong gia đình. – Thể hiện được sự quan tâm, chăm sóc yêu thương của bản thân với các thế hệ trong gia đình.",
    "source": {
@@ -493,9 +1224,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Đặt được câu hỏi để tìm hiểu thông tin về tên công việc, nghề nghiệp của những người lớn trong gia đình và ý nghĩa của những công việc, nghề nghiệp đó đối với gia đình và xã hội.",
-    "Thu thập được một số thông tin về những công việc, nghề có thu nhập, những công việc tình nguyện không nhận lương.",
-    "Chia sẻ được với các bạn, người thân về công việc, nghề nghiệp yêu thích sau này."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đặt được câu hỏi để tìm hiểu thông tin về tên công việc, nghề nghiệp của những người lớn trong gia đình và ý nghĩa của những công việc, nghề nghiệp đó đối với gia đình và xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được một số thông tin về những công việc, nghề có thu nhập, những công việc tình nguyện không nhận lương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chia sẻ được với các bạn, người thân về công việc, nghề nghiệp yêu thích sau này."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Đặt được câu hỏi để tìm hiểu thông tin về tên công việc, nghề nghiệp của những người lớn trong gia đình và ý nghĩa của những công việc, nghề nghiệp đó đối với gia đình và xã hội. – Thu thập được một số thông tin về những công việc, nghề có thu nhập, những công việc tình nguyện không nhận lương. – Chia sẻ được với các bạn, người thân về công việc, nghề nghiệp yêu thích sau này.",
    "source": {
@@ -518,10 +1288,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số đồ dùng và thức ăn, đồ uống nếu không được cất giữ, bảo quản cẩn thận có thể gây ngộ độc.",
-    "Thu thập được thông tin về một số lí do gây ngộ độc qua đường ăn uống.",
-    "Đề xuất được những việc bản thân và các thành viên trong gia đình có thể làm để phòng tránh ngộ độc.",
-    "Đưa ra được cách xử lí tình huống khi bản thân hoặc người nhà bị ngộ độc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số đồ dùng và thức ăn, đồ uống nếu không được cất giữ, bảo quản cẩn thận có thể gây ngộ độc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được thông tin về một số lí do gây ngộ độc qua đường ăn uống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được những việc bản thân và các thành viên trong gia đình có thể làm để phòng tránh ngộ độc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được cách xử lí tình huống khi bản thân hoặc người nhà bị ngộ độc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số đồ dùng và thức ăn, đồ uống nếu không được cất giữ, bảo quản cẩn thận có thể gây ngộ độc. – Thu thập được thông tin về một số lí do gây ngộ độc qua đường ăn uống. – Đề xuất được những việc bản thân và các thành viên trong gia đình có thể làm để phòng tránh ngộ độc. – Đưa ra được cách xử lí tình huống khi bản thân hoặc người nhà bị ngộ độc.",
    "source": {
@@ -544,8 +1366,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Giải thích được tại sao phải giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh).",
-    "Làm được một số việc phù hợp để giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tại sao phải giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một số việc phù hợp để giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giải thích được tại sao phải giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh). – Làm được một số việc phù hợp để giữ sạch nhà ở (bao gồm cả nhà bếp và nhà vệ sinh).",
    "source": {
@@ -568,8 +1416,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được tên, một số hoạt động và ý nghĩa của một đến hai sự kiện thường được tổ chức ở trường (ví dụ: lễ khai giảng; văn nghệ đầu tuần; ngày kỉ niệm 20/11, 8/3; hội chợ xuân, hội chợ sách,...).",
-    "Nhận xét được về sự tham gia của học sinh trong những sự kiện đó và chia sẻ cảm nhận của bản thân."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên, một số hoạt động và ý nghĩa của một đến hai sự kiện thường được tổ chức ở trường (ví dụ: lễ khai giảng; văn nghệ đầu tuần; ngày kỉ niệm 20/11, 8/3; hội chợ xuân, hội chợ sách,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được về sự tham gia của học sinh trong những sự kiện đó và chia sẻ cảm nhận của bản thân."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được tên, một số hoạt động và ý nghĩa của một đến hai sự kiện thường được tổ chức ở trường (ví dụ: lễ khai giảng; văn nghệ đầu tuần; ngày kỉ niệm 20/11, 8/3; hội chợ xuân, hội chợ sách,...). – Nhận xét được về sự tham gia của học sinh trong những sự kiện đó và chia sẻ cảm nhận của bản thân.",
    "source": {
@@ -593,8 +1467,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được một số tình huống nguy hiểm, rủi ro có thể xảy ra trong khi tham gia những hoạt động ở trường và cách phòng tránh.",
-    "Thực hiện được việc giữ vệ sinh khi tham gia một số hoạt động ở trường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được một số tình huống nguy hiểm, rủi ro có thể xảy ra trong khi tham gia những hoạt động ở trường và cách phòng tránh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc giữ vệ sinh khi tham gia một số hoạt động ở trường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được một số tình huống nguy hiểm, rủi ro có thể xảy ra trong khi tham gia những hoạt động ở trường và cách phòng tránh. – Thực hiện được việc giữ vệ sinh khi tham gia một số hoạt động ở trường.",
    "source": {
@@ -617,10 +1517,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số hàng hoá cần thiết cho cuộc sống hằng ngày.",
-    "Nêu được cách mua, bán hàng hoá trong cửa hàng, chợ, siêu thị hoặc trung tâm thương mại.",
-    "Nêu được lí do vì sao phải lựa chọn hàng hoá trước khi mua.",
-    "Thực hành (theo tình huống giả định) lựa chọn hàng hoá phù hợp về giá cả và chất lượng."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số hàng hoá cần thiết cho cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được cách mua, bán hàng hoá trong cửa hàng, chợ, siêu thị hoặc trung tâm thương mại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được lí do vì sao phải lựa chọn hàng hoá trước khi mua."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành (theo tình huống giả định) lựa chọn hàng hoá phù hợp về giá cả và chất lượng."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số hàng hoá cần thiết cho cuộc sống hằng ngày. – Nêu được cách mua, bán hàng hoá trong cửa hàng, chợ, siêu thị hoặc trung tâm thương mại. – Nêu được lí do vì sao phải lựa chọn hàng hoá trước khi mua. – Thực hành (theo tình huống giả định) lựa chọn hàng hoá phù hợp về giá cả và chất lượng.",
    "source": {
@@ -643,11 +1595,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên các loại đường giao thông.",
-    "Nêu được một số phương tiện giao thông và tiện ích của chúng.",
-    "Phân biệt được một số loại biển báo giao thông (biển báo chỉ dẫn; biển báo cấm; biển báo nguy hiểm) qua hình ảnh.",
-    "Giải thích được sự cần thiết phải tuân theo quy định của các biển báo giao thông.",
-    "Nêu được quy định khi đi trên một số phương tiện giao thông (ví dụ: xe máy, xe buýt, đò, thuyền,...) và chia sẻ với những người xung quanh cùng thực hiện."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên các loại đường giao thông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số phương tiện giao thông và tiện ích của chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được một số loại biển báo giao thông (biển báo chỉ dẫn; biển báo cấm; biển báo nguy hiểm) qua hình ảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được sự cần thiết phải tuân theo quy định của các biển báo giao thông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quy định khi đi trên một số phương tiện giao thông (ví dụ: xe máy, xe buýt, đò, thuyền,...) và chia sẻ với những người xung quanh cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên các loại đường giao thông. – Nêu được một số phương tiện giao thông và tiện ích của chúng. – Phân biệt được một số loại biển báo giao thông (biển báo chỉ dẫn; biển báo cấm; biển báo nguy hiểm) qua hình ảnh. – Giải thích được sự cần thiết phải tuân theo quy định của các biển báo giao thông. – Nêu được quy định khi đi trên một số phương tiện giao thông (ví dụ: xe máy, xe buýt, đò, thuyền,...) và chia sẻ với những người xung quanh cùng thực hiện.",
    "source": {
@@ -670,10 +1687,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Đặt và trả lời được câu hỏi về nơi sống của thực vật và động vật thông qua quan sát thực tế, tranh ảnh và (hoặc) video.",
-    "Nêu được tên và nơi sống của một số thực vật, động vật xung quanh.",
-    "Phân loại được thực vật, động vật theo môi trường sống.",
-    "Tìm hiểu, điều tra một số thực vật và động vật có ở xung quanh và mô tả được môi trường sống của chúng."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đặt và trả lời được câu hỏi về nơi sống của thực vật và động vật thông qua quan sát thực tế, tranh ảnh và (hoặc) video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên và nơi sống của một số thực vật, động vật xung quanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân loại được thực vật, động vật theo môi trường sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu, điều tra một số thực vật và động vật có ở xung quanh và mô tả được môi trường sống của chúng."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Đặt và trả lời được câu hỏi về nơi sống của thực vật và động vật thông qua quan sát thực tế, tranh ảnh và (hoặc) video. – Nêu được tên và nơi sống của một số thực vật, động vật xung quanh. – Phân loại được thực vật, động vật theo môi trường sống. – Tìm hiểu, điều tra một số thực vật và động vật có ở xung quanh và mô tả được môi trường sống của chúng.",
    "source": {
@@ -696,9 +1765,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Thu thập được thông tin về một số việc làm của con người có thể làm thay đổi môi trường sống của thực vật, động vật.",
-    "Giải thích được ở mức độ đơn giản sự cần thiết phải bảo vệ môi trường sống của thực vật và động vật.",
-    "Nêu được những việc có thể làm để bảo vệ, hạn chế sự thay đổi môi trường sống của thực vật, động vật và chia sẻ với những người xung quanh cùng thực hiện."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được thông tin về một số việc làm của con người có thể làm thay đổi môi trường sống của thực vật, động vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được ở mức độ đơn giản sự cần thiết phải bảo vệ môi trường sống của thực vật và động vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những việc có thể làm để bảo vệ, hạn chế sự thay đổi môi trường sống của thực vật, động vật và chia sẻ với những người xung quanh cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Thu thập được thông tin về một số việc làm của con người có thể làm thay đổi môi trường sống của thực vật, động vật. – Giải thích được ở mức độ đơn giản sự cần thiết phải bảo vệ môi trường sống của thực vật và động vật. – Nêu được những việc có thể làm để bảo vệ, hạn chế sự thay đổi môi trường sống của thực vật, động vật và chia sẻ với những người xung quanh cùng thực hiện.",
    "source": {
@@ -721,9 +1829,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Chỉ và nói được tên các bộ phận chính của các cơ quan vận động, hô hấp và bài tiết nước tiểu trên sơ đồ, tranh ảnh.",
-    "Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động hằng ngày của bản thân (ví dụ: nhận biết chức năng của xương và cơ qua hoạt động vận động; chức năng của cơ quan hô hấp qua hoạt động thở ra và hít vào; chức năng của cơ quan bài tiết qua việc thải ra nước tiểu).",
-    "Đưa ra được dự đoán điều gì sẽ xảy ra với cơ thể mỗi người nếu một trong các cơ quan trên không hoạt động."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ và nói được tên các bộ phận chính của các cơ quan vận động, hô hấp và bài tiết nước tiểu trên sơ đồ, tranh ảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động hằng ngày của bản thân (ví dụ: nhận biết chức năng của xương và cơ qua hoạt động vận động; chức năng của cơ quan hô hấp qua hoạt động thở ra và hít vào; chức năng của cơ quan bài tiết qua việc thải ra nước tiểu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được dự đoán điều gì sẽ xảy ra với cơ thể mỗi người nếu một trong các cơ quan trên không hoạt động."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Chỉ và nói được tên các bộ phận chính của các cơ quan vận động, hô hấp và bài tiết nước tiểu trên sơ đồ, tranh ảnh. – Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động hằng ngày của bản thân (ví dụ: nhận biết chức năng của xương và cơ qua hoạt động vận động; chức năng của cơ quan hô hấp qua hoạt động thở ra và hít vào; chức năng của cơ quan bài tiết qua việc thải ra nước tiểu). – Đưa ra được dự đoán điều gì sẽ xảy ra với cơ thể mỗi người nếu một trong các cơ quan trên không hoạt động.",
    "source": {
@@ -747,9 +1894,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nhận biết và thực hiện được đi, đứng, ngồi, mang cặp đúng tư thế để phòng tránh cong vẹo cột sống.",
-    "Nêu được sự cần thiết và thực hiện được việc hít vào, thở ra đúng cách và tránh xa nơi có khói bụi để bảo vệ cơ quan hô hấp.",
-    "Nêu được sự cần thiết và thực hiện được việc uống đủ nước, không nhịn tiểu để phòng tránh bệnh sỏi thận."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và thực hiện được đi, đứng, ngồi, mang cặp đúng tư thế để phòng tránh cong vẹo cột sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự cần thiết và thực hiện được việc hít vào, thở ra đúng cách và tránh xa nơi có khói bụi để bảo vệ cơ quan hô hấp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự cần thiết và thực hiện được việc uống đủ nước, không nhịn tiểu để phòng tránh bệnh sỏi thận."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nhận biết và thực hiện được đi, đứng, ngồi, mang cặp đúng tư thế để phòng tránh cong vẹo cột sống. – Nêu được sự cần thiết và thực hiện được việc hít vào, thở ra đúng cách và tránh xa nơi có khói bụi để bảo vệ cơ quan hô hấp. – Nêu được sự cần thiết và thực hiện được việc uống đủ nước, không nhịn tiểu để phòng tránh bệnh sỏi thận.",
    "source": {
@@ -772,8 +1958,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được tên và một số đặc điểm của các mùa trong năm (ví dụ: mùa xuân, mùa hè, mùa thu, mùa đông; mùa mưa và mùa khô).",
-    "Lựa chọn được trang phục phù hợp theo mùa để giữ cơ thể khoẻ mạnh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên và một số đặc điểm của các mùa trong năm (ví dụ: mùa xuân, mùa hè, mùa thu, mùa đông; mùa mưa và mùa khô)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được trang phục phù hợp theo mùa để giữ cơ thể khoẻ mạnh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được tên và một số đặc điểm của các mùa trong năm (ví dụ: mùa xuân, mùa hè, mùa thu, mùa đông; mùa mưa và mùa khô). – Lựa chọn được trang phục phù hợp theo mùa để giữ cơ thể khoẻ mạnh.",
    "source": {
@@ -796,11 +2008,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nhận biết và mô tả được một số hiện tượng thiên tai (ví dụ: bão, lũ, lụt, giông sét, hạn hán,...) ở mức độ đơn giản.",
-    "Nêu được một số rủi ro dẫn đến các thiệt hại về tính mạng con người và tài sản do thiên tai gây ra.",
-    "Đưa ra được một số ví dụ về thiệt hại tính mạng con người và tài sản do thiên tai gây ra.",
-    "Nêu và luyện tập được một số cách ứng phó, giảm nhẹ rủi ro thiên tai thường xảy ra ở địa phương.",
-    "Chia sẻ với những người xung quanh và cùng thực hiện phòng tránh rủi ro thiên tai."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và mô tả được một số hiện tượng thiên tai (ví dụ: bão, lũ, lụt, giông sét, hạn hán,...) ở mức độ đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số rủi ro dẫn đến các thiệt hại về tính mạng con người và tài sản do thiên tai gây ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được một số ví dụ về thiệt hại tính mạng con người và tài sản do thiên tai gây ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và luyện tập được một số cách ứng phó, giảm nhẹ rủi ro thiên tai thường xảy ra ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chia sẻ với những người xung quanh và cùng thực hiện phòng tránh rủi ro thiên tai."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nhận biết và mô tả được một số hiện tượng thiên tai (ví dụ: bão, lũ, lụt, giông sét, hạn hán,...) ở mức độ đơn giản. – Nêu được một số rủi ro dẫn đến các thiệt hại về tính mạng con người và tài sản do thiên tai gây ra. – Đưa ra được một số ví dụ về thiệt hại tính mạng con người và tài sản do thiên tai gây ra. – Nêu và luyện tập được một số cách ứng phó, giảm nhẹ rủi ro thiên tai thường xảy ra ở địa phương. – Chia sẻ với những người xung quanh và cùng thực hiện phòng tránh rủi ro thiên tai.",
    "source": {
@@ -823,10 +2100,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được mối quan hệ họ hàng nội, ngoại.",
-    "Xưng hô đúng với các thành viên trong gia đình thuộc họ nội, họ ngoại.",
-    "Vẽ, viết hoặc cắt dán ảnh vào sơ đồ gia đình và họ hàng nội, ngoại theo mẫu.",
-    "Bày tỏ được tình cảm, sự gắn bó của bản thân với họ hàng nội, ngoại."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được mối quan hệ họ hàng nội, ngoại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xưng hô đúng với các thành viên trong gia đình thuộc họ nội, họ ngoại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ, viết hoặc cắt dán ảnh vào sơ đồ gia đình và họ hàng nội, ngoại theo mẫu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bày tỏ được tình cảm, sự gắn bó của bản thân với họ hàng nội, ngoại."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được mối quan hệ họ hàng nội, ngoại. – Xưng hô đúng với các thành viên trong gia đình thuộc họ nội, họ ngoại. – Vẽ, viết hoặc cắt dán ảnh vào sơ đồ gia đình và họ hàng nội, ngoại theo mẫu. – Bày tỏ được tình cảm, sự gắn bó của bản thân với họ hàng nội, ngoại.",
    "source": {
@@ -849,9 +2178,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được tên một số ngày kỉ niệm hay sự kiện quan trọng của gia đình và thông tin có liên quan đến những sự kiện đó (ví dụ: một chuyến đi dã ngoại, du lịch đáng nhớ của cả gia đình; thay đổi nơi ở, nơi học, công việc của thành viên gia đình,...).",
-    "Vẽ được đường thời gian theo thứ tự các sự kiện lớn, các mốc quan trọng đã xảy ra trong gia đình.",
-    "Nhận xét được sự thay đổi của gia đình theo thời gian qua một số ví dụ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên một số ngày kỉ niệm hay sự kiện quan trọng của gia đình và thông tin có liên quan đến những sự kiện đó (ví dụ: một chuyến đi dã ngoại, du lịch đáng nhớ của cả gia đình; thay đổi nơi ở, nơi học, công việc của thành viên gia đình,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được đường thời gian theo thứ tự các sự kiện lớn, các mốc quan trọng đã xảy ra trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được sự thay đổi của gia đình theo thời gian qua một số ví dụ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được tên một số ngày kỉ niệm hay sự kiện quan trọng của gia đình và thông tin có liên quan đến những sự kiện đó (ví dụ: một chuyến đi dã ngoại, du lịch đáng nhớ của cả gia đình; thay đổi nơi ở, nơi học, công việc của thành viên gia đình,...). – Vẽ được đường thời gian theo thứ tự các sự kiện lớn, các mốc quan trọng đã xảy ra trong gia đình. – Nhận xét được sự thay đổi của gia đình theo thời gian qua một số ví dụ.",
    "source": {
@@ -874,10 +2242,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được một số nguyên nhân dẫn đến cháy nhà và nêu được những thiệt hại có thể xảy ra (về người, tài sản,...) do hoả hoạn.",
-    "Đưa ra được cách ứng xử phù hợp trong tình huống có cháy xảy ra; Nhận xét về những cách ứng xử đó.",
-    "Thực hành ứng xử trong tình huống giả định khi có cháy xảy ra.",
-    "Điều tra, phát hiện được những thứ có thể gây cháy trong nhà và nói với người lớn có biện pháp để phòng cháy."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nguyên nhân dẫn đến cháy nhà và nêu được những thiệt hại có thể xảy ra (về người, tài sản,...) do hoả hoạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được cách ứng xử phù hợp trong tình huống có cháy xảy ra; Nhận xét về những cách ứng xử đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành ứng xử trong tình huống giả định khi có cháy xảy ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Điều tra, phát hiện được những thứ có thể gây cháy trong nhà và nói với người lớn có biện pháp để phòng cháy."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được một số nguyên nhân dẫn đến cháy nhà và nêu được những thiệt hại có thể xảy ra (về người, tài sản,...) do hoả hoạn. – Đưa ra được cách ứng xử phù hợp trong tình huống có cháy xảy ra; Nhận xét về những cách ứng xử đó. – Thực hành ứng xử trong tình huống giả định khi có cháy xảy ra. – Điều tra, phát hiện được những thứ có thể gây cháy trong nhà và nói với người lớn có biện pháp để phòng cháy.",
    "source": {
@@ -900,8 +2320,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể tên và làm được một số việc phù hợp để giữ vệ sinh xung quanh nhà.",
-    "Giải thích được một cách đơn giản tại sao cần phải giữ vệ sinh xung quanh nhà."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên và làm được một số việc phù hợp để giữ vệ sinh xung quanh nhà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được một cách đơn giản tại sao cần phải giữ vệ sinh xung quanh nhà."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể tên và làm được một số việc phù hợp để giữ vệ sinh xung quanh nhà. – Giải thích được một cách đơn giản tại sao cần phải giữ vệ sinh xung quanh nhà.",
    "source": {
@@ -925,8 +2371,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được tên và ý nghĩa một đến hai hoạt động kết nối với xã hội của trường học (ví dụ: hoạt động bảo vệ môi trường, hoạt động truyền thông về an toàn giao thông, hoạt động ủng hộ đồng bào bị thiên tai,...) và mô tả được hoạt động đó.",
-    "Nhận xét được về sự tham gia của học sinh trong các hoạt động đó."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tên và ý nghĩa một đến hai hoạt động kết nối với xã hội của trường học (ví dụ: hoạt động bảo vệ môi trường, hoạt động truyền thông về an toàn giao thông, hoạt động ủng hộ đồng bào bị thiên tai,...) và mô tả được hoạt động đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được về sự tham gia của học sinh trong các hoạt động đó."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được tên và ý nghĩa một đến hai hoạt động kết nối với xã hội của trường học (ví dụ: hoạt động bảo vệ môi trường, hoạt động truyền thông về an toàn giao thông, hoạt động ủng hộ đồng bào bị thiên tai,...) và mô tả được hoạt động đó. – Nhận xét được về sự tham gia của học sinh trong các hoạt động đó.",
    "source": {
@@ -949,9 +2421,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Đặt được một số câu hỏi để tìm hiểu về truyền thống nhà trường (năm thành lập trường, thành tích dạy và học; các hoạt động khác,...).",
-    "Giới thiệu được một cách đơn giản về truyền thống nhà trường.",
-    "Bày tỏ được tình cảm hoặc mong ước của bản thân đối với nhà trường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đặt được một số câu hỏi để tìm hiểu về truyền thống nhà trường (năm thành lập trường, thành tích dạy và học; các hoạt động khác,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được một cách đơn giản về truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bày tỏ được tình cảm hoặc mong ước của bản thân đối với nhà trường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Đặt được một số câu hỏi để tìm hiểu về truyền thống nhà trường (năm thành lập trường, thành tích dạy và học; các hoạt động khác,...). – Giới thiệu được một cách đơn giản về truyền thống nhà trường. – Bày tỏ được tình cảm hoặc mong ước của bản thân đối với nhà trường.",
    "source": {
@@ -974,8 +2485,81 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Thực hành khảo sát về sự an toàn trong khuôn viên nhà trường hoặc khu vực xung quanh trường theo nhóm: + Lập được kế hoạch khảo sát về sự an toàn của phòng học, tường rào, sân chơi, bãi tập hoặc khu vực xung quanh trường theo mẫu. + Khảo sát được về sự an toàn liên quan đến cơ sở vật chất của nhà trường hoặc khu vực xung quanh trường theo sự phân công của nhóm. + Làm báo cáo, trình bày được kết quả khảo sát và đưa ra được ý tưởng khuyến nghị với nhà trường nhằm khắc phục, hạn chế những rủi ro có thể xảy ra.",
-    "Có ý thức giữ gìn và làm được một số việc phù hợp để giữ vệ sinh trường học và khu vực xung quanh trường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành khảo sát về sự an toàn trong khuôn viên nhà trường hoặc khu vực xung quanh trường theo nhóm:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Lập được kế hoạch khảo sát về sự an toàn của phòng học, tường rào, sân chơi, bãi tập hoặc khu vực xung quanh trường theo mẫu."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Khảo sát được về sự an toàn liên quan đến cơ sở vật chất của nhà trường hoặc khu vực xung quanh trường theo sự phân công của nhóm."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Làm báo cáo, trình bày được kết quả khảo sát và đưa ra được ý tưởng khuyến nghị với nhà trường nhằm khắc phục, hạn chế những rủi ro có thể xảy ra."
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức giữ gìn và làm được một số việc phù hợp để giữ vệ sinh trường học và khu vực xung quanh trường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Thực hành khảo sát về sự an toàn trong khuôn viên nhà trường hoặc khu vực xung quanh trường theo nhóm: + Lập được kế hoạch khảo sát về sự an toàn của phòng học, tường rào, sân chơi, bãi tập hoặc khu vực xung quanh trường theo mẫu. + Khảo sát được về sự an toàn liên quan đến cơ sở vật chất của nhà trường hoặc khu vực xung quanh trường theo sự phân công của nhóm. + Làm báo cáo, trình bày được kết quả khảo sát và đưa ra được ý tưởng khuyến nghị với nhà trường nhằm khắc phục, hạn chế những rủi ro có thể xảy ra. – Có ý thức giữ gìn và làm được một số việc phù hợp để giữ vệ sinh trường học và khu vực xung quanh trường.",
    "source": {
@@ -998,9 +2582,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên, sản phẩm và ích lợi của một số hoạt động sản xuất (nông nghiệp, công nghiệp hoặc thủ công) ở địa phương.",
-    "Trình bày, giới thiệu được một trong số các sản phẩm của địa phương dựa trên các thông tin, tranh ảnh, vật thật,... sưu tầm được.",
-    "Viết, vẽ hoặc sử dụng tranh ảnh, video,... để chia sẻ với những người xung quanh về sự cần thiết phải tiêu dùng tiết kiệm, bảo vệ môi trường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên, sản phẩm và ích lợi của một số hoạt động sản xuất (nông nghiệp, công nghiệp hoặc thủ công) ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày, giới thiệu được một trong số các sản phẩm của địa phương dựa trên các thông tin, tranh ảnh, vật thật,... sưu tầm được."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết, vẽ hoặc sử dụng tranh ảnh, video,... để chia sẻ với những người xung quanh về sự cần thiết phải tiêu dùng tiết kiệm, bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên, sản phẩm và ích lợi của một số hoạt động sản xuất (nông nghiệp, công nghiệp hoặc thủ công) ở địa phương. – Trình bày, giới thiệu được một trong số các sản phẩm của địa phương dựa trên các thông tin, tranh ảnh, vật thật,... sưu tầm được. – Viết, vẽ hoặc sử dụng tranh ảnh, video,... để chia sẻ với những người xung quanh về sự cần thiết phải tiêu dùng tiết kiệm, bảo vệ môi trường.",
    "source": {
@@ -1023,8 +2646,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Giới thiệu được (bằng lời hoặc kết hợp lời nói với hình ảnh) một di tích lịch sử, văn hoá hoặc cảnh quan thiên nhiên ở địa phương.",
-    "Thể hiện sự tôn trọng và có ý thức giữ vệ sinh khi đi tham quan di tích văn hoá, lịch sử hoặc cảnh quan thiên nhiên."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được (bằng lời hoặc kết hợp lời nói với hình ảnh) một di tích lịch sử, văn hoá hoặc cảnh quan thiên nhiên ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự tôn trọng và có ý thức giữ vệ sinh khi đi tham quan di tích văn hoá, lịch sử hoặc cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Giới thiệu được (bằng lời hoặc kết hợp lời nói với hình ảnh) một di tích lịch sử, văn hoá hoặc cảnh quan thiên nhiên ở địa phương. – Thể hiện sự tôn trọng và có ý thức giữ vệ sinh khi đi tham quan di tích văn hoá, lịch sử hoặc cảnh quan thiên nhiên.",
    "source": {
@@ -1047,10 +2696,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Vẽ hoặc sử dụng sơ đồ sẵn có để chỉ vị trí và nói (hoặc viết) được tên một số bộ phận của thực vật và động vật.",
-    "Trình bày được chức năng của các bộ phận đó (sử dụng sơ đồ, tranh ảnh).",
-    "So sánh (hình dạng, kích thước, màu sắc) rễ, thân, lá, hoa, quả của các thực vật khác nhau; phân loại được thực vật dựa trên một số tiêu chí (ví dụ: đặc điểm của thân, rễ, lá,...).",
-    "So sánh được đặc điểm cấu tạo của một số động vật khác nhau; phân loại được động vật dựa trên một số tiêu chí (ví dụ: đặc điểm cơ quan di chuyển,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ hoặc sử dụng sơ đồ sẵn có để chỉ vị trí và nói (hoặc viết) được tên một số bộ phận của thực vật và động vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được chức năng của các bộ phận đó (sử dụng sơ đồ, tranh ảnh)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh (hình dạng, kích thước, màu sắc) rễ, thân, lá, hoa, quả của các thực vật khác nhau; phân loại được thực vật dựa trên một số tiêu chí (ví dụ: đặc điểm của thân, rễ, lá,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được đặc điểm cấu tạo của một số động vật khác nhau; phân loại được động vật dựa trên một số tiêu chí (ví dụ: đặc điểm cơ quan di chuyển,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Vẽ hoặc sử dụng sơ đồ sẵn có để chỉ vị trí và nói (hoặc viết) được tên một số bộ phận của thực vật và động vật. – Trình bày được chức năng của các bộ phận đó (sử dụng sơ đồ, tranh ảnh). – So sánh (hình dạng, kích thước, màu sắc) rễ, thân, lá, hoa, quả của các thực vật khác nhau; phân loại được thực vật dựa trên một số tiêu chí (ví dụ: đặc điểm của thân, rễ, lá,...). – So sánh được đặc điểm cấu tạo của một số động vật khác nhau; phân loại được động vật dựa trên một số tiêu chí (ví dụ: đặc điểm cơ quan di chuyển,...).",
    "source": {
@@ -1073,7 +2774,20 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được ví dụ về việc sử dụng thực vật và động vật trong đời sống hằng ngày."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ví dụ về việc sử dụng thực vật và động vật trong đời sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được ví dụ về việc sử dụng thực vật và động vật trong đời sống hằng ngày.",
    "source": {
@@ -1096,8 +2810,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Liên hệ thực tế, nhận xét về cách sử dụng thực vật và động vật của gia đình và cộng đồng địa phương.",
-    "Lựa chọn và đề xuất cách sử dụng thực vật và động vật hợp lí. Chia sẻ với những người xung quanh để cùng thực hiện."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ thực tế, nhận xét về cách sử dụng thực vật và động vật của gia đình và cộng đồng địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và đề xuất cách sử dụng thực vật và động vật hợp lí. Chia sẻ với những người xung quanh để cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Liên hệ thực tế, nhận xét về cách sử dụng thực vật và động vật của gia đình và cộng đồng địa phương. – Lựa chọn và đề xuất cách sử dụng thực vật và động vật hợp lí. Chia sẻ với những người xung quanh để cùng thực hiện.",
    "source": {
@@ -1120,8 +2860,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Chỉ và nói được tên các bộ phận chính của các cơ quan tiêu hoá, tuần hoàn, thần kinh trên sơ đồ, tranh ảnh.",
-    "Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động sống hằng ngày của bản thân (ví dụ: theo dõi việc ăn, uống và thải bã; phát hiện tim và mạch máu đập; phát hiện khả năng phản ứng của cơ thể như rụt tay lại khi sờ vào vật nóng và sự thay đổi cảm xúc, khóc khi bị ngã đau, vui khi được khen, buồn khi các bạn không cho chơi cùng)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ và nói được tên các bộ phận chính của các cơ quan tiêu hoá, tuần hoàn, thần kinh trên sơ đồ, tranh ảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động sống hằng ngày của bản thân (ví dụ: theo dõi việc ăn, uống và thải bã; phát hiện tim và mạch máu đập; phát hiện khả năng phản ứng của cơ thể như rụt tay lại khi sờ vào vật nóng và sự thay đổi cảm xúc, khóc khi bị ngã đau, vui khi được khen, buồn khi các bạn không cho chơi cùng)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Chỉ và nói được tên các bộ phận chính của các cơ quan tiêu hoá, tuần hoàn, thần kinh trên sơ đồ, tranh ảnh. – Nhận biết được chức năng của các cơ quan nêu trên ở mức độ đơn giản ban đầu qua hoạt động sống hằng ngày của bản thân (ví dụ: theo dõi việc ăn, uống và thải bã; phát hiện tim và mạch máu đập; phát hiện khả năng phản ứng của cơ thể như rụt tay lại khi sờ vào vật nóng và sự thay đổi cảm xúc, khóc khi bị ngã đau, vui khi được khen, buồn khi các bạn không cho chơi cùng).",
    "source": {
@@ -1144,11 +2910,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được một số ví dụ về mối quan hệ với gia đình hoặc bạn bè có ảnh hưởng tốt hoặc xấu đến trạng thái cảm xúc (hoặc sức khoẻ tinh thần) của mỗi người.",
-    "Trình bày được một số việc cần làm hoặc cần tránh để giữ gìn, bảo vệ các cơ quan tiêu hoá, tuần hoàn và thần kinh.",
-    "Kể được tên một số thức ăn, đồ uống và hoạt động có lợi cho các cơ quan tiêu hoá, tim mạch, thần kinh.",
-    "Thu thập được thông tin về một số chất và hoạt động có hại đối với các cơ quan tiêu hoá, tim mạch, thần kinh (ví dụ: thuốc lá, rượu, ma tuý); nêu được cách phòng tránh.",
-    "Xây dựng và thực hiện được thời gian biểu phù hợp (theo mẫu) để có được thói quen học tập, vui chơi, ăn uống, nghỉ ngơi điều độ và ngủ đủ giấc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ví dụ về mối quan hệ với gia đình hoặc bạn bè có ảnh hưởng tốt hoặc xấu đến trạng thái cảm xúc (hoặc sức khoẻ tinh thần) của mỗi người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số việc cần làm hoặc cần tránh để giữ gìn, bảo vệ các cơ quan tiêu hoá, tuần hoàn và thần kinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số thức ăn, đồ uống và hoạt động có lợi cho các cơ quan tiêu hoá, tim mạch, thần kinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được thông tin về một số chất và hoạt động có hại đối với các cơ quan tiêu hoá, tim mạch, thần kinh (ví dụ: thuốc lá, rượu, ma tuý); nêu được cách phòng tránh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được thời gian biểu phù hợp (theo mẫu) để có được thói quen học tập, vui chơi, ăn uống, nghỉ ngơi điều độ và ngủ đủ giấc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được một số ví dụ về mối quan hệ với gia đình hoặc bạn bè có ảnh hưởng tốt hoặc xấu đến trạng thái cảm xúc (hoặc sức khoẻ tinh thần) của mỗi người. – Trình bày được một số việc cần làm hoặc cần tránh để giữ gìn, bảo vệ các cơ quan tiêu hoá, tuần hoàn và thần kinh. – Kể được tên một số thức ăn, đồ uống và hoạt động có lợi cho các cơ quan tiêu hoá, tim mạch, thần kinh. – Thu thập được thông tin về một số chất và hoạt động có hại đối với các cơ quan tiêu hoá, tim mạch, thần kinh (ví dụ: thuốc lá, rượu, ma tuý); nêu được cách phòng tránh. – Xây dựng và thực hiện được thời gian biểu phù hợp (theo mẫu) để có được thói quen học tập, vui chơi, ăn uống, nghỉ ngơi điều độ và ngủ đủ giấc.",
    "source": {
@@ -1172,8 +3003,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được bốn phương chính trong không gian theo quy ước.",
-    "Thực hành xác định được các phương chính dựa trên phương Mặt Trời mọc, lặn hoặc sử dụng la bàn."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được bốn phương chính trong không gian theo quy ước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành xác định được các phương chính dựa trên phương Mặt Trời mọc, lặn hoặc sử dụng la bàn."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được bốn phương chính trong không gian theo quy ước. – Thực hành xác định được các phương chính dựa trên phương Mặt Trời mọc, lặn hoặc sử dụng la bàn.",
    "source": {
@@ -1196,12 +3053,90 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nhận biết ban đầu về hình dạng Trái Đất qua quả địa cầu.",
-    "Chỉ được cực Bắc, cực Nam, đường Xích đạo, bán cầu Bắc, bán cầu Nam và các đới khí hậu trên quả địa cầu.",
-    "Trình bày được một vài hoạt động tiêu biểu của con người ở từng đới khí hậu dựa vào tranh ảnh và (hoặc) video.",
-    "Tìm và nói được tên các châu lục và các đại dương trên quả địa cầu. Chỉ được vị trí của Việt Nam trên quả địa cầu.",
-    "Nêu được một số dạng địa hình của Trái Đất: đồng bằng, đồi, núi, cao nguyên; sông, hồ; biển, đại dương dựa vào tranh ảnh và (hoặc) video.",
-    "Xác định được nơi học sinh đang sống thuộc dạng địa hình nào."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết ban đầu về hình dạng Trái Đất qua quả địa cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ được cực Bắc, cực Nam, đường Xích đạo, bán cầu Bắc, bán cầu Nam và các đới khí hậu trên quả địa cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một vài hoạt động tiêu biểu của con người ở từng đới khí hậu dựa vào tranh ảnh và (hoặc) video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm và nói được tên các châu lục và các đại dương trên quả địa cầu. Chỉ được vị trí của Việt Nam trên quả địa cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số dạng địa hình của Trái Đất: đồng bằng, đồi, núi, cao nguyên; sông, hồ; biển, đại dương dựa vào tranh ảnh và (hoặc) video."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được nơi học sinh đang sống thuộc dạng địa hình nào."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nhận biết ban đầu về hình dạng Trái Đất qua quả địa cầu. – Chỉ được cực Bắc, cực Nam, đường Xích đạo, bán cầu Bắc, bán cầu Nam và các đới khí hậu trên quả địa cầu. – Trình bày được một vài hoạt động tiêu biểu của con người ở từng đới khí hậu dựa vào tranh ảnh và (hoặc) video. – Tìm và nói được tên các châu lục và các đại dương trên quả địa cầu. Chỉ được vị trí của Việt Nam trên quả địa cầu. – Nêu được một số dạng địa hình của Trái Đất: đồng bằng, đồi, núi, cao nguyên; sông, hồ; biển, đại dương dựa vào tranh ảnh và (hoặc) video. – Xác định được nơi học sinh đang sống thuộc dạng địa hình nào.",
    "source": {
@@ -1224,9 +3159,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Chỉ và nói được vị trí của Trái Đất trong hệ Mặt Trời trên sơ đồ, tranh ảnh.",
-    "Chỉ và trình bày được chiều chuyển động của Trái Đất quanh mình nó và quanh Mặt Trời trên sơ đồ và (hoặc) mô hình.",
-    "Giải thích được ở mức độ đơn giản hiện tượng ngày và đêm, qua sử dụng mô hình hoặc video."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ và nói được vị trí của Trái Đất trong hệ Mặt Trời trên sơ đồ, tranh ảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ và trình bày được chiều chuyển động của Trái Đất quanh mình nó và quanh Mặt Trời trên sơ đồ và (hoặc) mô hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được ở mức độ đơn giản hiện tượng ngày và đêm, qua sử dụng mô hình hoặc video."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Chỉ và nói được vị trí của Trái Đất trong hệ Mặt Trời trên sơ đồ, tranh ảnh. – Chỉ và trình bày được chiều chuyển động của Trái Đất quanh mình nó và quanh Mặt Trời trên sơ đồ và (hoặc) mô hình. – Giải thích được ở mức độ đơn giản hiện tượng ngày và đêm, qua sử dụng mô hình hoặc video.",
    "source": {
