@@ -41,7 +41,7 @@ export function fixtureClassId(app: INestApplication, token: string): Promise<st
   return pending;
 }
 
-export async function createCourse(app: INestApplication, token: string, category: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; fullName: string; shortName: string; category: string }> {
+export async function createCourse(app: INestApplication, token: string, category: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; fullName: string; shortName: string; category: string; classId: string | null }> {
   const shortName = uniqueName('crs');
   const withClass = 'classId' in overrides ? overrides : { ...overrides, classId: await fixtureClassId(app, token) };
   const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${token}`)
