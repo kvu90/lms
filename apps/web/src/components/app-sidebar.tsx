@@ -76,11 +76,16 @@ function readStoredOpenGroups(): string[] {
  *   thẳng /badges hay /learning-plan vẫn vào được, API hai trang vốn
  *   chỉ trả dữ liệu của chính người gọi. Mục Blog hiện vẫn nằm trong
  *   nhóm này và đi theo cổng chung cho tới khi #171 tách Blog ra.
- * - Nhóm "Ngân hàng câu hỏi" thu/mở được NGAY SAU nhóm Học tập — chỉ
- *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank), học
- *   viên thuần không nhìn thấy nhóm này: 4 mục con liên kết sâu tới
- *   từng khu vực của trang /questions (?bank=system / my-questions /
- *   my-papers / my-matrices).
+ * - Bốn mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (đính
+ *   chính issue #70, Lão gia chốt 25/10/2026 — KHÔNG còn nhóm cha
+ *   "Ngân hàng câu hỏi" bọc ngoài): "Câu hỏi của tôi" (thân mục dẫn
+ *   tới ?bank=my-questions, thu/mở ra mục con "Ngữ liệu"), "Đề của
+ *   tôi" (?bank=my-papers) và "Ma trận của tôi" (?bank=my-matrices)
+ *   — thân hai mục này dẫn thẳng tới trang danh sách, chờ bổ sung mục
+ *   con sau; "Ngân hàng hệ thống" là mục cha thu/mở thuần, mở ra đúng
+ *   3 mục con (Câu hỏi / Đề / Ma trận hệ thống, neo ?bank=system&
+ *   section=...). Cả bốn chỉ hiện khi API cho phép dùng ngân hàng
+ *   câu hỏi (canUseQuestionBank) — học viên thuần không nhìn thấy.
  * - Hai nhóm quản trị ("Người dùng & quyền", "Hệ thống & dữ liệu") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
@@ -183,14 +188,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ...(perms.canUseQuestionBank
       ? [
           {
-            groupId: 'question-bank',
-            title: t('app:navQuestions'),
+            groupId: 'my-questions',
+            title: t('app:navMyQuestions'),
             icon: IconQuestionMark,
+            url: '/questions?bank=my-questions',
+            toggleLabel: t('app:navExpandGroup', { name: t('app:navMyQuestions') }),
             children: [
-              { title: t('app:navBankSystem'), url: '/questions?bank=system', icon: IconDatabase },
-              { title: t('app:navMyQuestions'), url: '/questions?bank=my-questions', icon: IconQuestionMark },
-              { title: t('app:navMyPapers'), url: '/questions?bank=my-papers', icon: IconNotebook },
-              { title: t('app:navMyMatrices'), url: '/questions?bank=my-matrices', icon: IconChartBar },
+              { title: t('app:navStimuli'), url: '/questions?bank=my-questions&section=stimuli', icon: IconBook },
+            ],
+          },
+          {
+            groupId: 'my-papers',
+            title: t('app:navMyPapers'),
+            icon: IconNotebook,
+            url: '/questions?bank=my-papers',
+            toggleLabel: t('app:navExpandGroup', { name: t('app:navMyPapers') }),
+            children: [],
+          },
+          {
+            groupId: 'my-matrices',
+            title: t('app:navMyMatrices'),
+            icon: IconChartBar,
+            url: '/questions?bank=my-matrices',
+            toggleLabel: t('app:navExpandGroup', { name: t('app:navMyMatrices') }),
+            children: [],
+          },
+          {
+            groupId: 'system-bank',
+            title: t('app:navBankSystem'),
+            icon: IconDatabase,
+            children: [
+              { title: t('app:navSystemQuestions'), url: '/questions?bank=system&section=questions', icon: IconQuestionMark },
+              { title: t('app:navSystemPapers'), url: '/questions?bank=system&section=papers', icon: IconNotebook },
+              { title: t('app:navSystemMatrices'), url: '/questions?bank=system&section=matrices', icon: IconChartBar },
             ],
           },
         ]

@@ -32,14 +32,26 @@ export interface NavItem {
 
 /**
  * Một mục cha thu/mở được trong sidebar (cơ chế collapse lấy từ block
- * sidebar-07): cha là nút thu/mở thuần KHÔNG có URL — bấm chỉ mở/đóng
- * danh sách mục con. `groupId` là định danh ổn định để lưu trạng thái
- * mở của nhóm (xem AppSidebar).
+ * sidebar-07). Hai biến thể:
+ *
+ * - KHÔNG có `url`: cha là nút thu/mở thuần — bấm chỉ mở/đóng danh sách
+ *   mục con (vd "Học tập", "Ngân hàng hệ thống").
+ * - CÓ `url`: thân mục cha là LINK điều hướng tới trang danh sách của
+ *   chính nó (vd "Câu hỏi của tôi" → /questions?bank=my-questions), kèm
+ *   nút chevron riêng (`toggleLabel` là nhãn aria của nút đó) chỉ để
+ *   thu/mở danh sách mục con khi nhóm có mục con. Nhóm có `url` mà chưa
+ *   có mục con vẫn render thành mục cấp cao nhất điều hướng được — chờ
+ *   bổ sung mục con sau (đính chính sidebar ngân hàng, issue #70).
+ *
+ * `groupId` là định danh ổn định để lưu trạng thái mở của nhóm (xem
+ * AppSidebar).
  */
 export interface NavGroupItem {
   groupId: string;
   title: string;
   icon?: Icon;
+  url?: string;
+  toggleLabel?: string;
   children: NavItem[];
 }
 
@@ -128,6 +140,60 @@ function NavGroupCollapsible({
     onOpenChange(item.groupId, nextOpen);
   };
 
+  const subMenu = (
+    <SidebarMenuSub>
+      {item.children.map((child) => (
+        <SidebarMenuSubItem key={child.url}>
+          <SidebarMenuSubButton render={<Link to={child.url} />} isActive={isPathActive(child.url, pathname, search)}>
+            {child.icon && <child.icon />}
+            <span>{child.title}</span>
+          </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
+      ))}
+    </SidebarMenuSub>
+  );
+
+  // Biến thể thân mục là LINK: chưa có mục con thì render như một mục
+  // lá cấp cao nhất (không chevron, không collapse) — điều hướng thẳng
+  // tới trang danh sách của chính mục đó.
+  if (item.url && item.children.length === 0) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton render={<Link to={item.url} />} tooltip={item.title} isActive={isPathActive(item.url, pathname, search)}>
+          {item.icon && <item.icon />}
+          <span>{item.title}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
+
+  // Biến thể thân mục là LINK và có mục con: nút chính điều hướng, nút
+  // chevron riêng (aria-label riêng) chỉ thu/mở danh sách con.
+  if (item.url) {
+    return (
+      <Collapsible open={open} onOpenChange={handleOpenChange} className="group/collapsible" render={<SidebarMenuItem />}>
+        <div className="flex w-full items-center gap-1">
+          <SidebarMenuButton
+            render={<Link to={item.url} />}
+            tooltip={item.title}
+            isActive={isPathActive(item.url, pathname, search)}
+            className="min-w-0 flex-1"
+          >
+            {item.icon && <item.icon />}
+            <span>{item.title}</span>
+          </SidebarMenuButton>
+          <CollapsibleTrigger
+            aria-label={item.toggleLabel ?? item.title}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+          >
+            <ChevronRightIcon className="size-4 transition-transform duration-200 group-data-open/collapsible:rotate-90" />
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>{subMenu}</CollapsibleContent>
+      </Collapsible>
+    );
+  }
+
   return (
     <Collapsible open={open} onOpenChange={handleOpenChange} className="group/collapsible" render={<SidebarMenuItem />}>
       <CollapsibleTrigger render={<SidebarMenuButton tooltip={item.title} isActive={hasActiveChild} />}>
@@ -135,18 +201,7 @@ function NavGroupCollapsible({
         <span>{item.title}</span>
         <ChevronRightIcon className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden group-data-open/collapsible:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent>
-        <SidebarMenuSub>
-          {item.children.map((child) => (
-            <SidebarMenuSubItem key={child.url}>
-              <SidebarMenuSubButton render={<Link to={child.url} />} isActive={isPathActive(child.url, pathname, search)}>
-                {child.icon && <child.icon />}
-                <span>{child.title}</span>
-              </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-          ))}
-        </SidebarMenuSub>
-      </CollapsibleContent>
+      <CollapsibleContent>{subMenu}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -156,8 +211,11 @@ function NavGroupCollapsible({
  * lần lượt các mục trực tiếp rồi các mục cha collapse. Việc lọc mục
  * theo quyền do AppSidebar quyết định — component này chỉ trình bày
  * những gì được truyền vào; nhóm cha rỗng (mọi mục con bị lọc hết
- * quyền) thì không render. Trạng thái mở của từng nhóm được AppSidebar
- * giữ và lưu bền; nhóm chứa route đang xem luôn mở.
+ * quyền) và không có URL riêng thì không render — nhóm có URL vẫn
+ * render vì thân nó tự điều hướng được. Trạng thái mở của từng nhóm
+ * được AppSidebar giữ và lưu bền; nhóm chứa route đang xem luôn mở
+ * (với nhóm có URL: chính URL của nhóm khớp route cũng tính là đang
+ * xem).
  */
 export function NavMain({
   items,
@@ -169,7 +227,7 @@ export function NavMain({
   onOpenGroupChange: (groupId: string, open: boolean) => void;
 }) {
   const { pathname, search } = useLocation();
-  const visible = items.filter((entry) => !isNavGroup(entry) || entry.children.length > 0);
+  const visible = items.filter((entry) => !isNavGroup(entry) || entry.children.length > 0 || Boolean(entry.url));
   if (visible.length === 0) return null;
   return (
     <SidebarGroup>
@@ -184,7 +242,8 @@ export function NavMain({
                 search={search}
                 open={
                   openGroups.includes(entry.groupId) ||
-                  entry.children.some((child) => isPathActive(child.url, pathname, search))
+                  entry.children.some((child) => isPathActive(child.url, pathname, search)) ||
+                  (entry.url ? isPathActive(entry.url, pathname, search) : false)
                 }
                 onOpenChange={onOpenGroupChange}
               />
