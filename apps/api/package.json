@@ -68,6 +68,7 @@
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.4",
     "uuid": "^14.0.3",
+    "vn-qr-pay": "^0.0.5",
     "zod": "catalog:"
   },
   "devDependencies": {

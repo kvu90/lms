@@ -141,10 +141,18 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // multi-tenant, issue #168 — cả ba đều PK id uuidv7) → trên cây
     // hợp nhất với main 3aee4454: 200 bảng tổng, 186 bảng có PK mặc
     // định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(186);
+    // + payment_provider_events (lát VietQR 1, issue #189 — sổ sự kiện
+    // thô SePay, PK id uuidv7) → 187 bảng có PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(187);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
-    expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
+    // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
+    // sequence sinh mã thanh toán VietQR (lát 1, issue #189, nghiên cứu
+    // §2.4/§6.3: mã sinh một lần, không bao giờ tái sử dụng), KHÔNG phải
+    // sequence của khoá chính. Sequence nào khác xuất hiện là hồi quy
+    // định danh, không phải ngoại lệ mới.
+    const sequenceNames = [...sqlText.matchAll(/CREATE SEQUENCE "[^"]+"\."([^"]+)"/g)].map((m) => m[1]);
+    expect(sequenceNames).toEqual(['payment_code_seq']);
   });
 
   it('(1b) the live catalog defaults every entity id to uuidv7(), and pure join tables carry no surrogate id', async () => {
@@ -156,14 +164,14 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 188 bảng có cột `id`: 186 bảng PK uuidv7 như khuôn chung (gồm 2
+    // 189 bảng có cột `id`: 187 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, và 3 bảng tenant của TENANT-0,
     // issue #168) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(188);
+    expect(defaults.rows.length).toBe(189);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {
