@@ -1339,19 +1339,6 @@ export class MessagingRepository {
    * activeCourseIds ở trên, cùng ngữ nghĩa EnrolService.isEnrolled;
    * đối tượng nhận thông báo "hoạt động mới" của NB-1.
    */
-  async listActiveEnrolledUserIds(courseId: string): Promise<string[]> {
-    const now = new Date();
-    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
-      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
-      .where(and(
-        eq(enrol.courseId, courseId),
-        eq(userEnrolments.status, 0),
-        eq(enrol.status, 0),
-        lte(userEnrolments.timeStart, now),
-        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
-      ));
-    return [...new Set(rows.map((r) => r.userId))];
-  }
 
   /**
    * Số bài nộp của một bài tập đang CHỜ CHẤM tại thời điểm gọi: bản
