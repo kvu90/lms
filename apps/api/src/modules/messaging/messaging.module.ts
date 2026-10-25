@@ -10,6 +10,7 @@ import { MessagingOutboxConsumer } from './messaging-outbox.consumer';
 import { NotificationEventsConsumer } from './notification-events.consumer';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingRepository } from './messaging.repository';
+import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { MessagingService, NOTIFICATION_DISPATCH_QUEUE } from './messaging.service';
 import { JwtMessagingSocketAuth } from './messaging-socket-auth';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
@@ -27,6 +28,8 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
   controllers: [MessagingController, NotificationsController],
   providers: [
     MessagingRepository, MessagingService, NotificationUnreadStreamService,
+    // Throttle gửi tin theo người dùng bằng Redis (lát M2, issue #212).
+    MessagingSendThrottleService,
     // Realtime (issue #33): gateway Socket.IO + lớp auth mỏng + tầng
     // phân phối (Redis adapter, presence/typing) + consumer quét
     // outbox để phân phối sự kiện đã commit.

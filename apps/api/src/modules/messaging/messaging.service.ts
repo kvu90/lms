@@ -12,6 +12,7 @@ import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
 import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
+import { MessagingSendThrottleService } from './messaging-send-throttle.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 export const NOTIFICATION_DISPATCH_QUEUE = 'notification-dispatch';
@@ -256,6 +257,30 @@ function notificationItemView(row: NotificationRow): NotificationItem {
 }
 
 /** Preference key stored in user_preferences: provider × channel × login state (mô hình CŨ — chỉ còn để suy giá trị tương đương và cho kênh push). */
+/**
+ * Đếm ký tự NGƯỜI DÙNG THẤY (grapheme cluster) của một đoạn văn bản —
+ * cách đếm của trần độ dài tin (lát M2, issue #212): một emoji đơn,
+ * một emoji ghép ZWJ (vd biểu tượng gia đình) hay một chữ cái kèm dấu
+ * tổ hợp đều tính là MỘT ký tự, tuyệt đối không đếm byte UTF-8 hay đơn
+ * vị UTF-16 (hai cách đếm đó phạt oan tiếng Việt và emoji nhiều lần).
+ * `Intl.Segmenter` là API chuẩn của Node ≥ 16; môi trường thiếu nó thì
+ * lùi về đếm theo code point Unicode ([...text]) — vẫn đúng hơn byte.
+ */
+export function countUserVisibleCharacters(text: string): number {
+  const SegmenterCtor = (Intl as unknown as {
+    Segmenter?: new (locales?: string, options?: { granularity: 'grapheme' }) => {
+      segment(input: string): Iterable<unknown>;
+    };
+  }).Segmenter;
+  if (SegmenterCtor) {
+    const segmenter = new SegmenterCtor(undefined, { granularity: 'grapheme' });
+    let count = 0;
+    for (const _segment of segmenter.segment(text)) count += 1;
+    return count;
+  }
+  return [...text].length;
+}
+
 export function preferenceName(provider: string, channel: MessageChannel, state: LoginState): string {
   return `message_provider_${provider}_${channel}_${state}`;
 }
@@ -461,6 +486,7 @@ export class MessagingService {
     private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
     private readonly siteConfig: SiteConfigService,
+    private readonly sendThrottle: MessagingSendThrottleService,
   ) {}
 
   // --- preferences -----------------------------------------------------------
@@ -1715,6 +1741,13 @@ export class MessagingService {
       const existing = await this.repo.getMessageByClientId(conversationId, actorId, input.clientMessageId);
       if (existing) return existing;
     }
+    // Chặn lạm dụng đường gửi (lát M2, issue #212) — đặt SAU điểm trả
+    // trùng clientMessageId và sau mọi cổng tư cách/liên lạc: lượt gửi
+    // lại của tin đã nhận không tốn quota throttle, tin bị từ chối ở
+    // cổng trước cũng không; thứ tự hai cổng là độ dài TRƯỚC (400,
+    // lỗi nội dung không đốt quota) rồi mới throttle (429).
+    await this.assertMessageLengthAllowed(input.text);
+    await this.sendThrottle.consume(actorId);
     try {
       return await this.repo.dbHandle.transaction(async (tx) => {
         const seq = await this.repo.allocateNextSeq(conversationId, tx as never);
@@ -1781,6 +1814,29 @@ export class MessagingService {
   // đường (c) là đường kiểm duyệt có thẩm quyền riêng — như đường
   // xem báo cáo — nên KHÔNG qua cổng chặn: kiểm duyệt phải xử lý
   // được cả nội dung trong hội thoại đang bị chặn.
+
+  /**
+   * Cổng trần độ dài tin (lát M2, issue #212; chính sách P2 ở #33):
+   * trần đọc từ site-config `core/messagingmaxmessagelength` (mặc
+   * định 10.000 theo registry; 0 = tắt trần), đếm theo ký tự người
+   * dùng thấy qua {@link countUserVisibleCharacters}. Vượt trần →
+   * 400 `messaging.message_too_long`. Chỉ áp cho đường gửi tin của
+   * người dùng (`sendMessage`) — tin hệ thống qua `notify()` không
+   * qua cổng này.
+   */
+  private async assertMessageLengthAllowed(text: string): Promise<void> {
+    const value = await this.siteConfig.getValue<number>('core', 'messagingmaxmessagelength');
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    const max = Math.floor(value);
+    if (max <= 0) return;
+    const count = countUserVisibleCharacters(text);
+    if (count > max) {
+      throw new BadRequestException({
+        message: `Message is too long: ${count} characters (maximum ${max})`,
+        code: 'messaging.message_too_long',
+      });
+    }
+  }
 
   /** Cửa sổ thu hồi hiện hành (phút) đọc từ site-config; giá trị lỗi/thiếu → mặc định 15. */
   private async recallWindowMinutes(): Promise<number> {
