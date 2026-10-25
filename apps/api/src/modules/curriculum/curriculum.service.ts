@@ -356,6 +356,65 @@ export class CurriculumService implements OnModuleInit {
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
     return outcome;
   }
+  /**
+   * Tìm YCCĐ theo từ khoá (đường của tool MCP search_curriculum_outcomes,
+   * lát MCP-1 issue #163 — để client AI bám YCCĐ THẬT của chương trình
+   * khi soạn câu, không bịa mã). Quyền đọc giữ đúng cổng của bề mặt
+   * này: `curriculum:view` tại context của MÔN chứa YCCĐ — môn nào
+   * actor không đọc được thì YCCĐ của môn đó vắng hẳn khỏi kết quả
+   * (không lộ cả sự tồn tại). Liên kết câu×YCCĐ chính thức vẫn sống ở
+   * tầng ma trận/quiz như cũ; kết quả ở đây chỉ là tra cứu.
+   */
+  async searchOutcomes(
+    actorId: string,
+    input: { query: string; subjectId?: string; gradeLevel?: number; limit?: number },
+  ): Promise<{
+    id: string;
+    content: string;
+    sourceKind: string;
+    sourceRef: string | null;
+    nodeId: string;
+    nodeTitle: string;
+    subjectId: string;
+    subjectName: string;
+    grade: number;
+  }[]> {
+    const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
+    // Lấy dư ở SQL rồi lọc quyền theo môn: tránh trường hợp trang đầu
+    // toàn YCCĐ của môn không đọc được làm cạn kết quả oan.
+    const rows = await this.repo.searchOutcomes({
+      query: input.query,
+      subjectId: input.subjectId,
+      grade: input.gradeLevel,
+      limit: 200,
+    });
+    const readableBySubject = new Map<string, boolean>();
+    const results: {
+      id: string; content: string; sourceKind: string; sourceRef: string | null;
+      nodeId: string; nodeTitle: string; subjectId: string; subjectName: string; grade: number;
+    }[] = [];
+    for (const row of rows) {
+      let readable = readableBySubject.get(row.subjectId);
+      if (readable === undefined) {
+        readable = await this.evaluator.hasCapability(actorId, CURRICULUM_VIEW, row.subjectContextId);
+        readableBySubject.set(row.subjectId, readable);
+      }
+      if (!readable) continue;
+      results.push({
+        id: row.outcome.id,
+        content: row.outcome.content,
+        sourceKind: row.outcome.sourceKind,
+        sourceRef: row.outcome.sourceRef,
+        nodeId: row.outcome.nodeId,
+        nodeTitle: row.nodeTitle,
+        subjectId: row.subjectId,
+        subjectName: row.subjectName,
+        grade: row.grade,
+      });
+      if (results.length >= limit) break;
+    }
+    return results;
+  }
   /** Sửa yêu cầu cần đạt (gồm truy vết nguồn — kiểm chứng trên trạng thái gộp cũ + mới). */
   async updateOutcome(actorId: string, id: string, input: {
     content?: string; position?: number;

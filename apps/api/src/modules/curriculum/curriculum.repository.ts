@@ -162,6 +162,42 @@ export class CurriculumRepository {
     return { bookMappings: bookMappingsCount, examMatrixCells: examMatrixCellsCount, questionOutcomes: questionOutcomesCount };
   }
   /**
+   * Tìm YCCĐ theo từ khoá trong nội dung (không phân biệt hoa thường),
+   * kèm ngữ cảnh hiển thị (tên node, khối, môn + context của môn để
+   * tầng service gác quyền đọc). Lọc cứng theo môn/khối khi caller
+   * truyền; trần `limit` chặn ở SQL — tầng service còn lọc quyền theo
+   * từng môn rồi mới cắt theo hạn mức của caller.
+   */
+  async searchOutcomes(input: { query: string; subjectId?: string; grade?: number; limit: number }): Promise<{
+    outcome: LearningOutcomeRow;
+    nodeTitle: string;
+    grade: number;
+    subjectId: string;
+    subjectName: string;
+    subjectContextId: string;
+  }[]> {
+    const conditions = [sql`${learningOutcomes.content} ILIKE ${`%${input.query}%`}`];
+    if (input.subjectId) conditions.push(eq(subjects.id, input.subjectId));
+    if (input.grade !== undefined) conditions.push(eq(curricula.grade, input.grade));
+    const rows = await this.db
+      .select({
+        outcome: learningOutcomes,
+        nodeTitle: curriculumNodes.title,
+        grade: curricula.grade,
+        subjectId: subjects.id,
+        subjectName: subjects.name,
+        subjectContextId: subjects.contextId,
+      })
+      .from(learningOutcomes)
+      .innerJoin(curriculumNodes, eq(learningOutcomes.nodeId, curriculumNodes.id))
+      .innerJoin(curricula, eq(curriculumNodes.curriculumId, curricula.id))
+      .innerJoin(subjects, eq(curricula.subjectId, subjects.id))
+      .where(and(...conditions))
+      .orderBy(asc(subjects.position), asc(curricula.grade), asc(curriculumNodes.position), asc(learningOutcomes.position))
+      .limit(input.limit);
+    return rows;
+  }
+  /**
    * Đếm câu hỏi sẵn sàng đã gắn vào một YCCĐ, nhóm theo (mức × dạng câu).
    * "Sẵn sàng" = trạng thái ready ở cấp danh tính câu hỏi
    * (question_bank_entries.status) — nền cho đếm ứng viên ma trận (A.6).

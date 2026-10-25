@@ -18,15 +18,49 @@
  * - `session.cookieCache` tắt: thu hồi phiên có hiệu lực ngay;
  * - secret riêng `BETTER_AUTH_SECRET`, không dùng chung JWT_SECRET.
  */
+import { cimd } from '@better-auth/cimd';
+import { fetchClientMetadataResource as defaultCimdFetch } from '@better-auth/cimd/node';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { mcp } from '@better-auth/mcp';
 import { APIError, betterAuth } from 'better-auth';
-import { username } from 'better-auth/plugins';
+import { jwt, username } from 'better-auth/plugins';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
 import { betterAuthSchema } from './better-auth.schema';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
 export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
+
+/**
+ * Bộ scope OAuth mà AS phát cho resource `/mcp` (issue #163): trần
+ * quyền của access token — quyết định quyền thật vẫn là capability tại
+ * context ở tầng tool như MCP-0. PRM ở mcp.mount.ts quảng bá đúng bộ
+ * này (MCP_SCOPES) — hai nơi phải khớp nhau.
+ */
+export const MCP_OAUTH_SCOPES = [
+  'lms.questions.read',
+  'lms.questions.draft',
+  'lms.questions.write',
+  'lms.banks.contribute',
+] as const;
+
+/** TTL (giây) của access token cho resource `/mcp` — JWT đã phát không thu hồi server-side được (RFC 7009) nên TTL ngắn là đường bù đã chốt ở addendum. */
+export const MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
+
+export interface BetterAuthMcpAsConfig {
+  /** Canonical resource URI của MCP server (origin công khai + `/mcp`) — trở thành `aud` của mọi access token. */
+  resource: string;
+  /** Trang web đăng nhập cho luồng authorize (chạy phiên Better Auth). */
+  loginPage: string;
+  /** Trang web đồng ý (consent) cho luồng authorize. */
+  consentPage: string;
+  /**
+   * Transport lấy tài liệu metadata của client CIMD. Mặc định là
+   * transport Node của `@better-auth/cimd/node` (đã xử lý SSRF/ghép IP);
+   * test chích transport riêng để chạy CIMD trên loopback.
+   */
+  cimdFetch?: typeof defaultCimdFetch;
+}
 
 /** Tên cookie phiên của Better Auth (bản https thêm tiền tố `__Secure-`). */
 export const BETTER_AUTH_SESSION_COOKIE = 'better-auth.session_token';
@@ -38,14 +72,25 @@ export interface BetterAuthFactoryDeps {
   baseURL: string;
   trustedOrigins: string[];
   passwordService: PasswordService;
+  /**
+   * Cấu hình máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): có
+   * giá trị thì factory compose thêm `jwt()` + `mcp()` + `cimd()` —
+   * instance trở thành AS phát access token cho `/mcp`. `null`/thiếu
+   * = instance thuần GĐ1 như trước, KHÔNG có bề mặt OAuth nào.
+   */
+  mcpAs?: BetterAuthMcpAsConfig | null;
 }
 
 export function createBetterAuth(deps: BetterAuthFactoryDeps) {
+  const mcpAs = deps.mcpAs ?? null;
   return betterAuth({
     secret: deps.secret,
     baseURL: deps.baseURL,
     basePath: BETTER_AUTH_BASE_PATH,
     trustedOrigins: deps.trustedOrigins,
+    // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
+    // liệu OAuth Provider (token chỉ phát qua `/oauth2/token`).
+    ...(mcpAs ? { disabledPaths: ['/token'] } : {}),
     database: drizzleAdapter(deps.db, {
       provider: 'pg',
       schema: betterAuthSchema,
@@ -71,7 +116,68 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
           deps.passwordService.verify(hash, password),
       },
     },
-    plugins: [username({ displayUsername: false })],
+    plugins: [
+      username({ displayUsername: false }),
+      // ── Lát MCP-1 (issue #163): máy chủ OAuth cho MCP ──────────────
+      // Chỉ compose khi cờ MCP_AS_ENABLED bật (service truyền mcpAs).
+      // CIMD (client_id là URL tài liệu metadata, hồ sơ
+      // mcp-2026-07-28) là đường đăng ký chính; DCR để lại cho client
+      // legacy nên bật tường minh cả ba tuỳ chọn theo addendum §2.
+      ...(mcpAs
+        ? [
+            jwt({ disableSettingJwtHeader: true }),
+            mcp({
+              loginPage: mcpAs.loginPage,
+              consentPage: mcpAs.consentPage,
+              resource: mcpAs.resource,
+              // Scope của AS = 4 scope quyền của resource + scope
+              // giao thức `offline_access` (plugin bắt scope này nằm
+              // trong danh sách của AS thì client mới đăng ký/ xin
+              // được nó; metadata của RESOURCE tự lọc các scope
+              // phía-AS ra nên PRM vẫn chỉ quảng bá 4 scope quyền).
+              scopes: [...MCP_OAUTH_SCOPES, 'offline_access'],
+              resources: [
+                {
+                  identifier: mcpAs.resource,
+                  // CỐ Ý không ghim allowedScopes cho resource:
+                  // plugin tính effectiveScopes bằng phép giao với
+                  // allowedScopes, làm scope giao thức offline_access
+                  // bị tước khỏi scope LƯU trên refresh token → ở
+                  // grant refresh, plugin không còn căn cứ cấp token
+                  // xoay vòng (kiểm chứng dist + DB ở e2e MCP-1:
+                  // refresh chỉ trả access token mới, token cũ không
+                  // bị thu hồi). Bỏ allowedScopes thì trần scope của
+                  // resource vẫn do danh sách scope của AS (đúng 4
+                  // scope quyền + offline_access) và scope client đã
+                  // đăng ký gác; đổi lại access token mang thêm
+                  // offline_access trong claim scope — RS bỏ qua
+                  // scope không thuộc bộ tool.
+                  accessTokenTtl: MCP_ACCESS_TOKEN_TTL_SECONDS,
+                },
+              ],
+              // JWT đã phát không thu hồi được → KHÔNG cho cửa sổ ân
+              // hạn tái dùng refresh token (mặc định plugin là 30s):
+              // refresh cũ dùng lại là bị chặn ngay (addendum §2).
+              refreshTokenReuseInterval: 0,
+              allowDynamicClientRegistration: true,
+              allowUnauthenticatedClientRegistration: true,
+              clientRegistrationDefaultApplicationType: 'infer',
+              // `offline_access` là scope GIAO THỨC phía AS, không
+              // phải scope quyền của resource /mcp: plugin chỉ cho
+              // client đăng ký scope này khi AS khai tường minh tại
+              // đây, và chỉ cấp refresh token khi authorize xin nó
+              // (cơ chế oauth-provider 1.7.12 — kiểm chứng trong
+              // dist + e2e mcp-as-oauth; thiếu khai này thì DCR của
+              // client xin phiên dài chết invalid_scope ngay).
+              clientRegistrationAllowedScopes: ['offline_access'],
+            }),
+            cimd({
+              fetchClientMetadataResource: mcpAs.cimdFetch ?? defaultCimdFetch,
+              metadataProfile: 'mcp-2026-07-28',
+            }),
+          ]
+        : []),
+    ],
     session: {
       cookieCache: { enabled: false },
     },
