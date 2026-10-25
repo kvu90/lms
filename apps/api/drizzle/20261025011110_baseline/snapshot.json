@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "027a49b3-9ee9-4e1f-a9d2-e642dddb02f0",
+  "id": "e5efdbee-5b7a-4f7e-99d7-3762ac206ad5",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1218,6 +1218,44 @@
         "n|rel|public.guardian_links",
         "n|type|public.guardian_links",
         "n|rel|public.guardian_links_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_course_card_prefs"
+      ],
+      "writes": [
+        "s|tbl|public.user_course_card_prefs",
+        "n|tbl|public.user_course_card_prefs",
+        "e|tbl|public.user_course_card_prefs",
+        "n|rel|public.user_course_card_prefs",
+        "n|type|public.user_course_card_prefs",
+        "n|rel|public.user_course_card_prefs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "user_dashboard_state"
+      ],
+      "writes": [
+        "s|tbl|public.user_dashboard_state",
+        "n|tbl|public.user_dashboard_state",
+        "e|tbl|public.user_dashboard_state",
+        "n|rel|public.user_dashboard_state",
+        "n|type|public.user_dashboard_state",
+        "n|rel|public.user_dashboard_state_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -5430,6 +5468,26 @@
         "n|sch|public",
         "n|col|public.guardian_links.guardian_user_id",
         "n|col|public.guardian_links.student_user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "user_course_card_prefs",
+        "user_course_card_prefs_course_idx"
+      ],
+      "writes": [
+        "s|idx|public.user_course_card_prefs_course_idx",
+        "n|idx|public.user_course_card_prefs_course_idx",
+        "e|idx|public.user_course_card_prefs_course_idx",
+        "n|rel|public.user_course_card_prefs_course_idx"
+      ],
+      "reads": [
+        "n|tbl|public.user_course_card_prefs",
+        "n|sch|public",
+        "n|col|public.user_course_card_prefs.course_id"
       ]
     },
     {
@@ -12118,6 +12176,29 @@
       "statementTarget": [
         "table",
         "public",
+        "user_course_card_prefs"
+      ],
+      "writes": [
+        "s|fk|public.user_course_card_prefs.user_course_card_prefs_course_id_course_id_fkey",
+        "n|fk|public.user_course_card_prefs.user_course_card_prefs_course_id_course_id_fkey",
+        "e|fk|public.user_course_card_prefs.user_course_card_prefs_course_id_course_id_fkey",
+        "n|con|public.user_course_card_prefs.user_course_card_prefs_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.user_course_card_prefs",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.user_course_card_prefs.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "qtype_essay_options"
       ],
       "writes": [
@@ -15501,6 +15582,18 @@
     {
       "schema": "public",
       "name": "guardian_links",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "user_course_card_prefs",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "user_dashboard_state",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -23319,6 +23412,136 @@
     {
       "schema": "public",
       "table": "guardian_links",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "color",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "nickname",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_dashboard_state",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_dashboard_state",
+      "name": "last_seen_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_dashboard_state",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "user_dashboard_state",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -39599,6 +39822,27 @@
     },
     {
       "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "user_course_card_prefs_course_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "question",
       "name": "question_category_idx",
       "nameExplicit": true,
@@ -46173,6 +46417,23 @@
     },
     {
       "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "user_course_card_prefs_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "qtype_essay_options",
       "name": "qtype_essay_options_rP8Wa5wQJvJN_fkey",
       "nameExplicit": false,
@@ -48426,6 +48687,17 @@
     },
     {
       "schema": "public",
+      "table": "user_course_card_prefs",
+      "name": "user_course_card_prefs_pkey",
+      "columns": [
+        "user_id",
+        "course_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "message_contact_requests",
       "name": "message_contact_requests_pkey",
       "columns": [
@@ -49064,6 +49336,16 @@
       "name": "guardian_links_pkey",
       "columns": [
         "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "user_dashboard_state",
+      "name": "user_dashboard_state_pkey",
+      "columns": [
+        "user_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
