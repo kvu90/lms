@@ -390,6 +390,8 @@ export function CoursePage() {
                       {isComplete ? <span aria-label={t('completionCompleted')}>✓ </span> : null}
                       {cm.component === 'mod_quiz' && cm.instanceId && !locked ? (
                         <Link to={`/courses/${id}/quizzes/${cm.instanceId}`}>{cm.name || cm.component}</Link>
+                      ) : cm.component === 'mod_assign' && cm.instanceId && !locked ? (
+                        <Link to={`/courses/${id}/assignments/${cm.instanceId}`}>{cm.name || cm.component}</Link>
                       ) : (cm.component === 'mod_page' || cm.component === 'mod_resource') && !locked ? (
                         <Link to={`/courses/${id}/learn/${cm.id}`}>{cm.name || cm.component}</Link>
                       ) : (

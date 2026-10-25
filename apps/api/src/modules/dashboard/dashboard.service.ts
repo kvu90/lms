@@ -114,9 +114,9 @@ export class DashboardService {
     const items: DashboardOverviewView['dueItems'] = [];
 
     const quizRows = await this.repo.quizDueRows(enrolled, userId, until);
-    const quizByCm = new Map<string, { courseId: string; name: string; dueAt: Date; states: (string | null)[] }>();
+    const quizByCm = new Map<string, { courseId: string; activityId: string; name: string; dueAt: Date; states: (string | null)[] }>();
     for (const row of quizRows) {
-      const entry = quizByCm.get(row.cmId) ?? { courseId: row.courseId, name: row.name, dueAt: row.dueAt!, states: [] };
+      const entry = quizByCm.get(row.cmId) ?? { courseId: row.courseId, activityId: row.activityId!, name: row.name, dueAt: row.dueAt!, states: [] };
       entry.states.push(row.attemptState);
       quizByCm.set(row.cmId, entry);
     }
@@ -128,6 +128,7 @@ export class DashboardService {
         courseId: entry.courseId,
         courseName: names.get(entry.courseId) ?? '',
         cmId,
+        activityId: entry.activityId,
         kind: 'quiz',
         name: entry.name,
         dueAt: entry.dueAt.toISOString(),
@@ -142,6 +143,7 @@ export class DashboardService {
         courseId: row.courseId,
         courseName: names.get(row.courseId) ?? '',
         cmId: row.cmId,
+        activityId: row.activityId!,
         kind: 'assignment',
         name: row.name,
         dueAt: row.dueAt!.toISOString(),

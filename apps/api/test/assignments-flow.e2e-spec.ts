@@ -118,7 +118,9 @@ describe('Assignment file submission (mod_assign)', () => {
 
     const list = await http(app).get(`/api/v1/assignments/${assignment.id}/submissions`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(list.status).toBe(200);
-    const row = (list.body as { userId: string; status: string; fileCount: number; gradeStatus: string }[]).find((r) => r.userId === ctx.student.id);
+    const row = (list.body as { userId: string; displayName: string; status: string; fileCount: number; gradeStatus: string }[]).find((r) => r.userId === ctx.student.id);
+    // Bề mặt chấm của giáo viên (issue #179) phải đọc được tên học sinh, không chỉ userId.
+    expect(row?.displayName).toBe('Test User');
     expect(row?.status).toBe('submitted');
     expect(row?.fileCount).toBe(2);
     expect(row?.gradeStatus).toBe('none');

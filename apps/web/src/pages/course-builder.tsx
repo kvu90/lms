@@ -357,6 +357,15 @@ export function CourseBuilderPage() {
         await navigate(`/courses/${courseId}/quizzes/${created.id}`);
         return;
       }
+      if (draft.component === 'mod_assign') {
+        if (!draft.name.trim()) return;
+        const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/assignments`, {
+          method: 'POST',
+          body: JSON.stringify({ sectionId, name: draft.name.trim() }),
+        });
+        await navigate(`/courses/${courseId}/assignments/${created.id}`);
+        return;
+      }
       await apiJson(`/api/v1/courses/${courseId}/modules`, {
         method: 'POST',
         body: JSON.stringify({

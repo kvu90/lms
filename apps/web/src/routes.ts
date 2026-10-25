@@ -39,6 +39,7 @@ export default [
     route('courses/:id/admin', 'pages/course-admin.tsx'),
     route('courses/:id/grades', 'pages/grades.tsx'),
     route('courses/:id/quizzes/:quizId', 'pages/quiz.tsx'),
+    route('courses/:id/assignments/:assignmentId', 'pages/assignment.tsx'),
     route('courses/:id/quizzes/:quizId/results', 'pages/quiz-results.tsx'),
     route('courses/:id/quizzes/:quizId/paper', 'pages/quiz-paper.tsx'),
     route('quiz-attempts/:attemptId', 'pages/quiz-attempt.tsx'),

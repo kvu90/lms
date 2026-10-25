@@ -324,6 +324,9 @@ describe('Dashboard theo vai trò', () => {
     expect(items[0]).toHaveTextContent('Bài nộp quá hạn');
     expect(items[0]).toHaveTextContent('Quá hạn');
     expect(items[1]).toHaveTextContent('Quiz sắp đến hạn');
+    // ĐX-5 (issue #179): việc cần làm trỏ thẳng tới trang hoạt động, không về trang khoá chung.
+    expect(items[0].querySelector('a')?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/assignments/a-overdue`);
+    expect(items[1].querySelector('a')?.getAttribute('href')).toBe(`/courses/${COURSE_ID}/quizzes/q-soon`);
     // Điểm mới đã công bố hiện kèm điểm số.
     const fresh = screen.getByTestId('todo-new-result');
     expect(fresh).toHaveTextContent('Điểm kiểm tra');
