@@ -105,15 +105,56 @@ export function otsuThreshold(gray: Uint8Array): number {
 
 interface FiducialHit { x: number; y: number; area: number }
 
+interface FiducialCriteria {
+  /** ROI rộng theo tỉ lệ bề rộng/chiều cao ảnh, canh giữa tại điểm kỳ vọng. */
+  roiScale: number;
+  /** Tỉ lệ lấp đầy bbox tối thiểu của thành phần. */
+  minFill: number;
+  minRatio: number;
+  maxRatio: number;
+}
+
+/**
+ * Lượt chặt (hành vi gốc): hình vuông đặc, lấp đầy ≥ 0.75.
+ * Lượt nới lỏng (chỉ dùng để cứu góc bị lượt chặt loại oan): fiducial
+ * thật bị méo phối cảnh cục bộ (hình vuông xoay ~10° trong bbox) có fill
+ * tụt tới ~0.73 và bbox phình ~1.3 lần — vẫn là thành phần vuông đặc lớn
+ * nhất trong ROI, chỉ thua mỗi ngưỡng fill. Nới fill xuống 0.55 + mở ROI
+ * + nới tỉ lệ cạnh, GIỮ NGUYÊN biên cạnh tuyệt đối (loại vệt chữ/thanh
+ * ngang và nền bàn) và giữ luật chọn diện tích lớn nhất.
+ */
+const FIDUCIAL_STRICT: FiducialCriteria = { roiScale: 0.2, minFill: 0.75, minRatio: 0.6, maxRatio: 1.7 };
+const FIDUCIAL_RELAXED: FiducialCriteria = { roiScale: 0.26, minFill: 0.55, minRatio: 0.45, maxRatio: 2.2 };
+/**
+ * Hệ số trọng tài giữa hai lượt: chỉ khi ứng viên nới lỏng lớn ÍT NHẤT
+ * GẤP ĐÔI ứng viên chặt mới kết luận ứng viên chặt là blob lạ thắng oan
+ * (fiducial thật bị cổng fill loại) và lấy ứng viên nới lỏng. Số đo
+ * thật: ca blob thắng oan có tỉ lệ ~4.2× (blob ~850 so với fiducial
+ * ~3.600); ca suýt oan ngược — khối QR mờ nhập thành một blob 3.472 so
+ * với fiducial thật 2.967, tỉ lệ chỉ 1.17× — nằm xa dưới ngưỡng gấp
+ * đôi. Hai lượt cùng chỉ vào một thành phần thì tỉ lệ ~1, hành vi
+ * không đổi.
+ */
+const FIDUCIAL_AREA_ARBITRATION = 2;
+/**
+ * Chốt an toàn hình học: bốn tâm fiducial thật thỏa gần đúng đẳng thức
+ * hình bình hành TL + BR = TR + BL (trung điểm hai đường chéo trùng
+ * nhau); độ lệch phối cảnh thật đo trên bộ mô phỏng ≤ ~3.5% bề rộng ảnh.
+ * Một điểm bị nhận nhầm làm lệch đẳng thức ≥ ~7%. Vượt ngưỡng 5% bề
+ * rộng ảnh = tứ giác không tin được → coi như thiếu fiducial (từ chối
+ * an toàn, chụp lại) thay vì nắn theo điểm sai rồi chấm sai cả phiếu.
+ */
+const FIDUCIAL_QUAD_RESIDUAL_MAX = 0.05;
+
 /**
  * Tìm một fiducial trong vùng góc: thành phần tối lớn nhất thỏa hình
- * vuông đặc (tỉ lệ lấp đầy ≥ 0.75, cạnh trong [0.5%, 6%] bề rộng ảnh).
- * Tâm = trọng tâm điểm ảnh của thành phần (ổn định hơn tâm bbox khi
- * chụp xiên).
+ * vuông đặc theo bộ tiêu chí cho trước (cạnh trong [0.8%, 9%] bề rộng
+ * và [0.6%, 7%] chiều cao ảnh). Tâm = trọng tâm điểm ảnh của thành
+ * phần (ổn định hơn tâm bbox khi chụp xiên).
  */
-function findFiducialInRoi(img: GrayImage, threshold: number, cx: number, cy: number): FiducialHit | null {
-  const roiW = Math.round(img.width * 0.2);
-  const roiH = Math.round(img.height * 0.2);
+function findFiducialInRoi(img: GrayImage, threshold: number, cx: number, cy: number, criteria: FiducialCriteria): FiducialHit | null {
+  const roiW = Math.round(img.width * criteria.roiScale);
+  const roiH = Math.round(img.height * criteria.roiScale);
   const x0 = Math.max(0, Math.min(img.width - roiW, Math.round(cx - roiW / 2)));
   const y0 = Math.max(0, Math.min(img.height - roiH, Math.round(cy - roiH / 2)));
   const visited = new Uint8Array(roiW * roiH);
@@ -149,7 +190,7 @@ function findFiducialInRoi(img: GrayImage, threshold: number, cx: number, cy: nu
       const fill = area / (bw * bh);
       const ratio = bw / bh;
       const sideOk = bw >= img.width * 0.008 && bw <= img.width * 0.09 && bh >= img.height * 0.006 && bh <= img.height * 0.07;
-      if (sideOk && fill >= 0.75 && ratio >= 0.6 && ratio <= 1.7) {
+      if (sideOk && fill >= criteria.minFill && ratio >= criteria.minRatio && ratio <= criteria.maxRatio) {
         if (!best || area > best.area) best = { x: x0 + sumX / area, y: y0 + sumY / area, area, fill, ratio };
       }
     }
@@ -349,8 +390,22 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
       x: (corner.x / TEMPLATE_WIDTH) * img.width,
       y: (corner.y / TEMPLATE_HEIGHT) * img.height,
     };
-    const hit = findFiducialInRoi(img, threshold, expected.x, expected.y);
+    // Hai lượt tìm + trọng tài diện tích (xem FIDUCIAL_RELAXED): lượt
+    // chặt giữ hành vi gốc; lượt nới lỏng cứu fiducial bị méo phối cảnh
+    // làm fill tụt dưới 0.75 — cả ca bị từ chối oan lẫn ca một blob nhỏ
+    // qua cổng chặt thắng oan trong lúc fiducial thật bị loại.
+    const strict = findFiducialInRoi(img, threshold, expected.x, expected.y, FIDUCIAL_STRICT);
+    const relaxed = findFiducialInRoi(img, threshold, expected.x, expected.y, FIDUCIAL_RELAXED);
+    let hit: FiducialHit | null = strict;
+    if (relaxed && (!strict || relaxed.area > strict.area * FIDUCIAL_AREA_ARBITRATION)) hit = relaxed;
     if (hit) { fiducialCount++; srcPoints.push(hit); } else srcPoints.push(expected);
+  }
+  // Chốt an toàn hình học: đủ 4 điểm mà tứ giác vi phạm đẳng thức hình
+  // bình hành quá ngưỡng = có điểm nhận nhầm → không nắn theo điểm sai.
+  if (fiducialCount === 4) {
+    const [tl, tr, bl, br] = srcPoints as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+    const residual = Math.hypot(tl.x + br.x - tr.x - bl.x, tl.y + br.y - tr.y - bl.y) / 2;
+    if (residual > img.width * FIDUCIAL_QUAD_RESIDUAL_MAX) fiducialCount = 3;
   }
   if (fiducialCount < 4) {
     return {
