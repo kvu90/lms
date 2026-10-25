@@ -7,6 +7,25 @@ import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/perm
 
 const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
 
+/**
+ * Truy vết nguồn của một dòng gán vai (Moodle: cột `component`/`itemid`
+ * của `role_assignments` — enrol plugin ghi component là tên plugin và
+ * itemid là id của enrol instance). Gán tay qua API quản trị và các gán
+ * hệ thống khác để component rỗng + itemId null.
+ */
+export interface AssignmentSource {
+  component: string;
+  itemId?: string | null;
+}
+
+/** Component đánh dấu dòng gán vai do một ghi danh (enrol instance) cấp. */
+export const ENROL_ASSIGNMENT_COMPONENT = 'enrol';
+
+/** Dòng gán vai này có do ghi danh cấp hay không (quyết định chốt gỡ ở unassignRole). */
+export function isEnrolManagedAssignment(assignment: { component?: string | null }): boolean {
+  return assignment.component === ENROL_ASSIGNMENT_COMPONENT;
+}
+
 @Injectable()
 /**
  * Quản trị role và gán role: role là tập override capability tại các context.
@@ -87,30 +106,51 @@ export class RolesService {
   }
 
   /**
-   * Gán role cho user tại context; trùng gán hiện hữu thì bỏ qua.
+   * Gán role cho user tại context; trùng gán hiện hữu (cùng role + cùng
+   * NGUỒN) thì bỏ qua. `source` khai truy vết nguồn của dòng gán: ghi danh
+   * truyền `{ component: 'enrol', itemId: <enrol instance id> }`; không
+   * truyền = gán tay/hệ thống (component rỗng, itemId null). Cùng một
+   * role/user/context có thể có nhiều dòng gán khác nguồn (vd vừa được
+   * enrol cấp vừa được quản trị gán tay) — mỗi nguồn một dòng riêng, gỡ
+   * nguồn nào chỉ mất dòng của nguồn đó.
    */
-  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string): Promise<unknown> {
+  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource): Promise<unknown> {
     await this.getRole(roleId);
     await this.contexts.getContext(contextId);
+    const component = source?.component ?? '';
+    const itemId = source?.itemId ?? null;
     const existing = await this.repo.listAssignments({ userId, contextId });
-    const alreadyAssigned = existing.some((a) => a.roleId === roleId);
-    const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId });
+    const alreadyAssigned = existing.some((a) => a.roleId === roleId && a.component === component && (a.itemId ?? null) === itemId);
+    const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId, component, itemId });
     await this.contexts.markContextDirty(contextId);
     if (!alreadyAssigned) {
       // Sự kiện role_assigned (Moodle \core\event\role_assigned) cho
       // logstore — chỉ phát khi gán thật sự mới (gán trùng là no-op).
       await this.outbox.enqueueStandalone({
         aggregate: 'access', type: 'role_assigned',
-        payload: { assignmentId: (row as { id: string }).id, userId, roleId, contextId, actorId: modifierId ?? null },
+        payload: { assignmentId: (row as { id: string }).id, userId, roleId, contextId, actorId: modifierId ?? null, component, itemId },
       });
     }
     return row;
   }
   /**
    * Gỡ gán role của user tại context.
+   *
+   * Chốt toàn vẹn ghi danh (issue #157): dòng gán do GHI DANH cấp
+   * (component='enrol') thuộc quyền quản lý của enrol — đường gỡ mặc định
+   * (API quản trị `DELETE /access/assignments/:id`) KHÔNG được xoá, vì
+   * xoá sẽ để lại một ghi danh còn hiệu lực mà không còn vai ở khoá. Chỉ
+   * đường nội bộ của chính enrol (unenrol/đổi vai instance) mới gỡ được,
+   * qua cờ tường minh `allowEnrolManaged`.
    */
-  async unassignRole(assignmentId: string, modifierId?: string): Promise<void> {
+  async unassignRole(assignmentId: string, modifierId?: string, opts?: { allowEnrolManaged?: boolean }): Promise<void> {
     const existing = await this.repo.getAssignment(assignmentId);
+    if (existing && isEnrolManagedAssignment(existing) && !opts?.allowEnrolManaged) {
+      throw new BadRequestException({
+        message: 'This role assignment is managed by an enrolment and cannot be removed directly; unenrol the user from the enrolment instance instead',
+        code: 'access.assignment_enrol_managed',
+      });
+    }
     await this.repo.deleteAssignment(assignmentId);
     if (existing) {
       // Sự kiện role_unassigned (Moodle \core\event\role_unassigned) cho logstore.

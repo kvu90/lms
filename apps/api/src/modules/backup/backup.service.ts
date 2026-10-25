@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { RolesService } from '../access/roles.service';
+import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { FilesService } from '../files/files.service';
 import { BackupRepository, type JobRow } from './backup.repository';
@@ -163,7 +163,10 @@ export class BackupService {
           }).onConflictDoNothing().returning();
           if (ueRow) await mapping.map('user_enrolment', ue.id, ueRow.id);
           const inst = d.instances.find((i) => i.id === ue.enrolId);
-          if (inst?.roleId) await this.roles.assignRole(ue.userId, inst.roleId, targetCtx).catch(() => undefined);
+          // Ghi danh khôi phục vẫn là gán do enrol cấp: mang truy vết của
+          // instance MỚI ở khoá đích để unenrol sau này gỡ đúng dòng này
+          // (issue #157).
+          if (inst?.roleId) await this.roles.assignRole(ue.userId, inst.roleId, targetCtx, undefined, { component: ENROL_ASSIGNMENT_COMPONENT, itemId: newInstance }).catch(() => undefined);
         }
       },
     });

@@ -152,9 +152,14 @@ export class AccessRepository {
     const [row] = await this.db.insert(roleAssignments).values(values)
       .onConflictDoNothing().returning();
     if (row) return row;
+    // Fallback khi trùng unique (role, user, context, component, itemId):
+    // phải khớp đúng NGUỒN của dòng sắp chèn — nếu không, gán của enrol có
+    // thể trả về nhầm dòng gán tay (hoặc ngược lại) cùng role/user/context.
     const [existing] = await this.db.select().from(roleAssignments).where(and(
       eq(roleAssignments.roleId, values.roleId!), eq(roleAssignments.userId, values.userId!),
-      eq(roleAssignments.contextId, values.contextId!)));
+      eq(roleAssignments.contextId, values.contextId!),
+      eq(roleAssignments.component, values.component ?? ''),
+      values.itemId != null ? eq(roleAssignments.itemId, values.itemId) : isNull(roleAssignments.itemId)));
     return existing!;
   }
   /**
