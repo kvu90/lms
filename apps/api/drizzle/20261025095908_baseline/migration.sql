@@ -3345,3 +3345,11 @@ CREATE POLICY "tenant_isolation" ON "event_log" USING (current_setting('app.plat
 ALTER TABLE "outbox_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "outbox_events" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "outbox_events" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);
+--> statement-breakpoint
+ALTER TABLE "blog_association" DROP CONSTRAINT "blog_association_blog_id_blog_posts_id_fkey";--> statement-breakpoint
+ALTER TABLE "blog_post_placements" DROP CONSTRAINT "blog_post_placements_post_id_blog_posts_id_fkey";--> statement-breakpoint
+ALTER TABLE "blog_post_references" DROP CONSTRAINT "blog_post_references_post_id_blog_posts_id_fkey";--> statement-breakpoint
+DROP TABLE "blog_association";--> statement-breakpoint
+DROP TABLE "blog_post_placements";--> statement-breakpoint
+DROP TABLE "blog_post_references";--> statement-breakpoint
+DROP TABLE "blog_posts";
