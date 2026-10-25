@@ -597,5 +597,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outSbd.scan!.identityCode).toBe(mutatedSbd);
     const delSbd = await http(app).delete(`/api/v1/paper-scans/${outSbd.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(delSbd.status).toBe(200);
-  });
+    // Ca này tạo 21 user + ghi danh + 2 lô + 2 ảnh nên cần timeout dài
+    // hơn mặc định 30s của suite.
+  }, 180_000);
 });
