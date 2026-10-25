@@ -940,6 +940,7 @@ CREATE TABLE "guardian_digests" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"guardian_user_id" uuid NOT NULL,
 	"student_user_id" uuid NOT NULL,
+	"tenant_id" uuid,
 	"kind" text NOT NULL,
 	"window_start" timestamp with time zone,
 	"window_end" timestamp with time zone,
@@ -1956,6 +1957,7 @@ CREATE TABLE "message_conversations" (
 	"context_id" uuid,
 	"enabled" boolean DEFAULT true NOT NULL,
 	"created_by" uuid,
+	"tenant_id" uuid,
 	"last_message_seq" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -1991,6 +1993,7 @@ CREATE TABLE "notification_dispatch_log" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"notification_id" uuid,
 	"user_id" uuid NOT NULL,
+	"tenant_id" uuid,
 	"provider" text NOT NULL,
 	"channel" text NOT NULL,
 	"status" text NOT NULL,
@@ -2003,6 +2006,7 @@ CREATE TABLE "notifications" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"user_id_from" uuid,
 	"user_id_to" uuid NOT NULL,
+	"tenant_id" uuid,
 	"subject" text DEFAULT '' NOT NULL,
 	"full_message" text DEFAULT '' NOT NULL,
 	"small_message" text DEFAULT '' NOT NULL,
@@ -2713,6 +2717,7 @@ CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> 
 CREATE UNIQUE INDEX "guardian_digests_dedupe_key_unique" ON "guardian_digests" ("dedupe_key");--> statement-breakpoint
 CREATE INDEX "guardian_digests_guardian_user_id_idx" ON "guardian_digests" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_digests_student_user_id_idx" ON "guardian_digests" ("student_user_id");--> statement-breakpoint
+CREATE INDEX "guardian_digests_tenant_id_idx" ON "guardian_digests" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_tenant_id_idx" ON "guardian_links" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_guardian_user_id_idx" ON "guardian_links" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_student_user_id_idx" ON "guardian_links" ("student_user_id");--> statement-breakpoint
@@ -2875,6 +2880,7 @@ CREATE INDEX "message_conversation_reports_conversation_id_idx" ON "message_conv
 CREATE INDEX "message_conversation_reports_reporter_id_idx" ON "message_conversation_reports" ("reporter_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_item_id_idx" ON "message_conversations" ("item_id");--> statement-breakpoint
 CREATE INDEX "message_conversations_context_id_idx" ON "message_conversations" ("context_id");--> statement-breakpoint
+CREATE INDEX "message_conversations_tenant_id_idx" ON "message_conversations" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "message_moderator_actions_message_id_idx" ON "message_moderator_actions" ("message_id");--> statement-breakpoint
 CREATE INDEX "message_moderator_actions_conversation_id_idx" ON "message_moderator_actions" ("conversation_id");--> statement-breakpoint
 CREATE INDEX "message_moderator_actions_actor_id_idx" ON "message_moderator_actions" ("actor_id");--> statement-breakpoint
@@ -2882,8 +2888,10 @@ CREATE INDEX "message_user_deletions_user_id_idx" ON "message_user_deletions" ("
 CREATE INDEX "message_users_blocked_blocked_user_id_idx" ON "message_users_blocked" ("blocked_user_id");--> statement-breakpoint
 CREATE INDEX "notification_dispatch_log_notification_id_idx" ON "notification_dispatch_log" ("notification_id");--> statement-breakpoint
 CREATE INDEX "notification_dispatch_log_user_id_idx" ON "notification_dispatch_log" ("user_id");--> statement-breakpoint
+CREATE INDEX "notification_dispatch_log_tenant_id_idx" ON "notification_dispatch_log" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "notifications_user_id_from_idx" ON "notifications" ("user_id_from");--> statement-breakpoint
 CREATE INDEX "notifications_user_id_to_idx" ON "notifications" ("user_id_to");--> statement-breakpoint
+CREATE INDEX "notifications_tenant_id_idx" ON "notifications" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "calendar_events_course_id_idx" ON "calendar_events" ("course_id");--> statement-breakpoint
 CREATE INDEX "calendar_events_group_id_idx" ON "calendar_events" ("group_id");--> statement-breakpoint
 CREATE INDEX "calendar_events_category_id_idx" ON "calendar_events" ("category_id");--> statement-breakpoint
@@ -3087,6 +3095,7 @@ ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_book_id_vn_gradebo
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3207,7 +3216,10 @@ ALTER TABLE "books" ADD CONSTRAINT "books_subject_id_subjects_id_fkey" FOREIGN K
 ALTER TABLE "message" ADD CONSTRAINT "message_conversation_id_message_conversations_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD CONSTRAINT "message_conversation_members_nGTyxtbairiu_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "message_conversation_reports" ADD CONSTRAINT "message_conversation_reports_Pp9sKN3GPtqe_fkey" FOREIGN KEY ("conversation_id") REFERENCES "message_conversations"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "message_conversations" ADD CONSTRAINT "message_conversations_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "message_user_deletions" ADD CONSTRAINT "message_user_deletions_message_id_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "message"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notification_dispatch_log" ADD CONSTRAINT "notification_dispatch_log_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "badge_criteria" ADD CONSTRAINT "badge_criteria_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_issued" ADD CONSTRAINT "badge_issued_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "badge_manual_award" ADD CONSTRAINT "badge_manual_award_badge_id_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badge"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3242,68 +3254,78 @@ ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_ma
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
--- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
--- cơ sở dữ liệu (hồ sơ mục 2.1/3.2). Mọi bảng mang tenant_id ở lát này
--- đều ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
---   * Phiên platform tường minh (GUC app.platform = 'on', do
---     TenantDbService.withPlatform đặt sau khi đã qua cổng capability)
---     thấy mọi dòng.
---   * Phiên CHƯA đặt GUC app.tenant_id (kết nối pooled của mã cũ chưa
---     qua wrapper) được cho qua: RLS ở lát này là hàng rào cho các
---     đường đã bọc transaction theo tenant + bằng chứng truy vấn thô
---     trong phiên tenant; phủ wrapper toàn bề mặt là việc TENANT-1.
+ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;-- TENANT-0 (issue #168) + TENANT-1 (issue #196): ROW LEVEL SECURITY —
+-- cổng cách ly cứng ở tầng cơ sở dữ liệu. Mọi bảng mang tenant_id đều
+-- ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
+--   * Phiên platform tường minh (GUC app.platform = 'on', chỉ mã vận
+--     hành hệ thống đã qua cổng capability mới được đặt — TenantDbService
+--     .withPlatform / TenantAwarePool theo ngữ cảnh ALS platform) thấy
+--     mọi dòng.
 --   * Phiên tenant (GUC app.tenant_id = <uuid>): chỉ thấy dòng của
---     tenant đó; các bảng nội dung/bank chung của platform mang
+--     tenant đó; các bảng nội dung/bank CHUNG của platform mang
 --     tenant_id NULL thì mọi tenant đều thấy (đọc/copy xuống được).
+--   * TENANT-1 lật FAIL-CLOSED: phiên CHƯA đặt GUC hoặc GUC rỗng KHÔNG
+--     còn được cho qua (TENANT-0 để hở nhánh này chờ phủ wrapper). Mọi
+--     so sánh đi qua NULLIF(current_setting('app.tenant_id', true), '')
+--     ::uuid — GUC rỗng thành NULL nên phép so sánh ra NULL (không thấy
+--     dòng nào) thay vì lỗi ép kiểu ''::uuid (bẫy N3 gây 500).
+--   * notifications + notification_dispatch_log có RLS từ TENANT-1:
+--     dòng chưa gắn tenant chỉ hiển thị ở ngữ cảnh platform.
 -- Role ứng dụng không có BYPASSRLS; FORCE khiến cả chủ sở hữu bảng
--- cũng chịu policy khi GUC đã đặt.
+-- cũng chịu policy.
 -- =====================================================================
+
 ALTER TABLE "tenants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "tenants" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "tenants" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenants" USING (current_setting('app.platform', true) = 'on' OR "id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "tenant_memberships" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "tenant_memberships" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "tenant_memberships" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenant_memberships" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "tenant_config" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "tenant_config" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "tenant_config" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenant_config" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "course_categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "course_categories" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "course_categories" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "course_categories" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "course" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "course" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "course" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "course" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "cohort" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "cohort" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "cohort" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "cohort" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "guardian_links" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "guardian_links" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "guardian_links" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "guardian_links" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "question_banks" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "question_banks" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "question_banks" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "question_banks" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "exam_matrices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "exam_matrices" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "exam_matrices" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "exam_matrices" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "exam_papers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "exam_papers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "exam_papers" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "exam_papers" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "learning_outcomes" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "learning_outcomes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "plugin_config" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "plugin_config" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "plugin_config" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "plugin_config" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "event_log" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "event_log" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "event_log" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "event_log" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
 ALTER TABLE "outbox_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "outbox_events" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "outbox_events" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);
+CREATE POLICY "tenant_isolation" ON "outbox_events" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" IS NULL OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+ALTER TABLE "notifications" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "notifications" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "notifications" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);--> statement-breakpoint
+ALTER TABLE "notification_dispatch_log" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "notification_dispatch_log" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "notification_dispatch_log" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 --> statement-breakpoint
 -- CLASS-0 (issue #184): bảng `classes` mang tenant_id NOT NULL — cùng
--- khuôn RLS tenant_isolation như 14 bảng của TENANT-0 ở trên.
+-- khuôn RLS tenant_isolation FAIL-CLOSED của TENANT-1 như các bảng trên.
 ALTER TABLE "classes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "classes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);
+CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
