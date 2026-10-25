@@ -1,8 +1,11 @@
 import {
   addQuizSlotSchema,
+  approveMatrixContributionSchema,
   clusterQuizSlotsSchema,
+  copyExamMatrixSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createMatrixContributionSchema,
   createQuizFeedbackSchema,
   createQuizOverrideSchema,
   createQuizSchema,
@@ -10,6 +13,7 @@ import {
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
   recordQuizAttemptEventSchema,
+  rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
   swapQuizSlotSchema,
@@ -19,9 +23,12 @@ import {
   updateQuizSchema,
   updateQuizSlotSchema,
   type AddQuizSlot,
+  type ApproveMatrixContribution,
   type ClusterQuizSlots,
+  type CopyExamMatrix,
   type CreateExamMatrix,
   type CreateExamMatrixCell,
+  type CreateMatrixContribution,
   type CreateQuiz,
   type CreateQuizFeedback,
   type CreateQuizOverride,
@@ -29,6 +36,7 @@ import {
   type GradeQuizQuestion,
   type ManualGradeQuiz,
   type RecordQuizAttemptEvent,
+  type RejectMatrixContribution,
   type StartQuizAttempt,
   type SubmitQuizResponse,
   type SwapQuizSlot,
@@ -45,9 +53,12 @@ import {
  */
 export {
   addQuizSlotSchema,
+  approveMatrixContributionSchema,
   clusterQuizSlotsSchema,
+  copyExamMatrixSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createMatrixContributionSchema,
   createQuizFeedbackSchema,
   createQuizOverrideSchema,
   createQuizSchema,
@@ -55,6 +66,7 @@ export {
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
   recordQuizAttemptEventSchema,
+  rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
   swapQuizSlotSchema,
@@ -74,6 +86,10 @@ export type ManualGradeQuizDto = ManualGradeQuiz;
 export type CreateQuizOverrideDto = CreateQuizOverride;
 export type UpdateQuizOverrideDto = UpdateQuizOverride;
 export type CreateExamMatrixDto = CreateExamMatrix;
+export type CopyExamMatrixDto = CopyExamMatrix;
+export type CreateMatrixContributionDto = CreateMatrixContribution;
+export type ApproveMatrixContributionDto = ApproveMatrixContribution;
+export type RejectMatrixContributionDto = RejectMatrixContribution;
 export type UpdateExamMatrixDto = UpdateExamMatrix;
 export type CreateExamMatrixCellDto = CreateExamMatrixCell;
 export type UpdateExamMatrixCellDto = UpdateExamMatrixCell;

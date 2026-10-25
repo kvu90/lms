@@ -68,6 +68,12 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'question:copy', capType: 'read', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:share', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:moderate', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  // MB-1 (issue #111): bộ ba quyền của NGÂN HÀNG MA TRẬN, khuôn đúng
+  // question:copy/share/moderate — cấp tại context của BANK qua hai vai
+  // qbankmember/qbanklead (QuestionBanksService.buildBank theo kind).
+  { name: 'matrix:copy', capType: 'read', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'matrix:share', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
+  { name: 'matrix:moderate', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   // Quiz activity (mod_quiz) — capability tại context của course module như db/access.php của Moodle.
   { name: 'quiz:view', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'quiz:attempt', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { student: CAP_ALLOW } },

@@ -1013,6 +1013,21 @@ CREATE TABLE "exam_matrix_cells" (
 	CONSTRAINT "exam_matrix_cells_score_check" CHECK ("cell_score" > 0)
 );
 --> statement-breakpoint
+CREATE TABLE "exam_matrix_contributions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"matrix_id" uuid NOT NULL,
+	"target_bank_id" uuid NOT NULL,
+	"proposer_id" uuid NOT NULL,
+	"note" text DEFAULT '' NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"reject_reason" text,
+	"reviewer_id" uuid,
+	"result_matrix_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_matrix_contributions_status_check" CHECK ("status" in ('pending', 'approved', 'rejected'))
+);
+--> statement-breakpoint
 CREATE TABLE "quiz_attempt_events" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"attempt_id" uuid NOT NULL,
@@ -2322,6 +2337,10 @@ CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id")
 CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_cells_matrix_idx" ON "exam_matrix_cells" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_cells_learning_outcome_idx" ON "exam_matrix_cells" ("learning_outcome_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_contributions_target_bank_idx" ON "exam_matrix_contributions" ("target_bank_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_contributions_matrix_idx" ON "exam_matrix_contributions" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_contributions_proposer_idx" ON "exam_matrix_contributions" ("proposer_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_contributions_status_idx" ON "exam_matrix_contributions" ("status");--> statement-breakpoint
 CREATE INDEX "quiz_attempt_events_attempt_idx" ON "quiz_attempt_events" ("attempt_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_quiz_id_idx" ON "quiz_attempts" ("quiz_id");--> statement-breakpoint
 CREATE INDEX "quiz_attempts_user_id_idx" ON "quiz_attempts" ("user_id");--> statement-breakpoint
@@ -2609,8 +2628,11 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_st
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempt_events" ADD CONSTRAINT "quiz_attempt_events_attempt_id_quiz_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_quiz_id_quizzes_id_fkey" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "quiz_attempts" ADD CONSTRAINT "quiz_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint

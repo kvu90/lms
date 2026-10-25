@@ -979,19 +979,31 @@ export class QuizService {
    * ĐIỂM NEO QUYỀN DUY NHẤT của ma trận (MB-0, điểm E-8 của hồ sơ ngân
    * hàng đề/ma trận): mọi kiểm tra quyền trên ma trận đều đi qua đây.
    * Nguồn quyền chốt là BANK — ma trận nằm trong bank nào thì quyền
-   * theo context của bank đó (cùng khuôn ngân hàng câu hỏi); context
-   * môn (matrix.contextId) chỉ là PHẠM VI DỮ LIỆU. Hiện bank chưa có ở
-   * Chặng 3 (question_banks thuộc PR #83, bank ma trận là lát MB-1)
-   * nên resolver tạm trả context môn đang lưu trên ma trận; khi MB-1
-   * cắm bank vào, CHỈ hàm này đổi: ma trận có bank_id thì phân giải
-   * sang context của bank — mọi điểm gọi giữ nguyên.
+   * theo bank đó; context môn (matrix.contextId) chỉ là PHẠM VI DỮ
+   * LIỆU. MB-1 (issue #111) đã cắm bank, với hai lưu ý thực thi:
+   * - Quyền tại bank đọc từ HAI VAI CHUYÊN DỤNG tại context bank
+   *   (QuestionBanksService.bankLocalMatrixCaps: quiz:viewmatrix ↔
+   *   thành viên + phụ trách; quiz:managematrix ↔ phụ trách), KHÔNG
+   *   qua PermissionEvaluator — evaluator kế thừa mặc định archetype
+   *   từ mọi context tổ tiên nên giáo viên có vai ở context hệ thống
+   *   sẽ lọt cổng bank kín của tổ dù không phải thành viên.
+   * - Ma trận chưa thuộc bank nào (hoặc bank đã bị xoá) giữ hành vi
+   *   Chặng 3: PermissionEvaluator tại context môn.
    */
-  private matrixPermissionContext(matrix: ExamMatrixRow): string {
-    // TODO(MB-1): matrix.bankId !== null → context của question_banks.
-    return matrix.contextId;
-  }
   private async requireMatrixCap(actorId: string, matrix: ExamMatrixRow, capability: string): Promise<void> {
-    await this.evaluator.requireCapability(actorId, capability, this.matrixPermissionContext(matrix));
+    if (matrix.bankId) {
+      const bank = await this.banks.findBankById(matrix.bankId);
+      if (bank) {
+        await this.banks.syncBankMembership(bank);
+        const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+        const ok = capability === QUIZ_CAPABILITIES.viewMatrix ? caps.view : caps.manage;
+        if (!ok) {
+          throw new ForbiddenException({ message: `Missing capability ${capability} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+        }
+        return;
+      }
+    }
+    await this.evaluator.requireCapability(actorId, capability, matrix.contextId);
   }
   private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
     return {
@@ -1023,10 +1035,18 @@ export class QuizService {
     };
   }
 
+  /** View đầy đủ của một dòng ma trận (ô + cảnh báo) — bản công khai cho lớp bank (MB-1) dùng sau khi đã tự gác quyền. */
+  async viewMatrixRow(row: ExamMatrixRow): Promise<ExamMatrixView> {
+    return this.matrixView(row);
+  }
+
   /**
-   * Tạo ma trận (quiz:managematrix tại context của môn): tỉ lệ mục tiêu
-   * không được cho thì CHỤP từ preset tại lúc tạo — về sau preset có đổi
-   * thì ma trận đã tạo không đổi theo.
+   * Tạo ma trận: quyền ghi MỘT nguồn duy nhất (E-8) — khi gắn vào một
+   * bank ma trận (MB-1) thì gác quiz:managematrix tại CONTEXT CỦA BANK
+   * (bank phải tồn tại và đúng bank_kind='matrix'); không gắn bank thì
+   * giữ hành vi Chặng 3: quiz:managematrix tại context của môn. Tỉ lệ
+   * mục tiêu không được cho thì CHỤP từ preset tại lúc tạo — về sau
+   * preset có đổi thì ma trận đã tạo không đổi theo.
    */
   async createMatrix(actorId: string, input: CreateExamMatrixDto): Promise<ExamMatrixView> {
     const subject = await this.curriculum.getSubject(actorId, input.subjectId);
@@ -1034,7 +1054,21 @@ export class QuizService {
     if (curriculum.subjectId !== subject.id) {
       throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
     }
-    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
+    if (input.bankId) {
+      const bank = await this.banks.findBankById(input.bankId);
+      if (!bank) throw new NotFoundException({ message: `Matrix bank ${input.bankId} not found`, code: 'quiz.matrix_bank_not_found' });
+      if (bank.bankKind !== 'matrix') {
+        throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
+      }
+      await this.banks.syncBankMembership(bank);
+      // Ghi vào bank = quyền phụ trách bank (bank-local, xem requireMatrixCap).
+      const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+      if (!caps.manage) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+      }
+    } else {
+      await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
+    }
     const presetKind = input.presetKind ?? 'custom';
     const preset = presetKind === 'custom' ? undefined : MATRIX_PRESETS[presetKind];
     const row = await this.repo.insertMatrix({
@@ -1047,8 +1081,8 @@ export class QuizService {
       scopeOutcomeIds: input.scopeOutcomeIds ?? null,
       totalScore: input.totalScore ?? 10,
       createdBy: actorId,
-      // Trường ngân hàng (MB-0): nhận sẵn để luồng copy mẫu của MB-1
-      // cắm vào; quyền ghi vào bank sẽ gác tại resolver khi MB-1 có bank.
+      // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
+      // bank ở trên; copy mẫu/đóng góp đi qua MatrixBanksService.
       bankId: input.bankId ?? null,
       status: input.status ?? 'draft',
       isTemplate: input.isTemplate ?? false,
@@ -1079,6 +1113,20 @@ export class QuizService {
   async updateMatrix(actorId: string, matrixId: string, input: UpdateExamMatrixDto): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    // MB-1: CHUYỂN ma trận sang bank khác qua PATCH phải có thêm quyền
+    // ghi tại bank đích — quyền ở bank nguồn không tự mang sang bank lạ.
+    if (input.bankId !== undefined && input.bankId !== null && input.bankId !== row.bankId) {
+      const target = await this.banks.findBankById(input.bankId);
+      if (!target) throw new NotFoundException({ message: `Matrix bank ${input.bankId} not found`, code: 'quiz.matrix_bank_not_found' });
+      if (target.bankKind !== 'matrix') {
+        throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
+      }
+      await this.banks.syncBankMembership(target);
+      const targetCaps = await this.banks.bankLocalMatrixCaps(actorId, target);
+      if (!targetCaps.manage) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${target.id}`, code: 'access.capability_denied' });
+      }
+    }
     if (input.levelSet === 'three' && row.levelSet !== 'three') {
       const cells = await this.repo.listMatrixCells(row.id);
       if (cells.some((c) => c.cognitiveLevel === 'van_dung_cao')) {

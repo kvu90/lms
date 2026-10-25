@@ -45,6 +45,8 @@ export default [
     route('questions/categories/new', 'routes/question-category-new.tsx'),
     route('questions/new', 'routes/question-new.tsx'),
     route('questions/:questionId/edit', 'routes/question-edit.tsx'),
+    route('questions/matrices/new', 'routes/question-matrix-new.tsx'),
+    route('questions/matrices/:matrixId/edit', 'routes/question-matrix-edit.tsx'),
     route('question-usages/:id', 'routes/question-usage.tsx'),
     route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
