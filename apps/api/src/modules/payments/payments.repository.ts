@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { courses, paymentAccounts, paymentProviderEvents, paymentRefunds, payments } from '../../db/schema';
+import { course, paymentAccounts, paymentProviderEvents, paymentRefunds, payments } from '../../db/schema';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
@@ -63,7 +63,7 @@ export class PaymentsRepository {
   }
   /** Tenant sở hữu một khoá — căn cứ cổng tenant cho createFeePayment (6.4.6). */
   async getCourseTenantId(courseId: string): Promise<string | undefined> {
-    const [row] = await this.db.select({ tenantId: courses.tenantId }).from(courses).where(eq(courses.id, courseId)); return row?.tenantId;
+    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId)); return row?.tenantId;
   }
   /** Định tuyến IPN: account theo `sepayBankAccountXid` trong config (định danh tổ chức SePay). */
   async findAccountBySepayXid(xid: string): Promise<AccountRow | undefined> {

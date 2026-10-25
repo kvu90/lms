@@ -18,6 +18,8 @@ export class PaymentsController {
   }
   @Get('accounts')
   async listAccounts(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listAccounts(actor.id); }
+  @Get('accounts/:id')
+  async getAccount(@Param('id', { schema: uuidIdSchema }) id: string) { return this.payments.getAccount(id); }
   @Post()
   async create(@Body({ schema: createPaymentSchema }) dto: CreatePaymentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createPayment(actor.id, dto);
