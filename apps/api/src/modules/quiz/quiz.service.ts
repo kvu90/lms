@@ -10,6 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
+import { FilesService } from '../files/files.service';
 import { GradesService } from '../grades/grades.service';
 import { GroupsService } from '../groups/groups.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
@@ -382,6 +383,7 @@ export class QuizService {
     private readonly outbox: OutboxService,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
+    private readonly files: FilesService,
   ) {}
 
   /** Tenant cho ma trận không gắn bank: tenant hiệu lực của request; ngoài request rơi về tenant-zero. */
@@ -2317,6 +2319,17 @@ export class QuizService {
           : null,
         cluster: clusterInfoBySlot.get(a.slot) ?? null,
       });
+    }
+    // Ảnh nhúng trong nội dung câu: phát URL ký cho đúng người đang xem bài
+    // làm này (cổng của attempt — chủ attempt / người có quyền xem lại — đã
+    // gác ở các hàm gọi buildAttemptView). Học sinh không có quyền tại
+    // context bank của giáo viên nên đường files:view thuần không dùng được.
+    for (const q of questions) {
+      q.questionText = await this.files.resolveQuestionImageUrls(q.questionText);
+      q.answers = await Promise.all(q.answers.map(async (a) => ({ ...a, text: await this.files.resolveQuestionImageUrls(a.text) })));
+      if (q.stimulus) q.stimulus = { ...q.stimulus, content: await this.files.resolveQuestionImageUrls(q.stimulus.content) };
+      q.feedback = await this.files.resolveQuestionImageUrls(q.feedback);
+      q.generalFeedback = await this.files.resolveQuestionImageUrls(q.generalFeedback);
     }
     const { pendingManual } = this.syncFromUsage(usage, quiz, slots);
     // Tầng feedback thứ tư: nhận xét tổng quát theo dải % điểm.

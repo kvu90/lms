@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EventsModule } from '../../infra/events/events.module';
 import { AccessModule } from '../access/access.module';
+import { FilesModule } from '../files/files.module';
 import { GroupsModule } from '../groups/groups.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { QuestionBanksController } from './question-banks.controller';
@@ -12,7 +13,7 @@ import { QuestionsService } from './questions.service';
 
 /** QuestionsModule facade: QuestionsService (bank + engine) + QuestionBanksService (lớp bank có danh tính của feat Ngân hàng câu hỏi chung, cần Groups cho cohort của bank tổ). Depends on Access + Groups. */
 @Module({
-  imports: [AccessModule, EventsModule, GroupsModule, TenantsModule],
+  imports: [AccessModule, EventsModule, GroupsModule, TenantsModule, FilesModule],
   controllers: [QuestionsController, QuestionUsagesController, StimuliController, QuestionBanksController],
   providers: [QuestionsRepository, QuestionsService, QuestionBanksRepository, QuestionBanksService],
   exports: [QuestionsService, QuestionBanksService],
