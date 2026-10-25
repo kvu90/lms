@@ -146,7 +146,13 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(187);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
-    expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
+    // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
+    // sequence sinh mã thanh toán VietQR (lát 1, issue #189, nghiên cứu
+    // §2.4/§6.3: mã sinh một lần, không bao giờ tái sử dụng), KHÔNG phải
+    // sequence của khoá chính. Sequence nào khác xuất hiện là hồi quy
+    // định danh, không phải ngoại lệ mới.
+    const sequenceNames = [...sqlText.matchAll(/CREATE SEQUENCE "[^"]+"\."([^"]+)"/g)].map((m) => m[1]);
+    expect(sequenceNames).toEqual(['payment_code_seq']);
   });
 
   it('(1b) the live catalog defaults every entity id to uuidv7(), and pure join tables carry no surrogate id', async () => {
