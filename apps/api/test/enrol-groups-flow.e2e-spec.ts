@@ -488,4 +488,86 @@ describe('Enrol & groups/cohorts', () => {
     const plain = await createCourse(app, admin, cat.id) as unknown as { groupModeForce: boolean };
     expect(plain.groupModeForce).toBe(false);
   });
+
+  it('group update + delete over HTTP: PATCH renames a group and clears its enrolment key; DELETE removes the group (memberships go with it)', async () => {
+    const { course, instance } = await setupCourse();
+    const user = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, user.id);
+    const created = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Old name', enrolmentKey: 'team-key' });
+    expect(created.status).toBe(201);
+    const groupId = created.body.id as string;
+    await http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: user.id });
+
+    // PATCH renames the group and edits its description; the key survives an unrelated edit.
+    const renamed = await http(app).patch(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`).send({ name: 'New name', description: 'Đội tuyển' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.name).toBe('New name');
+    expect(renamed.body.description).toBe('Đội tuyển');
+    expect(renamed.body.enrolmentKey).toBe('team-key');
+
+    // PATCH with enrolmentKey: null clears the group's enrolment key.
+    const cleared = await http(app).patch(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`).send({ enrolmentKey: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.enrolmentKey).toBeNull();
+    const listed = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
+    expect((listed.body as { id: string; name: string }[]).find((g) => g.id === groupId)?.name).toBe('New name');
+
+    // DELETE removes the group: it leaves the course list and its member list is gone with it.
+    const deleted = await http(app).delete(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toEqual({ deleted: true });
+    const afterList = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
+    expect((afterList.body as { id: string }[]).some((g) => g.id === groupId)).toBe(false);
+    const membersAfter = await http(app).get(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`);
+    expect(membersAfter.status).toBe(404);
+    expect(membersAfter.body.code).toBe('group.not_found');
+  });
+
+  it('adding a group member requires an ACTIVE enrolment in the course: never-enrolled, withdrawn and suspended users are refused with 400 group.member_not_enrolled (GN-2, issue #234)', async () => {
+    const { course, instance } = await setupCourse();
+    const group = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Guarded team' });
+    expect(group.status).toBe(201);
+    const groupId = group.body.id as string;
+    const add = (userId: string) => http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId });
+    const memberIds = async () => {
+      const res = await http(app).get(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`);
+      return (res.body as { userId: string }[]).map((m) => m.userId);
+    };
+
+    // A user who was never enrolled in the course cannot be placed into its groups.
+    const outsider = await createUserViaApi(app, admin);
+    const refusedOutsider = await add(outsider.id);
+    expect(refusedOutsider.status).toBe(400);
+    expect(refusedOutsider.body.code).toBe('group.member_not_enrolled');
+    expect(await memberIds()).not.toContain(outsider.id);
+
+    // A user whose enrolment was withdrawn is refused the same way.
+    const withdrawn = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, withdrawn.id);
+    await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${withdrawn.id}`).set('Authorization', `Bearer ${admin}`);
+    const refusedWithdrawn = await add(withdrawn.id);
+    expect(refusedWithdrawn.status).toBe(400);
+    expect(refusedWithdrawn.body.code).toBe('group.member_not_enrolled');
+    expect(await memberIds()).not.toContain(withdrawn.id);
+
+    // A suspended enrolment is not active, so the add is refused — but the
+    // same add succeeds once the enrolment is reactivated.
+    const suspended = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, suspended.id);
+    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${suspended.id}/suspend`).set('Authorization', `Bearer ${admin}`);
+    const refusedSuspended = await add(suspended.id);
+    expect(refusedSuspended.status).toBe(400);
+    expect(refusedSuspended.body.code).toBe('group.member_not_enrolled');
+    await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${suspended.id}/reactivate`).set('Authorization', `Bearer ${admin}`);
+    const okAfterReactivate = await add(suspended.id);
+    expect(okAfterReactivate.status).toBe(201);
+    expect(await memberIds()).toContain(suspended.id);
+
+    // An actively enrolled student is added as before.
+    const active = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, active.id);
+    const ok = await add(active.id);
+    expect(ok.status).toBe(201);
+    expect(await memberIds()).toContain(active.id);
+  });
 });

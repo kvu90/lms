@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { I18nService } from '@nestjs/i18n';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -202,11 +202,20 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
-   * Thêm thành viên (kiểm capability).
+   * Thêm thành viên (kiểm capability). Luật nghiệp vụ GN-2 (issue #234):
+   * chỉ xếp được người đang ghi danh HIỆU LỰC trong khoá của nhóm — người
+   * chưa ghi danh, đã rút hẳn, đang bị đình chỉ hoặc ngoài cửa sổ ghi danh
+   * đều bị từ chối bằng 400 `group.member_not_enrolled`, để nhóm không
+   * chứa "thành viên ma" không thuộc khoá. Đường nội bộ
+   * `addMemberInternal` (enrol/cohort sync) KHÔNG qua cổng này vì luôn đi
+   * kèm một thao tác ghi danh của hệ thống.
    */
   async addMember(actorId: string, groupId: string, userId: string): Promise<void> {
     const group = await this.getGroup(groupId);
     await this.requireManageGroups(actorId, group.courseId);
+    if (!(await this.courses.isActivelyEnrolled(group.courseId, userId))) {
+      throw new BadRequestException({ message: 'User is not actively enrolled in this course', code: 'group.member_not_enrolled' });
+    }
     await this.repo.addMember(groupId, userId);
     await this.outbox.enqueueStandalone({ aggregate: 'group', type: 'group_member_added', payload: { groupId, courseId: group.courseId, userId } });
   }

@@ -225,6 +225,18 @@ export class CoursesService {
    */
   registerClassHook(hook: CourseClassHook): void { this.classHook = hook; }
 
+  /**
+   * User có ghi danh ĐANG HIỆU LỰC trong khoá hay không (đã ghi danh, trạng
+   * thái active, trong cửa sổ thời gian) — qua đúng cổng EnrolChecker mà
+   * EnrolModule đăng ký, để các module khác (vd groups khi xếp thành viên)
+   * kiểm tra mà không import ngược Enrol. Chưa có checker nào đăng ký
+   * (không xảy ra ở app đầy đủ) thì coi như chưa ghi danh: cổng fail-closed.
+   */
+  async isActivelyEnrolled(courseId: string, userId: string): Promise<boolean> {
+    if (!this.enrolChecker) return false;
+    return this.enrolChecker.isEnrolled(courseId, userId, { onlyActive: true });
+  }
+
   // --- context helpers -----------------------------------------------------
   /**
    * Context id của category (tạo context nếu chưa có).
