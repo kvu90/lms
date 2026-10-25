@@ -549,7 +549,7 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
 
     // Bộ chọn chỉ có học sinh đang ghi danh hiệu lực chưa thuộc nhóm:
     // học sinh đã tạm khoá không xuất hiện.
-    await userEvent.click(within(groupRow).getByLabelText('Học sinh cần thêm vào nhóm'));
+    await userEvent.click(await within(groupRow).findByLabelText('Học sinh cần thêm vào nhóm'));
     expect(await screen.findByRole('option', { name: NEW_MEMBER_ID })).toBeTruthy();
     expect(screen.queryByRole('option', { name: SUSPENDED_ID })).toBeNull();
     await userEvent.click(screen.getByRole('option', { name: NEW_MEMBER_ID }));
@@ -586,7 +586,8 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     renderCourseAdmin();
 
     const groupRow = await screen.findByTestId(`group-${GROUP_ID}`);
-    await userEvent.click(within(groupRow).getByRole('button', { name: 'Đổi tên' }));
+    // Nút Đổi tên chỉ hiện sau khi ảnh chụp quyền (course:managegroups) tải xong — chờ bất đồng bộ.
+    await userEvent.click(await within(groupRow).findByRole('button', { name: 'Đổi tên' }));
     const nameInput = within(groupRow).getByLabelText('Tên mới của nhóm Nhóm 1');
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, 'Nhóm 1 (đổi)');
@@ -619,7 +620,8 @@ describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
     renderCourseAdmin();
 
     await screen.findByTestId(`group-${GROUP_ID}`);
-    await userEvent.click(screen.getByLabelText('Chế độ nhóm'));
+    // Thẻ chế độ nhóm chỉ hiện sau khi ảnh chụp quyền tải xong — chờ bất đồng bộ.
+    await userEvent.click(await screen.findByLabelText('Chế độ nhóm'));
     await userEvent.click(await screen.findByRole('option', { name: 'Nhóm tách biệt' }));
     await userEvent.click(screen.getByRole('checkbox', { name: /Ép buộc chế độ này/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Lưu chế độ nhóm' }));
