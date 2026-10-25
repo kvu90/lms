@@ -253,13 +253,18 @@ export class DashboardService {
     return results;
   }
 
-  /** Hàng đợi chấm gộp theo khoá cho giáo viên: bài C2 chưa trả bài cho attempt hiện tại + lượt quiz chờ chấm tay. */
+  /**
+   * Hàng đợi chấm gộp theo khoá cho giáo viên: bài C2 chưa trả bài cho
+   * attempt hiện tại + lượt quiz chờ chấm tay + phiếu giấy CAM-0 chờ xử
+   * lý (needs_review/needs_identity, issue #187). Ba loại đếm TÁCH BẠCH
+   * ở ba trường *Pending; pendingCount là tổng cả ba.
+   */
   private async buildGradingQueue(
     teaching: string[],
     names: Map<string, string>,
   ): Promise<DashboardGradingQueueView[]> {
     if (!teaching.length) return [];
-    const byCourse = new Map<string, DashboardGradingQueueView & { oldest: Date | null }>();
+    const byCourse = new Map<string, DashboardGradingQueueView & { oldest: Date | null; paperOldest: Date | null }>();
     const entryFor = (courseId: string) => {
       const entry = byCourse.get(courseId) ?? {
         courseId,
@@ -267,8 +272,11 @@ export class DashboardService {
         pendingCount: 0,
         assignmentPending: 0,
         quizPending: 0,
+        paperPending: 0,
+        paperQuizId: null,
         oldestPendingAt: null,
         oldest: null,
+        paperOldest: null,
       };
       byCourse.set(courseId, entry);
       return entry;
@@ -289,6 +297,17 @@ export class DashboardService {
       const at = row.timeFinish ?? row.timeStart;
       if (!entry.oldest || at < entry.oldest) entry.oldest = at;
     }
+    for (const row of await this.repo.paperPendingRows(teaching)) {
+      const entry = entryFor(row.courseId);
+      entry.paperPending += 1;
+      entry.pendingCount += 1;
+      if (!entry.oldest || row.createdAt < entry.oldest) entry.oldest = row.createdAt;
+      // Đích deep-link = quiz có phiếu chờ lâu nhất của khoá.
+      if (!entry.paperOldest || row.createdAt < entry.paperOldest) {
+        entry.paperOldest = row.createdAt;
+        entry.paperQuizId = row.quizId;
+      }
+    }
 
     return [...byCourse.values()]
       .filter((e) => e.pendingCount > 0)
@@ -298,6 +317,8 @@ export class DashboardService {
         pendingCount: e.pendingCount,
         assignmentPending: e.assignmentPending,
         quizPending: e.quizPending,
+        paperPending: e.paperPending,
+        paperQuizId: e.paperQuizId,
         oldestPendingAt: e.oldest?.toISOString() ?? null,
       }))
       .sort((a, b) => (a.oldestPendingAt ?? '').localeCompare(b.oldestPendingAt ?? ''));

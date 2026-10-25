@@ -67,10 +67,23 @@ export interface DashboardNewResultView {
 export interface DashboardGradingQueueView {
   courseId: string;
   courseName: string;
+  /** Tổng việc chờ của khoá = bài nộp + lượt quiz chờ chấm tay + phiếu giấy chờ (ba trường *Pending tách bạch từng loại). */
   pendingCount: number;
   assignmentPending: number;
   quizPending: number;
-  /** Bài chờ lâu nhất (ISO); null khi hàng đợi rỗng. */
+  /**
+   * Phiếu giấy CAM-0 đang chờ xử lý của khoá (trạng thái needs_review +
+   * needs_identity) — đếm tách bạch với bài nộp/lượt quiz, KHÔNG gộp vào
+   * assignmentPending/quizPending (nối DASH1 ← CAM-0, issue #187).
+   */
+  paperPending: number;
+  /**
+   * Quiz có phiếu giấy chờ LÂU NHẤT của khoá — đích deep-link tới bề mặt
+   * rà soát CAM-0 (/courses/:courseId/quizzes/:paperQuizId/paper);
+   * null khi paperPending = 0.
+   */
+  paperQuizId: string | null;
+  /** Bài chờ lâu nhất (ISO, tính cả phiếu giấy); null khi hàng đợi rỗng. */
   oldestPendingAt: string | null;
 }
 
