@@ -2,11 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-<<<<<<<< HEAD:apps/api/drizzle/20261025023142_baseline/snapshot.json
-  "id": "0e9c4b5a-dd12-4133-8d79-24e110bcbf7b",
-========
-  "id": "c5f300fd-c319-42e0-8901-3dc52d37d05a",
->>>>>>>> 68a9703 (EB-2: baseline hợp nhất 183 bảng (exam_deployments + recipe_spec + matrix_cell_id + index FK) + e2e EB-2 + vá deployPaperSlots giữ matrixCellId trên quiz slots):apps/api/drizzle/20261025031635_baseline/snapshot.json
+  "id": "290769e4-bd55-4e1a-ba42-22fefcfc1f76",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],

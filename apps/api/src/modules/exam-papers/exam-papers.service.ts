@@ -18,7 +18,7 @@ import {
   ExamPapersRepository,
   type ExamDeploymentRow, type ExamPaperContributionRow, type ExamPaperRow, type ExamPaperSlotRow, type ExamPaperVersionRow,
 } from './exam-papers.repository';
-import type { RecipeCellSpec, RecipeSpec } from './schema';
+import type { RecipeCellSpec, RecipeSpec } from '../../db/schema';
 import type { ExamMatrixCellRow } from '../quiz/quiz.repository';
 
 /** Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI context của bank đề (một nguồn quyền duy nhất là bank). */

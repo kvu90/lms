@@ -131,7 +131,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(173);
+    expect(defaults.rows.length).toBe(172);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }
