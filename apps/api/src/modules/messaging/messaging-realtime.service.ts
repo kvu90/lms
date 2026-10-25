@@ -245,8 +245,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   /**
    * Cặp 1–1 đang có quan hệ chặn thì MỌI sự kiện vòng đời (thu hồi,
    * xoá cứng) đều bị nén im lặng như ở {@link distributeMessageDeleted}:
-   * đẩy socket của cả hai ra khỏi room và không phát gì. Trả true khi
-   * sự kiện đã bị nén (caller dừng phân phối).
+   * không phát gì. Trả true khi sự kiện đã bị nén (caller dừng phân
+   * phối). CHỈ chặn phát, KHÔNG đẩy socket khỏi room (nhất quán với
+   * tiếp quản PR #94): socket bị đẩy ra không tự nối lại khi bỏ chặn
+   * nên presence sau bỏ chặn mất vĩnh viễn; mọi đường phát vào room
+   * đều đã có cổng ở thời điểm phát nên chặn phát là đủ.
    */
   private async suppressIfBlockedDirectPair(conversationId: string, memberIds: string[]): Promise<boolean> {
     const conversation = await this.repo.getConversation(conversationId).catch(() => undefined);
@@ -256,8 +259,6 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     if (first === undefined || second === undefined) return true;
     const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
     if (!blocked.includes(second)) return false;
-    await this.evictUserFromConversation(first, conversationId);
-    await this.evictUserFromConversation(second, conversationId);
     return true;
   }
 

@@ -3,6 +3,7 @@ import {
   MESSAGING_SOCKET_EVENTS,
   type MessagingSyncRequest,
   type MessagingSyncResult,
+  type RealtimeConversationInvalidatePayload,
   type RealtimeConversationUpdatedPayload,
   type RealtimeMessageDeletedPayload,
   type RealtimeMessageReadPayload,
@@ -34,6 +35,13 @@ export interface MessagingRealtimeHandlers {
   onReadReceipt(payload: RealtimeMessageReadPayload): void;
   /** Một tin bị xoá mềm (Lớp B): payload không kèm nội dung — trang gỡ/đánh dấu tin theo tầm nhìn của user. */
   onMessageDeleted(payload: RealtimeMessageDeletedPayload): void;
+  /**
+   * Cache danh sách conversation đã cũ sau một thao tác vòng đời
+   * (thu hồi/xoá cứng/xoá-phía-mình, issue #33): trang PHẢI tải lại
+   * danh sách và, nếu conversation đó đang mở, tải lại cả cửa sổ tin
+   * (tin bị thu hồi hiện dòng đã thu hồi, tin bị xoá cứng biến mất).
+   */
+  onConversationInvalidate(payload: RealtimeConversationInvalidatePayload): void;
   onTyping(payload: RealtimeTypingPayload): void;
   onPresence(payload: RealtimePresencePayload): void;
   /** Gọi mỗi lần nối lại thành công sau rớt mạng (không gọi ở lần nối đầu tiên). */
@@ -65,6 +73,7 @@ export function connectMessagingRealtime(handlers: MessagingRealtimeHandlers): M
   socket.on(MESSAGING_SOCKET_EVENTS.conversationUpdated, (payload: RealtimeConversationUpdatedPayload) => handlers.onConversationUpdated(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.messageRead, (payload: RealtimeMessageReadPayload) => handlers.onReadReceipt(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.messageDeleted, (payload: RealtimeMessageDeletedPayload) => handlers.onMessageDeleted(payload));
+  socket.on(MESSAGING_SOCKET_EVENTS.conversationInvalidate, (payload: RealtimeConversationInvalidatePayload) => handlers.onConversationInvalidate(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.typing, (payload: RealtimeTypingPayload) => handlers.onTyping(payload));
   socket.on(MESSAGING_SOCKET_EVENTS.presenceChanged, (payload: RealtimePresencePayload) => handlers.onPresence(payload));
 
