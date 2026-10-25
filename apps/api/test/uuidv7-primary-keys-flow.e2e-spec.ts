@@ -119,10 +119,13 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + guardian_digests (đợt PH-2 digest phụ huynh, issue #159 — hàng
     // chạy digest + vết chống lặp, PK id uuidv7) → 185 bảng tổng, 173
     // bảng có PK mặc định uuidv7().
+    // + exam_dossiers, exam_dossier_reviews (EB-3 duyệt bộ hồ sơ đề,
+    // issue #165 — bộ hồ sơ ghim version + một dòng cho mỗi mốc duyệt)
+    // → 187 bảng tổng, 175 bảng có PK mặc định uuidv7().
     // + 8 bảng OAuth của lát MCP-1 (issue #163: jwks + oauth_client,
     // oauth_resource, oauth_client_resource, oauth_access_token,
     // oauth_refresh_token, oauth_consent, oauth_client_assertion) →
-    // trên cây hợp nhất: 193 bảng tổng, 179 bảng có PK mặc định
+    // trên cây hợp nhất: 195 bảng tổng, 181 bảng có PK mặc định
     // uuidv7(). HAI bảng không có PK uuidv7 là ngoại lệ định danh có
     // chủ đích theo ADR-018: oauth_client.id là TEXT — khoá NỘI BỘ do
     // DB sinh bằng gen_random_uuid() (định danh công khai client_id,
@@ -130,7 +133,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // oauth_client_assertion.id là TEXT do provider tự cấp bằng hàm
     // băm xác định; allowlist tường minh của hai cột này nằm ở test
     // (1b) ngay dưới.
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(179);
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(181);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -145,12 +148,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 181 bảng có cột `id`: 179 bảng PK uuidv7 như khuôn chung + ĐÚNG
+    // 183 bảng có cột `id`: 181 bảng PK uuidv7 như khuôn chung + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(181);
+    expect(defaults.rows.length).toBe(183);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {
