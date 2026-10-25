@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -74,7 +74,8 @@ describe('Quiz builder page — real endpoints', () => {
           return respond({
             quiz: quizView(slots),
             slots,
-            permissions: { attempt: false, manage: true, grade: true, viewReports: true, preview: true },
+            effective: { timeOpen: null, timeClose: null, timeLimitSeconds: null, attemptsAllowed: 0, passwordRequired: false, nextAttemptAt: null },
+            permissions: { attempt: false, manage: true, manageOverrides: false, grade: true, viewReports: true, preview: true },
             canAttempt: false,
             attemptBlockedReason: null,
             myAttempts: [],
@@ -356,5 +357,226 @@ describe('Quiz results page — manual grading', () => {
     const second = await screen.findByTestId('question-stat-2');
     expect(second).toHaveTextContent('Câu ngẫu nhiên');
     expect(second).toHaveTextContent('Chưa có học sinh nào làm sai câu này.');
+  });
+});
+
+describe('Quiz overrides — teacher surface (#182)', () => {
+  const GROUP_ID = '01900000-0000-7000-8000-0000000000d1';
+  const OVERRIDE_GROUP_ID = '01900000-0000-7000-8000-0000000000d2';
+  const OVERRIDE_USER_ID = '01900000-0000-7000-8000-0000000000d3';
+  const TEACHER_ID = '01900000-0000-7000-8000-0000000000d4';
+
+  function setup() {
+    const calls: RecordedCall[] = [];
+    let overrides: Record<string, unknown>[] = [
+      {
+        id: OVERRIDE_GROUP_ID, quizId: QUIZ_ID, groupId: GROUP_ID, groupName: 'Nhóm 1',
+        userId: null, userName: null, timeOpen: null, timeClose: null,
+        timeLimitSeconds: 2700, attempts: null, hasPassword: false, reason: 'Nhóm học chậm hơn',
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+        calls.push({ url, method, body });
+        if (url === `/api/v1/quizzes/${QUIZ_ID}` && method === 'GET')
+          return respond({
+            quiz: quizView([]),
+            effective: { timeOpen: null, timeClose: null, timeLimitSeconds: null, attemptsAllowed: 0, passwordRequired: false, nextAttemptAt: null },
+            permissions: { attempt: false, manage: false, manageOverrides: true, grade: false, viewReports: true, preview: false },
+            canAttempt: false, attemptBlockedReason: null, inProgressAttemptId: null, myAttempts: [], myGrade: null,
+          });
+        if (url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && method === 'GET') return respond(overrides);
+        if (url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && method === 'POST') {
+          const created = {
+            id: OVERRIDE_USER_ID, quizId: QUIZ_ID,
+            groupId: (body?.groupId as string) ?? null, groupName: body?.groupId ? 'Nhóm 1' : null,
+            userId: (body?.userId as string) ?? null, userName: body?.userId ? 'Trần Minh Quân' : null,
+            timeOpen: (body?.timeOpen as string) ?? null, timeClose: (body?.timeClose as string) ?? null,
+            timeLimitSeconds: (body?.timeLimitSeconds as number) ?? null, attempts: (body?.attempts as number) ?? null,
+            hasPassword: Boolean(body?.password), reason: (body?.reason as string) ?? null,
+          };
+          overrides = [...overrides, created];
+          return respond(created, 201);
+        }
+        if (url.startsWith(`/api/v1/quizzes/${QUIZ_ID}/overrides/`) && method === 'PATCH') {
+          const id = url.split('/').pop();
+          overrides = overrides.map((ov) => {
+            if (ov.id !== id) return ov;
+            const next = { ...ov, ...body };
+            if (body && 'password' in body) next.hasPassword = Boolean(body.password);
+            return next;
+          });
+          return respond(overrides.find((ov) => ov.id === id));
+        }
+        if (url.startsWith(`/api/v1/quizzes/${QUIZ_ID}/overrides/`) && method === 'DELETE') {
+          const id = url.split('/').pop();
+          overrides = overrides.filter((ov) => ov.id !== id);
+          return respond({ deleted: true });
+        }
+        if (url === `/api/v1/messages/courses/${COURSE_ID}/members?limit=100`)
+          return respond({
+            members: [
+              { userId: STUDENT_ID, displayName: 'Trần Minh Quân', username: 'student1', role: 'student', relationship: 'none' },
+              { userId: TEACHER_ID, displayName: 'Cô Lan', username: 'teacher1', role: 'teacher', relationship: 'none' },
+            ],
+            nextCursor: null,
+          });
+        if (url === `/api/v1/courses/${COURSE_ID}/groups`)
+          return respond([{ id: GROUP_ID, courseId: COURSE_ID, name: 'Nhóm 1', idNumber: '', description: '' }]);
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/courses/:id/quizzes/:quizId', element: <QuizPage /> }], {
+      initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}`],
+    });
+    render(<RouterProvider router={router} />);
+    return { calls };
+  }
+
+  it('blocks a student override that opens a window without a reason, then creates it once the reason is given', async () => {
+    const { calls } = setup();
+    // Ghi đè nhóm có sẵn hiện với tên nhóm + lý do.
+    const groupRow = await screen.findByTestId(`override-${OVERRIDE_GROUP_ID}`);
+    expect(groupRow).toHaveTextContent('Nhóm 1');
+    expect(groupRow).toHaveTextContent('Nhóm học chậm hơn');
+
+    // Chọn học sinh (giáo viên trong roster bị lọc khỏi ô chọn), mở cửa sổ riêng, KHÔNG nhập lý do.
+    await userEvent.click(await screen.findByLabelText('Chọn học sinh'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Trần Minh Quân' }));
+    fireEvent.change(screen.getByLabelText('Mở riêng lúc'), { target: { value: '2026-10-26T08:00' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm ghi đè' }));
+
+    // Bị chặn ngay ở web: hiện lỗi lý do và KHÔNG có POST nào được phát.
+    expect(await screen.findByText(/bắt buộc phải có lý do/)).toBeInTheDocument();
+    expect(calls.some((c) => c.url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && c.method === 'POST')).toBe(false);
+
+    // Bổ sung lý do → tạo thành công đúng payload cho đúng học sinh đó.
+    await userEvent.type(screen.getByLabelText('Lý do ghi đè'), 'Ốm, kiểm tra bù');
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm ghi đè' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        url: `/api/v1/quizzes/${QUIZ_ID}/overrides`,
+        method: 'POST',
+        body: {
+          userId: STUDENT_ID,
+          timeOpen: new Date('2026-10-26T08:00').toISOString(),
+          timeClose: null,
+          timeLimitSeconds: null,
+          attempts: null,
+          reason: 'Ốm, kiểm tra bù',
+        },
+      }),
+    );
+    // Dòng ghi đè mới hiện tên học sinh + nhãn Kiểm tra bù (cửa sổ riêng cho học sinh).
+    const userRow = await screen.findByTestId(`override-${OVERRIDE_USER_ID}`);
+    expect(userRow).toHaveTextContent('Trần Minh Quân');
+    expect(userRow).toHaveTextContent('Kiểm tra bù');
+  });
+
+  it('edits an override (PATCH) and deletes it (DELETE)', async () => {
+    const { calls } = setup();
+    const groupRow = await screen.findByTestId(`override-${OVERRIDE_GROUP_ID}`);
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Sửa' }));
+
+    // Form nạp sẵn giá trị hiện tại: 2700 giây = 45 phút, lý do có sẵn.
+    const limitInput = screen.getByLabelText('Thời gian làm riêng (phút)');
+    expect(limitInput).toHaveValue('45');
+    expect(screen.getByLabelText('Lý do ghi đè')).toHaveValue('Nhóm học chậm hơn');
+    fireEvent.change(limitInput, { target: { value: '60' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu ghi đè' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        url: `/api/v1/quizzes/${QUIZ_ID}/overrides/${OVERRIDE_GROUP_ID}`,
+        method: 'PATCH',
+        body: { timeOpen: null, timeClose: null, timeLimitSeconds: 3600, attempts: null, reason: 'Nhóm học chậm hơn' },
+      }),
+    );
+
+    const updatedRow = await screen.findByTestId(`override-${OVERRIDE_GROUP_ID}`);
+    expect(updatedRow).toHaveTextContent('Thời gian làm: 60 phút');
+    await userEvent.click(within(updatedRow).getByRole('button', { name: 'Xoá ghi đè' }));
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        url: `/api/v1/quizzes/${QUIZ_ID}/overrides/${OVERRIDE_GROUP_ID}`,
+        method: 'DELETE',
+        body: undefined,
+      }),
+    );
+    expect(await screen.findByText('Chưa có ghi đè nào.')).toBeInTheDocument();
+  });
+});
+
+describe('Quiz page — student sees their effective (overridden) settings (#182)', () => {
+  it('shows the effective window/limits from the API, not the quiz-wide ones', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/quizzes/${QUIZ_ID}`)
+          return respond({
+            quiz: {
+              ...quizView([]),
+              timeOpen: '2026-10-20T07:00:00.000Z', timeClose: '2026-10-20T09:00:00.000Z',
+              timeLimitSeconds: 1800, attemptsAllowed: 1,
+            },
+            effective: {
+              timeOpen: '2026-10-27T07:00:00.000Z', timeClose: '2026-10-27T09:00:00.000Z',
+              timeLimitSeconds: 2700, attemptsAllowed: 2, passwordRequired: false, nextAttemptAt: null,
+            },
+            permissions: { attempt: true, manage: false, manageOverrides: false, grade: false, viewReports: false, preview: false },
+            canAttempt: false, attemptBlockedReason: 'not_yet_open', inProgressAttemptId: null, myAttempts: [], myGrade: null,
+          });
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/courses/:id/quizzes/:quizId', element: <QuizPage /> }], {
+      initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}`],
+    });
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByText('Đang áp dụng ghi đè riêng cho bạn — cửa sổ và giới hạn dưới đây là của riêng bạn.')).toBeInTheDocument();
+    // Giới hạn hiệu lực 45 phút (ghi đè) chứ không phải 30 phút (cài đặt chung); số lần làm 2 chứ không phải 1.
+    expect(screen.getByText(/Giới hạn thời gian làm bài: 45/)).toBeInTheDocument();
+    expect(screen.queryByText(/Giới hạn thời gian làm bài: 30/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Số lần làm cho phép: 2/)).toBeInTheDocument();
+  });
+});
+
+describe('Quiz results page — makeup badge (#182)', () => {
+  it('labels makeup attempts for the teacher and leaves normal attempts unlabelled', async () => {
+    const ATTEMPT2_ID = '01900000-0000-7000-8000-0000000000d5';
+    const baseAttempt = {
+      quizId: QUIZ_ID, userId: STUDENT_ID, attemptNumber: 1, state: 'finished', preview: false,
+      timeStart: new Date().toISOString(), timeFinish: new Date().toISOString(), sumGrades: 8, grade: 8,
+    };
+    const results = {
+      quiz: { ...quizView([]), sumGrades: 10 },
+      attempts: [
+        { ...baseAttempt, id: ATTEMPT_ID, makeup: true },
+        { ...baseAttempt, id: ATTEMPT2_ID, attemptNumber: 2, makeup: false },
+      ],
+      gradesByUser: [{ userId: STUDENT_ID, grade: 8 }],
+      needsGrading: [],
+      questionStats: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/quizzes/${QUIZ_ID}/results`) return respond(results);
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter(
+      [{ path: '/courses/:id/quizzes/:quizId/results', element: <QuizResultsPage /> }],
+      { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/results`] },
+    );
+    render(<RouterProvider router={router} />);
+
+    const makeupRow = await screen.findByTestId(`result-attempt-${ATTEMPT_ID}`);
+    expect(makeupRow).toHaveTextContent('Kiểm tra bù');
+    const normalRow = await screen.findByTestId(`result-attempt-${ATTEMPT2_ID}`);
+    expect(normalRow).not.toHaveTextContent('Kiểm tra bù');
   });
 });
