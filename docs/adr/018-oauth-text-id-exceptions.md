@@ -1,7 +1,10 @@
-# ADR-017: Ngoại lệ định danh TEXT cho hai bảng OAuth của Better Auth
+# ADR-018: Ngoại lệ định danh TEXT cho hai bảng OAuth của Better Auth
 
 ## Trạng thái
-Accepted (25/10/2026). Bổ sung cho ADR-013 (khoá chính UUIDv7). Nguồn
+Accepted (25/10/2026). Bổ sung cho ADR-013 (khoá chính UUIDv7).
+(Số hiệu: bản đầu mang số 017 lúc thi công; khi đóng gói MCP-1 thì
+PR #162 đã merge trước và giữ ADR-017 cho định danh xác định của dữ
+liệu chuẩn, nên ADR này đổi thành 018 — nội dung không đổi.) Nguồn
 thiết kế: issue #163 (lát MCP-1) + hồ sơ `mcp-question-input-research`
 Phần 2.2 và addendum `mcp-as-better-auth-addendum` (máy chủ OAuth bằng
 plugin chính chủ của Better Auth), kiểm chứng bằng spike trên bộ

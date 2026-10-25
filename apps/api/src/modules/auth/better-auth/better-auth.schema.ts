@@ -80,7 +80,7 @@ export const betterAuthVerification = pgTable('verification', {
  * nội bộ, text, PostgreSQL sinh bằng DEFAULT `gen_random_uuid()::text`
  * vì instance chạy `generateId: false`) và property `clientId` ánh xạ
  * cột `client_id` (định danh công khai: UUID với DCR, URL với CIMD;
- * xem ADR-017). KHÔNG gộp `clientId` xuống cột `id`: schema check
+ * xem ADR-018). KHÔNG gộp `clientId` xuống cột `id`: schema check
  * của adapter Drizzle 1.7.12 nội quan schema theo tên property và
  * luôn đòi property `id` riêng (lỗi `SCHEMA_MISMATCH oauthClient.id`
  * bắt tại e2e lúc nối lại MCP-1). Model `oauthClientAssertion` thì
