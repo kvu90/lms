@@ -13,7 +13,11 @@ export const queryKeys = {
   /** Dữ liệu điểm hiển thị theo từng khoá (báo cáo điểm + điểm theo bài của tôi) — tải lười tại bề mặt tiêu thụ qua lib/course-grade-data.ts. */
   courseAccess: (courseId: string) => ['course-access', courseId] as const,
   /** Danh sách người dùng cho khối quản trị (phân trang + tìm kiếm phía server). */
+  /** Gốc khu người dùng quản trị — tiền tố invalidate cho mọi query con (danh sách + chi tiết). */
+  adminUsersRoot: ['admin', 'users'] as const,
   adminUsers: (page: number, pageSize: number, search = '') => ['admin', 'users', page, pageSize, search] as const,
+  /** Chi tiết một người dùng ở khu quản trị (F-05, rà soát #133). */
+  adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
   /** Cây danh mục khoá học cho khối quản trị. */
   categoryTree: ['courses', 'categories', 'tree'] as const,
   /** Danh sách vai trò cho khối quản trị. */
