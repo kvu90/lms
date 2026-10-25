@@ -1,3 +1,4 @@
+CREATE SEQUENCE "public"."payment_code_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "admin_setting_audit" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"setting_key" text NOT NULL,
@@ -2552,11 +2553,29 @@ CREATE TABLE "content_bank_content" (
 --> statement-breakpoint
 CREATE TABLE "payment_accounts" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"gateway" text DEFAULT 'manual' NOT NULL,
 	"enabled" boolean DEFAULT true NOT NULL,
 	"config" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payment_provider_events" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"provider" text NOT NULL,
+	"tenant_id" uuid,
+	"account_id" uuid,
+	"external_transaction_id" text NOT NULL,
+	"direction" text NOT NULL,
+	"amount" integer NOT NULL,
+	"content" text DEFAULT '' NOT NULL,
+	"extracted_code" text,
+	"matched_payment_id" uuid,
+	"match_status" text DEFAULT 'received' NOT NULL,
+	"raw" jsonb,
+	"received_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "payment_provider_events_tx_unique" UNIQUE("provider","external_transaction_id")
 );
 --> statement-breakpoint
 CREATE TABLE "payment_refunds" (
@@ -2566,12 +2585,14 @@ CREATE TABLE "payment_refunds" (
 	"currency" text NOT NULL,
 	"reason" text DEFAULT '' NOT NULL,
 	"external_transaction_id" text,
+	"data" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "payments" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"account_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
 	"amount" integer NOT NULL,
 	"currency" text NOT NULL,
@@ -2580,6 +2601,8 @@ CREATE TABLE "payments" (
 	"external_transaction_id" text,
 	"component" text DEFAULT '' NOT NULL,
 	"item_id" uuid,
+	"payment_code" text CONSTRAINT "payments_payment_code_unique" UNIQUE,
+	"expires_at" timestamp with time zone,
 	"data" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -2997,8 +3020,12 @@ CREATE INDEX "content_bank_content_curriculum_node_id_idx" ON "content_bank_cont
 CREATE INDEX "content_bank_content_question_category_id_idx" ON "content_bank_content" ("question_category_id");--> statement-breakpoint
 CREATE INDEX "content_bank_content_review_status_idx" ON "content_bank_content" ("review_status");--> statement-breakpoint
 CREATE INDEX "content_bank_content_derived_from_id_idx" ON "content_bank_content" ("derived_from_id");--> statement-breakpoint
+CREATE INDEX "payment_accounts_tenant_id_idx" ON "payment_accounts" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "payment_provider_events_payment_idx" ON "payment_provider_events" ("matched_payment_id");--> statement-breakpoint
+CREATE INDEX "payment_provider_events_status_idx" ON "payment_provider_events" ("match_status");--> statement-breakpoint
 CREATE INDEX "payment_refunds_payment_id_idx" ON "payment_refunds" ("payment_id");--> statement-breakpoint
 CREATE INDEX "payments_account_id_idx" ON "payments" ("account_id");--> statement-breakpoint
+CREATE INDEX "payments_tenant_id_idx" ON "payments" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "payments_user_id_idx" ON "payments" ("user_id");--> statement-breakpoint
 CREATE INDEX "payments_item_id_idx" ON "payments" ("item_id");--> statement-breakpoint
 CREATE INDEX "privacy_export_files_request_id_idx" ON "privacy_export_files" ("request_id");--> statement-breakpoint
@@ -3250,8 +3277,13 @@ ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_subject_
 ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_2sh6wRttD61R_fkey" FOREIGN KEY ("curriculum_node_id") REFERENCES "curriculum_nodes"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_cC6kSo4nHuXc_fkey" FOREIGN KEY ("question_category_id") REFERENCES "question_categories"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_mtO4LF7jxHiG_fkey" FOREIGN KEY ("derived_from_id") REFERENCES "content_bank_content"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "payment_accounts" ADD CONSTRAINT "payment_accounts_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
+ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_matched_payment_id_payments_id_fkey" FOREIGN KEY ("matched_payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
+ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
 -- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
 -- cơ sở dữ liệu (hồ sơ mục 2.1/3.2). Mọi bảng mang tenant_id ở lát này

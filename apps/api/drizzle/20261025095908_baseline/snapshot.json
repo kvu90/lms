@@ -2,11 +2,28 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "ee8add86-3ea1-49c3-8cb6-76d96855ed82",
+  "id": "a75b8cee-7977-4384-a754-998832b01b9e",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
   "footprints": [
+    {
+      "statementType": "create_sequence",
+      "statementTarget": [
+        "sequence",
+        "public",
+        "payment_code_seq"
+      ],
+      "writes": [
+        "s|seq|public.payment_code_seq",
+        "n|seq|public.payment_code_seq",
+        "e|seq|public.payment_code_seq",
+        "n|rel|public.payment_code_seq"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
     {
       "statementType": "create_table",
       "statementTarget": [
@@ -3843,6 +3860,26 @@
       "statementTarget": [
         "table",
         "public",
+        "payment_provider_events"
+      ],
+      "writes": [
+        "s|tbl|public.payment_provider_events",
+        "n|tbl|public.payment_provider_events",
+        "e|tbl|public.payment_provider_events",
+        "n|rel|public.payment_provider_events",
+        "n|type|public.payment_provider_events",
+        "n|rel|public.payment_provider_events_pkey",
+        "n|rel|public.payment_provider_events_tx_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "payment_refunds"
       ],
       "writes": [
@@ -3871,6 +3908,7 @@
         "n|rel|public.payments",
         "n|type|public.payments",
         "n|rel|public.payments_pkey",
+        "n|rel|public.payments_payment_code_unique",
         "n|rel|public.payments_external_tx_unique"
       ],
       "reads": [
@@ -11745,6 +11783,66 @@
       "statementTarget": [
         "index",
         "public",
+        "payment_accounts",
+        "payment_accounts_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_accounts_tenant_id_idx",
+        "n|idx|public.payment_accounts_tenant_id_idx",
+        "e|idx|public.payment_accounts_tenant_id_idx",
+        "n|rel|public.payment_accounts_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_accounts",
+        "n|sch|public",
+        "n|col|public.payment_accounts.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_provider_events",
+        "payment_provider_events_payment_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_provider_events_payment_idx",
+        "n|idx|public.payment_provider_events_payment_idx",
+        "e|idx|public.payment_provider_events_payment_idx",
+        "n|rel|public.payment_provider_events_payment_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.matched_payment_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_provider_events",
+        "payment_provider_events_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_provider_events_status_idx",
+        "n|idx|public.payment_provider_events_status_idx",
+        "e|idx|public.payment_provider_events_status_idx",
+        "n|rel|public.payment_provider_events_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.match_status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "payment_refunds",
         "payment_refunds_payment_id_idx"
       ],
@@ -11778,6 +11876,26 @@
         "n|tbl|public.payments",
         "n|sch|public",
         "n|col|public.payments.account_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payments",
+        "payments_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.payments_tenant_id_idx",
+        "n|idx|public.payments_tenant_id_idx",
+        "e|idx|public.payments_tenant_id_idx",
+        "n|rel|public.payments_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.tenant_id"
       ]
     },
     {
@@ -17541,6 +17659,98 @@
       "statementTarget": [
         "table",
         "public",
+        "payment_accounts"
+      ],
+      "writes": [
+        "s|fk|public.payment_accounts.payment_accounts_tenant_id_tenants_id_fkey",
+        "n|fk|public.payment_accounts.payment_accounts_tenant_id_tenants_id_fkey",
+        "e|fk|public.payment_accounts.payment_accounts_tenant_id_tenants_id_fkey",
+        "n|con|public.payment_accounts.payment_accounts_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_accounts",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.payment_accounts.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_provider_events"
+      ],
+      "writes": [
+        "s|fk|public.payment_provider_events.payment_provider_events_tenant_id_tenants_id_fkey",
+        "n|fk|public.payment_provider_events.payment_provider_events_tenant_id_tenants_id_fkey",
+        "e|fk|public.payment_provider_events.payment_provider_events_tenant_id_tenants_id_fkey",
+        "n|con|public.payment_provider_events.payment_provider_events_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_provider_events"
+      ],
+      "writes": [
+        "s|fk|public.payment_provider_events.payment_provider_events_account_id_payment_accounts_id_fkey",
+        "n|fk|public.payment_provider_events.payment_provider_events_account_id_payment_accounts_id_fkey",
+        "e|fk|public.payment_provider_events.payment_provider_events_account_id_payment_accounts_id_fkey",
+        "n|con|public.payment_provider_events.payment_provider_events_account_id_payment_accounts_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|tbl|public.payment_accounts",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.account_id",
+        "n|col|public.payment_accounts.id",
+        "e|uniqueness|public.payment_accounts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_provider_events"
+      ],
+      "writes": [
+        "s|fk|public.payment_provider_events.payment_provider_events_matched_payment_id_payments_id_fkey",
+        "n|fk|public.payment_provider_events.payment_provider_events_matched_payment_id_payments_id_fkey",
+        "e|fk|public.payment_provider_events.payment_provider_events_matched_payment_id_payments_id_fkey",
+        "n|con|public.payment_provider_events.payment_provider_events_matched_payment_id_payments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payment_provider_events.matched_payment_id",
+        "n|col|public.payments.id",
+        "e|uniqueness|public.payments.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "payment_refunds"
       ],
       "writes": [
@@ -17580,6 +17790,29 @@
         "n|col|public.payments.account_id",
         "n|col|public.payment_accounts.id",
         "e|uniqueness|public.payment_accounts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payments"
+      ],
+      "writes": [
+        "s|fk|public.payments.payments_tenant_id_tenants_id_fkey",
+        "n|fk|public.payments.payments_tenant_id_tenants_id_fkey",
+        "e|fk|public.payments.payments_tenant_id_tenants_id_fkey",
+        "n|con|public.payments.payments_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.payments.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -18780,6 +19013,12 @@
     {
       "schema": "public",
       "name": "payment_accounts",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "payment_provider_events",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -42787,6 +43026,19 @@
     {
       "schema": "public",
       "table": "payment_accounts",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_accounts",
       "name": "name",
       "type": "text",
       "typeSchema": null,
@@ -42840,6 +43092,175 @@
       "schema": "public",
       "table": "payment_accounts",
       "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "provider",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "account_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "external_transaction_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "direction",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "amount",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "content",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "extracted_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "matched_payment_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "match_status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'received'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "raw",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "received_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -42930,6 +43351,19 @@
     {
       "schema": "public",
       "table": "payment_refunds",
+      "name": "data",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -42957,6 +43391,19 @@
       "schema": "public",
       "table": "payments",
       "name": "account_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "tenant_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -43062,6 +43509,32 @@
       "table": "payments",
       "name": "item_id",
       "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payment_code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
@@ -51671,6 +52144,69 @@
     },
     {
       "schema": "public",
+      "table": "payment_accounts",
+      "name": "payment_accounts_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_payment_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matched_payment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "match_status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "payment_refunds",
       "name": "payment_refunds_payment_id_idx",
       "nameExplicit": true,
@@ -51698,6 +52234,27 @@
       "columns": [
         {
           "value": "account_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payments_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -56012,6 +56569,74 @@
     },
     {
       "schema": "public",
+      "table": "payment_accounts",
+      "name": "payment_accounts_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_account_id_payment_accounts_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "account_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payment_accounts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_matched_payment_id_payments_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matched_payment_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payments",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "payment_refunds",
       "name": "payment_refunds_payment_id_payments_id_fkey",
       "nameExplicit": false,
@@ -56042,6 +56667,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payments_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -58032,6 +58674,16 @@
     },
     {
       "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "payment_refunds",
       "name": "payment_refunds_pkey",
       "columns": [
@@ -59074,6 +59726,29 @@
     },
     {
       "schema": "public",
+      "table": "payment_provider_events",
+      "name": "payment_provider_events_tx_unique",
+      "nameExplicit": true,
+      "columns": [
+        "provider",
+        "external_transaction_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payments_payment_code_unique",
+      "nameExplicit": true,
+      "columns": [
+        "payment_code"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "payments",
       "name": "payments_external_tx_unique",
       "nameExplicit": true,
@@ -59673,6 +60348,17 @@
       "name": "content_bank_content_grade_check",
       "value": "\"grade\" is null or (\"grade\" between 1 and 12)",
       "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "name": "payment_code_seq",
+      "incrementBy": "1",
+      "minValue": "1",
+      "maxValue": "9223372036854775807",
+      "startWith": "1",
+      "cacheSize": 1,
+      "cycle": false,
+      "entityType": "sequences"
     }
   ]
 }
