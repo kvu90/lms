@@ -930,6 +930,22 @@ export class MessagingService {
   }
 
   /**
+   * Cổng thành viên cho các đường theo id (đọc/gửi/báo cáo): người
+   * không phải thành viên bị từ chối — riêng conversation CẤP KHOÁ
+   * hành xử như KHÔNG TỒN TẠI (404, cùng mã `conversation_not_found`)
+   * để bề mặt chat lớp không rò sự tồn tại của khoá/conversation cho
+   * người ngoài khoá, đồng nhất với cổng ensure; các loại conversation
+   * khác giữ 403 `not_member` như hiện hành.
+   */
+  private async assertConversationMember(userId: string, conversation: ConversationRow): Promise<void> {
+    if (await this.repo.isMember(conversation.id, userId)) return;
+    if (this.isCourseLinked(conversation)) {
+      throw new NotFoundException({ message: `Conversation ${conversation.id} not found`, code: 'messaging.conversation_not_found' });
+    }
+    throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
+  }
+
+  /**
    * Staff của khoá theo đúng nghĩa GroupsModule dùng: site admin, hoặc có
    * capability `course:managegroups` tại context của khoá.
    */
@@ -1194,9 +1210,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, userId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(userId, conversation);
     await this.assertDirectConversationVisible(userId, conversation);
     // Tầm nhìn theo vai trò (Lớp B): thành viên thường KHÔNG BAO GIỜ
     // thấy tin đã xoá mềm; người có thẩm quyền kiểm duyệt trên
@@ -1241,9 +1255,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, userId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(userId, conversation);
     await this.assertDirectConversationVisible(userId, conversation);
     // Cùng luật tầm nhìn với getConversation: chỉ người có thẩm quyền
     // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ;
@@ -1287,9 +1299,7 @@ export class MessagingService {
     // tra tư cách thành viên (người mới vào group gửi được ngay, người rời
     // group bị chặn ở kiểm tra ngay dưới đây).
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, actorId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(actorId, conversation);
     // Cột `enabled` phải được tôn trọng THẬT ở đường gửi (Lớp B):
     // giáo viên tắt chat của nhóm lớp thì thành viên thường dừng gửi
     // tại đây; người có thẩm quyền quản lý vẫn gửi được — đó là đường
@@ -1621,9 +1631,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, actorId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(actorId, conversation);
     const report = await this.repo.insertReport({
       conversationId, reporterId: actorId, reason: (reason ?? '').trim(),
     });
@@ -1736,14 +1744,17 @@ export class MessagingService {
    * đã-đọc ("đã xem tới seq N") cho các thành viên còn lại.
    */
   async markConversationRead(userId: string, conversationId: string): Promise<{ marked: number; lastReadSeq: number }> {
-    if (!(await this.repo.isMember(conversationId, userId))) {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (conversation) {
+      // Cổng thành viên (conversation cấp khoá → 404 với người ngoài)
+      // + cùng cổng chặn với đường đọc: hội thoại 1–1 đang chặn thì
+      // đánh dấu đã đọc cũng 404 như không tồn tại — không phát biên
+      // đã-đọc cho phía bên kia qua outbox.
+      await this.assertConversationMember(userId, conversation);
+      await this.assertDirectConversationVisible(userId, conversation);
+    } else if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    // Cùng cổng với đường đọc: hội thoại 1–1 đang chặn thì đánh dấu
-    // đã đọc cũng 404 như không tồn tại — không phát biên đã-đọc cho
-    // phía bên kia qua outbox.
-    const conversation = await this.repo.getConversation(conversationId);
-    if (conversation) await this.assertDirectConversationVisible(userId, conversation);
     const before = (await this.repo.getMemberLastReadSeq(conversationId, userId)) ?? 0;
     const result = await this.repo.markConversationRead(conversationId, userId);
     if (result.lastReadSeq > before) {
