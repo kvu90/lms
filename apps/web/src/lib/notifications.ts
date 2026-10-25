@@ -239,6 +239,66 @@ export interface PreferencePatch {
 }
 
 /**
+ * Chế độ ghi đè thông báo theo khoá (NB-4, issue #174): 'all' = nhận
+ * như mặc định toàn cục; 'mute' = tắt tiếng khoá đó (thông báo thường
+ * của khoá không được sinh ở kênh nào; điểm mới + sắp hết hạn ghi
+ * danh vẫn tới theo chính sách P3 đã chốt).
+ */
+export type NotificationCourseOverrideMode = 'all' | 'mute';
+
+/** Một dòng ghi đè theo khoá đúng như API trả (GET /messages/preferences/courses). */
+export interface NotificationCourseOverrideView {
+  courseId: string;
+  courseName: string;
+  mode: NotificationCourseOverrideMode;
+}
+
+/** Mọi khoá tôi thuộc về kèm chế độ ghi đè hiệu lực — dữ liệu của mục "Ngoại lệ" trong cài đặt. */
+export function useNotificationCourseOverrides() {
+  return useQuery({
+    queryKey: queryKeys.messageCourseOverrides,
+    queryFn: async () => {
+      const res = await apiJson<{ courses: NotificationCourseOverrideView[] }>('/api/v1/messages/preferences/courses');
+      return res.courses;
+    },
+  });
+}
+
+/**
+ * Đặt ghi đè cho đúng một khoá (PUT /messages/preferences/courses)
+ * với cập nhật lạc quan trên cache như tuỳ chọn theo provider: áp
+ * ngay chế độ mới lên dòng khoá đó, lỗi thì hoàn lại.
+ */
+export function useSetNotificationCourseOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { courseId: string; mode: NotificationCourseOverrideMode }) =>
+      apiJson<NotificationCourseOverrideView>('/api/v1/messages/preferences/courses', {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.messageCourseOverrides });
+      const previous = queryClient.getQueryData<NotificationCourseOverrideView[]>(queryKeys.messageCourseOverrides);
+      queryClient.setQueryData<NotificationCourseOverrideView[]>(queryKeys.messageCourseOverrides, (old) =>
+        old?.map((c) => (c.courseId === input.courseId ? { ...c, mode: input.mode } : c)),
+      );
+      return { previous };
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<NotificationCourseOverrideView[]>(queryKeys.messageCourseOverrides, (old) =>
+        old?.map((c) => (c.courseId === saved.courseId ? saved : c)),
+      );
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.messageCourseOverrides, context.previous);
+      }
+    },
+  });
+}
+
+/**
  * Đặt tuỳ chọn v2 cho đúng một provider (PUT /messages/preferences)
  * với cập nhật lạc quan trên cache: áp patch ngay lên dòng đó, server
  * trả về dòng đầy đủ thì chốt theo bản server, lỗi thì hoàn lại toàn
