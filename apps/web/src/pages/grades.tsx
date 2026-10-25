@@ -1305,3 +1305,10 @@ export function GradebookPage() {
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default GradebookPage; /** Thụt lề theo độ sâu cây hạng mục điểm: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
 const CATEGORY_INDENT = ['ml-0', 'ml-4', 'ml-8', 'ml-12', 'ml-16', 'ml-20'];
+
+// Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
+export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
+import { titleMeta } from '../lib/route-meta';
+export function meta() {
+  return titleMeta('Điểm số');
+}

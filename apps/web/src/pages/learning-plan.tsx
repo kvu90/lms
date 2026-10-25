@@ -1051,3 +1051,10 @@ export function LearningPlanPage() {
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default LearningPlanPage; /** Thụt lề theo độ sâu cây năng lực: bảng class tĩnh theo từng cấp (mỗi cấp 16px), tránh style nội tuyến. */
 const COMPETENCY_INDENT = ['pl-0', 'pl-4', 'pl-8', 'pl-12', 'pl-16', 'pl-20'];
+
+// Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
+export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
+import { appKeyMeta } from '../lib/route-meta';
+export function meta() {
+  return appKeyMeta('navLearningPlan');
+}
