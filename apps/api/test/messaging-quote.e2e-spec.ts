@@ -280,7 +280,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
   });
 
   it('8. realtime: message.new mang đủ dữ kiện trích dẫn cho phía nhận', async () => {
-    const socket: Socket = io(`${base}/messages`, {
+    const socket: Socket = io(`${base}/messaging`, {
       auth: { token: b.token }, transports: ['websocket'], reconnection: false,
     });
     sockets.push(socket);
