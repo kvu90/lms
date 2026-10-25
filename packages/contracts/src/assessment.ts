@@ -1947,7 +1947,7 @@ export const paperScanSchema = z.object({
   studentName: z.string().nullable(),
   identitySource: z.enum(PAPER_IDENTITY_SOURCES).nullable(),
   identityCode: z.string().nullable(),
-  /** Mã đề 4 số đọc chắc chắn từ lưới tô mã đề trên phiếu; null khi không tô/không chắc chắn — hệ thống không đoán mã đề. */
+  /** Mã đề 4 số hiệu lực của phiếu: đọc chắc chắn từ lưới tô mã đề, hoặc giáo viên xác nhận khi gán lô (bản đọc gốc của máy được giữ trong event log). Null khi không tô/không chắc chắn và chưa được xác nhận — hệ thống không đoán mã đề. */
   variantCodeRead: z.string().nullable(),
   fileId: uuidIdSchema,
   warpedFileId: uuidIdSchema.nullable(),

@@ -646,6 +646,15 @@ export class PaperGradingService {
       studentId = scan.batchId === batch.id ? scan.studentId : null;
       identitySource = scan.batchId === batch.id ? (scan.identitySource as typeof identitySource) : null;
     }
+    // Giáo viên gán lô = xác nhận mã đề của phiếu thuộc lô đó (như ký
+    // biên bản sửa lỗi của Bộ): mã đề hiệu lực lấy theo lô được gán,
+    // còn BẢN ĐỌC GỐC của máy được giữ nguyên trong event log bên
+    // dưới (machineReadVariantCode) để truy vết.
+    const machineReadVariantCode = variantCodeRead;
+    const teacherConfirmedVariant = Boolean(
+      batch.examCode && machineReadVariantCode && machineReadVariantCode !== batch.examCode,
+    );
+    if (teacherConfirmedVariant) variantCodeRead = batch.examCode;
     const updated = await this.repo.updateScan(scan.id, {
       batchId: batch.id, readings, studentId, identitySource, identityCode, variantCodeRead,
       status: this.statusFor(studentId, readings),
@@ -655,7 +664,7 @@ export class PaperGradingService {
       payload: {
         actorId, quizId: scan.quizId, courseId: quiz.course, component: PAPER_COMPONENT,
         scanId: scan.id, batchId: batch.id, previousBatchId: scan.batchId,
-        previousVariantCodeRead: scan.variantCodeRead, variantCodeRead,
+        machineReadVariantCode, variantCodeRead, teacherConfirmedVariant,
         studentId, reread,
       },
     });

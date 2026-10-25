@@ -15,11 +15,13 @@ import { apiFetch, apiJson } from '#lib/api';
 
 /**
  * CAM-0 (issue #112) — Chấm bài giấy bằng camera, phía giáo viên:
- * sinh lô phiếu + tải PDF (cá nhân hoá / phiếu trắng), chụp/tải ảnh
- * hàng loạt qua cổng chất lượng, xử lý hai hàng chờ (gán định danh,
- * xác nhận câu mơ hồ trên ảnh đã nắn phẳng) rồi ghi điểm thành attempt
- * thi giấy. Hệ thống không bao giờ chấm đoán: phiếu chưa chắc chắn nằm
- * ở hàng chờ cho tới khi giáo viên quyết.
+ * sinh lô IN + tải PDF (phiếu DÙNG CHUNG là mặc định; in theo danh
+ * sách là tuỳ chọn hẹp), chụp/tải ảnh cả buổi một lượt (hệ thống tự
+ * khớp mã đề về đúng lô in), xử lý hai hàng chờ (gán lô/gán định danh
+ * với ảnh cắt vùng mã + vùng tên và ứng viên chưa khớp, xác nhận câu
+ * mơ hồ trên ảnh đã nắn phẳng) rồi ghi điểm thành attempt thi giấy.
+ * Hệ thống không bao giờ chấm đoán: phiếu chưa chắc chắn nằm ở hàng
+ * chờ cho tới khi giáo viên quyết.
  */
 
 const TEMPLATE_WIDTH = 1240;
@@ -32,8 +34,8 @@ interface UploadOutcome {
   scan?: PaperScan;
 }
 
-/** Ảnh phiếu đã nắn phẳng (qua endpoint có gác quyền chấm giấy). */
-function WarpedImage({ scanId, className }: { scanId: string; className?: string }) {
+/** URL object của ảnh phiếu đã nắn phẳng (qua endpoint có gác quyền chấm giấy). */
+function useWarpedUrl(scanId: string): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -50,15 +52,14 @@ function WarpedImage({ scanId, className }: { scanId: string; className?: string
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [scanId]);
-  if (!url) return <Skeleton className={className ?? 'h-40 w-full'} />;
-  return <img src={url} alt="" className={className ?? 'w-full rounded border'} />;
+  return url;
 }
 
 /** Vùng cắt quanh một dòng câu trên ảnh đã nắn (toạ độ template 1240×1754). */
 function RowCrop({ scanId, centers }: { scanId: string; centers: { x: number; y: number }[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  const [url, setUrl] = useState<string | null>(null);
+  const url = useWarpedUrl(scanId);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -68,21 +69,6 @@ function RowCrop({ scanId, centers }: { scanId: string; centers: { x: number; y:
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  useEffect(() => {
-    let live = true;
-    let objectUrl: string | null = null;
-    void apiFetch(`/api/v1/paper-scans/${scanId}/image/warped`)
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('image failed'))))
-      .then((blob) => {
-        objectUrl = URL.createObjectURL(blob);
-        if (live) setUrl(objectUrl);
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [scanId]);
   const height = 120;
   const cy = centers.reduce((sum, c) => sum + c.y, 0) / Math.max(1, centers.length);
   const scale = width / TEMPLATE_WIDTH;
@@ -97,6 +83,41 @@ function RowCrop({ scanId, centers }: { scanId: string; centers: { x: number; y:
   );
 }
 
+/** Vùng cắt theo hình chữ nhật template (vùng mã / vùng tên) trên ảnh đã nắn — cho hàng chờ định danh. */
+function RegionCrop({ scanId, region, label }: { scanId: string; region: { x: number; y: number; w: number; h: number }; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const url = useWarpedUrl(scanId);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const scale = width / TEMPLATE_WIDTH;
+  const height = Math.max(48, region.h * scale);
+  return (
+    <figure className="flex flex-col gap-1">
+      <div ref={ref} className="relative w-full overflow-hidden rounded border bg-white" style={{ height }}>
+        {url && width > 0 ? (
+          <img
+            src={url}
+            alt=""
+            className="absolute w-full max-w-none"
+            style={{ left: -region.x * scale, top: -region.y * scale }}
+          />
+        ) : (
+          <Skeleton className="h-full w-full" />
+        )}
+      </div>
+      <figcaption className="text-xs text-muted-foreground">{label}</figcaption>
+    </figure>
+  );
+}
+
 export default function QuizPaperPage() {
   const { id: courseId, quizId } = useParams();
   const { t } = useTranslation('app');
@@ -106,11 +127,14 @@ export default function QuizPaperPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [variant, setVariant] = useState('');
+  const [examCode, setExamCode] = useState('');
+  const [codeDigits, setCodeDigits] = useState('4');
   const [copies, setCopies] = useState(30);
   const [files, setFiles] = useState<File[]>([]);
   const [outcomes, setOutcomes] = useState<UploadOutcome[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [identityChoice, setIdentityChoice] = useState<Record<string, string>>({});
+  const [batchChoice, setBatchChoice] = useState<Record<string, string>>({});
   const [resolutions, setResolutions] = useState<Record<string, Record<number, number | null>>>({});
   const [recordedGrades, setRecordedGrades] = useState<Record<string, number>>({});
 
@@ -145,12 +169,16 @@ export default function QuizPaperPage() {
 
   async function createBatch() {
     await runAction(async () => {
+      const body: Record<string, unknown> = { codeDigits: Number(codeDigits) };
+      if (variant.trim()) body.variantCode = variant.trim();
+      if (/^\d{4}$/.test(examCode.trim())) body.examCode = examCode.trim();
       const created = await apiJson<PaperBatch>(`/api/v1/quizzes/${quizId}/paper-batches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(variant.trim() ? { variantCode: variant.trim() } : {}),
+        body: JSON.stringify(body),
       });
       setVariant('');
+      setExamCode('');
       await reload();
       setSelectedBatchId(created.id);
     });
@@ -164,6 +192,7 @@ export default function QuizPaperPage() {
         params.set('kind', 'blank');
         params.set('copies', String(Math.max(1, copies || 1)));
       }
+      if (kind === 'personal') params.set('kind', 'personalized');
       if (kind === 'one' && studentId) params.set('studentId', studentId);
       const query = params.toString();
       const res = await apiFetch(
@@ -181,11 +210,12 @@ export default function QuizPaperPage() {
   }
 
   async function uploadPhotos() {
-    if (!selectedBatch || files.length === 0) return;
+    if (files.length === 0) return;
     await runAction(async () => {
       const form = new FormData();
       for (const file of files) form.append('files', file);
-      const res = await apiFetch(`/api/v1/quizzes/${quizId}/paper-batches/${selectedBatch.id}/scans`, {
+      // Tải theo BUỔI (lô chụp): máy tự khớp mã đề về đúng lô in.
+      const res = await apiFetch(`/api/v1/quizzes/${quizId}/paper-scans`, {
         method: 'POST',
         body: form,
       });
@@ -213,6 +243,26 @@ export default function QuizPaperPage() {
       });
       await reload();
     });
+  }
+
+  async function assignBatch(scan: PaperScan) {
+    const batchId = batchChoice[scan.id];
+    if (!batchId) return;
+    await runAction(async () => {
+      await apiJson(`/api/v1/paper-scans/${scan.id}/assign-batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchId }),
+      });
+      await reload();
+    });
+  }
+
+  /** Mã đề đọc được trên phiếu khác mã đề của lô in → phiếu bị chặn ghi điểm cho tới khi xử lý lại. */
+  function variantMismatch(scan: PaperScan): boolean {
+    if (!scan.batchId || !scan.variantCodeRead) return false;
+    const batch = batchById.get(scan.batchId);
+    return Boolean(batch?.examCode && batch.examCode !== scan.variantCodeRead);
   }
 
   async function resolveReadings(scan: PaperScan) {
@@ -306,7 +356,7 @@ export default function QuizPaperPage() {
                         variant={batch.id === selectedBatchId ? 'default' : 'outline'}
                         onClick={() => setSelectedBatchId(batch.id)}
                       >
-                        {t('paperBatchLine', { code: batch.variantCode, count: batch.roster.length, slots: batch.layout.length })}
+                        {t('paperBatchLine', { code: batch.variantCode, exam: batch.examCode ?? '—', count: batch.roster.length, slots: batch.layout.length })}
                       </Button>
                     </li>
                   ))}
@@ -323,15 +373,35 @@ export default function QuizPaperPage() {
                     maxLength={8}
                   />
                 </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="paper-exam-code">{t('paperExamCodeLabel')}</Label>
+                  <Input
+                    id="paper-exam-code"
+                    value={examCode}
+                    onChange={(e) => setExamCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    className="w-28"
+                    inputMode="numeric"
+                    placeholder="1001"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="paper-code-digits">{t('paperCodeDigitsLabel')}</Label>
+                  <select
+                    id="paper-code-digits"
+                    className="h-9 rounded-md border bg-background px-2 text-sm"
+                    value={codeDigits}
+                    onChange={(e) => setCodeDigits(e.target.value)}
+                  >
+                    <option value="4">{t('paperCodeDigitsClass')}</option>
+                    <option value="8">{t('paperCodeDigitsSbd')}</option>
+                  </select>
+                </div>
                 <Button type="button" disabled={busy} onClick={() => void createBatch()}>
                   {t('paperCreateBatch')}
                 </Button>
               </div>
               {selectedBatch ? (
                 <div className="flex flex-wrap items-end gap-3 border-t pt-4">
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void downloadPdf('personal')}>
-                    {t('paperDownloadPersonal')}
-                  </Button>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="paper-copies">{t('paperCopiesLabel')}</Label>
                     <Input
@@ -344,15 +414,18 @@ export default function QuizPaperPage() {
                       className="w-24"
                     />
                   </div>
-                  <Button type="button" variant="outline" disabled={busy} onClick={() => void downloadPdf('blank')}>
+                  <Button type="button" disabled={busy} onClick={() => void downloadPdf('blank')}>
                     {t('paperDownloadBlank')}
+                  </Button>
+                  <Button type="button" variant="outline" disabled={busy} onClick={() => void downloadPdf('personal')}>
+                    {t('paperDownloadPersonal')}
                   </Button>
                 </div>
               ) : null}
             </CardContent>
           </Card>
 
-          {selectedBatch ? (
+          {batches.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle>{t('paperUploadTitle')}</CardTitle>
@@ -395,36 +468,71 @@ export default function QuizPaperPage() {
                 <p className="text-sm text-muted-foreground">{t('paperQueueEmpty')}</p>
               ) : (
                 queues.needs_identity.map((scan) => {
-                  const batch = batchById.get(scan.batchId);
+                  const batch = scan.batchId ? batchById.get(scan.batchId) : undefined;
+                  const mismatch = variantMismatch(scan);
+                  const needsBatch = !scan.batchId || mismatch;
                   return (
                     <div key={scan.id} className="flex flex-col gap-3 border-b pb-4">
                       <p className="text-sm font-medium">
-                        {t('paperFromBatch', { code: batch?.variantCode ?? '?' })} —{' '}
+                        {batch ? t('paperFromBatch', { code: batch.variantCode }) : t('paperNoBatch')} —{' '}
                         {scan.identityCode ? t('paperIdentityCode', { code: scan.identityCode }) : t('paperIdentityNone')}
+                        {scan.variantCodeRead ? ` — ${t('paperVariantRead', { code: scan.variantCodeRead })}` : ''}
                       </p>
-                      <div className="max-w-md">
-                        <WarpedImage scanId={scan.id} />
+                      {mismatch ? (
+                        <p className="text-sm text-destructive">
+                          {t('paperVariantMismatch', { read: scan.variantCodeRead ?? '', exam: batch?.examCode ?? '' })}
+                        </p>
+                      ) : null}
+                      <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+                        <RegionCrop scanId={scan.id} region={scan.regions.studentCode} label={t('paperRegionCode')} />
+                        <RegionCrop scanId={scan.id} region={scan.regions.name} label={t('paperRegionName')} />
                       </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <select
-                          className="h-9 rounded-md border bg-background px-2 text-sm"
-                          value={identityChoice[scan.id] ?? ''}
-                          onChange={(e) => setIdentityChoice((prev) => ({ ...prev, [scan.id]: e.target.value }))}
-                        >
-                          <option value="">{t('paperSelectStudent')}</option>
-                          {(batch?.roster ?? []).map((entry) => (
-                            <option key={entry.userId} value={entry.userId}>
-                              {entry.displayName} ({entry.code})
-                            </option>
-                          ))}
-                        </select>
-                        <Button type="button" disabled={busy || !identityChoice[scan.id]} onClick={() => void assignIdentity(scan)}>
-                          {t('paperAssign')}
-                        </Button>
-                        <Button type="button" variant="outline" disabled={busy} onClick={() => void remove(scan)}>
-                          {t('paperDelete')}
-                        </Button>
-                      </div>
+                      {needsBatch ? (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <select
+                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                            value={batchChoice[scan.id] ?? ''}
+                            onChange={(e) => setBatchChoice((prev) => ({ ...prev, [scan.id]: e.target.value }))}
+                          >
+                            <option value="">{t('paperSelectBatch')}</option>
+                            {(batches ?? []).map((b) => (
+                              <option key={b.id} value={b.id}>
+                                {b.variantCode} ({b.examCode ?? '—'})
+                              </option>
+                            ))}
+                          </select>
+                          <Button type="button" disabled={busy || !batchChoice[scan.id]} onClick={() => void assignBatch(scan)}>
+                            {t('paperAssignBatch')}
+                          </Button>
+                          <Button type="button" variant="outline" disabled={busy} onClick={() => void remove(scan)}>
+                            {t('paperDelete')}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-xs text-muted-foreground">{t('paperCandidatesHint')}</p>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <select
+                              className="h-9 rounded-md border bg-background px-2 text-sm"
+                              value={identityChoice[scan.id] ?? ''}
+                              onChange={(e) => setIdentityChoice((prev) => ({ ...prev, [scan.id]: e.target.value }))}
+                            >
+                              <option value="">{t('paperSelectStudent')}</option>
+                              {scan.identityCandidates.map((entry) => (
+                                <option key={entry.userId} value={entry.userId}>
+                                  {entry.displayName} ({entry.code})
+                                </option>
+                              ))}
+                            </select>
+                            <Button type="button" disabled={busy || !identityChoice[scan.id]} onClick={() => void assignIdentity(scan)}>
+                              {t('paperAssign')}
+                            </Button>
+                            <Button type="button" variant="outline" disabled={busy} onClick={() => void remove(scan)}>
+                              {t('paperDelete')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -442,7 +550,7 @@ export default function QuizPaperPage() {
                 <p className="text-sm text-muted-foreground">{t('paperQueueEmpty')}</p>
               ) : (
                 queues.needs_review.map((scan) => {
-                  const batch = batchById.get(scan.batchId);
+                  const batch = scan.batchId ? batchById.get(scan.batchId) : undefined;
                   const ambiguous = scan.readings.filter((r) => r.state === 'ambiguous');
                   const picks = resolutions[scan.id] ?? {};
                   const complete = ambiguous.every((r) => r.slot in picks);
@@ -519,8 +627,16 @@ export default function QuizPaperPage() {
                   <div key={scan.id} className="flex flex-wrap items-center gap-3 border-b pb-3">
                     <span className="text-sm font-medium">{scan.studentName ?? t('paperStudentUnknown')}</span>
                     <span className="text-sm text-muted-foreground">
-                      {t('paperFromBatch', { code: batchById.get(scan.batchId)?.variantCode ?? '?' })}
+                      {t('paperFromBatch', { code: (scan.batchId ? batchById.get(scan.batchId)?.variantCode : undefined) ?? '?' })}
                     </span>
+                    {variantMismatch(scan) ? (
+                      <span className="text-sm text-destructive">
+                        {t('paperVariantMismatch', {
+                          read: scan.variantCodeRead ?? '',
+                          exam: (scan.batchId ? batchById.get(scan.batchId)?.examCode : undefined) ?? '',
+                        })}
+                      </span>
+                    ) : null}
                     <Button type="button" disabled={busy} onClick={() => void record(scan)}>
                       {t('paperRecord')}
                     </Button>

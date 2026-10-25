@@ -9,13 +9,15 @@ import { sheetQrPayload } from '../src/modules/paper-grading/domain/sheet-pdf';
 
 /**
  * CAM-0 — Chấm bài giấy bằng camera (issue #112), luồng đầu-cuối:
- * sinh lô phiếu (ghim layout + roster) → tải PDF → dựng ảnh chụp mô
- * phỏng bằng chính template hệ thống → tải ảnh qua cổng chất lượng →
- * OMR + định danh (QR / ô tô mã) → hai hàng chờ (ca mơ hồ, gán định
- * danh) → ghi attempt "thi giấy" — điểm khớp chấm tay và attempt mang
+ * sinh lô IN phiếu (ghim layout + roster + mã đề 4 số) → tải PDF (mặc
+ * định phiếu DÙNG CHUNG) → dựng ảnh chụp mô phỏng bằng chính template
+ * hệ thống → tải ảnh theo lô hoặc theo BUỔI (lô chụp, định tuyến về
+ * lô in theo mã đề/QR) qua cổng chất lượng → OMR + định danh (QR / ô
+ * tô mã) → hai hàng chờ (ca mơ hồ, gán lô/gán định danh — ghi event
+ * log) → ghi attempt "thi giấy" — điểm khớp chấm tay và attempt mang
  * dấu nguồn giấy trong DB. Nguyên tắc cứng được kiểm ở đây: ảnh hỏng
- * bị từ chối ở cổng, ca mơ hồ không bao giờ bị đoán, học sinh không
- * chạm được bề mặt chấm giấy.
+ * bị từ chối ở cổng, ca mơ hồ không bao giờ bị đoán, mã đề mơ hồ/kh lạ
+ * không bao giờ bị đoán, học sinh không chạm được bề mặt chấm giấy.
  */
 describe('CAM-0 paper grading flow', () => {
   let app: INestApplication;
@@ -27,12 +29,13 @@ describe('CAM-0 paper grading flow', () => {
 
   interface Ctx {
     courseId: string;
+    instanceId: string;
     quizId: string;
     teacher: string;
     studentA: { id: string; username: string };
     studentB: { id: string; username: string };
     tokenA: string;
-    batch: { id: string; variantCode: string; roster: { code: string; userId: string }[]; layout: { slot: number; optionCount: number }[] };
+    batch: { id: string; variantCode: string; examCode: string | null; codeDigits: number; roster: { code: string; userId: string }[]; layout: { slot: number; optionCount: number }[] };
   }
   let ctx: Ctx;
 
@@ -95,7 +98,7 @@ describe('CAM-0 paper grading flow', () => {
     if (batchRes.status !== 201) throw new Error(`create batch failed: ${batchRes.status} ${JSON.stringify(batchRes.body)}`);
 
     ctx = {
-      courseId: course.id, quizId, teacher,
+      courseId: course.id, instanceId: instance.id, quizId, teacher,
       studentA: { id: studentA.id, username: studentA.username },
       studentB: { id: studentB.id, username: studentB.username },
       tokenA, batch: batchRes.body,
@@ -103,9 +106,21 @@ describe('CAM-0 paper grading flow', () => {
   });
   afterAll(async () => { await pg.end(); await app.close(); });
 
-  function photoFor(input: { qrText: string | null; bubbleCode: string | null; fills: Map<number, SlotFill>; seed: number; blurPasses?: number }): Buffer {
-    const geometry = computeSheetGeometry(OPTION_COUNTS);
-    const sheet = renderSheetRgba({ geometry, qrText: input.qrText, bubbleCode: input.bubbleCode, fills: input.fills });
+  function photoFor(input: {
+    qrText: string | null; bubbleCode: string | null; fills: Map<number, SlotFill>;
+    seed: number; blurPasses?: number;
+    /** Mã đề tô ở lưới mã đề (phiếu dùng chung); không truyền = không vẽ lưới mã đề. */
+    variantCode?: string | null;
+    /** Cột mã đề tô nhạt (dựng ca mã đề mơ hồ). */
+    variantLightDigit?: number;
+    /** Số cột lưới mã học sinh của lô (4 mặc định; 8 = thi thử SBD). */
+    codeDigits?: number;
+  }): Buffer {
+    const geometry = computeSheetGeometry(OPTION_COUNTS, input.codeDigits ?? 4);
+    const sheet = renderSheetRgba({
+      geometry, qrText: input.qrText, bubbleCode: input.bubbleCode, fills: input.fills,
+      variantCode: input.variantCode, variantLightDigit: input.variantLightDigit,
+    });
     return simulatePhoto(sheet, { seed: input.seed, blurPasses: input.blurPasses ?? 0 });
   }
 
@@ -116,8 +131,36 @@ describe('CAM-0 paper grading flow', () => {
       .attach('files', photo, name);
   }
 
+  /** Tải ảnh theo BUỔI (lô chụp): hệ thống tự định tuyến từng phiếu về lô in theo mã đề/QR. */
+  function uploadSession(photo: Buffer, name: string, token: string) {
+    return http(app)
+      .post(`/api/v1/quizzes/${ctx.quizId}/paper-scans`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('files', photo, name);
+  }
+
+  async function createBatch(body: Record<string, unknown>) {
+    const res = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`).send(body);
+    if (res.status !== 201) throw new Error(`create batch failed: ${res.status} ${JSON.stringify(res.body)}`);
+    return res.body as {
+      id: string; variantCode: string; examCode: string | null; codeDigits: number;
+      roster: { code: string; userId: string }[];
+    };
+  }
+
+  const CORRECT_FILLS = () => new Map<number, SlotFill>([
+    [1, { choice: CORRECT[0]!, style: 'full' }],
+    [2, { choice: CORRECT[1]!, style: 'full' }],
+    [3, { choice: CORRECT[2]!, style: 'full' }],
+    [4, { choice: CORRECT[3]!, style: 'full' }],
+    [5, { choice: 0, style: 'full' }],
+  ]);
+
   it('batch pins the layout and snapshots a student-only roster with bubble codes', () => {
     expect(ctx.batch.variantCode).toBe('A');
+    // Lô đầu tiên của quiz: mã đề số tự cấp từ 1001, lưới mã 4 cột tại lớp.
+    expect(ctx.batch.examCode).toBe('1001');
+    expect(ctx.batch.codeDigits).toBe(4);
     expect(ctx.batch.layout).toHaveLength(5);
     expect(ctx.batch.layout.map((l) => l.optionCount)).toEqual(OPTION_COUNTS);
     const rosterIds = ctx.batch.roster.map((r) => r.userId).sort();
@@ -125,23 +168,36 @@ describe('CAM-0 paper grading flow', () => {
     for (const entry of ctx.batch.roster) expect(entry.code).toMatch(/^\d{4}$/);
   });
 
-  it('rejects a duplicate variant code for the same quiz', async () => {
+  it('rejects a duplicate variant code and a duplicate exam code for the same quiz', async () => {
     const res = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ variantCode: 'A' });
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('paper.variant_exists');
+    const dupExam = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ examCode: '1001' });
+    expect(dupExam.status).toBe(409);
+    expect(dupExam.body.code).toBe('paper.exam_code_exists');
   });
 
-  it('serves personalized and blank sheet PDFs', async () => {
-    const all = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf`)
-      .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse((res, cb) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () => cb(null, Buffer.concat(chunks)));
-      });
-    expect(all.status).toBe(200);
-    expect(all.headers['content-type']).toContain('application/pdf');
-    expect((all.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+  it('serves sheet PDFs: shared by default, personalized only as an explicit option', async () => {
+    const parsePdf = (res: unknown, cb: (err: Error | null, body?: Buffer) => void) => {
+      const chunks: Buffer[] = [];
+      (res as NodeJS.ReadableStream).on('data', (c: Buffer) => chunks.push(c));
+      (res as NodeJS.ReadableStream).on('end', () => cb(null, Buffer.concat(chunks)));
+    };
+    // Mặc định mới: phiếu DÙNG CHUNG (trước đây mặc định là cá nhân hoá).
+    const shared = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
+    expect(shared.status).toBe(200);
+    expect(shared.headers['content-type']).toContain('application/pdf');
+    expect((shared.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+    expect(shared.headers['content-disposition']).toContain('dung-chung');
+    // Tuỳ chọn hẹp tường minh: in theo danh sách (cá nhân hoá).
+    const personal = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf?kind=personalized`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
+    expect(personal.status).toBe(200);
+    expect(personal.headers['content-disposition']).toContain('ca-nhan');
+    // Tên cũ kind=blank vẫn chạy như phiếu dùng chung.
     const blank = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf?kind=blank&copies=1`)
       .set('Authorization', `Bearer ${ctx.teacher}`);
     expect(blank.status).toBe(200);
@@ -275,5 +331,197 @@ describe('CAM-0 paper grading flow', () => {
     const queue = await http(app).get(`/api/v1/paper-scans?quizId=${ctx.quizId}&status=needs_identity`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(queue.status).toBe(200);
     expect((queue.body as unknown[]).length).toBe(0);
+  });
+
+  // --- Lát sửa flow: phiếu dùng chung, mã đề, lô in ↔ lô chụp, mã SBD 8 số ---
+
+  type ScanOutcome = { fileName: string; stored: boolean; scan?: { id: string; batchId: string | null; sessionId: string | null; status: string; studentId: string | null; identitySource: string | null; identityCode: string | null; variantCodeRead: string | null } };
+
+  it('session upload routes a shared sheet to its print batch by the bubbled exam code, then records', async () => {
+    const batch2 = await createBatch({ examCode: '1002' });
+    const codeB = batch2.roster.find((r) => r.userId === ctx.studentB.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batch2.id, '1002', null), bubbleCode: codeB,
+      variantCode: '1002', fills: CORRECT_FILLS(), seed: 555,
+    });
+    const res = await uploadSession(photo, 'session-b.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(batch2.id);
+    expect(outcome.scan!.sessionId).toBeTruthy();
+    expect(outcome.scan!.variantCodeRead).toBe('1002');
+    expect(outcome.scan!.studentId).toBe(ctx.studentB.id);
+    expect(outcome.scan!.identitySource).toBe('bubbles');
+    expect(outcome.scan!.status).toBe('ready');
+
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(201);
+    expect(rec.body.sumGrades).toBe(10);
+  });
+
+  it('a second sheet claiming an already-matched student waits in the identity queue instead of overwriting', async () => {
+    const batch2Id = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body
+      .find((b: { examCode: string }) => b.examCode === '1002').id as string;
+    const batches = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; roster: { code: string; userId: string }[] }[];
+    const codeB = batches.find((b) => b.id === batch2Id)!.roster.find((r) => r.userId === ctx.studentB.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batch2Id, '1002', null), bubbleCode: codeB,
+      variantCode: '1002', fills: CORRECT_FILLS(), seed: 556,
+    });
+    const res = await uploadSession(photo, 'session-b-dup.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(batch2Id);
+    expect(outcome.scan!.status).toBe('needs_identity');
+    expect(outcome.scan!.studentId).toBeNull();
+    expect(outcome.scan!.identityCode).toBe(codeB);
+    // Hàng chờ gợi ý ứng viên = roster chưa khớp: studentB đã khớp nên không còn trong gợi ý.
+    const detail = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const candidateIds = (detail.body.identityCandidates as { userId: string }[]).map((c) => c.userId);
+    expect(candidateIds).not.toContain(ctx.studentB.id);
+    expect(candidateIds).toContain(ctx.studentA.id);
+    // Dọn hàng chờ: phiếu trùng bị xoá được.
+    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(del.status).toBe(200);
+  });
+
+  it('session upload: an ambiguous exam code falls back to QR routing, never to a guess', async () => {
+    const batches = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; examCode: string | null; roster: { code: string; userId: string }[] }[];
+    const batch2 = batches.find((b) => b.examCode === '1002')!;
+    const codeA = batch2.roster.find((r) => r.userId === ctx.studentA.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batch2.id, '1002', null), bubbleCode: codeA,
+      variantCode: '1002', variantLightDigit: 1, fills: CORRECT_FILLS(), seed: 557,
+    });
+    const res = await uploadSession(photo, 'session-a-ambig-variant.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(batch2.id); // định tuyến bằng QR
+    expect(outcome.scan!.variantCodeRead).toBeNull(); // mã đề mơ hồ: không ghi nhận, không đoán
+    expect(outcome.scan!.studentId).toBe(ctx.studentA.id);
+    expect(outcome.scan!.status).toBe('ready');
+  });
+
+  it('unrouted sheet (unknown exam code, no QR) waits unbatched; teacher assigns batch + identity with an event-log trail', async () => {
+    const studentC = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, ctx.courseId, ctx.instanceId, studentC.id);
+    const batch3 = await createBatch({ examCode: '1003' });
+    const codeC = batch3.roster.find((r) => r.userId === studentC.id)!.code;
+
+    const photo = photoFor({
+      qrText: null, bubbleCode: codeC, variantCode: '9999', fills: CORRECT_FILLS(), seed: 558,
+    });
+    const res = await uploadSession(photo, 'session-c-unknown.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBeNull();
+    expect(outcome.scan!.variantCodeRead).toBe('9999');
+    expect(outcome.scan!.status).toBe('needs_identity');
+    const scanId = outcome.scan!.id;
+
+    // Chưa gắn lô thì không gán định danh được.
+    const early = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: studentC.id });
+    expect(early.status).toBe(400);
+    expect(early.body.code).toBe('paper.batch_required');
+
+    // Giáo viên gán lô (biên bản): hệ thống đọc lại phiếu theo lô mới và tự khớp mã học sinh.
+    const assigned = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-batch`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ batchId: batch3.id });
+    expect(assigned.status).toBe(201);
+    expect(assigned.body.batchId).toBe(batch3.id);
+    expect(assigned.body.studentId).toBe(studentC.id);
+    expect(assigned.body.identitySource).toBe('bubbles');
+    expect(assigned.body.status).toBe('ready');
+    // Mã đề hiệu lực được giáo viên xác nhận theo lô; bản đọc gốc của máy nằm trong event log.
+    expect(assigned.body.variantCodeRead).toBe('1003');
+    const batchEvent = await pg.query<{ payload: { machineReadVariantCode?: string } }>(
+      `select payload from outbox_events where type = 'paper_batch_assigned' and payload->>'scanId' = $1`, [scanId]);
+    expect(batchEvent.rows.length).toBeGreaterThanOrEqual(1);
+    expect(batchEvent.rows[0]!.payload.machineReadVariantCode).toBe('9999');
+
+    // Giáo viên sửa định danh tay → event log ghi mã cũ → mã mới.
+    const codeA3 = batch3.roster.find((r) => r.userId === ctx.studentA.id)!.code;
+    const manual = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: ctx.studentA.id });
+    expect(manual.status).toBe(201);
+    expect(manual.body.identitySource).toBe('manual');
+    const identityEvent = await pg.query<{ payload: { previousCode?: string; newCode?: string; actorId?: string } }>(
+      `select payload from outbox_events where type = 'paper_identity_assigned' and payload->>'scanId' = $1`, [scanId]);
+    expect(identityEvent.rows.length).toBeGreaterThanOrEqual(1);
+    expect(identityEvent.rows[0]!.payload.previousCode).toBe(codeC);
+    expect(identityEvent.rows[0]!.payload.newCode).toBe(codeA3);
+    expect(identityEvent.rows[0]!.payload.actorId).toBeTruthy();
+
+    // Gán lại đúng học sinh rồi ghi điểm.
+    const back = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: studentC.id });
+    expect(back.status).toBe(201);
+    const rec = await http(app).post(`/api/v1/paper-scans/${scanId}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(201);
+    expect(rec.body.sumGrades).toBe(10);
+  });
+
+  it('per-batch upload still routes a stray sheet to the batch of its bubbled exam code', async () => {
+    const studentD = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, ctx.courseId, ctx.instanceId, studentD.id);
+    const batch4 = await createBatch({ examCode: '1004' });
+    const codeD = batch4.roster.find((r) => r.userId === studentD.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batch4.id, '1004', null), bubbleCode: codeD,
+      variantCode: '1004', fills: CORRECT_FILLS(), seed: 559,
+    });
+    // Tải nhầm vào lô A (1001): phiếu phải về đúng lô của mã đề 1004.
+    const res = await upload(photo, 'stray-d.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(batch4.id);
+    expect(outcome.scan!.studentId).toBe(studentD.id);
+    expect(outcome.scan!.status).toBe('ready');
+  });
+
+  it('a sheet whose read exam code differs from its routed batch is blocked from recording (variant mismatch)', async () => {
+    const batch5 = await createBatch({ examCode: '1005' });
+    const codeA = batch5.roster.find((r) => r.userId === ctx.studentA.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batch5.id, '1005', null), bubbleCode: codeA,
+      variantCode: '9998', fills: CORRECT_FILLS(), seed: 560,
+    });
+    const res = await uploadSession(photo, 'session-mismatch.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.scan!.batchId).toBe(batch5.id); // QR định tuyến về lô này
+    expect(outcome.scan!.variantCodeRead).toBe('9998'); // nhưng mã tô là 9998
+    expect(outcome.scan!.status).toBe('ready');
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(409);
+    expect(rec.body.code).toBe('paper.variant_mismatch');
+  });
+
+  it('SBD batch (8-digit codes): roster carries 8-digit codes and a shared sheet records end-to-end', async () => {
+    const batchSbd = await createBatch({ codeDigits: 8, examCode: '2001' });
+    expect(batchSbd.codeDigits).toBe(8);
+    for (const entry of batchSbd.roster) expect(entry.code).toMatch(/^\d{8}$/);
+    const codeB = batchSbd.roster.find((r) => r.userId === ctx.studentB.id)!.code;
+    const photo = photoFor({
+      qrText: sheetQrPayload(batchSbd.id, '2001', null), bubbleCode: codeB,
+      variantCode: '2001', fills: CORRECT_FILLS(), seed: 561, codeDigits: 8,
+    });
+    const res = await uploadSession(photo, 'session-sbd.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(batchSbd.id);
+    expect(outcome.scan!.studentId).toBe(ctx.studentB.id);
+    expect(outcome.scan!.identitySource).toBe('bubbles');
+    expect(outcome.scan!.status).toBe('ready');
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(201);
+    expect(rec.body.sumGrades).toBe(10);
   });
 });

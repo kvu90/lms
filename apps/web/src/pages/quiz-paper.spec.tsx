@@ -26,7 +26,7 @@ const PROFILE = {
 };
 
 const BATCH = {
-  id: BATCH_ID, quizId: QUIZ_ID, variantCode: 'A',
+  id: BATCH_ID, quizId: QUIZ_ID, variantCode: 'A', examCode: '1001', codeDigits: 4,
   layout: [1, 2].map((slot) => ({
     slot, questionId: `01900000-0000-7000-8000-0000000000d${slot}`, versionId: `01900000-0000-7000-8000-0000000000e${slot}`,
     qtype: 'multichoice', optionCount: 4, answerIds: ['x1', 'x2', 'x3', 'x4'], maxMark: 2, clusterId: null,
@@ -40,10 +40,16 @@ const BATCH = {
 
 function makeScan(overrides: Record<string, unknown>) {
   return {
-    id: '01900000-0000-7000-8000-0000000000f1', batchId: BATCH_ID, quizId: QUIZ_ID,
-    studentId: null, studentName: null, identitySource: null, identityCode: null,
+    id: '01900000-0000-7000-8000-0000000000f1', batchId: BATCH_ID, sessionId: '01900000-0000-7000-8000-0000000000f9', quizId: QUIZ_ID,
+    studentId: null, studentName: null, identitySource: null, identityCode: null, variantCodeRead: null,
     status: 'needs_identity', quality: { blurVariance: 900, glareRatio: 0.01, fiducialCount: 4 },
     readings: [], rows: [], attemptId: null, expiresAt: null,
+    identityCandidates: BATCH.roster,
+    regions: {
+      name: { x: 56, y: 148, w: 740, h: 104 },
+      studentCode: { x: 392, y: 296, w: 400, h: 356 },
+      variantCode: { x: 100, y: 296, w: 224, h: 368 },
+    },
     createdAt: '2026-10-25T00:00:00.000Z', updatedAt: '2026-10-25T00:00:00.000Z',
     ...overrides,
   };
@@ -71,6 +77,11 @@ function stubFetch(calls: RecordedCall[], state: { scans: Record<string, unknown
     if (url.endsWith('/assign-identity')) {
       const scan = state.scans.find((s) => url.includes(String(s.id)));
       if (scan) { scan.status = 'ready'; scan.studentId = STUDENT_A; scan.studentName = 'Em An'; scan.identitySource = 'manual'; }
+      return respond({ ...scan }, 201);
+    }
+    if (url.endsWith('/assign-batch')) {
+      const scan = state.scans.find((s) => url.includes(String(s.id)));
+      if (scan) scan.batchId = BATCH_ID;
       return respond({ ...scan }, 201);
     }
     if (url.endsWith('/resolve-readings')) {
@@ -138,15 +149,16 @@ describe('Quiz paper page — CAM-0 queues', () => {
     renderPage();
 
     // Lô + ba hàng chờ hiện đúng.
-    expect(await screen.findByText(/Mã đề A — 2 học sinh, 2 câu/)).toBeInTheDocument();
+    expect(await screen.findByText(/Mã đề A · mã tô 1001 — 2 học sinh, 2 câu/)).toBeInTheDocument();
     expect(await screen.findByText(/Hàng chờ gán học sinh \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/mã đọc được: 9999/)).toBeInTheDocument();
     expect(screen.getByText(/Hàng chờ xác nhận câu mơ hồ \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/Sẵn sàng ghi điểm \(1\)/)).toBeInTheDocument();
 
     const user = userEvent.setup();
-    // Gán định danh: chọn học sinh trong roster của lô → POST assign-identity.
-    const select = document.querySelector('select')!;
+    // Gán định danh: chọn học sinh trong danh sách ứng viên của phiếu → POST assign-identity.
+    const select = [...document.querySelectorAll('select')]
+      .find((s) => [...s.options].some((o) => o.value === STUDENT_A))!;
     await user.selectOptions(select, STUDENT_A);
     await user.click(screen.getByRole('button', { name: 'Gán học sinh này' }));
     await waitFor(() =>
@@ -169,5 +181,41 @@ describe('Quiz paper page — CAM-0 queues', () => {
       expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/record'))).toBe(true));
     expect(await screen.findByText(/Đã ghi điểm \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/tổng điểm 8/)).toBeInTheDocument();
+  });
+});
+
+describe('Quiz paper page — unbatched sheet in the identity queue', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('shows an unrouted sheet as unbatched and assigns a print batch from the queue', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    const urlStatics = URL as unknown as { createObjectURL: () => string; revokeObjectURL: () => void };
+    urlStatics.createObjectURL = () => 'blob:fake';
+    urlStatics.revokeObjectURL = () => undefined;
+    const orphan = makeScan({
+      id: '01900000-0000-7000-8000-0000000000f7', status: 'needs_identity',
+      batchId: null, identityCode: null, variantCodeRead: '9999', identityCandidates: [],
+    });
+    const state = { scans: [orphan] as Record<string, unknown>[] };
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, state);
+    renderPage();
+
+    expect(await screen.findByText(/Chưa gắn lô in/)).toBeInTheDocument();
+    expect(screen.getByText(/mã đề đọc được: 9999/)).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const select = [...document.querySelectorAll('select')]
+      .find((s) => [...s.options].some((o) => o.value === BATCH_ID))!;
+    await user.selectOptions(select, BATCH_ID);
+    await user.click(screen.getByRole('button', { name: 'Gán lô này' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'POST' && c.url.endsWith('/assign-batch')
+        && (c.body as { batchId?: string }).batchId === BATCH_ID)).toBe(true));
   });
 });
