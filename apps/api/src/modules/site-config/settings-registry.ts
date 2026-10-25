@@ -33,6 +33,18 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // app nhắn tin phổ biến.
   { component: 'core', name: 'messagingrecallwindowminutes', type: 'number', defaultValue: 15 },
   { component: 'badges', name: 'enabled', type: 'boolean', defaultValue: true },
+  // Cấp duyệt thứ hai (ban giám hiệu) cho BỘ HỒ SƠ đề định kỳ (EB-3,
+  // issue #165): true = sau cấp tổ trưởng, bộ hồ sơ phải qua thêm mốc
+  // duyệt BGH mới hiệu lực; false = một cấp duyệt là đủ. Căn cứ hồ sơ
+  // ngân hàng đề F.2: không có văn bản cấp Bộ bắt buộc cấp duyệt này
+  // nên mặc định TẮT, trường tự bật theo quy chế nội bộ.
+  // ⚠️ ĐIỂM SEAM TẠM (chờ research multi-tenant, issue #166): công tắc
+  // đang nằm ở tầng site-config TOÀN CỤC và chỉ được đọc qua đúng một
+  // điểm trong ExamDossiersService (boardApprovalRequired). Vị trí
+  // cấu hình thật (theo tenant/bank) chốt sau research #166 — khi đó
+  // chỉ dời điểm đọc này, KHÔNG đổi máy trạng thái bộ hồ sơ. EB-3
+  // không xây UI/API cấu hình riêng cho công tắc này.
+  { component: 'exam', name: 'requireboardapproval', type: 'boolean', defaultValue: false },
 ];
 
 /**

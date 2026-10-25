@@ -1752,3 +1752,81 @@ export const swapExamPaperSlotSchema = z.strictObject({
   questionId: uuidIdSchema,
 });
 export type SwapExamPaperSlot = z.infer<typeof swapExamPaperSlotSchema>;
+
+// --- Bộ hồ sơ duyệt đề (feat issue #165: EB-3) ----------------------------------
+
+/**
+ * Trạng thái vòng đời của một BỘ HỒ SƠ duyệt đề: `draft` (giáo viên
+ * đang lập, chưa nộp) → `pending` (chờ cấp duyệt 1 — tổ trưởng/người
+ * có exam:moderate tại bank đích) → `pending_board` (chỉ khi cấu hình
+ * trường bật cấp duyệt 2: đã qua cấp 1, chờ ban giám hiệu) →
+ * `approved` (bộ đã hiệu lực, đề đã vào bank đích) / `rejected` (bị
+ * từ chối ở một cấp, kèm lý do bắt buộc).
+ */
+export const EXAM_DOSSIER_STATUSES = ['draft', 'pending', 'pending_board', 'approved', 'rejected'] as const;
+export type ExamDossierStatus = (typeof EXAM_DOSSIER_STATUSES)[number];
+
+/**
+ * Payload lập bộ hồ sơ cho một đề: đích là một bank đề dùng chung
+ * (tổ/trường/khoá). Bộ hồ sơ chỉ ở trạng thái nháp sau bước này —
+ * version của đề + ma trận được GHIM tại lúc nộp (submit), không phải
+ * lúc lập, để giáo viên chốt bản cuối mới nộp.
+ */
+export const createExamDossierSchema = z.strictObject({
+  targetBankId: uuidIdSchema,
+  note: z.string().max(1000).optional(),
+});
+export type CreateExamDossier = z.infer<typeof createExamDossierSchema>;
+
+/** Payload duyệt bộ hồ sơ (áp cho cả hai cấp — cấp do endpoint quyết định: approve = cấp 1, board-approve = cấp 2). */
+export const approveExamDossierSchema = z.strictObject({});
+export type ApproveExamDossier = z.infer<typeof approveExamDossierSchema>;
+
+/** Payload từ chối bộ hồ sơ ở một cấp duyệt: lý do BẮT BUỘC để người đóng góp sửa và nộp lại. */
+export const rejectExamDossierSchema = z.strictObject({
+  reason: z.string().min(1),
+});
+export type RejectExamDossier = z.infer<typeof rejectExamDossierSchema>;
+
+/** Một mốc duyệt trong vết của bộ hồ sơ: mỗi cấp duyệt là một bản ghi độc lập (người duyệt, quyết định, lý do, thời điểm). */
+export const examDossierReviewViewSchema = z.object({
+  id: z.string(),
+  dossierId: z.string(),
+  level: z.number().int(),
+  reviewerId: z.string(),
+  reviewerName: z.string().nullable(),
+  decision: z.enum(['approved', 'rejected']),
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ExamDossierReviewView = z.infer<typeof examDossierReviewViewSchema>;
+
+/**
+ * View bộ hồ sơ như API trả về: bộ ba đã ghim (phiên bản đề + phiên
+ * bản ma trận + bản đặc tả chụp tại lúc nộp — đặc tả đọc qua endpoint
+ * riêng), truy vết hai đầu (người đóng góp, đề kết quả trong bank
+ * đích) và toàn bộ vết duyệt theo cấp.
+ */
+export const examDossierViewSchema = z.object({
+  id: z.string(),
+  paperId: z.string(),
+  paperName: z.string().nullable(),
+  sourceBankId: z.string().nullable(),
+  targetBankId: z.string(),
+  proposerId: z.string(),
+  proposerName: z.string().nullable(),
+  note: z.string(),
+  status: z.enum(EXAM_DOSSIER_STATUSES),
+  paperVersionId: z.string().nullable(),
+  paperVersionNumber: z.number().nullable(),
+  matrixId: z.string().nullable(),
+  matrixName: z.string().nullable(),
+  matrixVersion: z.number().nullable(),
+  /** Cấu hình cấp duyệt 2 (BGH) hiệu lực tại lúc đọc — khi true và bộ đang `pending`, duyệt cấp 1 chỉ đưa bộ sang `pending_board`. */
+  boardApprovalRequired: z.boolean(),
+  resultPaperId: z.string().nullable(),
+  reviews: z.array(examDossierReviewViewSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ExamDossierView = z.infer<typeof examDossierViewSchema>;
