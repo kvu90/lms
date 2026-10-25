@@ -640,6 +640,7 @@ export class MessagingService {
      * đè theo khoá không áp dụng (hành vi như trước NB-4).
      */
     courseId?: string;
+    /**
      * Tenant của notification (TENANT-1, #196): nơi gọi biết đối tượng
      * nguồn (khoá/conversation/liên kết giám hộ) thì truyền tường minh;
      * không truyền thì lấy ngữ cảnh ALS của luồng, cuối cùng là tenant
