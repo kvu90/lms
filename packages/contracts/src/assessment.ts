@@ -1782,9 +1782,9 @@ export type CreateExamDossier = z.infer<typeof createExamDossierSchema>;
 export const approveExamDossierSchema = z.strictObject({});
 export type ApproveExamDossier = z.infer<typeof approveExamDossierSchema>;
 
-/** Payload từ chối bộ hồ sơ ở một cấp duyệt: lý do BẮT BUỘC để người đóng góp sửa và nộp lại. */
+/** Payload từ chối bộ hồ sơ ở một cấp duyệt: lý do BẮT BUỘC để người đóng góp sửa và nộp lại (chuỗi toàn khoảng trắng không tính là lý do). */
 export const rejectExamDossierSchema = z.strictObject({
-  reason: z.string().min(1),
+  reason: z.string().trim().min(1),
 });
 export type RejectExamDossier = z.infer<typeof rejectExamDossierSchema>;
 

@@ -42,13 +42,24 @@ interface DossierBody {
   boardApprovalRequired: boolean; resultPaperId: string | null;
   reviews: DossierReview[];
 }
-interface SpecRow { cognitiveLevel: string; questionCount: number; positions: number[] }
+interface SpecCell { cognitiveLevel: string; questionCount: number; slotNumbers: number[] | null }
 interface SpecBody {
-  matrix: { id: string; version: number };
-  rows: SpecRow[];
-  totals: { questionCount: number };
+  matrix: { id: string; name: string };
+  topics: { nodes: { outcomes: { cells: SpecCell[] }[] }[] }[];
+  totals: { totalQuestions: number; totalScore: number };
   quiz: { id: string; name: string } | null;
   paper?: { id: string; version: number };
+}
+
+/** Bung các ô ma trận của một bản đặc tả thành danh sách phẳng (theo đúng view model MatrixSpecification). */
+function cellsOf(spec: SpecBody): SpecCell[] {
+  const cells: SpecCell[] = [];
+  for (const topic of spec.topics) {
+    for (const node of topic.nodes) {
+      for (const outcome of node.outcomes) cells.push(...outcome.cells);
+    }
+  }
+  return cells;
 }
 
 describe('EB-3 dossier approval + paper specification + periodic paper security', () => {
@@ -233,9 +244,10 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(spec.status, JSON.stringify(spec.body)).toBe(200);
     const specBody = spec.body as SpecBody;
     expect(specBody.matrix.id).toBe(matrixId);
-    expect(specBody.totals.questionCount).toBe(4);
-    expect(specBody.rows.find((r) => r.cognitiveLevel === 'biet')?.positions).toEqual([1, 2, 3]);
-    expect(specBody.rows.find((r) => r.cognitiveLevel === 'hieu')?.positions).toEqual([4]);
+    expect(specBody.totals.totalQuestions).toBe(4);
+    const snapshotCells = cellsOf(specBody);
+    expect(snapshotCells.find((c) => c.cognitiveLevel === 'biet')?.slotNumbers).toEqual([1, 2, 3]);
+    expect(snapshotCells.find((c) => c.cognitiveLevel === 'hieu')?.slotNumbers).toEqual([4]);
     // Lần mở đặc tả của người duyệt có audit.
     expect(await outboxCount('exam_dossier_spec_viewed', 'dossierId', dossier.id)).toBeGreaterThanOrEqual(1);
     // Xuất bản đặc tả của bộ hồ sơ ra xlsx mở được (file zip PK).
@@ -364,10 +376,11 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(body.paper?.id).toBe(paper.paper.id);
     expect(body.paper?.version).toBe(paper.version.version);
     expect(body.matrix.id).toBe(matrixId);
-    expect(body.matrix.version).toBe(matrixVersion);
-    expect(body.totals.questionCount).toBe(4);
-    expect(body.rows.find((r) => r.cognitiveLevel === 'biet')?.positions).toEqual([1, 2, 3]);
-    expect(body.rows.find((r) => r.cognitiveLevel === 'hieu')?.positions).toEqual([4]);
+    expect(body.totals.totalQuestions).toBe(4);
+    const liveCells = cellsOf(body);
+    expect(liveCells.find((c) => c.cognitiveLevel === 'biet')?.questionCount).toBe(3);
+    expect(liveCells.find((c) => c.cognitiveLevel === 'biet')?.slotNumbers).toEqual([1, 2, 3]);
+    expect(liveCells.find((c) => c.cognitiveLevel === 'hieu')?.slotNumbers).toEqual([4]);
     expect(body.quiz).toBeNull();
 
     // quizId của một lần triển khai KHÁC (không từ đề này) → 400.
@@ -394,7 +407,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const withQuiz = await http(app).get(`/api/v1/exam-papers/${otherQuizPaper.paper.id}/specification`).query({ quizId }).set(bearer(member.token));
     expect(withQuiz.status).toBe(200);
     expect((withQuiz.body as SpecBody).quiz?.id).toBe(quizId);
-    expect((withQuiz.body as SpecBody).totals.questionCount).toBe(4);
+    expect((withQuiz.body as SpecBody).totals.totalQuestions).toBe(4);
 
     // Xuất xlsx + docx từ paperId: cả hai đều là file zip (PK) mở được.
     for (const format of ['xlsx', 'docx']) {
@@ -407,7 +420,8 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
         });
       expect(exported.status).toBe(200);
       expect((exported.body as Buffer).subarray(0, 2).toString()).toBe('PK');
-      expect(String(exported.headers['content-disposition'])).toContain(`.ban-dac-ta.${format}`);
+      expect(String(exported.headers['content-disposition'])).toContain('ban-dac-ta-');
+      expect(String(exported.headers['content-disposition'])).toContain(`.${format}`);
     }
   }, 120_000);
 
@@ -448,6 +462,13 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       await assignRole(app, admin, staff.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
       return staff;
     })();
+
+    // Luồng vào bank thật: người dùng mở bank trước (bước này đồng bộ
+    // tư cách thành viên bank trường cho staff) rồi mới mở đề.
+    for (const viewer of [teacher10, teacher11, plainStaff]) {
+      const list = await http(app).get(`/api/v1/exam-papers/banks/${schoolBank.id}/papers`).set(bearer(viewer.token));
+      expect(list.status).toBe(200);
+    }
 
     // GV đúng khối xem được nội dung; lần xem có audit tra được.
     const okView = await http(app).get(`/api/v1/exam-papers/${periodicId}`).set(bearer(teacher10.token));
