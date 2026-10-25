@@ -5,7 +5,7 @@
  * với gcd(5, 10) = 5, nên đột biến 1 chữ số với delta CHẴN ở vị trí
  * trọng số 5 lọt qua số kiểm tra và gán nhầm học sinh khác (12,70%
  * đột biến SBD, 14,81% đột biến mã lớp theo probe của đội đánh giá).
- * Bộ trọng số mới — mã lớp (3, 9, 7), SBD (3, 9, 7, 9, 1, 3, 9) — mọi
+ * Bộ trọng số mới — mã lớp (3, 9, 7), SBD (3, 9, 7, 9, 1, 3, 7) — mọi
  * trọng số đều nguyên tố cùng nhau với 10. File này khoá tính chất đó
  * bằng liệt kê đầy đủ, không lấy mẫu tượng trưng:
  *  - mã lớp: TOÀN BỘ 999 mã × mọi vị trí × mọi chữ số thay thế;
@@ -16,8 +16,16 @@
  *    đủ cho mọi mã);
  *  - va chạm roster: đột biến ở đúng vị trí/delta từng lọt không
  *    được trở thành mã hợp lệ của bất kỳ học sinh nào trong roster;
- *  - hoán vị hai chữ số kề: ca duy nhất lọt là cặp hơn kém đúng 5
- *    (giới hạn toán học đã tuyên bố trong sheet-layout.ts).
+ *  - hoán vị hai chữ số kề ở MỌI vị trí, KỂ CẢ cặp biên (chữ số thân
+ *    cuối ↔ số kiểm tra): ca duy nhất lọt là cặp hơn kém đúng 5
+ *    (giới hạn toán học đã tuyên bố trong sheet-layout.ts);
+ *  - va chạm roster ở cặp biên: hoán vị hai ký tự cuối với cặp chữ
+ *    số KHÔNG hơn kém 5 bị checksum chặn, không khớp mã của bất kỳ
+ *    học sinh nào khác. Khoá theo phán quyết 6394453120: vòng trước
+ *    trọng số thân cuối SBD là 9 ≡ −1 (mod 10) — bằng trọng số hiệu
+ *    dụng của vị trí số kiểm tra — nên cặp biên lọt với mọi cặp chữ
+ *    số; spec cũ tự loại cặp biên khỏi vòng hoán vị nên không bắt
+ *    được. Nay trọng số cuối là 7, hiệu cặp biên −8 như mọi cặp kề.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -120,7 +128,9 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
 
   it('adjacent transposition: the only escaping class is a digit pair differing by exactly 5 (declared limit)', LONG, () => {
     const checkTranspositions = (code: string, ok: (c: string) => boolean) => {
-      for (let pos = 0; pos < code.length - 2; pos++) { // chỉ hoán vị trong phần thân, không đụng số kiểm tra
+      // MỌI cặp kề: pos chạy tới cặp biên (chữ số thân cuối ↔ số kiểm
+      // tra) — vòng cũ dừng ở code.length - 2 nên bỏ sót đúng cặp này.
+      for (let pos = 0; pos < code.length - 1; pos++) {
         const a = Number(code[pos]);
         const b = Number(code[pos + 1]);
         if (a === b) continue;
@@ -130,5 +140,36 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
     };
     for (let index = 0; index <= 998; index++) checkTranspositions(studentCodeForIndex(index), studentCodeChecksumOk);
     for (let index = 0; index < 10_000; index++) checkTranspositions(sbdCodeForIndex(index), sbdCodeChecksumOk);
+  });
+
+  it('roster edge pair: transposing the last two digits never lands on another roster code unless the digits differ by exactly 5', LONG, () => {
+    // Đúng ca của phán quyết 6394453120: với trọng số thân cuối cũ 9,
+    // sbdCodeForIndex(0) = 00000019 hoán vị cuối thành 00000091 — mã
+    // THẬT của thí sinh chỉ số 8 — và checksum vẫn nhận. Nay mã của
+    // chỉ số 0 là 00000017, hoán vị cuối 00000071 bị checksum chặn.
+    expect(sbdCodeForIndex(0)).toBe('00000017');
+    expect(sbdCodeChecksumOk('00000071')).toBe(false);
+    expect(sbdCodeChecksumOk('00000091')).toBe(false);
+
+    const checkEdge = (codes: string[], ok: (c: string) => boolean, label: string) => {
+      const roster = new Set(codes);
+      let checked = 0;
+      let declaredClass = 0;
+      for (const code of codes) {
+        const a = Number(code[code.length - 2]);
+        const b = Number(code[code.length - 1]);
+        if (a === b) continue;
+        const swapped = `${code.slice(0, -2)}${b}${a}`;
+        if (Math.abs(a - b) === 5) { declaredClass++; continue; } // hạng ±5 đã tuyên bố — ca lọt duy nhất được phép
+        checked++;
+        expect(ok(swapped), `${label} edge transposition ${code} -> ${swapped} must fail the checksum`).toBe(false);
+        expect(roster.has(swapped), `${label} edge transposition ${code} -> ${swapped} must not be a roster code`).toBe(false);
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[CAM-0 checksum] ${label} roster edge pair: ${checked} non-±5 transpositions checked, 0 leaks; ${declaredClass} in the declared ±5 class`);
+      expect(checked).toBeGreaterThan(0);
+    };
+    checkEdge(Array.from({ length: 999 }, (_, i) => studentCodeForIndex(i)), studentCodeChecksumOk, 'student codes');
+    checkEdge(Array.from({ length: 5_000 }, (_, i) => sbdCodeForIndex(i)), sbdCodeChecksumOk, 'SBD codes');
   });
 });

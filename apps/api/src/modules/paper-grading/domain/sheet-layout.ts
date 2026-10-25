@@ -111,20 +111,32 @@ export function studentIndexForCode(code: string): number | null {
  * cặp ghi+tô) giữ y hệt Bộ cho học sinh luyện kỹ năng thi thật.
  *
  * Số kiểm tra = tổng có trọng số mod 10 trên 7 số đầu, trọng số
- * (3, 9, 7, 9, 1, 3, 9) — mọi trọng số đều nguyên tố cùng nhau với 10
- * (và không có hai trọng số kề nào bằng nhau) nên sai đúng một chữ số
- * bị bắt 100%: delta × trọng số không bao giờ ≡ 0 mod 10 với delta ∈
- * ±1..±9. Bộ trọng số cũ (3, 5, 7, 9, 1, 3, 5) chứa trọng số 5 với
- * gcd(5, 10) = 5 → delta CHẴN (±2, ±4, ±6, ±8) ở hai vị trí mang
- * trọng số 5 làm tổng kiểm tra không đổi, mã sai lọt thành mã của thí
- * sinh khác (probe exhaustive của đội đánh giá độc lập trên PR #120:
- * 12,70% đột biến 1 chữ số lọt; phán quyết 6393776449) — đã bỏ. Hoán
- * vị hai chữ số kề bị bắt trừ cặp chữ số hơn kém nhau đúng 5 (giới
- * hạn toán học của checksum mod 10 một chữ số: hiệu hai trọng số kề
- * luôn là số chẵn); các ca đó do lớp khớp roster của buổi bắt tiếp
- * (mã phải có trong roster).
+ * (3, 9, 7, 9, 1, 3, 7) — mọi trọng số đều nguyên tố cùng nhau với 10
+ * nên sai đúng một chữ số bị bắt 100%: delta × trọng số không bao
+ * giờ ≡ 0 mod 10 với delta ∈ ±1..±9. Bộ trọng số đầu tiên
+ * (3, 5, 7, 9, 1, 3, 5) chứa trọng số 5 với gcd(5, 10) = 5 → delta
+ * CHẴN (±2, ±4, ±6, ±8) ở hai vị trí mang trọng số 5 làm tổng kiểm
+ * tra không đổi, mã sai lọt thành mã của thí sinh khác (probe
+ * exhaustive của đội đánh giá độc lập trên PR #120: 12,70% đột biến
+ * 1 chữ số lọt; phán quyết 6393776449) — đã bỏ.
+ *
+ * Hoán vị hai chữ số kề: viết phép kiểm thành tổng trên cả 8 vị
+ * trí, trong đó vị trí số kiểm tra mang trọng số HIỆU DỤNG −1
+ * (Σ wᵢ·dᵢ − d_kt ≡ 0 mod 10). Hoán vị một cặp kề mang hai trọng
+ * số hiệu dụng u, v chỉ lọt khi (v − u)·(a − b) ≡ 0 (mod 10). Mọi
+ * trọng số nguyên tố cùng nhau với 10 đều là số lẻ và −1 cũng lẻ,
+ * nên hiệu hai trọng số hiệu dụng kề luôn CHẴN; với bộ trọng số này
+ * mọi hiệu kề — 6, −2, 2, −8, 2, 4 và cặp biên (trọng số thân cuối
+ * 7 so với hiệu dụng −1 của số kiểm tra) cho −8 — đều chẵn và khác
+ * 0 (mod 10), nên hoán vị kề ở MỌI vị trí, kể cả cặp biên, chỉ lọt
+ * khi hai chữ số hơn kém nhau đúng 5. Đó là hạng lọt duy nhất còn
+ * lại, bị ép buộc với MỌI checksum mod 10 một chữ số. Vòng trước
+ * trọng số thân cuối là 9 ≡ −1 (mod 10) — bằng đúng trọng số hiệu
+ * dụng của vị trí số kiểm tra — nên hiệu cặp biên ≡ 0 và hoán vị
+ * hai ký tự cuối lọt với mọi cặp chữ số, thành mã thật của thí
+ * sinh khác (phán quyết 6394453120) — đã sửa 9 → 7.
  */
-export const SBD_CHECK_WEIGHTS = [3, 9, 7, 9, 1, 3, 9] as const;
+export const SBD_CHECK_WEIGHTS = [3, 9, 7, 9, 1, 3, 7] as const;
 
 export function sbdCodeForIndex(index: number): string {
   if (index < 0 || index > 9_999_998) throw new Error(`sbd index out of range: ${index}`);

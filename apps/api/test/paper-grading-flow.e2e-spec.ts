@@ -3,7 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
-import { computeSheetGeometry } from '../src/modules/paper-grading/domain/sheet-layout';
+import { computeSheetGeometry, sbdCodeChecksumOk } from '../src/modules/paper-grading/domain/sheet-layout';
 import { renderSheetRgba, simulatePhoto, type SlotFill } from '../src/modules/paper-grading/domain/sheet-render';
 import { sheetQrPayload } from '../src/modules/paper-grading/domain/sheet-pdf';
 
@@ -600,4 +600,42 @@ describe('CAM-0 paper grading flow', () => {
     // Ca này tạo 21 user + ghi danh + 2 lô + 2 ảnh nên cần timeout dài
     // hơn mặc định 30s của suite.
   }, 180_000);
+
+  it('SBD edge-pair transposition (last body digit swapped with the check digit) is caught by the checksum — identity queue, never another student', async () => {
+    // Khoá hồi quy cho phán quyết 6394453120 (PR #120): trọng số thân
+    // cuối của mã SBD vòng trước là 9 ≡ −1 (mod 10) — bằng đúng trọng
+    // số hiệu dụng của vị trí số kiểm tra — nên hoán vị hai ký tự
+    // cuối lọt với MỌI cặp chữ số và thành mã thật của thí sinh khác
+    // (00000019 → 00000091). Nay trọng số cuối là 7, hiệu cặp biên
+    // −8: chỉ còn lọt cặp hơn kém đúng 5 như mọi cặp kề khác.
+    const sbdBatch = await createBatch({ codeDigits: 8, examCode: '2003' });
+    const firstSbd = sbdBatch.roster.find((r) => Number(r.code.slice(0, 7)) === 1)!;
+    // Thân 0000001 với trọng số (3,9,7,9,1,3,7) cho mã 00000017:
+    // cặp biên (1, 7) hơn kém 6 — KHÔNG thuộc hạng ±5 đã tuyên bố.
+    expect(firstSbd.code).toBe('00000017');
+    const a = Number(firstSbd.code[6]);
+    const b = Number(firstSbd.code[7]);
+    expect(a).not.toBe(b);
+    expect(Math.abs(a - b)).not.toBe(5);
+    const transposed = `${firstSbd.code.slice(0, 6)}${b}${a}`;
+    expect(transposed).toBe('00000071');
+    expect(sbdCodeChecksumOk(transposed)).toBe(false);
+    expect(sbdBatch.roster.map((r) => r.code)).not.toContain(transposed);
+    const photo = photoFor({
+      qrText: sheetQrPayload(sbdBatch.id, '2003', null), bubbleCode: transposed,
+      variantCode: '2003', fills: CORRECT_FILLS(), seed: 564, codeDigits: 8,
+    });
+    const res = await uploadSession(photo, 'session-sbd-edge-transposed.png', ctx.teacher);
+    expect(res.status).toBe(201);
+    const outcome = (res.body as ScanOutcome[])[0]!;
+    expect(outcome.stored).toBe(true);
+    expect(outcome.scan!.batchId).toBe(sbdBatch.id);
+    expect(outcome.scan!.status).toBe('needs_identity');
+    expect(outcome.scan!.studentId).toBeNull(); // KHÔNG gán cho bất kỳ thí sinh nào khác
+    expect(outcome.scan!.identityCode).toBe(transposed);
+    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(rec.status).toBe(409);
+    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(del.status).toBe(200);
+  });
 });
