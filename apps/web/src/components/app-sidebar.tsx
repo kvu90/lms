@@ -78,11 +78,11 @@ function readStoredOpenGroups(): string[] {
  *   chính issue #70, Lão gia chốt 25/10/2026 — KHÔNG còn nhóm cha
  *   "Ngân hàng câu hỏi" bọc ngoài): "Câu hỏi của tôi" (thân mục dẫn
  *   tới /questions, thu/mở ra mục con "Ngữ liệu" ở
- *   /questions/stimuli), "Đề của tôi" (/exam-papers) và "Ma trận của
+ *   /questions/stimuli), "Đề của tôi" (/exams) và "Ma trận của
  *   tôi" (/matrices) — thân hai mục này dẫn thẳng tới trang danh
  *   sách, chờ bổ sung mục con sau; "Ngân hàng hệ thống" là mục cha
  *   thu/mở thuần, mở ra đúng 3 mục con (Câu hỏi / Đề / Ma trận hệ
- *   thống ở /system-bank/questions|papers|matrices). Mỗi khu vực có
+ *   thống ở /system-bank/questions|exams|matrices). Mỗi khu vực có
  *   PATH RIÊNG theo chuẩn đường dẫn (issue #221, lát R1 — trước đây
  *   cả cụm dùng chung /questions?bank=&section=). Cả bốn chỉ hiện
  *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank) —
@@ -201,7 +201,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             groupId: 'my-papers',
             title: t('app:navMyPapers'),
             icon: IconNotebook,
-            url: '/exam-papers',
+            url: '/exams',
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyPapers') }),
             children: [],
           },
@@ -219,7 +219,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             icon: IconDatabase,
             children: [
               { title: t('app:navSystemQuestions'), url: '/system-bank/questions', icon: IconQuestionMark },
-              { title: t('app:navSystemPapers'), url: '/system-bank/papers', icon: IconNotebook },
+              { title: t('app:navSystemPapers'), url: '/system-bank/exams', icon: IconNotebook },
               { title: t('app:navSystemMatrices'), url: '/system-bank/matrices', icon: IconChartBar },
             ],
           },

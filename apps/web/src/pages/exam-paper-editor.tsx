@@ -99,7 +99,7 @@ const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px
 
 /**
  * Màn soạn đề RIÊNG theo chuẩn §9 (EB-1, issue #113): tạo mới
- * /exam-papers/new?bank=<bankId>, sửa /exam-papers/:paperId/edit.
+ * /exams/new?bank=<bankId>, sửa /exams/:paperId/edit.
  * Soạn tự do: metadata + chọn câu từ ngân hàng câu hỏi (khám phá theo
  * từ khoá) → thứ tự/phần/điểm từng câu → lưu. Lưu sửa tạo paper
  * version mới phía server (metadata qua PATCH, slots qua PUT — chỉ
@@ -170,7 +170,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     try {
       const snapshot = await apiJson<PaperView>(`/api/v1/exam-papers/${paperId}/materialize`, { method: 'POST', body: '{}' });
       setMessage(t('materializeOk'));
-      await navigate(`/exam-papers/${snapshot.paper.id}/edit`);
+      await navigate(`/exams/${snapshot.paper.id}/edit`);
     } catch (err) {
       setMessage(withApiReason(t('materializeFailed'), err));
     }
@@ -270,7 +270,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           }),
         });
         setMessage(t('examPaperSaved', { version: created.version.version }));
-        await navigate('/exam-papers');
+        await navigate('/exams');
         return;
       }
       if (!original || !paperId) return;
@@ -305,7 +305,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         });
       }
       setMessage(t('examPaperSaved', { version: view.version.version }));
-      await navigate('/exam-papers');
+      await navigate('/exams');
     } catch (err) {
       setMessage(withApiReason(t('examPaperSaveFailed'), err));
     }
@@ -322,7 +322,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       <PageHeader
         title={mode === 'new' ? t('examPaperNew') : t('examPaperEdit')}
         actions={
-          <Button type="button" variant="outline" render={<Link to="/exam-papers" />}>
+          <Button type="button" variant="outline" render={<Link to="/exams" />}>
             {t('backToBanks')}
           </Button>
         }

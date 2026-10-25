@@ -463,10 +463,10 @@ export function formContent(form: QuestionFormState, preserveExistingOptions = f
 export type BankArea =
   | 'my-questions'
   | 'stimuli'
-  | 'my-papers'
+  | 'my-exams'
   | 'my-matrices'
   | 'system-questions'
-  | 'system-papers'
+  | 'system-exams'
   | 'system-matrices';
 
 export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
@@ -522,7 +522,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
   const [examBanks, setExamBanks] = useState<BankLite[]>([]);
-  const [myPapersOpen, setMyPapersOpen] = useState(area === 'my-papers');
+  const [myPapersOpen, setMyPapersOpen] = useState(area === 'my-exams');
   const [myPapers, setMyPapers] = useState<PaperSummaryLite[]>([]);
   const [systemExamBankId, setSystemExamBankId] = useState('');
   const [systemPapers, setSystemPapers] = useState<PaperSummaryLite[]>([]);
@@ -1369,7 +1369,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // nút tạo của chúng nằm trong section như trước.
   const isQuestionArea = area === 'my-questions' || area === 'stimuli';
   const headerTitle =
-    area === 'my-papers'
+    area === 'my-exams'
       ? t('myExamBank')
       : area === 'my-matrices'
         ? t('myMatrixBank')
@@ -1377,7 +1377,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           ? t('systemBank')
           : t('questionBank');
   const headerDescription =
-    area === 'my-papers'
+    area === 'my-exams'
       ? t('myExamBankDescription')
       : area === 'my-matrices'
         ? t('myMatrixBankDescription')
@@ -1604,7 +1604,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         </>
       ) : null}
 
-      {area === 'my-papers' ? (
+      {area === 'my-exams' ? (
         <>
       {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
           ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
@@ -1619,7 +1619,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
             <Button
               type="button"
               disabled={!personalExamBank}
-              onClick={() => personalExamBank && navigate(`/exam-papers/new?bank=${personalExamBank.id}`)}
+              onClick={() => personalExamBank && navigate(`/exams/new?bank=${personalExamBank.id}`)}
             >
               {t('addNew')}
             </Button>
@@ -1646,7 +1646,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                         {t('examPaperSlotsCount', { count: paper.slotCount })}
                       </span>
                     </span>
-                    <Button type="button" variant="outline" onClick={() => navigate(`/exam-papers/${paper.id}/edit`)}>
+                    <Button type="button" variant="outline" onClick={() => navigate(`/exams/${paper.id}/edit`)}>
                       {t('editRow')}
                     </Button>
                     {paper.status === 'draft' ? (
@@ -1978,7 +1978,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
               ) : null}
             </section>
             ) : null}
-            {area === 'system-papers' ? (
+            {area === 'system-exams' ? (
             <>
             {/* Ngân hàng đề chung (EB-1): chọn một bank đề chung → danh
                 sách đề ready của bank đó + Copy về ngân hàng đề của tôi
@@ -2020,7 +2020,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                         </span>
                       </span>
                       {paper.capabilities.edit ? (
-                        <Button type="button" variant="outline" onClick={() => navigate(`/exam-papers/${paper.id}/edit`)}>
+                        <Button type="button" variant="outline" onClick={() => navigate(`/exams/${paper.id}/edit`)}>
                           {t('editRow')}
                         </Button>
                       ) : null}

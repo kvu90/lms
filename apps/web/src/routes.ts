@@ -57,14 +57,21 @@ export default [
     route('questions/matrices/new', 'routes/legacy-matrix-new.tsx'),
     route('questions/matrices/:matrixId/edit', 'routes/legacy-matrix-edit.tsx'),
     route('question-usages/:id', 'routes/question-usage.tsx'),
-    route('exam-papers', 'routes/exam-papers.tsx'),
-    route('exam-papers/new', 'routes/exam-paper-new.tsx'),
-    route('exam-papers/:paperId/edit', 'routes/exam-paper-edit.tsx'),
+    // Cây Đề: tên tài nguyên chốt là "exams" (Lão gia chốt tối
+    // 25/10/2026 — bỏ hậu tố "papers"); cây cũ /exam-papers* giữ làm
+    // lớp tương thích chuyển hướng thay thế.
+    route('exams', 'routes/exams.tsx'),
+    route('exams/new', 'routes/exam-paper-new.tsx'),
+    route('exams/:paperId/edit', 'routes/exam-paper-edit.tsx'),
+    route('exam-papers', 'routes/legacy-exam-papers.tsx'),
+    route('exam-papers/new', 'routes/legacy-exam-paper-new.tsx'),
+    route('exam-papers/:paperId/edit', 'routes/legacy-exam-paper-edit.tsx'),
     // Ngân hàng hệ thống (chuẩn đường dẫn #221, lát R1): gốc chỉ
     // chuyển hướng tới Câu hỏi hệ thống; ba khu vực có path riêng.
     route('system-bank', 'routes/system-bank.tsx'),
     route('system-bank/questions', 'routes/system-bank-questions.tsx'),
-    route('system-bank/papers', 'routes/system-bank-papers.tsx'),
+    route('system-bank/exams', 'routes/system-bank-exams.tsx'),
+    route('system-bank/papers', 'routes/legacy-system-bank-papers.tsx'),
     route('system-bank/matrices', 'routes/system-bank-matrices.tsx'),
     route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),

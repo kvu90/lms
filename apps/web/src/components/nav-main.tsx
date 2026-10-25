@@ -65,7 +65,7 @@ function isNavGroup(entry: NavEntry): entry is NavGroupItem {
 /**
  * Mục đang chọn: khớp chính xác, hoặc route con của nó (riêng trang
  * chủ chỉ khớp chính xác) — nhờ vậy các khu vực ngân hàng theo path
- * riêng (chuẩn đường dẫn #221: /questions, /exam-papers, /matrices,
+ * riêng (chuẩn đường dẫn #221: /questions, /exams, /matrices,
  * /system-bank/*) active đúng trang của chúng và nhóm cha tự mở đúng
  * khi đang ở trang đích hay route con của nó (vd /questions/stimuli
  * làm sáng cả mục cha "Câu hỏi của tôi" lẫn mục con "Ngữ liệu"). URL

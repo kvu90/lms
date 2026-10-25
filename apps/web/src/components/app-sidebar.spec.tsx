@@ -23,9 +23,9 @@ import { queryClient } from '../lib/query-client';
  *   lại issue #70 — bỏ hẳn nhóm cha "Ngân hàng câu hỏi"), gác
  *   canUseQuestionBank: "Câu hỏi của tôi" (link /questions, thu/mở
  *   ra mục con "Ngữ liệu" ở /questions/stimuli), "Đề của tôi"
- *   (/exam-papers), "Ma trận của tôi" (/matrices), "Ngân hàng hệ
+ *   (/exams), "Ma trận của tôi" (/matrices), "Ngân hàng hệ
  *   thống" (nút thu/mở thuần mở ra đúng 3 mục con
- *   /system-bank/questions|papers|matrices) — mỗi khu vực một PATH
+ *   /system-bank/questions|exams|matrices) — mỗi khu vực một PATH
  *   RIÊNG theo chuẩn đường dẫn (issue #221, lát R1). Đang ở path của
  *   khu vực thì mục/nhóm tương ứng tự mở và active. Học viên không
  *   thấy mục ngân hàng nào; giáo viên có capability câu hỏi thì
@@ -124,10 +124,10 @@ const PROBE_PATHS = [
   'learning-plan',
   'questions',
   'questions/stimuli',
-  'exam-papers',
+  'exams',
   'matrices',
   'system-bank/questions',
-  'system-bank/papers',
+  'system-bank/exams',
   'system-bank/matrices',
   'admin/users',
   'admin/roles',
@@ -258,7 +258,7 @@ describe('cây điều hướng sidebar — admin', () => {
       const link = await screen.findByRole('link', { name });
       hrefs.push(link.getAttribute('href')!);
     }
-    expect(hrefs).toEqual(['/system-bank/questions', '/system-bank/papers', '/system-bank/matrices']);
+    expect(hrefs).toEqual(['/system-bank/questions', '/system-bank/exams', '/system-bank/matrices']);
   });
 
   it('mở "Hệ thống & dữ liệu" thấy đủ 7 mục con đúng thứ tự; các nhóm mở độc lập và đóng riêng được', async () => {
@@ -344,13 +344,13 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
     expect(parent.hasAttribute('data-active')).toBe(true);
   });
 
-  it('đang ở /exam-papers: mục top level "Đề của tôi" là link active, hai mục "của tôi" còn lại không', async () => {
+  it('đang ở /exams: mục top level "Đề của tôi" là link active, hai mục "của tôi" còn lại không', async () => {
     seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
-    renderShell('/exam-papers');
+    renderShell('/exams');
 
     const child = await screen.findByRole('link', { name: 'Đề của tôi' });
-    expect(child).toHaveAttribute('href', '/exam-papers');
+    expect(child).toHaveAttribute('href', '/exams');
     expect(child.hasAttribute('data-active')).toBe(true);
     // Mỗi khu vực có pathname riêng (chuẩn #221) nên hai mục "của
     // tôi" còn lại không thể active lây.
@@ -358,15 +358,15 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
     expect(screen.getByRole('link', { name: 'Ma trận của tôi' }).hasAttribute('data-active')).toBe(false);
   });
 
-  it('đang ở /system-bank/papers: nhóm Ngân hàng hệ thống tự mở, "Đề hệ thống" active', async () => {
+  it('đang ở /system-bank/exams: nhóm Ngân hàng hệ thống tự mở, "Đề hệ thống" active', async () => {
     seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
-    renderShell('/system-bank/papers');
+    renderShell('/system-bank/exams');
 
     // Không cần bấm nút cha: mục con hiện sẵn vì nhóm tự mở khi có
     // mục con active.
     const child = await screen.findByRole('link', { name: 'Đề hệ thống' });
-    expect(child).toHaveAttribute('href', '/system-bank/papers');
+    expect(child).toHaveAttribute('href', '/system-bank/exams');
     expect(child.hasAttribute('data-active')).toBe(true);
     const parent = screen.getByRole('button', { name: 'Ngân hàng hệ thống' });
     expect(parent.hasAttribute('data-active')).toBe(true);
@@ -435,7 +435,7 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
 
     // Ba mục "của tôi" là link cấp cao nhất, đúng href từng khu vực.
     expect(await screen.findByRole('link', { name: 'Câu hỏi của tôi' })).toHaveAttribute('href', '/questions');
-    expect(screen.getByRole('link', { name: 'Đề của tôi' })).toHaveAttribute('href', '/exam-papers');
+    expect(screen.getByRole('link', { name: 'Đề của tôi' })).toHaveAttribute('href', '/exams');
     expect(screen.getByRole('link', { name: 'Ma trận của tôi' })).toHaveAttribute('href', '/matrices');
     // Ngữ liệu nằm trong collapse của chính "Câu hỏi của tôi".
     expect(screen.queryByRole('link', { name: 'Ngữ liệu' })).not.toBeInTheDocument();
@@ -447,7 +447,7 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
       'href',
       '/system-bank/questions',
     );
-    expect(screen.getByRole('link', { name: 'Đề hệ thống' })).toHaveAttribute('href', '/system-bank/papers');
+    expect(screen.getByRole('link', { name: 'Đề hệ thống' })).toHaveAttribute('href', '/system-bank/exams');
     expect(screen.getByRole('link', { name: 'Ma trận hệ thống' })).toHaveAttribute('href', '/system-bank/matrices');
     // Giáo viên thuần vẫn không thấy nhóm quản trị.
     expect(screen.queryByRole('button', { name: 'Người dùng & quyền' })).not.toBeInTheDocument();

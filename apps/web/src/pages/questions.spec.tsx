@@ -6,7 +6,12 @@ import { TestProviders } from '#test/providers';
 import { QuestionCategoryNewPage, QuestionsPage, QuestionUsagePage } from './questions';
 import QuestionsRoute from '../routes/questions';
 import StimuliRoute from '../routes/question-stimuli';
-import ExamPapersRoute from '../routes/exam-papers';
+import ExamsRoute from '../routes/exams';
+import ExamPaperNewRoute from '../routes/exam-paper-new';
+import ExamPaperEditRoute from '../routes/exam-paper-edit';
+import LegacyExamPapersRoute from '../routes/legacy-exam-papers';
+import LegacyExamPaperNewRoute from '../routes/legacy-exam-paper-new';
+import LegacyExamPaperEditRoute from '../routes/legacy-exam-paper-edit';
 import MatricesRoute from '../routes/matrices';
 import MatrixNewRoute from '../routes/question-matrix-new';
 import MatrixEditRoute from '../routes/question-matrix-edit';
@@ -14,7 +19,8 @@ import LegacyMatrixNewRoute from '../routes/legacy-matrix-new';
 import LegacyMatrixEditRoute from '../routes/legacy-matrix-edit';
 import SystemBankRoute from '../routes/system-bank';
 import SystemBankQuestionsRoute from '../routes/system-bank-questions';
-import SystemBankPapersRoute from '../routes/system-bank-papers';
+import SystemBankExamsRoute from '../routes/system-bank-exams';
+import LegacySystemBankPapersRoute from '../routes/legacy-system-bank-papers';
 import SystemBankMatricesRoute from '../routes/system-bank-matrices';
 
 /**
@@ -335,7 +341,7 @@ describe('Question bank page — role gate (issue #55)', () => {
  * Parity admin ↔ giáo viên trên bề mặt ngân hàng (việc nối tiếp feat
  * #70, đính chính 25/10/2026): admin có khu riêng ĐÚNG NHƯ giáo viên.
  * Từ lát R1 (chuẩn đường dẫn #221) mỗi khu vực là một trang theo path
- * riêng (/questions, /matrices, /exam-papers, /system-bank/*) và
+ * riêng (/questions, /matrices, /exams, /system-bank/*) và
  * trang chỉ render khu vực của nó, collapse của khu mở sẵn; nút Thêm
  * mới trong khu riêng dùng được (không disabled oan) cho CẢ admin
  * (isSiteAdmin) lẫn giáo viên (capability qua context, không phải
@@ -390,11 +396,11 @@ describe('Question bank page — admin parity (issue #70)', () => {
     );
   }
 
-  type BankArea = 'my-questions' | 'my-matrices' | 'my-papers' | 'system-questions';
+  type BankArea = 'my-questions' | 'my-matrices' | 'my-exams' | 'system-questions';
   const AREA_PATHS: Record<BankArea, string> = {
     'my-questions': '/questions',
     'my-matrices': '/matrices',
-    'my-papers': '/exam-papers',
+    'my-exams': '/exams',
     'system-questions': '/system-bank/questions',
   };
 
@@ -436,8 +442,8 @@ describe('Question bank page — admin parity (issue #70)', () => {
     expect(matrixAdd.length).toBeGreaterThanOrEqual(1);
     for (const b of matrixAdd) expect(b).not.toBeDisabled();
     cleanup();
-    // Đề của tôi (/exam-papers): collapse đề mở sẵn ở trang riêng.
-    renderArea('my-papers');
+    // Đề của tôi (/exams): collapse đề mở sẵn ở trang riêng.
+    renderArea('my-exams');
     expect(await screen.findByRole('button', { name: /Đề của tôi/ })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.queryByRole('button', { name: /Ngân hàng riêng của tôi/ })).toBeNull();
     cleanup();
@@ -527,14 +533,14 @@ describe('Question bank areas — by path (issue #221)', () => {
     );
   }
 
-  type BankArea = 'my-questions' | 'stimuli' | 'my-papers' | 'my-matrices' | 'system-questions' | 'system-papers' | 'system-matrices';
+  type BankArea = 'my-questions' | 'stimuli' | 'my-exams' | 'my-matrices' | 'system-questions' | 'system-exams' | 'system-matrices';
   const AREA_CASES: Array<{ area: BankArea; path: string; toggle: RegExp | null }> = [
     { area: 'my-questions', path: '/questions', toggle: /Ngân hàng riêng của tôi/ },
     { area: 'stimuli', path: '/questions/stimuli', toggle: null },
-    { area: 'my-papers', path: '/exam-papers', toggle: /Đề của tôi/ },
+    { area: 'my-exams', path: '/exams', toggle: /Đề của tôi/ },
     { area: 'my-matrices', path: '/matrices', toggle: /Ma trận của tôi/ },
     { area: 'system-questions', path: '/system-bank/questions', toggle: /Ngân hàng hệ thống/ },
-    { area: 'system-papers', path: '/system-bank/papers', toggle: /Ngân hàng hệ thống/ },
+    { area: 'system-exams', path: '/system-bank/exams', toggle: /Ngân hàng hệ thống/ },
     { area: 'system-matrices', path: '/system-bank/matrices', toggle: /Ngân hàng hệ thống/ },
   ];
   const ALL_TOGGLES = [/Ngân hàng riêng của tôi/, /Ma trận của tôi/, /Đề của tôi/, /Ngân hàng hệ thống/];
@@ -587,7 +593,7 @@ describe('Question bank areas — by path (issue #221)', () => {
     stubAreaFetch();
     const parts: Array<{ area: BankArea; path: string; id: string }> = [
       { area: 'system-questions', path: '/system-bank/questions', id: 'system-questions' },
-      { area: 'system-papers', path: '/system-bank/papers', id: 'system-papers' },
+      { area: 'system-exams', path: '/system-bank/exams', id: 'system-papers' },
       { area: 'system-matrices', path: '/system-bank/matrices', id: 'system-matrices' },
     ];
     for (const part of parts) {
@@ -647,13 +653,17 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
   const REDIRECT_CASES: Array<{ from: string; toPath: string; toSearch?: string }> = [
     { from: '/questions?bank=my-questions', toPath: '/questions', toSearch: '' },
     { from: '/questions?bank=my-questions&section=stimuli', toPath: '/questions/stimuli' },
-    { from: '/questions?bank=my-papers', toPath: '/exam-papers' },
+    { from: '/questions?bank=my-papers', toPath: '/exams' },
     { from: '/questions?bank=my-matrices', toPath: '/matrices' },
     { from: '/questions?bank=system', toPath: '/system-bank/questions' },
     { from: '/questions?bank=system&section=questions', toPath: '/system-bank/questions' },
-    { from: '/questions?bank=system&section=papers', toPath: '/system-bank/papers' },
+    { from: '/questions?bank=system&section=papers', toPath: '/system-bank/exams' },
     { from: '/questions?bank=system&section=matrices', toPath: '/system-bank/matrices' },
-    { from: '/questions?bank=system&section=papers&x=1', toPath: '/system-bank/papers', toSearch: '?x=1' },
+    { from: '/questions?bank=system&section=papers&x=1', toPath: '/system-bank/exams', toSearch: '?x=1' },
+    { from: '/exam-papers', toPath: '/exams' },
+    { from: '/exam-papers/new', toPath: '/exams/new' },
+    { from: '/exam-papers/01900000-0000-7000-8000-0000000000d7/edit', toPath: '/exams/01900000-0000-7000-8000-0000000000d7/edit' },
+    { from: '/system-bank/papers', toPath: '/system-bank/exams' },
     { from: '/questions/matrices/new', toPath: '/matrices/new' },
     { from: `/questions/matrices/${MATRIX_ID}/edit`, toPath: `/matrices/${MATRIX_ID}/edit` },
     { from: '/system-bank', toPath: '/system-bank/questions' },
@@ -667,7 +677,12 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
         [
           { path: '/questions', element: <QuestionsRoute /> },
           { path: '/questions/stimuli', element: <StimuliRoute /> },
-          { path: '/exam-papers', element: <ExamPapersRoute /> },
+          { path: '/exams', element: <ExamsRoute /> },
+          { path: '/exams/new', element: <ExamPaperNewRoute /> },
+          { path: '/exams/:paperId/edit', element: <ExamPaperEditRoute /> },
+          { path: '/exam-papers', element: <LegacyExamPapersRoute /> },
+          { path: '/exam-papers/new', element: <LegacyExamPaperNewRoute /> },
+          { path: '/exam-papers/:paperId/edit', element: <LegacyExamPaperEditRoute /> },
           { path: '/matrices', element: <MatricesRoute /> },
           { path: '/matrices/new', element: <MatrixNewRoute /> },
           { path: '/matrices/:matrixId/edit', element: <MatrixEditRoute /> },
@@ -675,7 +690,8 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
           { path: '/questions/matrices/:matrixId/edit', element: <LegacyMatrixEditRoute /> },
           { path: '/system-bank', element: <SystemBankRoute /> },
           { path: '/system-bank/questions', element: <SystemBankQuestionsRoute /> },
-          { path: '/system-bank/papers', element: <SystemBankPapersRoute /> },
+          { path: '/system-bank/exams', element: <SystemBankExamsRoute /> },
+          { path: '/system-bank/papers', element: <LegacySystemBankPapersRoute /> },
           { path: '/system-bank/matrices', element: <SystemBankMatricesRoute /> },
         ],
         { initialEntries: [redirectCase.from] },

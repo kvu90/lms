@@ -14,7 +14,7 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
   { prefix: '/admin/site-config', key: 'navSiteConfig', ns: 'app' },
   { prefix: '/courses', key: 'navCourses', ns: 'app' },
   { prefix: '/questions', key: 'navQuestions', ns: 'app' },
-  { prefix: '/exam-papers', key: 'navMyPapers', ns: 'app' },
+  { prefix: '/exams', key: 'navMyPapers', ns: 'app' },
   { prefix: '/matrices', key: 'navMyMatrices', ns: 'app' },
   { prefix: '/system-bank', key: 'navBankSystem', ns: 'app' },
   { prefix: '/question-usages', key: 'navQuestions', ns: 'app' },
