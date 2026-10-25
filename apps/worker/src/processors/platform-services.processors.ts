@@ -15,6 +15,7 @@ import {
   reportBuilderReport, reportBuilderSchedule, role, roleAssignments,
   searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
 } from '@lms/db-schema';
+import { NotificationDeliveryService } from '../notification-delivery.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -237,9 +238,17 @@ export class AnalyticsRunProcessor extends WorkerHost {
 @Processor('report-schedule')
 /**
  * Xử lý job báo cáo theo lịch: sinh báo cáo và gửi notification (nội dung từ catalog i18n).
+ * Thông báo đi qua hàm luật phân phối dùng chung ({@link NotificationDeliveryService},
+ * NB-6): trước lát này processor insert thẳng vào bảng notifications —
+ * không kiểm đình chỉ, không kiểm tuỳ chọn, không ghi dispatch log; nay áp
+ * đúng luật như `notify()` phía API cho kênh trong-app.
  */
 export class ReportScheduleProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
+  constructor(
+    @InjectDrizzle() private readonly db: Database,
+    private readonly i18n: I18nService,
+    private readonly delivery: NotificationDeliveryService,
+  ) { super(); }
   async process(job: Job<{ scheduleId: string }>): Promise<{ rows: number; status: string }> {
     const [schedule] = await this.db.select().from(reportBuilderSchedule).where(eq(reportBuilderSchedule.id, job.data.scheduleId));
     if (!schedule || !schedule.enabled) return { rows: 0, status: 'missing-or-disabled' };
@@ -259,11 +268,11 @@ export class ReportScheduleProcessor extends WorkerHost {
      */
     const recipientLocale = 'vi';
     const subject = this.i18n.t('platform.reportReadySubject', { locale: recipientLocale });
-    await this.db.insert(notifications).values({
-      userIdFrom: null, userIdTo: schedule.createdBy, subject,
-      fullMessage: this.i18n.t('platform.reportReadyBody', { locale: recipientLocale, args: { name: report?.name ?? String(schedule.reportId) } }),
+    await this.delivery.deliverInApp(schedule.createdBy, 'report_scheduled', {
+      subject,
+      body: this.i18n.t('platform.reportReadyBody', { locale: recipientLocale, args: { name: report?.name ?? String(schedule.reportId) } }),
       smallMessage: subject,
-      component: 'core_reportbuilder', eventType: 'report_scheduled', contextUrl: `/reports/${schedule.reportId}`,
+      contextUrl: `/reports/${schedule.reportId}`,
     });
     return { rows, status: 'completed' };
   }
