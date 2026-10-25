@@ -9,7 +9,6 @@ import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from '
 import { relations } from './db/relations';
 import { CacheInfraModule } from './infra/cache/cache-infra.module';
 import { EventsModule } from './infra/events/events.module';
-import { TasksModule } from './infra/tasks/tasks.module';
 import { AccessModule } from './modules/access/access.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
@@ -115,7 +114,6 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     }),
     CacheInfraModule,
     EventsModule,
-    TasksModule,
     HealthModule,
     AccessModule,
     CustomFieldsModule,
