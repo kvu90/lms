@@ -12,11 +12,6 @@ import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@lms/ui/components/collapsible';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
@@ -31,6 +26,7 @@ import {
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
+import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson, ApiError } from '#lib/api';
@@ -1413,15 +1409,12 @@ export function QuestionsPage() {
       {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
           tách hẳn khỏi Ngân hàng hệ thống; mở collapse là danh sách câu
           của chính giáo viên + Thêm mới ngay trong collapse (§9). */}
-      <Card>
-        <CardHeader>
-          <button type="button" aria-expanded={myOpen} onClick={() => setMyOpen((v) => !v)} className="text-left">
-            <CardTitle>{t('myQuestionBank')}</CardTitle>
-            <CardDescription>{t('myQuestionBankDescription')}</CardDescription>
-          </button>
-        </CardHeader>
-        {myOpen && (
-          <CardContent className="space-y-4">
+      <CollapsibleSection
+        title={t('myQuestionBank')}
+        description={t('myQuestionBankDescription')}
+        open={myOpen}
+        onOpenChange={setMyOpen}
+      >
             <Button type="button" onClick={addNewMine} disabled={!personalBank?.defaultCategoryId}>
               {t('addNew')}
             </Button>
@@ -1505,31 +1498,21 @@ export function QuestionsPage() {
                 </Button>
               </div>
             ) : null}
-          </CardContent>
-        )}
-      </Card>
+      </CollapsibleSection>
 
       {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): collapse
           riêng phân biệt hẳn với Ngân hàng hệ thống, cùng hành vi §9
           như ngân hàng riêng: mở ra là danh sách ma trận của chính giáo
           viên + Thêm mới ngay trong collapse, Sửa/Xoá tại dòng. */}
-      <Card>
-        <CardHeader>
-          <button
-            type="button"
-            aria-expanded={myMatrixOpen}
-            onClick={() => {
-              setMyMatrixOpen((v) => !v);
-              void loadMatrixBanks();
-            }}
-            className="text-left"
-          >
-            <CardTitle>{t('myMatrixBank')}</CardTitle>
-            <CardDescription>{t('myMatrixBankDescription')}</CardDescription>
-          </button>
-        </CardHeader>
-        {myMatrixOpen && (
-          <CardContent className="space-y-4">
+      <CollapsibleSection
+        title={t('myMatrixBank')}
+        description={t('myMatrixBankDescription')}
+        open={myMatrixOpen}
+        onOpenChange={(open) => {
+          setMyMatrixOpen(open);
+          if (open) void loadMatrixBanks();
+        }}
+      >
             <Button type="button" onClick={() => navigate('/questions/matrices/new')} disabled={!personalMatrixBank}>
               {t('addNew')}
             </Button>
@@ -1609,23 +1592,18 @@ export function QuestionsPage() {
                 <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
               </div>
             ) : null}
-          </CardContent>
-        )}
-      </Card>
+      </CollapsibleSection>
 
       {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
           ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
           vực đã chốt; mở collapse là danh sách đề của chính giáo viên
           + Thêm mới ngay trong collapse (§9), Sửa/Xoá tại dòng. */}
-      <Card>
-        <CardHeader>
-          <button type="button" aria-expanded={myPapersOpen} onClick={() => setMyPapersOpen((v) => !v)} className="text-left">
-            <CardTitle>{t('myExamBank')}</CardTitle>
-            <CardDescription>{t('myExamBankDescription')}</CardDescription>
-          </button>
-        </CardHeader>
-        {myPapersOpen && (
-          <CardContent className="space-y-4">
+      <CollapsibleSection
+        title={t('myExamBank')}
+        description={t('myExamBankDescription')}
+        open={myPapersOpen}
+        onOpenChange={setMyPapersOpen}
+      >
             <Button
               type="button"
               disabled={!personalExamBank}
@@ -1851,23 +1829,19 @@ export function QuestionsPage() {
                 </ul>
               )}
             </div>
-          </CardContent>
-        )}
-      </Card>
+      </CollapsibleSection>
 
       {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
           (câu hỏi / đề / ma trận) — cả ba đã thi công: câu hỏi chung
           (feat #70), đề chung (EB-1, issue #113), ma trận chung
           (MB-1, issue #111). */}
-      <Card>
-        <CardHeader>
-          <button type="button" aria-expanded={systemOpen} onClick={() => setSystemOpen((v) => !v)} className="text-left">
-            <CardTitle>{t('systemBank')}</CardTitle>
-            <CardDescription>{t('systemBankDescription')}</CardDescription>
-          </button>
-        </CardHeader>
-        {systemOpen && (
-          <CardContent className="space-y-6">
+      <CollapsibleSection
+        title={t('systemBank')}
+        description={t('systemBankDescription')}
+        open={systemOpen}
+        onOpenChange={setSystemOpen}
+        contentClassName="space-y-6"
+      >
             <section id="system-questions" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
@@ -2257,17 +2231,16 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
-          </CardContent>
-        )}
-      </Card>
+      </CollapsibleSection>
 
       {/* §9: mỗi danh mục là một mục thu/mở — bấm vào thì hiện danh sách
           câu hỏi của chính danh mục đó ngay dưới. */}
       {categories.map((cat) => {
         const isActive = qCategory === String(cat.id);
         return (
-          <Collapsible
+          <CollapsibleSection
             key={cat.id}
+            title={cat.name}
             open={isActive}
             onOpenChange={(open) => {
               if (open) {
@@ -2276,16 +2249,10 @@ export function QuestionsPage() {
                 void loadStimuli(cat.id).catch(() => setMessage(t('stimulusLoadFailed')));
               }
             }}
+            paddedContent={false}
           >
-            <Card>
-              <CardHeader>
-                <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
-                  <span className="font-semibold">{cat.name}</span>
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                {isActive ? (
-                  <>
+            {isActive ? (
+              <>
                     <DataTable
                       data={questions}
                       columns={questionColumns}
@@ -2322,10 +2289,8 @@ export function QuestionsPage() {
                       )}
                     </CardContent>
                   </>
-                ) : null}
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+            ) : null}
+          </CollapsibleSection>
         );
       })}
       {loading && categories.length === 0 ? (
