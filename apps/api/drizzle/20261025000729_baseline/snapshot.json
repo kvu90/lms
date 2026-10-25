@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "3cbb2efd-8963-45cd-b938-52b2fc6e5e62",
+  "id": "f286d124-7ce1-4462-b0c9-011ea9cb9b13",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1093,6 +1093,25 @@
       "statementTarget": [
         "table",
         "public",
+        "grade_publications"
+      ],
+      "writes": [
+        "s|tbl|public.grade_publications",
+        "n|tbl|public.grade_publications",
+        "e|tbl|public.grade_publications",
+        "n|rel|public.grade_publications",
+        "n|type|public.grade_publications",
+        "n|rel|public.grade_publications_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "scales"
       ],
       "writes": [
@@ -1180,6 +1199,25 @@
         "n|rel|public.vn_term_results",
         "n|type|public.vn_term_results",
         "n|rel|public.vn_term_results_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_links"
+      ],
+      "writes": [
+        "s|tbl|public.guardian_links",
+        "n|tbl|public.guardian_links",
+        "e|tbl|public.guardian_links",
+        "n|rel|public.guardian_links",
+        "n|type|public.guardian_links",
+        "n|rel|public.guardian_links_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -1552,6 +1590,25 @@
         "n|type|public.exam_matrix_cells",
         "n|rel|public.exam_matrix_cells_pkey",
         "n|rel|public.exam_matrix_cells_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_contributions"
+      ],
+      "writes": [
+        "s|tbl|public.exam_matrix_contributions",
+        "n|tbl|public.exam_matrix_contributions",
+        "e|tbl|public.exam_matrix_contributions",
+        "n|rel|public.exam_matrix_contributions",
+        "n|type|public.exam_matrix_contributions",
+        "n|rel|public.exam_matrix_contributions_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -4821,6 +4878,86 @@
       "statementTarget": [
         "index",
         "public",
+        "grade_publications",
+        "grade_publications_course_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_publications_course_id_idx",
+        "n|idx|public.grade_publications_course_id_idx",
+        "e|idx|public.grade_publications_course_id_idx",
+        "n|rel|public.grade_publications_course_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|col|public.grade_publications.course_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_publications",
+        "grade_publications_item_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_publications_item_id_idx",
+        "n|idx|public.grade_publications_item_id_idx",
+        "e|idx|public.grade_publications_item_id_idx",
+        "n|rel|public.grade_publications_item_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|col|public.grade_publications.item_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_publications",
+        "grade_publications_book_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_publications_book_id_idx",
+        "n|idx|public.grade_publications_book_id_idx",
+        "e|idx|public.grade_publications_book_id_idx",
+        "n|rel|public.grade_publications_book_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|col|public.grade_publications.book_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "grade_publications",
+        "grade_publications_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.grade_publications_user_id_idx",
+        "n|idx|public.grade_publications_user_id_idx",
+        "e|idx|public.grade_publications_user_id_idx",
+        "n|rel|public.grade_publications_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|col|public.grade_publications.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "scales",
         "scales_course_id_idx"
       ],
@@ -5154,6 +5291,67 @@
         "n|tbl|public.vn_term_results",
         "n|sch|public",
         "n|col|public.vn_term_results.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_links",
+        "guardian_links_guardian_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_links_guardian_user_id_idx",
+        "n|idx|public.guardian_links_guardian_user_id_idx",
+        "e|idx|public.guardian_links_guardian_user_id_idx",
+        "n|rel|public.guardian_links_guardian_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|col|public.guardian_links.guardian_user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_links",
+        "guardian_links_student_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_links_student_user_id_idx",
+        "n|idx|public.guardian_links_student_user_id_idx",
+        "e|idx|public.guardian_links_student_user_id_idx",
+        "n|rel|public.guardian_links_student_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|col|public.guardian_links.student_user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_links",
+        "guardian_links_active_pair_unique"
+      ],
+      "writes": [
+        "s|idx|public.guardian_links_active_pair_unique",
+        "n|idx|public.guardian_links_active_pair_unique",
+        "e|idx|public.guardian_links_active_pair_unique",
+        "n|rel|public.guardian_links_active_pair_unique"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|col|public.guardian_links.guardian_user_id",
+        "n|col|public.guardian_links.student_user_id"
       ]
     },
     {
@@ -5938,6 +6136,86 @@
         "n|tbl|public.exam_matrix_cells",
         "n|sch|public",
         "n|col|public.exam_matrix_cells.learning_outcome_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_contributions",
+        "exam_matrix_contributions_target_bank_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_contributions_target_bank_idx",
+        "n|idx|public.exam_matrix_contributions_target_bank_idx",
+        "e|idx|public.exam_matrix_contributions_target_bank_idx",
+        "n|rel|public.exam_matrix_contributions_target_bank_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.target_bank_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_contributions",
+        "exam_matrix_contributions_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_contributions_matrix_idx",
+        "n|idx|public.exam_matrix_contributions_matrix_idx",
+        "e|idx|public.exam_matrix_contributions_matrix_idx",
+        "n|rel|public.exam_matrix_contributions_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_contributions",
+        "exam_matrix_contributions_proposer_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_contributions_proposer_idx",
+        "n|idx|public.exam_matrix_contributions_proposer_idx",
+        "e|idx|public.exam_matrix_contributions_proposer_idx",
+        "n|rel|public.exam_matrix_contributions_proposer_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.proposer_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrix_contributions",
+        "exam_matrix_contributions_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrix_contributions_status_idx",
+        "n|idx|public.exam_matrix_contributions_status_idx",
+        "e|idx|public.exam_matrix_contributions_status_idx",
+        "n|rel|public.exam_matrix_contributions_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.status"
       ]
     },
     {
@@ -11005,6 +11283,75 @@
       "statementTarget": [
         "table",
         "public",
+        "grade_publications"
+      ],
+      "writes": [
+        "s|fk|public.grade_publications.grade_publications_course_id_course_id_fkey",
+        "n|fk|public.grade_publications.grade_publications_course_id_course_id_fkey",
+        "e|fk|public.grade_publications.grade_publications_course_id_course_id_fkey",
+        "n|con|public.grade_publications.grade_publications_course_id_course_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.grade_publications.course_id",
+        "n|col|public.course.id",
+        "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_publications"
+      ],
+      "writes": [
+        "s|fk|public.grade_publications.grade_publications_item_id_grade_items_id_fkey",
+        "n|fk|public.grade_publications.grade_publications_item_id_grade_items_id_fkey",
+        "e|fk|public.grade_publications.grade_publications_item_id_grade_items_id_fkey",
+        "n|con|public.grade_publications.grade_publications_item_id_grade_items_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|tbl|public.grade_items",
+        "n|sch|public",
+        "n|col|public.grade_publications.item_id",
+        "n|col|public.grade_items.id",
+        "e|uniqueness|public.grade_items.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "grade_publications"
+      ],
+      "writes": [
+        "s|fk|public.grade_publications.grade_publications_book_id_vn_gradebooks_id_fkey",
+        "n|fk|public.grade_publications.grade_publications_book_id_vn_gradebooks_id_fkey",
+        "e|fk|public.grade_publications.grade_publications_book_id_vn_gradebooks_id_fkey",
+        "n|con|public.grade_publications.grade_publications_book_id_vn_gradebooks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.grade_publications",
+        "n|sch|public",
+        "n|tbl|public.vn_gradebooks",
+        "n|sch|public",
+        "n|col|public.grade_publications.book_id",
+        "n|col|public.vn_gradebooks.id",
+        "e|uniqueness|public.vn_gradebooks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "vn_activity_mappings"
       ],
       "writes": [
@@ -11320,6 +11667,52 @@
         "n|col|public.vn_term_results.course_id",
         "n|col|public.course.id",
         "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_links"
+      ],
+      "writes": [
+        "s|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
+        "n|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
+        "e|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
+        "n|con|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_links.guardian_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_links"
+      ],
+      "writes": [
+        "s|fk|public.guardian_links.guardian_links_student_user_id_users_id_fkey",
+        "n|fk|public.guardian_links.guardian_links_student_user_id_users_id_fkey",
+        "e|fk|public.guardian_links.guardian_links_student_user_id_users_id_fkey",
+        "n|con|public.guardian_links.guardian_links_student_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.guardian_links.student_user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
       ]
     },
     {
@@ -11879,6 +12272,29 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_bank_id_question_banks_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_bank_id_question_banks_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_bank_id_question_banks_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_bank_id_question_banks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.exam_matrices.bank_id",
+        "n|col|public.question_banks.id",
+        "e|uniqueness|public.question_banks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "exam_matrix_cells"
       ],
       "writes": [
@@ -11918,6 +12334,52 @@
         "n|col|public.exam_matrix_cells.learning_outcome_id",
         "n|col|public.learning_outcomes.id",
         "e|uniqueness|public.learning_outcomes.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_contributions.exam_matrix_contributions_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.exam_matrix_contributions.exam_matrix_contributions_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.exam_matrix_contributions.exam_matrix_contributions_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.exam_matrix_contributions.exam_matrix_contributions_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrix_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrix_contributions.exam_matrix_contributions_target_bank_id_question_banks_id_fkey",
+        "n|fk|public.exam_matrix_contributions.exam_matrix_contributions_target_bank_id_question_banks_id_fkey",
+        "e|fk|public.exam_matrix_contributions.exam_matrix_contributions_target_bank_id_question_banks_id_fkey",
+        "n|con|public.exam_matrix_contributions.exam_matrix_contributions_target_bank_id_question_banks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public",
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.exam_matrix_contributions.target_bank_id",
+        "n|col|public.question_banks.id",
+        "e|uniqueness|public.question_banks.id"
       ]
     },
     {
@@ -14374,6 +14836,12 @@
     },
     {
       "schema": "public",
+      "name": "grade_publications",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "scales",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -14399,6 +14867,12 @@
     {
       "schema": "public",
       "name": "vn_term_results",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "guardian_links",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -14513,6 +14987,12 @@
     {
       "schema": "public",
       "name": "exam_matrix_cells",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_matrix_contributions",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -20965,6 +21445,19 @@
     {
       "schema": "public",
       "table": "grade_items",
+      "name": "posting_policy",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'auto'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_items",
       "name": "vn_book_id",
       "type": "uuid",
       "typeSchema": null,
@@ -21148,6 +21641,136 @@
       "schema": "public",
       "table": "grade_outcomes",
       "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "course_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "scope",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "item_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "book_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "action",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -21901,6 +22524,149 @@
     {
       "schema": "public",
       "table": "vn_term_results",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "student_user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "relationship",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "revoked_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "revoked_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -24436,6 +25202,149 @@
     {
       "schema": "public",
       "table": "exam_matrix_cells",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "target_bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "proposer_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "reject_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "reviewer_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "result_matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -36864,6 +37773,90 @@
     },
     {
       "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_course_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "course_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_item_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "item_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_book_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "book_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "scales",
       "name": "scales_course_id_idx",
       "nameExplicit": true,
@@ -37214,6 +38207,76 @@
       ],
       "isUnique": false,
       "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_guardian_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_student_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "student_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_active_pair_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "student_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"status\" = 'active'",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -38053,6 +39116,90 @@
       "columns": [
         {
           "value": "learning_outcome_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_target_bank_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "target_bank_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_proposer_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "proposer_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -43052,6 +44199,57 @@
     },
     {
       "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_course_id_course_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "course_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_item_id_grade_items_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "item_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "grade_items",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_book_id_vn_gradebooks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "book_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "vn_gradebooks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "vn_activity_mappings",
       "name": "vn_activity_mappings_course_id_course_id_fkey",
       "nameExplicit": false,
@@ -43281,6 +44479,40 @@
       ],
       "schemaTo": "public",
       "tableTo": "course",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_guardian_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "guardian_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_student_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "student_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
       "columnsTo": [
         "id"
       ],
@@ -43698,6 +44930,23 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_bank_id_question_banks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "bank_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_banks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_matrix_id_exam_matrices_id_fkey",
       "nameExplicit": false,
@@ -43723,6 +44972,40 @@
       ],
       "schemaTo": "public",
       "tableTo": "learning_outcomes",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_target_bank_id_question_banks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "target_bank_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_banks",
       "columnsTo": [
         "id"
       ],
@@ -45896,6 +47179,16 @@
     },
     {
       "schema": "public",
+      "table": "grade_publications",
+      "name": "grade_publications_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "scales",
       "name": "scales_pkey",
       "columns": [
@@ -45938,6 +47231,16 @@
       "schema": "public",
       "table": "vn_term_results",
       "name": "vn_term_results_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
+      "name": "guardian_links_pkey",
       "columns": [
         "id"
       ],
@@ -46128,6 +47431,16 @@
       "schema": "public",
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_pkey",
       "columns": [
         "id"
       ],
@@ -48238,6 +49551,13 @@
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_score_check",
       "value": "\"cell_score\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "exam_matrix_contributions_status_check",
+      "value": "\"status\" in ('pending', 'approved', 'rejected')",
       "entityType": "checks"
     },
     {
