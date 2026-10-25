@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "96245e1e-aa49-4f98-94a1-10f26e4bc1b2",
+  "id": "6cbeb145-0c90-4805-9d2c-521554fb8e1d",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1569,6 +1569,26 @@
         "n|rel|public.stimuli",
         "n|type|public.stimuli",
         "n|rel|public.stimuli_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "mcp_idempotency_keys"
+      ],
+      "writes": [
+        "s|tbl|public.mcp_idempotency_keys",
+        "n|tbl|public.mcp_idempotency_keys",
+        "e|tbl|public.mcp_idempotency_keys",
+        "n|rel|public.mcp_idempotency_keys",
+        "n|type|public.mcp_idempotency_keys",
+        "n|rel|public.mcp_idempotency_keys_pkey",
+        "n|rel|public.mcp_idempotency_keys_user_key_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -6054,6 +6074,26 @@
         "n|tbl|public.stimuli",
         "n|sch|public",
         "n|col|public.stimuli.created_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "mcp_idempotency_keys",
+        "mcp_idempotency_keys_expires_idx"
+      ],
+      "writes": [
+        "s|idx|public.mcp_idempotency_keys_expires_idx",
+        "n|idx|public.mcp_idempotency_keys_expires_idx",
+        "e|idx|public.mcp_idempotency_keys_expires_idx",
+        "n|rel|public.mcp_idempotency_keys_expires_idx"
+      ],
+      "reads": [
+        "n|tbl|public.mcp_idempotency_keys",
+        "n|sch|public",
+        "n|col|public.mcp_idempotency_keys.expires_at"
       ]
     },
     {
@@ -15022,6 +15062,12 @@
     {
       "schema": "public",
       "name": "stimuli",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "mcp_idempotency_keys",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -24865,6 +24911,110 @@
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "tool",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "request_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "response_json",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -39099,6 +39249,27 @@
     },
     {
       "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "mcp_idempotency_keys_expires_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_subject_idx",
       "nameExplicit": true,
@@ -47520,6 +47691,16 @@
     },
     {
       "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "mcp_idempotency_keys_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_pkey",
       "columns": [
@@ -48846,6 +49027,18 @@
       "columns": [
         "question_bank_entry_id",
         "version"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "mcp_idempotency_keys",
+      "name": "mcp_idempotency_keys_user_key_unique",
+      "nameExplicit": true,
+      "columns": [
+        "user_id",
+        "key"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"

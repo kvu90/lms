@@ -984,6 +984,18 @@ CREATE TABLE "stimuli" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "mcp_idempotency_keys" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"user_id" uuid NOT NULL,
+	"key" text NOT NULL,
+	"tool" text NOT NULL,
+	"request_hash" text NOT NULL,
+	"response_json" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "mcp_idempotency_keys_user_key_unique" UNIQUE("user_id","key")
+);
+--> statement-breakpoint
 CREATE TABLE "exam_matrices" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"name" text NOT NULL,
@@ -2350,6 +2362,7 @@ CREATE INDEX "question_versions_question_id_idx" ON "question_versions" ("questi
 CREATE INDEX "question_versions_stimulus_id_idx" ON "question_versions" ("stimulus_id");--> statement-breakpoint
 CREATE INDEX "stimuli_category_id_idx" ON "stimuli" ("category_id");--> statement-breakpoint
 CREATE INDEX "stimuli_created_by_idx" ON "stimuli" ("created_by");--> statement-breakpoint
+CREATE INDEX "mcp_idempotency_keys_expires_idx" ON "mcp_idempotency_keys" ("expires_at");--> statement-breakpoint
 CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
