@@ -266,6 +266,8 @@ export const examDossiers = pgTable('exam_dossiers', {
   (table) => [
       index('exam_dossiers_target_bank_idx').on(table.targetBankId),
       index('exam_dossiers_paper_idx').on(table.paperId),
+      index('exam_dossiers_paper_version_idx').on(table.paperVersionId),
+      index('exam_dossiers_matrix_idx').on(table.matrixId),
       index('exam_dossiers_proposer_idx').on(table.proposerId),
       index('exam_dossiers_status_idx').on(table.status),
       check('exam_dossiers_status_check', sql`${table.status} in ('draft', 'pending', 'pending_board', 'approved', 'rejected')`),
