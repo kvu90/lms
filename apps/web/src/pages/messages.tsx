@@ -15,12 +15,14 @@ import type {
   ContactRequestView,
   ConversationDetailView,
   ConversationView,
+  MessageQuoteView,
   MessageView,
   MessagingCourse,
   PersonSummary,
   RosterMember,
+  ScrollerHandle,
 } from '../components/messages/types';
-import { countMessageCharacters, mergeMessages } from '../components/messages/utils';
+import { countMessageCharacters, localQuoteOf, mergeMessages } from '../components/messages/utils';
 
 /**
  * Messages: conversation list with unread count, message thread and
@@ -59,6 +61,17 @@ export function MessagesPage() {
    * đó; gửi thành công thì chỉ xoá nháp của đúng conversation đã gửi.
    */
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  /**
+   * Đích TRẢ LỜI TRÍCH DẪN theo từng conversation (lát M3, issue
+   * #229): bấm "Trả lời" trên một tin thì ô soạn hiện chip trích dẫn
+   * của conversation đó; gửi xong (hoặc bấm ✕) thì xoá — cùng kỷ luật
+   * theo-conversation như nháp của M1.
+   */
+  const [replyTargets, setReplyTargets] = useState<Record<string, MessageView | null>>({});
+  /** Tin gốc vừa được nhảy tới từ một khối trích dẫn — tô sáng tạm để mắt bắt được vị trí. */
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  /** Handle cuộn của MessageScroller (component con trong ChatPanel giữ vào đây). */
+  const scrollerRef = useRef<ScrollerHandle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<string[]>([]);
   const [blockMessage, setBlockMessage] = useState<string | null>(null);
@@ -421,8 +434,13 @@ export function MessagesPage() {
     setHasMoreBefore(page.hasMoreBefore);
   }
 
-  /** Đẩy một tin lạc quan lên cuối và gửi thật; xác nhận của server (REST hoặc socket) thay bản tạm theo clientMessageId. */
-  async function deliver(conversationId: string, text: string, clientMessageId: string) {
+  /**
+   * Đẩy một tin lạc quan lên cuối và gửi thật; xác nhận của server (REST hoặc socket) thay bản tạm theo clientMessageId.
+   * Tin TRẢ LỜI (lát M3) mang kèm `replyToMessageId` + khối trích dẫn
+   * lạc quan dựng tại client; bản thật của server (đã dựng lại quote
+   * theo quyền) thay thế nguyên vẹn khi về.
+   */
+  async function deliver(conversationId: string, text: string, clientMessageId: string, quote?: { replyToMessageId: string; replyTo: MessageQuoteView } | null) {
     if (!myId) return;
     setMessages((prev) => mergeMessages(prev, [{
       id: `temp-${clientMessageId}`,
@@ -432,12 +450,17 @@ export function MessagesPage() {
       createdAt: new Date().toISOString(),
       seq: 0,
       clientMessageId,
+      replyToMessageId: quote?.replyToMessageId ?? null,
+      replyTo: quote?.replyTo ?? null,
       localStatus: 'sending',
     }]));
     try {
       const saved = await apiJson<MessageView>(`/api/v1/messages/conversations/${conversationId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ text, clientMessageId }),
+        body: JSON.stringify({
+          text, clientMessageId,
+          ...(quote ? { replyToMessageId: quote.replyToMessageId } : {}),
+        }),
       });
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (saved.seq > seen) lastSeqRef.current.set(conversationId, saved.seq);
@@ -491,14 +514,73 @@ export function MessagesPage() {
       delete next[active.id];
       return next;
     });
-    await deliver(active.id, text, crypto.randomUUID());
+    // Đích trích dẫn của conversation này cũng chỉ tiêu thụ một lần
+    // (lát M3): gửi xong là ô soạn trở về trạng thái thường; tin đã
+    // gửi (kể cả khi lỗi) tự mang trích dẫn của nó để thử lại.
+    const target = replyTargets[active.id] ?? null;
+    setReplyTargets((prev) => {
+      const next = { ...prev };
+      delete next[active.id];
+      return next;
+    });
+    await deliver(
+      active.id, text, crypto.randomUUID(),
+      target ? { replyToMessageId: target.id, replyTo: localQuoteOf(target) } : null,
+    );
   }
 
   /** Thử gửi lại một tin đã lỗi — dùng lại đúng clientMessageId nên server không tạo trùng kể cả khi lần trước đã tới nơi. */
   async function retrySend(message: MessageView) {
     if (!active || !message.clientMessageId) return;
     setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, localStatus: 'sending' as const } : m)));
-    await deliver(active.id, message.fullMessage, message.clientMessageId);
+    await deliver(
+      active.id, message.fullMessage, message.clientMessageId,
+      message.replyToMessageId && message.replyTo
+        ? { replyToMessageId: message.replyToMessageId, replyTo: message.replyTo }
+        : null,
+    );
+  }
+
+  /**
+   * Nhảy tới tin gốc từ một khối trích dẫn (lát M3): tin gốc đang có
+   * trong danh sách thì cuộn ngay + tô sáng tạm; chưa tải thì xin cửa
+   * sổ quanh vị trí của nó bằng ĐÚNG cơ chế phân trang hiện có
+   * (beforeSeq = seq gốc + 1 → cửa sổ kết thúc tại tin gốc), gộp vào
+   * danh sách rồi mới cuộn. Tin gốc không còn hiển thị được với mình
+   * (đã xoá-phía-mình...) thì cửa sổ tải về không chứa nó — dừng êm,
+   * không báo lỗi.
+   */
+  async function jumpToQuotedMessage(quote: MessageQuoteView) {
+    if (!active) return;
+    const scrollAndHighlight = () => {
+      setHighlightedMessageId(quote.id);
+      // Phần tử có thể chưa kịp dựng sau lần gộp cửa sổ mới — thử
+      // vài nhịp ngắn trước khi bỏ cuộc.
+      let attempts = 0;
+      const tryScroll = () => {
+        attempts += 1;
+        const ok = scrollerRef.current?.scrollToMessage(quote.id, { behavior: 'smooth' }) ?? false;
+        if (!ok && attempts < 6) setTimeout(tryScroll, 60);
+      };
+      tryScroll();
+      setTimeout(() => {
+        setHighlightedMessageId((cur) => (cur === quote.id ? null : cur));
+      }, 2400);
+    };
+    if (messages.some((m) => m.id === quote.id)) {
+      scrollAndHighlight();
+      return;
+    }
+    try {
+      const page = await apiJson<{ messages: MessageView[]; hasMoreBefore: boolean }>(
+        `/api/v1/messages/conversations/${active.id}/messages?beforeSeq=${quote.seq + 1}&limit=50`,
+      );
+      setMessages((prev) => mergeMessages(page.messages, prev));
+      if (page.hasMoreBefore) setHasMoreBefore(true);
+      if (page.messages.some((m) => m.id === quote.id)) scrollAndHighlight();
+    } catch {
+      // Giữ nguyên khung hiện tại; người dùng vẫn đọc tiếp được.
+    }
   }
 
   /** Phát tín hiệu đang nhập, throttle 3 giây ở client (server còn throttle thêm theo cửa sổ Redis). */
@@ -709,6 +791,8 @@ export function MessagesPage() {
   const visibleMessages = messages.filter((m) => !m.deletedAt || active?.canModerate);
   /** Nháp đang hiện ở composer: nháp của conversation đang mở (lát M1). */
   const draft = active ? (drafts[active.id] ?? '') : '';
+  /** Đích trích dẫn đang chờ gửi của conversation đang mở (lát M3). */
+  const replyTarget = active ? (replyTargets[active.id] ?? null) : null;
 
   return (
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
@@ -767,6 +851,12 @@ export function MessagesPage() {
         onNoteTyping={noteTyping}
         onSend={send}
         sendError={sendError}
+        replyTarget={replyTarget}
+        onStartReply={(m) => setReplyTargets((prev) => ({ ...prev, [m.conversationId]: m }))}
+        onCancelReply={() => { if (active) setReplyTargets((prev) => ({ ...prev, [active.id]: null })); }}
+        onJumpToQuote={(quote) => void jumpToQuotedMessage(quote)}
+        highlightedMessageId={highlightedMessageId}
+        scrollerRef={scrollerRef}
       />
     </main>
   );

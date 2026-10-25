@@ -1,5 +1,17 @@
 // Hình dạng dữ liệu của cụm Tin nhắn (trang + các panel con).
 
+/** Handle cuộn tối thiểu của MessageScroller mà trang cần để nhảy tới tin gốc từ khối trích dẫn (lát M3). */
+export type ScrollerHandle = { scrollToMessage: (messageId: string, options?: { behavior?: ScrollBehavior }) => boolean };
+/** Khối tóm tắt TRÍCH DẪN do server dựng sẵn (lát M3, issue #229) — khớp `messageQuoteSchema` của contracts. */
+export interface MessageQuoteView {
+  id: string;
+  seq: number;
+  userIdFrom: string;
+  excerpt: string;
+  /** Tin gốc không còn hiển thị được (đã xoá/thu hồi): hiện dòng "tin gốc đã bị xoá", excerpt rỗng. */
+  unavailable: boolean;
+}
+
 export interface MessageView {
   id: string;
   conversationId: string;
@@ -8,6 +20,9 @@ export interface MessageView {
   createdAt: string;
   seq: number;
   clientMessageId: string | null;
+  /** Trích dẫn (lát M3): id tin gốc + khối tóm tắt server dựng theo quyền của người nhận. */
+  replyToMessageId?: string | null;
+  replyTo?: MessageQuoteView | null;
   /**
    * Dấu vết xoá mềm (Lớp B, issue #33): tin đã xoá chỉ còn xuất hiện
    * trong cửa sổ của người có thẩm quyền kiểm duyệt; phía học sinh

@@ -1,4 +1,28 @@
-import type { MessageView } from './types';
+import type { MessageQuoteView, MessageView } from './types';
+
+/** Rút gọn excerpt ở client cho bản lạc quan — CÙNG luật với server (120 ký tự theo code point, thêm … khi cắt). */
+export function quoteExcerptOfText(text: string): string {
+  const chars = Array.from(text);
+  if (chars.length <= 120) return text;
+  return `${chars.slice(0, 120).join('')}…`;
+}
+
+/**
+ * Dựng khối trích dẫn LẠC QUAN từ chính tin gốc đang hiển thị khi
+ * người dùng bấm Trả lời: nội dung lấy từ bản đang thấy (tin đã thu
+ * hồi thì nội dung vốn đã rỗng ở đường đọc thường → unavailable).
+ * Server dựng lại bản chính thức khi gửi — bản này chỉ để khung hiện
+ * ngay, không chờ mạng.
+ */
+export function localQuoteOf(m: MessageView): MessageQuoteView {
+  return {
+    id: m.id,
+    seq: m.seq,
+    userIdFrom: m.userIdFrom,
+    excerpt: m.recalledAt ? '' : quoteExcerptOfText(m.fullMessage),
+    unavailable: Boolean(m.recalledAt),
+  };
+}
 
 /**
  * Mốc thời gian tương đối của tin cuối trong danh sách conversation
