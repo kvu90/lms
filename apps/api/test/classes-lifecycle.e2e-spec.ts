@@ -220,14 +220,16 @@ describe('class lifecycle (CLASS-0, #184)', () => {
       [JSON.stringify({ cohortId, userId: student3Id })],
     );
     const deadline = Date.now() + 20000;
-    let status: number | undefined;
+    let status1: number | undefined;
+    let status2: number | undefined;
     while (Date.now() < deadline) {
-      status = await cohortUeStatus(course1, student3Id);
-      if (status === 0) break;
+      status1 = await cohortUeStatus(course1, student3Id);
+      status2 = await cohortUeStatus(course2, student3Id);
+      if (status1 === 0 && status2 === 0) break;
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    expect(status).toBe(0);
-    expect(await cohortUeStatus(course2, student3Id)).toBe(0);
+    expect(status1).toBe(0);
+    expect(status2).toBe(0);
   });
 
   it('(7) đình chỉ thủ công theo khoá mang vết modifierId = giáo viên; kích hoạt lại xoá vết về đồng bộ', async () => {

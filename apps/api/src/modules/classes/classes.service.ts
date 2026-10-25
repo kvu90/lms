@@ -47,7 +47,7 @@ const CLASS_ROLE_DEFS = [
  */
 const CLASS_ROLE_GRANTS: Record<string, string[]> = {
   [CLASS_OWNER_ROLE]: [
-    'class:view', 'class:update', 'class:manageroster', 'class:assignwork', 'class:grade', 'class:share',
+    'class:view', 'class:update', 'class:delete', 'class:manageroster', 'class:assignwork', 'class:grade', 'class:share',
     'course:create', 'course:update', 'course:manageactivities', 'cohort:manage', 'cohort:view',
   ],
   [CLASS_ASSIGNER_ROLE]: ['class:view', 'class:assignwork', 'course:create', 'course:update', 'course:manageactivities'],

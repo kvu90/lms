@@ -665,6 +665,10 @@ export class EnrolService implements OnModuleInit {
    * Sự kiện thành viên cohort mới → ghi danh vào mọi khoá học có instance cohort tương ứng.
    */
   async onCohortMemberAdded(payload: { cohortId: string; userId: string }): Promise<void> {
+    // Guard trạng thái hiện tại (CLASS-0, #184): sự kiện có thể được
+    // consumer outbox phát lại MUỘN, sau khi user đã rời cohort —
+    // không ghi danh cho người hiện không còn trong cohort.
+    if (!(await this.groups.isCohortMember(payload.cohortId, payload.userId))) return;
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
       if (instance.status !== 0) continue;
@@ -677,6 +681,11 @@ export class EnrolService implements OnModuleInit {
    * Sự kiện rời cohort → rút/đình chỉ ghi danh cohort tương ứng.
    */
   async onCohortMemberRemoved(payload: { cohortId: string; userId: string }): Promise<void> {
+    // Guard trạng thái hiện tại (CLASS-0, #184): sự kiện removed phát
+    // lại muộn KHÔNG được đình chỉ người đã vào lại cohort — nguồn sự
+    // thật là cohort_members hiện tại, không phải thứ tự tới của sự
+    // kiện (đường in-process và consumer outbox có thể đan nhau).
+    if (await this.groups.isCohortMember(payload.cohortId, payload.userId)) return;
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
       const ue = await this.repo.getUserEnrolment(instance.id, payload.userId);
