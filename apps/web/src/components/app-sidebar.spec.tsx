@@ -51,8 +51,14 @@ function profileOf(id: string, username: string) {
   };
 }
 
-const ADMIN_ACCESS = { userId: ADMIN_ID, isSiteAdmin: true, assignments: [], contexts: [] };
-const STUDENT_ACCESS = { userId: STUDENT_ID, isSiteAdmin: false, assignments: [], contexts: [] };
+/**
+ * Fixture ảnh chụp quyền dùng chung: cả ba đều có dấu chân học tập qua
+ * hiện vật (hasLearnerArtifacts: true) nên nhóm "Học tập" hiện đủ cho
+ * các test cây điều hướng — quy tắc dấu chân (kể cả ca GV thuần ẩn)
+ * khoá riêng ở describe "nhóm Học tập theo dấu chân" cuối file.
+ */
+const ADMIN_ACCESS = { userId: ADMIN_ID, isSiteAdmin: true, assignments: [], contexts: [], hasLearnerArtifacts: true };
+const STUDENT_ACCESS = { userId: STUDENT_ID, isSiteAdmin: false, assignments: [], contexts: [], hasLearnerArtifacts: true };
 const TEACHER_ACCESS = {
   userId: TEACHER_ID,
   isSiteAdmin: false,
@@ -65,7 +71,13 @@ const TEACHER_ACCESS = {
       capabilities: ['question:add'],
     },
   ],
+  hasLearnerArtifacts: true,
 };
+
+const COURSE_CONTEXT_ID = '01900000-0000-7000-8000-0000000000e5';
+const COURSE_ID = '01900000-0000-7000-8000-0000000000f6';
+const COURSE_CATEGORY_ID = '01900000-0000-7000-8000-0000000000a7';
+const COURSE = { id: COURSE_ID, category: COURSE_CATEGORY_ID, fullName: 'Toán 6', shortName: 'TOAN6' };
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -74,13 +86,21 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function stubFetch(profile: unknown, access: unknown, unread = 0) {
+function stubFetch(
+  profile: unknown,
+  access: unknown,
+  unread = 0,
+  opts: { courses?: unknown[]; guardianChildren?: unknown[] } = {},
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
       if (url === '/api/v1/users/me') return jsonResponse(profile);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(access);
-      if (url === '/api/v1/courses') return jsonResponse([]);
+      if (url === '/api/v1/courses') return jsonResponse(opts.courses ?? []);
+      if (url === '/api/v1/guardian-links/mine/students') {
+        return opts.guardianChildren ? jsonResponse(opts.guardianChildren) : jsonResponse({}, 404);
+      }
       if (url === '/api/v1/notifications/unread-count') return jsonResponse({ unread });
       if (url === '/api/v1/auth/refresh') return jsonResponse({}, 401);
       return jsonResponse({}, 404);
@@ -324,7 +344,10 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
     expect(screen.queryByRole('button', { name: 'Hệ thống & dữ liệu' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ngân hàng câu hỏi' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Học tập' }));
+    // Nhóm Học tập nay gác theo ảnh chụp quyền (bất đồng bộ): phải chờ
+    // nút cha xuất hiện sau khi snapshot về, không dùng getByRole đồng
+    // bộ như khi nhóm còn render vô điều kiện.
+    await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
     expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kế hoạch học tập' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
@@ -374,5 +397,95 @@ describe('cây điều hướng sidebar — chế độ rail icon', () => {
     await userEvent.click(parentButton);
     expect(sidebarRoot(container)).toHaveAttribute('data-state', 'expanded');
     expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
+  });
+});
+
+describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () => {
+  const TEACHER_PURE = { ...TEACHER_ACCESS, hasLearnerArtifacts: false };
+  const NO_FOOTPRINT = { userId: STUDENT_ID, isSiteAdmin: false, assignments: [], contexts: [], hasLearnerArtifacts: false };
+  // Gán vai học viên tại context khoá (không phải staff: không có
+  // grade:viewall) — nhánh (M): khoá lọt vào perms.learning.
+  const LEARNER_ACCESS = {
+    userId: STUDENT_ID,
+    isSiteAdmin: false,
+    assignments: [
+      {
+        id: '01900000-0000-7000-8000-0000000000b8',
+        roleId: '01900000-0000-7000-8000-0000000000b9',
+        roleShortname: 'student',
+        roleName: 'Học viên',
+        contextId: COURSE_CONTEXT_ID,
+        contextLevel: 50,
+        contextPath: `/1/${COURSE_CONTEXT_ID}`,
+        instanceId: COURSE_ID,
+      },
+    ],
+    contexts: [
+      {
+        contextId: COURSE_CONTEXT_ID,
+        contextLevel: 50,
+        contextPath: `/1/${COURSE_CONTEXT_ID}`,
+        capabilities: ['course:view'],
+      },
+    ],
+    hasLearnerArtifacts: false,
+  };
+
+  it('1. GV thuần (dạy, không học ở đâu, không hiện vật): không có nút nhóm Học tập', async () => {
+    seedTokens();
+    stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_PURE);
+    renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Tổng quan' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Học tập' })).not.toBeInTheDocument();
+  });
+
+  it('2. GV có ghi danh học viên ở khoá khác: nhóm hiện, mở ra thấy Huy hiệu + Kế hoạch học tập', async () => {
+    seedTokens();
+    stubFetch(profileOf(TEACHER_ID, 'teacher1'), { ...LEARNER_ACCESS, userId: TEACHER_ID }, 0, { courses: [COURSE] });
+    renderShell();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
+    expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kế hoạch học tập' })).toBeInTheDocument();
+  });
+
+  it('3. HS (ghi danh học viên): nhóm hiện như hiện tại', async () => {
+    seedTokens();
+    stubFetch(profileOf(STUDENT_ID, 'student1'), LEARNER_ACCESS, 0, { courses: [COURSE] });
+    renderShell();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
+    expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kế hoạch học tập' })).toBeInTheDocument();
+  });
+
+  it('4. Hết ghi danh nhưng còn hiện vật: nhóm vẫn hiện', async () => {
+    seedTokens();
+    stubFetch(profileOf(STUDENT_ID, 'student1'), STUDENT_ACCESS);
+    renderShell();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Học tập' }));
+    expect(await screen.findByRole('link', { name: 'Huy hiệu' })).toBeInTheDocument();
+  });
+
+  it('5. Tài khoản mới (mọi tín hiệu rỗng): nhóm ẩn nhưng mục trực tiếp Khoá học vẫn hiện', async () => {
+    seedTokens();
+    stubFetch(profileOf(STUDENT_ID, 'newuser'), NO_FOOTPRINT);
+    renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Khoá học' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Học tập' })).not.toBeInTheDocument();
+  });
+
+  it('6. Phụ huynh thuần (có liên kết giám hộ, không dấu chân): nhóm ẩn, mục Phụ huynh hiện', async () => {
+    seedTokens();
+    stubFetch(profileOf(STUDENT_ID, 'parent1'), NO_FOOTPRINT, 0, {
+      guardianChildren: [{ student: { id: '01900000-0000-7000-8000-0000000000c0' } }],
+    });
+    renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Phụ huynh' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Học tập' })).not.toBeInTheDocument();
   });
 });

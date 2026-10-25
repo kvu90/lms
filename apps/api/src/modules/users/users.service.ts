@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { MyAccessView } from '@lms/contracts';
+import { and, eq } from 'drizzle-orm';
+import { badgeIssued, learningPlans } from '../../db/schema';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -95,7 +97,18 @@ export class UsersService {
         capabilities,
       });
     }
-    return { userId, isSiteAdmin, assignments, contexts };
+    // Cờ hiện vật học tập (issue #176, nhánh A của dấu chân học tập):
+    // hai EXISTS qua index sẵn có — badge_issued_user_id_idx (chỉ tính
+    // huy hiệu chưa thu hồi) và learning_plans_user_id_idx — không thêm
+    // schema, không thêm request phía web (cờ đi kèm ảnh chụp quyền).
+    const [liveBadge] = await this.repo.dbHandle
+      .select({ id: badgeIssued.id }).from(badgeIssued)
+      .where(and(eq(badgeIssued.userId, userId), eq(badgeIssued.revoked, false))).limit(1);
+    const [ownPlan] = await this.repo.dbHandle
+      .select({ id: learningPlans.id }).from(learningPlans)
+      .where(eq(learningPlans.userId, userId)).limit(1);
+    const hasLearnerArtifacts = !!liveBadge || !!ownPlan;
+    return { userId, isSiteAdmin, assignments, contexts, hasLearnerArtifacts };
   }
 
   /**
