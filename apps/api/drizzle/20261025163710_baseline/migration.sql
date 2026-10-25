@@ -3107,3 +3107,7 @@ CREATE POLICY "tenant_isolation" ON "notification_dispatch_log" USING (current_s
 ALTER TABLE "classes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "classes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+--> statement-breakpoint
+ALTER TABLE "message_conversation_members" ADD COLUMN "pinned_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "message_conversation_members" ADD COLUMN "archived_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "message_conversation_members" ADD COLUMN "muted" boolean DEFAULT false NOT NULL;

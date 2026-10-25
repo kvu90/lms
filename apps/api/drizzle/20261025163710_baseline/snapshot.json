@@ -16372,6 +16372,60 @@
         "n|col|public.privacy_requests.id",
         "e|uniqueness|public.privacy_requests.id"
       ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "message_conversation_members",
+        "pinned_at"
+      ],
+      "writes": [
+        "s|col|public.message_conversation_members.pinned_at",
+        "n|col|public.message_conversation_members.pinned_at",
+        "e|col|public.message_conversation_members.pinned_at"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_members",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "message_conversation_members",
+        "archived_at"
+      ],
+      "writes": [
+        "s|col|public.message_conversation_members.archived_at",
+        "n|col|public.message_conversation_members.archived_at",
+        "e|col|public.message_conversation_members.archived_at"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_members",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "message_conversation_members",
+        "muted"
+      ],
+      "writes": [
+        "s|col|public.message_conversation_members.muted",
+        "n|col|public.message_conversation_members.muted",
+        "e|col|public.message_conversation_members.muted"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversation_members",
+        "n|sch|public"
+      ]
     }
   ],
   "ddl": [
@@ -33995,6 +34049,45 @@
       "notNull": true,
       "dimensions": 0,
       "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_members",
+      "name": "pinned_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_members",
+      "name": "archived_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversation_members",
+      "name": "muted",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
       "generated": null,
       "identity": null,
       "entityType": "columns"
