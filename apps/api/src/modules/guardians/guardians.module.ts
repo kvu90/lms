@@ -4,6 +4,7 @@ import { AccessModule } from '../access/access.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { GradesModule } from '../grades/grades.module';
 import { MessagingModule } from '../messaging/messaging.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { GuardianSurfaceController, GuardianLinksController, GuardianViewsController } from './guardians.controller';
 import { GuardianDigestConsumer } from './guardian-digest.consumer';
@@ -27,7 +28,7 @@ import { GuardiansService } from './guardians.service';
  * module này nên không có vòng phụ thuộc).
  */
 @Module({
-  imports: [AccessModule, UsersModule, GradesModule, EventsModule, DashboardModule, MessagingModule],
+  imports: [AccessModule, UsersModule, GradesModule, EventsModule, DashboardModule, MessagingModule, TenantsModule],
   controllers: [GuardianLinksController, GuardianViewsController, GuardianSurfaceController],
   providers: [
     GuardiansRepository, GuardiansService, GuardianViewRepository, GuardianViewService,

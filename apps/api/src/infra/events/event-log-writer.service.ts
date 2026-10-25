@@ -11,6 +11,8 @@ export interface OutboxRowLike {
   aggregate: string;
   type: string;
   payload: Record<string, unknown> | null;
+  /** Tenant của ngữ cảnh phát sinh (cột trên outbox_events, TENANT-0 #168). */
+  tenantId?: string | null;
   occurredAt: Date;
 }
 
@@ -98,6 +100,7 @@ export class EventLogWriter {
         eventType: row.type,
         contextId,
         userId: actorId,
+        tenantId: row.tenantId ?? str(source.tenantId),
         payload,
         createdAt: row.occurredAt,
       });

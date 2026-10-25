@@ -4,6 +4,7 @@ import { AccessModule } from '../access/access.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { QuizModule } from '../quiz/quiz.module';
 import { SiteConfigModule } from '../site-config/site-config.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { ExamDossiersController } from './exam-dossiers.controller';
 import { ExamDossiersService } from './exam-dossiers.service';
 import { ExamMatrixGenerateController, ExamPapersController } from './exam-papers.controller';
@@ -21,7 +22,7 @@ import { ExamPapersService } from './exam-papers.service';
  * ExamPapersService.
  */
 @Module({
-  imports: [AccessModule, EventsModule, QuestionsModule, QuizModule, SiteConfigModule],
+  imports: [AccessModule, EventsModule, QuestionsModule, QuizModule, SiteConfigModule, TenantsModule],
   controllers: [ExamPapersController, ExamMatrixGenerateController, ExamDossiersController],
   providers: [ExamPapersRepository, ExamPapersService, ExamDossiersService],
   exports: [ExamPapersService],

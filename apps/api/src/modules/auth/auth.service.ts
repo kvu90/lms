@@ -11,6 +11,7 @@ import type { UserRow } from '../users/users.repository';
 import { AuthRepository } from './auth.repository';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
+import { TenantsService } from '../tenants/tenants.service';
 
 export interface TokenPair { accessToken: string; refreshToken: string; expiresIn: number }
 
@@ -84,6 +85,7 @@ export class AuthService {
     private readonly contexts: ContextsService,
     private readonly totp: TotpService,
     private readonly outbox: OutboxService,
+    private readonly tenants: TenantsService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -273,18 +275,26 @@ export class AuthService {
    */
   async issueTokensFor(user: UserRow, client?: SessionClientInfo): Promise<TokenPair> { return this.issueTokens(user, client); }
 
-  private async issueTokens(user: UserRow, client?: SessionClientInfo): Promise<TokenPair> {
+  /**
+   * Phát hành cặp token: claim `tid` ghi tenant hiệu lực của phiên
+   * (TENANT-0, #168) — không truyền `tenantId` thì phân giải tenant mặc
+   * định xác định của user; family refresh lưu lại tid để refresh giữ
+   * đúng tenant, switch-tenant cấp family mới.
+   */
+  private async issueTokens(user: UserRow, client?: SessionClientInfo, tenantId?: string): Promise<TokenPair> {
     const familyId = randomUUID();
     const refreshToken = randomBytes(48).toString('base64url');
     const ttlDays = this.config.get<number>('REFRESH_TOKEN_TTL_DAYS') ?? 30;
+    const tid = tenantId ?? (await this.tenants.resolveDefaultTenant(user.id)).id;
     await this.repo.createFamily({
       familyId, userId: user.id, currentTokenHash: hashToken(refreshToken),
       ip: client?.ip ?? null, userAgent: client?.userAgent ?? null,
+      tenantId: tid,
       expiresAt: new Date(Date.now() + ttlDays * 86_400_000),
     });
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, username: user.username, sid: familyId },
+      { sub: user.id, username: user.username, sid: familyId, tid },
       { expiresIn: accessTtl },
     );
     return { accessToken, refreshToken, expiresIn: accessTtl };
@@ -314,9 +324,57 @@ export class AuthService {
     }
     const newRefresh = randomBytes(48).toString('base64url');
     await this.repo.rotateFamily(family.id, hashToken(newRefresh), family.currentTokenHash);
+    // Giữ `tid` của family; tenant đã khoá hoặc membership đã kết thúc
+    // thì phân giải lại tenant mặc định thay vì cấp token vào ngõ cụt.
+    let tid = family.tenantId ?? undefined;
+    if (tid) {
+      try {
+        await this.tenants.resolveSwitchTarget(user.id, tid);
+      } catch {
+        tid = undefined;
+      }
+    }
+    if (!tid) {
+      tid = (await this.tenants.resolveDefaultTenant(user.id)).id;
+      if (tid !== family.tenantId) await this.repo.setFamilyTenant(family.id, tid);
+    }
     const accessTtl = this.config.get<number>('ACCESS_TOKEN_TTL_SECONDS') ?? 900;
-    const accessToken = await this.jwt.signAsync({ sub: user.id, username: user.username, sid: family.familyId }, { expiresIn: accessTtl });
+    const accessToken = await this.jwt.signAsync({ sub: user.id, username: user.username, sid: family.familyId, tid }, { expiresIn: accessTtl });
     return { accessToken, refreshToken: newRefresh, expiresIn: accessTtl };
+  }
+
+  /**
+   * Danh sách tenant của chính user (cho bộ chọn tenant) — membership
+   * active, tenant đang active, kèm cờ tenant hiệu lực của phiên.
+   */
+  async myTenants(user: UserRow, currentTenantId?: string) {
+    return this.tenants.listMyTenants(user.id, currentTenantId);
+  }
+
+  /**
+   * Chuyển tenant trong phiên (TENANT-0, #168): kiểm chứng đích qua
+   * TenantsService (tenant active + membership active), thu hồi family
+   * hiện tại và cấp cặp token mới mang `tid` của tenant đích — vai trò
+   * ở mỗi tenant độc lập vì evaluator luôn tính theo cây của tenant
+   * hiệu lực, không mang vai từ tenant này sang tenant khác.
+   */
+  async switchTenant(user: UserRow, tenantId: string, currentFamilyId?: string, client?: SessionClientInfo): Promise<TokenPair> {
+    const target = await this.tenants.resolveSwitchTarget(user.id, tenantId);
+    if (currentFamilyId) {
+      const family = await this.repo.getFamilyById(currentFamilyId);
+      if (family && !family.revoked && family.userId === user.id) {
+        await this.repo.revokeFamily(family.id);
+      }
+    }
+    const tokens = await this.issueTokens(user, client, target.id);
+    await this.recordAuthEvent('user_logged_in', {
+      userId: user.id,
+      actorId: user.id,
+      method: 'switch-tenant',
+      tenantId: target.id,
+      ip: client?.ip ?? null,
+    });
+    return tokens;
   }
 
   /**

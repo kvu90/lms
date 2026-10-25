@@ -32,7 +32,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
   async function makeLink(guardianId: string, studentId: string, createdDaysAgo = 10, status = 'active') {
     // SQL thô: bảng thật còn các cột NOT NULL (relationship, created_by)
     // nằm ngoài view subset của worker.
-    const rows = await db.execute(sql`insert into guardian_links (guardian_user_id, student_user_id, relationship, status, created_by, created_at, updated_at) values (${guardianId}, ${studentId}, 'Cha', ${status}, ${guardianId}, ${new Date(Date.now() - createdDaysAgo * DAY)}, now()) returning id`);
+    const rows = await db.execute(sql`insert into guardian_links (guardian_user_id, student_user_id, relationship, status, created_by, created_at, updated_at, tenant_id) values (${guardianId}, ${studentId}, 'Cha', ${status}, ${guardianId}, ${new Date(Date.now() - createdDaysAgo * DAY)}, now(), (select id from tenants where slug = 'worker-fixture')) returning id`);
     return (rows.rows[0] as { id: string }).id;
   }
 
@@ -55,10 +55,10 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
 
   /** Khoá + quiz có hạn đóng cách đây `closedDaysAgo` ngày + ghi danh cho học sinh. */
   async function makeOverdueQuiz(studentId: string, closedDaysAgo: number) {
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`ph2-cat-${suffix}-${Math.random()}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`ph2-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `ph2${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name, visible) values (${catId}, 'PH2 course', ${short}, true) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'PH2 course', ${short}, true) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
@@ -81,6 +81,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     context = await Test.createTestingModule({ imports: [(await import('../src/worker.module')).WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     processor = context.get(GuardianDigestProcessor);
   });
   afterAll(async () => { await context.close(); });

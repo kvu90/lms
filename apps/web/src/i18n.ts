@@ -343,6 +343,7 @@ export const appResources = {
   vi: {
     app: {
       navProfile: 'Hồ sơ',
+      navTenant: 'Không gian làm việc',
       navCourses: 'Khoá học',
       navQuestions: 'Ngân hàng câu hỏi',
       navBankSystem: 'Ngân hàng hệ thống',
@@ -1946,6 +1947,7 @@ export const appResources = {
   en: {
     app: {
       navProfile: 'Profile',
+      navTenant: 'Workspace',
       navCourses: 'Courses',
       navQuestions: 'Question bank',
       navBankSystem: 'System bank',

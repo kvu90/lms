@@ -21,6 +21,7 @@ const SETTINGS: SiteSetting[] = [
     defaultValue: false,
     value: false,
     source: 'default',
+    scope: 'platform',
   },
   {
     component: 'core',
@@ -29,8 +30,9 @@ const SETTINGS: SiteSetting[] = [
     defaultValue: 'LMS',
     value: 'LMS Trường tôi',
     source: 'database',
+    scope: 'both',
   },
-  { component: 'core', name: 'lang', type: 'enum', defaultValue: 'vi', value: 'vi', source: 'default' },
+  { component: 'core', name: 'lang', type: 'enum', defaultValue: 'vi', value: 'vi', source: 'default', scope: 'both' },
 ];
 
 interface RecordedCall {

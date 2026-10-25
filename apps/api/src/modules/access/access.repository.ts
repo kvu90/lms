@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { capabilities, config, context, role, roleAssignments, roleCapabilities } from '../../db/schema';
+import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants } from '../../db/schema';
 
 export type ContextRow = typeof context.$inferSelect;
 export type RoleRow = typeof role.$inferSelect;
@@ -71,6 +71,23 @@ export class AccessRepository {
   async bumpContextVersions(pathPrefix: string): Promise<void> {
     await this.db.update(context).set({ version: sql`${context.version} + 1` })
       .where(or(eq(context.path, pathPrefix), like(context.path, `${pathPrefix}/%`)));
+  }
+
+  // --- tenants (cổng membership của evaluator, TENANT-0 #168) --------------
+
+  /** Thông tin cổng của tenant (kind + status) theo id; undefined khi tenant không tồn tại. */
+  async getTenantGateInfo(tenantId: string): Promise<{ kind: string; status: string } | undefined> {
+    const [row] = await this.db.select({ kind: tenants.kind, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
+    return row;
+  }
+
+  /** Trạng thái membership của user trong tenant; undefined khi chưa từng là thành viên. */
+  async getMembershipStatus(tenantId: string, userId: string): Promise<string | undefined> {
+    const [row] = await this.db
+      .select({ status: tenantMemberships.status })
+      .from(tenantMemberships)
+      .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.userId, userId)));
+    return row?.status;
   }
 
   // --- capabilities ---------------------------------------------------------

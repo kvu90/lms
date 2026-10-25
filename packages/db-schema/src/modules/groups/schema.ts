@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
+import { tenants } from '../tenants/schema';
 
 /** Groups inside one course (Moodle `groups` → `course_groups`, reserved-word rename). */
 export const courseGroups = pgTable(
@@ -76,9 +77,10 @@ export const groupingsGroups = pgTable(
       index('groupings_groups_group_id_idx').on(table.groupId),primaryKey({ columns: [table.groupingId, table.groupId] })],
 );
 
-/** Cohorts live at system or course-category context (Moodle `cohort`). context_id references `context`. */
+/** Cohorts live at system or course-category context (Moodle `cohort`). context_id references `context`. `tenant_id` = tenant sở hữu (TENANT-0, #168) — tổ chuyên môn nằm trọn trong một tenant. */
 export const cohort = pgTable('cohort', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
   name: text('name').notNull(),
   idNumber: text('id_number').notNull().default(''),
   description: text('description').notNull().default(''),
@@ -89,6 +91,7 @@ export const cohort = pgTable('cohort', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
+      index('cohort_tenant_id_idx').on(table.tenantId),
       index('cohort_context_id_idx').on(table.contextId),
   ]);
 

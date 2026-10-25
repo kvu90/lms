@@ -27,6 +27,25 @@ export class ContextsService {
   }
 
   /**
+   * Đảm bảo context TENANT (level 20) của một tenant tồn tại — mỗi tenant
+   * đúng MỘT context tenant, instance_id = tenants.id, cha là context hệ
+   * thống (TENANT-0, #168). Mọi context thuộc tenant (danh mục gốc,
+   * cohort…) neo dưới context này nên cây của tenant tách hẳn khỏi cây
+   * của tenant khác; PermissionEvaluator dùng nó làm neo cổng membership.
+   */
+  async ensureTenantContext(tenantId: string): Promise<ContextRow> {
+    const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.TENANT, tenantId);
+    if (existing) return existing;
+    const system = await this.ensureSystemContext();
+    return this.createContext(CONTEXT_LEVELS.TENANT, tenantId, system.id);
+  }
+
+  /** Context tenant của một tenant; undefined nếu chưa được tạo. */
+  async getTenantContext(tenantId: string): Promise<ContextRow | undefined> {
+    return this.getByLevelInstance(CONTEXT_LEVELS.TENANT, tenantId);
+  }
+
+  /**
    * Tạo context con dưới một context cha, tính path/depth; cha không tồn tại → lỗi access.parent_context_not_found.
    */
   async createContext(contextLevel: number, instanceId: string, parentId?: string): Promise<ContextRow> {

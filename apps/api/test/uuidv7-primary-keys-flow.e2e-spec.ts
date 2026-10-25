@@ -31,12 +31,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
 
   it('(1) raw SQL inserts without an id get version-7 ids, and the single baseline migration defaults every PK to uuidv7()', async () => {
     const cat = await pg.query(
-      `insert into course_categories (name) values ($1) returning id, uuid_extract_version(id) as v`,
+      `insert into course_categories (name, tenant_id) values ($1, (select id from tenants where slug = 'trang-chinh')) returning id, uuid_extract_version(id) as v`,
       [`${run}-cat`],
     );
     expect(cat.rows[0].v).toBe(7);
     const course = await pg.query(
-      `insert into course (category, full_name, short_name) values ($1, $2, $3) returning id, uuid_extract_version(id) as v`,
+      `insert into course (category, tenant_id, full_name, short_name) values ($1, (select tenant_id from course_categories where id = $1), $2, $3) returning id, uuid_extract_version(id) as v`,
       [cat.rows[0].id, `${run} course`, `${run}c`],
     );
     expect(course.rows[0].v).toBe(7);
@@ -137,7 +137,11 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // camera, issue #112 — lô phiếu in/chụp + từng phiếu đã quét, cả hai
     // PK id uuidv7) → trên cây hợp nhất với main 27f67cc (MCP-1 #164 đã
     // merge): 197 bảng tổng, 183 bảng có PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(183);
+    // + tenants, tenant_memberships, tenant_config (đợt TENANT-0 nền
+    // multi-tenant, issue #168 — cả ba đều PK id uuidv7) → trên cây
+    // hợp nhất với main 3aee4454: 200 bảng tổng, 186 bảng có PK mặc
+    // định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(186);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -152,13 +156,14 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 185 bảng có cột `id`: 183 bảng PK uuidv7 như khuôn chung (gồm 2
-    // bảng giấy của CAM-0, issue #112) + ĐÚNG
+    // 188 bảng có cột `id`: 186 bảng PK uuidv7 như khuôn chung (gồm 2
+    // bảng giấy của CAM-0, issue #112, và 3 bảng tenant của TENANT-0,
+    // issue #168) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(185);
+    expect(defaults.rows.length).toBe(188);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {

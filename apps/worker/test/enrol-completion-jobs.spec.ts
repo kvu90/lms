@@ -33,11 +33,12 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     // Create a real category+course+section via raw SQL (FKs in the shared DB require real rows;
     // the worker's schema view intentionally only carries the tables its processors touch).
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat-${suffix}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, 'Worker course', ${`wk${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     const sectionRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
     const sectionId = (sectionRows.rows[0] as { id: string }).id;
@@ -131,7 +132,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
 
     // course (prerequisite): incomplete until the prerequisite course's
     // stored completion row is complete.
-    const prereqRows = await db.execute(sql`insert into course (category, full_name, short_name) values ((select category from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}) returning id`);
+    const prereqRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}) returning id`);
     const prereqId = (prereqRows.rows[0] as { id: string }).id;
     await replaceCriteria([{ criteriaType: 'course', courseInstance: prereqId }]);
     await processor.process({ data: { courseId } } as never);

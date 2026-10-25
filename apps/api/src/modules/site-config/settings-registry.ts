@@ -7,6 +7,9 @@
  */
 export type SiteSettingType = 'string' | 'number' | 'boolean' | 'enum';
 
+/** Tầng được phép đổi một setting (TENANT-0, #168): platform = chỉ platform; tenant = tenant ghi đè được qua TenantConfigService; both = cả hai. */
+export type SiteSettingScope = 'platform' | 'tenant' | 'both';
+
 export interface SiteSettingDefinition {
   /** `core` cho cấu hình site (bảng `config`); tên plugin/component khác lưu ở `plugin_config`. */
   component: string;
@@ -15,24 +18,25 @@ export interface SiteSettingDefinition {
   /** Danh sách giá trị cho phép khi type = 'enum'. */
   options?: readonly string[];
   defaultValue: string | number | boolean;
+  scope: SiteSettingScope;
 }
 
 /** Danh sách setting đã đăng ký — thêm setting mới là thêm một dòng ở đây kèm giá trị mặc định. */
 export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
-  { component: 'core', name: 'fullname', type: 'string', defaultValue: 'LMS' },
-  { component: 'core', name: 'lang', type: 'enum', options: ['vi', 'en'], defaultValue: 'vi' },
-  { component: 'core', name: 'timezone', type: 'string', defaultValue: 'Asia/Saigon' },
-  { component: 'core', name: 'sitepolicy', type: 'string', defaultValue: '' },
+  { component: 'core', name: 'fullname', type: 'string', defaultValue: 'LMS', scope: 'both' },
+  { component: 'core', name: 'lang', type: 'enum', options: ['vi', 'en'], defaultValue: 'vi', scope: 'both' },
+  { component: 'core', name: 'timezone', type: 'string', defaultValue: 'Asia/Saigon', scope: 'both' },
+  { component: 'core', name: 'sitepolicy', type: 'string', defaultValue: '', scope: 'platform' },
   // Tương đương `messagingallusers` của Moodle: false = chỉ nhắn tin cho
   // contact hoặc người học cùng khoá; true = mọi người dùng nhắn cho nhau.
-  { component: 'core', name: 'messagingallusers', type: 'boolean', defaultValue: false },
+  { component: 'core', name: 'messagingallusers', type: 'boolean', defaultValue: false, scope: 'platform' },
   // Cửa sổ THU HỒI tin nhắn (vòng đời tin nhắn theo vai, issue #33),
   // đơn vị PHÚT tính từ lúc gửi: trong cửa sổ, tác giả thu hồi được
   // tin cho mọi người; ngoài cửa sổ chỉ còn xoá phía mình và đường
   // kiểm duyệt. 0 = tắt hẳn thu hồi. Mặc định 15 phút theo chuẩn các
   // app nhắn tin phổ biến.
-  { component: 'core', name: 'messagingrecallwindowminutes', type: 'number', defaultValue: 15 },
-  { component: 'badges', name: 'enabled', type: 'boolean', defaultValue: true },
+  { component: 'core', name: 'messagingrecallwindowminutes', type: 'number', defaultValue: 15, scope: 'both' },
+  { component: 'badges', name: 'enabled', type: 'boolean', defaultValue: true, scope: 'both' },
   // Cấp duyệt thứ hai (ban giám hiệu) cho BỘ HỒ SƠ đề định kỳ (EB-3,
   // issue #165): true = sau cấp tổ trưởng, bộ hồ sơ phải qua thêm mốc
   // duyệt BGH mới hiệu lực; false = một cấp duyệt là đủ. Căn cứ hồ sơ
@@ -44,7 +48,12 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // cấu hình thật (theo tenant/bank) chốt sau research #166 — khi đó
   // chỉ dời điểm đọc này, KHÔNG đổi máy trạng thái bộ hồ sơ. EB-3
   // không xây UI/API cấu hình riêng cho công tắc này.
-  { component: 'exam', name: 'requireboardapproval', type: 'boolean', defaultValue: false },
+  // TENANT-0 (#168): đích cuối của công tắc là cấu hình THEO TENANT
+  // (mỗi trường một quy chế) nên scope = 'both' — tenant admin ghi đè
+  // được qua TenantConfigService; điểm đọc hiện tại của EB-3 vẫn ở
+  // tầng platform (SiteConfigService) và sẽ dời sang
+  // TenantConfigService.getEffectiveValue ở lát tenant hoá bề mặt đề.
+  { component: 'exam', name: 'requireboardapproval', type: 'boolean', defaultValue: false, scope: 'both' },
   // Chấm bài giấy bằng camera (CAM-0, issue #112): ngưỡng quyết định hai
   // tầng của OMR — mật độ mực chuẩn hoá 0..1 của một ô; ô trên
   // omrfilldensity = đã tô, dưới omrblankdensity = trống, ở giữa là MƠ
@@ -53,10 +62,16 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // chắn. paperscanretentionmonths là số tháng giữ ảnh gốc phiếu quét
   // (mặc định theo đề xuất research: hết năm học + 1 học kỳ ≈ 18 tháng;
   // mốc xoá được vật hoá vào từng phiếu lúc tải lên).
-  { component: 'mod_quiz', name: 'omrfilldensity', type: 'number', defaultValue: 0.42 },
-  { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16 },
-  { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1 },
-  { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18 },
+  // TENANT-0 (#168, đóng gói lại lên main 3aee4454): 4 setting CAM-0
+  // thêm ở main chưa có scope trong khi SiteSettingDefinition bắt
+  // buộc scope — gán 'platform' để giữ nguyên hành vi cũ (một giá trị
+  // toàn cục do platform đặt, tenant đọc qua fallback platform; bề
+  // mặt tenant từ chối ghi đè). Không chọn 'both' để khỏi mở thêm
+  // quyền ghi đè theo tenant ngoài phạm vi đóng gói.
+  { component: 'mod_quiz', name: 'omrfilldensity', type: 'number', defaultValue: 0.42, scope: 'platform' },
+  { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16, scope: 'platform' },
+  { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1, scope: 'platform' },
+  { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18, scope: 'platform' },
 ];
 
 /**

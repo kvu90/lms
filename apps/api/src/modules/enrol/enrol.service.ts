@@ -7,6 +7,7 @@ import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.servic
 import { CoursesService } from '../courses/courses.service';
 import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.repository';
 
 /** Dòng gán vai thuộc về một enrol instance: đúng dòng này (và chỉ dòng này) bị gỡ khi instance rút/đổi vai (issue #157). */
@@ -69,6 +70,7 @@ export class EnrolService implements OnModuleInit {
     private readonly outbox: OutboxService,
     private readonly messaging: MessagingService,
     private readonly i18n: I18nService,
+    private readonly tenants: TenantsService,
   ) {}
 
   /**
@@ -289,6 +291,11 @@ export class EnrolService implements OnModuleInit {
         return row;
       });
     }
+    // Ghi danh vào khoá của tenant nào thì thuộc tenant đó (TENANT-0,
+    // #168): membership active được đảm bảo ngay tại đây để cổng
+    // membership của evaluator cho qua các vai ghi danh vừa cấp.
+    const courseTenantId = await this.courses.getCourseTenantId(instance.courseId);
+    if (courseTenantId) await this.tenants.ensureActiveMembership(courseTenantId, userId);
     if (instance.roleId) {
       const courseCtxId = await this.courses.courseContextId(instance.courseId);
       // Dòng gán mang truy vết của chính instance này — unenrol/đổi vai

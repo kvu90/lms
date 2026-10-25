@@ -31,9 +31,10 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat3-${suffix}`}, '') returning id`);
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat3-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, 'Worker grades course', ${`wk3${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker grades course', ${`wk3${suffix}`}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
   });
   afterAll(async () => { await context.close(); });
@@ -76,9 +77,9 @@ describe('Worker grades: grade-regrade + completion grade criterion', () => {
   it('grade-regrade computes calculated items from idNumber formulas and excludes outcome/scale items from numeric aggregation', async () => {
     // Khoá học riêng để không lẫn với total của test trước.
     const sfx = `${suffix}c`;
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`worker-cat3c-${sfx}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat3c-${sfx}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId2 = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId2}, 'Worker calc course', ${`wk3c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId2}, (select tenant_id from course_categories where id = ${catId2}), 'Worker calc course', ${`wk3c${suffix}`}) returning id`);
     const course2 = (courseRows.rows[0] as { id: string }).id;
     const [root2] = await db.insert(gradeCategories).values({ courseId: course2, parent: null, fullName: '', aggregation: 'natural', depth: 1 }).returning();
     const [courseItem2] = await db.insert(gradeItems).values({ courseId: course2, categoryId: root2.id, itemName: 'Course total', itemType: 'course', itemInstance: course2, gradeMax: 100 }).returning();

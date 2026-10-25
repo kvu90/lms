@@ -15,6 +15,7 @@ import { sql } from 'drizzle-orm';
 import { subjects } from '../curriculum/schema';
 import { question, questionBanks } from '../questions/schema';
 import { examMatrices, examMatrixCells } from '../quiz/schema';
+import { tenants } from '../tenants/schema';
 
 /** Một ô trong bản chụp cấu trúc của đề recipe (EB-2): tiêu chí rút + số câu + điểm của ô tại đúng matrix version đã ghim. */
 export interface RecipeCellSpec {
@@ -63,6 +64,8 @@ export interface RecipeSpec {
  */
 export const examPapers = pgTable('exam_papers', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  /** Tenant sở hữu (TENANT-0, #168) — luôn bằng tenant_id của bank chủ; NULL khi bank là bank platform. */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   bankId: uuid('bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
   kind: text('kind').notNull().default('snapshot'),
   status: text('status').notNull().default('draft'),
@@ -84,6 +87,7 @@ export const examPapers = pgTable('exam_papers', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
+      index('exam_papers_tenant_id_idx').on(table.tenantId),
       index('exam_papers_bank_id_idx').on(table.bankId),
       index('exam_papers_status_idx').on(table.status),
       index('exam_papers_created_by_idx').on(table.createdBy),

@@ -37,6 +37,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userPrefOff}, ${`wk-p-${suffix}`}, ${`wkp${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
@@ -112,9 +113,9 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   });
 
   it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`wk-cat4-${suffix}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk-cat4-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values (${catId}, 'Worker engagement course', ${`wk4c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker engagement course', ${`wk4c${suffix}`}) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userId: userA, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
 
@@ -150,7 +151,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
       where not exists (select 1 from context where context_level = 10 and instance_id is null)`);
     const sysRows = await db.execute(sql`select id from context where context_level = 10 and instance_id is null limit 1`);
     const systemCtxId = (sysRows.rows[0] as { id: string }).id;
-    const cohortRows = await db.execute(sql`insert into cohort (name, context_id) values (${`wk-cohort-${suffix}`}, ${systemCtxId}) returning id`);
+    const cohortRows = await db.execute(sql`insert into cohort (name, context_id, tenant_id) values (${`wk-cohort-${suffix}`}, ${systemCtxId}, (select id from tenants where slug = 'worker-fixture')) returning id`);
     const cohortId = (cohortRows.rows[0] as { id: string }).id;
     await db.insert(cohortMembers).values({ cohortId: cohortId, userId: userA });
     // Profile custom field (core_user/user) with a value for userA only.
@@ -159,7 +160,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     const [field] = await db.insert(customFieldField).values({ categoryId: category.id, shortName, name: 'WK department', type: 'text' }).returning();
     await db.insert(customFieldData).values({ fieldId: field.id, instanceId: userA, value: 'Engineering' });
     // A completed course for userA (completed now).
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name) values ((select id from course_categories limit 1), 'Worker leaf course', ${`wklc${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values ((select id from course_categories order by id limit 1), (select tenant_id from course_categories order by id limit 1), 'Worker leaf course', ${`wklc${suffix}`}) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userId: userA, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
 

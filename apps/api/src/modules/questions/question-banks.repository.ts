@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  learningOutcomes, question, questionAttempts, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
+  course, learningOutcomes, question, questionAttempts, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
   quizSlots, role, roleAssignments, users,
 } from '../../db/schema';
 
@@ -46,11 +46,22 @@ export class QuestionBanksRepository {
       .where(and(eq(questionBanks.scope, 'personal'), eq(questionBanks.ownerId, ownerId), eq(questionBanks.bankKind, kind)));
     return row;
   }
-  /** Bank trường duy nhất cho một loại món. */
-  async getSchoolBank(kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
+  /** Bank trường duy nhất của MỘT tenant cho một loại món (TENANT-0, #168). */
+  async getSchoolBank(tenantId: string, kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
     const [row] = await this.db.select().from(questionBanks)
-      .where(and(eq(questionBanks.scope, 'school'), eq(questionBanks.bankKind, kind)));
+      .where(and(eq(questionBanks.scope, 'school'), eq(questionBanks.tenantId, tenantId), eq(questionBanks.bankKind, kind)));
     return row;
+  }
+  /** Bank platform (Ngân hàng hệ thống) duy nhất cho một loại món — tenant_id NULL. */
+  async getPlatformBank(kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {
+    const [row] = await this.db.select().from(questionBanks)
+      .where(and(eq(questionBanks.scope, 'platform'), eq(questionBanks.bankKind, kind)));
+    return row;
+  }
+  /** Tenant sở hữu một khoá học (điểm neo tenant cho bank khoá / đề / ma trận). */
+  async getCourseTenantId(courseId: string): Promise<string | undefined> {
+    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId));
+    return row?.tenantId;
   }
   /** Bank theo (scope, scope_ref_id, kind) — bank tổ theo cohort, bank khoá theo course. */
   async getBankByScopeRef(scope: string, scopeRefId: string, kind: BankKind = 'question'): Promise<QuestionBankRow | undefined> {

@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "d5743a07-e2d9-4028-bc19-ca0c55ee5b02",
+  "id": "ee8add86-3ea1-49c3-8cb6-76d96855ed82",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -100,7 +100,7 @@
         "n|rel|public.plugin_config",
         "n|type|public.plugin_config",
         "n|rel|public.plugin_config_pkey",
-        "n|rel|public.plugin_config_plugin_name_unique"
+        "n|rel|public.plugin_config_tenant_plugin_name_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -281,6 +281,66 @@
         "n|rel|public.users_pkey",
         "n|rel|public.users_username_key",
         "n|rel|public.users_email_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "tenant_config"
+      ],
+      "writes": [
+        "s|tbl|public.tenant_config",
+        "n|tbl|public.tenant_config",
+        "e|tbl|public.tenant_config",
+        "n|rel|public.tenant_config",
+        "n|type|public.tenant_config",
+        "n|rel|public.tenant_config_pkey",
+        "n|rel|public.tenant_config_tenant_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "tenant_memberships"
+      ],
+      "writes": [
+        "s|tbl|public.tenant_memberships",
+        "n|tbl|public.tenant_memberships",
+        "e|tbl|public.tenant_memberships",
+        "n|rel|public.tenant_memberships",
+        "n|type|public.tenant_memberships",
+        "n|rel|public.tenant_memberships_pkey",
+        "n|rel|public.tenant_memberships_tenant_user_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "tenants"
+      ],
+      "writes": [
+        "s|tbl|public.tenants",
+        "n|tbl|public.tenants",
+        "e|tbl|public.tenants",
+        "n|rel|public.tenants",
+        "n|type|public.tenants",
+        "n|rel|public.tenants_pkey",
+        "n|rel|public.tenants_slug_key"
       ],
       "reads": [
         "n|sch|public"
@@ -3900,6 +3960,87 @@
       "statementTarget": [
         "index",
         "public",
+        "event_log",
+        "event_log_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.event_log_tenant_id_idx",
+        "n|idx|public.event_log_tenant_id_idx",
+        "e|idx|public.event_log_tenant_id_idx",
+        "n|rel|public.event_log_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.event_log",
+        "n|sch|public",
+        "n|col|public.event_log.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "outbox_events",
+        "outbox_events_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.outbox_events_tenant_id_idx",
+        "n|idx|public.outbox_events_tenant_id_idx",
+        "e|idx|public.outbox_events_tenant_id_idx",
+        "n|rel|public.outbox_events_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.outbox_events",
+        "n|sch|public",
+        "n|col|public.outbox_events.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plugin_config",
+        "plugin_config_platform_plugin_name_unique"
+      ],
+      "writes": [
+        "s|idx|public.plugin_config_platform_plugin_name_unique",
+        "n|idx|public.plugin_config_platform_plugin_name_unique",
+        "e|idx|public.plugin_config_platform_plugin_name_unique",
+        "n|rel|public.plugin_config_platform_plugin_name_unique"
+      ],
+      "reads": [
+        "n|tbl|public.plugin_config",
+        "n|sch|public",
+        "n|col|public.plugin_config.plugin",
+        "n|col|public.plugin_config.name"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plugin_config",
+        "plugin_config_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plugin_config_tenant_id_idx",
+        "n|idx|public.plugin_config_tenant_id_idx",
+        "e|idx|public.plugin_config_tenant_id_idx",
+        "n|rel|public.plugin_config_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plugin_config",
+        "n|sch|public",
+        "n|col|public.plugin_config.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "context",
         "context_instance_id_idx"
       ],
@@ -4033,6 +4174,66 @@
         "n|tbl|public.role_capabilities",
         "n|sch|public",
         "n|col|public.role_capabilities.modifier_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "tenant_config",
+        "tenant_config_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.tenant_config_tenant_id_idx",
+        "n|idx|public.tenant_config_tenant_id_idx",
+        "e|idx|public.tenant_config_tenant_id_idx",
+        "n|rel|public.tenant_config_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_config",
+        "n|sch|public",
+        "n|col|public.tenant_config.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "tenant_memberships",
+        "tenant_memberships_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.tenant_memberships_tenant_id_idx",
+        "n|idx|public.tenant_memberships_tenant_id_idx",
+        "e|idx|public.tenant_memberships_tenant_id_idx",
+        "n|rel|public.tenant_memberships_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_memberships",
+        "n|sch|public",
+        "n|col|public.tenant_memberships.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "tenant_memberships",
+        "tenant_memberships_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.tenant_memberships_user_id_idx",
+        "n|idx|public.tenant_memberships_user_id_idx",
+        "e|idx|public.tenant_memberships_user_id_idx",
+        "n|rel|public.tenant_memberships_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_memberships",
+        "n|sch|public",
+        "n|col|public.tenant_memberships.user_id"
       ]
     },
     {
@@ -4561,6 +4762,26 @@
         "index",
         "public",
         "course",
+        "course_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_tenant_id_idx",
+        "n|idx|public.course_tenant_id_idx",
+        "e|idx|public.course_tenant_id_idx",
+        "n|rel|public.course_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|col|public.course.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course",
         "course_category_idx"
       ],
       "writes": [
@@ -4593,6 +4814,26 @@
         "n|tbl|public.course",
         "n|sch|public",
         "n|col|public.course.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "course_categories",
+        "course_categories_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.course_categories_tenant_id_idx",
+        "n|idx|public.course_categories_tenant_id_idx",
+        "e|idx|public.course_categories_tenant_id_idx",
+        "n|rel|public.course_categories_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.course_categories",
+        "n|sch|public",
+        "n|col|public.course_categories.tenant_id"
       ]
     },
     {
@@ -4896,6 +5137,26 @@
         "n|tbl|public.course_section_book_items",
         "n|sch|public",
         "n|col|public.course_section_book_items.book_node_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "cohort",
+        "cohort_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.cohort_tenant_id_idx",
+        "n|idx|public.cohort_tenant_id_idx",
+        "e|idx|public.cohort_tenant_id_idx",
+        "n|rel|public.cohort_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.cohort",
+        "n|sch|public",
+        "n|col|public.cohort.tenant_id"
       ]
     },
     {
@@ -6065,6 +6326,26 @@
         "index",
         "public",
         "guardian_links",
+        "guardian_links_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_links_tenant_id_idx",
+        "n|idx|public.guardian_links_tenant_id_idx",
+        "e|idx|public.guardian_links_tenant_id_idx",
+        "n|rel|public.guardian_links_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|col|public.guardian_links.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "guardian_links",
         "guardian_links_guardian_user_id_idx"
       ],
       "writes": [
@@ -6526,6 +6807,26 @@
         "index",
         "public",
         "question_banks",
+        "question_banks_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_banks_tenant_id_idx",
+        "n|idx|public.question_banks_tenant_id_idx",
+        "e|idx|public.question_banks_tenant_id_idx",
+        "n|rel|public.question_banks_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.question_banks.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "question_banks",
         "question_banks_personal_owner_kind_unique"
       ],
       "writes": [
@@ -6576,6 +6877,28 @@
         "n|idx|public.question_banks_school_kind_unique",
         "e|idx|public.question_banks_school_kind_unique",
         "n|rel|public.question_banks_school_kind_unique"
+      ],
+      "reads": [
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.question_banks.tenant_id",
+        "n|col|public.question_banks.scope",
+        "n|col|public.question_banks.bank_kind"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "question_banks",
+        "question_banks_platform_kind_unique"
+      ],
+      "writes": [
+        "s|idx|public.question_banks_platform_kind_unique",
+        "n|idx|public.question_banks_platform_kind_unique",
+        "e|idx|public.question_banks_platform_kind_unique",
+        "n|rel|public.question_banks_platform_kind_unique"
       ],
       "reads": [
         "n|tbl|public.question_banks",
@@ -7270,6 +7593,26 @@
         "index",
         "public",
         "exam_papers",
+        "exam_papers_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_papers_tenant_id_idx",
+        "n|idx|public.exam_papers_tenant_id_idx",
+        "e|idx|public.exam_papers_tenant_id_idx",
+        "n|rel|public.exam_papers_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_papers.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_papers",
         "exam_papers_bank_id_idx"
       ],
       "writes": [
@@ -7342,6 +7685,26 @@
         "n|tbl|public.exam_papers",
         "n|sch|public",
         "n|col|public.exam_papers.derived_from_paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_matrices",
+        "exam_matrices_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_matrices_tenant_id_idx",
+        "n|idx|public.exam_matrices_tenant_id_idx",
+        "e|idx|public.exam_matrices_tenant_id_idx",
+        "n|rel|public.exam_matrices_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.tenant_id"
       ]
     },
     {
@@ -8645,6 +9008,26 @@
         "n|tbl|public.curriculum_program_records",
         "n|sch|public",
         "n|col|public.curriculum_program_records.curriculum_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "learning_outcomes",
+        "learning_outcomes_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.learning_outcomes_tenant_id_idx",
+        "n|idx|public.learning_outcomes_tenant_id_idx",
+        "e|idx|public.learning_outcomes_tenant_id_idx",
+        "n|rel|public.learning_outcomes_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.tenant_id"
       ]
     },
     {
@@ -11657,6 +12040,75 @@
       "statementTarget": [
         "table",
         "public",
+        "tenant_config"
+      ],
+      "writes": [
+        "s|fk|public.tenant_config.tenant_config_tenant_id_tenants_id_fkey",
+        "n|fk|public.tenant_config.tenant_config_tenant_id_tenants_id_fkey",
+        "e|fk|public.tenant_config.tenant_config_tenant_id_tenants_id_fkey",
+        "n|con|public.tenant_config.tenant_config_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_config",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.tenant_config.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "tenant_memberships"
+      ],
+      "writes": [
+        "s|fk|public.tenant_memberships.tenant_memberships_tenant_id_tenants_id_fkey",
+        "n|fk|public.tenant_memberships.tenant_memberships_tenant_id_tenants_id_fkey",
+        "e|fk|public.tenant_memberships.tenant_memberships_tenant_id_tenants_id_fkey",
+        "n|con|public.tenant_memberships.tenant_memberships_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_memberships",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.tenant_memberships.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "tenant_memberships"
+      ],
+      "writes": [
+        "s|fk|public.tenant_memberships.tenant_memberships_user_id_users_id_fkey",
+        "n|fk|public.tenant_memberships.tenant_memberships_user_id_users_id_fkey",
+        "e|fk|public.tenant_memberships.tenant_memberships_user_id_users_id_fkey",
+        "n|con|public.tenant_memberships.tenant_memberships_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.tenant_memberships",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.tenant_memberships.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "account"
       ],
       "writes": [
@@ -12143,6 +12595,29 @@
         "course"
       ],
       "writes": [
+        "s|fk|public.course.course_tenant_id_tenants_id_fkey",
+        "n|fk|public.course.course_tenant_id_tenants_id_fkey",
+        "e|fk|public.course.course_tenant_id_tenants_id_fkey",
+        "n|con|public.course.course_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.course.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course"
+      ],
+      "writes": [
         "s|fk|public.course.course_category_course_categories_id_fkey",
         "n|fk|public.course.course_category_course_categories_id_fkey",
         "e|fk|public.course.course_category_course_categories_id_fkey",
@@ -12179,6 +12654,29 @@
         "n|col|public.course.subject_id",
         "n|col|public.subjects.id",
         "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "course_categories"
+      ],
+      "writes": [
+        "s|fk|public.course_categories.course_categories_tenant_id_tenants_id_fkey",
+        "n|fk|public.course_categories.course_categories_tenant_id_tenants_id_fkey",
+        "e|fk|public.course_categories.course_categories_tenant_id_tenants_id_fkey",
+        "n|con|public.course_categories.course_categories_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.course_categories",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.course_categories.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -12547,6 +13045,29 @@
         "n|col|public.course_sections.course",
         "n|col|public.course.id",
         "e|uniqueness|public.course.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cohort"
+      ],
+      "writes": [
+        "s|fk|public.cohort.cohort_tenant_id_tenants_id_fkey",
+        "n|fk|public.cohort.cohort_tenant_id_tenants_id_fkey",
+        "e|fk|public.cohort.cohort_tenant_id_tenants_id_fkey",
+        "n|con|public.cohort.cohort_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cohort",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.cohort.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -13546,6 +14067,29 @@
         "guardian_links"
       ],
       "writes": [
+        "s|fk|public.guardian_links.guardian_links_tenant_id_tenants_id_fkey",
+        "n|fk|public.guardian_links.guardian_links_tenant_id_tenants_id_fkey",
+        "e|fk|public.guardian_links.guardian_links_tenant_id_tenants_id_fkey",
+        "n|con|public.guardian_links.guardian_links_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_links",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.guardian_links.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "guardian_links"
+      ],
+      "writes": [
         "s|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
         "n|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
         "e|fk|public.guardian_links.guardian_links_guardian_user_id_users_id_fkey",
@@ -13973,6 +14517,29 @@
         "n|col|public.question_bank_entries.question_id",
         "n|col|public.question.id",
         "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "question_banks"
+      ],
+      "writes": [
+        "s|fk|public.question_banks.question_banks_tenant_id_tenants_id_fkey",
+        "n|fk|public.question_banks.question_banks_tenant_id_tenants_id_fkey",
+        "e|fk|public.question_banks.question_banks_tenant_id_tenants_id_fkey",
+        "n|con|public.question_banks.question_banks_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.question_banks.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -14512,6 +15079,29 @@
         "exam_papers"
       ],
       "writes": [
+        "s|fk|public.exam_papers.exam_papers_tenant_id_tenants_id_fkey",
+        "n|fk|public.exam_papers.exam_papers_tenant_id_tenants_id_fkey",
+        "e|fk|public.exam_papers.exam_papers_tenant_id_tenants_id_fkey",
+        "n|con|public.exam_papers.exam_papers_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.exam_papers.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_papers"
+      ],
+      "writes": [
         "s|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
         "n|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
         "e|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
@@ -14525,6 +15115,29 @@
         "n|col|public.exam_papers.bank_id",
         "n|col|public.question_banks.id",
         "e|uniqueness|public.question_banks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|fk|public.exam_matrices.exam_matrices_tenant_id_tenants_id_fkey",
+        "n|fk|public.exam_matrices.exam_matrices_tenant_id_tenants_id_fkey",
+        "e|fk|public.exam_matrices.exam_matrices_tenant_id_tenants_id_fkey",
+        "n|con|public.exam_matrices.exam_matrices_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.exam_matrices.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -15802,6 +16415,29 @@
         "learning_outcomes"
       ],
       "writes": [
+        "s|fk|public.learning_outcomes.learning_outcomes_tenant_id_tenants_id_fkey",
+        "n|fk|public.learning_outcomes.learning_outcomes_tenant_id_tenants_id_fkey",
+        "e|fk|public.learning_outcomes.learning_outcomes_tenant_id_tenants_id_fkey",
+        "n|con|public.learning_outcomes.learning_outcomes_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "learning_outcomes"
+      ],
+      "writes": [
         "s|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
         "n|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
         "e|fk|public.learning_outcomes.learning_outcomes_node_id_curriculum_nodes_id_fkey",
@@ -17057,6 +17693,24 @@
     },
     {
       "schema": "public",
+      "name": "tenant_config",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "tenant_memberships",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "tenants",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
       "name": "account",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -18221,6 +18875,19 @@
     {
       "schema": "public",
       "table": "admin_setting_audit",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "admin_setting_audit",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -18360,6 +19027,19 @@
     {
       "schema": "public",
       "table": "event_log",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "event_log",
       "name": "payload",
       "type": "jsonb",
       "typeSchema": null,
@@ -18460,6 +19140,19 @@
     {
       "schema": "public",
       "table": "outbox_events",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "outbox_events",
       "name": "occurred_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -18527,6 +19220,19 @@
       "table": "plugin_config",
       "name": "value",
       "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plugin_config",
+      "name": "tenant_id",
+      "type": "uuid",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
@@ -19357,6 +20063,253 @@
     {
       "schema": "public",
       "table": "users",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "key",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "value",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "joined_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "ended_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "slug",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "plan",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
       "name": "updated_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -21346,6 +22299,19 @@
     {
       "schema": "public",
       "table": "refresh_token_family",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "refresh_token_family",
       "name": "ip",
       "type": "text",
       "typeSchema": null,
@@ -22126,6 +23092,19 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "category",
       "type": "uuid",
       "typeSchema": null,
@@ -22366,6 +23345,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "course_categories",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -23315,6 +24307,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "cohort",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -26767,6 +27772,19 @@
     {
       "schema": "public",
       "table": "guardian_links",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
       "name": "guardian_user_id",
       "type": "uuid",
       "typeSchema": null,
@@ -28444,6 +29462,19 @@
     {
       "schema": "public",
       "table": "question_banks",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_banks",
       "name": "name",
       "type": "text",
       "typeSchema": null,
@@ -30108,6 +31139,19 @@
     {
       "schema": "public",
       "table": "exam_papers",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
       "name": "bank_id",
       "type": "uuid",
       "typeSchema": null,
@@ -30257,6 +31301,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -34508,6 +35565,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -42278,6 +43348,97 @@
     },
     {
       "schema": "public",
+      "table": "event_log",
+      "name": "event_log_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "outbox_events",
+      "name": "outbox_events_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plugin_config",
+      "name": "plugin_config_platform_plugin_name_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "plugin",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "name",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "tenant_id is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plugin_config",
+      "name": "plugin_config_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "context",
       "name": "context_instance_id_idx",
       "nameExplicit": true,
@@ -42410,6 +43571,69 @@
       "columns": [
         {
           "value": "modifier_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "tenant_config_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -42972,6 +44196,27 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "course_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "course_category_idx",
       "nameExplicit": true,
       "columns": [
@@ -42998,6 +44243,27 @@
       "columns": [
         {
           "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "course_categories",
+      "name": "course_categories_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -43334,6 +44600,27 @@
       "columns": [
         {
           "value": "book_node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "cohort",
+      "name": "cohort_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -44575,6 +45862,27 @@
     {
       "schema": "public",
       "table": "guardian_links",
+      "name": "guardian_links_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
       "name": "guardian_links_guardian_user_id_idx",
       "nameExplicit": true,
       "columns": [
@@ -45065,6 +46373,27 @@
     {
       "schema": "public",
       "table": "question_banks",
+      "name": "question_banks_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "question_banks",
       "name": "question_banks_personal_owner_kind_unique",
       "nameExplicit": true,
       "columns": [
@@ -45132,6 +46461,13 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "scope",
           "isExpression": false,
           "asc": true,
@@ -45148,6 +46484,34 @@
       ],
       "isUnique": true,
       "where": "scope = 'school'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "question_banks",
+      "name": "question_banks_platform_kind_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "scope",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "bank_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "scope = 'platform'",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -45870,6 +47234,27 @@
     {
       "schema": "public",
       "table": "exam_papers",
+      "name": "exam_papers_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
       "name": "exam_papers_bank_id_idx",
       "nameExplicit": true,
       "columns": [
@@ -45938,6 +47323,27 @@
       "columns": [
         {
           "value": "derived_from_paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -47324,6 +48730,27 @@
       "columns": [
         {
           "value": "curriculum_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -50518,6 +51945,57 @@
     },
     {
       "schema": "public",
+      "table": "tenant_config",
+      "name": "tenant_config_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_user_id_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "account",
       "name": "account_user_id_users_id_fkey",
       "nameExplicit": false,
@@ -50876,6 +52354,23 @@
     {
       "schema": "public",
       "table": "course",
+      "name": "course_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course",
       "name": "course_category_course_categories_id_fkey",
       "nameExplicit": false,
       "columns": [
@@ -50905,6 +52400,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "course_categories",
+      "name": "course_categories_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -51177,6 +52689,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "cohort",
+      "name": "cohort_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -51913,6 +53442,23 @@
     {
       "schema": "public",
       "table": "guardian_links",
+      "name": "guardian_links_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_links",
       "name": "guardian_links_guardian_user_id_users_id_fkey",
       "nameExplicit": false,
       "columns": [
@@ -52231,6 +53777,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "question_banks",
+      "name": "question_banks_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -52627,6 +54190,23 @@
     {
       "schema": "public",
       "table": "exam_papers",
+      "name": "exam_papers_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
       "name": "exam_papers_bank_id_question_banks_id_fkey",
       "nameExplicit": false,
       "columns": [
@@ -52639,6 +54219,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -53576,6 +55173,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -54680,6 +56294,36 @@
       "schema": "public",
       "table": "users",
       "name": "users_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "tenant_config_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "tenants",
+      "name": "tenants_pkey",
       "columns": [
         "id"
       ],
@@ -56429,9 +58073,10 @@
     {
       "schema": "public",
       "table": "plugin_config",
-      "name": "plugin_config_plugin_name_unique",
+      "name": "plugin_config_tenant_plugin_name_unique",
       "nameExplicit": true,
       "columns": [
+        "tenant_id",
         "plugin",
         "name"
       ],
@@ -56486,6 +58131,30 @@
       "columns": [
         "user_id",
         "name"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_config",
+      "name": "tenant_config_tenant_key_unique",
+      "nameExplicit": true,
+      "columns": [
+        "tenant_id",
+        "key"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "tenant_memberships",
+      "name": "tenant_memberships_tenant_user_unique",
+      "nameExplicit": true,
+      "columns": [
+        "tenant_id",
+        "user_id"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
@@ -57505,6 +59174,17 @@
     },
     {
       "schema": "public",
+      "table": "tenants",
+      "name": "tenants_slug_key",
+      "nameExplicit": false,
+      "columns": [
+        "slug"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "session",
       "name": "session_token_key",
       "nameExplicit": false,
@@ -57705,6 +59385,13 @@
       "table": "course_section_book_items",
       "name": "course_section_book_items_position_check",
       "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "question_banks",
+      "name": "question_banks_tenant_scope_check",
+      "value": "\"tenant_id\" is not null or \"scope\" = 'platform'",
       "entityType": "checks"
     },
     {

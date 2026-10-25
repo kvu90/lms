@@ -18,6 +18,7 @@ import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
 import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
 import { examPapers, examPaperVersions } from '../exam-papers/schema';
+import { tenants } from '../tenants/schema';
 
 /**
  * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
@@ -34,6 +35,8 @@ import { examPapers, examPaperVersions } from '../exam-papers/schema';
  */
 export const examMatrices = pgTable('exam_matrices', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  /** Tenant sở hữu (TENANT-0, #168) — suy từ bank chủ; NULL khi ma trận thuộc bank platform. */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   name: text('name').notNull(),
   subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
   curriculumId: uuid('curriculum_id').notNull().references(() => curricula.id, { onDelete: 'cascade' }),
@@ -69,6 +72,7 @@ export const examMatrices = pgTable('exam_matrices', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
+      index('exam_matrices_tenant_id_idx').on(table.tenantId),
       index('exam_matrices_subject_idx').on(table.subjectId),
       index('exam_matrices_curriculum_idx').on(table.curriculumId),
       index('exam_matrices_bank_idx').on(table.bankId),

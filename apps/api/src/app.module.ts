@@ -48,7 +48,10 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { EventLogModule } from './modules/event-log/event-log.module';
 import { SearchModule } from './modules/search/search.module';
 import { SiteConfigModule } from './modules/site-config/site-config.module';
-import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { TenantsModule } from './modules/tenants/tenants.module';
+import { TenantGuard } from './modules/tenants/tenant.guard';
+import { TenantContextInterceptor } from './modules/tenants/tenant-context.interceptor';
+import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { I18nStandardSchemaValidationPipe } from '@nestjs/i18n';
 import { I18nFoundationModule } from './i18n/i18n.config';
 import { BetterAuthSessionGuard } from './common/better-auth-session.guard';
@@ -155,6 +158,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     ContentBankModule,
     PrivacyModule,
     SiteConfigModule,
+    TenantsModule,
     SeedModule,
   ],
   providers: [
@@ -166,7 +170,14 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     // tính cho JwtAuthGuard bỏ qua; mọi request còn lại nó không chạm.
     { provide: APP_GUARD, useClass: BetterAuthSessionGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // TenantGuard chạy ngay sau xác thực: phân giải tenant hiệu lực từ
+    // claim `tid` (kiểm chứng với DB) và nạp ngữ cảnh tenant (ALS) cho
+    // mọi bề mặt đã phủ tenant (TENANT-0, #168).
+    { provide: APP_GUARD, useClass: TenantGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
+    // Interceptor bọc ALS tenant quanh handler (guard chỉ ghim tenant
+    // lên request — enterWith không qua được biên guard→handler).
+    { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
     /**
      * Pipe validation Standard Schema có dịch thông điệp theo catalog i18n
      * (chương Validation của docs Nest + trang i18n chính thức): thay cho

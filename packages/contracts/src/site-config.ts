@@ -12,7 +12,7 @@ export const setSiteSettingSchema = z.strictObject({
 
 export type SetSiteSetting = z.infer<typeof setSiteSettingSchema>;
 
-/** Một setting hiệu lực như API trả về: giá trị mặc định trong code hoặc giá trị đã ghi đè trong cơ sở dữ liệu. */
+/** Một setting hiệu lực như API trả về: giá trị mặc định trong code hoặc giá trị đã ghi đè trong cơ sở dữ liệu. `scope` (TENANT-0, #168): platform = chỉ tầng platform đổi được; tenant = tenant ghi đè được qua TenantConfigService; both = cả hai tầng. */
 export const siteSettingSchema = z.object({
   component: z.string(),
   name: z.string(),
@@ -20,17 +20,19 @@ export const siteSettingSchema = z.object({
   defaultValue: z.unknown(),
   value: z.unknown(),
   source: z.enum(['default', 'database']),
+  scope: z.enum(['platform', 'tenant', 'both']),
 });
 
 export type SiteSetting = z.infer<typeof siteSettingSchema>;
 
-/** Một dòng vết thay đổi cấu hình (ai đổi, từ giá trị nào sang giá trị nào). */
+/** Một dòng vết thay đổi cấu hình (ai đổi, từ giá trị nào sang giá trị nào). `tenantId` NULL = thay đổi ở tầng platform; có giá trị = thay đổi cấu hình của tenant đó (TENANT-0, #168). */
 export const siteSettingAuditEntrySchema = z.object({
   id: z.string(),
   settingKey: z.string(),
   oldValue: z.unknown(),
   newValue: z.unknown(),
   changedBy: z.string().nullable(),
+  tenantId: z.string().nullable(),
   createdAt: z.string(),
 });
 

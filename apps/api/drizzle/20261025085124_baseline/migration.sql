@@ -4,6 +4,7 @@ CREATE TABLE "admin_setting_audit" (
 	"old_value" jsonb,
 	"new_value" jsonb,
 	"changed_by" text,
+	"tenant_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -20,6 +21,7 @@ CREATE TABLE "event_log" (
 	"event_type" text NOT NULL,
 	"context_id" uuid,
 	"user_id" uuid,
+	"tenant_id" uuid,
 	"payload" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -30,6 +32,7 @@ CREATE TABLE "outbox_events" (
 	"aggregate" text NOT NULL,
 	"type" text NOT NULL,
 	"payload" jsonb NOT NULL,
+	"tenant_id" uuid,
 	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"published_at" timestamp with time zone
 );
@@ -39,7 +42,8 @@ CREATE TABLE "plugin_config" (
 	"plugin" text NOT NULL,
 	"name" text NOT NULL,
 	"value" text,
-	CONSTRAINT "plugin_config_plugin_name_unique" UNIQUE("plugin","name")
+	"tenant_id" uuid,
+	CONSTRAINT "plugin_config_tenant_plugin_name_unique" UNIQUE("tenant_id","plugin","name")
 );
 --> statement-breakpoint
 CREATE TABLE "scheduled_task_config" (
@@ -133,6 +137,36 @@ CREATE TABLE "users" (
 	"force_password_change" boolean DEFAULT false NOT NULL,
 	"is_guest" boolean DEFAULT false NOT NULL,
 	"last_login" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "tenant_config" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"key" text NOT NULL,
+	"value" jsonb,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "tenant_config_tenant_key_unique" UNIQUE("tenant_id","key")
+);
+--> statement-breakpoint
+CREATE TABLE "tenant_memberships" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"joined_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ended_at" timestamp with time zone,
+	CONSTRAINT "tenant_memberships_tenant_user_unique" UNIQUE("tenant_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "tenants" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"slug" text NOT NULL UNIQUE,
+	"name" text NOT NULL,
+	"kind" text NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"plan" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -331,6 +365,7 @@ CREATE TABLE "refresh_token_family" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"family_id" text NOT NULL UNIQUE,
 	"user_id" uuid NOT NULL,
+	"tenant_id" uuid,
 	"ip" text,
 	"user_agent" text,
 	"current_token_hash" text NOT NULL,
@@ -415,6 +450,7 @@ CREATE TABLE "files" (
 --> statement-breakpoint
 CREATE TABLE "course" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
 	"category" uuid NOT NULL,
 	"full_name" text NOT NULL,
 	"short_name" text NOT NULL UNIQUE,
@@ -438,6 +474,7 @@ CREATE TABLE "course" (
 --> statement-breakpoint
 CREATE TABLE "course_categories" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"id_number" text,
 	"description" text DEFAULT '' NOT NULL,
@@ -543,6 +580,7 @@ CREATE TABLE "course_sections" (
 --> statement-breakpoint
 CREATE TABLE "cohort" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"id_number" text DEFAULT '' NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
@@ -900,6 +938,7 @@ CREATE TABLE "guardian_digests" (
 --> statement-breakpoint
 CREATE TABLE "guardian_links" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
 	"guardian_user_id" uuid NOT NULL,
 	"student_user_id" uuid NOT NULL,
 	"relationship" text NOT NULL,
@@ -1076,6 +1115,7 @@ CREATE TABLE "question_bank_entries" (
 --> statement-breakpoint
 CREATE TABLE "question_banks" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid,
 	"name" text NOT NULL,
 	"bank_kind" text DEFAULT 'question' NOT NULL,
 	"scope" text NOT NULL,
@@ -1085,7 +1125,8 @@ CREATE TABLE "question_banks" (
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "question_banks_tenant_scope_check" CHECK ("tenant_id" is not null or "scope" = 'platform')
 );
 --> statement-breakpoint
 CREATE TABLE "question_categories" (
@@ -1251,6 +1292,7 @@ CREATE TABLE "exam_paper_versions" (
 --> statement-breakpoint
 CREATE TABLE "exam_papers" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid,
 	"bank_id" uuid NOT NULL,
 	"kind" text DEFAULT 'snapshot' NOT NULL,
 	"status" text DEFAULT 'draft' NOT NULL,
@@ -1268,6 +1310,7 @@ CREATE TABLE "exam_papers" (
 --> statement-breakpoint
 CREATE TABLE "exam_matrices" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid,
 	"name" text NOT NULL,
 	"subject_id" uuid NOT NULL,
 	"curriculum_id" uuid NOT NULL,
@@ -1729,6 +1772,7 @@ CREATE TABLE "curriculum_program_records" (
 --> statement-breakpoint
 CREATE TABLE "learning_outcomes" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid,
 	"node_id" uuid NOT NULL,
 	"content" text NOT NULL,
 	"position" integer DEFAULT 1 NOT NULL,
@@ -2565,6 +2609,10 @@ CREATE TABLE "privacy_requests" (
 --> statement-breakpoint
 CREATE INDEX "event_log_context_id_idx" ON "event_log" ("context_id");--> statement-breakpoint
 CREATE INDEX "event_log_user_id_idx" ON "event_log" ("user_id");--> statement-breakpoint
+CREATE INDEX "event_log_tenant_id_idx" ON "event_log" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "outbox_events_tenant_id_idx" ON "outbox_events" ("tenant_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "plugin_config_platform_plugin_name_unique" ON "plugin_config" ("plugin","name") WHERE tenant_id is null;--> statement-breakpoint
+CREATE INDEX "plugin_config_tenant_id_idx" ON "plugin_config" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "context_instance_id_idx" ON "context" ("instance_id");--> statement-breakpoint
 CREATE INDEX "role_assignments_user_id_idx" ON "role_assignments" ("user_id");--> statement-breakpoint
 CREATE INDEX "role_assignments_context_id_idx" ON "role_assignments" ("context_id");--> statement-breakpoint
@@ -2572,6 +2620,9 @@ CREATE INDEX "role_assignments_modifier_id_idx" ON "role_assignments" ("modifier
 CREATE INDEX "role_assignments_item_id_idx" ON "role_assignments" ("item_id");--> statement-breakpoint
 CREATE INDEX "role_capabilities_role_id_idx" ON "role_capabilities" ("role_id");--> statement-breakpoint
 CREATE INDEX "role_capabilities_modifier_id_idx" ON "role_capabilities" ("modifier_id");--> statement-breakpoint
+CREATE INDEX "tenant_config_tenant_id_idx" ON "tenant_config" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "tenant_memberships_tenant_id_idx" ON "tenant_memberships" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "tenant_memberships_user_id_idx" ON "tenant_memberships" ("user_id");--> statement-breakpoint
 CREATE INDEX "account_user_id_idx" ON "account" ("user_id");--> statement-breakpoint
 CREATE INDEX "session_user_id_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "two_factor_user_id_idx" ON "two_factor" ("user_id");--> statement-breakpoint
@@ -2598,8 +2649,10 @@ CREATE INDEX "custom_field_field_category_id_idx" ON "custom_field_field" ("cate
 CREATE INDEX "files_context_id_idx" ON "files" ("context_id");--> statement-breakpoint
 CREATE INDEX "files_item_id_idx" ON "files" ("item_id");--> statement-breakpoint
 CREATE INDEX "files_user_id_idx" ON "files" ("user_id");--> statement-breakpoint
+CREATE INDEX "course_tenant_id_idx" ON "course" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "course_category_idx" ON "course" ("category");--> statement-breakpoint
 CREATE INDEX "course_subject_id_idx" ON "course" ("subject_id");--> statement-breakpoint
+CREATE INDEX "course_categories_tenant_id_idx" ON "course_categories" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "course_categories_parent_idx" ON "course_categories" ("parent");--> statement-breakpoint
 CREATE INDEX "course_format_options_section_id_idx" ON "course_format_options" ("section_id");--> statement-breakpoint
 CREATE INDEX "course_modules_course_idx" ON "course_modules" ("course");--> statement-breakpoint
@@ -2615,6 +2668,7 @@ CREATE INDEX "course_section_book_item_outcomes_item_idx" ON "course_section_boo
 CREATE INDEX "course_section_book_item_outcomes_outcome_id_idx" ON "course_section_book_item_outcomes" ("outcome_id");--> statement-breakpoint
 CREATE INDEX "course_section_book_items_anchor_idx" ON "course_section_book_items" ("anchor_id","position");--> statement-breakpoint
 CREATE INDEX "course_section_book_items_node_id_idx" ON "course_section_book_items" ("book_node_id");--> statement-breakpoint
+CREATE INDEX "cohort_tenant_id_idx" ON "cohort" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "cohort_context_id_idx" ON "cohort" ("context_id");--> statement-breakpoint
 CREATE INDEX "cohort_members_user_id_idx" ON "cohort_members" ("user_id");--> statement-breakpoint
 CREATE INDEX "groupings_groups_group_id_idx" ON "groupings_groups" ("group_id");--> statement-breakpoint
@@ -2673,6 +2727,7 @@ CREATE INDEX "vn_term_results_user_id_idx" ON "vn_term_results" ("user_id");--> 
 CREATE UNIQUE INDEX "guardian_digests_dedupe_key_unique" ON "guardian_digests" ("dedupe_key");--> statement-breakpoint
 CREATE INDEX "guardian_digests_guardian_user_id_idx" ON "guardian_digests" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_digests_student_user_id_idx" ON "guardian_digests" ("student_user_id");--> statement-breakpoint
+CREATE INDEX "guardian_links_tenant_id_idx" ON "guardian_links" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_guardian_user_id_idx" ON "guardian_links" ("guardian_user_id");--> statement-breakpoint
 CREATE INDEX "guardian_links_student_user_id_idx" ON "guardian_links" ("student_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "guardian_links_active_pair_unique" ON "guardian_links" ("guardian_user_id","student_user_id") WHERE "status" = 'active';--> statement-breakpoint
@@ -2696,9 +2751,11 @@ CREATE INDEX "question_banks_scope_idx" ON "question_banks" ("scope");--> statem
 CREATE INDEX "question_banks_kind_idx" ON "question_banks" ("bank_kind");--> statement-breakpoint
 CREATE INDEX "question_banks_owner_id_idx" ON "question_banks" ("owner_id");--> statement-breakpoint
 CREATE INDEX "question_banks_scope_ref_id_idx" ON "question_banks" ("scope_ref_id");--> statement-breakpoint
+CREATE INDEX "question_banks_tenant_id_idx" ON "question_banks" ("tenant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "question_banks_personal_owner_kind_unique" ON "question_banks" ("owner_id","bank_kind") WHERE scope = 'personal';--> statement-breakpoint
 CREATE UNIQUE INDEX "question_banks_scope_ref_kind_unique" ON "question_banks" ("scope","scope_ref_id","bank_kind") WHERE scope_ref_id is not null;--> statement-breakpoint
-CREATE UNIQUE INDEX "question_banks_school_kind_unique" ON "question_banks" ("scope","bank_kind") WHERE scope = 'school';--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_school_kind_unique" ON "question_banks" ("tenant_id","scope","bank_kind") WHERE scope = 'school';--> statement-breakpoint
+CREATE UNIQUE INDEX "question_banks_platform_kind_unique" ON "question_banks" ("scope","bank_kind") WHERE scope = 'platform';--> statement-breakpoint
 CREATE INDEX "question_categories_context_id_idx" ON "question_categories" ("context_id");--> statement-breakpoint
 CREATE INDEX "question_categories_parent_idx" ON "question_categories" ("parent");--> statement-breakpoint
 CREATE INDEX "question_categories_bank_id_idx" ON "question_categories" ("bank_id");--> statement-breakpoint
@@ -2733,10 +2790,12 @@ CREATE INDEX "exam_paper_slots_matrix_cell_idx" ON "exam_paper_slots" ("matrix_c
 CREATE INDEX "exam_paper_versions_paper_idx" ON "exam_paper_versions" ("paper_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_versions_subject_idx" ON "exam_paper_versions" ("subject_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_versions_matrix_idx" ON "exam_paper_versions" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_papers_tenant_id_idx" ON "exam_papers" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "exam_papers_bank_id_idx" ON "exam_papers" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_papers_status_idx" ON "exam_papers" ("status");--> statement-breakpoint
 CREATE INDEX "exam_papers_created_by_idx" ON "exam_papers" ("created_by");--> statement-breakpoint
 CREATE INDEX "exam_papers_derived_from_idx" ON "exam_papers" ("derived_from_paper_id");--> statement-breakpoint
+CREATE INDEX "exam_matrices_tenant_id_idx" ON "exam_matrices" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
@@ -2802,6 +2861,7 @@ CREATE INDEX "curriculum_nodes_tree_idx" ON "curriculum_nodes" ("curriculum_id",
 CREATE INDEX "curriculum_program_records_subject_id_idx" ON "curriculum_program_records" ("subject_id");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_node_id_idx" ON "curriculum_program_records" ("node_id");--> statement-breakpoint
 CREATE INDEX "curriculum_program_records_curriculum_id_idx" ON "curriculum_program_records" ("curriculum_id");--> statement-breakpoint
+CREATE INDEX "learning_outcomes_tenant_id_idx" ON "learning_outcomes" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "learning_outcomes_node_id_idx" ON "learning_outcomes" ("node_id","position");--> statement-breakpoint
 CREATE INDEX "learning_outcomes_derived_from_id_idx" ON "learning_outcomes" ("derived_from_id");--> statement-breakpoint
 CREATE INDEX "question_learning_outcomes_outcome_level_idx" ON "question_learning_outcomes" ("learning_outcome_id","cognitive_level");--> statement-breakpoint
@@ -2951,6 +3011,9 @@ ALTER TABLE "role_assignments" ADD CONSTRAINT "role_assignments_context_id_conte
 ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_context_id_context_id_fkey" FOREIGN KEY ("context_id") REFERENCES "context"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "role_capabilities" ADD CONSTRAINT "role_capabilities_role_id_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "role"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "tenant_config" ADD CONSTRAINT "tenant_config_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "tenant_memberships" ADD CONSTRAINT "tenant_memberships_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "tenant_memberships" ADD CONSTRAINT "tenant_memberships_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2972,8 +3035,10 @@ ALTER TABLE "user_oauth_links" ADD CONSTRAINT "user_oauth_links_user_id_users_id
 ALTER TABLE "user_totp" ADD CONSTRAINT "user_totp_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "custom_field_data" ADD CONSTRAINT "custom_field_data_field_id_custom_field_field_id_fkey" FOREIGN KEY ("field_id") REFERENCES "custom_field_field"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "custom_field_field" ADD CONSTRAINT "custom_field_field_category_id_custom_field_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "custom_field_category"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "course" ADD CONSTRAINT "course_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "course" ADD CONSTRAINT "course_category_course_categories_id_fkey" FOREIGN KEY ("category") REFERENCES "course_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course" ADD CONSTRAINT "course_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "course_categories" ADD CONSTRAINT "course_categories_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "course_format_options" ADD CONSTRAINT "course_format_options_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_modules" ADD CONSTRAINT "course_modules_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_modules" ADD CONSTRAINT "course_modules_section_course_sections_id_fkey" FOREIGN KEY ("section") REFERENCES "course_sections"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -2990,6 +3055,7 @@ ALTER TABLE "course_section_book_item_outcomes" ADD CONSTRAINT "course_section_b
 ALTER TABLE "course_section_book_items" ADD CONSTRAINT "course_section_book_items_Rj7bOpLW65Bx_fkey" FOREIGN KEY ("anchor_id") REFERENCES "course_section_book_anchors"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_section_book_items" ADD CONSTRAINT "course_section_book_items_book_node_id_book_nodes_id_fkey" FOREIGN KEY ("book_node_id") REFERENCES "book_nodes"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "course_sections" ADD CONSTRAINT "course_sections_course_course_id_fkey" FOREIGN KEY ("course") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "cohort" ADD CONSTRAINT "cohort_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "cohort_members" ADD CONSTRAINT "cohort_members_cohort_id_cohort_id_fkey" FOREIGN KEY ("cohort_id") REFERENCES "cohort"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "course_groups" ADD CONSTRAINT "course_groups_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "groupings" ADD CONSTRAINT "groupings_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3033,6 +3099,7 @@ ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_book_id_vn_gradebo
 ALTER TABLE "vn_term_results" ADD CONSTRAINT "vn_term_results_course_id_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "course"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_digests" ADD CONSTRAINT "guardian_digests_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD CONSTRAINT "guardian_links_student_user_id_users_id_fkey" FOREIGN KEY ("student_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "guardian_view_state" ADD CONSTRAINT "guardian_view_state_guardian_user_id_users_id_fkey" FOREIGN KEY ("guardian_user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3052,6 +3119,7 @@ ALTER TABLE "question_bank_contributions" ADD CONSTRAINT "question_bank_contribu
 ALTER TABLE "question_bank_contributions" ADD CONSTRAINT "question_bank_contributions_MgHALFjkbgfv_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_BhJIQCl6jHum_fkey" FOREIGN KEY ("question_category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_bank_entries" ADD CONSTRAINT "question_bank_entries_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "question_banks" ADD CONSTRAINT "question_banks_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "question_categories" ADD CONSTRAINT "question_categories_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_VREOpGcldK6H_fkey" FOREIGN KEY ("question_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "question_truefalse" ADD CONSTRAINT "question_truefalse_true_answer_question_answers_id_fkey" FOREIGN KEY ("true_answer") REFERENCES "question_answers"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3075,7 +3143,9 @@ ALTER TABLE "exam_paper_slots" ADD CONSTRAINT "exam_paper_slots_matrix_cell_id_e
 ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_paper_versions" ADD CONSTRAINT "exam_paper_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_papers" ADD CONSTRAINT "exam_papers_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_papers" ADD CONSTRAINT "exam_papers_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
@@ -3131,6 +3201,7 @@ ALTER TABLE "curriculum_nodes" ADD CONSTRAINT "curriculum_nodes_parent_fk" FOREI
 ALTER TABLE "curriculum_program_records" ADD CONSTRAINT "curriculum_program_records_subject_id_subjects_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_program_records" ADD CONSTRAINT "curriculum_program_records_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "curriculum_program_records" ADD CONSTRAINT "curriculum_program_records_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("node_id") REFERENCES "curriculum_nodes"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ADD CONSTRAINT "learning_outcomes_derived_from_id_learning_outcomes_id_fkey" FOREIGN KEY ("derived_from_id") REFERENCES "learning_outcomes"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "question_learning_outcomes" ADD CONSTRAINT "question_learning_outcomes_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3182,3 +3253,61 @@ ALTER TABLE "content_bank_content" ADD CONSTRAINT "content_bank_content_mtO4LF7j
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
+-- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
+-- cơ sở dữ liệu (hồ sơ mục 2.1/3.2). Mọi bảng mang tenant_id ở lát này
+-- đều ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
+--   * Phiên platform tường minh (GUC app.platform = 'on', do
+--     TenantDbService.withPlatform đặt sau khi đã qua cổng capability)
+--     thấy mọi dòng.
+--   * Phiên CHƯA đặt GUC app.tenant_id (kết nối pooled của mã cũ chưa
+--     qua wrapper) được cho qua: RLS ở lát này là hàng rào cho các
+--     đường đã bọc transaction theo tenant + bằng chứng truy vấn thô
+--     trong phiên tenant; phủ wrapper toàn bề mặt là việc TENANT-1.
+--   * Phiên tenant (GUC app.tenant_id = <uuid>): chỉ thấy dòng của
+--     tenant đó; các bảng nội dung/bank chung của platform mang
+--     tenant_id NULL thì mọi tenant đều thấy (đọc/copy xuống được).
+-- Role ứng dụng không có BYPASSRLS; FORCE khiến cả chủ sở hữu bảng
+-- cũng chịu policy khi GUC đã đặt.
+-- =====================================================================
+ALTER TABLE "tenants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "tenants" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenants" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "tenant_memberships" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "tenant_memberships" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenant_memberships" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "tenant_config" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "tenant_config" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "tenant_config" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "course_categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "course_categories" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "course_categories" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "course" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "course" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "course" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "cohort" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "cohort" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "cohort" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "guardian_links" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "guardian_links" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "guardian_links" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "question_banks" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "question_banks" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "question_banks" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "exam_matrices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "exam_matrices" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "exam_matrices" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "exam_papers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "exam_papers" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "exam_papers" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "learning_outcomes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "learning_outcomes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "learning_outcomes" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "plugin_config" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "plugin_config" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "plugin_config" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "event_log" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "event_log" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "event_log" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);--> statement-breakpoint
+ALTER TABLE "outbox_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "outbox_events" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "outbox_events" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);
