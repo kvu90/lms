@@ -31,9 +31,14 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     const dispatchQueue = { add: vi.fn(async (_name: string, data: Record<string, unknown>) => { jobs.push(data); }) };
     const outbox = { enqueueStandalone: vi.fn(async () => undefined) };
     const siteConfig = { getValue: vi.fn(async () => undefined) };
+    // Throttle gửi tin (lát M2, issue #212) là tham số thứ 10 của
+    // constructor: spec này chỉ đi đường notify() nên stub consume
+    // không làm gì là đủ (giữ nguyên hành vi spec của NB-4).
+    const sendThrottle = { consume: vi.fn(async () => undefined) };
     const service = new MessagingService(
       repo as never, users as never, {} as never, {} as never, outbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
+      sendThrottle as never,
     );
     return { service, inserted, logs, jobs };
   }

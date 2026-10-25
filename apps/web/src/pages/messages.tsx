@@ -16,10 +16,32 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
+import { apiJson, ApiError } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
 import { queryKeys } from '#lib/query-keys';
+
+/**
+ * Đếm ký tự người dùng thấy (grapheme) của nháp — CÙNG cách đếm với
+ * trần phía server (lát M2, issue #212) để bộ đếm ở composer không
+ * lệch với cổng 400 `messaging.message_too_long`: emoji ghép và chữ
+ * kèm dấu tổ hợp tính là một ký tự, không đếm đơn vị UTF-16.
+ */
+function countMessageCharacters(text: string): number {
+  const SegmenterCtor = (Intl as unknown as {
+    Segmenter?: new (locales?: string, options?: { granularity: 'grapheme' }) => {
+      segment(input: string): Iterable<unknown>;
+    };
+  }).Segmenter;
+  if (SegmenterCtor) {
+    const segmenter = new SegmenterCtor(undefined, { granularity: 'grapheme' });
+    let count = 0;
+    for (const _segment of segmenter.segment(text)) count += 1;
+    return count;
+  }
+  return [...text].length;
+}
 
 interface MessageView {
   id: string;
@@ -193,6 +215,12 @@ export function MessagesPage() {
   const [incomingRequests, setIncomingRequests] = useState<ContactRequestView[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<ContactRequestView[]>([]);
   const [contactMessage, setContactMessage] = useState<string | null>(null);
+  /**
+   * Lỗi gửi phải nói rõ lý do (lát M2, issue #212): vượt trần ký tự
+   * (400) hay gửi quá nhanh (429) hiện thành thông báo cạnh composer
+   * thay vì chỉ để tin rơi vào trạng thái failed câm như trước.
+   */
+  const [sendError, setSendError] = useState<string | null>(null);
   // Tên hiển thị gom từ mọi response của API (profiles/memberProfiles).
   const [people, setPeople] = useState<Record<string, PersonSummary>>({});
   // Tìm bạn theo KHOÁ (mô hình chốt lại 24/10/2026): khoá của tôi →
@@ -510,6 +538,7 @@ export function MessagesPage() {
     setTypingUsers({});
     setReportMessage(null);
     setActionMessage(null);
+    setSendError(null);
     const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conv.id}`);
     // Chi tiết mang theo enabled + thẩm quyền của chính user (Lớp B):
     // gộp vào conversation đang mở để header/khung soạn biết đường hiển thị.
@@ -572,7 +601,15 @@ export function MessagesPage() {
           ...prev.filter((c) => c.id !== conversationId),
         ];
       });
-    } catch {
+    } catch (err) {
+      // Hai lỗi có mã riêng của lát M2 phải hiện thành câu chữ rõ
+      // ràng cạnh composer (kèm trạng thái failed để thử lại được);
+      // lỗi khác giữ hành vi cũ (chỉ đánh dấu failed).
+      if (err instanceof ApiError && err.problem.code === 'messaging.message_too_long') {
+        setSendError(t('messageTooLong', { max: MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT }));
+      } else if (err instanceof ApiError && err.problem.code === 'messaging.rate_limited') {
+        setSendError(t('messageRateLimited'));
+      }
       setMessages((prev) => prev.map((m) => (m.clientMessageId === clientMessageId && m.localStatus
         ? { ...m, localStatus: 'failed' as const }
         : m)));
@@ -584,6 +621,16 @@ export function MessagesPage() {
     if (!active) return;
     const text = drafts[active.id] ?? '';
     if (!text.trim()) return;
+    // Áp trần ở client theo ĐÚNG cách đếm của server (lát M2): vượt
+    // trần thì giữ nguyên nháp + báo rõ, không bắn request chắc chắn
+    // bị 400. Trần hiển thị là giá trị mặc định dùng chung ở
+    // contracts; server vẫn là nguồn sự thật (quản trị đổi
+    // site-config thì lỗi 400 của server cũng được dịch rõ ở deliver).
+    if (countMessageCharacters(text) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT) {
+      setSendError(t('messageTooLong', { max: MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT }));
+      return;
+    }
+    setSendError(null);
     // Chỉ xoá nháp của đúng conversation vừa gửi (lát M1, issue
     // #204) — nháp của các conversation khác giữ nguyên.
     setDrafts((prev) => {
@@ -1159,6 +1206,21 @@ export function MessagesPage() {
                     />
                     <Button type="submit">{t('send')}</Button>
                   </form>
+                  <div className="flex items-center justify-between gap-2">
+                    {sendError ? (
+                      <p role="alert" className="text-sm text-destructive">{sendError}</p>
+                    ) : (
+                      <span />
+                    )}
+                    <p
+                      data-testid="message-char-count"
+                      className={countMessageCharacters(draft) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT
+                        ? 'text-xs text-destructive'
+                        : 'text-xs text-muted-foreground'}
+                    >
+                      {countMessageCharacters(draft)}/{MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT}
+                    </p>
+                  </div>
                 </>
               )}
             </>

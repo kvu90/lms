@@ -294,6 +294,16 @@ export const createGroupConversationSchema = z.strictObject({
 });
 export type CreateGroupConversation = z.infer<typeof createGroupConversationSchema>;
 
+/**
+ * Trần độ dài một tin nhắn theo MẶC ĐỊNH của chính sách đã chốt (issue
+ * #33, điểm P2; lát M2 issue #212): 10.000 ký tự người dùng thấy. Giá
+ * trị hiệu lực thật nằm ở site-config `core/messagingmaxmessagelength`
+ * (quản trị đổi được, server là nguồn sự thật duy nhất khi gửi); hằng
+ * này chỉ là mặc định dùng chung để registry site-config và bộ soạn
+ * tin trên web không lệch nhau ở giá trị gốc.
+ */
+export const MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT = 10000;
+
 /** Payload gửi tin nhắn vào một cuộc hội thoại. */
 export const sendMessageSchema = z.strictObject({
   text: z.string().min(1),

@@ -36,6 +36,21 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // kiểm duyệt. 0 = tắt hẳn thu hồi. Mặc định 15 phút theo chuẩn các
   // app nhắn tin phổ biến.
   { component: 'core', name: 'messagingrecallwindowminutes', type: 'number', defaultValue: 15, scope: 'both' },
+  // Chặn lạm dụng đường gửi tin (lát M2, issue #212; chính sách P2 đã
+  // chốt ở issue #33): trần độ dài một tin tính theo KÝ TỰ NGƯỜI DÙNG
+  // THẤY (grapheme, không đếm byte) — vượt trần bị từ chối 400
+  // `messaging.message_too_long`; 0 = tắt trần. Giá trị mặc định phải
+  // khớp MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT ở @lms/contracts.
+  { component: 'core', name: 'messagingmaxmessagelength', type: 'number', defaultValue: 10000, scope: 'both' },
+  // Throttle gửi tin theo từng người dùng bằng Redis (cùng lát M2):
+  // cửa sổ bùng phát (burst) mặc định 20 tin / 10 giây + trần duy trì
+  // 60 tin / phút (tức ~1 tin/giây) — mức theo khuyến nghị của hồ sơ
+  // rà soát hoàn thiện nhắn tin, đủ rộng để không vướng sử dụng thật.
+  // Vượt một trong hai trần → 429 `messaging.rate_limited`. Đặt trần
+  // tương ứng về 0 = tắt cửa sổ đó.
+  { component: 'core', name: 'messagingsendburstlimit', type: 'number', defaultValue: 20, scope: 'platform' },
+  { component: 'core', name: 'messagingsendburstwindowseconds', type: 'number', defaultValue: 10, scope: 'platform' },
+  { component: 'core', name: 'messagingsendperminutelimit', type: 'number', defaultValue: 60, scope: 'platform' },
   { component: 'badges', name: 'enabled', type: 'boolean', defaultValue: true, scope: 'both' },
   // Cấp duyệt thứ hai (ban giám hiệu) cho BỘ HỒ SƠ đề định kỳ (EB-3,
   // issue #165): true = sau cấp tổ trưởng, bộ hồ sơ phải qua thêm mốc

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -995,5 +995,92 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
       ).toBe(true),
     );
     await waitFor(() => expect(composer.value).toBe(''));
+  });
+});
+
+/**
+ * Spec lát M2 (issue #212) cho trang tin nhắn: (1) composer hiện bộ
+ * đếm ký tự theo trần mặc định dùng chung 10.000 và CHẶN gửi ở client
+ * khi nháp vượt trần (giữ nguyên nháp, báo rõ, không bắn request);
+ * (2) server trả 429 `messaging.rate_limited` thì trang hiện thông
+ * báo "gửi quá nhanh" cạnh composer thay vì chỉ để tin rơi vào trạng
+ * thái failed câm.
+ */
+describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('hiện bộ đếm và chặn gửi ở client khi nháp vượt trần 10.000 ký tự', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM1(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+
+    fireEvent.change(composer, { target: { value: 'a'.repeat(10001) } });
+    expect(screen.getByTestId('message-char-count')).toHaveTextContent('10001/10000');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tin nhắn quá dài — tối đa 10000 ký tự.');
+    // Không có request gửi nào bị bắn đi, nháp giữ nguyên để sửa.
+    expect(
+      calls.some((c) => c.method === 'POST' && /\/conversations\/[^/]+\/messages$/.test(c.url)),
+    ).toBe(false);
+    expect(composer.value).toHaveLength(10001);
+  });
+
+  it('server trả 429 thì hiện thông báo gửi quá nhanh cạnh composer', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    // Stub như M1 nhưng đường gửi luôn bị throttle ở server.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, method, body });
+        const respond = (payload: unknown, status = 200) =>
+          new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond(PROFILE);
+        if (url === '/api/v1/messages/conversations' && method === 'GET') {
+          return respond([
+            { id: CONV_A, type: 1, name: 'Hội thoại A', members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+          ]);
+        }
+        if (url === `/api/v1/messages/conversations/${CONV_A}`)
+          return respond({
+            id: CONV_A, type: 1, name: 'Hội thoại A', members: [ME_ID, OTHER_ID], unread: 0,
+            lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null, messages: [], hasMoreBefore: false, memberReadMarkers: [],
+          });
+        if (/^\/api\/v1\/messages\/conversations\/[^/]+\/messages$/.test(url) && method === 'POST') {
+          return respond(
+            { type: 'about:blank', title: 'Too Many Requests', status: 429, code: 'messaging.rate_limited', detail: 'You are sending messages too quickly' },
+            429,
+          );
+        }
+        if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+        if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+        if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+        if (url === '/api/v1/messages/contacts') return respond({ contacts: [] });
+        if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [] });
+        if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    await userEvent.type(composer, 'tin bình thường');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bạn đang gửi tin quá nhanh');
+    // Tin vẫn mang trạng thái failed để người dùng thử lại sau cửa sổ.
+    expect(await screen.findByText('Gửi thất bại')).toBeInTheDocument();
   });
 });

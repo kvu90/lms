@@ -28,9 +28,14 @@ describe('MessagingService.notify — external channel minimization', () => {
     // đường thu hồi nên chỉ cần stub getValue trả undefined (service
     // tự rơi về mặc định 15 phút).
     const siteConfig = { getValue: vi.fn(async () => undefined) };
+    // Throttle gửi tin (lát M2, issue #212) là tham số thứ 10: spec
+    // này chỉ đi đường notify() (tin hệ thống) — không qua cổng gửi
+    // tin của người dùng nên stub consume không làm gì là đủ.
+    const sendThrottle = { consume: vi.fn(async () => undefined) };
     const service = new MessagingService(
       repo as never, users as never, {} as never, {} as never, outbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
+      sendThrottle as never,
     );
     return { service, inserted, jobs };
   }
