@@ -1,7 +1,8 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PrivacyPage, SearchPage } from './platform';
+import { PrivacyPage } from './platform-privacy';
+import { SearchPage } from './platform-search';
 
 /**
  * Platform web tests (Testing Library): global search hiển thị đúng kết quả đã
