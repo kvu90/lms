@@ -1,3 +1,5 @@
+import { Injectable } from '@nestjs/common';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, lte } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { mcpIdempotencyKeys } from './schema';
@@ -11,8 +13,9 @@ const TTL_MS = 24 * 60 * 60 * 1000;
  * hạn — dòng hết hạn bị xoá ngay khi chạm tới và coi như không tồn tại,
  * để client dùng lại key sau 24 giờ không va phải response cũ.
  */
+@Injectable()
 export class McpIdempotencyRepository {
-  constructor(private readonly db: Database) {}
+  constructor(@InjectDrizzle() private readonly db: Database) {}
 
   async find(userId: string, key: string): Promise<McpIdempotencyKeyRow | null> {
     const [row] = await this.db

@@ -6,15 +6,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { enableTrustedProxy } from '../src/common/client-ip';
 import { ProblemDetailsFilter } from '../src/common/problem-details.filter';
-import { OutboxService } from '../src/infra/events/outbox.service';
-import { McpBridgeAuth } from '../src/modules/mcp/mcp-bridge-auth';
-import { McpIdempotencyRepository } from '../src/modules/mcp/mcp-idempotency.repository';
+import { McpDepsService } from '../src/modules/mcp/mcp-deps.service';
 import { McpRateLimiter } from '../src/modules/mcp/mcp-rate-limit';
-import { mountMcp, resolveMcpDeps, type McpMountDeps } from '../src/modules/mcp/mcp.mount';
+import { mountMcp, type McpMountDeps } from '../src/modules/mcp/mcp.mount';
 import { QuestionBanksService } from '../src/modules/questions/question-banks.service';
-import { QuestionsRepository } from '../src/modules/questions/questions.repository';
 import { QuestionsService } from '../src/modules/questions/questions.service';
-import { UsersService } from '../src/modules/users/users.service';
 import {
   adminToken, assignRole, createUserViaApi, http, login, roleIdByShortname,
   STRONG_PASSWORD, systemContextId, uniqueName,
@@ -106,8 +102,9 @@ async function createMountedMcpApp(mountDeps?: (app: INestApplication) => McpMou
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
   enableTrustedProxy(app as NestExpressApplication);
-  // Mount MCP trước init — đúng thứ tự như main.ts (trước prefix/route của Nest).
-  mountMcp(app as NestExpressApplication, mountDeps ? mountDeps(app) : resolveMcpDeps(app as NestExpressApplication));
+  // Mount MCP trước init — đúng thứ tự như main.ts (trước prefix/route của Nest);
+  // deps mặc định lấy qua facade McpDepsService của McpModule (issue #138).
+  mountMcp(app as NestExpressApplication, mountDeps ? mountDeps(app) : app.get(McpDepsService).createMountDeps());
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalFilters(new ProblemDetailsFilter());
@@ -151,8 +148,8 @@ describe('MCP server (MCP-0, issue #110)', () => {
     admin = await adminToken(app);
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
-    questions = app.get(QuestionsService, { strict: false });
-    banks = app.get(QuestionBanksService, { strict: false });
+    questions = app.get(QuestionsService);
+    banks = app.get(QuestionBanksService);
     teacherA = await mkStaffUser();
     teacherB = await mkStaffUser();
     student = await mkUser();
@@ -638,20 +635,12 @@ describe('MCP rate limit (app riêng, hạn tạo = 2/giờ)', () => {
 
   beforeAll(async () => {
     app2 = await createMountedMcpApp((a) => {
-      const questionsRepo = a.get(QuestionsRepository, { strict: false });
+      // Deps chuẩn từ facade của McpModule, chỉ ghi đè rate limiter
+      // bằng hạn chặt cho ca kiểm giới hạn (issue #138).
+      const base = a.get(McpDepsService).createMountDeps();
       return {
-        bridgeAuth: new McpBridgeAuth(process.env.JWT_SECRET!, a.get(UsersService)),
+        ...base,
         rateLimiter: new McpRateLimiter({ read: 1000, create: 2 }),
-        publicBaseUrl: null,
-        issuer: null,
-        toolDeps: {
-          questions: a.get(QuestionsService, { strict: false }),
-          banks: a.get(QuestionBanksService, { strict: false }),
-          questionsRepo,
-          idempotency: new McpIdempotencyRepository(questionsRepo.dbHandle),
-          outbox: a.get(OutboxService, { strict: false }),
-          publicBaseUrl: '',
-        },
       } satisfies McpMountDeps;
     });
     admin2 = await adminToken(app2);
