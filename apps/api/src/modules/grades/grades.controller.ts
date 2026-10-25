@@ -430,6 +430,17 @@ export class VnGradebooksController {
   async latestYear(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return (await this.vn.latestYearResult(actor.id, courseId, userId)) ?? null;
   }
+
+  @Get(':courseId/grades/vn-results/mine')
+  /**
+   * GET /courses/:courseId/grades/vn-results/mine — "kết quả của tôi" (issue #180):
+   * kết quả VN theo kỳ + cả năm của CHÍNH học sinh trong khoá, qua cổng công bố
+   * PH-0 như bề mặt phụ huynh. Đây là đường khám phá sổ duy nhất cho chính chủ:
+   * kỳ chưa công bố thì không lộ bookId lẫn điểm (danh sách sổ vẫn gác staff).
+   */
+  async myVnResults(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.vn.getMyVnResults(actor.id, courseId);
+  }
 }
 
 @ApiTags('grades')
