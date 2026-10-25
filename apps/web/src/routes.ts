@@ -67,4 +67,10 @@ export default [
     route('contentbank/:id/edit', 'routes/contentbank-edit.tsx'),
     route('privacy', 'routes/privacy.tsx'),
   ]),
+  // Hai trang mỏng của luồng uỷ quyền MCP (lát MCP-1, issue #163):
+  // nằm NGOÀI shell layout — chúng là loginPage/consentPage mà máy
+  // chủ OAuth chuyển trình duyệt tới giữa luồng authorize, phải hiển
+  // thị trần (không khung app, không bị guard của shell đá về /login).
+  route('mcp-login', 'pages/mcp-login.tsx'),
+  route('mcp-consent', 'pages/mcp-consent.tsx'),
 ] satisfies RouteConfig;
