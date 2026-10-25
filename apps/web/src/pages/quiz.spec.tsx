@@ -17,7 +17,6 @@ const QUIZ_ID = '01900000-0000-7000-8000-0000000000c2';
 const CATEGORY_ID = '01900000-0000-7000-8000-0000000000c3';
 const QUESTION_ID = '01900000-0000-7000-8000-0000000000c4';
 const SLOT_ID = '01900000-0000-7000-8000-0000000000c5';
-const SLOT2_ID = '01900000-0000-7000-8000-0000000000c6';
 const ATTEMPT_ID = '01900000-0000-7000-8000-0000000000c7';
 const QA_ID = '01900000-0000-7000-8000-0000000000c8';
 const ANSWER_ID = '01900000-0000-7000-8000-0000000000c9';
@@ -50,6 +49,9 @@ const quizView = (slots: unknown[]) => ({
   gradeMethod: 'highest',
   grade: 10,
   shuffleAnswers: false,
+  examId: '01900000-0000-7000-8000-0000000000cc',
+  examVersionId: '01900000-0000-7000-8000-0000000000cd',
+  targetGroupId: null,
   sumGrades: slots.reduce<number>((sum, s) => sum + (s as { maxMark: number }).maxMark, 0),
   slots,
 });
@@ -59,82 +61,85 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Quiz builder page — real endpoints', () => {
-  it('shows slots with their marks and adds a fixed question from the bank', async () => {
+describe('Pin page — pinned exam surface (#226)', () => {
+  it('shows the frozen slots with marks, links to the exam editor and upgrades the pin version', async () => {
     const calls: RecordedCall[] = [];
+    const EXAM_ID = '01900000-0000-7000-8000-0000000000cc';
+    const OLD_VERSION_ID = '01900000-0000-7000-8000-0000000000cd';
+    const NEW_VERSION_ID = '01900000-0000-7000-8000-0000000000ce';
     const slots: unknown[] = [
-      { id: SLOT_ID, slot: 1, page: 1, questionId: QUESTION_ID, categoryId: null, maxMark: 5 },
+      {
+        id: SLOT_ID, slot: 1, page: 1, questionId: QUESTION_ID, categoryId: null, maxMark: 5,
+        versionMode: 'pinned', pinnedVersion: 1, latestVersion: 1, hasNewerVersion: false,
+        bankId: null, bankName: null, bankScope: null, questionStatus: null,
+      },
     ];
+    let pinVersionId = OLD_VERSION_ID;
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         const method = init?.method ?? 'GET';
-        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-        if (url === `/api/v1/quizzes/${QUIZ_ID}`)
+        const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+        calls.push({ url, method, body });
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}` && method === 'GET')
           return respond({
-            quiz: quizView(slots),
-            slots,
+            quiz: { ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId },
             effective: { timeOpen: null, timeClose: null, timeLimitSeconds: null, attemptsAllowed: 0, passwordRequired: false, nextAttemptAt: null },
             permissions: { attempt: false, manage: true, manageOverrides: false, grade: true, viewReports: true, preview: true },
             canAttempt: false,
             attemptBlockedReason: null,
+            inProgressAttemptId: null,
             myAttempts: [],
             myGrade: null,
-            activeAttemptId: null,
           });
-        if (url === '/api/v1/questions/categories')
-          return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
-        if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`)
-          return respond([
-            {
-              question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'multichoice', name: 'Capital' },
-              entry: { id: 'e1', questionCategoryId: CATEGORY_ID, questionId: QUESTION_ID, latestVersion: 1 },
-              latestVersion: { id: 'v1', questionBankEntryId: 'e1', questionId: QUESTION_ID, version: 1, questionText: doc('Capital?'), defaultMark: 2 },
-            },
-          ]);
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}` && method === 'PATCH') {
+          pinVersionId = body?.examVersionId as string;
+          return respond({ ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId });
+        }
+        if (url === `/api/v1/exams/${EXAM_ID}`)
+          return respond({
+            paper: { id: EXAM_ID, bankId: 'b1', kind: 'snapshot', status: 'ready', latestVersion: 2 },
+            version: { id: NEW_VERSION_ID, version: 2, name: 'Kiểm tra chương 1' },
+            slots: [],
+            capabilities: { edit: true },
+          });
         if (url === `/api/v1/questions/${QUESTION_ID}`)
           return respond({
             question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'multichoice', name: 'Capital' },
             entry: { id: 'e1', questionCategoryId: CATEGORY_ID, questionId: QUESTION_ID, latestVersion: 1 },
             latestVersion: { id: 'v1', questionBankEntryId: 'e1', questionId: QUESTION_ID, version: 1, questionText: doc('Capital?'), defaultMark: 2 },
           });
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/slots` && method === 'POST') {
-          slots.push({ id: SLOT2_ID, slot: 2, page: 1, questionId: QUESTION_ID, categoryId: null, maxMark: 2 });
-          return respond({ id: SLOT2_ID, slot: 2, page: 1, questionId: QUESTION_ID, categoryId: null, maxMark: 2 }, 201);
-        }
+        if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
         return respond({}, 404);
       }),
     );
 
-    const router = createMemoryRouter([{ path: '/courses/:id/quizzes/:quizId', element: <QuizPage /> }], {
-      initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}`],
+    const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
+      initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
     render(<RouterProvider router={router} />);
 
-    // Slot hiện có hiện với điểm đã sửa ở slot (5) chứ không phải default (2).
+    // Slot đã ghim hiện tên câu + điểm, CHỈ ĐỌC (không còn ô sửa điểm/soạn slot trong khoá).
     const slotEl = await screen.findByTestId(`slot-${SLOT_ID}`);
     expect(slotEl).toHaveTextContent('Capital');
-    expect(slotEl.querySelector('input')).toHaveValue('5');
+    expect(slotEl).toHaveTextContent('5 điểm');
+    expect(slotEl.querySelector('input')).toBeNull();
 
-    // Cả hai form (cố định/ngẫu nhiên) đều có ô chọn danh mục; form cố định đứng trước.
-    // Select của @lms/ui (Base UI): bấm trigger rồi bấm tuỳ chọn trong popup.
-    const [fixedCategoryTrigger] = await screen.findAllByLabelText('Chọn danh mục');
-    await userEvent.click(fixedCategoryTrigger!);
-    await userEvent.click(await screen.findByRole('option', { name: 'General' }));
-    await userEvent.click(await screen.findByLabelText('Chọn câu hỏi'));
-    await userEvent.click(await screen.findByRole('option', { name: 'Capital (multichoice)' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Thêm vào đề' }));
+    // Nút mở trình soạn đề trỏ về trang Đề.
+    const editorLink = await screen.findByRole('link', { name: 'Mở trình soạn đề' });
+    expect(editorLink.getAttribute('href')).toBe(`/exams/${EXAM_ID}/edit`);
 
+    // Đề ở bank đã có version 2 → nâng version của lần ghim qua PATCH pin.
+    await userEvent.click(await screen.findByRole('button', { name: 'Nâng lên version 2' }));
     await waitFor(() =>
       expect(calls).toContainEqual({
-        url: `/api/v1/quizzes/${QUIZ_ID}/slots`,
-        method: 'POST',
-        body: { questionId: QUESTION_ID },
+        url: `/api/v1/exam-pins/${QUIZ_ID}`,
+        method: 'PATCH',
+        body: { examVersionId: NEW_VERSION_ID },
       }),
     );
-    // Sau reload, slot mới xuất hiện và tổng điểm đề là 7.
-    expect(await screen.findByTestId(`slot-${SLOT2_ID}`)).toBeInTheDocument();
-    expect(screen.getByText(/Tổng điểm các câu: 7/)).toBeInTheDocument();
+    // Sau khi nâng, nút nâng biến mất (pin đã ở version hiện hành).
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Nâng lên version 2' })).toBeNull());
   });
 });
 
@@ -333,7 +338,7 @@ describe('Quiz results page — manual grading', () => {
         const method = init?.method ?? 'GET';
         const body = init?.body ? JSON.parse(String(init.body)) : undefined;
         calls.push({ url, method, body });
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/results`) return respond(results());
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/results`) return respond(results());
         if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}/questions/${QA_ID}/grade` && method === 'POST') {
           graded = true;
           return respond({ state: 'gradedpartial' }, 201);
@@ -343,8 +348,8 @@ describe('Quiz results page — manual grading', () => {
     );
 
     const router = createMemoryRouter(
-      [{ path: '/courses/:id/quizzes/:quizId/results', element: <QuizResultsPage /> }],
-      { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/results`] },
+      [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
+      { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
     render(<RouterProvider router={router} />);
 
@@ -402,14 +407,14 @@ describe('Quiz results page — manual grading', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/results`) return respond(results);
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/results`) return respond(results);
         return respond({}, 404);
       }),
     );
 
     const router = createMemoryRouter(
-      [{ path: '/courses/:id/quizzes/:quizId/results', element: <QuizResultsPage /> }],
-      { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/results`] },
+      [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
+      { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
     render(<RouterProvider router={router} />);
 
@@ -447,15 +452,15 @@ describe('Quiz overrides — teacher surface (#182)', () => {
         const method = init?.method ?? 'GET';
         const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
         calls.push({ url, method, body });
-        if (url === `/api/v1/quizzes/${QUIZ_ID}` && method === 'GET')
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}` && method === 'GET')
           return respond({
             quiz: quizView([]),
             effective: { timeOpen: null, timeClose: null, timeLimitSeconds: null, attemptsAllowed: 0, passwordRequired: false, nextAttemptAt: null },
             permissions: { attempt: false, manage: false, manageOverrides: true, grade: false, viewReports: true, preview: false },
             canAttempt: false, attemptBlockedReason: null, inProgressAttemptId: null, myAttempts: [], myGrade: null,
           });
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && method === 'GET') return respond(overrides);
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && method === 'POST') {
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/overrides` && method === 'GET') return respond(overrides);
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/overrides` && method === 'POST') {
           const created = {
             id: OVERRIDE_USER_ID, quizId: QUIZ_ID,
             groupId: (body?.groupId as string) ?? null, groupName: body?.groupId ? 'Nhóm 1' : null,
@@ -467,7 +472,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
           overrides = [...overrides, created];
           return respond(created, 201);
         }
-        if (url.startsWith(`/api/v1/quizzes/${QUIZ_ID}/overrides/`) && method === 'PATCH') {
+        if (url.startsWith(`/api/v1/exam-pin-overrides/`) && method === 'PATCH') {
           const id = url.split('/').pop();
           overrides = overrides.map((ov) => {
             if (ov.id !== id) return ov;
@@ -477,7 +482,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
           });
           return respond(overrides.find((ov) => ov.id === id));
         }
-        if (url.startsWith(`/api/v1/quizzes/${QUIZ_ID}/overrides/`) && method === 'DELETE') {
+        if (url.startsWith(`/api/v1/exam-pin-overrides/`) && method === 'DELETE') {
           const id = url.split('/').pop();
           overrides = overrides.filter((ov) => ov.id !== id);
           return respond({ deleted: true });
@@ -495,8 +500,8 @@ describe('Quiz overrides — teacher surface (#182)', () => {
         return respond({}, 404);
       }),
     );
-    const router = createMemoryRouter([{ path: '/courses/:id/quizzes/:quizId', element: <QuizPage /> }], {
-      initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}`],
+    const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
+      initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
     render(<RouterProvider router={router} />);
     return { calls };
@@ -517,14 +522,14 @@ describe('Quiz overrides — teacher surface (#182)', () => {
 
     // Bị chặn ngay ở web: hiện lỗi lý do và KHÔNG có POST nào được phát.
     expect(await screen.findByText(/bắt buộc phải có lý do/)).toBeInTheDocument();
-    expect(calls.some((c) => c.url === `/api/v1/quizzes/${QUIZ_ID}/overrides` && c.method === 'POST')).toBe(false);
+    expect(calls.some((c) => c.url === `/api/v1/exam-pins/${QUIZ_ID}/overrides` && c.method === 'POST')).toBe(false);
 
     // Bổ sung lý do → tạo thành công đúng payload cho đúng học sinh đó.
     await userEvent.type(screen.getByLabelText('Lý do ghi đè'), 'Ốm, kiểm tra bù');
     await userEvent.click(screen.getByRole('button', { name: 'Thêm ghi đè' }));
     await waitFor(() =>
       expect(calls).toContainEqual({
-        url: `/api/v1/quizzes/${QUIZ_ID}/overrides`,
+        url: `/api/v1/exam-pins/${QUIZ_ID}/overrides`,
         method: 'POST',
         body: {
           userId: STUDENT_ID,
@@ -555,7 +560,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Lưu ghi đè' }));
     await waitFor(() =>
       expect(calls).toContainEqual({
-        url: `/api/v1/quizzes/${QUIZ_ID}/overrides/${OVERRIDE_GROUP_ID}`,
+        url: `/api/v1/exam-pin-overrides/${OVERRIDE_GROUP_ID}`,
         method: 'PATCH',
         body: { timeOpen: null, timeClose: null, timeLimitSeconds: 3600, attempts: null, reason: 'Nhóm học chậm hơn' },
       }),
@@ -566,7 +571,7 @@ describe('Quiz overrides — teacher surface (#182)', () => {
     await userEvent.click(within(updatedRow).getByRole('button', { name: 'Xoá ghi đè' }));
     await waitFor(() =>
       expect(calls).toContainEqual({
-        url: `/api/v1/quizzes/${QUIZ_ID}/overrides/${OVERRIDE_GROUP_ID}`,
+        url: `/api/v1/exam-pin-overrides/${OVERRIDE_GROUP_ID}`,
         method: 'DELETE',
         body: undefined,
       }),
@@ -580,7 +585,7 @@ describe('Quiz page — student sees their effective (overridden) settings (#182
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        if (url === `/api/v1/quizzes/${QUIZ_ID}`)
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}`)
           return respond({
             quiz: {
               ...quizView([]),
@@ -597,8 +602,8 @@ describe('Quiz page — student sees their effective (overridden) settings (#182
         return respond({}, 404);
       }),
     );
-    const router = createMemoryRouter([{ path: '/courses/:id/quizzes/:quizId', element: <QuizPage /> }], {
-      initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}`],
+    const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
+      initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
     render(<RouterProvider router={router} />);
 
@@ -630,13 +635,13 @@ describe('Quiz results page — makeup badge (#182)', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
-        if (url === `/api/v1/quizzes/${QUIZ_ID}/results`) return respond(results);
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/results`) return respond(results);
         return respond({}, 404);
       }),
     );
     const router = createMemoryRouter(
-      [{ path: '/courses/:id/quizzes/:quizId/results', element: <QuizResultsPage /> }],
-      { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/results`] },
+      [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
+      { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
     render(<RouterProvider router={router} />);
 

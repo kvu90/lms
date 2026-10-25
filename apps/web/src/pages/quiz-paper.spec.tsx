@@ -7,10 +7,10 @@ import QuizPaperPage from './quiz-paper';
 
 /**
  * Spec trang chấm bài giấy (CAM-0, issue #112) theo endpoint thật:
- * lô phiếu qua GET /quizzes/:id/paper-batches, hàng chờ qua
- * GET /paper-scans?quizId=, gán định danh qua POST .../assign-identity,
+ * lô phiếu qua GET /exam-batches?pinId=, hàng chờ qua
+ * GET /exam-scans?pinId=, gán định danh qua POST .../assign-identity,
  * xác nhận câu mơ hồ qua POST .../resolve-readings, ghi điểm qua
- * POST .../record. Ảnh phiếu qua GET /paper-scans/:id/image/warped.
+ * POST .../record. Ảnh phiếu qua GET /exam-scans/:id/image/warped.
  */
 const COURSE_ID = '01900000-0000-7000-8000-0000000000c1';
 const QUIZ_ID = '01900000-0000-7000-8000-0000000000c2';
@@ -71,8 +71,8 @@ function stubFetch(calls: RecordedCall[], state: { scans: Record<string, unknown
     if (url === '/api/v1/access/roles') return respond([]);
     if (url === '/api/v1/questions/categories') return respond([]);
     if (url === '/api/v1/courses') return respond([]);
-    if (url === `/api/v1/quizzes/${QUIZ_ID}/paper-batches`) return respond([BATCH]);
-    if (url === `/api/v1/paper-scans?quizId=${QUIZ_ID}`) return respond(state.scans);
+    if (url === `/api/v1/exam-batches?pinId=${QUIZ_ID}`) return respond([BATCH]);
+    if (url === `/api/v1/exam-scans?pinId=${QUIZ_ID}`) return respond(state.scans);
     if (url.includes('/image/warped')) return new Response(new Blob(['png'], { type: 'image/png' }), { status: 200 });
     if (url.endsWith('/assign-identity')) {
       const scan = state.scans.find((s) => url.includes(String(s.id)));
@@ -100,8 +100,8 @@ function stubFetch(calls: RecordedCall[], state: { scans: Record<string, unknown
 
 function renderPage() {
   const router = createMemoryRouter(
-    [{ path: '/courses/:id/quizzes/:quizId/paper', element: <QuizPaperPage /> }],
-    { initialEntries: [`/courses/${COURSE_ID}/quizzes/${QUIZ_ID}/paper`] },
+    [{ path: '/courses/:id/exams/:pinId/paper', element: <QuizPaperPage /> }],
+    { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/paper`] },
   );
   render(
     <TestProviders>

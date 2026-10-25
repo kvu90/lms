@@ -235,7 +235,7 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems:
       if (url === `/api/v1/courses/${COURSE_ID}/reorder-sections` && method === 'POST') return respond({ reordered: true });
       if (url === `/api/v1/courses/${COURSE_ID}/sections/${SECTION_ID}/reorder-modules` && method === 'POST')
         return respond({ reordered: true });
-      if (url === `/api/v1/courses/${COURSE_ID}/quizzes` && method === 'POST')
+      if (url === `/api/v1/courses/${COURSE_ID}/exam-pins` && method === 'POST')
         return respond({ id: '01900000-0000-7000-8000-00000000aa01', course: COURSE_ID, name: 'Quiz mới' });
       if (url === `/api/v1/courses/${COURSE_ID}/assignments` && method === 'POST')
         return respond({ id: '01900000-0000-7000-8000-00000000aa02', courseId: COURSE_ID, name: 'Bài tập mới' });
@@ -268,7 +268,7 @@ function renderCourseBuilder() {
   const router = createMemoryRouter(
     [
       { path: '/courses/:id/builder', element: <CourseBuilderPage /> },
-      { path: '/courses/:id/quizzes/:quizId', element: <p>quiz-editor</p> },
+      { path: '/courses/:id/exams/:pinId', element: <p>quiz-editor</p> },
       { path: '/courses/:id/assignments/:assignmentId', element: <p>assignment-editor</p> },
     ],
     { initialEntries: [`/courses/${COURSE_ID}/builder`] },
@@ -451,7 +451,7 @@ describe('Builder Outline K1 (teacher)', () => {
     );
   });
 
-  it('thêm nội dung bằng menu chọn loại Quiz gọi POST /courses/:id/quizzes thay vì gõ component', async () => {
+  it('thêm nội dung bằng menu chọn loại Quiz gọi POST /courses/:id/exam-pins (tạo đề + ghim) thay vì gõ component', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -464,10 +464,10 @@ describe('Builder Outline K1 (teacher)', () => {
     await userEvent.click(within(sectionBox).getByRole('button', { name: 'Thêm module' }));
 
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/quizzes` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/exam-pins` && c.method === 'POST')).toBe(true),
     );
-    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/quizzes`);
-    expect(call?.body).toEqual({ sectionId: SECTION_ID, name: 'Kiểm tra 15 phút' });
+    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/exam-pins`);
+    expect(call?.body).toEqual({ sectionId: SECTION_ID, newExam: { name: 'Kiểm tra 15 phút' } });
     // Không còn đường tạo module bằng chuỗi component cho quiz.
     expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules` && c.method === 'POST')).toBe(false);
   });
