@@ -22,11 +22,11 @@ const BATCH_SIZE = 100;
  * (message_new) + nhắc hạn nộp (activity_due_soon, lát N5 issue #50) —
  * và bộ vòng đời Bài tập/Quiz của NB-1 (issue #174): assignment_created /
  * assignment_submitted / assignment_returned / quiz_created /
- * quiz_attempt_finished. Sự kiện do CẢ API lẫn worker phát (chấm lại
+ * exam_paper_deployed / quiz_attempt_finished. Sự kiện do CẢ API lẫn worker phát (chấm lại
  * điểm, quét hết hạn ghi danh chạy ở worker) nên đường nối phải đọc
  * outbox đã commit thay vì lắng nghe EventEmitter trong một tiến trình.
  */
-const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent', 'activity_due_reminder', 'assignment_created', 'assignment_submitted', 'assignment_returned', 'quiz_created', 'quiz_attempt_finished'] as const;
+const HANDLED_TYPES = ['grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent', 'activity_due_reminder', 'assignment_created', 'assignment_submitted', 'assignment_returned', 'quiz_created', 'exam_paper_deployed', 'quiz_attempt_finished'] as const;
 
 /** Các loại grade item KHÔNG sinh thông báo điểm: tổng khoá, tổng hạng mục, item công thức (điểm thành phần đã báo riêng). */
 const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
@@ -69,8 +69,13 @@ const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
  *    grade_updated riêng, contextUrl khác nhau để không trùng hiển
  *    thị: trả bài trỏ về trang bài tập, điểm trỏ về trang điểm);
  *    `quiz_created` → `quiz_available` cho học sinh đang ghi danh
- *    (cùng cổng hiển thị; đường triển khai đề EB cũng sinh quiz qua
- *    createQuiz nên dùng chung sự kiện này);
+ *    (cùng cổng hiển thị);
+ *    `exam_paper_deployed` → cùng `quiz_available` như trên: triển
+ *    khai đề vào quiz có sẵn phát sự kiện này với payload cùng hình
+ *    (quizId/courseId/actorId) ở quiz.service — rẽ về cùng handler;
+ *    đường sinh đề từ ma trận tạo quiz qua createQuiz (đã có
+ *    `quiz_created`) rồi mới triển khai, sự kiện sau chỉ CẬP NHẬT
+ *    bản chưa đọc theo cơ chế gộp, không nhân bản thông báo;
  *    `quiz_attempt_finished` → bản GỘP `quiz_attempt_finished` cho
  *    giáo viên khi lượt làm cần chấm tay (needsGrading, không phải
  *    preview) — gộp theo quiz như P5.
@@ -255,6 +260,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     if (type === 'assignment_submitted') return this.handleAssignmentSubmitted(payload);
     if (type === 'assignment_returned') return this.handleAssignmentReturned(payload);
     if (type === 'quiz_created') return this.handleQuizCreated(payload);
+    if (type === 'exam_paper_deployed') return this.handleQuizCreated(payload);
     if (type === 'quiz_attempt_finished') return this.handleQuizAttemptFinished(payload);
   }
 

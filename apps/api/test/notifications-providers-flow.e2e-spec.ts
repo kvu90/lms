@@ -271,6 +271,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
   interface ClassCtx {
     course: { id: string; fullName?: string };
     sectionId: string;
+    teacherId: string;
     teacherToken: string;
     student: { id: string; username: string };
     studentToken: string;
@@ -296,7 +297,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     const student2 = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student2.id);
     const student2Token = (await login(app, student2.username, STRONG_PASSWORD)).accessToken;
-    return { course, sectionId, teacherToken, student, studentToken, student2, student2Token };
+    return { course, sectionId, teacherId: teacherUser.id, teacherToken, student, studentToken, student2, student2Token };
   }
 
   async function createAssignment(ctx: ClassCtx, name: string, overrides: Record<string, unknown> = {}): Promise<{ id: string }> {
@@ -394,6 +395,39 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     const notif = await waitForNotification(ctx.studentToken, 'quiz_available');
     expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/quizzes/${quizId}`);
     expect(notif.subject).toContain('Kiểm tra NB-1');
+  });
+
+  it('exam_paper_deployed: deploying a paper into the quiz also surfaces quiz_available (grouped, no duplicate while unread)', async () => {
+    const ctx = await setupClass();
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra triển khai đề NB-1' });
+    expect(res.status).toBeLessThan(300);
+    const quizId = (res.body as { id: string }).id;
+
+    // quiz_created đã sinh bản quiz_available đầu tiên; HS đọc xong.
+    const first = await waitForNotification(ctx.studentToken, 'quiz_available',
+      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+    const read = await http(app).post(`/api/v1/notifications/${first.id}/read`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(read.status).toBeLessThan(300);
+
+    // Đúng hình dạng sự kiện quiz.service phát khi triển khai đề vào
+    // quiz có sẵn (deployPaperSlots/deployRecipeSlots).
+    await pg.query(
+      `insert into outbox_events (aggregate, type, payload) values ('quiz', 'exam_paper_deployed', $1::jsonb)`,
+      [JSON.stringify({
+        quizId, courseId: ctx.course.id,
+        paperId: '00000000-0000-4000-8000-000000000001', paperVersionId: '00000000-0000-4000-8000-000000000002',
+        kind: 'recipe', actorId: ctx.teacherId,
+      })],
+    );
+    // Bản cũ đã đọc → sự kiện triển khai sinh bản MỚI (nếu consumer bỏ
+    // qua exam_paper_deployed thì chờ này hết hạn và ca kiểm đỏ).
+    const second = await waitForNotification(ctx.studentToken, 'quiz_available',
+      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}` && n.id !== first.id && n.timeRead === null);
+    expect(second.subject).toContain('Kiểm tra triển khai đề NB-1');
+    const all = (await notificationsOf(ctx.studentToken)).filter((n) => n.eventType === 'quiz_available' && n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+    expect(all).toHaveLength(2);
+    expect(all.filter((n) => n.timeRead === null)).toHaveLength(1);
   });
 
   it('quiz_attempt_finished: teachers get one grouped notification only for manual-grading, non-preview attempts', async () => {
