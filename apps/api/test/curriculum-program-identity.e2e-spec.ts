@@ -161,7 +161,7 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
     expect(outcomes.map((o) => o.id)).toEqual(expected.map((e) => e.id));
     expect(outcomes.map((o) => o.content)).toEqual(expected.map((e) => e.text));
     outcomeA1 = expected[0]!.id;
-    expect(outcomeA1).toBe(programOutcomeId(DATASET_KEY, recA.id, recA.outcomes![0]!));
+    expect(outcomeA1).toBe(programOutcomeId(DATASET_KEY, recA.id, expected[0]!.text));
   }, 180_000);
 
   it('re-importing the untouched dataset is a no-op', async () => {

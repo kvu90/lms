@@ -25,6 +25,25 @@ export interface ProgramRecordSource {
 }
 
 /**
+ * Một node trong doc Tiptap của một YCCĐ (hình dạng thu gọn đúng các
+ * node hệ dùng cho YCCĐ: doc/paragraph/text + bulletList/listItem cho
+ * ý con; marks trên node text được giữ nguyên khi lưu nhưng bị bỏ qua
+ * khi trích text canonical).
+ */
+export interface ProgramOutcomeDocNode {
+  type: string;
+  text?: string;
+  marks?: unknown[];
+  content?: ProgramOutcomeDocNode[];
+}
+
+/** Một YCCĐ dạng Tiptap doc: phần tử của `outcomes[]` trong dataset. */
+export interface ProgramOutcomeDoc {
+  type: 'doc';
+  content?: ProgramOutcomeDocNode[];
+}
+
+/**
  * Một bản ghi chương trình trong dataset đã kiểm chứng. Hình dạng
  * không đồng nhất giữa các đợt trích xuất (ghi nhận ở issue #161):
  * các dataset trích sau đợt Toán/Ngữ văn để `stream` trống/null (cấu
@@ -44,7 +63,13 @@ export interface ProgramRecord {
   topic: string | null;
   content: string;
   kind: string;
-  outcomes: string[];
+  /**
+   * Các YCCĐ của bản ghi: dạng đích là Tiptap doc (xem
+   * ProgramOutcomeDoc). Trong đợt chuyển đổi của issue #161 các
+   * dataset chưa chuyển vẫn giữ phần tử dạng chuỗi thuần; importer
+   * chấp nhận cả hai cho tới commit chốt hạ cổng lỗi.
+   */
+  outcomes: (string | ProgramOutcomeDoc)[];
   outcome_text: string;
   source: ProgramRecordSource;
 }
@@ -107,10 +132,17 @@ export function programDatasetByKey(key: string): ProgramDatasetDef | undefined 
   return PROGRAM_DATASETS.find((d) => d.key === key);
 }
 
-/** Đọc + parse một file dataset đã vendor (đường dẫn theo vị trí module, chạy được cả ở src lẫn dist). */
+/**
+ * Đọc + parse một file dataset đã vendor (đường dẫn theo vị trí
+ * module, chạy được cả ở src lẫn dist). Mọi bản ghi ở dạng doc đều
+ * qua kiểm chứng toàn vẹn với `outcome_text` ngay tại đây — dataset
+ * lệch là lỗi nạp ở mọi đường đọc, không chờ tới lúc ghi DB.
+ */
 export function loadProgramDataset(def: ProgramDatasetDef): ProgramDatasetFile {
   const raw = readFileSync(join(__dirname, 'program-data', def.fileName), 'utf8');
-  return JSON.parse(raw) as ProgramDatasetFile;
+  const file = JSON.parse(raw) as ProgramDatasetFile;
+  for (const record of file.records) assertProgramRecordOutcomeIntegrity(def.key, record);
+  return file;
 }
 
 /**
@@ -129,8 +161,88 @@ export function programRecordHash(record: ProgramRecord): string {
 }
 
 /**
+ * Các dòng text của một doc YCCĐ, theo đúng thứ tự duyệt tài liệu:
+ * mỗi `paragraph` cho một dòng (nối các node `text` con, bỏ qua
+ * marks); `listItem` cho dòng của paragraph của nó rồi tới các dòng
+ * của `bulletList` lồng bên trong (đệ quy). Đây là MỘT NỬA của hàm
+ * trích canonical duy nhất của hệ — xem programOutcomeDocText.
+ */
+export function programOutcomeDocLines(doc: ProgramOutcomeDoc): string[] {
+  const lines: string[] = [];
+  const walk = (node: ProgramOutcomeDocNode): void => {
+    if (node.type === 'paragraph') {
+      const text = (node.content ?? [])
+        .filter((child) => child.type === 'text')
+        .map((child) => child.text ?? '')
+        .join('');
+      lines.push(text);
+      return;
+    }
+    for (const child of node.content ?? []) walk(child);
+  };
+  walk(doc);
+  return lines;
+}
+
+/**
+ * Text canonical của một YCCĐ: các dòng của doc nối bằng `\n`, cắt
+ * khoảng trắng hai đầu. ĐÂY LÀ HÀM TRÍCH DUY NHẤT của hệ cho YCCĐ dạng
+ * doc: id/hash của dòng YCCĐ tính trên text này (xem programOutcomeId)
+ * và kiểm chứng toàn vẹn với `outcome_text` cũng so trên text này —
+ * đổi định dạng lưu (thứ tự khoá JSON, marks) không làm đổi id, chỉ
+ * đổi NỘI DUNG chữ mới đổi id.
+ */
+export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
+  return programOutcomeDocLines(doc).join('\n').trim();
+}
+
+/**
+ * Khoá so sánh toàn vẹn giữa các dòng YCCĐ đã trích và `outcome_text`
+ * nguyên văn: tách theo khoảng trắng, bỏ các token CHỈ gồm ký tự gạch
+ * đầu dòng/dấu phân đoạn (`–`, `−`, `-`, `+`, `•` đứng một mình — các
+ * ký tự này là dấu trình bày của văn bản gốc, không phải nội dung;
+ * gạch nằm trong một token có chữ, vd `cao – thấp` ở hai phía đều bị
+ * xử lý như nhau nên phép so vẫn chặt về mặt chữ), nối lại bằng một
+ * khoảng trắng. Hai phía áp cùng một hàm nên phép so chỉ lệch khi chữ
+ * thật lệch.
+ */
+export function programOutcomeComparisonKey(text: string): string {
+  return text
+    .split(/\s+/)
+    .filter((token) => token !== '' && !/^[–−+•-]$/.test(token))
+    .join(' ');
+}
+
+/**
+ * Kiểm chứng toàn vẹn của một bản ghi: khi `outcomes[]` đã ở dạng doc,
+ * text canonical trích từ các doc (theo đúng thứ tự) PHẢI khớp
+ * `outcome_text` nguyên văn theo khoá so sánh — lệch là dataset đã bị
+ * sửa tay sai hoặc tách ý làm rơi/thêm chữ: ném lỗi, không nạp thầm.
+ * Bản ghi còn ở dạng chuỗi (chưa chuyển đổi trong đợt #161) được bỏ
+ * qua ở cổng này; bản ghi không có doc nào cũng vậy (cổng lỗi cứng
+ * cho trường hợp đó nằm ở commit chốt hạ của đợt chuyển đổi).
+ */
+export function assertProgramRecordOutcomeIntegrity(datasetKey: string, record: ProgramRecord): void {
+  if (!record.outcomes.some((outcome) => typeof outcome !== 'string')) return;
+  const lines = record.outcomes.flatMap((outcome) =>
+    typeof outcome === 'string' ? [outcome] : programOutcomeDocLines(outcome),
+  );
+  const fromOutcomes = programOutcomeComparisonKey(lines.join('\n'));
+  const fromText = programOutcomeComparisonKey(record.outcome_text);
+  if (fromOutcomes !== fromText) {
+    throw new Error(
+      `Dataset ${datasetKey}, bản ghi ${record.id}: YCCĐ dạng doc không khớp outcome_text nguyên văn ` +
+        `(trích doc: "${fromOutcomes.slice(0, 120)}…" — outcome_text: "${fromText.slice(0, 120)}…"). ` +
+        'Không nạp dataset lệch toàn vẹn; đối chiếu lại văn bản nguồn.',
+    );
+  }
+}
+
+/**
  * Các dòng YCCĐ của một bản ghi, theo thứ tự nguyên văn:
- * - Có `outcomes[]`: mỗi ý là một dòng.
+ * - Có `outcomes[]`: mỗi ý là một dòng (phần tử dạng doc cho text
+ *   canonical trích bằng programOutcomeDocText; phần tử dạng chuỗi
+ *   trong đợt chuyển đổi cho chính chuỗi đó).
  * - `outcomes[]` rỗng nhưng `outcome_text` có chữ (bản ghi hoạt động —
  *   nguyên văn viết dạng văn xuôi, không tách ý): đúng một dòng bằng
  *   toàn văn `outcome_text`.
@@ -138,7 +250,11 @@ export function programRecordHash(record: ProgramRecord): string {
  *   nội dung của node): không có dòng nào.
  */
 export function programRecordOutcomeTexts(record: ProgramRecord): string[] {
-  if (record.outcomes.length > 0) return [...record.outcomes];
+  if (record.outcomes.length > 0) {
+    return record.outcomes.map((outcome) =>
+      typeof outcome === 'string' ? outcome : programOutcomeDocText(outcome),
+    );
+  }
   if (record.outcome_text.trim().length > 0) return [record.outcome_text];
   return [];
 }
