@@ -57,7 +57,22 @@ const NON_NOTIFIED_ITEM_TYPES = new Set(['course', 'category', 'calculated']);
  * watermark riêng lưu Redis (khoá theo tên database), chỉ tiến sau
  * khi sự kiện đã xử lý xong, khởi động neo tại seq hiện tại (không
  * phát lại lịch sử). Consumer này KHÔNG đóng dấu published_at và
- * không đụng đường relay/logstore. Mọi lỗi đều bị nuốt kèm cảnh báo:
+ * không đụng đường relay/logstore.
+ *
+ * DB bị dựng lại TRONG LÚC tiến trình vẫn chạy (reset DB production
+ * không kèm restart dyno — sự cố live trong issue #125, bản sửa cho
+ * MessagingOutboxConsumer ở PR #126, áp cùng nguyên lý tại đây) được
+ * phát hiện ở mọi nhịp không có gì xử lý: seq lớn nhất của DB nhỏ
+ * hơn watermark đang giữ là điều không thể xảy ra trong một đời DB
+ * (seq chỉ tăng). Khi đó watermark neo về 0 để mọi sự kiện của đời
+ * DB mới được xử lý — neo tại seq hiện tại như lúc khởi động sẽ bỏ
+ * sót chính các sự kiện đã ghi ngay sau reset, trước nhịp phát hiện;
+ * phát lại phần lịch sử còn trong bảng là vô hại theo tính chất
+ * ít-nhất-một-lần đã có của consumer (mọi handler được viết để an
+ * toàn khi chạy lại: dedupe trong lô, gộp theo chưa-đọc, completion
+ * chỉ phát khi lật trạng thái).
+ *
+ * Mọi lỗi đều bị nuốt kèm cảnh báo:
  * thông báo là kênh phụ, hỏng consumer không được làm hỏng nghiệp vụ
  * gốc; đổi lại tính chất phân phối là ít-nhất-một-lần — xử lý từng
  * sự kiện được viết để an toàn khi chạy lại (dedupe theo lô, gộp
@@ -111,11 +126,15 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     this.ticking = true;
     try {
       if (this.watermark === null) this.watermark = await this.initialWatermark();
-      const rows = await this.db.select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
-        .from(outboxEvents)
-        .where(and(gt(outboxEvents.seq, this.watermark), inArray(outboxEvents.type, [...HANDLED_TYPES])))
-        .orderBy(asc(outboxEvents.seq))
-        .limit(BATCH_SIZE);
+      let rows = await this.fetchPending();
+      // Nhịp trống có thể là im lặng giả: DB đã bị dựng lại trong lúc
+      // tiến trình vẫn chạy nên sự kiện mới mang seq nhỏ hơn
+      // watermark cũ và không bao giờ lọt qua bộ lọc seq > watermark.
+      // Kiểm tra dấu hiệu đó và neo lại trước khi kết luận "không có
+      // gì mới" — nếu không, consumer no-op vĩnh viễn mà không lỗi.
+      if (rows.length === 0 && (await this.reanchorIfDbReset())) {
+        rows = await this.fetchPending();
+      }
       // Chống dội trong lô cho điểm: nhiều sự kiện grade_updated của
       // cùng (user, item) trong một nhịp quét (chấm + tính lại) chỉ
       // sinh MỘT thông báo — giữ vị trí của sự kiện cuối.
@@ -132,6 +151,37 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** Các sự kiện consumer này xử lý được đang chờ sau watermark, theo thứ tự seq. */
+  private async fetchPending() {
+    return this.db.select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
+      .from(outboxEvents)
+      .where(and(gt(outboxEvents.seq, this.watermark!), inArray(outboxEvents.type, [...HANDLED_TYPES])))
+      .orderBy(asc(outboxEvents.seq))
+      .limit(BATCH_SIZE);
+  }
+
+  /**
+   * Phát hiện DB đã bị dựng lại trong lúc tiến trình vẫn chạy và neo
+   * lại watermark: seq chỉ tăng trong một đời DB nên seq lớn nhất
+   * hiện có nhỏ hơn watermark đang giữ nghĩa là watermark thuộc về
+   * đời DB trước. Neo về 0 (không phải về seq hiện tại) để các sự
+   * kiện đã ghi sau reset — có thể đã nằm trong bảng trước nhịp phát
+   * hiện này — vẫn được xử lý; lịch sử bị phát lại là vô hại vì mọi
+   * handler an toàn khi chạy lại. Trả `true` khi đã neo lại để nhịp
+   * gọi quét lại từ đầu.
+   */
+  private async reanchorIfDbReset(): Promise<boolean> {
+    const [row] = await this.db.select({ value: max(outboxEvents.seq) }).from(outboxEvents);
+    const dbMax = row?.value ?? 0;
+    if (this.watermark === null || dbMax >= this.watermark) return false;
+    this.logger.warn(
+      `Phát hiện DB đã bị dựng lại trong lúc tiến trình chạy (seq lớn nhất hiện có ${dbMax} < watermark ${this.watermark}) — neo lại watermark về 0 để xử lý các sự kiện của đời DB mới.`,
+    );
+    this.watermark = 0;
+    await this.redis.set(this.watermarkKey, '0').catch(() => undefined);
+    return true;
   }
 
   /** Seq của các sự kiện grade_updated bị sự kiện sau cùng (user, item) trong cùng lô thay thế. */
