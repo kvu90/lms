@@ -111,7 +111,14 @@ function StudentTodoBlock() {
                   <Badge variant={item.status === 'overdue' ? 'destructive' : 'secondary'}>
                     {statusLabel(item.status)}
                   </Badge>
-                  <Link to={`/courses/${item.courseId}`} className="font-medium hover:underline">
+                  <Link
+                    to={
+                      item.kind === 'quiz'
+                        ? `/courses/${item.courseId}/quizzes/${item.activityId}`
+                        : `/courses/${item.courseId}/assignments/${item.activityId}`
+                    }
+                    className="font-medium hover:underline"
+                  >
                     {item.name}
                   </Link>
                   <span className="text-muted-foreground">

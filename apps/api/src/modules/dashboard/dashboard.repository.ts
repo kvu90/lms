@@ -75,6 +75,7 @@ export class DashboardRepository {
     return this.db
       .select({
         cmId: courseModules.id,
+        activityId: courseModules.instanceId,
         courseId: courseModules.course,
         name: quizzes.name,
         dueAt: quizzes.timeClose,
@@ -104,6 +105,7 @@ export class DashboardRepository {
     return this.db
       .select({
         cmId: courseModules.id,
+        activityId: courseModules.instanceId,
         courseId: courseModules.course,
         name: assignments.name,
         dueAt: assignments.dueDate,

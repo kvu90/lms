@@ -12,6 +12,7 @@ import { CoursesService } from '../courses/courses.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { FilesService } from '../files/files.service';
 import { GradesService } from '../grades/grades.service';
+import { UsersService } from '../users/users.service';
 import {
   AssignmentsRepository, type AssignAnnotationRow, type AssignGradeRow, type AssignSubmissionRow, type AssignmentRow,
 } from './assignments.repository';
@@ -68,6 +69,7 @@ export class AssignmentsService {
     private readonly enrol: EnrolService,
     private readonly files: FilesService,
     private readonly grades: GradesService,
+    private readonly users: UsersService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -507,6 +509,14 @@ export class AssignmentsService {
     const gradeByUser = new Map(grades.map((g) => [g.userId, g]));
     // Bài nộp của người không còn ghi danh vẫn hiện ở cuối danh sách để giáo viên xử lý nốt.
     for (const s of submissions) if (!enrolledIds.includes(s.userId)) enrolledIds.push(s.userId);
+    // Tên hiển thị cho bề mặt chấm (cùng khuôn quiz.service): họ tên, thiếu thì username.
+    const nameById = new Map<string, string>();
+    if (enrolledIds.length) {
+      for (const u of await this.users.getUsersByIds(enrolledIds)) {
+        const full = `${u.firstName} ${u.lastName}`.trim();
+        nameById.set(u.id, full || u.username);
+      }
+    }
     const out: AssignSubmissionSummary[] = [];
     for (const userId of enrolledIds) {
       const s = byUser.get(userId);
@@ -515,6 +525,7 @@ export class AssignmentsService {
       const links = s ? await this.repo.listSubmissionFiles(s.id) : [];
       out.push({
         userId,
+        displayName: nameById.get(userId) ?? userId,
         status: this.displayStatus(s, g),
         attemptNumber: s?.attemptNumber ?? 0,
         submittedAt: s?.submittedAt?.toISOString() ?? null,

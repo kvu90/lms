@@ -5,6 +5,7 @@ import { CoursesModule } from '../courses/courses.module';
 import { EnrolModule } from '../enrol/enrol.module';
 import { FilesModule } from '../files/files.module';
 import { GradesModule } from '../grades/grades.module';
+import { UsersModule } from '../users/users.module';
 import { AssignCommentBankController, AssignmentsController, CourseAssignmentsController } from './assignments.controller';
 import { AssignmentsRepository } from './assignments.repository';
 import { AssignmentsService } from './assignments.service';
@@ -18,7 +19,7 @@ import { AssignmentsService } from './assignments.service';
  * module nào trong số đó phụ thuộc Assignments.
  */
 @Module({
-  imports: [AccessModule, CoursesModule, EnrolModule, FilesModule, GradesModule, EventsModule],
+  imports: [AccessModule, CoursesModule, EnrolModule, FilesModule, GradesModule, UsersModule, EventsModule],
   controllers: [CourseAssignmentsController, AssignmentsController, AssignCommentBankController],
   providers: [AssignmentsRepository, AssignmentsService],
   exports: [AssignmentsService],

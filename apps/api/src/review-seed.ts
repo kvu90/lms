@@ -157,6 +157,58 @@ async function main(): Promise<void> {
       } else console.log('[seed] teacher role assignment exists');
     }
 
+    // Bài tập mẫu mod_assign (ĐX-1, issue #179): một hoạt động Bài tập
+    // nộp tệp/ảnh ở Tuần 2 kèm bảng tiêu chí, để nghiệm thu trình duyệt
+    // đi trọn vòng nộp → chấm → trả. Tạo bằng chính tài khoản teacher1
+    // (đã có editingteacher tại khoá) — đúng đường giáo viên thật dùng.
+    // Idempotent: đã có bài cùng tên thì giữ nguyên, rubric chỉ dựng khi
+    // bài chưa có bảng tiêu chí.
+    const teacherLogin = must(await call('POST', '/auth/token', undefined, TEACHER), 'teacher login');
+    const teacherToken = (teacherLogin as { accessToken: string }).accessToken;
+    const SAMPLE_ASSIGNMENT_NAME = 'Bài tập mẫu: Chụp ảnh bài làm và nộp';
+    const existingAssignments = must(await call('GET', `/courses/${courseId}/assignments`, teacherToken), 'list assignments') as { id: string; name: string }[];
+    let sampleAssignment = existingAssignments.find((a) => a.name === SAMPLE_ASSIGNMENT_NAME);
+    if (!sampleAssignment) {
+      const due = new Date(Date.now() + 3 * 24 * 3600_000);
+      sampleAssignment = must(await call('POST', `/courses/${courseId}/assignments`, teacherToken, {
+        sectionId: week2,
+        name: SAMPLE_ASSIGNMENT_NAME,
+        intro: 'Chụp ảnh bài làm trên giấy (hoặc nộp tệp bất kỳ) rồi bấm Chốt nộp bài. Nộp sau hạn vẫn được nhận nhưng bị đánh dấu trễ.',
+        dueDate: due.toISOString(),
+        maxFiles: 5,
+        acceptedFileTypes: null,
+        grade: 10,
+        resultMode: 'score_feedback',
+      }), 'create sample assignment') as { id: string; name: string };
+      console.log(`[seed] sample assignment created (#${sampleAssignment.id})`);
+    } else console.log('[seed] sample assignment exists');
+    const rubricRes = await call('GET', `/assignments/${sampleAssignment.id}/rubric`, teacherToken);
+    const existingRubric = (rubricRes.body as unknown as { rubric: unknown } | undefined)?.rubric;
+    if (!existingRubric) {
+      must(await call('PUT', `/assignments/${sampleAssignment.id}/rubric`, teacherToken, {
+        title: 'Tiêu chí chấm bài tập mẫu',
+        criteria: [
+          {
+            name: 'Đúng nội dung',
+            descriptionForStudent: 'Bài làm đúng yêu cầu, đủ các ý chính.',
+            mode: 'levels',
+            levels: [
+              { label: 'Tốt', score: 6 },
+              { label: 'Khá', score: 4 },
+              { label: 'Cần cố gắng', score: 2 },
+            ],
+          },
+          {
+            name: 'Trình bày',
+            descriptionForStudent: 'Ảnh chụp rõ nét, trình bày sạch sẽ, dễ đọc.',
+            mode: 'score',
+            maxScore: 4,
+          },
+        ],
+      }), 'create sample rubric');
+      console.log('[seed] sample assignment rubric created');
+    } else console.log('[seed] sample assignment rubric exists');
+
     // Chương trình GDPT 2018 (GDPT-SEED, issue #161): nạp MỌI dataset
     // trong manifest bằng chính lõi ProgramImportService mà trang quản
     // trị dùng (entry nội bộ — không HTTP, không qua evaluator; tiến

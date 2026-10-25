@@ -37,6 +37,8 @@ export interface DashboardDueItemView {
   courseId: string;
   courseName: string;
   cmId: string;
+  /** Id của instance hoạt động (quiz id / assignment id) — đích của liên kết "làm ngay" (ĐX-5). */
+  activityId: string;
   /** quiz | assignment. */
   kind: 'quiz' | 'assignment';
   name: string;

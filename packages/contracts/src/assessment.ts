@@ -1364,6 +1364,8 @@ export type AssignmentForUserView = z.infer<typeof assignmentForUserViewSchema>;
 /** Một dòng trong danh sách bài nộp của giáo viên: mọi học sinh đã ghi danh, kể cả người chưa nộp. */
 export const assignSubmissionSummarySchema = z.object({
   userId: uuidIdSchema,
+  /** Tên hiển thị của học sinh (họ tên, thiếu thì username) — bề mặt chấm của giáo viên phải đọc được ai là ai. */
+  displayName: z.string(),
   status: z.enum(ASSIGN_SUBMISSION_STATUSES),
   attemptNumber: z.number().int(),
   submittedAt: z.string().nullable(),

@@ -326,6 +326,7 @@ export const COURSE_CONTENT_TYPES = [
   { component: 'mod_page', createsInstance: false },
   { component: 'mod_resource', createsInstance: false },
   { component: 'mod_quiz', createsInstance: true },
+  { component: 'mod_assign', createsInstance: true },
 ] as const;
 export type CourseContentType = (typeof COURSE_CONTENT_TYPES)[number]['component'];
 
