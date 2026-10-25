@@ -4,6 +4,7 @@ import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { SiteConfigService } from '../site-config/site-config.service';
+import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
@@ -36,8 +37,21 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
   /**
    * Điểm vào bootstrap: gieo context hệ thống, role mặc định, capability, guest và admin.
+   *
+   * HOTFIX #196 (sự cố triển khai TENANT-1): toàn bộ thân seed chạy trong
+   * ngữ cảnh PLATFORM tường minh. Seed đụng các bảng có RLS fail-closed
+   * (tenants, tenant_memberships, plugin_config/tenant_config qua
+   * site-config) — chạy ngoài ngữ cảnh như trước TENANT-1 thì
+   * `ensurePlatformTenant` bị WITH CHECK chặn (42501) và app không boot
+   * được trên DB trống. Đây là cùng khuôn với review-seed và mọi
+   * consumer/processor nền: seed là đường vận hành platform, không phải
+   * bề mặt nghiệp vụ của một tenant.
    */
   async onApplicationBootstrap(): Promise<void> {
+    await tenantAls.run({ platform: true }, () => this.seedInPlatformContext());
+  }
+
+  private async seedInPlatformContext(): Promise<void> {
     await this.roles.seedDefaults();
     await this.users.ensureGuestUser();
     const zero = await this.tenants.ensurePlatformTenant();
