@@ -332,8 +332,11 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
       (n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`);
     expect(notif2).toBeTruthy();
     await new Promise((r) => setTimeout(r, 2500));
+    // HS2 đã nhận thông báo của bài số 1 (trước khi tắt) — ca kiểm là
+    // bài số 2 không tới nữa.
     const student2Notifs = (await notificationsOf(ctx.student2Token)).filter((n) => n.eventType === 'assignment_assigned');
-    expect(student2Notifs).toHaveLength(0);
+    expect(student2Notifs).toHaveLength(1);
+    expect(student2Notifs.filter((n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`)).toHaveLength(0);
   });
 
   it('assignment_submitted: the student gets a receipt and the teacher gets ONE grouped notification whose count updates in place (P5)', async () => {
