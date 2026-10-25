@@ -53,7 +53,7 @@ interface QuestionStat {
   wrongStudents: QuestionWrongStudent[];
 }
 
-/** Hình dạng trả về của GET /quizzes/:id/results. */
+/** Hình dạng trả về của GET /exam-pins/:id/results. */
 interface QuizResults {
   quiz: QuizView;
   attempts: QuizAttemptSummary[];
@@ -69,7 +69,7 @@ interface QuizResults {
  */
 export function QuizResultsPage() {
   const { t } = useTranslation('app');
-  const { id: courseId, quizId } = useParams();
+  const { id: courseId, pinId: quizId } = useParams();
   const [data, setData] = useState<QuizResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function QuizResultsPage() {
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
-    const fresh = await apiJson<QuizResults>(`/api/v1/quizzes/${quizId}/results`);
+    const fresh = await apiJson<QuizResults>(`/api/v1/exam-pins/${quizId}/results`);
     setData(fresh);
   }, [quizId]);
 
@@ -272,7 +272,7 @@ export function QuizResultsPage() {
       </Card>
 
       <p className="text-sm">
-        <Link to={`/courses/${courseId}/quizzes/${quizId}`}>{t('quizBackToQuiz')}</Link>
+        <Link to={`/courses/${courseId}/exams/${quizId}`}>{t('quizBackToQuiz')}</Link>
       </p>
     </PageShell>
   );

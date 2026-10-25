@@ -92,8 +92,7 @@ export function MatrixNewPage() {
   const [name, setName] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [curriculumId, setCurriculumId] = useState('');
-  const [presetKind, setPresetKind] = useState('custom');
-  const [levelSet, setLevelSet] = useState('three');
+  const [includeAdvanced, setIncludeAdvanced] = useState(false);
   const [totalScore, setTotalScore] = useState('10');
   const [isTemplate, setIsTemplate] = useState(false);
   const [status, setStatus] = useState('draft');
@@ -142,7 +141,7 @@ export function MatrixNewPage() {
       await apiJson('/api/v1/exam-matrices', {
         method: 'POST',
         body: JSON.stringify({
-          name, subjectId, curriculumId, bankId: personalBankId, presetKind, levelSet,
+          name, subjectId, curriculumId, bankId: personalBankId, levelSet: includeAdvanced ? 'four' : 'three',
           totalScore: Number(totalScore) || 10, isTemplate, status,
         }),
       });
@@ -220,21 +219,11 @@ export function MatrixNewPage() {
                   ))}
                 </select>
               </Field>
-              <Field>
-                <FieldLabel htmlFor="matrix-preset">{t('matrixFilterPreset')}</FieldLabel>
-                <select id="matrix-preset" className={SELECT_CLASS} value={presetKind} onChange={(e) => setPresetKind(e.target.value)}>
-                  <option value="cv7991_periodic">{t('matrixPresetPeriodic')}</option>
-                  <option value="qd764_graduation">{t('matrixPresetGraduation')}</option>
-                  <option value="custom">{t('matrixPresetCustom')}</option>
-                </select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="matrix-level-set">{t('matrixLevelSet')}</FieldLabel>
-                <select id="matrix-level-set" className={SELECT_CLASS} value={levelSet} onChange={(e) => setLevelSet(e.target.value)}>
-                  <option value="three">{t('matrixLevelSetThree')}</option>
-                  <option value="four">{t('matrixLevelSetFour')}</option>
-                </select>
-              </Field>
+              <p className="text-sm text-muted-foreground">{t('matrixCv7991Note')}</p>
+              <div className="flex items-center gap-2">
+                <Checkbox id="matrix-advanced" checked={includeAdvanced} onCheckedChange={(v) => setIncludeAdvanced(v === true)} />
+                <Label htmlFor="matrix-advanced">{t('matrixIncludeAdvanced')}</Label>
+              </div>
               <Field>
                 <FieldLabel htmlFor="matrix-total-score">{t('matrixTotalScore')}</FieldLabel>
                 <Input
@@ -489,7 +478,7 @@ export function MatrixEditPage() {
               <div>
                 <Label htmlFor="cell-level">{t('matrixCellLevel')}</Label>
                 <select id="cell-level" className={SELECT_CLASS} value={cellLevel} onChange={(e) => setCellLevel(e.target.value)}>
-                  {COGNITIVE_LEVELS.map((level) => (
+                  {COGNITIVE_LEVELS.filter((level) => matrix.levelSet === 'four' || level !== 'van_dung_cao').map((level) => (
                     <option key={level} value={level}>
                       {t(LEVEL_LABEL_KEYS[level])}
                     </option>

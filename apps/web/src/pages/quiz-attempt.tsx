@@ -302,7 +302,7 @@ export function QuizAttemptPage() {
         </div>
       ) : null}
       <p className="text-sm">
-        <Link to={`/courses/${quiz.courseId}/quizzes/${quiz.id}`}>{t('quizBackToQuiz')}</Link>
+        <Link to={`/courses/${quiz.courseId}/exams/${quiz.id}`}>{t('quizBackToQuiz')}</Link>
       </p>
     </PageShell>
   );

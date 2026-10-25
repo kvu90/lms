@@ -664,6 +664,19 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(await gradeOfQuizItem(ctx.course.id, quiz.cmId, ctx.student.id)).toBeNull();
   });
 
+  it('tạo-đề-rồi-ghim (newExam): một thao tác tạo pin từ đề mới có slot — học sinh làm được ngay', async () => {
+    const ctx = await setup();
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/exam-pins`).set('Authorization', `Bearer ${ctx.teacher}`)
+      .send({ sectionId: ctx.sectionId, newExam: { name: 'Đề tạo nhanh', slots: [{ questionId: ctx.qMc }] } });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const pin = res.body as { id: string; examId: string; name: string };
+    expect(pin.examId).toBeTruthy();
+    expect(pin.name).toBe('Đề tạo nhanh');
+    const start = await http(app).post(`/api/v1/exam-pins/${pin.id}/attempts`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
+    expect(start.status, JSON.stringify(start.body)).toBe(201);
+    expect((start.body as { questions: unknown[] }).questions).toHaveLength(1);
+  });
+
   it('ghim theo nhóm: chỉ thành viên nhóm đích thấy + làm được; toàn khoá thì mọi học sinh làm được; nhóm khoá khác → 400', async () => {
     const ctx = await setup();
     // Học sinh thứ hai ghi danh cùng khoá (không thuộc nhóm đích).

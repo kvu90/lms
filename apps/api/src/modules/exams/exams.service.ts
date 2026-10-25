@@ -84,6 +84,13 @@ export interface ExamView {
   capabilities: ExamCapabilitiesView;
 }
 
+export interface ExamPinSummary {
+  id: string; courseId: string; courseName: string;
+  examVersionId: string; versionNumber: number;
+  name: string | null; variantCount: number; variantCodes: string[]; targetGroupId: string | null;
+  createdAt: string;
+}
+
 export interface ExamSummary {
   id: string; bankId: string; kind: string; status: string;
   name: string; examKind: string | null; grade: number | null; subjectId: string | null;
@@ -422,6 +429,20 @@ export class ExamsService {
     const view = await this.paperView(actorId, paper);
     await this.auditPaperContentView(actorId, paper, bank, 'detail');
     return view;
+  }
+
+  /** Các lần ghim của một đề — thay danh sách deployments cũ; cổng xem cùng cổng chi tiết đề. */
+  async listPins(actorId: string, paperId: string): Promise<ExamPinSummary[]> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanViewPaperContent(actorId, paper, bank);
+    const rows = await this.repo.listPinsOfExam(paperId);
+    return rows.map((r) => ({
+      id: r.id, courseId: r.courseId, courseName: r.courseName,
+      examVersionId: r.examVersionId, versionNumber: r.versionNumber,
+      name: r.name, variantCount: r.variantCount, variantCodes: (r.variants ?? []).map((v) => v.code),
+      targetGroupId: r.targetGroupId, createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). */
@@ -777,8 +798,9 @@ export class ExamsService {
    * tạo quiz trước đây: cổng exam:deploy tại bank của đề + đề phải
    * ready (draft chưa chốt, hidden đã rút — đều không ghim mới được;
    * pin đã ghim từ trước không bị ảnh hưởng khi đề chuyển hidden).
-   * Dạng `newExam`: tạo đề trong bank đề CÁ NHÂN của giáo viên (chốt
-   * ready ngay trong luồng) rồi ghim — đúng một thao tác cho GV.
+   * Dạng `newExam`: tạo đề trong bank đề CÁ NHÂN của giáo viên rồi
+   * ghim ngay version vừa tạo (đề còn draft, GV soạn tiếp sau) —
+   * đúng một thao tác cho GV từ course builder.
    * Bản ghi pin + course module + grade item do
    * QuizService.createPinRecord lo.
    */
@@ -794,10 +816,12 @@ export class ExamsService {
       const created = await this.createPaper(actorId, bankRow.id, input.newExam);
       examId = created.paper.id;
       examVersionId = created.version.id;
-      // Đề mới tạo ở trạng thái draft; thao tác tạo-đề-rồi-ghim là một
-      // hành động công khai — chốt ready trong cùng luồng (ready bắt
-      // buộc có slot, do setStatus kiểm).
-      await this.setStatus(actorId, examId, { status: 'ready' });
+      // Đề mới tạo giữ trạng thái draft và ghim ngay ở version vừa
+      // tạo: đây là đề CỦA CHÍNH giáo viên trong khoá của mình (luồng
+      // "tạo bài trong khoá" từ course builder) — cổng ready chỉ áp
+      // cho đường ghim examId có sẵn bên dưới. GV soạn tiếp trong
+      // trình soạn đề rồi nâng version của pin; học sinh chưa làm
+      // được khi đề chưa có câu (cổng no_questions ở attempt).
     }
     if (!examId) {
       throw new BadRequestException({ message: 'An exam pin needs either examId or newExam', code: 'exam.pin_source_required' });
@@ -805,7 +829,7 @@ export class ExamsService {
     const paper = await this.getPaperOrThrow(examId);
     const bank = await this.bankOfPaper(paper);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.deploy, bank.contextId);
-    if (paper.status !== 'ready') {
+    if (!input.newExam && paper.status !== 'ready') {
       throw new BadRequestException({
         message: `Only a ready exam can be pinned (current status: ${paper.status})`,
         code: 'exam.pin_requires_ready',

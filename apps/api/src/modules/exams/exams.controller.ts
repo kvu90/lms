@@ -126,13 +126,20 @@ export class ExamsController {
     return this.exams.copyPaper(actor.id, id, dto);
   }
 
-  @Post(':id/materialize')
   @Post(':id/swap')
   /**
    * POST /exams/:id/swap — đổi câu của một slot snapshot bằng swap-cùng-ô (câu thay phải thuộc pool của ô nguồn của slot).
    */
   async swap(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: swapExamSlotSchema }) dto: SwapExamSlotDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.swapSlot(actor.id, id, dto);
+  }
+
+  @Get(':id/pins')
+  /**
+   * GET /exams/:id/pins — các lần ghim của đề (thay danh sách deployments cũ sau gộp Đề #226).
+   */
+  async pins(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.listPins(actor.id, id);
   }
 
   @Get(':id/specification')

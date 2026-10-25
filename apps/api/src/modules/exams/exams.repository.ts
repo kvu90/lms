@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
-  context, course, examDossierReviews, examDossiers, examMatrices,
+  context, course, examDossierReviews, examDossiers, examMatrices, examPins,
   examContributions, exams, examSlots, examVersions, question,
   questionBankEntries, questionVersions, role, roleAssignments,
 } from '../../db/schema';
@@ -32,6 +32,20 @@ export class ExamsRepository {
   async insertPaper(v: typeof exams.$inferInsert, tx?: DbTx): Promise<ExamRow> {
     const [row] = await (tx ?? this.db).insert(exams).values(v).returning();
     return row!;
+  }
+
+  /** Các lần ghim của một đề (kèm tên khoá + số version đã ghim) — bề mặt thay cho danh sách deployments cũ. */
+  async listPinsOfExam(examId: string): Promise<{ id: string; courseId: string; courseName: string; examVersionId: string; versionNumber: number; name: string | null; variantCount: number; variants: { code: string }[]; targetGroupId: string | null; createdAt: Date }[]> {
+    return this.db.select({
+      id: examPins.id, courseId: examPins.courseId, courseName: course.fullName,
+      examVersionId: examPins.examVersionId, versionNumber: examVersions.version,
+      name: examPins.name, variantCount: examPins.variantCount, variants: examPins.variants,
+      targetGroupId: examPins.targetGroupId, createdAt: examPins.createdAt,
+    }).from(examPins)
+      .innerJoin(course, eq(course.id, examPins.courseId))
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .where(eq(examPins.examId, examId))
+      .orderBy(desc(examPins.createdAt));
   }
 
   async getPaper(id: string): Promise<ExamRow | undefined> {

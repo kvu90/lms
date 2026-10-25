@@ -201,11 +201,10 @@ interface CourseLite {
   fullName: string;
 }
 
-/** Quiz cho hộp thoại triển khai đề (GET /courses/:id/quizzes). */
-interface QuizLite {
+/** Nhóm của khoá cho hộp thoại ghim đề (GET /courses/:id/groups). */
+interface CourseGroupLite {
   id: string;
   name: string;
-  paperId: string | null;
 }
 
 /** Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery). */
@@ -513,7 +512,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
   const [sharedMatrices, setSharedMatrices] = useState<MatrixLite[]>([]);
   const [matrixSubjectFilter, setMatrixSubjectFilter] = useState('');
-  const [matrixPresetFilter, setMatrixPresetFilter] = useState('');
   const [matrixContributions, setMatrixContributions] = useState<MatrixContributionLite[]>([]);
   const [proposeMatrixId, setProposeMatrixId] = useState('');
   const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
@@ -539,8 +537,10 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
   const [deployCourses, setDeployCourses] = useState<CourseLite[]>([]);
   const [deployCourseId, setDeployCourseId] = useState('');
-  const [deployQuizzes, setDeployQuizzes] = useState<QuizLite[]>([]);
-  const [deployQuizId, setDeployQuizId] = useState('');
+  const [deploySections, setDeploySections] = useState<{ id: string; name: string }[]>([]);
+  const [deploySectionId, setDeploySectionId] = useState('');
+  const [deployGroups, setDeployGroups] = useState<CourseGroupLite[]>([]);
+  const [deployGroupId, setDeployGroupId] = useState('');
   const [deployVariantCount, setDeployVariantCount] = useState('1');
 
   const loadQuestions = useCallback(async (categoryId: string) => {
@@ -761,12 +761,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     status === 'pending_board'
       ? 'dossierStatusPendingBoard'
       : `dossierStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
-  const matrixPresetKey = (kind: string) =>
-    kind === 'cv7991_periodic' ? 'matrixPresetPeriodic' : kind === 'qd764_graduation' ? 'matrixPresetGraduation' : 'matrixPresetCustom';
   const filteredSharedMatrices = sharedMatrices.filter(
     (m) =>
-      (!matrixSubjectFilter || m.subjectId === matrixSubjectFilter) &&
-      (!matrixPresetFilter || m.presetKind === matrixPresetFilter),
+      !matrixSubjectFilter || m.subjectId === matrixSubjectFilter,
   );
 
   const personalExamBank = examBanks.find((b) => b.scope === 'personal');
@@ -776,7 +773,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const mine = bankList.find((b) => b.scope === 'personal');
     if (!mine) { setMyPapers([]); return; }
     try {
-      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exam-papers/banks/${mine.id}/papers`);
+      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exams/banks/${mine.id}/exams`);
       setMyPapers(rows);
     } catch {
       setMyPapers([]);
@@ -803,19 +800,19 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     setSystemExamBankId(bankId);
     if (!bankId) { setSystemPapers([]); setPaperContributions([]); return; }
     try {
-      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exam-papers/banks/${bankId}/papers`);
+      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exams/banks/${bankId}/exams`);
       setSystemPapers(rows);
     } catch {
       setSystemPapers([]);
     }
     try {
-      const rows = await apiJson<ExamContributionLite[]>(`/api/v1/exam-papers/banks/${bankId}/contributions`);
+      const rows = await apiJson<ExamContributionLite[]>(`/api/v1/exams/banks/${bankId}/contributions`);
       setPaperContributions(rows.filter((c) => c.status === 'pending'));
     } catch {
       setPaperContributions([]);
     }
     try {
-      const rows = await apiJson<ExamDossierLite[]>(`/api/v1/exam-papers/banks/${bankId}/dossiers`);
+      const rows = await apiJson<ExamDossierLite[]>(`/api/v1/exams/banks/${bankId}/dossiers`);
       setBankDossiers(rows.filter((d) => d.status === 'pending' || d.status === 'pending_board'));
     } catch {
       setBankDossiers([]);
@@ -825,7 +822,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Mọi bộ hồ sơ của chính giáo viên (theo dõi duyệt + lý do từ chối). */
   async function loadMyDossiers() {
     try {
-      const rows = await apiJson<ExamDossierLite[]>('/api/v1/exam-papers/dossiers/mine');
+      const rows = await apiJson<ExamDossierLite[]>('/api/v1/exams/dossiers/mine');
       setMyDossiers(rows);
     } catch {
       setMyDossiers([]);
@@ -836,11 +833,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposeDossier() {
     if (!dossierPaperId || !dossierBankId) return;
     try {
-      const created = await apiJson<ExamDossierLite>(`/api/v1/exam-papers/${dossierPaperId}/dossiers`, {
+      const created = await apiJson<ExamDossierLite>(`/api/v1/exams/${dossierPaperId}/dossiers`, {
         method: 'POST',
         body: JSON.stringify({ targetBankId: dossierBankId }),
       });
-      await apiJson(`/api/v1/exam-papers/dossiers/${created.id}/submit`, { method: 'POST', body: '{}' });
+      await apiJson(`/api/v1/exams/dossiers/${created.id}/submit`, { method: 'POST', body: '{}' });
       setMessage(t('dossierProposedOk'));
       await loadMyDossiers();
       if (systemExamBankId) await loadSystemPapers(systemExamBankId);
@@ -853,11 +850,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewDossier(dossierId: string, action: 'approve' | 'reject' | 'board-approve' | 'board-reject') {
     try {
       if (action === 'approve' || action === 'board-approve') {
-        await apiJson(`/api/v1/exam-papers/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' });
+        await apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/exam-papers/dossiers/${dossierId}/${action}`, {
+        await apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, {
           method: 'POST',
           body: JSON.stringify({ reason }),
         });
@@ -873,7 +870,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function toggleDossierSpec(dossierId: string) {
     if (openDossierSpec?.dossierId === dossierId) { setOpenDossierSpec(null); return; }
     try {
-      const spec = await apiJson<DossierSpecLite>(`/api/v1/exam-papers/dossiers/${dossierId}/specification`);
+      const spec = await apiJson<DossierSpecLite>(`/api/v1/exams/dossiers/${dossierId}/specification`);
       setOpenDossierSpec({ dossierId, spec });
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
@@ -883,7 +880,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Tải bản đặc tả đã chụp của bộ hồ sơ ra file xlsx. */
   async function downloadDossierSpec(dossierId: string) {
     try {
-      const res = await apiFetch(`/api/v1/exam-papers/dossiers/${dossierId}/specification/export?format=xlsx`);
+      const res = await apiFetch(`/api/v1/exams/dossiers/${dossierId}/specification/export?format=xlsx`);
       if (!res.ok) throw new Error(String(res.status));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -900,7 +897,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Copy một đề từ ngân hàng hệ thống về ngân hàng đề cá nhân (cầu nối hai khu vực cho ĐỀ). */
   async function copyPaperToMine(paperId: string) {
     try {
-      await apiJson(`/api/v1/exam-papers/${paperId}/copy`, { method: 'POST', body: '{}' });
+      await apiJson(`/api/v1/exams/${paperId}/copy`, { method: 'POST', body: '{}' });
       setMessage(t('paperCopiedToMyBank'));
       await loadExamBanks();
     } catch (err) {
@@ -910,7 +907,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   async function setPaperStatus(paperId: string, status: 'ready' | 'hidden' | 'draft') {
     try {
-      await apiJson(`/api/v1/exam-papers/${paperId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      await apiJson(`/api/v1/exams/${paperId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
       await loadExamBanks();
       if (systemExamBankId) await loadSystemPapers(systemExamBankId);
     } catch (err) {
@@ -921,7 +918,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function deletePaper(paperId: string) {
     if (!window.confirm(t('examPaperDeleteConfirm'))) return;
     try {
-      await apiJson(`/api/v1/exam-papers/${paperId}`, { method: 'DELETE' });
+      await apiJson(`/api/v1/exams/${paperId}`, { method: 'DELETE' });
       setMessage(t('examPaperDeleted'));
       await loadExamBanks();
     } catch (err) {
@@ -933,7 +930,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposePaper() {
     if (!proposePaperId || !proposePaperBankId) return;
     try {
-      await apiJson(`/api/v1/exam-papers/banks/${proposePaperBankId}/contributions`, {
+      await apiJson(`/api/v1/exams/banks/${proposePaperBankId}/contributions`, {
         method: 'POST',
         body: JSON.stringify({ paperId: proposePaperId }),
       });
@@ -947,11 +944,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewPaperContribution(bankId: string, contributionId: string, approve: boolean) {
     try {
       if (approve) {
-        await apiJson(`/api/v1/exam-papers/banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
+        await apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/exam-papers/banks/${bankId}/contributions/${contributionId}/reject`, {
+        await apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/reject`, {
           method: 'POST',
           body: JSON.stringify({ reason }),
         });
@@ -962,11 +959,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  /** Mở hộp thoại triển khai: nạp danh sách khoá học cho giáo viên chọn quiz đích. */
+  /** Mở hộp thoại GHIM: nạp danh sách khoá học cho giáo viên chọn khoá đích. */
   async function openDeploy(paper: PaperSummaryLite) {
     setDeployPaper(paper);
-    setDeployQuizId('');
-    setDeployQuizzes([]);
+    setDeploySectionId('');
+    setDeploySections([]);
+    setDeployGroups([]);
+    setDeployGroupId('');
     try {
       const courses = await apiJson<CourseLite[]>('/api/v1/courses');
       setDeployCourses(courses);
@@ -975,38 +974,44 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
+  /** Chọn khoá đích: nạp section (chương) + nhóm của khoá cho form ghim. */
   async function loadDeployQuizzes(courseId: string) {
     setDeployCourseId(courseId);
-    setDeployQuizId('');
-    if (!courseId) { setDeployQuizzes([]); return; }
+    setDeploySectionId('');
+    setDeployGroupId('');
+    if (!courseId) { setDeploySections([]); setDeployGroups([]); return; }
     try {
-      const rows = await apiJson<QuizLite[]>(`/api/v1/courses/${courseId}/quizzes`);
-      setDeployQuizzes(rows);
+      const content = await apiJson<{ sections: { id: string; name: string }[] }>(`/api/v1/courses/${courseId}/content`);
+      setDeploySections(content.sections);
+      setDeploySectionId(content.sections[0]?.id ?? '');
     } catch {
-      setDeployQuizzes([]);
+      setDeploySections([]);
+    }
+    try {
+      setDeployGroups(await apiJson<CourseGroupLite[]>(`/api/v1/courses/${courseId}/groups`));
+    } catch {
+      setDeployGroups([]);
     }
   }
 
-  /** Triển khai đề vào quiz đã chọn; quiz dựng tay thì hỏi xác nhận thay thế rồi gọi lại với replace. */
-  async function runDeploy(replace = false) {
-    if (!deployPaper || !deployQuizId) return;
+  /** Ghim đề vào khoá đã chọn (toàn khoá hoặc một nhóm đích) — một thao tác exam-pins. */
+  async function runDeploy() {
+    if (!deployPaper || !deployCourseId || !deploySectionId) return;
     try {
-      await apiJson(`/api/v1/exam-papers/${deployPaper.id}/deploy`, {
+      const pin = await apiJson<{ id: string }>(`/api/v1/courses/${deployCourseId}/exam-pins`, {
         method: 'POST',
         body: JSON.stringify({
-          quizId: deployQuizId,
+          sectionId: deploySectionId,
+          examId: deployPaper.id,
           variantCount: Math.min(50, Math.max(1, Number(deployVariantCount) || 1)),
-          ...(replace ? { replace: true } : {}),
+          ...(deployGroupId ? { targetGroupId: deployGroupId } : {}),
         }),
       });
-      setMessage(t('deployOk', { version: deployPaper.latestVersion }));
+      setMessage(t('pinOk', { version: deployPaper.latestVersion }));
       setDeployPaper(null);
+      navigate(`/courses/${deployCourseId}/exams/${pin.id}`);
     } catch (err) {
-      if (!replace && err instanceof ApiError && err.problem.code === 'exam.deploy_quiz_has_manual_slots') {
-        if (window.confirm(t('deployReplaceConfirm'))) await runDeploy(true);
-        return;
-      }
-      setMessage(withApiReason(t('deployFailed'), err));
+      setMessage(withApiReason(t('pinFailed'), err));
     }
   }
 
@@ -1538,7 +1543,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                       <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
                       <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {subjectName(m.subjectId)} · {t(matrixPresetKey(m.presetKind))} · {t('matrixCellsCount', { count: m.cells.length })}
+                        {subjectName(m.subjectId)} · {t('matrixCellsCount', { count: m.cells.length })}
                         {m.derivedFromMatrixId ? ` · ${t('matrixDerivedNote')}` : ''}
                       </span>
                     </span>
@@ -1639,9 +1644,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                             : t('examPaperStatusDraft')}
                       </span>
                       <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
-                      {paper.kind === 'recipe' ? (
-                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">{t('paperKindRecipe')}</span>
-                      ) : null}
                       <span className="ml-2 text-xs text-muted-foreground">
                         {t('examPaperSlotsCount', { count: paper.slotCount })}
                       </span>
@@ -1666,7 +1668,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     ) : null}
                     {paper.status === 'ready' && paper.capabilities.deploy ? (
                       <Button type="button" variant="outline" onClick={() => void openDeploy(paper)}>
-                        {t('deployPaper')}
+                        {t('pinExamAction')}
                       </Button>
                     ) : null}
                     <Button type="button" variant="outline" onClick={() => void deletePaper(paper.id)}>
@@ -1693,16 +1695,30 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="deploy-quiz">{t('deployPickQuiz')}</Label>
+                  <Label htmlFor="deploy-section">{t('pinPickSection')}</Label>
                   <select
-                    id="deploy-quiz"
+                    id="deploy-section"
                     className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={deployQuizId}
-                    onChange={(e) => setDeployQuizId(e.target.value)}
+                    value={deploySectionId}
+                    onChange={(e) => setDeploySectionId(e.target.value)}
                   >
                     <option value="">—</option>
-                    {deployQuizzes.map((q) => (
-                      <option key={q.id} value={q.id}>{q.name}</option>
+                    {deploySections.map((sec) => (
+                      <option key={sec.id} value={sec.id}>{sec.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="deploy-group">{t('pinPickGroup')}</Label>
+                  <select
+                    id="deploy-group"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={deployGroupId}
+                    onChange={(e) => setDeployGroupId(e.target.value)}
+                  >
+                    <option value="">{t('pinExamWholeCourse')}</option>
+                    {deployGroups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1718,8 +1734,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     onChange={(e) => setDeployVariantCount(e.target.value)}
                   />
                 </div>
-                <Button type="button" disabled={!deployQuizId} onClick={() => void runDeploy()}>
-                  {t('deployRun')}
+                <Button type="button" disabled={!deployCourseId || !deploySectionId} onClick={() => void runDeploy()}>
+                  {t('pinExamAction')}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setDeployPaper(null)}>
                   ✕
@@ -2012,9 +2028,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                       <span className="min-w-0 flex-1">
                         {paper.name}
                         <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
-                        {paper.kind === 'recipe' ? (
-                          <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">{t('paperKindRecipe')}</span>
-                        ) : null}
                         <span className="ml-2 text-xs text-muted-foreground">
                           {t('examPaperSlotsCount', { count: paper.slotCount })} · {t('copiedTimes', { count: paper.copyCount })}
                         </span>
@@ -2178,20 +2191,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <Label htmlFor="matrix-preset-filter">{t('matrixFilterPreset')}</Label>
-                  <select
-                    id="matrix-preset-filter"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={matrixPresetFilter}
-                    onChange={(e) => setMatrixPresetFilter(e.target.value)}
-                  >
-                    <option value="">{t('matrixAllPresets')}</option>
-                    <option value="cv7991_periodic">{t('matrixPresetPeriodic')}</option>
-                    <option value="qd764_graduation">{t('matrixPresetGraduation')}</option>
-                    <option value="custom">{t('matrixPresetCustom')}</option>
-                  </select>
-                </div>
               </div>
               {!sharedMatrixBankId ? (
                 <p className="text-sm text-muted-foreground">{t('discoveryEmpty')}</p>
@@ -2209,8 +2208,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                         <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
                         <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {subjectName(m.subjectId)} · {t(matrixPresetKey(m.presetKind))} ·{' '}
-                          {t('matrixCellsCount', { count: m.cells.length })}
+                          {subjectName(m.subjectId)} · {t('matrixCellsCount', { count: m.cells.length })}
                         </span>
                       </span>
                       <Button type="button" variant="outline" onClick={() => void copyMatrixToMyBank(m.id)}>

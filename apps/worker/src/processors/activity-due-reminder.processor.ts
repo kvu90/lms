@@ -77,12 +77,8 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + ACTIVITY_DUE_REMINDER_WINDOW_HOURS * 3600_000);
     const due = await this.db.select({
-<<<<<<< HEAD
-      quizId: quizzes.id, quizName: quizzes.name, timeClose: quizzes.timeClose, courseId: quizzes.course,
-      tenantId: course.tenantId,
-=======
       pinId: examPins.id, pinName: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, timeClose: examPins.timeClose, courseId: examPins.courseId,
->>>>>>> fbc8c2fd (test(api,worker): chuyển toàn bộ spec sang mô hình ghim Đề + ca ghim theo nhóm (#226))
+      tenantId: course.tenantId,
       cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
     }).from(examPins)
       .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
@@ -107,13 +103,8 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         await this.db.insert(outboxEvents).values({
           aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
           payload: {
-<<<<<<< HEAD
-            userId, courseId: row.courseId, quizId: row.quizId, tenantId: row.tenantId,
-            activityType: 'quiz', activityName: row.quizName,
-=======
-            userId, courseId: row.courseId, pinId: row.pinId,
+            userId, courseId: row.courseId, pinId: row.pinId, tenantId: row.tenantId,
             activityType: 'quiz', activityName: row.pinName,
->>>>>>> fbc8c2fd (test(api,worker): chuyển toàn bộ spec sang mô hình ghim Đề + ca ghim theo nhóm (#226))
             timeClose: row.timeClose.toISOString(),
           },
         });

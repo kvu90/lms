@@ -114,7 +114,7 @@ function StudentTodoBlock() {
                   <Link
                     to={
                       item.kind === 'quiz'
-                        ? `/courses/${item.courseId}/quizzes/${item.activityId}`
+                        ? `/courses/${item.courseId}/exams/${item.activityId}`
                         : `/courses/${item.courseId}/assignments/${item.activityId}`
                     }
                     className="font-medium hover:underline"

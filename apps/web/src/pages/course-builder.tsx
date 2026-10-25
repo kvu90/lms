@@ -296,9 +296,10 @@ export function CourseBuilderPage() {
   }
 
   /**
-   * Thêm nội dung bằng menu chọn loại: `mod_quiz` đi qua endpoint quiz
-   * (tự tạo module + grade item rồi mở trang soạn đề); các loại khác
-   * qua POST /courses/:id/modules — không còn ô gõ chuỗi component.
+   * Thêm nội dung bằng menu chọn loại: `mod_quiz` đi qua endpoint
+   * exam-pins dạng newExam (tạo đề + ghim, tự tạo module + grade item
+   * rồi mở trang lần ghim); các loại khác qua POST
+   * /courses/:id/modules — không còn ô gõ chuỗi component.
    */
   async function createModule(event: FormEvent, sectionId: string) {
     event.preventDefault();
@@ -307,11 +308,14 @@ export function CourseBuilderPage() {
     try {
       if (draft.component === 'mod_quiz') {
         if (!draft.name.trim()) return;
-        const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/quizzes`, {
+        // Sau gộp Đề (#226): "thêm bài kiểm tra" = tạo ĐỀ mới trong
+        // bank cá nhân của GV + GHIM vào khoá trong một thao tác
+        // (newExam); GV soạn câu hỏi tiếp ở trình soạn đề của pin.
+        const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/exam-pins`, {
           method: 'POST',
-          body: JSON.stringify({ sectionId, name: draft.name.trim() }),
+          body: JSON.stringify({ sectionId, newExam: { name: draft.name.trim() } }),
         });
-        await navigate(`/courses/${courseId}/quizzes/${created.id}`);
+        await navigate(`/courses/${courseId}/exams/${created.id}`);
         return;
       }
       if (draft.component === 'mod_assign') {
