@@ -193,13 +193,17 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect([...groups.keys()].sort()).toEqual([
       'activity_due_soon', 'badge_awarded', 'calendar_reminder', 'competency_review_requested', 'contact_request',
       'conversation_reported', 'course_completed', 'enrol_expiry_warning', 'enrol_welcome',
-      'grade_updated', 'message_new', 'report_scheduled',
+      'grade_updated', 'guardian_digest', 'guardian_overdue_alert', 'message_new', 'report_scheduled',
     ]);
     expect(groups.get('grade_updated')).toBe('learning');
     expect(groups.get('course_completed')).toBe('learning');
     expect(groups.get('enrol_expiry_warning')).toBe('learning');
     expect(groups.get('enrol_welcome')).toBe('learning');
     expect(groups.get('activity_due_soon')).toBe('learning');
+    // PH-2 (issue #159): hai provider digest phụ huynh đã nối dây qua
+    // GuardianDigestConsumer — không phải công tắc giả.
+    expect(groups.get('guardian_digest')).toBe('learning');
+    expect(groups.get('guardian_overdue_alert')).toBe('learning');
     expect(groups.get('message_new')).toBe('people');
     expect(groups.get('contact_request')).toBe('people');
     expect(groups.get('calendar_reminder')).toBe('system');

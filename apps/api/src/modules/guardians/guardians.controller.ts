@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { createGuardianLinkSchema, type CreateGuardianLinkDto } from './dto/guardians.dto';
+import { createGuardianLinkSchema, guardianDigestPreferenceSchema, type CreateGuardianLinkDto, type GuardianDigestPreferenceDto } from './dto/guardians.dto';
+import { GuardianDigestService } from './guardian-digest.service';
 import { GuardianViewService } from './guardian-view.service';
 import { GuardiansService } from './guardians.service';
 
@@ -89,13 +90,18 @@ export class GuardianViewsController {
 @Controller({ path: 'guardian', version: '1' })
 /**
  * Bề mặt phụ huynh chỉ-xem PH-1 (issue #130): tổng quan 4 khối + kết quả
- * học tập đã công bố theo môn cho một con. Chỉ có đường GET — mọi đường
- * ghi tới các path này đều 404. Cổng liên kết trả 404 đồng nhất khi phụ
- * huynh không có liên kết đang hiệu lực tới học sinh (kể cả học sinh
- * không tồn tại): không lộ sự tồn tại của dữ liệu người khác.
+ * học tập đã công bố theo môn cho một con. Cổng liên kết trả 404 đồng
+ * nhất khi phụ huynh không có liên kết đang hiệu lực tới học sinh (kể
+ * cả học sinh không tồn tại): không lộ sự tồn tại của dữ liệu người
+ * khác. Đường ghi duy nhất trên bề mặt này là tuỳ chọn digest PH-2 của
+ * CHÍNH phụ huynh cho con mình (dữ liệu của phụ huynh, không phải dữ
+ * liệu của con — cùng ngoại lệ với mốc xem trước của PH-1).
  */
 export class GuardianSurfaceController {
-  constructor(private readonly view: GuardianViewService) {}
+  constructor(
+    private readonly view: GuardianViewService,
+    private readonly digests: GuardianDigestService,
+  ) {}
 
   @Get('students/:studentId/overview')
   /**
@@ -115,5 +121,26 @@ export class GuardianSurfaceController {
    */
   async results(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.view.results(actor.id, studentId);
+  }
+
+  @Get('students/:studentId/digest-preference')
+  /**
+   * GET /guardian/students/:studentId/digest-preference — tần suất
+   * digest PH-2 hiện hành của chính phụ huynh cho con này (mặc định
+   * weekly khi chưa đặt). Qua cổng liên kết như mọi bề mặt phụ huynh.
+   */
+  async digestPreference(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.digests.getPreference(actor.id, studentId);
+  }
+
+  @Put('students/:studentId/digest-preference')
+  /**
+   * PUT /guardian/students/:studentId/digest-preference — phụ huynh
+   * đặt tần suất digest cho con này (weekly | daily | off); hiệu lực
+   * từ cửa sổ kế tiếp. Đây là dữ liệu tuỳ chọn của chính phụ huynh —
+   * không phải đường ghi lên dữ liệu của con.
+   */
+  async setDigestPreference(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Body({ schema: guardianDigestPreferenceSchema }) dto: GuardianDigestPreferenceDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.digests.setPreference(actor.id, studentId, dto.frequency);
   }
 }

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { DashboardNewResultView } from './dashboard.js';
 
 /**
@@ -114,3 +115,25 @@ export interface GuardianStudentResultsView {
   student: { id: string; firstName: string; lastName: string };
   courses: GuardianCourseResultsView[];
 }
+
+/**
+ * PH-2 (issue #159): digest phụ huynh — tần suất tổng hợp đẩy ra cho
+ * từng cặp (phụ huynh, con). Mặc định `weekly` theo research mục 1.4
+ * (không push từng điểm lẻ); `daily` là tuỳ chọn của phụ huynh; `off`
+ * chỉ tắt digest ĐỊNH KỲ. Đẩy riêng quá hạn ≥7 ngày là ngoại lệ tách
+ * khỏi digest (research điểm chính sách 6) nên vẫn chạy bất kể tần
+ * suất — kể cả khi phụ huynh chọn `off`.
+ */
+export type GuardianDigestFrequency = 'weekly' | 'daily' | 'off';
+
+/** Tuỳ chọn digest của chính phụ huynh cho một con. */
+export interface GuardianDigestPreferenceView {
+  studentId: string;
+  frequency: GuardianDigestFrequency;
+}
+
+/** Thân PUT tuỳ chọn digest: chỉ tần suất, không trường nào khác. */
+export const guardianDigestPreferenceSchema = z.strictObject({
+  frequency: z.enum(['weekly', 'daily', 'off']),
+});
+export type GuardianDigestPreferenceInput = z.infer<typeof guardianDigestPreferenceSchema>;

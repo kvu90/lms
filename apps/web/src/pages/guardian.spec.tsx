@@ -97,13 +97,13 @@ function resultsFor(childId: string) {
   };
 }
 
-type Handler = (url: string) => { status: number; body: unknown } | undefined;
+type Handler = (url: string, init?: RequestInit) => { status: number; body: unknown } | undefined;
 
 function stubFetch(handler: Handler) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
-      const result = handler(url);
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const result = handler(url, init);
       if (!result) return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       return new Response(JSON.stringify(result.body), { status: result.status, headers: { 'Content-Type': 'application/json' } });
     }),
@@ -114,8 +114,11 @@ function ok(body: unknown) {
   return { status: 200, body };
 }
 
+/** Tần suất digest đã lưu theo con trong stub (mặc định weekly như server). */
+const savedFrequencies = new Map<string, string>();
+
 function baseHandler(withChildren: boolean): Handler {
-  return (url) => {
+  return (url, init) => {
     if (url === '/api/v1/users/me') return ok(PROFILE);
     if (url === '/api/v1/users/me/capabilities') return ok(ACCESS_VIEW);
     if (url === '/api/v1/guardian-links/mine/students') return ok(withChildren ? STUDENTS : []);
@@ -123,13 +126,23 @@ function baseHandler(withChildren: boolean): Handler {
     if (ov) return ok(overviewFor(ov[1]!));
     const rs = url.match(/^\/api\/v1\/guardian\/students\/([^/]+)\/results$/);
     if (rs) return ok(resultsFor(rs[1]!));
+    const dp = url.match(/^\/api\/v1\/guardian\/students\/([^/]+)\/digest-preference$/);
+    if (dp) {
+      const studentId = dp[1]!;
+      if (init?.method === 'PUT') {
+        const body = JSON.parse(String(init.body)) as { frequency: string };
+        savedFrequencies.set(studentId, body.frequency);
+        return ok({ studentId, frequency: body.frequency });
+      }
+      return ok({ studentId, frequency: savedFrequencies.get(studentId) ?? 'weekly' });
+    }
     return undefined;
   };
 }
 
-function renderPage() {
+function renderPage(entry = '/guardian') {
   localStorage.setItem('lms.accessToken', 'test-token');
-  const router = createMemoryRouter([{ path: '/guardian', element: <GuardianPage /> }], { initialEntries: ['/guardian'] });
+  const router = createMemoryRouter([{ path: '/guardian', element: <GuardianPage /> }], { initialEntries: [entry] });
   render(
     <TestProviders>
       <RouterProvider router={router} />
@@ -140,6 +153,7 @@ function renderPage() {
 describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
   beforeEach(() => {
     localStorage.clear();
+    savedFrequencies.clear();
   });
   afterEach(() => {
     cleanup();
@@ -168,9 +182,11 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
     expect(screen.getByText('7,9')).toBeTruthy();
     expect(screen.getByText(/Tiến bộ rõ rệt/)).toBeTruthy();
     expect(screen.getByText('8,6')).toBeTruthy();
-    // Chỉ-xem: ngoài hai nút chọn con, trang không có nút hành động nào.
+    // Chỉ-xem về dữ liệu của con: các nút duy nhất là chọn con + tần
+    // suất digest của CHÍNH phụ huynh (PH-2) — không nút hành động thay con.
+    expect(await screen.findByRole('button', { name: 'Hàng tuần' })).toBeTruthy();
     const buttons = screen.getAllByRole('button');
-    expect(buttons.map((b) => b.textContent)).toEqual(['Trần An', 'Trần Bình']);
+    expect(buttons.map((b) => b.textContent)).toEqual(['Trần An', 'Trần Bình', 'Hàng tuần', 'Hàng ngày', 'Tắt']);
   });
 
   it('chuyển con: dữ liệu đổi đúng sang con thứ hai (trống)', async () => {
@@ -192,5 +208,33 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
 
     expect(await screen.findByText(/chưa được liên kết với học sinh nào/)).toBeTruthy();
     await waitFor(() => expect(screen.queryByText('Tuần này của con')).toBeNull());
+  });
+
+  it('PH-2: link sâu ?student= chọn đúng con khi mở trang từ thông báo digest', async () => {
+    stubFetch(baseHandler(true));
+    renderPage(`/guardian?student=${CHILD_B}`);
+
+    // Con B (khối trống) được chọn ngay, không phải con đầu tiên.
+    expect(await screen.findByText('Tuần này con không có việc nào đến hạn.')).toBeTruthy();
+    expect(screen.queryByText('Bài nộp quá hạn')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Trần Bình' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('PH-2: đổi tần suất digest — mặc định Hàng tuần, bấm Hàng ngày thì lưu và hiệu lực ngay trên trang', async () => {
+    stubFetch(baseHandler(true));
+    renderPage();
+
+    const weekly = await screen.findByRole('button', { name: 'Hàng tuần' });
+    expect(weekly.getAttribute('aria-pressed')).toBe('true');
+    const daily = screen.getByRole('button', { name: 'Hàng ngày' });
+    expect(daily.getAttribute('aria-pressed')).toBe('false');
+
+    await userEvent.click(daily);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hàng ngày' }).getAttribute('aria-pressed')).toBe('true'));
+    expect(savedFrequencies.get(CHILD_A)).toBe('daily');
+    // Tần suất là theo từng con: chuyển sang con B vẫn là mặc định weekly.
+    await userEvent.click(screen.getByRole('button', { name: 'Trần Bình' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hàng tuần' }).getAttribute('aria-pressed')).toBe('true'));
   });
 });

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
-import type { GuardianStudentOverviewView, GuardianStudentResultsView } from '@lms/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router';
+import type { GuardianDigestFrequency, GuardianDigestPreferenceView, GuardianStudentOverviewView, GuardianStudentResultsView } from '@lms/contracts';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { queryKeys } from '#lib/query-keys';
@@ -48,10 +49,70 @@ function BlockTitle({ children }: { children: string }) {
  * Bề mặt phụ huynh chỉ-xem (PH-1, issue #130): chọn con → 4 khối rút gọn
  * của research mục 4.3 (tóm tắt tuần; kết quả mới ĐÃ CÔNG BỐ từ mốc xem
  * của chính phụ huynh; thông báo lớp; tiến độ theo khoá) + kết quả học
- * tập đã công bố theo môn. Chỉ-xem tuyệt đối: trang không có bất kỳ nút
- * hành động nào thay con — dữ liệu đã qua cổng liên kết giám hộ + cổng
- * công bố phía server, trang chỉ trình bày.
+ * tập đã công bố theo môn. Chỉ-xem về dữ liệu của con: trang không có
+ * bất kỳ nút hành động nào thay con — dữ liệu đã qua cổng liên kết
+ * giám hộ + cổng công bố phía server, trang chỉ trình bày. Ngoại lệ
+ * duy nhất thuộc về chính phụ huynh: khối cài đặt tần suất digest
+ * (PH-2, issue #159) và link sâu `?student=` từ thông báo digest chọn
+ * đúng con khi mở trang.
  */
+/**
+ * Khối cài đặt digest của chính phụ huynh cho con đang chọn (PH-2,
+ * issue #159): tần suất tổng hợp weekly (mặc định) | daily | off —
+ * đây là tuỳ chọn của phụ huynh về thông báo gửi cho CHÍNH MÌNH,
+ * không phải hành động thay con nên không phá tính chỉ-xem của bề mặt.
+ */
+function DigestSettings({ studentId }: { studentId: string }) {
+  const { t } = useTranslation('guardian');
+  const queryClient = useQueryClient();
+  const preferenceQuery = useQuery({
+    queryKey: queryKeys.guardianDigestPreference(studentId),
+    queryFn: () => apiJson<GuardianDigestPreferenceView>(`/api/v1/guardian/students/${studentId}/digest-preference`),
+  });
+  const mutation = useMutation({
+    mutationFn: (frequency: GuardianDigestFrequency) => apiJson<GuardianDigestPreferenceView>(
+      `/api/v1/guardian/students/${studentId}/digest-preference`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frequency }) },
+    ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.guardianDigestPreference(studentId) });
+    },
+  });
+  const current = preferenceQuery.data?.frequency ?? 'weekly';
+  const options: { value: GuardianDigestFrequency; label: string }[] = [
+    { value: 'weekly', label: t('digestWeekly') },
+    { value: 'daily', label: t('digestDaily') },
+    { value: 'off', label: t('digestOff') },
+  ];
+  return (
+    <section className="flex flex-col gap-3">
+      <BlockTitle>{t('digestTitle')}</BlockTitle>
+      <div className="px-4 lg:px-6">
+        <Card>
+          <CardContent className="flex flex-col gap-3 py-4">
+            <p className="text-sm text-muted-foreground">{t('digestDescription')}</p>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('digestTitle')}>
+              {options.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={current === option.value ? 'default' : 'outline'}
+                  aria-pressed={current === option.value}
+                  disabled={mutation.isPending}
+                  onClick={() => mutation.mutate(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+            {mutation.isError && <p className="text-sm text-destructive">{t('digestError')}</p>}
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
 export function GuardianPage() {
   const { t, i18n } = useTranslation('guardian');
   const locale = i18n.language;
@@ -61,10 +122,17 @@ export function GuardianPage() {
     queryFn: () => apiJson<MyStudentEntry[]>('/api/v1/guardian-links/mine/students'),
   });
   const students = studentsQuery.data ?? [];
+  // Link sâu từ thông báo digest (PH-2): ?student=<id> chọn đúng con
+  // nếu id thuộc các con đang liên kết; phụ huynh bấm chọn con khác thì
+  // lựa chọn tay thắng tham số.
+  const [searchParams] = useSearchParams();
+  const linkedParam = searchParams.get('student');
   const [pickedId, setPickedId] = useState<string | null>(null);
   const studentId = pickedId && students.some((s) => s.student.id === pickedId)
     ? pickedId
-    : students[0]?.student.id;
+    : linkedParam && students.some((s) => s.student.id === linkedParam)
+      ? linkedParam
+      : students[0]?.student.id;
 
   const overviewQuery = useQuery({
     queryKey: queryKeys.guardianOverview(studentId ?? ''),
@@ -126,6 +194,8 @@ export function GuardianPage() {
           {students.length === 1 && (
             <p className="px-4 text-base font-medium lg:px-6">{studentName(students[0]!.student)}</p>
           )}
+
+          {studentId && <DigestSettings studentId={studentId} />}
 
           {overviewQuery.isError || resultsQuery.isError ? (
             <p className="px-4 text-sm text-destructive lg:px-6">{t('loadError')}</p>

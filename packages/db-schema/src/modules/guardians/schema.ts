@@ -1,6 +1,7 @@
 /** Các bảng của bounded context Guardians (PH-0, issue #116) — liên kết giám hộ phụ huynh ↔ học sinh. */
 import {
   index,
+  integer,
   pgTable,
   primaryKey,
   text,
@@ -64,4 +65,50 @@ export const guardianViewState = pgTable('guardian_view_state', {
       primaryKey({ columns: [table.guardianUserId, table.studentUserId] }),
       // FK student_user_id cần index dẫn đầu riêng (PK dẫn đầu là guardian_user_id).
       index('guardian_view_state_student_user_id_idx').on(table.studentUserId),
+  ]);
+
+/**
+ * Vết lượt digest phụ huynh (PH-2, issue #159): mỗi hàng là MỘT lượt
+ * tổng hợp/đẩy đã được quyết định cho một cặp (phụ huynh, học sinh) —
+ * digest định kỳ theo cửa sổ (`kind='weekly'|'daily'`, có window_start/
+ * window_end) hoặc lần đẩy riêng quá hạn ≥7 ngày (`kind='overdue_alert'`,
+ * có activity_cm_id). `dedupe_key` UNIQUE là chốt chống trùng BỀN của
+ * toàn bộ lát: worker quét lại, chạy lại sau restart, hay hai lượt quét
+ * chồng nhau đều không sinh lượt thứ hai cho cùng một (cặp, loại, cửa
+ * sổ/hoạt động). Hàng chỉ mang SỐ ĐẾM tóm tắt (số kết quả mới đã công
+ * bố, số thông báo, số việc quá hạn, số việc sắp đến hạn) — tuyệt đối
+ * không lưu điểm số hay nội dung chi tiết của con; nội dung digest sống
+ * ở notification được sinh ra (`notification_id`) và ở bề mặt PH-1.
+ * Vòng đời trạng thái: queued (worker đã chốt lượt, chờ consumer tổng
+ * hợp) → sent | skipped_empty | skipped_revoked | skipped_suspended.
+ */
+export const guardianDigests = pgTable('guardian_digests', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  guardianUserId: uuid('guardian_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  studentUserId: uuid('student_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** weekly | daily | overdue_alert. */
+  kind: text('kind').notNull(),
+  /** Cửa sổ tổng hợp (chỉ digest định kỳ; null ở overdue_alert). */
+  windowStart: timestamp('window_start', { withTimezone: true }),
+  windowEnd: timestamp('window_end', { withTimezone: true }),
+  /** Hoạt động quá hạn ≥7 ngày (chỉ overdue_alert; null ở digest định kỳ). */
+  activityCmId: uuid('activity_cm_id'),
+  /** Khoá chống trùng bền: digest:<guardian>:<student>:<kind>:<windowStart ISO> | overdue:<guardian>:<student>:<cmId>. */
+  dedupeKey: text('dedupe_key').notNull(),
+  /** queued | sent | skipped_empty | skipped_revoked | skipped_suspended. */
+  status: text('status').notNull().default('queued'),
+  newResultsCount: integer('new_results_count').notNull().default(0),
+  announcementsCount: integer('announcements_count').notNull().default(0),
+  overdueCount: integer('overdue_count').notNull().default(0),
+  upcomingCount: integer('upcoming_count').notNull().default(0),
+  /** Notification in-app đã sinh cho lượt này (null khi skipped). */
+  notificationId: uuid('notification_id'),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      uniqueIndex('guardian_digests_dedupe_key_unique').on(table.dedupeKey),
+      index('guardian_digests_guardian_user_id_idx').on(table.guardianUserId),
+      index('guardian_digests_student_user_id_idx').on(table.studentUserId),
   ]);
