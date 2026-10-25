@@ -245,10 +245,10 @@ describe('Messaging & calendar', () => {
     const convs = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${accessToken}`);
     expect(convs.body).toHaveLength(0);
 
-    // Turn popup off for badge_awarded (loggedin): nothing is stored, the
-    // dispatch log records the suppression, email stays queued.
+    // Turn popup off for badge_awarded (v2 model, NB-2): nothing is
+    // stored, the dispatch log records the suppression, email stays queued.
     const pref = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${accessToken}`)
-      .send({ provider: 'badge_awarded', channel: 'popup', state: 'loggedin', enabled: false });
+      .send({ provider: 'badge_awarded', popupEnabled: false });
     expect(pref.status).toBe(200);
     const second = await http(app).post('/api/v1/notifications/send').set('Authorization', `Bearer ${admin}`)
       .send({ userId: user.id, provider: 'badge_awarded', subject: 'Badge 2', body: 'Another badge' });
@@ -269,9 +269,9 @@ describe('Messaging & calendar', () => {
     expect(after.body.unread).toBe(0);
     // Preferences listing reflects the toggle.
     const prefs = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${accessToken}`);
-    const popupPref = (prefs.body as { provider: string; channel: string; state: string; enabled: boolean }[])
-      .find((p) => p.provider === 'badge_awarded' && p.channel === 'popup' && p.state === 'loggedin');
-    expect(popupPref?.enabled).toBe(false);
+    const popupPref = (prefs.body as { provider: string; popupEnabled: boolean }[])
+      .find((p) => p.provider === 'badge_awarded');
+    expect(popupPref?.popupEnabled).toBe(false);
   });
 
   it('calendar visibility: site events for all, user events owner-only, course events enrolled-only, category events for category learners', async () => {
