@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "6cbeb145-0c90-4805-9d2c-521554fb8e1d",
+  "id": "e5efdbee-5b7a-4f7e-99d7-3762ac206ad5",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1589,6 +1589,84 @@
         "n|type|public.mcp_idempotency_keys",
         "n|rel|public.mcp_idempotency_keys_pkey",
         "n|rel|public.mcp_idempotency_keys_user_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_contributions"
+      ],
+      "writes": [
+        "s|tbl|public.exam_paper_contributions",
+        "n|tbl|public.exam_paper_contributions",
+        "e|tbl|public.exam_paper_contributions",
+        "n|rel|public.exam_paper_contributions",
+        "n|type|public.exam_paper_contributions",
+        "n|rel|public.exam_paper_contributions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_slots"
+      ],
+      "writes": [
+        "s|tbl|public.exam_paper_slots",
+        "n|tbl|public.exam_paper_slots",
+        "e|tbl|public.exam_paper_slots",
+        "n|rel|public.exam_paper_slots",
+        "n|type|public.exam_paper_slots",
+        "n|rel|public.exam_paper_slots_pkey",
+        "n|rel|public.exam_paper_slots_version_position_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_versions"
+      ],
+      "writes": [
+        "s|tbl|public.exam_paper_versions",
+        "n|tbl|public.exam_paper_versions",
+        "e|tbl|public.exam_paper_versions",
+        "n|rel|public.exam_paper_versions",
+        "n|type|public.exam_paper_versions",
+        "n|rel|public.exam_paper_versions_pkey",
+        "n|rel|public.exam_paper_versions_paper_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_papers"
+      ],
+      "writes": [
+        "s|tbl|public.exam_papers",
+        "n|tbl|public.exam_papers",
+        "e|tbl|public.exam_papers",
+        "n|rel|public.exam_papers",
+        "n|type|public.exam_papers",
+        "n|rel|public.exam_papers_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -6101,6 +6179,286 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_paper_contributions",
+        "exam_paper_contributions_target_bank_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_contributions_target_bank_idx",
+        "n|idx|public.exam_paper_contributions_target_bank_idx",
+        "e|idx|public.exam_paper_contributions_target_bank_idx",
+        "n|rel|public.exam_paper_contributions_target_bank_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.target_bank_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_contributions",
+        "exam_paper_contributions_paper_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_contributions_paper_idx",
+        "n|idx|public.exam_paper_contributions_paper_idx",
+        "e|idx|public.exam_paper_contributions_paper_idx",
+        "n|rel|public.exam_paper_contributions_paper_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_contributions",
+        "exam_paper_contributions_proposer_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_contributions_proposer_idx",
+        "n|idx|public.exam_paper_contributions_proposer_idx",
+        "e|idx|public.exam_paper_contributions_proposer_idx",
+        "n|rel|public.exam_paper_contributions_proposer_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.proposer_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_contributions",
+        "exam_paper_contributions_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_contributions_status_idx",
+        "n|idx|public.exam_paper_contributions_status_idx",
+        "e|idx|public.exam_paper_contributions_status_idx",
+        "n|rel|public.exam_paper_contributions_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_slots",
+        "exam_paper_slots_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_slots_version_idx",
+        "n|idx|public.exam_paper_slots_version_idx",
+        "e|idx|public.exam_paper_slots_version_idx",
+        "n|rel|public.exam_paper_slots_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.paper_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_slots",
+        "exam_paper_slots_question_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_slots_question_idx",
+        "n|idx|public.exam_paper_slots_question_idx",
+        "e|idx|public.exam_paper_slots_question_idx",
+        "n|rel|public.exam_paper_slots_question_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_slots",
+        "exam_paper_slots_cluster_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_slots_cluster_idx",
+        "n|idx|public.exam_paper_slots_cluster_idx",
+        "e|idx|public.exam_paper_slots_cluster_idx",
+        "n|rel|public.exam_paper_slots_cluster_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.cluster_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_versions",
+        "exam_paper_versions_paper_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_versions_paper_idx",
+        "n|idx|public.exam_paper_versions_paper_idx",
+        "e|idx|public.exam_paper_versions_paper_idx",
+        "n|rel|public.exam_paper_versions_paper_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_versions",
+        "exam_paper_versions_subject_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_versions_subject_idx",
+        "n|idx|public.exam_paper_versions_subject_idx",
+        "e|idx|public.exam_paper_versions_subject_idx",
+        "n|rel|public.exam_paper_versions_subject_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.subject_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_versions",
+        "exam_paper_versions_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_versions_matrix_idx",
+        "n|idx|public.exam_paper_versions_matrix_idx",
+        "e|idx|public.exam_paper_versions_matrix_idx",
+        "n|rel|public.exam_paper_versions_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_papers",
+        "exam_papers_bank_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_papers_bank_id_idx",
+        "n|idx|public.exam_papers_bank_id_idx",
+        "e|idx|public.exam_papers_bank_id_idx",
+        "n|rel|public.exam_papers_bank_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_papers.bank_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_papers",
+        "exam_papers_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_papers_status_idx",
+        "n|idx|public.exam_papers_status_idx",
+        "e|idx|public.exam_papers_status_idx",
+        "n|rel|public.exam_papers_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_papers.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_papers",
+        "exam_papers_created_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_papers_created_by_idx",
+        "n|idx|public.exam_papers_created_by_idx",
+        "e|idx|public.exam_papers_created_by_idx",
+        "n|rel|public.exam_papers_created_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_papers.created_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_papers",
+        "exam_papers_derived_from_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_papers_derived_from_idx",
+        "n|idx|public.exam_papers_derived_from_idx",
+        "e|idx|public.exam_papers_derived_from_idx",
+        "n|rel|public.exam_papers_derived_from_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_papers.derived_from_paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "exam_matrices",
         "exam_matrices_subject_idx"
       ],
@@ -6574,6 +6932,46 @@
         "n|tbl|public.quizzes",
         "n|sch|public",
         "n|col|public.quizzes.matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_paper_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_paper_idx",
+        "n|idx|public.quizzes_paper_idx",
+        "e|idx|public.quizzes_paper_idx",
+        "n|rel|public.quizzes_paper_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "quizzes",
+        "quizzes_paper_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.quizzes_paper_version_idx",
+        "n|idx|public.quizzes_paper_version_idx",
+        "e|idx|public.quizzes_paper_version_idx",
+        "n|rel|public.quizzes_paper_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_version_id"
       ]
     },
     {
@@ -12307,6 +12705,190 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_paper_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_contributions.exam_paper_contributions_paper_id_exam_papers_id_fkey",
+        "n|fk|public.exam_paper_contributions.exam_paper_contributions_paper_id_exam_papers_id_fkey",
+        "e|fk|public.exam_paper_contributions.exam_paper_contributions_paper_id_exam_papers_id_fkey",
+        "n|con|public.exam_paper_contributions.exam_paper_contributions_paper_id_exam_papers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.paper_id",
+        "n|col|public.exam_papers.id",
+        "e|uniqueness|public.exam_papers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_contributions.exam_paper_contributions_target_bank_id_question_banks_id_fkey",
+        "n|fk|public.exam_paper_contributions.exam_paper_contributions_target_bank_id_question_banks_id_fkey",
+        "e|fk|public.exam_paper_contributions.exam_paper_contributions_target_bank_id_question_banks_id_fkey",
+        "n|con|public.exam_paper_contributions.exam_paper_contributions_target_bank_id_question_banks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_contributions",
+        "n|sch|public",
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.exam_paper_contributions.target_bank_id",
+        "n|col|public.question_banks.id",
+        "e|uniqueness|public.question_banks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_slots"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_slots.exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey",
+        "n|fk|public.exam_paper_slots.exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey",
+        "e|fk|public.exam_paper_slots.exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey",
+        "n|con|public.exam_paper_slots.exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.paper_version_id",
+        "n|col|public.exam_paper_versions.id",
+        "e|uniqueness|public.exam_paper_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_slots"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_slots.exam_paper_slots_question_id_question_id_fkey",
+        "n|fk|public.exam_paper_slots.exam_paper_slots_question_id_question_id_fkey",
+        "e|fk|public.exam_paper_slots.exam_paper_slots_question_id_question_id_fkey",
+        "n|con|public.exam_paper_slots.exam_paper_slots_question_id_question_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|tbl|public.question",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.question_id",
+        "n|col|public.question.id",
+        "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_versions"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_versions.exam_paper_versions_paper_id_exam_papers_id_fkey",
+        "n|fk|public.exam_paper_versions.exam_paper_versions_paper_id_exam_papers_id_fkey",
+        "e|fk|public.exam_paper_versions.exam_paper_versions_paper_id_exam_papers_id_fkey",
+        "n|con|public.exam_paper_versions.exam_paper_versions_paper_id_exam_papers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.paper_id",
+        "n|col|public.exam_papers.id",
+        "e|uniqueness|public.exam_papers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_versions"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_versions.exam_paper_versions_subject_id_subjects_id_fkey",
+        "n|fk|public.exam_paper_versions.exam_paper_versions_subject_id_subjects_id_fkey",
+        "e|fk|public.exam_paper_versions.exam_paper_versions_subject_id_subjects_id_fkey",
+        "n|con|public.exam_paper_versions.exam_paper_versions_subject_id_subjects_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|tbl|public.subjects",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.subject_id",
+        "n|col|public.subjects.id",
+        "e|uniqueness|public.subjects.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_versions"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_versions.exam_paper_versions_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.exam_paper_versions.exam_paper_versions_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.exam_paper_versions.exam_paper_versions_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.exam_paper_versions.exam_paper_versions_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_paper_versions.matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_papers"
+      ],
+      "writes": [
+        "s|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
+        "n|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
+        "e|fk|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey",
+        "n|con|public.exam_papers.exam_papers_bank_id_question_banks_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|tbl|public.question_banks",
+        "n|sch|public",
+        "n|col|public.exam_papers.bank_id",
+        "n|col|public.question_banks.id",
+        "e|uniqueness|public.question_banks.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "exam_matrices"
       ],
       "writes": [
@@ -12783,6 +13365,52 @@
         "n|col|public.quizzes.matrix_id",
         "n|col|public.exam_matrices.id",
         "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_paper_id_exam_papers_id_fkey",
+        "n|fk|public.quizzes.quizzes_paper_id_exam_papers_id_fkey",
+        "e|fk|public.quizzes.quizzes_paper_id_exam_papers_id_fkey",
+        "n|con|public.quizzes.quizzes_paper_id_exam_papers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_id",
+        "n|col|public.exam_papers.id",
+        "e|uniqueness|public.exam_papers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "quizzes"
+      ],
+      "writes": [
+        "s|fk|public.quizzes.quizzes_paper_version_id_exam_paper_versions_id_fkey",
+        "n|fk|public.quizzes.quizzes_paper_version_id_exam_paper_versions_id_fkey",
+        "e|fk|public.quizzes.quizzes_paper_version_id_exam_paper_versions_id_fkey",
+        "n|con|public.quizzes.quizzes_paper_version_id_exam_paper_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.quizzes",
+        "n|sch|public",
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.quizzes.paper_version_id",
+        "n|col|public.exam_paper_versions.id",
+        "e|uniqueness|public.exam_paper_versions.id"
       ]
     },
     {
@@ -15068,6 +15696,30 @@
     {
       "schema": "public",
       "name": "mcp_idempotency_keys",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_paper_contributions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_paper_slots",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_paper_versions",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_papers",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -25021,6 +25673,643 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "target_bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "proposer_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "note",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "content_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "near_duplicate_of",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "reject_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "reviewer_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "result_paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "paper_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "position",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "section",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "pinned_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "pinned_version_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "max_mark",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "cluster_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "subject_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "grade",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "total_score",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "duration_minutes",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "tf_scale",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "matrix_version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'snapshot'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'draft'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "derived_from_paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "derived_from_matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "original_author_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "latest_version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "copy_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "id",
       "type": "uuid",
@@ -26661,6 +27950,32 @@
       "schema": "public",
       "table": "quizzes",
       "name": "matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "paper_version_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": false,
@@ -39270,6 +40585,300 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_target_bank_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "target_bank_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_paper_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_proposer_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "proposer_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_question_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_cluster_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "cluster_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_paper_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_subject_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_bank_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "bank_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_created_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_derived_from_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "derived_from_paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_subject_idx",
       "nameExplicit": true,
@@ -39759,6 +41368,48 @@
       "columns": [
         {
           "value": "matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_version_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -45157,6 +46808,142 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_paper_id_exam_papers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_papers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_target_bank_id_question_banks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "target_bank_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_banks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_paper_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_question_id_question_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_paper_id_exam_papers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_papers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_subject_id_subjects_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "subject_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "subjects",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_bank_id_question_banks_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "bank_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_banks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_subject_id_subjects_id_fkey",
       "nameExplicit": false,
@@ -45505,6 +47292,40 @@
       ],
       "schemaTo": "public",
       "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_id_exam_papers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_papers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "quizzes",
+      "name": "quizzes_paper_version_id_exam_paper_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_paper_versions",
       "columnsTo": [
         "id"
       ],
@@ -47701,6 +49522,46 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_contributions",
+      "name": "exam_paper_contributions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrices",
       "name": "exam_matrices_pkey",
       "columns": [
@@ -49045,6 +50906,30 @@
     },
     {
       "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_version_position_unique",
+      "nameExplicit": true,
+      "columns": [
+        "paper_version_id",
+        "position"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_paper_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "paper_id",
+        "version"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_unique",
       "nameExplicit": true,
@@ -49784,6 +51669,27 @@
       "table": "course_section_book_items",
       "name": "course_section_book_items_position_check",
       "value": "\"position\" > 0",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "exam_paper_versions_exam_kind_check",
+      "value": "\"exam_kind\" is null or \"exam_kind\" in ('regular', 'midterm', 'final', 'mock', 'practice')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_kind_check",
+      "value": "\"kind\" in ('snapshot', 'recipe')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_papers",
+      "name": "exam_papers_status_check",
+      "value": "\"status\" in ('draft', 'ready', 'hidden')",
       "entityType": "checks"
     },
     {

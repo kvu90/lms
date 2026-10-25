@@ -759,6 +759,10 @@ export const quizViewSchema = z.object({
   reviewOverallFeedback: z.number().int(),
   /** Ma trận nguồn khi đề sinh từ ma trận (Chặng 3); null với đề dựng tay. */
   matrixId: uuidIdSchema.nullable(),
+  /** Đề ngân hàng đã triển khai vào quiz này (EB-1); null với quiz dựng tay hoặc sinh từ ma trận. */
+  paperId: uuidIdSchema.nullable(),
+  /** Paper version đã ghim lúc triển khai đề (EB-1); sửa đề về sau không đổi quiz này. */
+  paperVersionId: uuidIdSchema.nullable(),
   /** Thang Đ–S chùm hiệu lực của đề; null = mặc định QĐ 764 [0, 10, 25, 50, 100]. */
   tfScale: tfScaleSchema.nullable(),
   /** Hình thức kiểm tra TT 22 đã chọn preset: regular (thường xuyên) | periodic (định kỳ) | mock (thi thử); null = không theo preset. */
@@ -1620,3 +1624,101 @@ export const createGuardianLinkSchema = z.strictObject({
   note: z.string().max(500).optional(),
 });
 export type CreateGuardianLink = z.infer<typeof createGuardianLinkSchema>;
+// --- Ngân hàng đề (feat issue #113: EB-1) ---------------------------------------
+
+/** Hai dạng tồn tại của một đề: snapshot (bản chụp câu cụ thể, ghim version) / recipe (công thức theo ma trận — EB-2). Lát EB-1 chỉ snapshot sống. */
+export const EXAM_PAPER_KINDS = ['snapshot', 'recipe'] as const;
+
+/** Loại kiểm tra của đề theo nghiệp vụ VN: thường xuyên / giữa kỳ / cuối kỳ / thi thử / ôn tập. */
+export const EXAM_PAPER_EXAM_KINDS = ['regular', 'midterm', 'final', 'mock', 'practice'] as const;
+
+/** Trạng thái vòng đời của một đề trong ngân hàng (như câu hỏi): draft / ready / hidden. */
+export const EXAM_PAPER_STATUSES = ['draft', 'ready', 'hidden'] as const;
+
+/**
+ * Một slot trong payload soạn đề: câu được chọn từ ngân hàng câu hỏi;
+ * version ghim được server phân giải tại thời điểm lưu (mặc định version
+ * ready mới nhất — kỷ luật QB-3). `section` là tên phần (Phần I/II…)
+ * để chia phần trong đề; `clusterId` gom các slot truefalse cùng chùm Đ–S.
+ */
+export const examPaperSlotInputSchema = z.strictObject({
+  questionId: uuidIdSchema,
+  maxMark: z.number().positive().optional(),
+  section: z.string().max(200).optional(),
+  clusterId: uuidIdSchema.nullable().optional(),
+});
+export type ExamPaperSlotInput = z.infer<typeof examPaperSlotInputSchema>;
+
+/** Payload tạo đề snapshot trong một bank đề (bankKind='exam'): metadata + danh sách slot tuỳ chọn (rỗng = đề trắng). */
+export const createExamPaperSchema = z.strictObject({
+  name: z.string().min(1),
+  subjectId: uuidIdSchema.nullable().optional(),
+  grade: z.number().int().min(1).max(12).nullable().optional(),
+  examKind: z.enum(EXAM_PAPER_EXAM_KINDS).nullable().optional(),
+  totalScore: z.number().positive().optional(),
+  durationMinutes: z.number().int().positive().nullable().optional(),
+  tfScale: z.array(z.number()).length(5).nullable().optional(),
+  matrixId: uuidIdSchema.nullable().optional(),
+  slots: z.array(examPaperSlotInputSchema).max(500).optional(),
+});
+export type CreateExamPaper = z.infer<typeof createExamPaperSchema>;
+
+/** Payload sửa metadata của đề — mỗi lần sửa tạo một paper version mới (slots giữ nguyên từ version hiện tại nếu không gửi kèm). */
+export const updateExamPaperSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  subjectId: uuidIdSchema.nullable().optional(),
+  grade: z.number().int().min(1).max(12).nullable().optional(),
+  examKind: z.enum(EXAM_PAPER_EXAM_KINDS).nullable().optional(),
+  totalScore: z.number().positive().optional(),
+  durationMinutes: z.number().int().positive().nullable().optional(),
+  tfScale: z.array(z.number()).length(5).nullable().optional(),
+  matrixId: uuidIdSchema.nullable().optional(),
+});
+export type UpdateExamPaper = z.infer<typeof updateExamPaperSchema>;
+
+/** Payload thay toàn bộ danh sách slot của đề — tạo paper version mới với đúng danh sách này. */
+export const setExamPaperSlotsSchema = z.strictObject({
+  slots: z.array(examPaperSlotInputSchema).max(500),
+});
+export type SetExamPaperSlots = z.infer<typeof setExamPaperSlotsSchema>;
+
+/** Payload đổi trạng thái vòng đời của đề. */
+export const setExamPaperStatusSchema = z.strictObject({
+  status: z.enum(EXAM_PAPER_STATUSES),
+});
+export type SetExamPaperStatus = z.infer<typeof setExamPaperStatusSchema>;
+
+/** Payload copy một đề sang bank đích (mặc định ngân hàng đề cá nhân của người copy): deep copy slots, question + pinned version giữ nguyên. */
+export const copyExamPaperSchema = z.strictObject({
+  targetBankId: uuidIdSchema.optional(),
+  name: z.string().min(1).optional(),
+});
+export type CopyExamPaper = z.infer<typeof copyExamPaperSchema>;
+
+/** Payload đề xuất đóng góp một đề vào bank đích (khuôn QB-4, chỉ mode 'new': duyệt đạt thì deep copy vào bank đích). */
+export const createExamPaperContributionSchema = z.strictObject({
+  paperId: uuidIdSchema,
+  note: z.string().optional(),
+});
+export type CreateExamPaperContribution = z.infer<typeof createExamPaperContributionSchema>;
+
+/** Payload duyệt đề xuất đóng góp đề (không tham số — bản copy vào bank đích mang tên + truy vết của đề nguồn). */
+export const approveExamPaperContributionSchema = z.strictObject({});
+export type ApproveExamPaperContribution = z.infer<typeof approveExamPaperContributionSchema>;
+
+/** Payload từ chối đề xuất đóng góp đề: lý do bắt buộc. */
+export const rejectExamPaperContributionSchema = z.strictObject({
+  reason: z.string().min(1),
+});
+export type RejectExamPaperContribution = z.infer<typeof rejectExamPaperContributionSchema>;
+
+/**
+ * Payload triển khai một đề (paper version hiện tại) vào một quiz: slots
+ * của đề được chụp sang `quiz_slots` của quiz và quiz ghim paper
+ * version. Quiz đã có slots dựng tay thì phải `replace: true` tường minh.
+ */
+export const deployExamPaperSchema = z.strictObject({
+  quizId: uuidIdSchema,
+  replace: z.boolean().optional(),
+});
+export type DeployExamPaper = z.infer<typeof deployExamPaperSchema>;

@@ -138,6 +138,42 @@ interface AttributionLite {
   sourceBankName: string | null;
 }
 
+/** Một dòng tóm tắt đề trong ngân hàng đề (GET /exam-papers/banks/:bankId/papers). */
+interface PaperSummaryLite {
+  id: string;
+  bankId: string;
+  status: string;
+  name: string;
+  examKind: string | null;
+  slotCount: number;
+  latestVersion: number;
+  createdBy: string;
+  copyCount: number;
+  capabilities: { edit: boolean; copy: boolean; deploy: boolean; moderate: boolean };
+}
+
+/** Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề (EB-1). */
+interface ExamContributionLite {
+  id: string;
+  paperId: string;
+  paperName: string | null;
+  status: string;
+  proposerId: string;
+}
+
+/** Khoá học cho hộp thoại triển khai đề vào quiz. */
+interface CourseLite {
+  id: string;
+  fullName: string;
+}
+
+/** Quiz cho hộp thoại triển khai đề (GET /courses/:id/quizzes). */
+interface QuizLite {
+  id: string;
+  name: string;
+  paperId: string | null;
+}
+
 /** Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery). */
 interface DiscoveryItemLite {
   questionId: string;
@@ -430,6 +466,23 @@ export function QuestionsPage() {
   const [proposeMatrixId, setProposeMatrixId] = useState('');
   const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
 
+  // Ngân hàng đề (EB-1, issue #113): bank đề dùng chung khuôn bank đa
+  // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
+  // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
+  const [examBanks, setExamBanks] = useState<BankLite[]>([]);
+  const [myPapersOpen, setMyPapersOpen] = useState(false);
+  const [myPapers, setMyPapers] = useState<PaperSummaryLite[]>([]);
+  const [systemExamBankId, setSystemExamBankId] = useState('');
+  const [systemPapers, setSystemPapers] = useState<PaperSummaryLite[]>([]);
+  const [paperContributions, setPaperContributions] = useState<ExamContributionLite[]>([]);
+  const [proposePaperId, setProposePaperId] = useState('');
+  const [proposePaperBankId, setProposePaperBankId] = useState('');
+  const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
+  const [deployCourses, setDeployCourses] = useState<CourseLite[]>([]);
+  const [deployCourseId, setDeployCourseId] = useState('');
+  const [deployQuizzes, setDeployQuizzes] = useState<QuizLite[]>([]);
+  const [deployQuizId, setDeployQuizId] = useState('');
+
   const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
     setQuestions(rows);
@@ -646,6 +699,161 @@ export function QuestionsPage() {
       (!matrixSubjectFilter || m.subjectId === matrixSubjectFilter) &&
       (!matrixPresetFilter || m.presetKind === matrixPresetFilter),
   );
+
+  const personalExamBank = examBanks.find((b) => b.scope === 'personal');
+  const sharedExamBanks = examBanks.filter((b) => b.scope !== 'personal');
+
+  const loadMyPapers = useCallback(async (bankList: BankLite[]) => {
+    const mine = bankList.find((b) => b.scope === 'personal');
+    if (!mine) { setMyPapers([]); return; }
+    try {
+      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exam-papers/banks/${mine.id}/papers`);
+      setMyPapers(rows);
+    } catch {
+      setMyPapers([]);
+    }
+  }, []);
+
+  const loadExamBanks = useCallback(async () => {
+    try {
+      const rows = await apiJson<BankLite[]>('/api/v1/question-banks?kind=exam');
+      setExamBanks(rows);
+      await loadMyPapers(rows);
+    } catch {
+      setExamBanks([]);
+    }
+  }, [loadMyPapers]);
+
+  useEffect(() => {
+    void loadExamBanks();
+  }, [loadExamBanks]);
+
+  /** Danh sách đề + hàng chờ đóng góp của một bank đề trong Ngân hàng hệ thống. */
+  async function loadSystemPapers(bankId: string) {
+    setSystemExamBankId(bankId);
+    if (!bankId) { setSystemPapers([]); setPaperContributions([]); return; }
+    try {
+      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exam-papers/banks/${bankId}/papers`);
+      setSystemPapers(rows);
+    } catch {
+      setSystemPapers([]);
+    }
+    try {
+      const rows = await apiJson<ExamContributionLite[]>(`/api/v1/exam-papers/banks/${bankId}/contributions`);
+      setPaperContributions(rows.filter((c) => c.status === 'pending'));
+    } catch {
+      setPaperContributions([]);
+    }
+  }
+
+  /** Copy một đề từ ngân hàng hệ thống về ngân hàng đề cá nhân (cầu nối hai khu vực cho ĐỀ). */
+  async function copyPaperToMine(paperId: string) {
+    try {
+      await apiJson(`/api/v1/exam-papers/${paperId}/copy`, { method: 'POST', body: '{}' });
+      setMessage(t('paperCopiedToMyBank'));
+      await loadExamBanks();
+    } catch (err) {
+      setMessage(withApiReason(t('examPaperCopyFailed'), err));
+    }
+  }
+
+  async function setPaperStatus(paperId: string, status: 'ready' | 'hidden' | 'draft') {
+    try {
+      await apiJson(`/api/v1/exam-papers/${paperId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      await loadExamBanks();
+      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
+    } catch (err) {
+      setMessage(withApiReason(t('examPaperSaveFailed'), err));
+    }
+  }
+
+  async function deletePaper(paperId: string) {
+    if (!window.confirm(t('examPaperDeleteConfirm'))) return;
+    try {
+      await apiJson(`/api/v1/exam-papers/${paperId}`, { method: 'DELETE' });
+      setMessage(t('examPaperDeleted'));
+      await loadExamBanks();
+    } catch (err) {
+      setMessage(withApiReason(t('examPaperDeleteFailed'), err));
+    }
+  }
+
+  /** Đề xuất một đề của tôi lên bank đề chung (khuôn QB-4 cho đơn vị đề). */
+  async function proposePaper() {
+    if (!proposePaperId || !proposePaperBankId) return;
+    try {
+      await apiJson(`/api/v1/exam-papers/banks/${proposePaperBankId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ paperId: proposePaperId }),
+      });
+      setMessage(t('paperProposedOk'));
+    } catch (err) {
+      setMessage(withApiReason(t('proposeFailed'), err));
+    }
+  }
+
+  /** Duyệt / từ chối một đề xuất đóng góp đề (người duyệt của bank đích). */
+  async function reviewPaperContribution(bankId: string, contributionId: string, approve: boolean) {
+    try {
+      if (approve) {
+        await apiJson(`/api/v1/exam-papers/banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
+      } else {
+        const reason = window.prompt(t('contributionReject')) ?? '';
+        if (!reason.trim()) return;
+        await apiJson(`/api/v1/exam-papers/banks/${bankId}/contributions/${contributionId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+      }
+      await loadSystemPapers(bankId);
+    } catch (err) {
+      setMessage(withApiReason(t('proposeFailed'), err));
+    }
+  }
+
+  /** Mở hộp thoại triển khai: nạp danh sách khoá học cho giáo viên chọn quiz đích. */
+  async function openDeploy(paper: PaperSummaryLite) {
+    setDeployPaper(paper);
+    setDeployQuizId('');
+    setDeployQuizzes([]);
+    try {
+      const courses = await apiJson<CourseLite[]>('/api/v1/courses');
+      setDeployCourses(courses);
+    } catch {
+      setDeployCourses([]);
+    }
+  }
+
+  async function loadDeployQuizzes(courseId: string) {
+    setDeployCourseId(courseId);
+    setDeployQuizId('');
+    if (!courseId) { setDeployQuizzes([]); return; }
+    try {
+      const rows = await apiJson<QuizLite[]>(`/api/v1/courses/${courseId}/quizzes`);
+      setDeployQuizzes(rows);
+    } catch {
+      setDeployQuizzes([]);
+    }
+  }
+
+  /** Triển khai đề vào quiz đã chọn; quiz dựng tay thì hỏi xác nhận thay thế rồi gọi lại với replace. */
+  async function runDeploy(replace = false) {
+    if (!deployPaper || !deployQuizId) return;
+    try {
+      await apiJson(`/api/v1/exam-papers/${deployPaper.id}/deploy`, {
+        method: 'POST',
+        body: JSON.stringify({ quizId: deployQuizId, ...(replace ? { replace: true } : {}) }),
+      });
+      setMessage(t('deployOk', { version: deployPaper.latestVersion }));
+      setDeployPaper(null);
+    } catch (err) {
+      if (!replace && err instanceof ApiError && err.problem.code === 'exam.deploy_quiz_has_manual_slots') {
+        if (window.confirm(t('deployReplaceConfirm'))) await runDeploy(true);
+        return;
+      }
+      setMessage(withApiReason(t('deployFailed'), err));
+    }
+  }
 
   useEffect(() => {
     void loadAttributionsFor(questions);
@@ -1224,9 +1432,157 @@ export function QuestionsPage() {
         )}
       </Card>
 
+      {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
+          ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
+          vực đã chốt; mở collapse là danh sách đề của chính giáo viên
+          + Thêm mới ngay trong collapse (§9), Sửa/Xoá tại dòng. */}
+      <Card>
+        <CardHeader>
+          <button type="button" aria-expanded={myPapersOpen} onClick={() => setMyPapersOpen((v) => !v)} className="text-left">
+            <CardTitle>{t('myExamBank')}</CardTitle>
+            <CardDescription>{t('myExamBankDescription')}</CardDescription>
+          </button>
+        </CardHeader>
+        {myPapersOpen && (
+          <CardContent className="space-y-4">
+            <Button
+              type="button"
+              disabled={!personalExamBank}
+              onClick={() => personalExamBank && navigate(`/exam-papers/new?bank=${personalExamBank.id}`)}
+            >
+              {t('addNew')}
+            </Button>
+            {myPapers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('examPaperEmpty')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {myPapers.map((paper) => (
+                  <li key={paper.id} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1">
+                      {paper.name}
+                      <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
+                        {paper.status === 'ready'
+                          ? t('examPaperStatusReady')
+                          : paper.status === 'hidden'
+                            ? t('examPaperStatusHidden')
+                            : t('examPaperStatusDraft')}
+                      </span>
+                      <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {t('examPaperSlotsCount', { count: paper.slotCount })}
+                      </span>
+                    </span>
+                    <Button type="button" variant="outline" onClick={() => navigate(`/exam-papers/${paper.id}/edit`)}>
+                      {t('editRow')}
+                    </Button>
+                    {paper.status === 'draft' ? (
+                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'ready')}>
+                        {t('examPaperMarkReady')}
+                      </Button>
+                    ) : null}
+                    {paper.status === 'ready' ? (
+                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'hidden')}>
+                        {t('examPaperHide')}
+                      </Button>
+                    ) : null}
+                    {paper.status === 'hidden' ? (
+                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'ready')}>
+                        {t('examPaperRestore')}
+                      </Button>
+                    ) : null}
+                    {paper.status === 'ready' && paper.capabilities.deploy ? (
+                      <Button type="button" variant="outline" onClick={() => void openDeploy(paper)}>
+                        {t('deployPaper')}
+                      </Button>
+                    ) : null}
+                    <Button type="button" variant="outline" onClick={() => void deletePaper(paper.id)}>
+                      {t('deleteRow')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {deployPaper ? (
+              <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
+                <div>
+                  <Label htmlFor="deploy-course">{t('deployPickCourse')}</Label>
+                  <select
+                    id="deploy-course"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={deployCourseId}
+                    onChange={(e) => void loadDeployQuizzes(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {deployCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.fullName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="deploy-quiz">{t('deployPickQuiz')}</Label>
+                  <select
+                    id="deploy-quiz"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={deployQuizId}
+                    onChange={(e) => setDeployQuizId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {deployQuizzes.map((q) => (
+                      <option key={q.id} value={q.id}>{q.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="button" disabled={!deployQuizId} onClick={() => void runDeploy()}>
+                  {t('deployRun')}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setDeployPaper(null)}>
+                  ✕
+                </Button>
+              </div>
+            ) : null}
+            {sharedExamBanks.length > 0 && myPapers.length > 0 ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="propose-paper">{t('proposePaperToBank')}</Label>
+                  <select
+                    id="propose-paper"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={proposePaperId}
+                    onChange={(e) => setProposePaperId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {myPapers.filter((p) => p.status === 'ready').map((paper) => (
+                      <option key={paper.id} value={paper.id}>{paper.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="propose-paper-bank">{t('pickBank')}</Label>
+                  <select
+                    id="propose-paper-bank"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={proposePaperBankId}
+                    onChange={(e) => setProposePaperBankId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {sharedExamBanks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>{bank.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="button" disabled={!proposePaperId || !proposePaperBankId} onClick={() => void proposePaper()}>
+                  {t('propose')}
+                </Button>
+              </div>
+            ) : null}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
-          (câu hỏi / đề / ma trận). Feat này dựng ngân hàng câu hỏi chung;
-          đề chung + ma trận chung chừa cấu trúc, chưa thi công. */}
+          (câu hỏi / đề / ma trận) — cả ba đã thi công: câu hỏi chung
+          (feat #70), đề chung (EB-1, issue #113), ma trận chung
+          (MB-1, issue #111). */}
       <Card>
         <CardHeader>
           <button type="button" aria-expanded={systemOpen} onClick={() => setSystemOpen((v) => !v)} className="text-left">
@@ -1352,9 +1708,80 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
-            <section className="space-y-1 opacity-60">
+            {/* Ngân hàng đề chung (EB-1): chọn một bank đề chung → danh
+                sách đề ready của bank đó + Copy về ngân hàng đề của tôi
+                tại dòng; người duyệt của bank thấy hàng chờ đóng góp đề. */}
+            <section className="space-y-3">
               <h3 className="font-medium">{t('sharedExamBank')}</h3>
-              <p className="text-sm text-muted-foreground">{t('comingSoon')}</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="exam-bank-pick">{t('pickBank')}</Label>
+                  <select
+                    id="exam-bank-pick"
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                    value={systemExamBankId}
+                    onChange={(e) => void loadSystemPapers(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {sharedExamBanks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {systemExamBankId && systemPapers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('examPaperEmpty')}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {systemPapers.map((paper) => (
+                    <li key={paper.id} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1">
+                        {paper.name}
+                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {t('examPaperSlotsCount', { count: paper.slotCount })} · {t('copiedTimes', { count: paper.copyCount })}
+                        </span>
+                      </span>
+                      {paper.capabilities.edit ? (
+                        <Button type="button" variant="outline" onClick={() => navigate(`/exam-papers/${paper.id}/edit`)}>
+                          {t('editRow')}
+                        </Button>
+                      ) : null}
+                      <Button type="button" variant="outline" onClick={() => void copyPaperToMine(paper.id)}>
+                        {t('copyPaperToMyBank')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {systemExamBankId && paperContributions.length > 0 ? (
+                <div className="space-y-2">
+                  <h4 className="font-medium">{t('examContributionQueue')}</h4>
+                  <ul className="space-y-2">
+                    {paperContributions.map((c) => (
+                      <li key={c.id} className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 flex-1">{c.paperName ?? c.paperId}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void reviewPaperContribution(systemExamBankId, c.id, true)}
+                        >
+                          {t('contributionApprove')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void reviewPaperContribution(systemExamBankId, c.id, false)}
+                        >
+                          {t('contributionReject')}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </section>
             <section className="space-y-3">
               <h3 className="font-medium">{t('sharedMatrixBank')}</h3>

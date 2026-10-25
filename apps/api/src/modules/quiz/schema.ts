@@ -17,6 +17,7 @@ import { course } from '../courses/schema';
 import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
 import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
+import { examPapers, examPaperVersions } from '../exam-papers/schema';
 
 /**
  * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
@@ -185,6 +186,14 @@ export const quizzes = pgTable('quizzes', {
   reviewOverallFeedback: integer('review_overall_feedback').notNull().default(4368),
   /** Ma trận nguồn khi đề được sinh từ ma trận (Chặng 3); null với đề dựng tay. */
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
+  /**
+   * Nguồn đề của quiz (EB-1, issue #113): triển khai đề vào quiz ghim tại
+   * paper version đã chốt (paper_version_id); FK 'set null' như matrix_id
+   * — xoá đề không vỡ quiz đã thi vì slots đã chụp riêng sang quiz_slots
+   * và attempt đọc từ đó. paper_id null = quiz dựng tay.
+   */
+  paperId: uuid('paper_id').references(() => examPapers.id, { onDelete: 'set null' }),
+  paperVersionId: uuid('paper_version_id').references(() => examPaperVersions.id, { onDelete: 'set null' }),
   /** Thang chấm Đ–S chùm (mảng 5 tỉ lệ % cho 0..4 ý đúng); null = mặc định QĐ 764 [0,10,25,50,100]. */
   tfScale: jsonb('tf_scale').$type<number[]>(),
   /**
@@ -215,6 +224,8 @@ export const quizzes = pgTable('quizzes', {
       index('quizzes_course_idx').on(table.course),
       index('quizzes_cm_id_idx').on(table.cmId),
       index('quizzes_matrix_idx').on(table.matrixId),
+      index('quizzes_paper_idx').on(table.paperId),
+      index('quizzes_paper_version_idx').on(table.paperVersionId),
       check('quizzes_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'periodic', 'mock')`),
   ]);
 

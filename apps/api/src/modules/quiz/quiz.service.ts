@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
@@ -402,6 +402,8 @@ export class QuizService {
       reviewRightAnswer: quiz.reviewRightAnswer,
       reviewOverallFeedback: quiz.reviewOverallFeedback,
       matrixId: quiz.matrixId,
+      paperId: quiz.paperId,
+      paperVersionId: quiz.paperVersionId,
       tfScale: quiz.tfScale,
       examKind: (quiz.examKind as QuizView['examKind']) ?? null,
       lateEntryMinutes: quiz.lateEntryMinutes,
@@ -1465,6 +1467,73 @@ export class QuizService {
     if (attempts.some((a) => !a.preview)) {
       throw new BadRequestException({ message: 'This quiz already has real attempts; its slots are frozen', code: 'quiz.slots_frozen' });
     }
+  }
+
+  /**
+   * Triển khai một ĐỀ NGÂN HÀNG (EB-1, issue #113) vào quiz này: chụp
+   * toàn bộ slots của paper version sang quiz_slots (mỗi slot ghim
+   * cứng version câu của đề — kỷ luật snapshot), ghim
+   * quizzes.paper_id/paper_version_id và trả QuizView mới. Cổng:
+   * quiz:manage tại context của course module + chưa có lượt làm thật
+   * (assertNoRealAttempts). Quiz đã có slots DỰNG TAY (paper_id null)
+   * thì chỉ thay khi người gọi xác nhận `replace` tường minh — tránh
+   * xoá nhầm đề đã soạn tay; quiz đã triển khai từ một đề khác thì
+   * triển khai lại là thay đề (slots cũ bị thay toàn bộ, attempt cũ
+   * không có vì đã chặn ở trên). Quyền exam:deploy tại bank của đề do
+   * ExamPapersService kiểm trước khi gọi vào đây.
+   */
+  async deployPaperSlots(actorId: string, quizId: string, input: {
+    paperId: string;
+    paperVersionId: string;
+    tfScale?: number[] | null;
+    replace: boolean;
+    slots: {
+      questionId: string;
+      pinnedVersionId: string | null;
+      pinnedVersionNumber: number | null;
+      maxMark: number;
+      page: number;
+      clusterId: string | null;
+    }[];
+  }): Promise<QuizView> {
+    const quiz = await this.getQuiz(quizId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    await this.assertNoRealAttempts(quiz);
+    const existing = await this.repo.listSlots(quiz.id);
+    if (existing.length > 0 && !quiz.paperId && !input.replace) {
+      throw new ConflictException({
+        message: 'This quiz already has manually built slots; confirm replace to deploy a bank paper over them',
+        code: 'exam.deploy_quiz_has_manual_slots',
+      });
+    }
+    await this.repo.dbHandle.transaction(async (tx) => {
+      for (const s of existing) await this.repo.deleteSlot(s.id, tx);
+      let n = 0;
+      for (const s of input.slots) {
+        n += 1;
+        await this.repo.insertSlot({
+          quizId: quiz.id,
+          slot: n,
+          page: s.page,
+          questionId: s.questionId,
+          maxMark: s.maxMark,
+          versionMode: 'pinned',
+          pinnedVersionId: s.pinnedVersionId,
+          pinnedVersionNumber: s.pinnedVersionNumber,
+          clusterId: s.clusterId,
+        }, tx);
+      }
+      await this.repo.updateQuiz(quiz.id, {
+        paperId: input.paperId,
+        paperVersionId: input.paperVersionId,
+        ...(input.tfScale ? { tfScale: input.tfScale } : {}),
+      }, tx);
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'exam_paper_deployed',
+      payload: { quizId: quiz.id, courseId: quiz.course, paperId: input.paperId, paperVersionId: input.paperVersionId, actorId },
+    });
+    return this.quizView(await this.getQuiz(quiz.id));
   }
 
   /**
