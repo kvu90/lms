@@ -1,3 +1,9 @@
+import {
+  MESSAGE_PROVIDERS,
+  NOTIFICATION_POLICY_COMPONENT,
+  notificationPolicySettingName,
+} from '../messaging/notification-providers';
+
 /**
  * Registry khai báo các setting mà quản trị có thể đổi qua giao diện/API
  * (tương đương cây admin settings của Moodle). Mỗi setting có kiểu và giá
@@ -87,6 +93,23 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16, scope: 'platform' },
   { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1, scope: 'platform' },
   { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18, scope: 'platform' },
+  // Chính sách phát thông báo theo loại ở cấp site (NB-7, issue #174 —
+  // quyết của Lão gia 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
+  // thông báo" là cài đặt của ADMIN): MỘT khoá boolean cho MỖI provider
+  // trong registry thông báo, sinh tự động từ MESSAGE_PROVIDERS để không
+  // bao giờ lệch sổ — provider mới đăng ký là có ngay khoá chính sách.
+  // Mặc định true (bật) = giữ nguyên hành vi trước NB-7. scope platform:
+  // chính sách site, tenant không ghi đè. notify() (API) và hàm luật của
+  // worker đọc các khoá này TRƯỚC tuỳ chọn người dùng; hai loại bắt
+  // buộc P2 (mandatoryInApp) bị SiteConfigService chặn không cho đặt
+  // false — admin cũng không tắt được.
+  ...MESSAGE_PROVIDERS.map((provider) => ({
+    component: NOTIFICATION_POLICY_COMPONENT,
+    name: notificationPolicySettingName(provider.name),
+    type: 'boolean' as const,
+    defaultValue: true,
+    scope: 'platform' as const,
+  })),
 ];
 
 /**
